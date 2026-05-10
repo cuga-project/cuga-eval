@@ -1393,6 +1393,21 @@ async def evaluate_single_task(
             langfuse_handler = setup_langfuse()
             callbacks = [langfuse_handler] if langfuse_handler else []
 
+            # Add TokenUsageTracker callback for rich trajectory capture
+            try:
+                from cuga.backend.activity_tracker.tracker import ActivityTracker
+
+                from benchmarks.helpers.token_usage_tracker_callback import (
+                    create_token_usage_tracker_callback,
+                )
+
+                tracker = ActivityTracker()  # Singleton - returns existing instance
+                token_tracker_callback = create_token_usage_tracker_callback(tracker)
+                callbacks.append(token_tracker_callback)
+                logger.info("✅ TokenUsageTracker callback enabled for rich trajectory capture")
+            except Exception as e:
+                logger.warning(f"Failed to enable TokenUsageTracker callback: {e}")
+
             evaluator.agent = CugaAgent(
                 tool_provider=filtered_provider,  # Only sees this domain's tools
                 callbacks=callbacks,
