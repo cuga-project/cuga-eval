@@ -39,6 +39,12 @@ git clone https://github.com/cuga-project/cuga-eval.git
 cd cuga-eval
 ```
 
+> **Windows users (WSL):** if you cloned with Windows git (default `core.autocrlf=true`),
+> the `*.sh` and `*.env` files end up with CRLF line endings, which break bash under WSL
+> (`$'\r': command not found`) and `source`d env files. Run `fix_line_endings.bat`
+> (double-click in Explorer, or run from cmd.exe / PowerShell) once before running any
+> setup scripts under WSL.
+
 ### 2. Ensure CUGA Agent is in parent directory
 The `cuga-agent` repository must be located at `../cuga-agent` (one directory up from this repository).
 
