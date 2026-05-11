@@ -18,7 +18,7 @@ echo Normalizing *.sh and *.env line endings (CRLF -^> LF) under:
 echo   %CD%
 echo.
 
-powershell -NoProfile -ExecutionPolicy Bypass -Command "$ErrorActionPreference='Stop'; $root = (Get-Location).Path; $count = 0; $files = Get-ChildItem -Path . -Recurse -File -Include *.sh,*.env | Where-Object { $_.FullName -notmatch '\\(\.git|\.venv|vendor|node_modules)\\' }; foreach ($f in $files) { $b = [IO.File]::ReadAllBytes($f.FullName); if ($b -contains 13) { $c = New-Object Collections.Generic.List[byte]; foreach ($x in $b) { if ($x -ne 13) { $c.Add($x) } }; [IO.File]::WriteAllBytes($f.FullName, $c.ToArray()); Write-Host ('  normalized: ' + $f.FullName.Substring($root.Length + 1)); $count++ } }; Write-Host ''; Write-Host ('Normalized ' + $count + ' file(s).')"
+powershell -NoProfile -ExecutionPolicy Bypass -Command "$ErrorActionPreference='Stop'; $root = (Get-Location).Path; $count = 0; $files = Get-ChildItem -Path . -Recurse -File -Include *.sh,*.env | Where-Object { $_.FullName -notmatch '[\\/](\.git|\.venv|vendor|node_modules)[\\/]' }; foreach ($f in $files) { $b = [IO.File]::ReadAllBytes($f.FullName); if ($b -contains 13) { $c = New-Object Collections.Generic.List[byte]; foreach ($x in $b) { if ($x -ne 13) { $c.Add($x) } }; [IO.File]::WriteAllBytes($f.FullName, $c.ToArray()); Write-Host ('  normalized: ' + $f.FullName.Substring($root.Length + 1)); $count++ } }; Write-Host ''; Write-Host ('Normalized ' + $count + ' file(s).')"
 
 if errorlevel 1 (
     echo.
