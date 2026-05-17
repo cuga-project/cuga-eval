@@ -39,10 +39,17 @@ git clone https://github.com/cuga-project/cuga-eval.git
 cd cuga-eval
 ```
 
-> **Windows users (WSL):** if you cloned with Windows git (default `core.autocrlf=true`),
+> **Windows users:** every `.sh` script in this repo has a sibling `.bat`. You don't need
+> WSL or Git Bash for the simple wrappers (`setup_cuga.bat`, `run_app.bat`, `run_registry.bat`,
+> `viz.bat`, `model_profiles.bat`, the per-benchmark `analyze.bat`, etc.) — they run on
+> stock `cmd.exe`. The heavier scripts (eval/compare/clean and the `m3_pad_to_cap_verify`
+> helper) delegate to bash via Git Bash or WSL because they use POSIX-only features. See
+> [Running on Windows](#running-on-windows) below.
+>
+> If you're using WSL and cloned with Windows git (default `core.autocrlf=true`),
 > the `*.sh` and `*.env` files end up with CRLF line endings, which break bash under WSL
 > (`$'\r': command not found`) and `source`d env files. Run `fix_line_endings.bat`
-> (double-click in Explorer, or run from cmd.exe / PowerShell) once before running any
+> (double-click in Explorer, or run from `cmd.exe` / PowerShell) once before running any
 > setup scripts under WSL.
 
 ### 2. Ensure CUGA Agent is in parent directory
@@ -127,6 +134,57 @@ cd benchmarks/oak_health_insurance && ./eval.sh
 cd benchmarks/m3 && ./eval.sh
 cd benchmarks/appworld && ./eval.sh
 ```
+
+### Running on Windows
+
+Every script has a `.bat` sibling. Same flags, same semantics; just substitute the
+extension and use `\` instead of `/`:
+
+```bat
+:: Top-level dispatcher (these scripts delegate to bash — see note below)
+scripts\eval.bat --benchmark bpo
+scripts\eval.bat --benchmark m3 --model-profile gpt-oss
+scripts\compare.bat --benchmark bpo --runs 3
+
+:: Setup (pure cmd.exe — no bash required)
+setup_cuga.bat
+setup_m3.bat --verify
+setup_appworld.bat
+
+:: Per-benchmark, from the benchmark dir
+cd benchmarks\bpo && eval.bat
+cd benchmarks\m3 && run_registry.bat
+
+:: Run from PowerShell the same way — pwsh launches .bat via cmd.exe
+.\setup_cuga.bat
+.\scripts\eval.bat --benchmark bpo
+```
+
+The `.bat` files fall into two groups:
+
+- **Pure `cmd.exe` ports** — setup scripts, env loaders, registry runners, app
+  launchers, model profiles, the analyze and viz thin-wrappers. Work on a vanilla
+  Windows install with `cmd.exe` or PowerShell. No bash needed.
+- **Bash-delegate shims** — the heavy eval/compare/clean scripts and
+  `m3_pad_to_cap_verify`. These use POSIX features (signal traps, `lsof`, `pkill`,
+  process substitution, sourceable function libraries, embedded `python3` here-docs)
+  that don't have clean `cmd.exe` equivalents, so each shim calls
+  [`benchmarks\helpers\_delegate_to_bash.bat`](benchmarks/helpers/_delegate_to_bash.bat),
+  which finds a `bash` in this order: Git Bash (well-known install paths) →
+  `bash` on `PATH` → WSL. Install [Git for Windows](https://git-scm.com/download/win)
+  (provides Git Bash) or run `wsl --install` if neither is present.
+
+A smoke test for the `.bat` scripts ships at `scripts/test_bat_scripts.ps1`. It
+runs on any platform with PowerShell 7+:
+
+```bash
+pwsh scripts/test_bat_scripts.ps1
+```
+
+It validates that every `.sh` has a `.bat` sibling, that each `.bat` is well-formed,
+and that the delegate shims point to existing `.sh` files. Long-term, this whole
+layer will move to Python (one entrypoint instead of two parallel script trees) —
+tracked in [issue #88](../../issues/88).
 
 ### Model profiles
 
