@@ -1,0 +1,8 @@
+@echo off
+REM Windows equivalent of run_eval_background.sh — delegates to bash
+REM (nohup, &, signal traps, PID files — POSIX background-job semantics).
+setlocal
+set "_THIS=%~dp0"
+if "%_THIS:~-1%"=="\" set "_THIS=%_THIS:~0,-1%"
+call "%_THIS%\..\..\..\helpers\_delegate_to_bash.bat" "%_THIS%\run_eval_background.sh" %*
+exit /b %errorlevel%
