@@ -148,7 +148,148 @@ runs_done=0
 runs_elapsed_total=0
 compare_t0=$(date +%s)
 
+BUNDLE_DONE=false
+
+# Best-effort comparison bundle. Defined as a function so it can be called
+# from both the success path at the bottom of the script AND from the
+# compare_cleanup trap on interrupt/crash (issues #91, #92). Idempotent via
+# BUNDLE_DONE. Reads CONFIG_RESULT_KEYS/VALS and CONFIG_TRAJ_KEYS/VALS which
+# are populated by the per-config loop below — on early interrupt those
+# arrays may be empty, in which case the function exits cleanly.
+create_compare_bundle() {
+    [ "$BUNDLE_DONE" = "true" ] && return 0
+    [[ "${NO_BUNDLE:-false}" == "true" ]] && return 0
+    BUNDLE_DONE=true
+
+    echo ""
+    echo -e "${YELLOW:-}Creating comparison bundle...${NC:-}"
+
+    # Build JSON input: {"model:agent": ["file1.json", ...]}
+    local JSON_PARTS=()
+    local ci config files file_list pfirst f
+    for ci in "${!CONFIG_RESULT_KEYS[@]}"; do
+        config="${CONFIG_RESULT_KEYS[$ci]}"
+        files="${CONFIG_RESULT_VALS[$ci]}"
+        if [[ -z "$files" ]]; then
+            continue
+        fi
+        file_list=""
+        pfirst=true
+        for f in $files; do
+            if [[ "$pfirst" != "true" ]]; then
+                file_list+=","
+            fi
+            pfirst=false
+            file_list+="\"${f}\""
+        done
+        JSON_PARTS+=("\"${config}\":[${file_list}]")
+    done
+
+    local JSON_INPUT="{"
+    local jfirst=true part
+    for part in "${JSON_PARTS[@]}"; do
+        if [[ "$jfirst" != "true" ]]; then
+            JSON_INPUT+=","
+        fi
+        jfirst=false
+        JSON_INPUT+="$part"
+    done
+    JSON_INPUT+="}"
+
+    if [[ "$JSON_INPUT" == "{}" ]]; then
+        echo -e "${YELLOW:-}No completed runs to bundle — skipping.${NC:-}"
+        return 0
+    fi
+
+    # Generate comparison report (best-effort)
+    echo -e "${YELLOW:-}Generating comparison report...${NC:-}"
+    local REPORT_TMP
+    REPORT_TMP=$(mktemp /tmp/m3_report_XXXXXX)
+    echo "$JSON_INPUT" | (cd "$PROJECT_ROOT" && uv run --no-sync python -m benchmarks.helpers.compare_report --output "$REPORT_TMP") \
+        || echo -e "${YELLOW:-}Report generation failed — bundling without comparison report.${NC:-}"
+    echo ""
+
+    # Build per-model env snapshot for bundle
+    local MODEL_ENVS_JSON=""
+    if type build_model_envs_json &>/dev/null; then
+        MODEL_ENVS_JSON=$(build_model_envs_json "${MODEL_LIST[@]}")
+    fi
+
+    # Build per-config trajectory dirs JSON: {"model:agent": ["/path/run1", ...]}
+    local TRAJ_JSON_PARTS=()
+    local tconfig tfiles tfile_list tfirst
+    for ci in "${!CONFIG_TRAJ_KEYS[@]}"; do
+        tconfig="${CONFIG_TRAJ_KEYS[$ci]}"
+        tfiles="${CONFIG_TRAJ_VALS[$ci]}"
+        if [[ -z "$tfiles" ]]; then
+            continue
+        fi
+        tfile_list=""
+        tfirst=true
+        for f in $tfiles; do
+            if [[ "$tfirst" != "true" ]]; then
+                tfile_list+=","
+            fi
+            tfirst=false
+            tfile_list+="\"${f}\""
+        done
+        TRAJ_JSON_PARTS+=("\"${tconfig}\":[${tfile_list}]")
+    done
+
+    local TRAJ_JSON_INPUT="{"
+    local tjfirst=true
+    for part in "${TRAJ_JSON_PARTS[@]}"; do
+        if [[ "$tjfirst" != "true" ]]; then
+            TRAJ_JSON_INPUT+=","
+        fi
+        tjfirst=false
+        TRAJ_JSON_INPUT+="$part"
+    done
+    TRAJ_JSON_INPUT+="}"
+
+    # Determine task file
+    local TASK_FILE="$SCRIPT_DIR/data/hockey.json"
+    local arg
+    for arg in "${FORWARDED_ARGS[@]}"; do
+        if [[ "$arg" == "--multiturn" ]]; then
+            TASK_FILE="$SCRIPT_DIR/data/olympics_mutliturn.json"
+            break
+        fi
+    done
+
+    local BUNDLE_CMD=(uv run --no-sync python -m benchmarks.helpers.bundle assemble-compare
+        --benchmark m3
+        --config-results "$JSON_INPUT"
+        --report "$REPORT_TMP"
+        --task-files "$TASK_FILE")
+
+    if [[ -n "$MODEL_ENVS_JSON" ]]; then
+        BUNDLE_CMD+=(--model-envs "$MODEL_ENVS_JSON")
+    fi
+    if [[ "$TRAJ_JSON_INPUT" != "{}" ]]; then
+        BUNDLE_CMD+=(--trajectory-dirs "$TRAJ_JSON_INPUT")
+    fi
+    # Include server logs (from last run)
+    local LOG_JSON="{\"shared\":[\"/tmp/m3_registry.log\",\"/tmp/m3_console.log\"]}"
+    BUNDLE_CMD+=(--log-files "$LOG_JSON")
+    # Download Langfuse traces if available
+    BUNDLE_CMD+=(--fetch-langfuse)
+    if [[ "${BUNDLE_ZIP:-false}" == "true" ]]; then
+        BUNDLE_CMD+=(--zip)
+    fi
+
+    # Bundle CLI needs project root on PYTHONPATH
+    (cd "$PROJECT_ROOT" && "${BUNDLE_CMD[@]}") \
+        || echo -e "${YELLOW:-}Bundle creation reported errors (best-effort).${NC:-}"
+    rm -f "$REPORT_TMP"
+}
+
 compare_cleanup() {
+    # Best-effort comparison bundle on interrupt/crash (issues #91, #92).
+    # If we made it past the per-config loop the success path below will have
+    # already created the bundle; BUNDLE_DONE makes this idempotent.
+    create_compare_bundle || true
+
     echo -e "${YELLOW:-}Stopping servers...${NC:-}"
     kill_port_processes 8001
 }
@@ -243,118 +384,7 @@ if [ -n "$OUTPUT_FILE" ]; then
     echo -e "${GREEN:-}✓${NC:-} Results in: $RESULTS_DIR"
 fi
 
-# Create reproducibility bundle unless skipped
-if [[ "${NO_BUNDLE:-false}" != "true" ]]; then
-    echo ""
-    echo -e "${YELLOW:-}Creating comparison bundle...${NC:-}"
-
-    # Build JSON input: {"model:agent": ["file1.json", ...]}
-    JSON_PARTS=()
-    for ci in "${!CONFIG_RESULT_KEYS[@]}"; do
-        config="${CONFIG_RESULT_KEYS[$ci]}"
-        files="${CONFIG_RESULT_VALS[$ci]}"
-        if [[ -z "$files" ]]; then
-            continue
-        fi
-        file_list=""
-        pfirst=true
-        for f in $files; do
-            if [[ "$pfirst" != "true" ]]; then
-                file_list+=","
-            fi
-            pfirst=false
-            file_list+="\"${f}\""
-        done
-        JSON_PARTS+=("\"${config}\":[${file_list}]")
-    done
-
-    JSON_INPUT="{"
-    jfirst=true
-    for part in "${JSON_PARTS[@]}"; do
-        if [[ "$jfirst" != "true" ]]; then
-            JSON_INPUT+=","
-        fi
-        jfirst=false
-        JSON_INPUT+="$part"
-    done
-    JSON_INPUT+="}"
-
-    if [[ "$JSON_INPUT" != "{}" ]]; then
-        # Generate comparison report
-        echo -e "${YELLOW:-}Generating comparison report...${NC:-}"
-        REPORT_TMP=$(mktemp /tmp/m3_report_XXXXXX)
-        echo "$JSON_INPUT" | (cd "$PROJECT_ROOT" && uv run --no-sync python -m benchmarks.helpers.compare_report --output "$REPORT_TMP")
-        echo ""
-
-        # Build per-model env snapshot for bundle
-        MODEL_ENVS_JSON=""
-        if type build_model_envs_json &>/dev/null; then
-            MODEL_ENVS_JSON=$(build_model_envs_json "${MODEL_LIST[@]}")
-        fi
-
-        # Build per-config trajectory dirs JSON: {"model:agent": ["/path/run1", ...]}
-        TRAJ_JSON_PARTS=()
-        for ci in "${!CONFIG_TRAJ_KEYS[@]}"; do
-            tconfig="${CONFIG_TRAJ_KEYS[$ci]}"
-            tfiles="${CONFIG_TRAJ_VALS[$ci]}"
-            if [[ -z "$tfiles" ]]; then
-                continue
-            fi
-            tfile_list=""
-            tfirst=true
-            for f in $tfiles; do
-                if [[ "$tfirst" != "true" ]]; then
-                    tfile_list+=","
-                fi
-                tfirst=false
-                tfile_list+="\"${f}\""
-            done
-            TRAJ_JSON_PARTS+=("\"${tconfig}\":[${tfile_list}]")
-        done
-
-        TRAJ_JSON_INPUT="{"
-        tjfirst=true
-        for part in "${TRAJ_JSON_PARTS[@]}"; do
-            if [[ "$tjfirst" != "true" ]]; then
-                TRAJ_JSON_INPUT+=","
-            fi
-            tjfirst=false
-            TRAJ_JSON_INPUT+="$part"
-        done
-        TRAJ_JSON_INPUT+="}"
-
-        # Determine task file
-        TASK_FILE="$SCRIPT_DIR/data/hockey.json"
-        for arg in "${FORWARDED_ARGS[@]}"; do
-            if [[ "$arg" == "--multiturn" ]]; then
-                TASK_FILE="$SCRIPT_DIR/data/olympics_mutliturn.json"
-                break
-            fi
-        done
-
-        BUNDLE_CMD=(uv run --no-sync python -m benchmarks.helpers.bundle assemble-compare
-            --benchmark m3
-            --config-results "$JSON_INPUT"
-            --report "$REPORT_TMP"
-            --task-files "$TASK_FILE")
-
-        if [[ -n "$MODEL_ENVS_JSON" ]]; then
-            BUNDLE_CMD+=(--model-envs "$MODEL_ENVS_JSON")
-        fi
-        if [[ "$TRAJ_JSON_INPUT" != "{}" ]]; then
-            BUNDLE_CMD+=(--trajectory-dirs "$TRAJ_JSON_INPUT")
-        fi
-        # Include server logs (from last run)
-        LOG_JSON="{\"shared\":[\"/tmp/m3_registry.log\",\"/tmp/m3_console.log\"]}"
-        BUNDLE_CMD+=(--log-files "$LOG_JSON")
-        # Download Langfuse traces if available
-        BUNDLE_CMD+=(--fetch-langfuse)
-        if [[ "${BUNDLE_ZIP:-false}" == "true" ]]; then
-            BUNDLE_CMD+=(--zip)
-        fi
-
-        # Bundle CLI needs project root on PYTHONPATH
-        (cd "$PROJECT_ROOT" && "${BUNDLE_CMD[@]}")
-        rm -f "$REPORT_TMP"
-    fi
-fi
+# Create the comparison bundle (success path). Idempotent — if the cleanup
+# trap already created it on interrupt, this is a no-op. See create_compare_bundle
+# definition near the top of this script and #91, #92.
+create_compare_bundle

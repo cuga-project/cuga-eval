@@ -109,10 +109,103 @@ done
 REGISTRY_PORT=8001
 REGISTRY_PID=""
 
+# Timestamp captured before the eval starts. Used by create_bundle to pick
+# only the result file(s) produced by *this* run, not a leftover from earlier.
+RUN_START_TS=$(date +%s)
+BUNDLE_DONE=false
+
+# Best-effort bundle creation. Called from the success path AND from the
+# cleanup trap on Ctrl-C / crash / non-zero exit (issues #91, #92), so a
+# long run that is interrupted still leaves logs + trajectories + any
+# results that were already written. Skips silently if --no-bundle was
+# passed, or if nothing from this run was produced yet.
+create_bundle() {
+    [ "$BUNDLE_DONE" = "true" ] && return 0
+    [ "${NO_BUNDLE:-false}" = "true" ] && return 0
+    BUNDLE_DONE=true
+
+    echo ""
+    echo -e "${YELLOW:-}Creating reproducibility bundle...${NC:-}"
+
+    # Find the most recent result file produced by *this* run (mtime newer
+    # than RUN_START_TS). If the run was killed before any save, there'll be
+    # nothing here and we skip the bundle — there's nothing meaningful to
+    # bundle without at least one results JSON.
+    local latest_result=""
+    local f
+    for f in $(ls -t "$SCRIPT_DIR/results"/m3_*.json "$SCRIPT_DIR/results"/multiturn_*.json 2>/dev/null); do
+        local f_mtime
+        f_mtime=$(stat -f %m "$f" 2>/dev/null || stat -c %Y "$f" 2>/dev/null)
+        if [ -n "$f_mtime" ] && [ "$f_mtime" -ge "$RUN_START_TS" ]; then
+            latest_result="$f"
+            break
+        fi
+    done
+
+    if [ -z "$latest_result" ]; then
+        echo -e "${YELLOW:-}No result file from this run was found — skipping bundle.${NC:-}"
+        echo -e "${YELLOW:-}(Console log is still at $CONSOLE_LOG.)${NC:-}"
+        return 0
+    fi
+
+    # Determine task file used
+    local task_file
+    if [ "$MULTITURN" = "true" ]; then
+        task_file="$SCRIPT_DIR/data/olympics_mutliturn.json"
+    else
+        task_file="$SCRIPT_DIR/data/hockey.json"
+    fi
+
+    # Generate eval report (best effort — if report generation fails we still
+    # want the bundle, so don't let `set -e` abort here).
+    local report_tmp
+    report_tmp=$(mktemp /tmp/m3_eval_report_XXXXXX)
+    uv run --no-sync python -m benchmarks.helpers.compare_report eval \
+        --result-file "$latest_result" --output "$report_tmp" || \
+        echo -e "${YELLOW:-}Report generation failed — bundling without report.${NC:-}"
+
+    local bundle_args=(assemble --benchmark m3
+        --result-files "$latest_result"
+        --task-files "$task_file"
+        --report "$report_tmp")
+    if [ -n "$MODEL_PROFILE" ]; then
+        bundle_args+=(--model-profile "$MODEL_PROFILE")
+    fi
+    if [ "${BUNDLE_ZIP:-false}" = "true" ]; then
+        bundle_args+=(--zip)
+    fi
+    # Include cuga trajectories
+    local traj_dir
+    traj_dir=$(find_latest_trajectory "$SCRIPT_DIR/logging/trajectory_data")
+    if [ -n "$traj_dir" ]; then
+        bundle_args+=(--trajectory-dir "$traj_dir")
+    fi
+    # Include server and console logs (whichever exists)
+    local registry_log="$SCRIPT_DIR/registry_server.log"
+    if [ -f "$registry_log" ]; then
+        bundle_args+=(--log-files "$registry_log" "$CONSOLE_LOG")
+    else
+        bundle_args+=(--log-files /tmp/m3_registry.log "$CONSOLE_LOG")
+    fi
+    # Download Langfuse traces if available
+    bundle_args+=(--fetch-langfuse)
+
+    uv run --no-sync python -m benchmarks.helpers.bundle "${bundle_args[@]}" || \
+        echo -e "${YELLOW:-}Bundle creation reported errors (best-effort).${NC:-}"
+
+    rm -f "$report_tmp"
+}
+
 cleanup() {
     local exit_code=$?
     echo ""
     echo -e "${YELLOW:-}Cleaning up...${NC:-}"
+
+    # Best-effort bundle on interrupt/crash. Idempotent (no-op if already
+    # created on the success path below). Wrapped in `|| true` so a bundle
+    # failure can't override the original exit code.
+    create_bundle || true
+
     if [ "${SKIP_SERVER_CLEANUP:-false}" != "true" ]; then
         if [ -n "$REGISTRY_PID" ] && kill -0 "$REGISTRY_PID" 2>/dev/null; then
             echo -e "${BLUE:-}Stopping registry server (PID: $REGISTRY_PID)${NC:-}"
@@ -231,59 +324,12 @@ EVAL_EXIT=$?
 
 if [ $EVAL_EXIT -eq 0 ]; then
     echo -e "${GREEN:-}✓${NC:-} M3 evaluation completed successfully"
-
-    # Create reproducibility bundle unless skipped
-    if [ "${NO_BUNDLE:-false}" != "true" ]; then
-        echo ""
-        echo -e "${YELLOW:-}Creating reproducibility bundle...${NC:-}"
-
-        # Find the most recent result file
-        LATEST_RESULT=$(ls -t "$SCRIPT_DIR/results"/m3_*.json "$SCRIPT_DIR/results"/multiturn_*.json 2>/dev/null | head -1)
-        if [ -n "$LATEST_RESULT" ]; then
-            # Determine task file used
-            if [ "$MULTITURN" = "true" ]; then
-                TASK_FILE="$SCRIPT_DIR/data/olympics_mutliturn.json"
-            else
-                TASK_FILE="$SCRIPT_DIR/data/hockey.json"
-            fi
-
-            # Generate eval report
-            REPORT_TMP=$(mktemp /tmp/m3_eval_report_XXXXXX)
-            uv run --no-sync python -m benchmarks.helpers.compare_report eval \
-                --result-file "$LATEST_RESULT" --output "$REPORT_TMP"
-
-            BUNDLE_ARGS=(assemble --benchmark m3
-                --result-files "$LATEST_RESULT"
-                --task-files "$TASK_FILE"
-                --report "$REPORT_TMP")
-            if [ -n "$MODEL_PROFILE" ]; then
-                BUNDLE_ARGS+=(--model-profile "$MODEL_PROFILE")
-            fi
-            if [ "${BUNDLE_ZIP:-false}" = "true" ]; then
-                BUNDLE_ARGS+=(--zip)
-            fi
-            # Include cuga trajectories
-            TRAJ_DIR=$(find_latest_trajectory "$SCRIPT_DIR/logging/trajectory_data")
-            if [ -n "$TRAJ_DIR" ]; then
-                BUNDLE_ARGS+=(--trajectory-dir "$TRAJ_DIR")
-            fi
-            # Include server and console logs
-            # Note: eval_m3.py creates registry_server.log in the benchmark directory
-            REGISTRY_LOG="$SCRIPT_DIR/registry_server.log"
-            if [ -f "$REGISTRY_LOG" ]; then
-                BUNDLE_ARGS+=(--log-files "$REGISTRY_LOG" "$CONSOLE_LOG")
-            else
-                # Fallback to /tmp location if registry_server.log doesn't exist
-                BUNDLE_ARGS+=(--log-files /tmp/m3_registry.log "$CONSOLE_LOG")
-            fi
-            # Download Langfuse traces if available
-            BUNDLE_ARGS+=(--fetch-langfuse)
-            uv run --no-sync python -m benchmarks.helpers.bundle "${BUNDLE_ARGS[@]}"
-            rm -f "$REPORT_TMP"
-        fi
-    fi
+    # Create reproducibility bundle (idempotent — cleanup trap also calls
+    # this on interrupt/crash, see #91, #92).
+    create_bundle
 else
     echo -e "${RED:-}✗ M3 evaluation failed (exit code: $EVAL_EXIT)${NC:-}"
+    # cleanup trap will call create_bundle to salvage what we have.
 fi
 
 # Re-echo the --m3-data summary as the very last thing on screen, so it's
