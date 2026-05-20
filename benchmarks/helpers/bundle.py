@@ -516,7 +516,19 @@ def assemble_compare_bundle(
 
     timestamp = datetime.now(timezone.utc).strftime("%Y%m%d_%H%M%S")
     models = sorted(set(k.split(":")[0] for k in config_results))
-    bundle_dir = bundle_root / f"{timestamp}_compare_{'_'.join(models)}"
+    # Detect inner-dim variants (agent and/or policy mode) so the dir name
+    # reflects what was compared. Config keys are "model[:agent[:policy_mode]]".
+    agents = sorted({parts[1] for k in config_results if len(parts := k.split(":")) > 1 and parts[1]})
+    policy_modes = sorted({parts[2] for k in config_results if len(parts := k.split(":")) > 2 and parts[2]})
+    suffix_bits = ["_".join(models)]
+    if len(agents) > 1:
+        suffix_bits.append("_".join(agents))
+    if len(policy_modes) > 1:
+        suffix_bits.append("_vs_".join(policy_modes))  # e.g. "policies_vs_no-policies"
+    elif len(policy_modes) == 1 and policy_modes[0] == "no-policies":
+        suffix_bits.append("no-policies")
+    suffix = "_".join(suffix_bits)
+    bundle_dir = bundle_root / f"{timestamp}_compare_{suffix}"
     bundle_dir.mkdir(parents=True, exist_ok=True)
 
     # Per-run results

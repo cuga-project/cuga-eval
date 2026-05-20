@@ -89,7 +89,47 @@ from benchmarks.helpers import (
     save_evaluation_results,
     setup_langfuse,
 )
+from benchmarks.helpers.sdk_eval_helpers import add_policy_via_agent, clear_all_policies
 from benchmarks.m3.m3_data_loader import M3DataLoader, diff_tool_calls
+
+
+async def _load_m3_policies(agent: CugaAgent, policies_enabled: bool = True) -> None:
+    """Load CUGA policies into the per-domain agent.
+
+    Mirrors the bpo eval_bench_sdk.py pattern: clear any pre-existing policies
+    from the agent's policy DB, then (if enabled) load each entry in
+    benchmarks/m3/policies/policies.json and register it. The .json is
+    compiled from .md by scripts/policies_md_to_json.py — driven by eval.sh
+    before this code runs.
+    """
+    await clear_all_policies(agent)
+    if not policies_enabled:
+        logger.info("Policies disabled (--no-policies)")
+        return
+    policies_file = os.path.join(os.path.dirname(__file__), "policies", "policies.json")
+    if not os.path.exists(policies_file):
+        logger.warning(f"Policies file not found: {policies_file} — running without policies")
+        return
+    from cuga.backend.cuga_graph.policy.models import OutputFormatter, Playbook, ToolGuide
+
+    with open(policies_file) as f:
+        policies_data = json.load(f)
+    logger.info(f"Loading {len(policies_data)} policy/policies from policies.json...")
+    loaded = 0
+    for pdata in policies_data:
+        ptype = pdata.get("type", "")
+        if ptype == "playbook":
+            policy = Playbook.model_validate(pdata)
+        elif ptype == "tool_guide":
+            policy = ToolGuide.model_validate(pdata)
+        elif ptype == "output_formatter":
+            policy = OutputFormatter.model_validate(pdata)
+        else:
+            logger.warning(f"Unknown policy type: {ptype}, skipping")
+            continue
+        await add_policy_via_agent(agent, policy)
+        loaded += 1
+    logger.info(f"✅ Loaded {loaded} policy/policies")
 
 
 # m3_vakra_score is imported lazily — its top-level evaluator import instantiates
@@ -150,7 +190,11 @@ class FilteredToolProvider:
         await olympics_provider.initialize()
 
         # Agent only sees olympics tools
-        agent = CugaAgent(tool_provider=olympics_provider)
+        agent = CugaAgent(
+            tool_provider=olympics_provider,
+            auto_load_policies=False,
+            filesystem_sync=False,
+        )
     """
 
     def __init__(self, base_provider, app_name: str):
@@ -838,17 +882,17 @@ class M3Evaluator:
             # Multi-turn format: list of samples with sample_id/uuid, dialogue, etc.
             samples = data
 
-            # Filter by task_id (sample_id or uuid) if specified
-            if self.task_id:
-                samples = [
-                    s
-                    for s in samples
-                    if s.get("sample_id", s.get("uuid", "")).lower() == self.task_id.lower()
-                ]
+            # Filter by task_ids (sample_id or uuid) if specified. The plural
+            # form `self.task_ids` is what gets populated for both 1 and N
+            # UUIDs; `self.task_id` is only set when exactly one UUID was
+            # passed, so use the plural to handle both cases.
+            if self.task_ids:
+                wanted = {tid.lower() for tid in self.task_ids}
+                samples = [s for s in samples if s.get("sample_id", s.get("uuid", "")).lower() in wanted]
                 if not samples:
-                    logger.error(f"Sample '{self.task_id}' not found in test data")
+                    logger.error(f"Sample(s) {self.task_ids} not found in test data")
                     return
-                logger.info(f"Filtered to sample: {self.task_id}")
+                logger.info(f"Filtered to {len(samples)} sample(s): {self.task_ids}")
             else:
                 logger.info(f"Evaluating all {len(samples)} samples")
 
@@ -1015,8 +1059,8 @@ class M3Evaluator:
                 # Shared helpers ------------------------------------------------
                 # Build the registry prefix to strip from tool names:
                 # Registry prefixes tools as "{app_name}_{tool_name}" where
-                # app_name = "task_{task_id}_{domain}"
-                registry_prefix = f"task_{task_id}_{domain}_"
+                # app_name = "{domain}" (no task_<n>_ prefix).
+                registry_prefix = f"{domain}_"
 
                 def _strip_prefix(name: str) -> str:
                     """Strip the registry app prefix from a tool name."""
@@ -1367,9 +1411,13 @@ async def evaluate_single_task(
         )
 
         try:
-            # Registry mode: Use FilteredToolProvider for domain isolation
-            # App name in registry is prefixed with task_id to avoid collisions across tasks
-            registry_app_name = f"task_{task_id}_{domain}"
+            # Registry mode: Use FilteredToolProvider for domain isolation.
+            # The registry app name is just the domain — no `task_<n>_` prefix —
+            # so the tool names CUGA records start with the domain itself, not
+            # the task ID. Cross-task collisions are prevented by the collision
+            # guard in expand_registry_config (and in practice each eval run is
+            # narrowed to a single task via --capability).
+            registry_app_name = domain
             logger.info(
                 f"🔧 Creating filtered tool provider for domain: {domain} (registry app: {registry_app_name})"
             )
@@ -1378,7 +1426,7 @@ async def evaluate_single_task(
             # This provides defense-in-depth: registry filters at MCP level, we filter at agent level
             filtered_provider = FilteredToolProvider(
                 base_provider=tool_provider,  # Shared provider with all domains
-                app_name=registry_app_name,  # Filter to only this domain's tools (task-prefixed)
+                app_name=registry_app_name,  # Filter to only this domain's tools
             )
             await filtered_provider.initialize()
 
@@ -1396,9 +1444,21 @@ async def evaluate_single_task(
             evaluator.agent = CugaAgent(
                 tool_provider=filtered_provider,  # Only sees this domain's tools
                 callbacks=callbacks,
+                # Policies are loaded explicitly by _load_m3_policies below per
+                # eval run. Disable .cuga auto-load and filesystem sync to keep
+                # the per-domain agent's policy set deterministic — otherwise
+                # the .cuga folder drifts across domain iterations and policies
+                # disappear mid-run (see investigation 2026-05-17).
+                auto_load_policies=False,
+                filesystem_sync=False,
             )
             evaluator.langfuse_handler = langfuse_handler
             logger.info(f"Agent created with filtered tool provider (domain: {domain})")
+
+            # Load CUGA policies for this per-domain agent (mirrors benchmarks/bpo
+            # eval_bench_sdk.py). The source of truth is benchmarks/m3/policies/*.md;
+            # eval.sh compiles them to policies.json before invoking us.
+            await _load_m3_policies(evaluator.agent, policies_enabled=not getattr(args, "no_policies", False))
 
             # DEBUG: Verify agent can see tools (check filtered provider)
             try:
@@ -1511,29 +1571,39 @@ async def start_registry_server(config_path: str) -> subprocess.Popen:
     import os
     import subprocess
 
-    # Check if port 8001 is already in use
-    logger.info("🔍 Checking if port 8001 is available...")
+    # Honour caller-provided port via REGISTRY_PORT (set by eval.sh) and
+    # DYNACONF_SERVER_PORTS__REGISTRY (set when the agent's settings.toml
+    # registry port is overridden). Both must match: CUGA-agent reads the
+    # DYNACONF value when constructing HTTP requests to its registry; the
+    # registry server must listen on the same port. Default 8001.
+    _port_env = os.environ.get("REGISTRY_PORT") or os.environ.get("DYNACONF_SERVER_PORTS__REGISTRY")
+    registry_port = int(_port_env) if _port_env else 8001
+
+    # Check if the registry port is already in use
+    logger.info(f"🔍 Checking if port {registry_port} is available...")
     try:
         import socket
 
         sock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
-        result = sock.connect_ex(('127.0.0.1', 8001))
+        result = sock.connect_ex(('127.0.0.1', registry_port))
         sock.close()
 
         if result == 0:
             # Port is in use
-            logger.error("❌ Port 8001 is already in use!")
+            logger.error(f"❌ Port {registry_port} is already in use!")
             logger.error("Another registry server or process is using this port.")
             logger.error("")
             logger.error("To fix this, run one of these commands:")
-            logger.error("  1. Kill processes on port 8001:")
-            logger.error("     lsof -ti :8001 | xargs kill")
+            logger.error(f"  1. Kill processes on port {registry_port}:")
+            logger.error(f"     lsof -ti :{registry_port} | xargs kill")
             logger.error("")
             logger.error("  2. Or find and kill specific process:")
-            logger.error("     lsof -i :8001")
+            logger.error(f"     lsof -i :{registry_port}")
             logger.error("     kill <PID>")
             logger.error("")
-            raise RuntimeError("Port 8001 is already in use. Please kill the existing process first.")
+            raise RuntimeError(
+                f"Port {registry_port} is already in use. Please kill the existing process first."
+            )
     except RuntimeError:
         raise  # Re-raise the port-in-use error
     except Exception as e:
@@ -1592,7 +1662,7 @@ async def start_registry_server(config_path: str) -> subprocess.Popen:
     # tree (uv wrapper → python → uvicorn → any docker exec children) in
     # one shot via killpg. process.terminate() on its own only SIGTERMs
     # the `uv` wrapper, and that doesn't always propagate to uvicorn.
-    process = subprocess.Popen(
+    process = subprocess.Popen(  # noqa: S603 — args are constant literals, no untrusted input
         [  # noqa: S607 — uv resolved from PATH by design
             "uv",
             "run",
@@ -1603,7 +1673,7 @@ async def start_registry_server(config_path: str) -> subprocess.Popen:
             "--host",
             "127.0.0.1",
             "--port",
-            "8001",
+            str(registry_port),
         ],
         stdout=log_file,
         stderr=subprocess.STDOUT,  # Combine stderr with stdout
@@ -1622,7 +1692,7 @@ async def start_registry_server(config_path: str) -> subprocess.Popen:
     for attempt in range(max_retries):
         try:
             async with httpx.AsyncClient() as client:
-                response = await client.get("http://localhost:8001/applications", timeout=5.0)
+                response = await client.get(f"http://localhost:{registry_port}/applications", timeout=5.0)
                 if response.status_code == 200:
                     apps = response.json()
                     logger.info(
@@ -1653,7 +1723,7 @@ async def start_registry_server(config_path: str) -> subprocess.Popen:
                                 # Check if all apps are ready (have tools loaded)
                                 # Note: Registry doesn't have /health endpoint, so we check /applications directly
                                 apps_response = await client.get(
-                                    "http://localhost:8001/applications", timeout=5.0
+                                    f"http://localhost:{registry_port}/applications", timeout=5.0
                                 )
                                 if apps_response.status_code == 200:
                                     apps = apps_response.json()
@@ -1801,7 +1871,10 @@ def rewrite_config_with_loader_domains(config_path: str, m3_data_loader: M3DataL
     return path
 
 
-def expand_registry_config(config_path: str) -> str:
+def expand_registry_config(
+    config_path: str,
+    capability_filter: Optional[List[str]] = None,
+) -> str:
     """Expand registry config by replacing {domain} placeholders with actual domains
     and expanding environment variables.
 
@@ -1811,6 +1884,14 @@ def expand_registry_config(config_path: str) -> str:
 
     Args:
         config_path: Path to the generic config file with {domain} placeholders
+        capability_filter: Optional list of source-yaml service names (e.g.
+            ``["m3_task_2"]``). When provided, services whose key is not in
+            this list are skipped before expansion. This prevents the
+            post-expansion collision guard from firing when two tasks share a
+            domain name (e.g. both ``m3_task_2`` and ``m3_task_3`` define
+            ``books``). Items that don't look like service-name filters
+            (UUIDs, ``hockey_395_0``-style test-case IDs) are ignored — pass
+            them through as-is.
 
     Returns:
         Path to the temporary expanded config file
@@ -1834,8 +1915,27 @@ def expand_registry_config(config_path: str) -> str:
     services = config.get("services", [])
     expanded_services = []
 
+    # Build the set of source-service-name filters from capability_filter. Items
+    # that look like UUIDs or test-case IDs (hockey_395_0) are not service-name
+    # filters and don't constrain the expansion at all.
+    _service_filter: Optional[set] = None
+    if capability_filter:
+        import re as _re_cap
+
+        _uuid_re = _re_cap.compile(r"^[a-f0-9]{12}-[a-f0-9]{12}$")
+        _testcase_re = _re_cap.compile(r"^[a-z_]+_\d+_\d+$")
+        cap_items = [f for f in capability_filter if not _uuid_re.match(f) and not _testcase_re.match(f)]
+        if cap_items:
+            _service_filter = set(cap_items)
+            logger.info(
+                f"Pre-expansion filter: only services matching {sorted(_service_filter)} will be expanded"
+            )
+
     for service_dict in services:
         service_name = list(service_dict.keys())[0]
+        if _service_filter is not None and service_name not in _service_filter:
+            logger.info(f"  Skipping (filtered out): {service_name}")
+            continue
         service_config = service_dict[service_name]
 
         metadata = service_config.get("metadata", {})
@@ -1856,13 +1956,13 @@ def expand_registry_config(config_path: str) -> str:
                     domain_name = domain_config.get("name")
                     domain_multiturn = domain_config.get("multiturn")
 
-                # Prefix service name with task_id to avoid name collisions when multiple tasks
-                # share the same domain name (e.g. both task_1 and task_2 have "address").
-                # The registry uses the service name as the unique app identifier.
-                # The registry strips this prefix before calling the MCP server tool, so the
-                # container always receives the original unprefixed tool name.
-                task_id_val = metadata.get("task_id", "unknown")
-                expanded_service_name = f"task_{task_id_val}_{domain_name}"
+                # The expanded service name is just the domain. The registry uses
+                # this as the unique app identifier and CombinedToolProvider prefixes
+                # each MCP tool with `<app_name>_`, so CUGA's recorded tool names
+                # start with the bare domain (e.g. `codebase_comments_get_…`).
+                # Cross-task collisions (two tasks sharing a domain) are caught
+                # by the post-expansion check below.
+                expanded_service_name = domain_name
 
                 # Deep copy service config
                 import copy
@@ -1894,6 +1994,23 @@ def expand_registry_config(config_path: str) -> str:
             # No placeholder or no domains, keep as-is
             expanded_services.append(service_dict)
             logger.info(f"  Kept as-is: {service_name}")
+
+    # Collision guard: detect duplicate expanded service names. Since we now use
+    # the bare domain as the service name, two tasks sharing a domain (e.g.
+    # both task_2 and task_3 have "books") would silently overwrite each other
+    # when the dict-list is dumped to yaml. Fail loudly instead — the caller
+    # should narrow to a single task with --capability before getting here.
+    from collections import Counter as _Counter
+
+    _service_names = [list(s.keys())[0] for s in expanded_services]
+    _dups = sorted(n for n, c in _Counter(_service_names).items() if c > 1)
+    if _dups:
+        raise RuntimeError(
+            "Service-name collision in expanded registry config: "
+            f"{_dups}. This usually means multiple tasks share a domain name. "
+            "Narrow to a single task via --capability before expansion, "
+            "or differentiate the domain names in the source yaml."
+        )
 
     # Create temporary config file
     expanded_config = {"services": expanded_services}
@@ -2061,8 +2178,13 @@ async def run_config_mode(args, container_runtime: str):
         rewritten_config_path = rewrite_config_with_loader_domains(args.from_config, m3_data_loader)
         source_config_path = rewritten_config_path
 
-    # Expand config if it contains {domain} placeholders
-    expanded_config_path = expand_registry_config(source_config_path)
+    # Expand config if it contains {domain} placeholders. Pre-filter source
+    # services by --capability so the bare-domain expanded names (e.g.
+    # `books` from m3_task_2 vs `books` from m3_task_3) can't collide in
+    # the same expanded yaml. UUID / hockey_395_0-style items in args.task
+    # don't constrain the source service set; they're filtered later.
+    _capability_filter = list(args.task) if getattr(args, "task", None) else None
+    expanded_config_path = expand_registry_config(source_config_path, capability_filter=_capability_filter)
     temp_config_created = expanded_config_path != args.from_config
 
     # Check if registry mode is enabled
@@ -2114,11 +2236,28 @@ async def run_config_mode(args, container_runtime: str):
 
             # Check if any filter looks like a test case name (contains domain_number_number pattern)
             test_case_pattern = r'^[a-z_]+_\d+_\d+$'
+            # Also accept the --m3-data UUID format (12hex-12hex), e.g. "1960f609e439-e5d337d143b6".
+            # When UUIDs are used, the user must also pass --domain to constrain which
+            # service these UUIDs come from (a UUID alone doesn't encode its domain).
+            uuid_filter_pattern = r'^[a-f0-9]{12}-[a-f0-9]{12}$'
             task_filters = [task_filter] if isinstance(task_filter, str) else task_filter
 
             is_test_case_filter = any(_re.match(test_case_pattern, tf) for tf in task_filters)
+            is_uuid_filter = any(_re.match(uuid_filter_pattern, tf) for tf in task_filters)
 
-            if is_test_case_filter:
+            if is_uuid_filter:
+                # UUID filter: skip domain extraction (caller must use --domain),
+                # set test_case_filter so the evaluator filters per-sample at the
+                # right point. Strip out items that aren't sample UUIDs (e.g. a
+                # capability name like "m3_task_2" passed alongside via
+                # --capability) — those don't match any sample_id and would just
+                # be dead weight inside the per-sample filter. Capability-name
+                # items are already handled by expand_registry_config's
+                # capability_filter and the service-name filter below.
+                uuid_only_filters = [tf for tf in task_filters if _re.match(uuid_filter_pattern, tf)]
+                logger.info(f"Detected UUID-style test case filter: {uuid_only_filters}")
+                args.test_case_filter = uuid_only_filters
+            elif is_test_case_filter:
                 # This is a test case filter - extract domain and pass to evaluator
                 logger.info(f"Detected test case filter: {task_filters}")
 
@@ -2492,16 +2631,21 @@ Examples:
     # Task filtering. `--capability` is the preferred name when selecting a
     # service like `m3_task_2` / `m3_task_3`; `--task` is kept as an alias
     # for backward compatibility (it's referenced in README, other scripts,
-    # and older tooling). Both feed the same dest.
+    # and older tooling). Both feed the same dest via action='extend', so
+    # `--capability m3_task_2 --task <uuid>` appends both into args.task
+    # (the previous default `store` action made the second flag overwrite
+    # the first, which silently dropped one of the filters).
     parser.add_argument(
         "--capability",
         "--task",
         dest="task",
         type=str,
         nargs="*",
-        default=None,
+        action="extend",
+        default=[],
         help="Filter by capability/service name (e.g., 'm3_task_2') or by a "
-        "test-case ID (e.g., 'hockey_395_0'). Accepts multiple. "
+        "test-case ID (e.g., 'hockey_395_0' or M3-data UUID). Accepts "
+        "multiple values and multiple invocations (they're appended). "
         "Overrides --difficulty.",
     )
     parser.add_argument(
@@ -2565,6 +2709,14 @@ Examples:
         "and writes them to results/_vakra/prediction/<domain>.json. The "
         "domain list is taken from the data source rather than the YAML "
         "config, so unlabeled test domains run without editing the config.",
+    )
+    parser.add_argument(
+        "--no-policies",
+        action="store_true",
+        help="Disable CUGA policies (mirrors benchmarks/bpo). When enabled "
+        "(default), policies are loaded per-domain from "
+        "benchmarks/m3/policies/policies.json after the per-domain agent is "
+        "constructed.",
     )
 
     from benchmarks.helpers.logging_args import add_log_level_args, apply_log_level

@@ -1,0 +1,69 @@
+---
+id: output_formatter_strip_hedging
+type: output_formatter
+name: P-OF-2 — Strip Hedging and Unsolicited Meta-Commentary
+description: When the answer contains a resolved value, strip hedging language, dataset meta-commentary, and unsolicited "For context" appendices.
+priority: 90
+enabled: true
+format_type: markdown
+triggers:
+  - type: natural_language
+    target: agent_response
+    case_sensitive: false
+    operator: or
+    threshold: 0.6
+    value:
+      - the response contains hedging language such as "upper bound", "may be lower", "approximately", "cannot be completed", "this figure is", "an estimate", "the result may include"
+      - the response contains an unsolicited context appendix beginning with "For context", "Note that", "It is worth mentioning", or similar
+      - the response contains dataset meta-commentary such as "the dataset does not provide", "this dataset is about X not Y", "no tool was found to compute"
+      - the response answers a single factual question but appends caveats, alternative interpretations, or runner-up explanations the user did not ask for
+---
+
+# P-OF-2 — Strip Hedging and Unsolicited Meta-Commentary
+
+## Policy
+
+When the assistant has already resolved a factual question and identified the answer (a number, name, date, identifier, percentage, list, or single-row attribute), the final response must contain only the resolved answer plus the source citation required by [[output_formatter_single_tool_fact_citation]]. Hedging language, unsolicited context appendices, and dataset meta-commentary must be removed.
+
+## Rationale
+
+This policy enforces the standard reporting requirement that analytical responses be **concise and decisive**. In a dashboard, executive-reporting, or audit context, downstream consumers read the answer at the top of the response; trailing hedges and "for context" tangents add noise, dilute confidence, and (in some regulated settings) muddy the audit trail by mixing factual claims with the assistant's own commentary.
+
+The policy applies uniformly across all dashboard-API and multi-hop-reasoning workflows: the only exception is when the user *explicitly* asks for context, caveats, or alternatives.
+
+## What to strip (and why)
+
+The following clause types must be removed when a resolved answer is present in the same response:
+
+1. **Hedging language** — "this figure is an upper bound", "may be lower than the true value", "approximately", "cannot be completed because…", "the result may include…", "this is an estimate".
+2. **"For context" appendices** — paragraphs beginning with *"For context"*, *"Note that"*, *"It is worth mentioning"*, *"By way of comparison"*, *"In addition"*, etc., that introduce information the user did not ask for.
+3. **Dataset meta-commentary** — statements about the dataset itself rather than the answer ("the dataset does not provide a tool to do X", "this dataset is about cricket not soccer", "no tool was found to compute Y when the question asked about Z").
+4. **Runner-up enumeration** — sentences listing alternatives the user did not ask about (e.g., listing the second- and third-place candidates when the user asked for the single top item; see [[playbook_no_enumeration]] for the complementary planner-side rule).
+5. **Self-doubt prefaces** — "I am not entirely sure but…", "based on the limited data I have…", "this might not be exactly what you asked for".
+
+## What to keep
+
+- The resolved answer itself (value, units, name, list).
+- The source citation required by P-OF-1.
+- Any clarification the user *explicitly* asked for in the same turn.
+- Genuine refusal — if the response is "I do not have enough data to answer", keep that and do **not** force a fabricated answer.
+
+## Format requirement
+
+Rewrite the response into the shortest form that contains:
+1. The resolved factual answer.
+2. The P-OF-1-required source citation.
+3. (Optional) a single clarifying clause that names the filter applied (e.g., "for year 1995").
+
+Strip everything else.
+
+## Examples
+
+- ✗ Original: *"The country with the most umpires is the United States with 47 umpires. However, this figure is an upper bound because the dataset only records umpires who officiated at least one international match. For context, England follows closely with 41 umpires."*
+  ✓ Rewritten: *"The country with the most umpires is the United States with 47 umpires (source: `get_country_umpire_counts`)."*
+- ✗ Original: *"BYU-Idaho had a graduation rate of 36%. The dataset does not provide a separate tool for online-only programs; this figure includes all enrolled students. For context, BYU-Provo's rate was 78%."*
+  ✓ Rewritten: *"BYU-Idaho had a graduation rate of 36% (source: `get_graduation_rate_by_institution`)."*
+
+## Reformatting instruction (LLM-facing)
+
+If the assistant's draft response contains a resolved factual answer along with hedging clauses, unsolicited context appendices, dataset meta-commentary, runner-up enumeration, or self-doubt prefaces, rewrite the response to emit **only** the resolved answer and the required source citation. Do not invent or alter the resolved value. If the response is a genuine refusal because the data is unavailable, keep it as a refusal and do not invent an answer.

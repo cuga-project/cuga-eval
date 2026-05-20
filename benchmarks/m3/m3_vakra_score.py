@@ -79,12 +79,19 @@ _REGISTRY_PREFIX_RE = None  # populated lazily on first use
 
 
 def _strip_registry_prefix(name: str) -> str:
-    """Strip a leading ``task_<id>_<domain>_`` registry prefix if present.
+    """Strip a leading registry app-name prefix if present.
 
-    The registry server (benchmarks/m3/run_registry.sh) renames each capability
-    container's MCP tools as ``task_<task_id>_<domain>_<short_name>``. The
-    underlying MCP server itself exposes the long auto-generated operation_id
-    (e.g. ``get_players_by_position_no_shoot_catch_v1_hockey_players_by_position_no_shoot_catch_get``).
+    Current layout: the registry app_name is just the domain, so tool names
+    arrive as ``<domain>_<long_op_id>`` — but the domain can itself contain
+    underscores (``codebase_comments``, ``world_development_indicators``…),
+    so a plain regex can't say where the prefix ends. We leave the
+    domain-only prefix to be resolved by :func:`_match_live_name` (suffix
+    match against the live MCP tool list).
+
+    The legacy layout used ``task_<id>_<domain>_<long_op_id>``; bundles
+    saved before the prefix-removal change still carry that form. We strip
+    that regex deterministically when present so old data continues to
+    score correctly.
     """
     global _REGISTRY_PREFIX_RE
     if _REGISTRY_PREFIX_RE is None:
@@ -110,16 +117,19 @@ def _collect_tool_names(dialogues: List[Dict[str, Any]]) -> List[str]:
 
 
 def _match_live_name(name: str, live_tool_names: List[str]) -> Optional[str]:
-    """Resolve ``name`` to a live MCP tool name, accounting for the three
-    naming conventions in play:
+    """Resolve ``name`` to a live MCP tool name, accounting for the naming
+    conventions in play:
 
-    - registry-prefixed: ``task_<id>_<domain>_<short>`` (what the agent records)
+    - registry-prefixed (legacy): ``task_<id>_<domain>_<short>``
+    - registry-prefixed (current): ``<domain>_<short>``
     - short form: ``<short>`` (what the capability container often exposes)
     - long form: ``<short>_v1_<domain>_<...>_get`` (what the zip's
       gold_sequence carries — FastAPI auto-generated operation_id)
 
-    The matcher tries exact, then directional prefix matches in both directions,
-    so a live "short" name resolves both registry-prefixed and long-form inputs.
+    The matcher tries exact, then directional prefix matches in both
+    directions, then a final suffix match so a live long-form name resolves
+    a domain-only-prefixed input (the current layout after dropping the
+    ``task_<n>_`` segment from the registry app name).
     """
     if name in live_tool_names:
         return name
@@ -127,21 +137,35 @@ def _match_live_name(name: str, live_tool_names: List[str]) -> Optional[str]:
     if stripped != name and stripped in live_tool_names:
         return stripped
 
-    candidates: List[str] = []
+    forward_candidates: List[str] = []
+    suffix_candidates: List[str] = []
     for ln in live_tool_names:
         # Live name is the canonical short form, name extends it (long form).
         if name.startswith(ln + "_"):
-            candidates.append(ln)
+            forward_candidates.append(ln)
         # Live name extends the (possibly stripped) input (live is long form).
         elif ln.startswith(stripped + "_"):
-            candidates.append(ln)
+            forward_candidates.append(ln)
+        # Input is the live name preceded by a registry app-name prefix —
+        # the current bare-domain layout (e.g. ``codebase_comments_get_X``
+        # → ``get_X``). Take the longest matching suffix on tie-break:
+        # it's the most specific live tool the input could refer to.
+        elif name.endswith("_" + ln):
+            suffix_candidates.append(ln)
 
-    if not candidates:
-        return None
-    if len(candidates) == 1:
-        return candidates[0]
-    # Tie-break: shortest match — closest to the canonical short form.
-    return min(candidates, key=len)
+    # Prefer forward matches (existing semantics): shortest = closest to the
+    # canonical short form.
+    if forward_candidates:
+        if len(forward_candidates) == 1:
+            return forward_candidates[0]
+        return min(forward_candidates, key=len)
+    # Fall back to suffix matches (new path for bare-domain registry prefix):
+    # longest = most specific live name reachable from the tail of the input.
+    if suffix_candidates:
+        if len(suffix_candidates) == 1:
+            return suffix_candidates[0]
+        return max(suffix_candidates, key=len)
+    return None
 
 
 def _build_name_map(

@@ -38,6 +38,7 @@ MODELS="${MODELS:-gpt-oss}"
 AGENT="${AGENT:-cuga}"
 AGENTS="${AGENTS:-}"
 COMPARE_AGENTS="${COMPARE_AGENTS:-false}"
+COMPARE_POLICIES="${COMPARE_POLICIES:-false}"
 NO_BUNDLE="${NO_BUNDLE:-false}"
 BUNDLE_ZIP="${BUNDLE_ZIP:-false}"
 FORWARDED_ARGS=()
@@ -72,6 +73,10 @@ while [[ $idx -lt ${#ARGS[@]} ]]; do
             COMPARE_AGENTS=true
             idx=$((idx+1))
             ;;
+        --compare-policies)
+            COMPARE_POLICIES=true
+            idx=$((idx+1))
+            ;;
         --no-bundle)
             NO_BUNDLE=true
             idx=$((idx+1))
@@ -102,11 +107,18 @@ fi
 IFS=',' read -ra MODEL_LIST <<< "$MODELS"
 IFS=',' read -ra AGENT_LIST <<< "$AGENTS"
 
-# Build CONFIGS as the cartesian product MODEL_LIST × AGENT_LIST, with labels "model:agent".
+# Build CONFIGS as the cartesian product MODEL_LIST × AGENT_LIST × POLICY_MODE.
+# When --compare-policies is off, the inner dim collapses to a single "policies"
+# entry so the label format stays consistent (always model:agent:policy).
 CONFIGS=()
 for _m in "${MODEL_LIST[@]}"; do
     for _a in "${AGENT_LIST[@]}"; do
-        CONFIGS+=("${_m}:${_a}")
+        if [[ "$COMPARE_POLICIES" == "true" ]]; then
+            CONFIGS+=("${_m}:${_a}:policies")
+            CONFIGS+=("${_m}:${_a}:no-policies")
+        else
+            CONFIGS+=("${_m}:${_a}:policies")
+        fi
     done
 done
 
@@ -123,10 +135,13 @@ echo ""
 if [[ "$DRY_RUN" == "true" ]]; then
     echo -e "${YELLOW:-}DRY RUN — showing planned commands:${NC:-}"
     for config in "${CONFIGS[@]}"; do
-        model="${config%%:*}"
-        agent="${config##*:}"
+        IFS=':' read -r model agent policy_mode <<< "$config"
+        extra=""
+        if [[ "$policy_mode" == "no-policies" ]]; then
+            extra=" --no-policies"
+        fi
         for ((r=1; r<=RUNS; r++)); do
-            echo "  [${config} run ${r}/${RUNS}] ./eval.sh --agent ${agent} ${FORWARDED_ARGS[*]}"
+            echo "  [${config} run ${r}/${RUNS}] ./eval.sh --agent ${agent}${extra} ${FORWARDED_ARGS[*]}"
         done
     done
     exit 0
@@ -150,7 +165,7 @@ compare_t0=$(date +%s)
 
 compare_cleanup() {
     echo -e "${YELLOW:-}Stopping servers...${NC:-}"
-    kill_port_processes 8001
+    kill_port_processes "${REGISTRY_PORT:-8001}"
 }
 trap compare_cleanup EXIT INT TERM
 
@@ -181,8 +196,7 @@ _list_results_for_agent() {
 }
 
 for config in "${CONFIGS[@]}"; do
-    model="${config%%:*}"
-    agent="${config##*:}"
+    IFS=':' read -r model agent policy_mode <<< "$config"
 
     echo -e "${BLUE:-}══════════════════════════════════════════════════════════════${NC:-}"
     echo -e "${CYAN:-}Configuration: ${config}${NC:-}"
@@ -190,6 +204,12 @@ for config in "${CONFIGS[@]}"; do
 
     if type apply_model_profile &>/dev/null; then
         apply_model_profile "$model"
+    fi
+
+    # Per-config extra args (e.g., --no-policies when comparing policy modes).
+    config_extra_args=()
+    if [[ "$policy_mode" == "no-policies" ]]; then
+        config_extra_args+=(--no-policies)
     fi
 
     # Snapshot agent-specific result files and trajectory folders before this
@@ -206,7 +226,7 @@ for config in "${CONFIGS[@]}"; do
         fi
 
         run_t0=$(date +%s)
-        if bash "$SCRIPT_DIR/eval.sh" --agent "$agent" --no-bundle "${FORWARDED_ARGS[@]}"; then
+        if bash "$SCRIPT_DIR/eval.sh" --agent "$agent" --no-bundle "${config_extra_args[@]}" "${FORWARDED_ARGS[@]}"; then
             run_dur=$(( $(date +%s) - run_t0 ))
             echo -e "${GREEN:-}✓${NC:-} Run $r complete in $(fmt_duration $run_dur)"
         else
