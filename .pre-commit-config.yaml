@@ -48,3 +48,15 @@ repos:
         name: detect secrets
         args: ['--baseline', '.secrets.baseline']
         exclude: '(uv\.lock|benchmarks/appworld/appworld/|\.secrets\.baseline|.*\.parquet)'
+
+  # Block accidental commits of the local AppWorld editable entries that
+  # ./setup_appworld.sh injects into pyproject.toml. Those entries point at
+  # a path that only exists on machines where setup_appworld.sh has run.
+  - repo: local
+    hooks:
+      - id: no-local-appworld-in-pyproject
+        name: no local appworld in pyproject.toml
+        entry: scripts/check_no_local_appworld_in_pyproject.sh
+        language: script
+        files: '^pyproject\.toml$'
+        pass_filenames: false

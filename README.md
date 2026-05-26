@@ -39,15 +39,16 @@ git clone https://github.com/cuga-project/cuga-eval.git
 cd cuga-eval
 ```
 
-### 2. Ensure CUGA Agent is in parent directory
-The `cuga-agent` repository must be located at `../cuga-agent` (one directory up from this repository).
-
+### 2. Run setup script
 ```bash
-# If you need to clone it:
-cd ..
-git clone https://github.com/cuga-project/cuga-agent.git cuga-agent
-cd cuga-eval
+# Clone CUGA agent and set up the base environment
+./setup_cuga.sh
 ```
+
+This script:
+- Clones the `cuga-agent` repository to `../cuga-agent` (if not already present)
+- Exports environment variables for the current terminal session
+- Creates the logging directory
 
 ### 3. Set up Python environment
 ```bash
@@ -55,6 +56,8 @@ uv venv
 source .venv/bin/activate  # On Windows: .venv\Scripts\activate
 uv sync
 ```
+
+This installs the base dependencies needed for all benchmarks except AppWorld.
 
 ### 4. Configure environment variables
 ```bash
@@ -78,24 +81,70 @@ LANGFUSE_PUBLIC_KEY="your-langfuse-public-key"  # pragma: allowlist secret
 LANGFUSE_HOST="https://us.cloud.langfuse.com"
 ```
 
-### 5. (AppWorld only) Clone AppWorld before running setup scripts
+### 5. Per-benchmark setup
 
-If you plan to run the AppWorld benchmark, clone AppWorld into `benchmarks/appworld/appworld` **before** running `./setup_appworld.sh` (or `./setup_cuga.sh`, which calls it at the end of its flow). Both scripts expect the repository to already be present and will exit with an error otherwise.
+Steps 1–4 above (clone, `setup_cuga.sh`, `uv venv && uv sync`, `.env`) are enough to run **BPO** and **Oak Health Insurance** out of the box. **M3** and **AppWorld** each need one extra setup step. The four subsections below are independent — run only the ones for benchmarks you actually want to use.
+
+At-a-glance:
+
+| Benchmark | Extra setup? | Command |
+|---|---|---|
+| BPO | None — base `uv sync` is enough | – |
+| Oak Health Insurance | None — base `uv sync` is enough | – |
+| M3 | Yes (one-time) | `./setup_m3.sh` |
+| AppWorld | Yes (one-time) | `git lfs install && ./setup_appworld.sh` |
+
+#### BPO — no extra setup
+
+BPO is ready to run after the base install. Skip ahead to [Quick Start](#-quick-start) or see [`benchmarks/bpo/README.md`](benchmarks/bpo/README.md).
+
+#### Oak Health Insurance — no extra setup
+
+Oak is ready to run after the base install. See [`benchmarks/oak_health_insurance/README.md`](benchmarks/oak_health_insurance/README.md).
+
+#### M3 (Vakra) Setup
+
+If you plan to run the M3 benchmark:
 
 ```bash
-# Git LFS is required for AppWorld's data files
-git lfs install
-
-# Clone AppWorld into the expected location
-git clone https://github.com/StonyBrookNLP/appworld benchmarks/appworld/appworld
-
-# Now safe to run the AppWorld installer
-./setup_appworld.sh
-# (or ./setup_cuga.sh — which clones cuga-agent into ../cuga-agent
-#  and then runs setup_appworld.sh as its last step)
+# Clones vakra, downloads data, builds containers.
+./setup_m3.sh
 ```
 
-If `benchmarks/appworld/appworld/data` already exists, `setup_appworld.sh` skips re-downloading. See [`benchmarks/appworld/README.md`](benchmarks/appworld/README.md) for full details.
+See [`benchmarks/m3/README.md`](benchmarks/m3/README.md) for full details.
+
+#### AppWorld Setup
+
+If you plan to run the AppWorld benchmark:
+
+```bash
+# Git LFS is required for AppWorld's data files.
+git lfs install
+
+# One-stop setup: clones the upstream repo into benchmarks/appworld/appworld,
+# registers it as an editable dependency in the `appworld` group, and
+# downloads the benchmark data.
+./setup_appworld.sh
+```
+
+The script uses `uv add --editable --no-workspace benchmarks/appworld/appworld --group appworld`,
+which writes a `[tool.uv.sources]` entry and `[dependency-groups].appworld` entry
+into your **local** `pyproject.toml`. These edits are intentional and should
+**not** be committed — they point at a directory that only exists on machines
+that have run `setup_appworld.sh`. A pre-commit hook
+(`scripts/check_no_local_appworld_in_pyproject.sh`) blocks the commit
+automatically if those entries slip into a staged change.
+
+After setup:
+- `uv sync --group appworld` installs/refreshes with AppWorld available.
+- `uv sync` (no group) keeps working; it will remove AppWorld from the venv
+  since the group is opt-in. Re-add it any time with `uv sync --group appworld`.
+
+See [`benchmarks/appworld/README.md`](benchmarks/appworld/README.md) for full details.
+
+#### Running multiple benchmarks
+
+The setup steps are independent — run each one when you want that benchmark, in any order. The base `uv sync` always succeeds regardless of which benchmark-specific setups have or haven't been run, so a fresh checkout or CI job that only needs BPO/Oak/M3 never has to touch AppWorld, and vice versa.
 
 ---
 

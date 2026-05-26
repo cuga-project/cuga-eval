@@ -20,44 +20,61 @@ The AppWorld benchmark evaluates agent capabilities with complex web application
 
 ## 🚀 Setup
 
-### Install AppWorld
+### 1. Install CUGA agent (if not already done)
 
-```bash
-# Install Git LFS
-git lfs install
-
-# Clone AppWorld into the expected location if not already present
-git clone https://github.com/StonyBrookNLP/appworld benchmarks/appworld/appworld
-
-# Run the repository setup
-./setup_appworld.sh
-```
-
-Notes:
-- The install step runs inside the cloned [`benchmarks/appworld/appworld`](appworld) repository.
-- If the repository is already cloned and [`appworld/data`](appworld/data) already exists, setup is skipped.
-
-### Install CUGA agent
-
-Before running the evaluation for the first time:
+From the repository root:
 
 ```bash
 ./setup_cuga.sh
 ```
 
-This also runs [`setup_appworld.sh`](../../setup_appworld.sh), which:
-- loads [`config/appworld.env`](config/appworld.env)
-- expects the AppWorld repository at [`benchmarks/appworld/appworld`](appworld)
-- installs AppWorld from the cloned repository itself
-- downloads benchmark data if it is not already present
+This clones the `cuga-agent` repository to `../cuga-agent` and sets up the base environment.
 
-If [`benchmarks/appworld/appworld/data`](appworld/data) already exists, the setup step is skipped with a message.
+### 2. Install base dependencies (if not already done)
 
-### Install Dependencies
+From the repository root:
 
 ```bash
+uv venv
+source .venv/bin/activate  # On Windows: .venv\Scripts\activate
 uv sync
 ```
+
+This installs dependencies for all benchmarks.
+
+### 3. Install AppWorld
+
+```bash
+# Install Git LFS (required for AppWorld's data files)
+git lfs install
+
+# One-stop setup (run from the repository root). Clones the AppWorld repo
+# into benchmarks/appworld/appworld if it isn't there, registers it as an
+# editable dependency in the `appworld` group, and downloads the data.
+./setup_appworld.sh
+```
+
+The `setup_appworld.sh` script:
+- Loads [`config/appworld.env`](config/appworld.env)
+- Clones [`https://github.com/StonyBrookNLP/appworld`](https://github.com/StonyBrookNLP/appworld) into [`benchmarks/appworld/appworld`](appworld) if not already present
+- Runs `uv add --editable --no-workspace benchmarks/appworld/appworld --group appworld`, which writes a `[tool.uv.sources]` entry and a `[dependency-groups].appworld` entry into your **local** `pyproject.toml` and installs the package editable
+- Runs `appworld install --repo` and `appworld download data` from inside the clone
+
+If [`benchmarks/appworld/appworld/data`](appworld/data) already exists, you'll be prompted before re-downloading.
+
+> **Important — don't commit the pyproject.toml diff.** The script edits `pyproject.toml` to point at a path that only exists on machines where the script has run. Committing those entries would re-break `uv sync` on fresh checkouts and in CI. A pre-commit hook (`scripts/check_no_local_appworld_in_pyproject.sh`) blocks the commit automatically; bypass with `--no-verify` only if you have a deliberate reason.
+
+### 4. Day-to-day sync
+
+After the initial setup:
+
+```bash
+uv sync --group appworld   # base deps + AppWorld
+uv sync                    # base deps only (AppWorld is removed from venv;
+                           #   re-add with --group appworld)
+```
+
+Both forms succeed regardless of whether the appworld clone exists. The `appworld` group is opt-in, so running other benchmarks (BPO, M3, Oak) never requires AppWorld to be installed.
 ---
 
 ## 🚀 Running the Benchmark
