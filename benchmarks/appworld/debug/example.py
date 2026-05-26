@@ -25,9 +25,9 @@ from typing import List
 import httpx
 from appworld import AppWorld
 from cuga.backend.activity_tracker.tracker import ActivityTracker
-from cuga.backend.cuga_graph.nodes.cuga_lite.providers.combined import CombinedToolProvider
 from cuga.backend.cuga_graph.nodes.cuga_lite.cuga_lite_graph import make_tool_awaitable
 from cuga.backend.cuga_graph.nodes.cuga_lite.executors import CodeExecutor
+from cuga.backend.cuga_graph.nodes.cuga_lite.providers.combined import CombinedToolProvider
 from cuga.backend.cuga_graph.state.agent_state import AgentState, VariablesManager
 from loguru import logger
 
