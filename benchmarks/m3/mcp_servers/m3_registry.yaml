@@ -1,0 +1,85 @@
+# M3 Benchmark - Registry-based MCP configuration
+#
+# This config is organized by M3 task ID, with each task specifying which domains to benchmark.
+# The evaluation script will iterate through all domains for each task.
+#
+# Container runtime (set via CONTAINER_RUNTIME environment variable):
+#   CONTAINER_RUNTIME=docker (default)
+#   CONTAINER_RUNTIME=podman
+#
+# Usage:
+#   export CONTAINER_RUNTIME=docker
+#   uv run python benchmarks/m3/eval_m3_from_config.py
+
+services:
+  # Task 1 - Specify domains to benchmark for this task
+  - m3_task_1:
+      transport: "stdio"
+      type: "mcp"
+      description: "M3 Task 1 environment"
+
+      command: "${CONTAINER_RUNTIME:-docker}"
+      args:
+        - "exec"
+        - "-i"
+        - "-e"
+        - "MCP_DOMAIN={domain}"  # Will be replaced per domain
+        - "task_1_m3_environ"
+        - "python"
+        - "/app/m3-rest/mcp_server.py"
+
+      metadata:
+        task_id: 1
+        container: "task_1_m3_environ"
+        # List of domains to benchmark for this task
+        domains:
+          - "hockey"
+          - "olympics"
+
+  # Task 2 - Specify domains to benchmark for this task
+  - m3_task_2:
+      transport: "stdio"
+      type: "mcp"
+      description: "M3 Task 2 environment"
+
+      command: "${CONTAINER_RUNTIME:-docker}"
+      args:
+        - "exec"
+        - "-i"
+        - "-e"
+        - "MCP_DOMAIN={domain}"  # Will be replaced per domain
+        - "task_2_m3_environ"
+        - "python"
+        - "/app/m3-rest/mcp_server.py"
+
+      metadata:
+        task_id: 2
+        container: "task_2_m3_environ"
+        # List of domains to benchmark for this task
+        domains:
+          - "hockey"
+          - "olympics"
+          - "address"
+
+  # Task 5 - Specify domains to benchmark for this task
+  - m3_task_5:
+      transport: "stdio"
+      type: "mcp"
+      description: "M3 Task 5 environment"
+
+      command: "${CONTAINER_RUNTIME:-docker}"
+      args:
+        - "exec"
+        - "-i"
+        - "-e"
+        - "MCP_DOMAIN={domain}"  # Will be replaced per domain
+        - "task_5_m3_environ"
+        - "python"
+        - "/app/m3-rest/mcp_server.py"
+
+      metadata:
+        task_id: 5
+        container: "task_5_m3_environ"
+        # List of domains to benchmark for this task
+        domains:
+          - "hockey"

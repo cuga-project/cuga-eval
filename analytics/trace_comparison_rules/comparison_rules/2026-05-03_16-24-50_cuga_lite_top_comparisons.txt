@@ -1,0 +1,163 @@
+{
+    "agent_name": "Task Analyzer",
+    "output_schema": {
+        "thoughts": "string \u2014 reasoning for selecting or not selecting each app",
+        "relevant_apps": [
+            "string \u2014 name of a relevant application"
+        ]
+    },
+    "fields": [
+        {
+            "schema_field_name": "relevant_apps",
+            "comparison_mode": "exact_match"
+        }
+    ]
+}
+
+{
+    "agent_name": "Task Decomposition",
+    "output_schema": {
+        "thoughts": "string \u2014 reasoning about the decomposition strategy and how each application contributes",
+        "task_decomposition": [
+            {
+                "task": "string \u2014 description of the subtask",
+                "type": "web | api",
+                "app": "string \u2014 name of the application assigned to this subtask"
+            }
+        ]
+    },
+    "fields": [
+        {
+            "schema_field_name": "task_decomposition",
+            "comparison_mode": "list_length"
+        },
+        {
+            "schema_field_name": "task_decomposition[].task",
+            "comparison_mode": "semantic_similarity"
+        },
+        {
+            "schema_field_name": "task_decomposition[].type",
+            "comparison_mode": "exact_match"
+        },
+        {
+            "schema_field_name": "task_decomposition[].app",
+            "comparison_mode": "exact_match"
+        }
+    ]
+}
+
+{
+    "agent_name": "Plan Controller",
+    "output_schema": {
+        "thoughts": [
+            "string \u2014 step-by-step reasoning on progress, variable usage, and next action"
+        ],
+        "subtasks_progress": [
+            "string \u2014 'not-started' | 'in-progress' | 'completed' for each subtask"
+        ],
+        "next_subtask": "string \u2014 natural language description of the next action for the planner",
+        "next_subtask_type": "string \u2014 'web' | 'api'",
+        "next_subtask_app": "string \u2014 API application name or empty string",
+        "conclude_task": false,
+        "conclude_final_answer": "string \u2014 final answer if conclude_task is true"
+    },
+    "fields": [
+        {
+            "schema_field_name": "subtasks_progress",
+            "comparison_mode": "exact_match"
+        },
+        {
+            "schema_field_name": "next_subtask",
+            "comparison_mode": "semantic_similarity"
+        },
+        {
+            "schema_field_name": "next_subtask_type",
+            "comparison_mode": "exact_match"
+        },
+        {
+            "schema_field_name": "conclude_task",
+            "comparison_mode": "exact_match"
+        }
+    ]
+}
+
+{
+    "agent_name": "Code Agent",
+    "output_schema": {
+        "type": "string \u2014 either a Python code block (```python...```) or a plain text final answer/clarification",
+        "content": "string \u2014 the actual output text, which is either:\n  1. Optional brief reasoning + fenced Python code block ending with print()\n  2. Plain text natural language answer to the user"
+    },
+    "fields": [
+        {
+            "schema_field_name": "content",
+            "comparison_mode": "semantic_similarity"
+        }
+    ]
+}
+
+{
+    "agent_name": "Reflection",
+    "output_schema": {
+        "overall_status_analysis": "string \u2014 assessment of recent code execution in relation to the current task, including skeptical considerations",
+        "summary_of_progress": "string \u2014 summary of key actions taken so far, highlighting achievements or challenges",
+        "strategic_recommendation": "string \u2014 concrete next steps or confirmation of task completion"
+    },
+    "fields": [
+        {
+            "schema_field_name": "overall_status_analysis",
+            "comparison_mode": "semantic_similarity"
+        },
+        {
+            "schema_field_name": "strategic_recommendation",
+            "comparison_mode": "semantic_similarity"
+        }
+    ]
+}
+
+{
+    "agent_name": "Shortlister",
+    "output_schema": {
+        "thoughts": [
+            "string \u2014 reasoning about the tool selection process"
+        ],
+        "result": [
+            {
+                "name": "string \u2014 api_name of the selected tool",
+                "relevance_score": 0.95,
+                "reasoning": "string \u2014 explanation of why this tool is relevant and how it chains with others"
+            }
+        ]
+    },
+    "fields": [
+        {
+            "schema_field_name": "result",
+            "comparison_mode": "list_length"
+        },
+        {
+            "schema_field_name": "result[].name",
+            "comparison_mode": "exact_match"
+        }
+    ]
+}
+
+{
+    "agent_name": "Final Answer",
+    "output_schema": {
+        "thoughts": [
+            "string \u2014 reasoning points explaining the decision"
+        ],
+        "final_answer": "string \u2014 the determined output value (extracted value, calculated result, 'N/A', or original system_answer)",
+        "final_answer_type": "string \u2014 one of 'int', 'float', or 'str'"
+    },
+    "fields": [
+        {
+            "schema_field_name": "final_answer",
+            "comparison_mode": "fuzzy_match"
+        },
+        {
+            "schema_field_name": "final_answer_type",
+            "comparison_mode": "exact_match"
+        }
+    ]
+}
+

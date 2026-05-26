@@ -1,0 +1,94 @@
+# M3 Benchmark - Registry-based MCP configuration
+#
+# This config is organized by M3 task ID, with each task specifying which domains to benchmark.
+# The evaluation script will iterate through all domains for each task.
+#
+# Container runtime (set via CONTAINER_RUNTIME environment variable):
+#   CONTAINER_RUNTIME=docker (default)
+#   CONTAINER_RUNTIME=podman
+#
+# Usage:
+#   export CONTAINER_RUNTIME=docker
+#   uv run python benchmarks/m3/eval_m3_from_config.py
+
+services:
+
+
+  # Task 3 - Specify domains to benchmark for this task
+  - m3_task_3:
+      transport: "stdio"
+      type: "mcp"
+      description: "M3 Task 3 environment"
+
+      command: "${CONTAINER_RUNTIME}"
+      args:
+        - "exec"
+        - "-i"
+        - "-e"
+        - "MCP_DOMAIN={domain}"  # Will be replaced per domain
+        - "-e"
+        - "TASK_ID=3"
+        - "task_3_m3_environ"
+        - "python3"
+        - "/app/m3-rest/mcp_server.py"
+
+      metadata:
+        task_id: 3
+        container: "task_3_m3_environ"
+        # List of domains to benchmark for this task (56 total)
+        domains:
+          - "address"
+          - "authors"
+          - "beer_factory"
+          - "bike_share_1"
+          - "book_publishing_company"
+          - "books"
+          - "california_schools"
+          - "card_games"
+          - "cars"
+          - "chicago_crime"
+          - "citeseer"
+          - "codebase_comments"
+          - "coinmarketcap"
+          - "college_completion"
+          - "computer_student"
+          - "cookbook"
+          - "craftbeer"
+          - "debit_card_specializing"
+          - "disney"
+          - "european_football_1"
+          - "european_football_2"
+          - "financial"
+          - "food_inspection"
+          - "formula_1"
+          - "genes"
+          - "hockey"
+          - "ice_hockey_draft"
+          - "language_corpus"
+          - "law_episode"
+          - "legislator"
+          - "mental_health_survey"
+          - "menu"
+          - "mondial_geo"
+          - "movie"
+          - "movie_3"
+          - "movielens"
+          - "movies_4"
+          - "music_platform_2"
+          - "music_tracker"
+          - "olympics"
+          - "professional_basketball"
+          - "public_review_platform"
+          - "restaurant"
+          - "shakespeare"
+          - "simpson_episodes"
+          - "soccer_2016"
+          - "superhero"
+          - "talkingdata"
+          - "thrombosis_prediction"
+          - "toxicology"
+          - "trains"
+          - "university"
+          - "video_games"
+          - "world"
+          - "world_development_indicators"

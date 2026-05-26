@@ -1,0 +1,80 @@
+name: 📚 Documentation Update
+description: Suggest a fix, enhancement, or new content for the documentation.
+title: "[Docs]: <Short Description>"
+labels: ["documentation"]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Thanks for helping improve our documentation! Please fill out the sections below.
+
+  - type: dropdown
+    id: doc_action
+    attributes:
+      label: Type of Change
+      description: What kind of documentation work is needed?
+      options:
+        - Fix (Typos, broken links, factual errors)
+        - Enhance (Clarify existing content, add examples)
+        - Add (Create new guides, pages, or sections)
+        - Other
+    validations:
+      required: true
+
+  - type: input
+    id: doc_action_other
+    attributes:
+      label: If "Other", please specify
+      description: Required if you selected "Other" above. Briefly describe the type of change.
+      placeholder: e.g., Reorganize navigation, Update branding, Translate content
+
+  - type: input
+    id: location
+    attributes:
+      label: URL / Location (Optional)
+      description: Please paste the link to the specific page or section (if applicable).
+      placeholder: https://docs.example.com/getting-started
+
+  - type: textarea
+    id: description
+    attributes:
+      label: Description of the Issue
+      description: Please describe what needs to be changed and why.
+      placeholder: The installation steps for Linux are currently outdated...
+    validations:
+      required: true
+
+  - type: textarea
+    id: current_text
+    attributes:
+      label: Current Text (Optional)
+      description: Copy the existing text here if you are fixing or enhancing it.
+      render: markdown
+      placeholder: |
+        To install in Linux, run `pip install cuga-agent==0.0.1-nightly`...
+
+  - type: textarea
+    id: suggested_text
+    attributes:
+      label: Suggested Text / Solution
+      description: Please provide your suggested changes or the new content you wish to add.
+      render: markdown
+      placeholder: |
+        To install in Linux, run `uv pip install cuga-agent`...
+    validations:
+      required: true
+
+  - type: textarea
+    id: additional_context
+    attributes:
+      label: Additional Context
+      description: Any other details, screenshots, or mockups? _If you have a screenshot or visual aid, you can drag and drop it into the box below._
+
+
+  - type: checkboxes
+    id: quick_checks
+    attributes:
+      label: Quick Checks
+      options:
+        - label: I have searched existing issues to avoid duplicates
+        - label: I have verified this issue exists in the latest documentation

@@ -1,0 +1,100 @@
+name: CI
+
+# CI runs lint, sanity+regression tests, and security scans on every PR
+# and on every push to main.
+#
+# This repo's pyproject.toml declares cuga as an editable path dep at
+# ../cuga-agent. CI clones cuga-project/cuga-agent as a sibling so uv
+# sync resolves identically to a local checkout.
+#
+# If `ubuntu-latest` is unavailable, change `runs-on:` to a self-hosted label (e.g. `[self-hosted, linux, x64]`).
+
+on:
+  pull_request:
+  push:
+    branches: [main]
+
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: true
+
+defaults:
+  run:
+    working-directory: cuga-eval
+
+jobs:
+  lint:
+    name: Lint
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          path: cuga-eval
+      - uses: actions/checkout@v4
+        with:
+          repository: cuga-project/cuga-agent
+          path: cuga-agent
+          ref: main
+      - uses: astral-sh/setup-uv@v6
+        with:
+          enable-cache: true
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - name: Sync dev dependencies
+        run: uv sync --group dev
+      - name: ruff check
+        run: uv run ruff check .
+      - name: ruff format --check
+        run: uv run ruff format --check .
+
+  test:
+    name: Tests (sanity + regression)
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          path: cuga-eval
+      - uses: actions/checkout@v4
+        with:
+          repository: cuga-project/cuga-agent
+          path: cuga-agent
+          ref: main
+      - uses: astral-sh/setup-uv@v6
+        with:
+          enable-cache: true
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - name: Sync dev dependencies
+        run: uv sync --group dev
+      - name: Run pytest
+        run: uv run pytest -m "sanity or regression"
+
+  security:
+    name: Security (bandit + pip-audit)
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          path: cuga-eval
+      - uses: actions/checkout@v4
+        with:
+          repository: cuga-project/cuga-agent
+          path: cuga-agent
+          ref: main
+      - uses: astral-sh/setup-uv@v6
+        with:
+          enable-cache: true
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - name: Sync dev dependencies
+        run: uv sync --group dev
+      - name: bandit
+        run: uv run bandit -c pyproject.toml -r benchmarks scripts -ll
+      - name: pip-audit
+        run: uv run pip-audit --skip-editable --ignore-vuln GHSA-r7w7-9xr2-qq2r

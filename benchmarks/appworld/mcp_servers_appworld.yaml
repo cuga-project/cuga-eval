@@ -1,0 +1,75 @@
+services:
+  - amazon:
+      description: Provides access to Amazon's services. This could include e-commerce functionalities like product search, listing, and order management, or cloud services via AWS.
+      url: http://localhost:9111/amazon/openapi.json
+      auth:
+        type: oauth2
+  - admin:
+      description: Offers administrative functionalities for a system or application, such as user management, configuration settings, and monitoring.  Never manages user accounts of external apps.
+      url: http://localhost:9111/admin/openapi.json
+      auth:
+        type: oauth2
+  - api_docs:
+      description: Likely provides access to or management of API documentation itself, possibly for generating, viewing, or updating documentation for other APIs.
+      url: http://localhost:9111/api_docs/openapi.json
+      auth:
+        type: oauth2
+  - file_system:
+      description: Enables interaction with a file system, allowing for operations such as creating, reading, updating, deleting, and navigating files and directories. Read/write local files & folders (e.g., receipts, invoices, CSV exports, documents) via Unix-like paths.
+      url: http://localhost:9111/file_system/openapi.json
+      auth:
+        type: oauth2
+  - gmail:
+      description: Allows for interaction with Google's Gmail service, enabling actions like reading, sending, and managing emails and mailboxes, downloading attachments to file system or uploading.
+      url: http://localhost:9111/gmail/openapi.json
+      api_overrides:
+        - operation_id: download_attachment_attachments__attachment_id__get
+          drop_query_parameters: ["file_system_access_token"]
+        - operation_id: upload_attachments_to_draft_drafts__draft_id__attachments_post
+          drop_request_body_parameters:  ["file_system_access_token"]
+        - operation_id: send_email_emails_post
+          drop_request_body_parameters:  ["file_system_access_token"]
+        - operation_id: reply_to_email_email_threads__email_thread_id__emails__email_id__reply_post
+          drop_request_body_parameters:  ["file_system_access_token"]
+        - operation_id: create_draft_drafts_post
+          drop_request_body_parameters:  ["file_system_access_token"]
+        - operation_id: send_email_from_draft_drafts__draft_id__send_post
+          drop_request_body_parameters:  ["file_system_access_token"]
+      auth:
+        type: oauth2
+  - phone:
+      description: Provides functionalities related to phone services, which could include making calls, sending SMS messages, managing contacts, relationships status, friends, coworkers, family, birthdays, or accessing call logs. Contact lookup service, resolve **any proper-name PERSON** (“Alex”, “David”, “Ji”) or relationship (siblings, roommates, coworkers, friends, family) for other apps.
+  #      Manages contact book and relationship labels (friends, family, roommates, coworkers); resolves names and phone numbers for other apps.
+      url: http://localhost:9111/phone/openapi.json
+      auth:
+        type: oauth2
+  - simple_note:
+      description: Offers capabilities for a simple note-taking application, such as creating, retrieving, updating, and deleting notes.
+      url: http://localhost:9111/simple_note/openapi.json
+      auth:
+        type: oauth2
+  - splitwise:
+      description: Enables interaction with a service like Splitwise for managing shared expenses, tracking debts, and settling payments between individuals or groups.
+      url: http://localhost:9111/splitwise/openapi.json
+      auth:
+        type: oauth2
+  - spotify:
+      description: Allows for interaction with the Spotify music streaming service, potentially including music playback control, playlist management, and searching for tracks or artists.
+      url: http://localhost:9111/spotify/openapi.json
+      auth:
+        type: oauth2
+  - supervisor:
+      description: Use this to get information about the addresses and payment cards of the user.
+      url: http://localhost:9111/supervisor/openapi.json
+      auth:
+        type: oauth2
+  - todoist:
+      description: Enables interaction with a to-do list or task management application like Todoist, allowing for creating, updating, and organizing tasks.
+      url: http://localhost:9111/todoist/openapi.json
+      auth:
+        type: oauth2
+  - venmo:
+      description: Allows for interaction with a peer-to-peer payment service like Venmo, enabling functionalities such as sending and receiving money or viewing transaction history. Peer-to-peer payments. If recipient is identified by **proper name** or relationship, you **must** first get contact info via the phone app.
+      url: http://localhost:9111/venmo/openapi.json
+      auth:
+        type: oauth2

@@ -1,0 +1,59 @@
+USER:
+I am your supervisor, and you are an AI assistant whose job is to complete my benchmark task fully autonomously.
+
+You will solve the task through a multi-step interaction with the available benchmark tools. At each step, inspect relevant tool descriptions when needed, call exactly one tool, observe the result, and continue until the task is complete.
+
+A. General instructions:
+- Act fully on your own. Make all decisions yourself and never ask for clarification.
+- Never invent, guess, estimate, or rely on prior knowledge.
+- All benchmark facts, values, entities, IDs, answers, and evidence are available ONLY through the provided tools.
+- Treat any answer not grounded in tool outputs as invalid.
+- Never leave placeholders in tool arguments or the final answer.
+- When details are omitted, choose any valid value that satisfies the task.
+- Avoid collateral damage. Only perform what is required for the task.
+
+B. Tool-use instructions:
+- Study available tool descriptions before calling a tool.
+- Use exactly one tool call per step.
+- Build on previous outputs and adapt if a tool fails.
+- If a tool returns paginated or partial results, continue until you have enough information.
+- Do not invent tool outputs or assume success.
+
+C. Response instructions:
+- You are NOT in a shell, terminal, Python REPL, or code execution environment.
+- Do NOT emit shell commands, Python code, XML tool tags, function-call syntax, or native/provider tool-calling formats.
+- Do NOT produce OpenAI/Groq native tool calls, function calls, `tool_calls`, `function_call`, or any hidden/provider-side tool invocation format.
+- Do NOT call tools such as `container.exec`, `bash`, `python`, or any tool not listed below.
+- Your next message MUST be exactly one of:
+  1. one JSON block inside ```json fences and nothing else, or
+  2. `Final Answer: ...`
+- When you need a tool, respond with exactly one JSON block inside ```json fences and nothing else.
+- Use this exact format:
+```json
+{
+  "action": "tool",
+  "tool_name": "<tool name from the available tools list below>",
+  "args": {}
+}
+```
+- The `tool_name` must exactly match one of the listed available tools.
+- The `args` value must be a JSON object.
+- Never wrap the JSON in prose, explanations, markdown bullets, or any surrounding text.
+- Never output a provider-native tool call even if the model is tempted to do so.
+- After receiving an output, use it to decide the next step.
+- When the task is complete, respond with:
+Final Answer: <answer>
+- Keep the final answer minimal and directly usable for evaluation.
+- If the task cannot be completed, respond with:
+Final Answer: FAILED - <brief reason>
+
+D. Available tools:
+{{ tool_descriptions }}
+
+E. Benchmark-specific instructions:
+{{ benchmark_instructions }}
+
+Now solve the actual task.
+
+Task: {{ instruction }}
+ASSISTANT:

@@ -1,0 +1,31 @@
+# CUGA Agent Settings for BPO Benchmark
+# Model profile: Groq (LLaMA-based models via Groq API)
+#
+# Copy to your CUGA agent config directory or set AGENT_SETTING_CONFIG
+# to point to this file.
+
+[agent.chat.model]
+model_name = "groq/llama-3.3-70b-versatile"
+temperature = 0.0
+max_tokens = 4096
+
+[agent.chat.model.model_kwargs]
+top_p = 1.0
+
+[features]
+memory_enabled = false
+tool_calling_enabled = true
+
+[advanced_features]
+tracker_enabled = true
+force_autonomous_mode = true
+benchmark = "bpo"
+
+[policy]
+enabled = true
+filesystem_sync = false
+auto_load_policies = false
+
+[storage.embedding]
+provider = "sentence-transformers"
+model_name = "all-MiniLM-L6-v2"

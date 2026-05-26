@@ -1,0 +1,262 @@
+# Step 1: Create Spotify account (or check if it already exists)
+result1 = await spotify_signup_account_post(
+    first_name="{supervisor_first_name}",
+    last_name="{supervisor_last_name}",
+    email="{supervisor_email}",
+    password="{supervisor_password}"
+)
+if isinstance(result1, dict) and result1.get("status") == "exception":
+    if result1.get("status_code") == 409:
+        print("Spotify account already exists, continuing...")
+    else:
+        print(f"Spotify signup error: {{result1}}")
+else:
+    print("Spotify signup result:", result1)
+    # Check if account was created and verification code was sent
+    if True:
+        print("Account created. Getting verification code from Gmail...")
+        # Get Spotify verification email from Gmail
+        import re
+        import time
+        # Wait a bit for email to arrive
+        time.sleep(2)
+        gmail_threads = await gmail_show_inbox_threads_email_threads_category_inbox_get(
+            query="is:unread spotify verification",
+            page_index=0,
+            page_limit=5
+        )
+        verification_code = None
+        if isinstance(gmail_threads, list) and len(gmail_threads) > 0:
+            # Get the first unread Spotify verification email thread
+            thread = gmail_threads[0]
+            thread_id = thread.get("email_thread_id")
+            if thread_id:
+                # Get thread details to see email body
+                thread_details = await gmail_show_thread_email_threads_email_thread_id_get(email_thread_id=thread_id)
+                if isinstance(thread_details, dict) and thread_details.get("emails"):
+                    # Get the first email in the thread
+                    email_data = thread_details["emails"][0]
+                    email_body = email_data.get("body", "")
+                    # Extract verification code (alphanumeric, typically 6-8 characters)
+                    # Look for pattern like "verification code is: f3a3c57" or similar
+                    code_match = re.search(r'verification code is:\s*([a-zA-Z0-9]{6,8})', email_body, re.IGNORECASE)
+                    if not code_match:
+                        # Fallback: look for any alphanumeric code after "code is:" or "code:"
+                        code_match = re.search(r'code[\s:]+is[\s:]+([a-zA-Z0-9]{6,8})', email_body, re.IGNORECASE)
+                    if not code_match:
+                        # Last resort: look for alphanumeric string near "verification"
+                        code_match = re.search(r'verification[^\n]*([a-zA-Z0-9]{6,8})', email_body, re.IGNORECASE)
+                    if code_match:
+                        verification_code = code_match.group(1)
+                        print(f"Found verification code: {verification_code}")
+
+        if verification_code:
+            # Verify the account
+            verify_result = await spotify_verify_account_verify_account_post(
+                email="{supervisor_email}",
+                verification_code=verification_code
+            )
+            print(f"Account verification result: {verify_result}")
+
+            # After verification, login to get access token
+            if isinstance(verify_result, dict) and "verified" in verify_result.get("message", "").lower():
+                print("Logging in to Spotify to get access token...")
+                login_result = await spotify_login_auth_token_post(
+                    username="{supervisor_email}",
+                    password="{supervisor_password}",
+                    grant_type="password"
+                )
+                if isinstance(login_result, dict) and login_result.get("access_token"):
+                    print("Successfully logged in to Spotify")
+                else:
+                    print(f"Login result: {login_result}")
+        else:
+            print("Could not find verification code in Gmail. Account may need manual verification.")
+
+# Step 2: Read the music library backup file from ~/backups
+import json
+backup_path = "~/backups"
+print(f"Looking for backup files in: {backup_path}")
+
+# Check if directory exists first, then list files
+backup_files = []
+dir_exists = await file_system_directory_exists_directory_exists_get(directory_path=backup_path)
+if isinstance(dir_exists, dict) and "error" in dir_exists:
+    print(f"Error checking directory existence: {dir_exists.get('error')}")
+    # Try to list files anyway despite the error
+    backup_files = await file_system_show_directory_directory_get(directory_path=backup_path)
+    if isinstance(backup_files, dict) and "error" in backup_files:
+        print(f"Error listing directory: {backup_files.get('error')}")
+        backup_files = []
+    else:
+        print(f"Files in backup directory: {backup_files}")
+elif isinstance(dir_exists, dict) and dir_exists.get("exists") is True:
+    print(f"Directory {backup_path} exists")
+    # List files in the directory
+    backup_files = await file_system_show_directory_directory_get(directory_path=backup_path)
+    if isinstance(backup_files, dict) and "error" in backup_files:
+        print(f"Error listing directory: {backup_files.get('error')}")
+        backup_files = []
+    else:
+        print(f"Files in backup directory: {backup_files}")
+elif isinstance(dir_exists, dict) and dir_exists.get("exists") is False:
+    print(f"Directory {backup_path} does not exist")
+else:
+    # Unknown response format, try to list files anyway
+    backup_files = await file_system_show_directory_directory_get(directory_path=backup_path)
+    if isinstance(backup_files, dict) and "error" in backup_files:
+        print(f"Error listing directory: {backup_files.get('error')}")
+        backup_files = []
+    else:
+        print(f"Files in backup directory: {backup_files}")
+
+# Find the music library file (assuming it's a text file)
+music_file = None
+if backup_files and isinstance(backup_files, list):
+    for file_path in backup_files:
+        if isinstance(file_path, str) and (file_path.endswith(".txt") or file_path.endswith(".json") or file_path.endswith(".csv")):
+            music_file = file_path
+            break
+        # If it's a full path string, check if it ends with text file extension
+        if isinstance(file_path, str) and "/" in file_path:
+            if file_path.endswith((".txt", ".json", ".csv")):
+                music_file = file_path
+                break
+
+if not music_file and backup_files and isinstance(backup_files, list) and len(backup_files) > 0:
+    # Use the first file found
+    music_file = backup_files[0]
+
+if music_file:
+    print(f"Reading music library from: {music_file}")
+    file_response = await file_system_show_file_file_get(file_path=music_file)
+    if isinstance(file_response, dict) and "error" in file_response:
+        print(f"Error reading file: {file_response.get('error')}")
+        file_content = ""
+    elif isinstance(file_response, dict):
+        file_content = file_response.get("content", "")
+    else:
+        file_content = str(file_response)
+    if file_content:
+        print(f"File content preview: {str(file_content)[:200]}")
+
+    # Parse the file content (assuming it contains songs, albums, playlists)
+    # This is a simplified parser - adjust based on actual file format
+    songs = []
+    albums = []
+    playlists = []
+
+    # Try to parse as JSON first
+    try:
+        if isinstance(file_content, str):
+            data = json.loads(file_content)
+        else:
+            data = file_content
+
+        if isinstance(data, dict):
+            songs = data.get("songs", data.get("tracks", []))
+            albums = data.get("albums", [])
+            playlists = data.get("playlists", [])
+        elif isinstance(data, list):
+            songs = data
+    except:
+        # If not JSON, try to parse as text
+        if isinstance(file_content, str):
+            lines = file_content.split("\n")
+            for line in lines:
+                line = line.strip()
+                if line and not line.startswith("#"):
+                    # Simple parsing - adjust based on format
+                    if "|" in line:
+                        parts = line.split("|")
+                        if len(parts) >= 2:
+                            songs.append({"name": parts[0].strip(), "artist": parts[1].strip()})
+                    else:
+                        songs.append({"name": line})
+
+    print(f"Found {len(songs)} songs, {len(albums)} albums, {len(playlists)} playlists")
+
+    # Step 3: Add songs to Spotify library
+    if songs:
+        for song in songs[:10]:  # Limit to first 10 for example
+            song_name = song.get("name") or song.get("title") or str(song)
+            artist = song.get("artist") or song.get("artist_name") or ""
+            try:
+                # Search for the song using Spotify search
+                search_result = await spotify_search_songs_songs_get(query=f"{song_name} {artist}".strip(), page_index=0, page_limit=1)
+                if search_result and isinstance(search_result, list) and len(search_result) > 0:
+                    song_data = search_result[0]
+                    song_id = song_data.get("song_id")
+                    if song_id:
+                        # Add to library
+                        add_result = await spotify_add_song_to_library_library_songs_song_id_post(song_id=song_id)
+                        print(f"Added song: {song_name}")
+            except Exception as e:
+                print(f"Error adding song {song_name}: {e}")
+
+    # Step 4: Add albums to Spotify library
+    if albums:
+        for album in albums[:5]:  # Limit to first 5 for example
+            album_name = album.get("name") or album.get("title") or str(album)
+            artist = album.get("artist") or album.get("artist_name") or ""
+            try:
+                # Search for the album
+                search_result = await spotify_search_albums_albums_get(query=f"{album_name} {artist}".strip(), page_index=0, page_limit=1)
+                if search_result and isinstance(search_result, list) and len(search_result) > 0:
+                    album_data = search_result[0]
+                    album_id = album_data.get("album_id")
+                    if album_id:
+                        # Add to library
+                        add_result = await spotify_add_album_to_library_library_albums_album_id_post(album_id=album_id)
+                        print(f"Added album: {album_name}")
+            except Exception as e:
+                print(f"Error adding album {album_name}: {e}")
+
+    # Step 5: Create playlists and add tracks
+    if playlists:
+        for playlist_info in playlists[:3]:  # Limit to first 3 for example
+            playlist_name = playlist_info.get("name") or playlist_info.get("title") or "My Playlist"
+            playlist_tracks = playlist_info.get("tracks", playlist_info.get("songs", []))
+
+            try:
+                # Create playlist
+                create_result = await spotify_create_playlist_playlists_post(name=playlist_name, description="Migrated from backup")
+                if create_result and isinstance(create_result, dict):
+                    playlist_id = create_result.get("playlist_id")
+                    if playlist_id and playlist_tracks:
+                        # Add tracks to playlist
+                        song_ids = []
+                        for track_info in playlist_tracks[:20]:  # Limit to 20 tracks per playlist
+                            track_name = track_info.get("name") or track_info.get("title") or str(track_info)
+                            artist = track_info.get("artist") or track_info.get("artist_name") or ""
+                            try:
+                                search_result = await spotify_search_songs_songs_get(query=f"{track_name} {artist}".strip(), page_index=0, page_limit=1)
+                                if search_result and isinstance(search_result, list) and len(search_result) > 0:
+                                    song_ids.append(search_result[0].get("song_id"))
+                            except:
+                                pass
+
+                        if song_ids:
+                            add_tracks_result = await spotify_add_songs_to_playlist_playlists_playlist_id_songs_post(
+                                playlist_id=playlist_id,
+                                song_ids=song_ids
+                            )
+                            print(f"Created playlist '{playlist_name}' with {len(song_ids)} tracks")
+            except Exception as e:
+                print(f"Error creating playlist {playlist_name}: {e}")
+else:
+    print("No music library file found in ~/backups")
+
+# Step 6: Check Gmail for verification code (if account creation requires it)
+try:
+    result2 = await gmail_show_inbox_threads_email_threads_category_inbox_get(
+        query="is:unread spotify",
+        page_index=0,
+        page_limit=5
+    )
+    if isinstance(result2, dict) and "error" in result2:
+        print(f"Error checking Gmail: {result2.get('error')}")
+    else:
+        print("Gmail inbox result (Spotify emails):", result2)
+except Exception as e:
+    print(f"Error checking Gmail: {e}")

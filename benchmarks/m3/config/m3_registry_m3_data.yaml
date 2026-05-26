@@ -1,0 +1,82 @@
+# M3 Benchmark - Registry config paired with --m3-data mode.
+#
+# Lists the capabilities that the M3 data loader currently understands and the
+# domains they cover. Domains present in the config but missing from --m3-data
+# are skipped automatically; domains in --m3-data but missing here cannot be
+# run because the registry has no tools for them (add them to the relevant
+# service below).
+#
+# Capabilities:
+#   task_id=2 → container `capability_2_dashboard_apis`
+#   task_id=3 → container `capability_3_multihop_reasoning`
+#
+# Usage:
+#   ./benchmarks/m3/eval.sh --m3-data                        # default zip
+#   ./benchmarks/m3/eval.sh --m3-data /path/to/data_dir/     # any directory
+#   ./benchmarks/m3/eval.sh --m3-data /path/to/other.zip
+
+services:
+
+  - m3_task_2:
+      transport: "stdio"
+      type: "mcp"
+      description: "M3 Task 2 environment"
+
+      command: "${CONTAINER_RUNTIME}"
+      args:
+        - "exec"
+        - "-i"
+        - "-e"
+        - "MCP_DOMAIN={domain}"
+        - "-e"
+        - "CAPABILITY_ID=2"
+        - "capability_2_dashboard_apis"
+        - "python3"
+        - "/app/mcp_dispatch.py"
+
+      metadata:
+        task_id: 2
+        container: "capability_2_dashboard_apis"
+        domains:
+          - "authors"
+          - "books"
+          - "codebase_comments"
+          - "hockey"
+          - "mondial_geo"
+          - "movie_platform"
+          - "professional_basketball"
+          - "soccer_2016"
+          - "student_loan"
+          - "talkingdata"
+
+  - m3_task_3:
+      transport: "stdio"
+      type: "mcp"
+      description: "M3 Task 3 environment"
+
+      command: "${CONTAINER_RUNTIME}"
+      args:
+        - "exec"
+        - "-i"
+        - "-e"
+        - "MCP_DOMAIN={domain}"
+        - "-e"
+        - "CAPABILITY_ID=3"
+        - "capability_3_multihop_reasoning"
+        - "python3"
+        - "/app/mcp_dispatch.py"
+
+      metadata:
+        task_id: 3
+        container: "capability_3_multihop_reasoning"
+        domains:
+          - "beer_factory"
+          - "books"
+          - "college_completion"
+          - "computer_student"
+          - "disney"
+          - "mondial_geo"
+          - "soccer_2016"
+          - "trains"
+          - "university"
+          - "world_development_indicators"

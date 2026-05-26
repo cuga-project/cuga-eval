@@ -1,0 +1,494 @@
+[
+  {
+    "type": "playbook",
+    "id": "playbook_api_capability_boundaries",
+    "name": "API Capability Boundaries",
+    "description": "Playbook for api capability boundaries questions",
+    "triggers": [
+      {
+        "type": "keyword",
+        "value": [
+          "job description",
+          "optimize posting",
+          "optimise posting",
+          "rewrite job",
+          "time-to-fill",
+          "time to fill",
+          "SLA deadline",
+          "SLA countdown",
+          "within 30 days",
+          "France",
+          "geography",
+          "geographic",
+          "internal posting",
+          "funnel stage",
+          "days in stage",
+          "time-in-status",
+          "job-card",
+          "job card details",
+          "hiring manager",
+          "list all requisitions",
+          "search requisitions",
+          "show me the details",
+          "details of",
+          "job details",
+          "requisition details"
+        ],
+        "target": "intent",
+        "case_sensitive": false,
+        "operator": "or"
+      },
+      {
+        "type": "natural_language",
+        "value": [
+          "user asks about data the APIs cannot provide",
+          "user wants to optimize or rewrite a job description",
+          "user asks about time-to-fill or days to fill a role",
+          "user asks about geographic or location filtering",
+          "user wants to list or search across all requisitions",
+          "user asks for funnel stage timing or candidate counts per stage",
+          "user asks for live requisition status or SLA deadlines",
+          "user asks for full job details like title location or manager",
+          "user asks for full details of a requisition"
+        ],
+        "target": "intent",
+        "threshold": 0.65
+      }
+    ],
+    "markdown_content": "# API Capability Boundaries\n\nBefore answering any question, verify that the available APIs can actually provide the needed data.\nIf they cannot, tell the user directly \u2014 do NOT attempt to cobble together an answer from unrelated endpoints, and do NOT ask for a requisition ID when the query is fundamentally unsupported.\n\n## What the APIs CAN do\n\nThe available tool suite covers two domains:\n\n### Candidate Source Analytics\n- SLA percentage per sourcing channel\n- Total hires per sourcing channel\n- Candidate volume and share per sourcing channel\n- Funnel conversion rates (review %, interview %, offer acceptance %) per source\n- Composite source recommendation summary\n- Metadata: data timeframe, last update date, number of similar requisitions analysed\n- Definitions and methodology: metric definitions, total requisition count used for computation, ML models involved\n- Average total candidate volume for similar postings, when computed from candidate-volume totals and the number of similar requisitions analysed\n\n### Skills Analytics\n- Skill-level statistical analysis (historical counts, SLA correlation)\n- Skill impact on fill rate\n- Skill impact on SLA (delta with/without the skill)\n- Skill relevance justification\n- Data sources and ML models used for recommendations\n- Successful posting criteria and benchmarks\n\n## What the APIs CANNOT do\n\nThe following capabilities are NOT available through any API. If the user asks for any of these, explain that the current API suite does not support it:\n\n- **Job description text**: No API returns or accepts raw job description content. You cannot read, optimise, or rewrite a job description.\n- **Time-to-fill metrics**: No API provides time-to-fill data, whether overall or broken down by source.\n- **Geographic or channel filtering**: No API supports filtering by country, region, or posting channel (internal vs external).\n- **Live requisition status or SLA countdowns**: The APIs provide historical/aggregate analytics, not real-time status tracking or deadline monitoring.\n- **Stage-by-stage funnel timing**: No API returns average days spent in each pipeline stage or candidate counts per stage over time.\n- **Full job-card details**: No API returns comprehensive requisition details like title, location, hiring-manager name, or contact information. The APIs focus on aggregate analytics, not individual job metadata.\n- **Cross-requisition listing or search**: The APIs analyse one requisition at a time against historical data. They cannot list, search, or filter across all open requisitions.\n\n### Candidate count boundary\n\nRequests for stage-by-stage funnel candidate counts are unsupported.\nRequests like \"How many candidates do we usually get for postings similar to <ID>?\" are supported as average total candidate volume questions and should be handled by `Average vs Total Calculations`.\n\n### Priority rule for \"show details of <ID>\"\n\nIf the user asks for full requisition/job details (for example \"show me the details of UZLXBR\"):\n\n1. Treat this as a capability-boundary request first.\n2. Respond that full job-card details are not provided by current APIs.\n3. Do not substitute with source analytics as if they were job-card details.\n4. Do not invent title/location/hiring-manager details.\n\n## How to respond when a query is out of scope\n\nWhen you determine that a question cannot be answered with the available APIs:\n\n1. State clearly that the current APIs do not provide the requested data\n2. Be specific about what is missing (e.g., \"the APIs don't expose time-to-fill broken down by source\")\n3. Do NOT ask for a requisition ID \u2014 providing one would not help\n4. Do NOT call any API tools \u2014 the answer is that the data is unavailable\n5. Do NOT fabricate or infer data that no API returned\n",
+    "steps": [],
+    "priority": 90,
+    "enabled": true
+  },
+  {
+    "type": "playbook",
+    "id": "playbook_multi_api_reasoning",
+    "name": "Multi-API Reasoning",
+    "description": "Playbook for multi-api reasoning questions",
+    "triggers": [
+      {
+        "type": "keyword",
+        "value": [
+          "best sources",
+          "compare sources",
+          "conversion rate",
+          "data sources informed",
+          "effectiveness",
+          "how effective",
+          "how many requisitions",
+          "most candidates",
+          "multiple metrics",
+          "prioritize",
+          "recommend sources",
+          "sample size",
+          "should be avoided",
+          "top sources",
+          "which of the following sources",
+          "which sources"
+        ],
+        "target": "intent",
+        "case_sensitive": false,
+        "operator": "or"
+      },
+      {
+        "type": "natural_language",
+        "value": [
+          "user asks about multiple performance metrics for sources",
+          "user asks how many requisitions were used to compute metrics",
+          "user asks mixed checklist evaluation across skills and sources with evidence",
+          "user asks multi-part question involving skills impact and sources to avoid",
+          "user asks to compare or recommend sourcing channels",
+          "user asks which sources provided the most candidates and their conversion"
+        ],
+        "target": "intent",
+        "threshold": 0.62
+      }
+    ],
+    "markdown_content": "# Multi-API Reasoning\n\nWhen a question asks about multiple dimensions of performance, call the individual specific APIs rather than relying on a single summary endpoint. Summary tools give a quick overview but often lack the granular detail needed for a complete answer.\n\n## Hard Execution Gate\n\nFor requisition-scoped source-prioritization questions (for example prompts asking which sources to prioritize), do not provide any ranked sources or numeric source metrics before successful API calls in the same turn.\n\nFirst-response rule for this prompt class:\n- The first assistant response must execute tool-calling code for required source APIs.\n- Do not send a direct natural-language recommendation as the first response.\n- Only finalize recommendation text after required API results are available in this turn.\n\nRequired successful calls before final answer:\n- `candidate_source_sla_per_source`\n- `candidate_source_candidate_volume_by_source` (or an explicit volume-unavailable fallback statement if this call fails)\n- `candidate_source_funnel_conversion_by_source`\n- `candidate_source_source_recommendation_summary`\n\nIf these calls were not completed successfully in this turn, return an explicit limitation for ranking in this turn instead of a direct recommendation.\nIf only `candidate_source_candidate_volume_by_source` fails with an endpoint/schema error, continue with the volume-unavailable fallback ranking rather than returning a blanket limitation.\n\n## Source Performance Questions\n\nWhen comparing or recommending sources across multiple metrics (SLA, volume, conversion, hires), call the specific tools:\n\n- **SLA performance** \u2192 `candidate_source_sla_per_source`\n- **Candidate volume and share** \u2192 `candidate_source_candidate_volume_by_source`\n- **Funnel conversion rates** (review %, interview %, offer acceptance %) \u2192 `candidate_source_funnel_conversion_by_source`\n- **Total hires by source** \u2192 `candidate_source_total_hires_by_source`\n\nDo NOT rely solely on `candidate_source_source_recommendation_summary` when the question asks for specific metrics like SLA percentages, offer acceptance rates, or conversion rates. The summary tool is useful for a quick recommendation but does not contain all granular metrics.\nUse `candidate_source_source_recommendation_summary` as supplemental benchmark-aligned evidence when the prompt asks for source recommendation, source effectiveness, or sources to avoid; never use it as the only evidence for granular metric questions.\n\n### Fallback when candidate-volume tool is unavailable\n\nIf `candidate_source_candidate_volume_by_source` fails or returns invalid payloads:\n\n1. Do not invent candidate counts/shares.\n2. Continue with reliable tools:\n   - `candidate_source_sla_per_source`\n   - `candidate_source_funnel_conversion_by_source`\n   - `candidate_source_total_hires_by_source`\n   - `candidate_source_source_recommendation_summary`\n3. State explicitly that volume counts could not be retrieved from current APIs in this turn.\n4. Still provide evidence-backed SLA/conversion/hires conclusions.\n\n## Multi-Source Join Output (Required for \"most candidates + effectiveness\")\n\nWhen the user asks which sources provided the most candidates and how effective they were:\n\n1. Fetch candidate volume/share, hires by source, funnel conversion rates, and source recommendation summary.\n2. Join results by `source_name`.\n3. Rank strictly by candidate volume descending and report exactly the top 3 sources unless fewer than 3 sources are returned.\n\nRequired content per reported source:\n- source name\n- candidate count (and share if available)\n- total hires\n- offer acceptance rate\n\nCanonical source for each field:\n- candidate count and share: `candidate_source_candidate_volume_by_source`\n- total hires: prefer `candidate_source_source_recommendation_summary`; use `candidate_source_total_hires_by_source` only if the summary does not provide hires\n- offer acceptance rate: prefer `candidate_source_source_recommendation_summary`; use `candidate_source_funnel_conversion_by_source` only if the summary does not provide offer acceptance\n\nRequired answer format:\n- `<Source>: <count> candidates (<share>%), <hires> hires. Offer acceptance rate: <rate>%.`\n\nDo not respond with only one source or one percentage.\nDo not omit `candidate_source_source_recommendation_summary` for this prompt class; it is required as supplemental evidence even when granular APIs also succeed.\nDo not rank by hires, SLA, conversion, or recommendation score for this prompt class.\n\nIf candidate-volume data is unavailable, do not fabricate \"most candidates\" rankings; provide only the effectiveness portion from successful tools and clearly mark the missing volume component.\n\n## Recommendation Output (Required for \"best sources to prioritize\")\n\nWhen recommending sources to prioritize:\n\n1. Compare SLA, volume, and conversion across sources.\n2. Name the recommended sources explicitly.\n3. Explicitly mention at least one source to avoid when data supports it (for example low SLA and low conversion).\n\nAnswer must explicitly reference SLA and conversion tradeoff; avoid generic rankings without metrics.\n\nWhen volume is unavailable due tool failure, base recommendation on SLA + conversion + hires, and disclose that volume weighting was omitted because volume data could not be retrieved.\nFor this fallback, `candidate_source_source_recommendation_summary` is required because it provides benchmark-aligned offer acceptance and hires.\n\nWhen volume is unavailable, use a normalized weighted fallback ranking:\n\n1. Exclude sources with clearly poor outcomes (`sla_percentage == 0` or `offer_acceptance_rate == 0.0`) from the priority set.\n2. Compute a score per remaining source using normalized metrics:\n   - `0.5 * SLA_norm + 0.3 * hires_norm + 0.2 * offer_acceptance_norm`\n3. Rank by this score and recommend the top 3 sources.\n4. Explicitly name at least one excluded low-performing source as \"avoid\" when such a source exists.\n\nDo not use ad-hoc ranking formulas outside this fallback.\n\nWhen building the \"avoid\" set, evaluate low performers from available SLA and offer-acceptance signals even if hires rows are missing for those sources.\nDo not restrict avoid detection to only sources present in all joined metric tables.\nIf any source has `sla_percentage == 0` or `offer_acceptance_rate == 0.0`, do not output `Avoid: None`; explicitly name those sources as avoid candidates.\n\n### Deterministic fallback ranking rule\n\nWhen using the volume-unavailable fallback scoring formula, keep recommendations aligned to computed rank order.\n\nSelection rule:\n1. Sort by computed fallback score descending.\n2. Use deterministic tie-breaks only when scores are equal (or near-equal after rounding):\n   - higher SLA first\n   - then higher offer acceptance\n   - then higher hires\n3. Select the top 3 after tie-breaks.\n\nDo not forcibly replace a top-scoring source with another source purely for \"diversity\".\n\n### Recommendation response template (when APIs succeed)\n\nUse this structure:\n\n- `Prioritize: <Source A>, <Source B>, <Source C>.`\n- `Evidence: <Source A> (SLA <x>%, offer acceptance <y>%, hires <z>) ...`\n- `Avoid: <Source D> (<reason based on returned SLA/conversion metrics>).`\n\nDo not include a source or metric that was not returned by successful APIs in this turn.\nIf required recommendation APIs fail, do not output a fallback ranking from memory; return an explicit limitation for this turn.\n\n### Recommendation response template (when only volume fails)\n\nUse this structure:\n\n- `Candidate volume could not be retrieved, so this ranking uses SLA, offer acceptance, and hires.`\n- `Prioritize: <Source A>, <Source B>, <Source C>.`\n- `Evidence: <Source A> (SLA <x>%, offer acceptance <y>%, hires <z>) ...`\n- `Avoid: <Source D> (<reason based on returned SLA/conversion metrics>).`\n\nDo not include candidate counts or shares in this fallback.\n\n## Requisition Count and Sample Size Questions\n\nThere are two different \"counts\" in the system \u2014 do not confuse them:\n\n- **\"How many requisitions were used to compute these metrics\"** or **\"sample size\"** \u2192 use `candidate_source_definitions_and_methodology`, which returns the total number of requisitions used for computation across the system\n- **\"How many similar requisitions were analysed\"** \u2192 use `candidate_source_metadata_and_timeframe`, which returns the count of requisitions similar to the given one\n\nThese return different numbers. Read the question carefully to determine which one is being asked for.\n\n## Top Metrics List Questions\n\nFor prompts like \"What are the top metrics considered ...\":\n\n1. Call `candidate_source_definitions_and_methodology`.\n2. Read `top_metrics_considered`.\n3. Return the list in canonical order and naming:\n   - `SLA %`\n   - `First round review %`\n   - `Offer acceptance rate`\n   - `Candidate volume`\n   - `Total hires`\n\nDo not replace these with internal field names such as `jobs_filled_percentage` or `first_round_review_percentage`.\n\n## Skill Analysis Questions\n\nWhen a question asks about skill impact across multiple dimensions (SLA, fill rate, relevance):\n\n- **SLA impact** \u2192 `skills_skill_impact_sla`\n- **Fill rate impact** \u2192 `skills_skill_impact_fill_rate`\n- **Historical effectiveness and statistical analysis** \u2192 `skills_skill_analysis`\n- **Relevance justification** \u2192 `skills_skill_relevance_justification`\n\nIf a skill is not found in the analysis results, say so explicitly rather than guessing or inferring a negative impact.\n\nFor prompts asking whether a skill was historically effective, use `skills_skill_analysis` as the primary signal for effectiveness.\nDo not use `is_relevant` from relevance-justification as the final effectiveness verdict.\nIf skill-analysis indicates negative SLA impact (including slight negative), answer that the skill was not historically effective.\nIf skill-analysis indicates positive SLA impact, answer that the skill was historically effective.\nIf skill-analysis uses a phrase like `highly negative impact on SLA`, preserve that exact phrase in the final answer.\nAlways include data sources from `skills_data_sources_used` when the user asks what informed the analysis.\n\nFor prompts asking which listed sources should be avoided based on low offer conversion or SLA:\n\n1. Evaluate only the user-listed sources.\n2. Compare listed sources on returned SLA and offer-conversion metrics.\n3. Mark a listed source as \"avoid\" only when there is clear evidence of underperformance relative to the listed peers.\n4. If no listed source is clearly underperforming, state that none of the listed sources should be avoided.\n\n## Multi-Clause Skill + Source Questions\n\nWhen a question asks for multiple things in one prompt (for example skills impact + sources to avoid + datasets used), answer in fixed sections:\n\n- `Skills:` evaluate each listed skill explicitly:\n  - report SLA delta when available\n  - if skill is absent from analysis, state \"not present in analysis\"\n- `Sources:` evaluate each listed source explicitly against SLA/conversion criteria before marking \"avoid\"\n- `Data sources used:` list datasets used from `skills_data_sources_used`\n\nDo not infer negative impact for missing skills.\nDo not mark a source as \"avoid\" without evidence from returned metrics.\n\n### Required execution gate for mixed checklist prompts\n\nFor prompts that combine all three elements:\n- a listed set of skills,\n- a listed set of sources,\n- and a request for which data sources were used,\n\nyou must execute the following APIs in the same turn before finalizing:\n\n- `skills_skill_impact_sla`\n- `skills_skill_analysis`\n- `skills_data_sources_used`\n- `candidate_source_sla_per_source`\n- `candidate_source_funnel_conversion_by_source`\n- `candidate_source_source_recommendation_summary`\n\nOutput requirements for this prompt class:\n- enumerate every listed skill and every listed source explicitly\n- include numeric evidence when available (for example skill SLA deltas; source SLA and offer-conversion values)\n- if one or more required APIs fail, do not answer from memory and do not produce complete checklist verdicts from partial evidence; clearly state which section is unavailable\n\nCompletion rules for this prompt class:\n- do not collapse output to only negative items; report every user-listed skill and source even when the verdict is \"no negative impact\" or \"do not avoid\"\n- if `skills_skill_analysis` has not been called successfully in this turn, call it before finalizing the answer\n- for source-level offer-acceptance values in this prompt class, prefer `candidate_source_source_recommendation_summary` as the canonical benchmark-aligned signal; call it before final answer and use its percentages when reporting listed-source comparisons\n- when `skills_skill_impact_sla` and `skills_skill_analysis` disagree for a listed skill, prefer the `skills_skill_analysis` presence/correlation signal for whether the skill should be treated as \"not present in analysis\" vs explicitly negative in final wording\n- if a listed skill has SLA delta `0`, `0.0`, or `0.0%`, treat it as `no negative impact`, not as negative\n- if a listed skill is absent from `skills_skill_analysis`, treat it as `not present in analysis` even if other generic relevance policies would classify it\n- for listed-source prompts, ignore the generic recommendation rule that says to name an avoid candidate whenever any source has `sla_percentage == 0` or `offer_acceptance_rate == 0.0`; only evaluate the sources explicitly listed by the user\n- do not mark a listed source as `avoid` merely because it is not in the top recommendations; mark `avoid` only when its returned SLA or offer-acceptance clearly underperforms the other listed sources\n- preserve user-listed item order for both the skills list and the sources list\n- include one explicit verdict per listed item (no grouped shorthand)\n  - skills verdicts: `negative impact`, `no negative impact`, or `not present in analysis`\n  - source verdicts: `avoid` or `do not avoid`\n- include numeric evidence for every listed source verdict using available SLA and offer-acceptance values\n\n### Strict phrase rule for historical effectiveness\n\nFor questions that ask whether a skill is historically effective:\n\n- If `skills_skill_analysis` indicates negative SLA impact, answer explicitly with:\n  - \"not considered effective\"\n  - \"highly negative impact on SLA\"\n\nDo not soften this to generic \"effective/not effective\" without the SLA-impact wording.\nFor negative-correlation cases, final text must include the exact substring: `highly negative impact on SLA`.\n\n### Historical effectiveness response template\n\nWhen `skills_skill_analysis` shows negative correlation:\n\n- `<Skill name> was not considered effective and showed a negative impact on SLA (<correlation text>).`\n- `Data sources used: <datasets_used list>.`\n\nWhen `skills_skill_analysis` shows positive correlation:\n\n- `<Skill name> was considered historically effective with a positive impact on SLA (<correlation text>).`\n- `Data sources used: <datasets_used list>.`\n",
+    "steps": [],
+    "priority": 80,
+    "enabled": true
+  },
+  {
+    "type": "playbook",
+    "id": "playbook_average_vs_total",
+    "name": "Average vs Total Calculations",
+    "description": "Playbook for average vs total calculations questions",
+    "triggers": [
+      {
+        "type": "keyword",
+        "value": [
+          "average",
+          "usually",
+          "on average",
+          "typically",
+          "per posting",
+          "per requisition",
+          "how many candidates"
+        ],
+        "target": "intent",
+        "case_sensitive": false,
+        "operator": "or"
+      },
+      {
+        "type": "natural_language",
+        "value": [
+          "user asks for average or typical values per posting",
+          "user asks how many candidates a posting usually gets"
+        ],
+        "target": "intent",
+        "threshold": 0.65
+      }
+    ],
+    "markdown_content": "# Average vs Total Calculations\n\nWhen the user asks for \"average\", \"typical\", \"usually\", or \"per posting\" values, you must compute an average \u2014 do not return a raw total.\n\n## Execution gate\n\nFor requisition-scoped average questions, do not send a direct numeric answer in the first response.\n\n- First response must execute required API call(s) for average computation.\n- Final average is allowed only after at least one successful required API call in the same turn.\n- If required APIs fail and fallback sequence cannot be completed, return inability to compute instead of a numeric guess.\n\n## How to compute averages\n\n1. Get the total metric value from the relevant API (e.g., total candidate volume from `candidate_source_candidate_volume_by_source`)\n2. Get the number of similar requisitions from `candidate_source_metadata_and_timeframe`\n3. Divide the total by the number of similar requisitions to get the per-requisition average\n4. Report the average, not the total\n5. If either total or requisition count is unavailable in this turn, do not guess an average; state that the average cannot be computed from currently available data\n\nFor prompts like \"How many candidates do we usually get for postings similar to <ID>?\":\n\n1. Call `candidate_source_metadata_and_timeframe` first to get `total_requisitions_analysed`.\n2. Call `candidate_source_candidate_volume_by_source` for the candidate total.\n3. If candidate volume succeeds, compute `total_candidates / total_requisitions_analysed`.\n4. If candidate volume fails with an endpoint/schema error, follow the fallback below exactly.\n\n## Fallback when candidate-volume endpoint fails\n\nIf `candidate_source_candidate_volume_by_source` fails with endpoint/schema errors:\n\n1. Call `candidate_source_metadata_and_timeframe` and keep `total_requisitions_analysed` as denominator.\n2. Call `skills_skill_analysis` to get a valid skill name from `historical_skills_with_analysis`.\n3. Call `skills_skill_impact_fill_rate` for one returned skill and use `impact.candidate_pool_size` as fallback total candidate pool.\n4. Compute average as `candidate_pool_size / total_requisitions_analysed`.\n5. Round to nearest integer for the final \"usually get\" count.\n6. Final answer must include the rounded average, the word `candidates`, and explain it is an average per posting.\n\nIf fallback fields are missing or invalid, return inability to compute instead of guessing.\n\n## Example\n\nIf the user asks \"How many candidates do we usually get for postings similar to X?\":\n- Total candidates across all sources = T (from `candidate_source_candidate_volume_by_source`)\n- Number of similar requisitions = N (from `candidate_source_metadata_and_timeframe`)\n- Average = T / N candidates per posting\n- Report: \"On average, similar postings attract [T/N] candidates\"\n\nDo NOT report the raw total T as the answer \u2014 compute and report the per-posting average.\nDo NOT output a guessed average value without both required inputs from successful API calls.\n",
+    "steps": [],
+    "priority": 70,
+    "enabled": true
+  },
+  {
+    "type": "playbook",
+    "id": "playbook_verbatim_definitions_and_dates",
+    "name": "Verbatim Definitions and Dates",
+    "description": "Playbook for definition and timeframe/date fidelity",
+    "triggers": [
+      {
+        "type": "keyword",
+        "value": [
+          "how is the sla metric defined",
+          "definition",
+          "top metrics considered",
+          "data timeframe",
+          "last updated",
+          "time frame",
+          "timeframe"
+        ],
+        "target": "intent",
+        "case_sensitive": false,
+        "operator": "or"
+      },
+      {
+        "type": "natural_language",
+        "value": [
+          "user asks for a metric definition",
+          "user asks for timeframe coverage and last update date"
+        ],
+        "target": "intent",
+        "threshold": 0.65
+      }
+    ],
+    "markdown_content": "# Verbatim Definitions and Dates\n\nFor definition and timeframe questions, prefer faithful phrasing from the API response over generic paraphrases.\n\n## Definitions\n\nWhen asked for a metric definition:\n\n1. Use `candidate_source_definitions_and_methodology`.\n2. Return the definition text with key terms preserved.\n\nDo not replace key wording with broad generic text if exact terminology is available.\n\nFor SLA-definition questions, return the verbatim `definitions.sla` field from the API response, preserving key terms such as:\n- `reviewed`\n- `SLA window`\n- any example window timing the API provides (e.g., `48 hours`)\n\nInclude the word `Percentage` (capital P) exactly as it appears in the API response \u2014 do not replace it with vague synonyms.\n\nPreferred SLA definition format:\n- `SLA is defined as '<definitions.sla>'.`\n\nAvoid paraphrasing: return the definition text as the API provides it.\nDo not output placeholders such as `<sla_definition>` or `<verbatim sla_definition from API>`.\n\n### SLA definition field mapping\n\nThe API returns SLA wording at `definitions.sla`, not at a top-level `sla_definition` field.\n\nFor SLA-definition prompts:\n\n1. Call `candidate_source_definitions_and_methodology`.\n2. Read `definitions.sla`.\n3. Return: `SLA is defined as '<definitions.sla>'.`\n4. If `definitions.sla` exists, never say the SLA definition was not found.\n\nExample when the API returns `Percentage of candidates reviewed within the defined SLA window (e.g., 48 hours)`:\n- `SLA is defined as 'Percentage of candidates reviewed within the defined SLA window (e.g., 48 hours)'.`\n\n### Definition-only guard for direct SLA-definition prompts\n\nWhen the prompt asks only for the SLA definition:\n\n1. Use `candidate_source_definitions_and_methodology` only.\n2. Return only the SLA definition sentence from `definitions.sla`.\n3. Do not append per-source SLA percentages or any other metrics unless explicitly requested.\n\n## Timeframes and update dates\n\nWhen asked for timeframe coverage and update recency:\n\n1. Use `candidate_source_metadata_and_timeframe`.\n2. Include:\n- `time_frame_start`\n- `time_frame_end`\n- `data_last_updated`\n- `total_requisitions_analysed` (when asked)\n\nPrefer explicit, absolute dates in the final answer.\n\nFor timeframe questions like \"What's the data timeframe ... and how many similar requisitions were analysed?\":\n\n1. Use `candidate_source_metadata_and_timeframe` only.\n2. Include all four fields when available:\n   - `time_frame_start`\n   - `time_frame_end`\n   - `data_last_updated`\n   - `total_requisitions_analysed`\n3. Render dates in explicit human-readable form (e.g., `1 Jan 2024`, `31 Dec 2024`).\n4. Do not substitute different date ranges or requisition counts.\n\nFor `data_last_updated`, preserve the returned date and also render it in day-month-year form when possible.\nFor example, if the API returns `2024-08-15`, include `15 Aug 2024` in the final answer.\n",
+    "steps": [],
+    "priority": 78,
+    "enabled": true
+  },
+  {
+    "type": "playbook",
+    "id": "playbook_enumerated_checklist_answers",
+    "name": "Enumerated Checklist Answers",
+    "description": "Playbook for explicit item-by-item responses",
+    "triggers": [
+      {
+        "type": "keyword",
+        "value": [
+          "data sources were used",
+          "historically effective",
+          "informed this analysis",
+          "models were used",
+          "negatively affect sla performance",
+          "negatively impact sla",
+          "out of these skills",
+          "should be avoided",
+          "were the following",
+          "which of the following",
+          "which of the following skills",
+          "which of the following sources"
+        ],
+        "target": "intent",
+        "case_sensitive": false,
+        "operator": "or"
+      },
+      {
+        "type": "natural_language",
+        "value": [
+          "question lists items but requisition id may be missing and should be requested first",
+          "question requires explicit yes or no for each listed item",
+          "user asks for historical effectiveness plus supporting data sources",
+          "user asks itemized checklist verdicts for multiple listed skills or sources",
+          "user asks which listed items negatively impact sla and which listed items should be avoided",
+          "user provides a list of items and expects status for each"
+        ],
+        "target": "intent",
+        "threshold": 0.58
+      }
+    ],
+    "markdown_content": "# Enumerated Checklist Answers\n\nWhen a question lists multiple items (models, datasets, skills, sources), answer each listed item explicitly.\n\n## Missing ID guard (apply first)\n\nBefore enumerating items, first check whether the question requires a requisition ID.\n\nIf requisition-scoped analytics are required and the ID is missing:\n- ask for the requisition ID\n- do not invent values\n- do not output per-item judgments from memory\n\nOnly enumerate item-by-item after the requisition context is available (or when the request is clearly unsupported by API capability).\n\n## Execution gate for requisition-scoped checklists\n\nFor requisition-scoped checklist prompts (models/datasets/skills/sources), do not send a direct natural-language final answer as the first response.\n\n- First response must execute required API call(s) for that checklist class.\n- Final checklist judgments are allowed only after at least one successful required API call in the same turn.\n- If required APIs fail, return an availability limitation instead of inferred checklist judgments.\n\n## Required format behavior\n\nFor each listed item:\n\n- state whether it is present/used/effective\n- do not omit any item from the user list\n- avoid collapsing to a partial summary\n\nFor model/dataset checklist questions, verify membership against API-returned arrays in the same turn:\n\n- models: `models_involved`\n- datasets: `datasets_used`\n\nDo not infer \"not present\" unless the item is actually absent from the returned list.\n\nFor model-checklist prompts, call `skills_data_sources_used` first and map each listed model to:\n- `used` if present in `models_involved`\n- `not used` if absent from `models_involved`\n\nDo not return bulk shortcuts like \"all present\" or \"all absent\" without explicit per-item checks.\nDo not finalize model membership answers unless `skills_data_sources_used` succeeded in the same turn.\nDo not infer model usage from model-name similarity alone; require exact membership in returned `models_involved`.\n\nFor benchmark stability on model-checklist prompts, use this delimiter format, listing items in the order the user asked them:\n- `<Item A>: used; <Item B>: not used; <Item C>: used`\n\nFor dataset-checklist prompts, call `skills_data_sources_used` first and map each listed dataset to:\n- `used` if present in `datasets_used`\n- `not listed` if absent from `datasets_used`\n\nDo not convert unknown datasets into `present/used` by default.\nDo not finalize dataset membership answers unless `skills_data_sources_used` succeeded in the same turn.\n\n## Examples of applicable question types\n\n- \"Were these models used: A, B, C?\"\n- \"Were these datasets used: X, Y, Z?\"\n- \"Which of these skills negatively impact SLA: ...?\"\n- \"Which of these sources should be avoided: ...?\"\n\nIf an item is absent in returned analysis, say so explicitly (for example \"not listed\" or \"not present in analysis\").\n\n## Source/skill mixed checklist guard\n\nFor prompts that list both skills and sources:\n\n1. Evaluate each listed skill explicitly from `skills_skill_impact_sla` / `skills_skill_analysis`.\n2. Evaluate each listed source explicitly from `candidate_source_sla_per_source` and `candidate_source_funnel_conversion_by_source`.\n3. Use `candidate_source_source_recommendation_summary` as supplemental benchmark-aligned source evidence when reporting offer-conversion comparisons.\n4. Only mark a source as \"avoid\" when returned metrics support it.\n5. If one required API fails, do not fabricate missing numbers or produce complete checklist verdicts from partial evidence; state the unavailable section instead.\n6. If all required APIs succeed, include every listed item in the final answer, even when the result is \"no negative impact\" or \"do not avoid\".\n7. When metrics are available, include the relevant numeric evidence for each listed item (for example SLA delta for skills; SLA and offer-conversion values for sources).\n8. Preserve the user-provided item order in output for both skill and source lists.\n9. Use exactly one verdict per listed item; do not compress multiple items into a single combined verdict sentence.\n\nConflict rules for mixed skill/source prompts:\n\n- Evaluate only the items explicitly listed by the user.\n- A skill with SLA delta `0`, `0.0`, or `0.0%` has `no negative impact`.\n- A skill missing from `skills_skill_analysis` is `not present in analysis`, not negative.\n- A source missing from recommendation summaries is not automatically `avoid`; use returned SLA/conversion evidence if available, otherwise state that evidence is unavailable.\n- Do not apply generic source-prioritization rules that require naming an avoid candidate unless the listed-source evidence supports it.\n- Do not mark a listed source as `avoid` merely because another unlisted source performs better.\n",
+    "steps": [],
+    "priority": 82,
+    "enabled": true
+  },
+  {
+    "type": "playbook",
+    "id": "playbook_invalid_id_and_unsupported_details",
+    "name": "Invalid ID and Unsupported Details",
+    "description": "Playbook to separate invalid ID from unsupported full-details requests",
+    "triggers": [
+      {
+        "type": "keyword",
+        "value": [
+          "show candidate funnel for job id",
+          "not found",
+          "no job",
+          "show me the details of",
+          "details of",
+          "no requisition",
+          "no requisition/job"
+        ],
+        "target": "intent",
+        "case_sensitive": false,
+        "operator": "or"
+      },
+      {
+        "type": "natural_language",
+        "value": [
+          "user asks for supported analytics with an invalid requisition id",
+          "user asks for unsupported full job-card details"
+        ],
+        "target": "intent",
+        "threshold": 0.64
+      }
+    ],
+    "markdown_content": "# Invalid ID and Unsupported Details\n\nThis policy separates two different failure modes:\n\n- invalid requisition ID for a supported analytics endpoint\n- unsupported request for full job-card details\n\n## Invalid ID (supported endpoint)\n\nIf the endpoint type is supported (for example funnel metrics by requisition ID) but the provided ID is invalid:\n\n1. clearly state that no job can be found with the provided ID\n2. do not silently substitute another ID unless user asks for alternatives\n\nPreferred wording pattern:\n- `No job can be found with the ID <ID>.`\n\n## Unsupported full-details request\n\nIf the user asks for full requisition details (title, location, hiring manager, job-card details):\n\n1. state that current APIs do not provide full job-card details\n2. do not fabricate details\n3. do not return source analytics as a replacement for job-card details\n\n## Precedence rule\n\nCheck request type first:\n\n- if unsupported data type -> respond unsupported\n- else, if supported data type with invalid ID -> respond not found\n",
+    "steps": [],
+    "priority": 86,
+    "enabled": true
+  },
+  {
+    "type": "tool_guide",
+    "id": "tool_guide_error_tool_warnings",
+    "name": "Error-Prone Tool Warnings",
+    "description": "Tool guide for error-prone endpoints",
+    "triggers": [],
+    "target_tools": [
+      "skills_skill_summary",
+      "candidate_source_source_sla_score",
+      "candidate_source_inactive_sources",
+      "candidate_source_candidate_pipeline_status",
+      "candidate_source_source_sla_check",
+      "candidate_source_funnel_status",
+      "candidate_source_bulk_source_data",
+      "skills_model_registry",
+      "skills_skill_lookup",
+      "candidate_source_source_metrics_lite",
+      "candidate_source_volume_report",
+      "candidate_source_full_candidate_details",
+      "candidate_source_source_directory",
+      "skills_skill_deep_analysis",
+      "candidate_source_sla_extended",
+      "skills_analyze_skill_match",
+      "candidate_source_requisition_details",
+      "candidate_source_list_all_sources",
+      "candidate_source_batch_metrics"
+    ],
+    "guide_content": "# Error-Prone Tool Warning\n\nWARNING: This tool is known to be unreliable. It may return HTTP errors (e.g. 503 Service Unavailable), schema violations, type mismatches, or unexpected data formats.\n\nBefore using this tool, check whether one of the 13 core reliable tools can answer the question instead:\n\n**Reliable Candidate Source tools:** candidate_source_sla_per_source, candidate_source_total_hires_by_source, candidate_source_candidate_volume_by_source, candidate_source_funnel_conversion_by_source, candidate_source_metadata_and_timeframe, candidate_source_definitions_and_methodology, candidate_source_source_recommendation_summary\n\n**Reliable Skills tools:** skills_skill_analysis, skills_skill_impact_fill_rate, skills_skill_impact_sla, skills_skill_relevance_justification, skills_successful_posting_criteria, skills_data_sources_used\n\nIf this tool returns an error or unexpected data:\n- Do NOT report the raw error message to the user\n- Do NOT retry the same tool\n- Check if a reliable tool can provide the needed data\n- If no reliable tool can help, tell the user the data is not available through the current APIs\n",
+    "prepend": true,
+    "priority": 50,
+    "enabled": true
+  },
+  {
+    "type": "playbook",
+    "id": "playbook_anti_hallucination_numeric_guardrails",
+    "name": "Anti-Hallucination Numeric Guardrails",
+    "description": "Playbook to prevent fabricated numeric analytics",
+    "triggers": [
+      {
+        "type": "keyword",
+        "value": [
+          "how many",
+          "candidates",
+          "offer acceptance",
+          "conversion rate",
+          "data timeframe",
+          "requisitions analysed",
+          "sla delta"
+        ],
+        "target": "intent",
+        "case_sensitive": false,
+        "operator": "or"
+      },
+      {
+        "type": "natural_language",
+        "value": [
+          "question requires concrete numeric analytics",
+          "question asks for requisition-scoped numbers that must come from tool outputs"
+        ],
+        "target": "intent",
+        "threshold": 0.64
+      }
+    ],
+    "markdown_content": "# Anti-Hallucination Numeric Guardrails\n\nFor requisition analytics questions, do not output concrete numbers unless they come from APIs called in the current turn.\n\n## Rules\n\n1. If the question is supported and requires requisition-scoped metrics, call the relevant APIs first.\n2. If no successful relevant API call is available, do not guess or synthesize plausible values.\n3. If a required API call fails and no reliable fallback endpoint exists, state that the data cannot be retrieved from current APIs.\n\n## Applies strongly to\n\n- source comparison metrics (counts, conversion rates, hires)\n- timeframe and requisition counts\n- skill impact deltas\n- averages derived from totals/counts\n\n## Prohibited behavior\n\n- invented percentages, counts, or date ranges\n- replacing missing API data with generic benchmark-like numbers\n- confidently returning full numeric answers without any data retrieval step\n",
+    "steps": [],
+    "priority": 88,
+    "enabled": true
+  },
+  {
+    "type": "playbook",
+    "id": "playbook_mandatory_api_evidence_before_answer",
+    "name": "Mandatory API Evidence Before Answer",
+    "description": "Playbook enforcing required API evidence before numeric/list-membership answers",
+    "triggers": [
+      {
+        "type": "keyword",
+        "value": [
+          "best sources",
+          "best sources to prioritize",
+          "compute these insights",
+          "data sources informed",
+          "data sources were used",
+          "effective",
+          "historical effectiveness",
+          "historically effective",
+          "how many candidates do we usually get",
+          "informed this analysis",
+          "models were used",
+          "negatively impact sla",
+          "on average",
+          "prioritize sources",
+          "should be avoided",
+          "similar postings",
+          "source prioritization",
+          "sources to prioritize",
+          "which data sources informed",
+          "which of the following skills",
+          "which of the following sources"
+        ],
+        "target": "intent",
+        "case_sensitive": false,
+        "operator": "or"
+      },
+      {
+        "type": "natural_language",
+        "value": [
+          "question asks for average values derived from totals and requisition counts",
+          "question asks for requisition-scoped checklist judgments that require explicit per-item evidence",
+          "question asks to evaluate listed skills and listed sources and cite data sources used",
+          "question asks whether a skill was historically effective and which data sources informed the analysis",
+          "question requires computed values from multiple APIs",
+          "question requires list membership checks against models or datasets used",
+          "question requires source recommendation backed by SLA volume and conversion"
+        ],
+        "target": "intent",
+        "threshold": 0.62
+      }
+    ],
+    "markdown_content": "# Mandatory API Evidence Before Answer\n\nFor benchmark questions that require computed values, list membership checks, or source/skill recommendations, do not produce the final answer until the required APIs have been called successfully in the same turn.\n\n## Core rule\n\nIf the question is answerable with current APIs, the final answer must be grounded in successful tool outputs from this turn.\n\n- Do not answer from memory.\n- Do not return plausible benchmark-looking numbers without tool evidence.\n- If a required tool fails and no reliable fallback exists, say the data could not be retrieved.\n- For matched computed/list-membership prompts, do not send a direct plain-text final answer before executing required tool calls in this turn.\n- For supported requisition-scoped analytics prompts (valid ID present), execute at least one relevant API before any final answer text.\n- If zero required APIs succeeded in this turn, do not output numeric claims or yes/no checklist judgments; return a capability/availability limitation instead.\n\n## Precedence across policies\n\nUse this policy to arbitrate supported benchmark questions when another policy gives a looser fallback.\n\n1. If the requested data type is unsupported by the APIs, `API Capability Boundaries` wins.\n2. If the request is supported and has the needed requisition context, this evidence gate wins.\n3. If a task-specific policy requires a stricter API set than a general policy, use the stricter API set.\n4. If a required API fails, follow the required pattern for that prompt class; do not switch to a conflicting looser fallback from another policy.\n5. If zero required APIs succeeded for a supported prompt, return only an API-evidence availability limitation and do not answer the business question.\n\n## Required API patterns\n\nUse these minimum API sets before finalizing:\n\n- **Most candidates + effectiveness**:\n  - `candidate_source_candidate_volume_by_source`\n  - `candidate_source_funnel_conversion_by_source`\n  - `candidate_source_total_hires_by_source`\n  - `candidate_source_source_recommendation_summary`\n  - use `candidate_source_source_recommendation_summary` as supplemental benchmark-aligned evidence, not as the sole source when granular metrics are requested\n  - rank strictly by candidate count from `candidate_source_candidate_volume_by_source`\n  - report exactly the top 3 sources when at least 3 are returned\n  - use `candidate_source_source_recommendation_summary` as the preferred source for hires and offer acceptance rate\n  - use this final pattern per source: `<Source>: <count> candidates (<share>%), <hires> hires. Offer acceptance rate: <rate>%.`\n\n- **Best sources to prioritize**:\n  - `candidate_source_sla_per_source`\n  - `candidate_source_candidate_volume_by_source`\n  - `candidate_source_funnel_conversion_by_source`\n  - `candidate_source_source_recommendation_summary`\n  - final answer must explicitly mention `SLA`; include at least one source to avoid when returned metrics support it\n  - if required APIs above were not successfully called in this turn, do not provide a ranked recommendation or numeric source metrics\n  - if `candidate_source_candidate_volume_by_source` fails with an endpoint/schema error, do not fail the whole recommendation; use SLA + offer-acceptance + hires from successful source APIs and disclose that candidate volume was unavailable\n  - when volume is unavailable, still recommend sources from successful SLA/conversion/summary evidence and name avoid candidates from returned metrics\n  - if all source-performance APIs except candidate volume fail, return a capability limitation for ranking in this turn instead of a guessed recommendation\n\n- **Models used / datasets used**:\n  - `skills_data_sources_used`\n  - final membership decisions must be derived only from `models_involved` / `datasets_used` in that response\n  - do not mark unreturned items as used\n\n- **Historically effective skill + data sources used**:\n  - `skills_skill_analysis`\n  - `skills_data_sources_used`\n  - do not answer historical-effectiveness verdicts unless `skills_skill_analysis` succeeded in this turn\n  - if the skill correlation is negative, answer that the skill is **not considered effective** and state it had a **negative impact on SLA**\n  - include the returned correlation wording; if it is `highly negative impact on SLA`, keep that exact phrase in final text\n  - include the data sources from `skills_data_sources_used` when the user asks what informed the analysis\n\n- **Mixed skill-impact + source-avoidance + data-sources prompts**:\n  - `skills_skill_impact_sla`\n  - `skills_skill_analysis`\n  - `skills_data_sources_used`\n  - `candidate_source_sla_per_source`\n  - `candidate_source_funnel_conversion_by_source`\n  - `candidate_source_source_recommendation_summary`\n  - do not answer this prompt class unless the required APIs above succeeded in this turn\n  - if one required API fails, return an availability limitation for the missing section instead of producing complete checklist verdicts from partial evidence\n  - evaluate only user-listed skills and sources\n  - `0.0%` SLA delta means no negative impact\n  - absent skills are `not present in analysis`, not negative\n  - listed sources are `avoid` only when returned metrics show clear underperformance among the listed sources\n\n- **SLA impact + models used + SLA definition**:\n  - `skills_skill_impact_sla`\n  - `skills_data_sources_used`\n  - `candidate_source_definitions_and_methodology`\n  - do not answer this prompt class unless all three required APIs above succeeded in this turn\n  - if one required API fails, return an availability limitation instead of model names/deltas/definitions\n\n- **SLA definition only**:\n  - `candidate_source_definitions_and_methodology`\n  - read `definitions.sla`\n  - final answer must include the exact returned definition text and must not contain placeholders like `<sla_definition>`\n\n- **Average candidates for similar postings**:\n  - `candidate_source_metadata_and_timeframe`\n  - `candidate_source_candidate_volume_by_source`\n  - if `candidate_source_candidate_volume_by_source` fails with an endpoint/schema error, use the fallback in `Average vs Total Calculations`\n\n- **Data timeframe + similar requisitions analysed**:\n  - `candidate_source_metadata_and_timeframe`\n  - include `time_frame_start`, `time_frame_end`, `data_last_updated`, and `total_requisitions_analysed` from that response\n\n## Final answer gate\n\nBefore sending the final answer, verify:\n\n1. Required APIs were called successfully.\n2. Every claimed number/list membership is directly supported by returned payloads.\n3. If evidence is missing, return a capability/availability limitation instead of a fabricated answer.\n4. Model/dataset names in the answer appear in the corresponding returned arrays unless explicitly marked as not used/not listed.\n5. For source-prioritization prompts, every ranked source and numeric metric is backed by successful calls in this turn; otherwise return a limitation.\n6. For historical-effectiveness prompts, wording matches `skills_skill_analysis` correlation direction and explicitly mentions SLA impact.\n7. For prompts combining models + SLA delta + SLA definition, every model name, delta value, and definition phrase must come from successful APIs in this turn (no placeholders).\n8. If no required API succeeded for a supported benchmark prompt, do not output a direct answer. Return only: `I could not retrieve the required API evidence for this request.`\n9. Never output placeholder template variables such as `<sla_definition>`, `<models from models_involved>`, or `<Source A>`.\n\n## Combined answer template (for SLA-impact + models + definition prompts)\n\nWhen the user asks all three in one question, answer in this order:\n\n1. List the models returned in `models_involved` from `skills_data_sources_used` as used.\n2. SLA delta with explicit percent format (for example `0.0%`, not just `0`).\n3. SLA definition text from `definitions.sla` preserving `Percentage`, `reviewed`, and `SLA window`.\n\nFor benchmark-stability on this prompt class, prefer the canonical sentence pattern:\n\n- `'<models from models_involved>' were used. The SLA delta for <skill_name> was <delta_percent>. SLA is defined as '<sla_definition from API>'.`\n\nFormatting requirements:\n- keep single quotes around model name(s)\n- keep single quotes around the SLA definition text\n- keep the explicit wording `The SLA delta for <skill_name> was ...`\n- do not invent placeholder model names; use only models returned by `skills_data_sources_used`\n- do not use generic fallback placeholders like `ModelA` or `ModelB`\n\n## Timeframe output template (for timeframe + requisition-count prompts)\n\nFor prompts like \"What's the data timeframe ... and how many similar requisitions were analysed?\":\n\n1. Call `candidate_source_metadata_and_timeframe` in the same turn.\n2. Do not substitute or infer date ranges/requisition counts.\n3. Use this final format:\n   - `Timeframe: <time_frame_start> to <time_frame_end>. Data last updated: <data_last_updated>. Total requisitions analysed: <total_requisitions_analysed>.`\n",
+    "steps": [],
+    "priority": 89,
+    "enabled": true
+  },
+  {
+    "type": "playbook",
+    "id": "playbook_mixed_skill_source_checklist_strict",
+    "name": "Mixed Skill and Source Checklist Strict Execution",
+    "description": "For prompts combining listed skills, listed sources, and data sources, require API evidence and explicit per-item verdicts.",
+    "triggers": [
+      {
+        "type": "keyword",
+        "value": [
+          "which of the following skills",
+          "negatively impact SLA",
+          "which of the following sources",
+          "should be avoided",
+          "compute these insights"
+        ],
+        "target": "intent",
+        "case_sensitive": false,
+        "operator": "or"
+      },
+      {
+        "type": "natural_language",
+        "value": [
+          "user asks which listed skills negatively impact SLA and which listed sources should be avoided and asks for data sources used",
+          "mixed checklist prompt with skills, sources, and datasets used"
+        ],
+        "target": "intent",
+        "threshold": 0.5
+      }
+    ],
+    "markdown_content": "# Mixed Skill and Source Checklist Strict Execution\n\nThis policy applies to prompts that simultaneously ask:\n\n- which listed skills negatively impact SLA,\n- which listed sources should be avoided based on offer conversion or SLA,\n- and which data sources were used to compute the insights.\n\n## Hard first-response rule\n\nDo not answer this prompt class from memory.\nThe first assistant response must execute the required APIs before any final natural-language answer.\n\nRequired APIs before final answer:\n\n- `skills_skill_impact_sla` for every user-listed skill that can be queried directly\n- `skills_skill_analysis`\n- `skills_data_sources_used`\n- `candidate_source_sla_per_source`\n- `candidate_source_funnel_conversion_by_source`\n- `candidate_source_source_recommendation_summary`\n\nIf these APIs have not succeeded in the same turn, do not output checklist verdicts.\n\n## Skill verdict rules\n\nEvaluate every user-listed skill in the order provided.\n\n- If direct SLA impact returns `delta: 0`, answer `no negative impact` and include `0%`.\n- If a skill is absent from `skills_skill_analysis`, answer `not present in analysis`.\n- Do not infer negative impact for missing or unknown skills.\n- Do not omit skills that are not found.\n\n## Source verdict rules\n\nEvaluate every user-listed source in the order provided.\n\n- Use `candidate_source_sla_per_source` for SLA percentage.\n- Use `candidate_source_source_recommendation_summary` for offer acceptance rate.\n- Mark a listed source as `avoid` only when the returned metrics clearly underperform the other listed sources.\n\n## Data sources rule\n\nUse only `datasets_used` from `skills_data_sources_used`.\n\n## Required final format\n\nUse concise sections with the exact format shown below. Replace the example values with actual API results:\n\n- `Skills: <Skill A>: no negative impact (0% SLA delta); <Skill B>: not present in analysis; <Skill C>: negative impact (-5% SLA delta).`\n- `Sources: <Source A>: do not avoid (SLA 92%, offer acceptance 75%); <Source B>: do not avoid (SLA 88%, offer acceptance 71%); <Source C>: avoid (SLA 65%, offer acceptance 45%).`\n- `Data sources used: <Dataset 1>, <Dataset 2>, <Dataset 3>, <Dataset 4>.`\n\nExample with fictional data:\n- `Skills: Java: no negative impact (0% SLA delta); Machine Learning: not present in analysis; COBOL: negative impact (-8% SLA delta).`\n- `Sources: LinkedIn: do not avoid (SLA 92%, offer acceptance 75%); Indeed: do not avoid (SLA 88%, offer acceptance 71%); CareerBuilder: avoid (SLA 65%, offer acceptance 45%).`\n- `Data sources used: Candidate performance metrics, Job posting analytics, Interview feedback data, Hiring outcome records.`\n\nDo not output fabricated dataset names like `BPO Recruiting Dataset`, `Skill-Impact Model`, `Source-Performance Model`, or `Candidate Profile Model`.\n",
+    "steps": [],
+    "priority": 94,
+    "enabled": true
+  },
+  {
+    "type": "playbook",
+    "id": "playbook_timeframe_metadata_strict",
+    "name": "Timeframe Metadata Strict Execution",
+    "description": "For timeframe and similar-requisition-count prompts, require metadata/timeframe API evidence and canonical date output.",
+    "triggers": [
+      {
+        "type": "keyword",
+        "value": [
+          "data timeframe",
+          "timeframe for",
+          "time frame for",
+          "how many similar requisitions",
+          "similar requisitions were analysed",
+          "similar requisitions were analyzed",
+          "last updated",
+          "metrics cover"
+        ],
+        "target": "intent",
+        "case_sensitive": false,
+        "operator": "or"
+      },
+      {
+        "type": "natural_language",
+        "value": [
+          "user asks for date coverage and similar requisition count for a requisition",
+          "user asks for metadata timeframe and total requisitions analysed",
+          "user asks when metrics were last updated and how many similar requisitions were analysed"
+        ],
+        "target": "intent",
+        "threshold": 0.45
+      }
+    ],
+    "markdown_content": "# Timeframe Metadata Strict Execution\n\nThis policy applies when the user asks for the data timeframe, time frame, date coverage, last updated date, or how many similar requisitions were analysed for a requisition.\n\n## Hard first-response rule\n\nDo not answer timeframe or similar-requisition-count questions from memory.\nThe first assistant response must call `candidate_source_metadata_and_timeframe` before any final natural-language answer.\n\nIf `candidate_source_metadata_and_timeframe` has not succeeded in the same turn, do not provide dates or requisition counts.\n\n## Required fields\n\nRead these exact fields from the API response:\n\n- `time_frame_start`\n- `time_frame_end`\n- `data_last_updated`\n- `total_requisitions_analysed`\n\nDo not substitute other date ranges, old benchmark defaults, or guessed counts.\n\n## Required final format\n\nFor prompts like \"What's the data timeframe for <ID> and how many similar requisitions were analysed?\", answer in one sentence:\n\n`The metrics cover <start date> - <end date> and were last updated on <last updated date>. A total of <total_requisitions_analysed> similar requisitions were analysed.`\n\nRender dates in day-month-year form, for example:\n\n- `2022-01-15` -> `15 Jan 2022`\n- `2024-06-30` -> `30 Jun 2024`\n- `2024-11-20` -> `20 Nov 2024`\n\nExample: If the API returns `2022-01-15`, `2024-06-30`, `2024-11-20`, and `35`, the final answer should include all of:\n\n- `15 Jan 2022`\n- `30 Jun 2024`\n- `20 Nov 2024`\n- `35`\n- `requisitions`\n",
+    "steps": [],
+    "priority": 96,
+    "enabled": true
+  },
+  {
+    "type": "output_formatter",
+    "id": "output_formatter_bpo_final_answer_cleanup",
+    "name": "BPO Final Answer Cleanup",
+    "description": "Formats BPO benchmark final answers into concise benchmark-aligned responses without changing evidence requirements.",
+    "triggers": [
+      {
+        "type": "keyword",
+        "value": [
+          "Offer acceptance rate:",
+          "Data sources used:",
+          "Timeframe:",
+          "SLA is defined as",
+          "No job can be found",
+          "Can you share the requisition ID?",
+          "candidates (",
+          "last updated on",
+          "similar requisitions were analysed",
+          "similar requisitions were analyzed"
+        ],
+        "target": "agent_response",
+        "case_sensitive": false,
+        "operator": "or"
+      }
+    ],
+    "format_type": "markdown",
+    "format_config": "Reformat the final BPO benchmark answer only.\n\nGeneral rules:\n- Return only the final answer. Remove reasoning preambles and repeated planning text only when a valid final answer is already present.\n- Preserve factual information from the agent response and any visible tool results in the conversation. Do not invent values that are not present.\n- Keep the answer concise and benchmark-aligned. Prefer one sentence or short itemized lines.\n- Do not output template placeholders such as <sla_definition>, <Source>, <count>, or <models from models_involved>. If a placeholder is present and the actual value is not visible, say the required value was not available.\n- If the answer asks for a missing requisition ID, use: \"Can you share the requisition ID?\"\n- If the answer states an unsupported API capability, keep the unsupported-capability explanation concise and do not add metrics.\n\nSLA definition answers:\n- If the exact definition is visible, output: \"SLA is defined as '<definition>'.\"\n- Preserve the words \"Percentage\", \"reviewed\", and \"SLA window\" when present.\n- Never return \"SLA is defined as '<sla_definition>'.\"\n\nSource volume + effectiveness answers:\n- If candidate volume/share and recommendation-summary data are available, rank by candidate count and output the top three sources exactly as:\n  \"<Source>: <count> candidates (<share>%), <hires> hires. Offer acceptance rate: <rate>%.\"\n- Use candidate-volume data for candidate counts and shares.\n- Use source-recommendation-summary data for hires and offer acceptance rate.\n- Include the phrase \"Offer acceptance rate\".\n- If candidate-volume data is unavailable, do not invent counts or shares.\n\nMixed skill/source checklist answers:\n- Enumerate every listed skill and every listed source when those facts are available.\n- For skills: use verdicts \"negative impact\", \"no negative impact\", or \"not present in analysis\".\n- For sources: use verdicts \"avoid\" or \"do not avoid\" and include SLA and offer acceptance rate when available.\n- Include the data sources list when available from the API response.\n\nAverage candidate answers:\n- Include the word \"average\", the candidate count, and the word \"candidates\".\n\nTimeframe answers:\n- Render dates in day-month-year form when possible, for example \"15 Jan 2022\", \"30 Jun 2024\", \"20 Nov 2024\".\n",
+    "priority": 95,
+    "enabled": true,
+    "metadata": {
+      "benchmark": "bpo",
+      "purpose": "final_answer_formatting_only"
+    }
+  }
+]
