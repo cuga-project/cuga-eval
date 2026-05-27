@@ -40,7 +40,8 @@ source .venv/bin/activate  # On Windows: .venv\Scripts\activate
 uv sync
 ```
 
-This installs dependencies for all benchmarks.
+This installs dependencies for all benchmarks except AppWorld (which is
+opt-in via the `appworld` group — see step 3 below).
 
 ### 3. Install AppWorld
 
@@ -62,7 +63,7 @@ The `setup_appworld.sh` script:
 
 If [`benchmarks/appworld/appworld/data`](appworld/data) already exists, you'll be prompted before re-downloading.
 
-> **Important — don't commit the pyproject.toml diff.** The script edits `pyproject.toml` to point at a path that only exists on machines where the script has run. Committing those entries would re-break `uv sync` on fresh checkouts and in CI. A pre-commit hook (`scripts/check_no_local_appworld_in_pyproject.sh`) blocks the commit automatically; bypass with `--no-verify` only if you have a deliberate reason.
+> **Important — don't commit the `pyproject.toml` / `uv.lock` diff.** The script edits both `pyproject.toml` and `uv.lock` to point at a path that only exists on machines where the script has run. Committing those entries would re-break `uv sync` on fresh checkouts and in CI. A pre-commit hook (`scripts/check_no_local_appworld.sh`) blocks the commit automatically for either file; bypass with `--no-verify` only if you have a deliberate reason.
 
 ### 4. Day-to-day sync
 

@@ -50,7 +50,10 @@ if [ ! -d "$APPWORLD_REPO_DIR" ]; then
     echo "Error: git is required." >&2
     exit 1
   fi
-  if ! command -v git-lfs >/dev/null 2>&1; then
+  # Probe via `git lfs version` rather than `command -v git-lfs` — some
+  # package managers install LFS only as a git extension and ship no
+  # standalone `git-lfs` binary, which would make `command -v` lie.
+  if ! git lfs version >/dev/null 2>&1; then
     echo "Warning: git-lfs not found. AppWorld's data files use LFS; install"
     echo "         it (e.g. 'brew install git-lfs && git lfs install') if the"
     echo "         clone or data download fails."
@@ -106,3 +109,7 @@ echo "Usage:"
 echo "  uv sync --group appworld   # install/refresh with AppWorld"
 echo "  uv sync                    # base deps only (AppWorld will be removed"
 echo "                             #   from the venv; re-add with --group)"
+echo ""
+echo "Note: a bare 'uv sync' (without --group appworld) will silently remove"
+echo "      AppWorld from the venv — easy to trip over after a rebase. Use"
+echo "      'uv sync --group appworld' to keep it installed."

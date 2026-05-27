@@ -129,11 +129,12 @@ git lfs install
 
 The script uses `uv add --editable --no-workspace benchmarks/appworld/appworld --group appworld`,
 which writes a `[tool.uv.sources]` entry and `[dependency-groups].appworld` entry
-into your **local** `pyproject.toml`. These edits are intentional and should
-**not** be committed — they point at a directory that only exists on machines
-that have run `setup_appworld.sh`. A pre-commit hook
-(`scripts/check_no_local_appworld_in_pyproject.sh`) blocks the commit
-automatically if those entries slip into a staged change.
+into your **local** `pyproject.toml` (and a corresponding `[[package]]` block
+into `uv.lock`). These edits are intentional and should **not** be committed —
+they point at a directory that only exists on machines that have run
+`setup_appworld.sh`. A pre-commit hook (`scripts/check_no_local_appworld.sh`)
+blocks the commit automatically if those entries slip into a staged change to
+either `pyproject.toml` or `uv.lock`.
 
 After setup:
 - `uv sync --group appworld` installs/refreshes with AppWorld available.
