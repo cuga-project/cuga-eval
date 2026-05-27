@@ -171,28 +171,35 @@ All other flags (e.g. `--sdk`, `--eval-key`, `--task`, `--model-profile`) are fo
 
 Predefined task groups are defined in [`eval_config.toml`](eval_config.toml):
 
-| Eval key | Description |
-|---|---|
-| `test_challenge_easy` | 24 easy tasks from test challenge set |
-| `test_challenge_med` | 24 medium tasks from test challenge set |
-| `test_challenge_hard` | 24 hard tasks from test challenge set |
-| `test_normal_all_easy` | 57 easy tasks from test normal set |
-| `test_normal_all_med` | 48 medium tasks from test normal set |
-| `test_normal_all_hard` | 63 hard tasks from test normal set |
+#### Combined sets (recommended for performance validation)
+
+These keys merge the corresponding difficulty tier from the challenge and normal test sets. Use them after significant CUGA prompt or architecture changes to get a balanced cross-dataset signal at each difficulty level.
+
+| Eval key | Tasks | Description |
+|---|---|---|
+| `test_easy` | 43 | Easy tasks from challenge (24) + normal (19) sets |
+| `test_med` | 40 | Medium tasks from challenge (24) + normal (16) sets |
+| `test_hard` | 45 | Hard tasks from challenge (24) + normal (21) sets |
+
+#### Individual sets
+
+| Eval key | Tasks | Description |
+|---|---|---|
+| `test_challenge_easy` | 24 | Easy tasks from test challenge set |
+| `test_challenge_med` | 24 | Medium tasks from test challenge set |
+| `test_challenge_hard` | 24 | Hard tasks from test challenge set |
+| `test_normal_easy` | 19 | Easy tasks from test normal set (one per scenario) |
+| `test_normal_med` | 16 | Medium tasks from test normal set (one per scenario) |
+| `test_normal_hard` | 21 | Hard tasks from test normal set (one per scenario) |
+| `test_normal_all_easy` | 57 | All easy tasks from test normal set (all variants) |
+| `test_normal_all_med` | 48 | All medium tasks from test normal set (all variants) |
+| `test_normal_all_hard` | 63 | All hard tasks from test normal set (all variants) |
 
 ---
 
 ## 📝 Evaluation Configuration
 
-The [`eval_config.toml`](eval_config.toml) file contains predefined task groups. Example structure:
-
-```toml
-[eval_config]
-headless = true
-test_challenge_easy = ["e775c78_1","07bb666_1","9aae7da_1", ...]
-test_challenge_med = ["d9987f6_1","4815c06_1","f6936d4_1", ...]
-test_challenge_hard = ["80acbaf_1","e70b117_1","6d59d90_1", ...]
-```
+The [`eval_config.toml`](eval_config.toml) file contains predefined task groups. The `eval_key` setting controls which group runs by default when no `--eval-key` flag is passed.
 
 You can modify this file to create custom task groups or adjust existing ones.
 
