@@ -20,6 +20,17 @@ dependencies = [
     "docling>=2.26,<2.92",
 ]
 
+[tool.uv]
+# Force the resolver to pick package versions that ship wheels (or buildable
+# sdists) for these targets. Without this, uv's universal resolution can pick
+# versions whose wheel coverage has gaps on one of our supported platforms —
+# notably text2num 3.0.2, which lacks x86_64 manylinux wheels for some of the
+# Python forks uv considers — and the install then fails on Linux x86_64.
+required-environments = [
+    "sys_platform == 'linux' and platform_machine == 'x86_64'",
+    "sys_platform == 'darwin' and platform_machine == 'arm64'",
+]
+
 [tool.uv.sources]
 cuga = { path = "../cuga-agent", editable = true }
 # `appworld` is intentionally NOT listed here. The appworld benchmark is opt-in:
