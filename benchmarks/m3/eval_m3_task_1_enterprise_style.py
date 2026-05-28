@@ -322,13 +322,24 @@ async def run_benchmark_for_domain_single_connection(
             # Create agent with tool_provider (not raw tools)
             # Note: Code executor timeout is hardcoded at 30s in CUGA
             # For slow queries, consider increasing container resources or using --max-samples
-            if langfuse_handler:
-                agent = CugaAgent(
-                    tool_provider=tool_provider,
-                    callbacks=[langfuse_handler],
+            callbacks = [langfuse_handler] if langfuse_handler else []
+
+            # Add TokenUsageTracker callback for rich trajectory capture
+            try:
+                from benchmarks.helpers.token_usage_tracker_callback import (
+                    create_token_usage_tracker_callback,
                 )
-            else:
-                agent = CugaAgent(tool_provider=tool_provider)
+
+                token_tracker_callback = create_token_usage_tracker_callback(tracker)
+                callbacks.append(token_tracker_callback)
+                logger.info("✅ TokenUsageTracker callback enabled for rich trajectory capture")
+            except Exception as e:
+                logger.warning(f"Failed to enable TokenUsageTracker callback: {e}")
+
+            agent = CugaAgent(
+                tool_provider=tool_provider,
+                callbacks=callbacks if callbacks else None,
+            )
             logger.info(f"✅ Agent created with {len(tools)} tools via DirectLangChainToolsProvider")
             logger.warning("⚠️  Code executor timeout is 30s (hardcoded in CUGA). Slow queries may timeout.")
 

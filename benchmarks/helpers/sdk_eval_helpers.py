@@ -231,12 +231,14 @@ from .react_agent import GenericReactAgent, setup_react_agent_with_tools
 async def setup_agent_with_tools(
     special_instructions: Optional[str] = None,
     extra_callbacks: Optional[List[Any]] = None,
+    enable_token_usage_tracker: bool = True,
 ) -> tuple[CugaAgent, Optional[Any]]:
     """Set up CugaAgent with tools and Langfuse tracing.
 
     Args:
         special_instructions: Optional special instructions to pass to the agent
         extra_callbacks: Optional additional LangChain callbacks (e.g. TokenUsageCallback)
+        enable_token_usage_tracker: Whether to enable TokenUsageTracker-like callback for rich trajectories (default: True)
 
     Returns:
         Tuple of (agent, langfuse_handler)
@@ -258,6 +260,20 @@ async def setup_agent_with_tools(
 
     if extra_callbacks:
         callbacks = callbacks + extra_callbacks
+
+    # Add TokenUsageTracker-like callback for rich trajectory capture
+    if enable_token_usage_tracker:
+        try:
+            from cuga.backend.activity_tracker.tracker import ActivityTracker
+
+            from benchmarks.helpers.token_usage_tracker_callback import create_token_usage_tracker_callback
+
+            tracker = ActivityTracker()  # Singleton - returns existing instance
+            token_tracker_callback = create_token_usage_tracker_callback(tracker)
+            callbacks.append(token_tracker_callback)
+            logger.info("✅ TokenUsageTracker callback enabled for rich trajectory capture")
+        except Exception as e:
+            logger.warning(f"Failed to enable TokenUsageTracker callback: {e}")
 
     agent_kwargs = {"tool_provider": tool_provider, "callbacks": callbacks}
     if special_instructions:
