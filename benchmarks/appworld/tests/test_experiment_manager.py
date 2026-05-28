@@ -70,11 +70,32 @@ def test_suffix_preserves_continue_experiment_prefix_matching(tmp_path, frozen_n
     assert m1.full_experiment_name in matches
 
 
-def test_many_managers_no_collisions(tmp_path, frozen_now):
+def test_many_managers_no_collisions(tmp_path, frozen_now, monkeypatch):
     """1000 instantiations under a frozen clock — pre-fix this produced one
-    directory; post-fix it produces 1000 distinct directories with extremely
-    high probability (1-in-a-billion collision for a 6-hex-char uuid suffix at
-    this N)."""
+    directory; post-fix the uuid suffix differentiates them.
+
+    The production code uses a 6-hex-char (24-bit) uuid suffix, which has a
+    ~3% birthday-paradox collision probability at N=1000 — enough to make
+    this test occasionally flake. To make the regression check deterministic
+    while still exercising the same code path, we patch ``uuid.uuid4`` to
+    return monotonically distinct values; under that, identical pre-fix
+    output dirs (no suffix) would still collide, while post-fix dirs stay
+    unique. The realistic collision math is exercised in production runs
+    where we accept the same negligible probability."""
+    import itertools
+    import uuid
+
+    counter = itertools.count()
+
+    class _SequentialUUID:
+        def __init__(self):
+            # Production slices hex[:6], so the variation must live in the
+            # leading 6 hex chars. Format the counter as 6 hex digits and
+            # right-pad with zeros to the full 32-char uuid hex width.
+            self.hex = f"{next(counter):06x}" + "0" * 26
+
+    monkeypatch.setattr(uuid, "uuid4", _SequentialUUID)
+
     seen = set()
     for _ in range(1000):
         m = ExperimentManager("myexp", dataset_name="train", base_dir=str(tmp_path))

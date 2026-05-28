@@ -71,7 +71,7 @@ logger.info("✅ eval_m3.py environment loaded; importing CUGA modules next")
 
 # Import cuga modules (these will read env vars, which are now set)
 from cuga.backend.activity_tracker.tracker import ActivityTracker
-from cuga.backend.cuga_graph.nodes.cuga_lite.combined_tool_provider import CombinedToolProvider
+from cuga.backend.cuga_graph.nodes.cuga_lite.providers.combined import CombinedToolProvider
 from cuga.backend.cuga_graph.state.agent_state import VariablesManager
 from cuga.sdk import CugaAgent
 

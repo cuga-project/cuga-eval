@@ -16,7 +16,22 @@ import json
 
 import pytest
 
-from benchmarks.m3.m3_vakra_score import patch_tracker_scores
+# This test exercises a helper that depends on the M3 Vakra vendor
+# package (`evaluator`, `benchmark.mcp_client`), which is installed by
+# `./setup_m3.sh` into `vendor/vakra`. On a fresh checkout (and in CI),
+# that directory doesn't exist, so importing `m3_vakra_score` blows up
+# with `ModuleNotFoundError: No module named 'benchmark'`. Skip the
+# whole module in that case instead of failing test collection.
+pytest.importorskip(
+    "evaluator",
+    reason="M3 Vakra vendor not installed; run ./setup_m3.sh to enable this test.",
+)
+pytest.importorskip(
+    "benchmark.mcp_client",
+    reason="M3 Vakra vendor not installed; run ./setup_m3.sh to enable this test.",
+)
+
+from benchmarks.m3.m3_vakra_score import patch_tracker_scores  # noqa: E402
 
 pytestmark = pytest.mark.regression
 

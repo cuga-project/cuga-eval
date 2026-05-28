@@ -19,7 +19,7 @@ from dataclasses import dataclass, field
 from pathlib import Path
 from typing import Any, Optional
 
-from cuga.backend.cuga_graph.nodes.cuga_lite.combined_tool_provider import (
+from cuga.backend.cuga_graph.nodes.cuga_lite.providers.combined import (
     CombinedToolProvider,
 )
 from langchain_core.messages import HumanMessage
