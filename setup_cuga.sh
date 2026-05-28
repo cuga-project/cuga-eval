@@ -84,22 +84,6 @@ export_env_vars() {
     print_success "Environment variables exported to current terminal session"
 }
 
-setup_appworld() {
-    local appworld_setup_script="${SCRIPT_DIR}/setup_appworld.sh"
-
-    if [ ! -f "$appworld_setup_script" ]; then
-        print_warning "AppWorld setup script not found at $appworld_setup_script. Skipping AppWorld setup."
-        return 0
-    fi
-
-    print_status "Running AppWorld setup..."
-    if bash "$appworld_setup_script"; then
-        print_success "AppWorld setup completed"
-    else
-        print_error "AppWorld setup failed"
-        exit 1
-    fi
-}
 
 # Function to create logging directory
 create_logging_dir() {
@@ -141,9 +125,6 @@ main() {
 
     # Create logging directory
     create_logging_dir
-
-    # Run AppWorld setup
-    setup_appworld
 
     echo ""
     print_success "Setup completed successfully!"
