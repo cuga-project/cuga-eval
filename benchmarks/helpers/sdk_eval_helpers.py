@@ -220,7 +220,7 @@ def _extract_tool_calls_from_tracker() -> List[Dict[str, Any]]:
     return tool_calls
 
 
-from cuga.backend.cuga_graph.nodes.cuga_lite.combined_tool_provider import CombinedToolProvider
+from cuga.backend.cuga_graph.nodes.cuga_lite.providers.combined import CombinedToolProvider
 from cuga.backend.cuga_graph.policy.models import PolicyType
 from cuga.sdk import CugaAgent
 from langchain_core.messages import HumanMessage

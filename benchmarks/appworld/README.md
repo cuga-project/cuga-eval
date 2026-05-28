@@ -20,44 +20,62 @@ The AppWorld benchmark evaluates agent capabilities with complex web application
 
 ## 🚀 Setup
 
-### Install AppWorld
+### 1. Install CUGA agent (if not already done)
 
-```bash
-# Install Git LFS
-git lfs install
-
-# Clone AppWorld into the expected location if not already present
-git clone https://github.com/StonyBrookNLP/appworld benchmarks/appworld/appworld
-
-# Run the repository setup
-./setup_appworld.sh
-```
-
-Notes:
-- The install step runs inside the cloned [`benchmarks/appworld/appworld`](appworld) repository.
-- If the repository is already cloned and [`appworld/data`](appworld/data) already exists, setup is skipped.
-
-### Install CUGA agent
-
-Before running the evaluation for the first time:
+From the repository root:
 
 ```bash
 ./setup_cuga.sh
 ```
 
-This also runs [`setup_appworld.sh`](../../setup_appworld.sh), which:
-- loads [`config/appworld.env`](config/appworld.env)
-- expects the AppWorld repository at [`benchmarks/appworld/appworld`](appworld)
-- installs AppWorld from the cloned repository itself
-- downloads benchmark data if it is not already present
+This clones the `cuga-agent` repository to `../cuga-agent` and sets up the base environment.
 
-If [`benchmarks/appworld/appworld/data`](appworld/data) already exists, the setup step is skipped with a message.
+### 2. Install base dependencies (if not already done)
 
-### Install Dependencies
+From the repository root:
 
 ```bash
+uv venv
+source .venv/bin/activate  # On Windows: .venv\Scripts\activate
 uv sync
 ```
+
+This installs dependencies for all benchmarks except AppWorld (which is
+opt-in via the `appworld` group — see step 3 below).
+
+### 3. Install AppWorld
+
+```bash
+# Install Git LFS (required for AppWorld's data files)
+git lfs install
+
+# One-stop setup (run from the repository root). Clones the AppWorld repo
+# into benchmarks/appworld/appworld if it isn't there, registers it as an
+# editable dependency in the `appworld` group, and downloads the data.
+./setup_appworld.sh
+```
+
+The `setup_appworld.sh` script:
+- Loads [`config/appworld.env`](config/appworld.env)
+- Clones [`https://github.com/StonyBrookNLP/appworld`](https://github.com/StonyBrookNLP/appworld) into [`benchmarks/appworld/appworld`](appworld) if not already present
+- Runs `uv add --editable --no-workspace benchmarks/appworld/appworld --group appworld`, which writes a `[tool.uv.sources]` entry and a `[dependency-groups].appworld` entry into your **local** `pyproject.toml` and installs the package editable
+- Runs `appworld install --repo` and `appworld download data` from inside the clone
+
+If [`benchmarks/appworld/appworld/data`](appworld/data) already exists, you'll be prompted before re-downloading.
+
+> **Important — don't commit the `pyproject.toml` / `uv.lock` diff.** The script edits both `pyproject.toml` and `uv.lock` to point at a path that only exists on machines where the script has run. Committing those entries would re-break `uv sync` on fresh checkouts and in CI. A pre-commit hook (`scripts/check_no_local_appworld.sh`) blocks the commit automatically for either file; bypass with `--no-verify` only if you have a deliberate reason.
+
+### 4. Day-to-day sync
+
+After the initial setup:
+
+```bash
+uv sync --group appworld   # base deps + AppWorld
+uv sync                    # base deps only (AppWorld is removed from venv;
+                           #   re-add with --group appworld)
+```
+
+Both forms succeed regardless of whether the appworld clone exists. The `appworld` group is opt-in, so running other benchmarks (BPO, M3, Oak) never requires AppWorld to be installed.
 ---
 
 ## 🚀 Running the Benchmark
@@ -153,28 +171,35 @@ All other flags (e.g. `--sdk`, `--eval-key`, `--task`, `--model-profile`) are fo
 
 Predefined task groups are defined in [`eval_config.toml`](eval_config.toml):
 
-| Eval key | Description |
-|---|---|
-| `test_challenge_easy` | 24 easy tasks from test challenge set |
-| `test_challenge_med` | 24 medium tasks from test challenge set |
-| `test_challenge_hard` | 24 hard tasks from test challenge set |
-| `test_normal_all_easy` | 57 easy tasks from test normal set |
-| `test_normal_all_med` | 48 medium tasks from test normal set |
-| `test_normal_all_hard` | 63 hard tasks from test normal set |
+#### Combined sets (recommended for performance validation)
+
+These keys merge the corresponding difficulty tier from the challenge and normal test sets. Use them after significant CUGA prompt or architecture changes to get a balanced cross-dataset signal at each difficulty level.
+
+| Eval key | Tasks | Description |
+|---|---|---|
+| `test_easy` | 43 | Easy tasks from challenge (24) + normal (19) sets |
+| `test_med` | 40 | Medium tasks from challenge (24) + normal (16) sets |
+| `test_hard` | 45 | Hard tasks from challenge (24) + normal (21) sets |
+
+#### Individual sets
+
+| Eval key | Tasks | Description |
+|---|---|---|
+| `test_challenge_easy` | 24 | Easy tasks from test challenge set |
+| `test_challenge_med` | 24 | Medium tasks from test challenge set |
+| `test_challenge_hard` | 24 | Hard tasks from test challenge set |
+| `test_normal_easy` | 19 | Easy tasks from test normal set (one per scenario) |
+| `test_normal_med` | 16 | Medium tasks from test normal set (one per scenario) |
+| `test_normal_hard` | 21 | Hard tasks from test normal set (one per scenario) |
+| `test_normal_all_easy` | 57 | All easy tasks from test normal set (all variants) |
+| `test_normal_all_med` | 48 | All medium tasks from test normal set (all variants) |
+| `test_normal_all_hard` | 63 | All hard tasks from test normal set (all variants) |
 
 ---
 
 ## 📝 Evaluation Configuration
 
-The [`eval_config.toml`](eval_config.toml) file contains predefined task groups. Example structure:
-
-```toml
-[eval_config]
-headless = true
-test_challenge_easy = ["e775c78_1","07bb666_1","9aae7da_1", ...]
-test_challenge_med = ["d9987f6_1","4815c06_1","f6936d4_1", ...]
-test_challenge_hard = ["80acbaf_1","e70b117_1","6d59d90_1", ...]
-```
+The [`eval_config.toml`](eval_config.toml) file contains predefined task groups. The `eval_key` setting controls which group runs by default when no `--eval-key` flag is passed.
 
 You can modify this file to create custom task groups or adjust existing ones.
 
