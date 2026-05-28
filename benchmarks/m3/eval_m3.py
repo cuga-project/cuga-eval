@@ -2073,6 +2073,12 @@ async def run_config_mode(args, container_runtime: str):
     batch_size = args.batch_size or 1
     sequential_mode = batch_size < 2
 
+    # Hoisted so the KeyboardInterrupt / Exception handlers below can save
+    # whatever was collected if the eval is interrupted (#91, #92). In
+    # sequential mode results are appended as tasks complete; in batched
+    # mode evaluate_tasks_in_batches replaces the list with its return.
+    all_results: List[Dict[str, Any]] = []
+
     try:
         # Start registry if enabled. In sequential mode we *don't* start a
         # shared registry here — each service spawns its own mini registry
@@ -2271,13 +2277,21 @@ async def run_config_mode(args, container_runtime: str):
 
         # Concurrency: sequential by default, batched when --batch-size >= 2.
         # "Fully parallel" is just a large batch size (>= total tasks).
-        all_results: List[Dict[str, Any]] = []
+        # (all_results is hoisted to before the try block; clear it here.)
+        all_results.clear()
         if not sequential_mode:
-            # Batched evaluation returns an already-flattened list.
-            all_results = await evaluate_tasks_in_batches(
-                task_evaluations=task_evaluations,
-                batch_size=batch_size,
-                args=args,
+            # Batched evaluation returns an already-flattened list. Use
+            # .extend() rather than reassignment so an interrupt during the
+            # gather doesn't drop any results that were already captured in
+            # the hoisted all_results (the batched helper itself uses
+            # return_exceptions=True, so completed batches' results survive
+            # individual failures).
+            all_results.extend(
+                await evaluate_tasks_in_batches(
+                    task_evaluations=task_evaluations,
+                    batch_size=batch_size,
+                    args=args,
+                )
             )
         else:
             logger.info(f"\n{'=' * 80}")
@@ -2413,6 +2427,37 @@ async def run_config_mode(args, container_runtime: str):
             logger.info(f"Ground truth format saved to: {ground_truth_path}")
         else:
             logger.warning("⚠️  No results produced. Check the registry logs and task filters.")
+
+    except (KeyboardInterrupt, asyncio.CancelledError):
+        # User hit Ctrl-C or the task group was cancelled. Save whatever
+        # tasks we managed to complete so the shell-side `create_bundle`
+        # has something to bundle, then re-raise so the script exits with
+        # the right status. (Bug #91, #92.)
+        logger.warning("⛔ Evaluation interrupted — saving any partial results before exit...")
+        try:
+            if all_results:
+                output_dir = Path(__file__).parent / "results"
+                prefix = "m3_config_no_gt_partial" if no_ground_truth else "m3_config_partial"
+                saved_path = save_evaluation_results(all_results, output_dir, prefix=prefix)
+                logger.warning(f"📁 Partial results ({len(all_results)} task-results) saved to: {saved_path}")
+            else:
+                logger.warning("(no partial results collected yet)")
+        except Exception as save_err:
+            logger.error(f"Failed to save partial results: {save_err}")
+        raise
+    except Exception as eval_err:
+        # An unexpected exception bubbled out of the eval loop. Same
+        # partial-save logic as the interrupt path, then re-raise. (Bug #92.)
+        logger.error(f"❌ Evaluation aborted by unexpected error: {eval_err}")
+        try:
+            if all_results:
+                output_dir = Path(__file__).parent / "results"
+                prefix = "m3_config_no_gt_partial" if no_ground_truth else "m3_config_partial"
+                saved_path = save_evaluation_results(all_results, output_dir, prefix=prefix)
+                logger.warning(f"📁 Partial results ({len(all_results)} task-results) saved to: {saved_path}")
+        except Exception as save_err:
+            logger.error(f"Failed to save partial results: {save_err}")
+        raise
 
     finally:
         # Stop registry if it was started
