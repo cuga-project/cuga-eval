@@ -1,4 +1,8 @@
 #!/bin/bash
+#
+# M3 (Vakra) one-time setup: clone vendor/vakra, install its Python deps into the
+# project .venv (from README: uv venv && uv sync), download data, build/start
+# Docker containers. Does NOT create vendor/vakra/.venv.
 
 # Colors for output
 RED='\033[0;31m'
@@ -8,8 +12,12 @@ BLUE='\033[0;34m'
 NC='\033[0m' # No Color
 
 # Configuration
+SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+PROJECT_ROOT="$SCRIPT_DIR"
+PROJECT_VENV="${PROJECT_ROOT}/.venv"
+PROJECT_PYTHON="${PROJECT_VENV}/bin/python"
 REPO_URL="https://github.com/IBM/vakra.git"
-VENDOR_DIR="./vendor"
+VENDOR_DIR="${PROJECT_ROOT}/vendor"
 REPO_NAME="vakra"
 REPO_PATH="${VENDOR_DIR}/${REPO_NAME}"
 DATA_DIR="${REPO_PATH}/data"
@@ -34,6 +42,45 @@ print_error() {
 # Function to check if command exists
 command_exists() {
     command -v "$1" &> /dev/null
+}
+
+# Require the uv-managed project venv from README steps 3–4 (uv venv && uv sync).
+ensure_project_venv() {
+    if ! command_exists uv; then
+        print_error "uv is required. Install it from https://github.com/astral-sh/uv"
+        return 1
+    fi
+
+    if [ ! -x "$PROJECT_PYTHON" ]; then
+        print_error "Project virtualenv not found at ${PROJECT_VENV}"
+        print_error "Run these first (see README.md):"
+        print_error "  uv venv"
+        print_error "  uv sync"
+        return 1
+    fi
+
+    if ! "$PROJECT_PYTHON" -c 'import sys; exit(0 if sys.version_info >= (3, 12) else 1)' 2>/dev/null; then
+        print_error "Project venv must use Python 3.12 or 3.13 (found: $("$PROJECT_PYTHON" --version))"
+        print_error "Recreate it with: uv venv --python 3.13 && uv sync"
+        return 1
+    fi
+
+    return 0
+}
+
+# Upstream vakra still lists the abandoned PyPI package "dotenv".
+patch_vakra_dotenv() {
+    local pyproject="${REPO_PATH}/pyproject.toml"
+
+    if [ ! -f "$pyproject" ]; then
+        return 0
+    fi
+
+    if grep -q '"dotenv"' "$pyproject"; then
+        print_status "Patching vakra dependency: dotenv -> python-dotenv"
+        sed -i.bak 's/"dotenv"/"python-dotenv"/' "$pyproject"
+        rm -f "${pyproject}.bak"
+    fi
 }
 
 # Function to check prerequisites
@@ -116,47 +163,35 @@ setup_python_env() {
         return 1
     fi
 
-    cd "$REPO_PATH" || exit 1
+    ensure_project_venv || return 1
 
-    # Create virtual environment if it doesn't exist
-    if [ ! -d ".venv" ]; then
-        print_status "Creating Python virtual environment..."
-        if python3 -m venv .venv; then
-            print_success "Virtual environment created"
-        else
-            print_error "Failed to create virtual environment"
-            cd - > /dev/null
-            return 1
-        fi
-    else
-        print_status "Virtual environment already exists"
+    print_status "Using project venv ($("$PROJECT_PYTHON" --version))"
+
+    patch_vakra_dotenv
+
+    # Older setup_m3.sh versions created vendor/vakra/.venv with system python3.
+    if [ -d "${REPO_PATH}/.venv" ]; then
+        print_warning "Removing legacy vendor/vakra/.venv (use the project .venv from 'uv venv' instead)"
+        rm -rf "${REPO_PATH}/.venv"
     fi
 
-    # Activate virtual environment
-    print_status "Activating virtual environment..."
-    source .venv/bin/activate
+    cd "$PROJECT_ROOT" || exit 1
 
-    # Install vakra package with init dependencies
     print_status "Installing vakra package with init dependencies..."
-    if pip install -e ".[init]"; then
+    if uv pip install -e "${REPO_PATH}[init]"; then
         print_success "Vakra package installed successfully"
     else
         print_error "Failed to install vakra package"
-        cd - > /dev/null
         return 1
     fi
 
-    # Install benchmark dependencies
     print_status "Installing benchmark dependencies..."
-    if pip install -r requirements_benchmark.txt; then
+    if uv pip install -r "${REPO_PATH}/requirements_benchmark.txt"; then
         print_success "Benchmark dependencies installed successfully"
     else
         print_error "Failed to install benchmark dependencies"
-        cd - > /dev/null
         return 1
     fi
-
-    cd - > /dev/null
 }
 
 # Function to download data from HuggingFace
@@ -178,15 +213,10 @@ download_data() {
 
     cd "$REPO_PATH" || exit 1
 
-    # Activate virtual environment
-    if [ -d ".venv" ]; then
-        source .venv/bin/activate
-    fi
-
     # Download using make
     if command_exists make; then
         print_status "Using make to download data..."
-        if make download; then
+        if PYTHON="$PROJECT_PYTHON" make download; then
             print_success "Data downloaded successfully"
         else
             print_error "Failed to download data"
@@ -195,7 +225,7 @@ download_data() {
         fi
     else
         print_status "Using Python script to download data..."
-        if python benchmark_setup.py --download-data; then
+        if uv run --project "$PROJECT_ROOT" python "$REPO_PATH/benchmark_setup.py" --download-data; then
             print_success "Data downloaded successfully"
         else
             print_error "Failed to download data"
