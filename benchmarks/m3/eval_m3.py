@@ -1879,6 +1879,30 @@ def rewrite_config_with_loader_domains(config_path: str, m3_data_loader: M3DataL
     return path
 
 
+def _service_name_filters_from_task(task_list: Optional[List[str]]) -> Optional[List[str]]:
+    """Return source-yaml service names from args.task (e.g. m3_task_2).
+
+    UUIDs and hockey_395_0-style test-case IDs are not service-name filters.
+    """
+    if not task_list:
+        return None
+    import re
+
+    uuid_re = re.compile(r"^[a-f0-9]{12}-[a-f0-9]{12}$")
+    testcase_re = re.compile(r"^[a-z_]+_\d+_\d+$")
+    names = [f for f in task_list if not uuid_re.match(f) and not testcase_re.match(f)]
+    return names or None
+
+
+def _non_service_task_filters(task_list: List[str]) -> List[str]:
+    """Keep UUID / test-case filters when auto-sequencing capability passes."""
+    import re
+
+    uuid_re = re.compile(r"^[a-f0-9]{12}-[a-f0-9]{12}$")
+    testcase_re = re.compile(r"^[a-z_]+_\d+_\d+$")
+    return [f for f in task_list if uuid_re.match(f) or testcase_re.match(f)]
+
+
 def expand_registry_config(
     config_path: str,
     capability_filter: Optional[List[str]] = None,
@@ -2174,6 +2198,36 @@ async def run_config_mode(args, container_runtime: str):
             f"capabilities: {m3_data_loader.available_capabilities()} | "
             f"no_ground_truth={no_ground_truth}"
         )
+
+    # When --m3-data is set but no --capability/--task service name was given,
+    # expand one capability at a time. Bare-domain registry names (books,
+    # mondial_geo, soccer_2016, …) collide across m3_task_2 and m3_task_3 if
+    # both are expanded into the same yaml (regression from the vakra tool-name
+    # fix in c0ce9f1). Sequential passes restore the old "run everything"
+    # behaviour without requiring --capability on the CLI.
+    _task_filters = list(args.task) if getattr(args, "task", None) else []
+    if m3_data_loader and _service_name_filters_from_task(_task_filters) is None:
+        cap_ids = m3_data_loader.available_capabilities()
+        preserved = _non_service_task_filters(_task_filters)
+        if len(cap_ids) > 1:
+            logger.info(
+                f"No --capability filter: running {len(cap_ids)} capability passes "
+                f"sequentially ({', '.join(f'm3_task_{i}' for i in cap_ids)}) "
+                f"to avoid cross-task domain-name collisions"
+            )
+            import copy
+
+            for task_id in cap_ids:
+                cap_name = f"m3_task_{task_id}"
+                logger.info(f"\n{'=' * 80}\n🔁 Auto capability pass: {cap_name}\n{'=' * 80}")
+                pass_args = copy.copy(args)
+                pass_args.task = [cap_name] + preserved
+                await run_config_mode(pass_args, container_runtime)
+            return
+        if len(cap_ids) == 1:
+            cap_name = f"m3_task_{cap_ids[0]}"
+            logger.info(f"No --capability filter: auto-narrowing to data capability {cap_name}")
+            args.task = [cap_name] + preserved
 
     # In --no-ground-truth mode, rewrite the YAML so each service's
     # metadata.domains reflects the loader's view (test domains), not the
