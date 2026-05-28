@@ -1559,6 +1559,18 @@ async def evaluate_single_task(
     return task_results
 
 
+def get_registry_port() -> int:
+    """Registry port shared by the MCP server and cuga-agent HTTP client.
+
+    Reads ``settings.server_ports.registry`` (override via
+    ``DYNACONF_SERVER_PORTS__REGISTRY``), the same source
+    ``get_registry_base_url()`` uses when the agent calls the registry.
+    """
+    from cuga.config import settings
+
+    return int(settings.server_ports.registry)
+
+
 async def start_registry_server(config_path: str) -> subprocess.Popen:
     """Start the registry server with the specified config.
 
@@ -1571,13 +1583,7 @@ async def start_registry_server(config_path: str) -> subprocess.Popen:
     import os
     import subprocess
 
-    # Honour caller-provided port via REGISTRY_PORT (set by eval.sh) and
-    # DYNACONF_SERVER_PORTS__REGISTRY (set when the agent's settings.toml
-    # registry port is overridden). Both must match: CUGA-agent reads the
-    # DYNACONF value when constructing HTTP requests to its registry; the
-    # registry server must listen on the same port. Default 8001.
-    _port_env = os.environ.get("REGISTRY_PORT") or os.environ.get("DYNACONF_SERVER_PORTS__REGISTRY")
-    registry_port = int(_port_env) if _port_env else 8001
+    registry_port = get_registry_port()
 
     # Check if the registry port is already in use
     logger.info(f"🔍 Checking if port {registry_port} is available...")
@@ -1627,6 +1633,8 @@ async def start_registry_server(config_path: str) -> subprocess.Popen:
     # Set environment variables for registry config
     env = os.environ.copy()
     env["MCP_SERVERS_FILE"] = abs_config_path
+    env["DYNACONF_SERVER_PORTS__REGISTRY"] = str(registry_port)
+    env["REGISTRY_PORT"] = str(registry_port)
 
     # Ensure CONTAINER_RUNTIME is set for the registry subprocess as a full path.
     # The registry server calls os.path.expandvars() on the YAML, so ${CONTAINER_RUNTIME}

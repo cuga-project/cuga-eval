@@ -25,6 +25,12 @@ if [ -f "$PROJECT_ROOT/benchmarks/helpers/common.sh" ]; then
     source "$PROJECT_ROOT/benchmarks/helpers/common.sh"
 fi
 
+# Align cleanup port with eval.sh / cuga-agent (DYNACONF_SERVER_PORTS__REGISTRY).
+source "$PROJECT_ROOT/benchmarks/helpers/load_env.sh" "m3"
+REGISTRY_PORT="${REGISTRY_PORT:-${DYNACONF_SERVER_PORTS__REGISTRY:-8001}}"
+export REGISTRY_PORT
+export DYNACONF_SERVER_PORTS__REGISTRY="$REGISTRY_PORT"
+
 # Source model profiles
 if [ -f "$PROJECT_ROOT/scripts/model_profiles.sh" ]; then
     source "$PROJECT_ROOT/scripts/model_profiles.sh"

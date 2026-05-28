@@ -112,7 +112,6 @@ while [[ $# -gt 0 ]]; do
 done
 
 
-REGISTRY_PORT="${REGISTRY_PORT:-8001}"
 REGISTRY_PID=""
 
 cleanup() {
@@ -135,6 +134,12 @@ cd "$PROJECT_ROOT"
 
 # Load environment
 source "$PROJECT_ROOT/benchmarks/helpers/load_env.sh" "m3"
+
+# Single registry port for shell helpers and Python (eval_m3 / cuga-agent both
+# read DYNACONF_SERVER_PORTS__REGISTRY via settings.server_ports.registry).
+REGISTRY_PORT="${REGISTRY_PORT:-${DYNACONF_SERVER_PORTS__REGISTRY:-8001}}"
+export REGISTRY_PORT
+export DYNACONF_SERVER_PORTS__REGISTRY="$REGISTRY_PORT"
 
 # Make sure Python doesn't block-buffer stdout when it's piped through `tee`.
 # Without this, print() output from the summary can land after the process
