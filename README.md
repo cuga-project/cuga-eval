@@ -107,6 +107,10 @@ Oak is ready to run after the base install. See [`benchmarks/oak_health_insuranc
 If you plan to run the M3 benchmark:
 
 ```bash
+# Hugging Face token for downloading ~30 GB of benchmark data (read access is enough).
+# Create one at https://huggingface.co/settings/tokens
+export HF_TOKEN=hf_your_token_here
+
 # Clones vakra, downloads data, builds containers.
 ./setup_m3.sh
 ```
