@@ -73,11 +73,19 @@ def _default_log_files(benchmark: str) -> list[Path]:
     return logs
 
 
-def _default_trajectory_dir(benchmark: str) -> Path | None:
-    from benchmarks.helpers.bundle import find_latest_trajectory
+def _find_latest_trajectory(trajectory_data_dir: Path) -> Path | None:
+    """Return the most recently modified subfolder under trajectory_data_dir."""
+    if not trajectory_data_dir.is_dir():
+        return None
+    subdirs = [d for d in trajectory_data_dir.iterdir() if d.is_dir()]
+    if not subdirs:
+        return None
+    return max(subdirs, key=lambda d: d.stat().st_mtime)
 
+
+def _default_trajectory_dir(benchmark: str) -> Path | None:
     traj_root = PROJECT_ROOT / "benchmarks" / benchmark / "logging" / "trajectory_data"
-    return find_latest_trajectory(traj_root)
+    return _find_latest_trajectory(traj_root)
 
 
 def _generate_report(result_file: Path) -> Path | None:
