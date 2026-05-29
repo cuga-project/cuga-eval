@@ -20,6 +20,8 @@ import sys
 from pathlib import Path
 from typing import Any, Dict, List, Optional, Tuple
 
+from loguru import logger
+
 _EVAL_DIR = Path(__file__).resolve().parent / "evaluator"
 # The upstream vendor was renamed `enterprise-benchmark` → `vakra`. Try the
 # new name first; fall back to the old name so older clones still work.
@@ -565,6 +567,10 @@ async def score_results_async(
         for r in results:
             if "vakra" in r:
                 r["vakra"]["_scoring_mode"] = used_mode
+        log_vakra_task_scores(results)
+        langfuse_pushed = push_vakra_scores_to_langfuse(results)
+        if langfuse_pushed:
+            logger.info(f"📊 Pushed Vakra scores to Langfuse for {langfuse_pushed} trace(s)")
     return summary
 
 
@@ -600,6 +606,99 @@ def score_results(
 
 
 _JUDGE_KEYS = ("exactmatch", "answer", "groundedness")
+
+
+def _last_turn_judge_scores(vakra: Dict[str, Any]) -> Dict[str, float]:
+    """Extract per-judge scores from the last scored turn in a Vakra dialogue."""
+    per_turn = (vakra.get("details") or {}).get("per_turn") or []
+    if not per_turn:
+        return {}
+    meta = per_turn[-1].get("metadata") or {}
+    scores: Dict[str, float] = {}
+    for key in _JUDGE_KEYS:
+        score_key = "exactmatch_score" if key == "exactmatch" else f"{key}_score"
+        val = meta.get(score_key)
+        if val is not None:
+            scores[key] = float(val)
+    return scores
+
+
+def _format_judge_scores_compact(scores: Dict[str, float]) -> str:
+    return " ".join(f"{key}={scores[key]:.1f}" for key in _JUDGE_KEYS if key in scores)
+
+
+def log_vakra_task_scores(results: List[Dict[str, Any]]) -> None:
+    """Log per-task Vakra dialogue + judge scores to the console."""
+    for r in results:
+        vakra = r.get("vakra")
+        if not vakra:
+            continue
+        uuid = _result_uuid(r) or r.get("task_name", "?")
+        dialogue_score = float(r.get("match_rate", vakra.get("score", 0.0)))
+        passed = dialogue_score >= 1.0
+        mark = "✅ PASS" if passed else "❌ FAIL"
+        judge = _last_turn_judge_scores(vakra)
+        judge_str = _format_judge_scores_compact(judge) if judge else "(no judge breakdown)"
+        logger.info(f"📊 Vakra {mark}: {uuid} dialogue={dialogue_score:.2f} | {judge_str}")
+
+
+def push_vakra_scores_to_langfuse(results: List[Dict[str, Any]]) -> int:
+    """Attach Vakra judge scores to existing Langfuse traces (post-hoc).
+
+    Mirrors AppWorld's ``appworld_success`` / ``pass_percentage`` pattern:
+    trace-level scores are written after evaluation completes, keyed by each
+    result's ``trace_id``.
+
+    Returns the number of traces scored.
+    """
+    try:
+        from langfuse import get_client
+
+        langfuse = get_client()
+    except Exception:
+        return 0
+
+    pushed = 0
+    for r in results:
+        trace_id = r.get("trace_id")
+        vakra = r.get("vakra")
+        if not trace_id or not vakra:
+            continue
+        dialogue_score = float(r.get("match_rate", vakra.get("score", 0.0)))
+        success = dialogue_score >= 1.0
+        try:
+            langfuse.create_score(
+                trace_id=trace_id,
+                name="m3_success",
+                value=success,
+                data_type="BOOLEAN",
+                comment="Vakra dialogue pass (score >= 1.0)",
+            )
+            langfuse.create_score(
+                trace_id=trace_id,
+                name="m3_dialogue_score",
+                value=dialogue_score,
+                data_type="NUMERIC",
+                comment="Vakra aggregated dialogue score",
+            )
+            for key, val in _last_turn_judge_scores(vakra).items():
+                langfuse.create_score(
+                    trace_id=trace_id,
+                    name=f"m3_{key}_score",
+                    value=val,
+                    data_type="NUMERIC",
+                    comment=f"Vakra {key} judge score",
+                )
+            pushed += 1
+        except Exception as e:
+            logger.warning(f"Failed to push Vakra scores to Langfuse for trace {trace_id}: {e}")
+
+    if pushed:
+        try:
+            langfuse.flush()
+        except Exception as e:
+            logger.warning(f"Failed to flush Langfuse after pushing Vakra scores: {e}")
+    return pushed
 
 
 def _judge_lines(turn: Dict[str, Any], indent: str = "      ") -> List[str]:
@@ -690,7 +789,9 @@ def print_vakra_summary(results: List[Dict[str, Any]]) -> None:
             tc_str = f"tool_calls={actual_tcs}/{expected_tcs}"
         else:
             tc_str = f"tool_calls={actual_tcs}"
-        write(f"  {mark} {uuid:<30}  score={score:.2f}  {tc_str}\n")
+        judge = _last_turn_judge_scores(r.get("vakra") or {})
+        judge_str = f"  {_format_judge_scores_compact(judge)}" if judge else ""
+        write(f"  {mark} {uuid:<30}  score={score:.2f}  {tc_str}{judge_str}\n")
         if not passed:
             details = (r.get("vakra") or {}).get("details") or {}
             per_turn = details.get("per_turn") or []

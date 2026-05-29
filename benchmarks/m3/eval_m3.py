@@ -2432,43 +2432,34 @@ async def run_config_mode(args, container_runtime: str):
         except Exception as e:
             logger.warning(f"Could not initialize Langfuse: {e}")
 
-        # Collect all task evaluation coroutines
-        task_evaluations = []
+        # Collect task evaluation coroutines only for parallel/batched mode.
+        # In sequential mode we await evaluate_single_task per service below
+        # (after starting a one-service registry). Building coroutines here
+        # and never awaiting them triggers "coroutine was never awaited".
+        task_evaluations: List[tuple[str, Any]] = []
 
-        for service_dict in services:
-            # Extract service name and config
-            service_name = list(service_dict.keys())[0]
-            service_config = service_dict[service_name]
+        if not sequential_mode:
+            for service_dict in services:
+                service_name = list(service_dict.keys())[0]
+                service_config = service_dict[service_name]
 
-            metadata = service_config.get("metadata", {})
-            task_id = metadata.get("task_id")
-            container = metadata.get("container")
-            domains = metadata.get("domains", [])
-            task_multiturn = metadata.get("multiturn", None)  # None = auto-detect
+                metadata = service_config.get("metadata", {})
+                task_id = metadata.get("task_id")
+                container = metadata.get("container")
+                domains = metadata.get("domains", [])
+                task_multiturn = metadata.get("multiturn", None)  # None = auto-detect
 
-            # Create coroutine for this task (will process all its domains)
-            # Task 1 uses uuid-based tool universe switching — route to dedicated handler
-            # if task_id == 1:
-            #     task_coro = evaluate_single_task_1(
-            #         service_name=service_name,
-            #         task_id=task_id,
-            #         container=container,
-            #         domains=domains,
-            #         args=args,
-            #         container_runtime=container_runtime
-            #     )
-            # else:
-            task_coro = evaluate_single_task(
-                service_name=service_name,
-                task_id=task_id,
-                container=container,
-                domains=domains,
-                task_multiturn=task_multiturn,
-                args=args,
-                container_runtime=container_runtime,
-                m3_data_loader=m3_data_loader,
-            )
-            task_evaluations.append((service_name, task_coro))
+                task_coro = evaluate_single_task(
+                    service_name=service_name,
+                    task_id=task_id,
+                    container=container,
+                    domains=domains,
+                    task_multiturn=task_multiturn,
+                    args=args,
+                    container_runtime=container_runtime,
+                    m3_data_loader=m3_data_loader,
+                )
+                task_evaluations.append((service_name, task_coro))
 
         # Concurrency: sequential by default, batched when --batch-size >= 2.
         # "Fully parallel" is just a large batch size (>= total tasks).

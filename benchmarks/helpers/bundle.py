@@ -723,6 +723,12 @@ def cli():
 
     args = parser.parse_args()
 
+    # Reload benchmark env from disk (dotenv strips inline comments). Shell-sourced
+    # vars from eval.sh may include trailing comment text in values.
+    from benchmarks.helpers.config_loader import load_eval_config
+
+    load_eval_config(args.benchmark)
+
     policies_dir = Path(args.policies_dir) if getattr(args, "policies_dir", None) else None
 
     if args.command == "assemble":
