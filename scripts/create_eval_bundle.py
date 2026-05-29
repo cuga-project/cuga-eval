@@ -214,7 +214,8 @@ def main() -> int:
 
     bundle_cmd = [
         sys.executable,
-        str(PROJECT_ROOT / "benchmarks" / "helpers" / "bundle.py"),
+        "-m",
+        "benchmarks.helpers.bundle",
         "assemble",
         "--benchmark",
         args.benchmark,

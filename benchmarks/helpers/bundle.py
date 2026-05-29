@@ -43,6 +43,18 @@ _HELPERS_DIR = Path(__file__).resolve().parent
 PROJECT_ROOT = _HELPERS_DIR.parent.parent
 
 
+def _load_benchmark_env(benchmark_name: str) -> None:
+    """Load global + benchmark .env files (dotenv strips inline comments)."""
+    from dotenv import load_dotenv
+
+    global_env = PROJECT_ROOT / "config" / "global.env"
+    if global_env.exists():
+        load_dotenv(global_env, override=True)
+    benchmark_env = PROJECT_ROOT / "benchmarks" / benchmark_name / "config" / f"{benchmark_name}.env"
+    if benchmark_env.exists():
+        load_dotenv(benchmark_env, override=True)
+
+
 # ---------------------------------------------------------------------------
 # Git / hash helpers
 # ---------------------------------------------------------------------------
@@ -725,9 +737,7 @@ def cli():
 
     # Reload benchmark env from disk (dotenv strips inline comments). Shell-sourced
     # vars from eval.sh may include trailing comment text in values.
-    from benchmarks.helpers.config_loader import load_eval_config
-
-    load_eval_config(args.benchmark)
+    _load_benchmark_env(args.benchmark)
 
     policies_dir = Path(args.policies_dir) if getattr(args, "policies_dir", None) else None
 
