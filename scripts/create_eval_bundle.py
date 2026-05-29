@@ -65,8 +65,8 @@ def _default_log_files(benchmark: str) -> list[Path]:
             logs.append(path)
     # Same fixed paths as benchmarks/m3/eval.sh (not user-controlled).
     for fallback in (
-        Path("/tmp/m3_registry.log"),  # noqa: S108
-        Path("/tmp/m3_console.log"),  # noqa: S108
+        Path("/tmp/m3_registry.log"),  # noqa: S108  # nosec B108
+        Path("/tmp/m3_console.log"),  # noqa: S108  # nosec B108
     ):
         if fallback.is_file() and fallback.stat().st_size > 0:
             logs.append(fallback)
