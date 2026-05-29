@@ -52,12 +52,29 @@ apply_model_profile() {
             echo -e "${GREEN}  MODEL_NAME=$MODEL_NAME${NC}"
             echo -e "${GREEN}  OPENAI_BASE_URL=$OPENAI_BASE_URL${NC}"
             ;;
+        vllm|local)
+            # OpenAI-compatible local server (vLLM, etc.). Set MODEL_NAME and
+            # OPENAI_BASE_URL in .env, or pass --model-name / --openai-base-url.
+            export AGENT_SETTING_CONFIG="settings.openai.toml"
+            export OPENAI_BASE_URL="${OPENAI_BASE_URL:-http://127.0.0.1:8000/v1}"
+            export OPENAI_API_KEY="${OPENAI_API_KEY:-}"  # pragma: allowlist secret
+            unset OPENAI_API_VERSION
+            if [ -z "${MODEL_NAME:-}" ]; then
+                echo -e "${RED}Error: MODEL_NAME is required for profile '$profile'${NC}"
+                echo -e "${YELLOW}Set MODEL_NAME in .env or pass --model-name (e.g. Qwen/Qwen3-32B)${NC}"
+                return 1
+            fi
+            echo -e "${GREEN}✓${NC} Model profile: $profile (local OpenAI-compatible)"
+            echo -e "${GREEN}  AGENT_SETTING_CONFIG=$AGENT_SETTING_CONFIG${NC}"
+            echo -e "${GREEN}  MODEL_NAME=$MODEL_NAME${NC}"
+            echo -e "${GREEN}  OPENAI_BASE_URL=$OPENAI_BASE_URL${NC}"
+            ;;
         "")
             # No profile specified, use .env defaults
             ;;
         *)
             echo -e "${RED}Error: Unknown model profile '$profile'${NC}"
-            echo -e "${YELLOW}Valid values: gpt-oss, gpt4o, gpt4.1, opus4.5${NC}"
+            echo -e "${YELLOW}Valid values: gpt-oss, gpt4o, gpt4.1, opus4.5, vllm, local${NC}"
             return 1
             ;;
     esac

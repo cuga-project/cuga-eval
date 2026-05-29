@@ -123,6 +123,8 @@ OUTPUT_FILE="${OUTPUT_FILE:-}"
 DRY_RUN="${DRY_RUN:-false}"
 VERBOSE="${VERBOSE:-false}"
 MODEL_PROFILE="${MODEL_PROFILE:-}"
+CLI_MODEL_NAME="${CLI_MODEL_NAME:-}"
+CLI_OPENAI_BASE_URL="${CLI_OPENAI_BASE_URL:-}"
 AGENT="${AGENT:-cuga}"
 AGENTS="${AGENTS:-}"
 COMPARE_AGENTS="${COMPARE_AGENTS:-false}"
@@ -161,6 +163,14 @@ parse_common_args() {
                 ;;
             --model-profile)
                 MODEL_PROFILE="${args[$((idx+1))]}"
+                idx=$((idx+2))
+                ;;
+            --model-name)
+                CLI_MODEL_NAME="${args[$((idx+1))]}"
+                idx=$((idx+2))
+                ;;
+            --openai-base-url)
+                CLI_OPENAI_BASE_URL="${args[$((idx+1))]}"
                 idx=$((idx+2))
                 ;;
             --agent)
@@ -205,20 +215,44 @@ parse_common_args() {
     fi
 }
 
+# Source scripts/model_profiles.sh once (idempotent).
+_ensure_model_profiles_loaded() {
+    local script_dir profiles_script
+    script_dir="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+    profiles_script="$script_dir/../../scripts/model_profiles.sh"
+    if [ -f "$profiles_script" ]; then
+        # shellcheck source=/dev/null
+        source "$profiles_script"
+        return 0
+    fi
+    echo -e "${RED}Error: model_profiles.sh not found at $profiles_script${NC}"
+    return 1
+}
+
 # Apply model profile if specified
 apply_model_profile_if_set() {
     if [ -n "$MODEL_PROFILE" ]; then
-        local script_dir
-        script_dir="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
-        local profiles_script="$script_dir/../../scripts/model_profiles.sh"
-        if [ -f "$profiles_script" ]; then
-            source "$profiles_script"
-            apply_model_profile "$MODEL_PROFILE"
-        else
-            echo -e "${RED}Error: model_profiles.sh not found at $profiles_script${NC}"
-            return 1
-        fi
+        _ensure_model_profiles_loaded || return 1
+        apply_model_profile "$MODEL_PROFILE"
     fi
+}
+
+# Apply per-run CLI overrides (after profile and .env load).
+apply_model_cli_overrides_if_set() {
+    if [ -n "$CLI_MODEL_NAME" ]; then
+        export MODEL_NAME="$CLI_MODEL_NAME"
+        echo -e "${GREEN}✓${NC} MODEL_NAME override: $MODEL_NAME"
+    fi
+    if [ -n "$CLI_OPENAI_BASE_URL" ]; then
+        export OPENAI_BASE_URL="$CLI_OPENAI_BASE_URL"
+        echo -e "${GREEN}✓${NC} OPENAI_BASE_URL override: $OPENAI_BASE_URL"
+    fi
+}
+
+# Apply profile then CLI overrides. Call after load_env.sh and arg parsing.
+finalize_model_config() {
+    apply_model_profile_if_set || return 1
+    apply_model_cli_overrides_if_set
 }
 
 # Build model-envs JSON for bundle CLI.

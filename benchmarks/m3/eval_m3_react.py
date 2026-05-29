@@ -243,8 +243,10 @@ class M3ReactEvaluator:
             self._registry_tmp_yaml = None
         # OS may take a moment to fully release the port (TIME_WAIT etc).
         # Without this poll, the next group's start_registry_server hits
-        # "Port 8001 is already in use" and aborts.
-        await self._wait_for_port_free(8001, timeout=15.0)
+        # "Port … is already in use" and aborts.
+        from benchmarks.m3.eval_m3 import get_registry_port
+
+        await self._wait_for_port_free(get_registry_port(), timeout=15.0)
         self._active_group = None
 
     async def _wait_for_port_free(self, port: int, timeout: float) -> None:

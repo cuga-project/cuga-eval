@@ -1,0 +1,177 @@
+[
+  {
+    "id": "output_formatter_single_tool_fact_citation",
+    "type": "output_formatter",
+    "name": "P-OF-1 — Single-Tool-Fact Citation",
+    "description": "Single-fact answers must cite the originating API/tool as the source of the value.",
+    "priority": 100,
+    "enabled": true,
+    "format_type": "markdown",
+    "triggers": [
+      {
+        "type": "natural_language",
+        "target": "agent_response",
+        "case_sensitive": false,
+        "operator": "or",
+        "value": [
+          "the response answers a single-fact question (number, name, date, identifier, percentage, ratio, or single-row attribute) that was retrieved from a tool or API call",
+          "the response cites a value taken directly from a tool result",
+          "the answer reports a single value retrieved from one or more data-fetching tools"
+        ]
+      }
+    ],
+    "format_config": "# P-OF-1 — Single-Tool-Fact Citation\n\n## Policy\n\nWhen the assistant answers a question whose answer is a **single fact** — a number, name, date, identifier, percentage, ratio, or single-row attribute — and that fact was obtained from a tool/API call, the assistant must cite the originating tool/API as the source of the value in the final answer.\n\n## Rationale\n\nThis policy enforces the standard data-provenance requirement that all analytical or dashboard-style answers carry an audit trail. Across the regulated and reporting-driven contexts this assistant is deployed in — financial dashboards, healthcare analytics, sports statistics, public-development indicators, academic citation, e-commerce reporting — every numeric or factual claim in a response must be traceable to its system of record. Without source attribution, downstream consumers cannot verify the figure, replicate the query, or assess the freshness of the data.\n\nThe policy applies uniformly across all dashboard-API and multi-hop-reasoning workflows, regardless of the underlying domain (publications, sports, geography, education, e-commerce, etc.).\n\n## Format requirement\n\nThe final answer to a single-fact question must include source attribution in one of the following equivalent forms (the assistant may choose the most natural style for the answer):\n\n1. **Inline citation** — `\"<answer>. Source: <tool name>.\"`\n   Example: *\"The Adjusted net enrolment rate for Algeria from 1975 to 1980 averages 77.0. Source: `get_adjusted_net_enrolment_avg`.\"*\n2. **Natural-language attribution** — `\"Per <data-system name>, <answer>.\"`\n   Example: *\"Per the World Development Indicators API, the average is 77.0.\"*\n3. **Parenthetical citation** — `\"<answer> (from <tool name>).\"`\n\nThe cited tool name should be the actual API/tool the assistant invoked to retrieve the value. If multiple tools contributed, cite the tool whose response directly produced the cited value.\n\n## Scope\n\n- **Applies** when the answer's value originates from a single tool/API call.\n- **Applies** to single-fact answers in `capability_2_dashboard_apis` and `capability_3_multihop_reasoning` workflows, across all 16 covered domains (authors, books, codebase_comments, hockey, mondial_geo, movie_platform, professional_basketball, soccer_2016, student_loan, talkingdata, beer_factory, college_completion, computer_student, disney, trains, university, world_development_indicators).\n- **Does not apply** to general explanations or definitional answers not tied to a specific data retrieval.\n- **Does not apply** to aggregated values whose provenance spans multiple tools (those are governed by a separate citation policy if and when one is added).\n\n## Examples\n\n- ✓ \"Per the books API, *Hyperion* was published in 1989.\"\n- ✓ \"There are 3 ICRA papers from 2012 (source: `get_conference_short_name_most_papers_v1`).\"\n- ✗ \"There are 3 ICRA papers from 2012.\" (no source attribution — fails policy)\n- ✗ \"The most popular conference in 2012 was ICRA, based on the available data.\" (vague — fails policy)\n\n## Reformatting instruction (LLM-facing)\n\nIf the agent's draft final answer reports a single fact retrieved from a tool, rewrite it so that the originating tool name (and, where applicable, the result field or data system) is cited in the answer. Use the most natural of the three formats above. Do **not** invent tool names that were not actually called in the current conversation; if the originating tool name is unavailable, cite the data system or capability instead (e.g., \"the dashboard API\" or \"the world development indicators dataset\"). Do not change the factual value itself.\n"
+  },
+  {
+    "id": "playbook_no_enumeration",
+    "type": "playbook",
+    "name": "P-PB-1 — No Enumeration When a Single Item Is Asked",
+    "description": "When the question requests a single item, return only that item; do not enumerate runners-up or alternatives.",
+    "priority": 100,
+    "enabled": true,
+    "triggers": [
+      {
+        "type": "natural_language",
+        "target": "intent",
+        "case_sensitive": false,
+        "operator": "or",
+        "threshold": 0.6,
+        "value": [
+          "the user asks for a single item (which X, the X with the most/least Y, the top X, the highest, the largest, the smallest)",
+          "the user asks \"which conference\", \"which company\", \"which country\", \"which city\", \"which solution\", \"which repository\", or another singular \"which\" form",
+          "the user asks \"what is the X\" expecting a single value or single named entity",
+          "the user asks for \"the\" specific item (the city of the lake at coordinates Y, the solution path with the highest processed time)"
+        ]
+      }
+    ],
+    "markdown_content": "# P-PB-1 — No Enumeration When a Single Item Is Asked\n\n## Policy\n\nWhen the user's question requests a **single item or value** (singular phrasing such as *\"which conference\"*, *\"the city with the most\"*, *\"the highest\"*, *\"the top\"*, *\"the largest\"*, *\"the smallest\"*), the assistant must return only that single item. Listing runners-up, near-misses, alternatives, or \"Top N\" enumerations the user did not request is prohibited.\n\n## Rationale\n\nThis is a basic answer-shape requirement for analytical and dashboard-style responses. When a stakeholder asks \"which region had the most sales last quarter?\", they expect a single region as the answer — not a leaderboard. Enumerating alternatives:\n\n- Increases the cognitive load on the reader, who has to find the answer inside a list.\n- Risks downstream misuse (the reader may pick the wrong row).\n- In audit and reporting contexts, dilutes the decision the answer is supposed to support.\n\n## Required behaviour\n\nBefore producing the final answer:\n\n1. Detect whether the user's intent is singular (\"which X\", \"the X with the most/least Y\", \"the highest\", \"the top\", \"the largest\") or plural (\"list all X\", \"which X meet condition Y\", \"show me the X's that…\").\n2. If singular: return only the resolved single item, with the source citation required by [[output_formatter_single_tool_fact_citation]].\n3. If plural: enumerate as requested.\n\nDo not include runners-up \"for context\", do not include \"Top 3\" when only the top 1 was requested, do not include \"the next-best alternative is …\".\n\n## Examples\n\n- ✗ Question: *\"In the year 2012, which conference had the most papers presented?\"*\n  ✗ Wrong: *\"The conference with the most papers in 2012 was ICRA. The next two were CVPR and NeurIPS.\"*\n  ✓ Right: *\"In 2012, ICRA had the most papers presented (source: `get_conference_short_name_most_papers_v1`).\"*\n- ✗ Question: *\"The city of the lake at (-85.35, 11.6)?\"*\n  ✗ Wrong: *\"The city is Granada. Nearby cities include Rivas and Masaya, which also border the lake.\"*\n  ✓ Right: *\"The city is Granada (source: `get_city_by_lake_coordinates`).\"*\n- ✓ Question: *\"List all books published in 1995\"* — enumeration is requested, so a list is the correct shape.\n\n## Interaction with other policies\n\nThis playbook complements [[output_formatter_strip_hedging]] (which strips runner-up clauses *after* the response is drafted) by preventing the planner from collecting the enumeration in the first place. Both can fire on the same case: this one shapes the upstream plan; the OutputFormatter cleans up if any slipped through.\n"
+  },
+  {
+    "id": "playbook_one_composite_tool_no_corroboration",
+    "type": "playbook",
+    "name": "P-PB-2 — One Composite Tool, No Corroboration",
+    "description": "For percentage, ratio, and proportion questions, use the single endpoint that returns the composite value directly; do not also call the raw component tools to corroborate it.",
+    "priority": 100,
+    "enabled": true,
+    "triggers": [
+      {
+        "type": "natural_language",
+        "target": "intent",
+        "case_sensitive": false,
+        "operator": "or",
+        "threshold": 0.6,
+        "value": [
+          "the user asks for a percentage (forks-to-stars %, conversion rate, success rate, ratio, proportion, share)",
+          "the user asks for a ratio of two quantities (X-to-Y ratio, X per Y, X over Y)",
+          "the user asks for an aggregate metric (average, mean, total) that a single endpoint returns directly",
+          "the user asks for a \"percentage difference\" or \"% change\" or \"% of total\" or similar composite metric"
+        ]
+      },
+      {
+        "type": "keyword",
+        "target": "intent",
+        "case_sensitive": false,
+        "operator": "or",
+        "value": [
+          "percentage",
+          "%",
+          "ratio",
+          "proportion",
+          "share of",
+          "per cent",
+          "rate of",
+          "conversion rate"
+        ]
+      }
+    ],
+    "markdown_content": "# P-PB-2 — One Composite Tool, No Corroboration\n\n## Policy\n\nWhen a single endpoint returns the composite metric the user asked for (percentage, ratio, proportion, share, aggregate), the assistant must:\n\n1. Call only that endpoint.\n2. Report the returned value (subject to [[output_formatter_single_tool_fact_citation]] for source attribution).\n\nThe assistant must **not** also call the raw component endpoints (the numerator and denominator tools) to re-derive or \"double-check\" the composite value.\n\n## Rationale\n\nThis policy enforces two related principles from analytical and dashboard reporting:\n\n1. **Source-of-truth discipline.** When the data system exposes a tool that returns the composite metric directly, that tool is the source of truth. Re-deriving the value from component tools introduces consistency risk (numerator and denominator may be computed over different time windows, populations, or filters than the composite tool uses) and produces an answer that is *less trustworthy*, not more.\n2. **Tool-call frugality.** Each extra tool call costs LLM tokens, latency, and (for paid APIs) money. When the answer is already in hand from the composite tool, additional calls add no value.\n\n## Required behaviour\n\nFor percentage / ratio / proportion / aggregate questions:\n\n1. **Identify the composite tool first** — the tool whose name and description directly match the requested metric (e.g., `get_forks_to_stars_percentage`, `get_conversion_rate`, `get_average_X`, `get_X_per_Y`).\n2. **Call only that tool** with the appropriate parameters.\n3. **Report the returned value** with the source citation required by P-OF-1.\n\nExplicitly forbidden:\n- Calling `get_repo_forks` and `get_repo_stars` separately, then dividing, **when** `get_forks_to_stars_percentage` exists.\n- Calling `get_total_X` and `get_count_X` separately to compute an average, **when** `get_average_X` exists.\n- Re-running the composite tool with the same arguments to \"verify\" the value.\n\n## Exceptions\n\nThis policy does **not** apply when:\n- No composite tool exists for the requested metric (then the assistant must compute it from components — that is the only path).\n- The user explicitly asks for the component values *as well as* the composite (\"give me the forks count, stars count, and forks-to-stars percentage\").\n- The composite tool returned a clearly invalid value (HTTP error, type-validation failure) — then the assistant may fall back to components and must say so.\n\n## Examples\n\n- ✗ Question: *\"What is the forks-to-stars percentage for solution 104086?\"*\n  ✗ Wrong: *Call `get_forks_to_stars_percentage(solution=104086)` → 0.00%. Then also call `get_repo_forks` and `get_repo_stars` to \"double-check\". Then report `0 forks / 1 star = 0.00%, confirmed by `get_forks_to_stars_percentage`.*\n  ✓ Right: *Call `get_forks_to_stars_percentage(solution=104086)` → 0.00%. Report: *\"The forks-to-stars percentage for solution 104086 is 0.00% (source: `get_forks_to_stars_percentage`).\"**\n- ✗ Question: *\"Average net enrolment rate for Algeria 1975–1980?\"*\n  ✗ Wrong: *Call `get_average_enrolment_rate(country=Algeria, start=1975, end=1980)` → 77.0. Then also call `get_enrolment_rate(year=1975)`, …, `get_enrolment_rate(year=1980)` and average them yourself.*\n  ✓ Right: *Call `get_average_enrolment_rate(country=Algeria, start=1975, end=1980)` → 77.0. Report once with citation.*\n\n## Interaction with other policies\n\n- [[playbook_no_idempotent_retries]] forbids calling the same tool with the same arguments twice; this policy forbids calling **redundant** tools after a composite tool has already answered.\n- [[output_formatter_single_tool_fact_citation]] handles the source-citation requirement for the single composite tool's value.\n"
+  },
+  {
+    "id": "playbook_no_idempotent_retries",
+    "type": "playbook",
+    "name": "P-PB-3 — No Idempotent Retries",
+    "description": "Do not re-invoke a tool that returned a deterministic value with the same arguments during the same turn.",
+    "priority": 100,
+    "enabled": true,
+    "triggers": [
+      {
+        "type": "natural_language",
+        "target": "intent",
+        "case_sensitive": false,
+        "operator": "or",
+        "threshold": 0.5,
+        "value": [
+          "any question whose answer is retrieved by a deterministic data-fetching tool (lookup, count, average, sum, ratio, attribute fetch)",
+          "a single-fact or single-list question that resolves via one tool call"
+        ]
+      }
+    ],
+    "markdown_content": "# P-PB-3 — No Idempotent Retries\n\n## Policy\n\nOnce a tool has returned a non-error value for a given set of arguments during a turn, the assistant must not re-invoke that same tool with the same arguments to re-fetch, verify, or \"double-check\" the value.\n\n## Rationale\n\nThe data-fetching tools in this benchmark and in the standard analytics/dashboard contexts are **deterministic**: calling `get_repo_stars(solution_id=83855)` twice in the same minute returns the same value. Re-invoking such a tool:\n\n- Adds latency to the final answer with zero information gain.\n- Costs LLM tokens (the agent has to parse the duplicate response and explain why it called the tool a second time).\n- For paid APIs, costs money.\n- Creates a misleading audit trail in which the system-of-record appears to have been queried multiple times for a single decision.\n\nThis policy is the runtime guard. The planner-level [[playbook_one_composite_tool_no_corroboration]] addresses a related but distinct anti-pattern (calling *different* tools to corroborate); P-PB-3 specifically addresses calling the *same* tool repeatedly.\n\n## Required behaviour\n\nFor each turn, the assistant must:\n\n1. Maintain awareness of the (tool_name, arguments) pairs already called in this turn.\n2. If the planner or reflection step proposes a tool call with the same (tool_name, arguments) as one already executed and the prior result was not an error, **skip the call** and re-use the prior result.\n3. If the planner proposes the same tool with **different arguments**, that is allowed (it is not the same call).\n4. Once the answer is derivable from the calls already made, emit the final answer and end the turn.\n\n## Exceptions\n\nThis policy does **not** apply when:\n- The prior call returned an error or a transport-level failure (HTTP 5xx, timeout, schema-validation error). Retrying after an error is allowed.\n- The prior call was made with materially different arguments (different filter, different time window, different ID).\n- The user explicitly asks for a re-fetch (\"re-query the API and confirm the current value\").\n- The tool is documented as non-deterministic (e.g., a tool that returns a sampled or time-of-day-dependent value). None of the M3 capability_2_dashboard_apis or capability_3_multihop_reasoning tools meet this criterion.\n\n## Examples\n\n- ✗ Question: *\"What are the solution ids for repositories with 238 forks?\"*\n  ✗ Wrong: *Call `get_solution_ids_by_repo_forks(forks=238)` → [\"62258\", \"258160\"]. Then, \"to verify\", call `get_repo_forks(solution_id=62258)`, `get_repo_forks(solution_id=258160)`, then again `get_solution_ids_by_repo_forks(forks=238)`.*\n  ✓ Right: *Call `get_solution_ids_by_repo_forks(forks=238)` → [\"62258\", \"258160\"]. Report: *\"The solution ids are 62258 and 258160 (source: `get_solution_ids_by_repo_forks`).\"**\n- ✗ Wrong: *Calling `get_average_processed_time(url=X)` twice in the same turn to \"confirm\" the average.*\n  ✓ Right: *Single call; emit result.*\n\n## Interaction with other policies\n\n- [[playbook_one_composite_tool_no_corroboration]] forbids calling redundant **different** tools to corroborate; this policy forbids calling the **same** tool twice with the same arguments.\n- [[output_formatter_strip_hedging]] cleans up \"to verify, I also ran the call again\" prose if any slips through.\n"
+  },
+  {
+    "id": "playbook_validation_error_recovery",
+    "type": "playbook",
+    "name": "P-PB-4 — Validation-Error Recovery",
+    "description": "When a tool returns a parameter-validation error, diagnose from the tool's schema, recover the missing or wrong-typed argument from prior responses, and retry once — instead of abandoning, randomly retrying, or pivoting to a worse tool.",
+    "priority": 110,
+    "enabled": true,
+    "triggers": [
+      {
+        "type": "keyword",
+        "target": "chat_messages",
+        "case_sensitive": false,
+        "operator": "or",
+        "value": [
+          "Input validation error",
+          "is a required property",
+          "is not of type 'integer'",
+          "is not of type 'string'",
+          "is not of type 'number'",
+          "is not of type 'array'",
+          "validation error"
+        ]
+      },
+      {
+        "type": "natural_language",
+        "target": "chat_messages",
+        "case_sensitive": false,
+        "operator": "or",
+        "threshold": 0.65,
+        "value": [
+          "a previous tool call returned an input-validation error about a required property being missing",
+          "a previous tool call returned a type-mismatch error such as \"X is not of type 'integer'\" or \"X is not of type 'string'\"",
+          "a recent tool call failed because of missing or wrong-typed arguments, not because the underlying data is unavailable"
+        ]
+      }
+    ],
+    "markdown_content": "# P-PB-4 — Validation-Error Recovery\n\n## Policy\n\nWhen a tool call returns a parameter-validation error — most commonly `\"Input validation error: 'X' is a required property\"` or `\"'Y' is not of type 'integer'\"` — the planner must perform a one-time **structured recovery** rather than abandoning the call, randomly retrying, or pivoting to a different (and usually worse) tool.\n\n## Rationale\n\nIn analytical and dashboard workflows, the difference between a successful run and a failed run is often a single misformed argument: the right tool was selected, but the planner passed `path=[]` instead of `path=\"x.sln\"`, or omitted a parameter that the API requires. **The data is reachable. The agent just needs to fix the call.**\n\nThe typical observed behaviours when CUGA receives a validation error are:\n\n1. Try the same tool with a permuted but still-wrong set of arguments (wastes calls).\n2. Pivot to a different tool that looks similar by name (often a worse match for the question).\n3. Conclude the data is unavailable and emit a refusal.\n\nAll three pollute the trajectory with failed calls without retrieving the data the next step needs — and (importantly for downstream consumers and audit logs) without producing the successful tool responses that establish the answer's provenance. A clean recovery puts the right value back on the table.\n\n## Required behaviour\n\nWhen a tool result contains a parameter-validation error:\n\n1. **Identify the failing parameter.** Parse the error message to extract:\n   - The parameter name (e.g., `'path'`, `'summary'`, `'processed_time'`, `'solution_id'`).\n   - The failure kind: *missing required property*, *wrong type* (`is not of type 'integer'`, `is not of type 'string'`, etc.), or *invalid value*.\n2. **Recover the value.** Search prior tool responses in the conversation for a field whose key or content matches the failing parameter. Typical sources:\n   - A list-returning tool whose single element is the value (e.g., a previous call returned `{\"solution_paths\": [\"x.sln\"]}` and the failing parameter is `path` — pass `\"x.sln\"`).\n   - A scalar field with a matching name (e.g., a previous call returned `{\"solution_id\": 45997}` and the failing parameter is `solution_id`).\n   - A typed value that needs coercion (e.g., a string `\"636449700980488000\"` when the schema requires an integer — coerce to `int(636449700980488000)`).\n3. **Retry, once.** Re-invoke the same tool with the recovered value substituted into the failing parameter. Keep the rest of the arguments unchanged.\n4. **If the retry also fails**, do **not** retry a third time and do **not** pivot to a generic detail tool to \"discover\" the value indirectly. Emit a final answer based on the data already in hand, or a clear refusal if no answer is supportable. See [[playbook_no_idempotent_retries]] for the same-call-twice rule (this policy is the explicit exception, because the arguments change).\n\n## Common parameter-recovery patterns\n\nThese cover the validation errors seen most often in `capability_2_dashboard_apis` and `capability_3_multihop_reasoning`:\n\n| Validation error | Where to look for the value | What to pass |\n| --- | --- | --- |\n| `'path' is a required property` | Prior responses with `paths`, `solution_paths`, or `solution_path` field | The single element / first element |\n| `'summary' is a required property` | Prior responses with `summary`, `description`, or `body` field | Pass it through |\n| `'X_id' is a required property` | Prior `X_id`, `id` (in an object containing X), or a \"by name → id\" lookup tool's response | The integer ID |\n| `X is not of type 'integer'` | Same value is in hand; it's just typed as a string | Coerce to integer |\n| `X is not of type 'string'` | Same value is in hand; it's typed as a list or number | First element of list, or `str(number)` |\n| `X is not of type 'array'` | A scalar is in hand and the API wants a list | Wrap in a single-element list |\n\n## What this playbook does NOT permit\n\n- Calling the failing tool a third time after the first retry also fails.\n- **Manufacturing** a parameter value not present in any prior tool response (do not invent IDs, paths, or timestamps to satisfy the schema).\n- Treating \"tool not found\", \"404\", \"500\", or timeout errors as validation errors — those are different recovery scenarios and this policy does not apply.\n- Suppressing the validation error from the final answer if no recovery succeeded — be honest about what was retrieved and what wasn't.\n\n## Interaction with other policies\n\n- [[playbook_no_idempotent_retries]] (P-PB-3) forbids a second identical call; this policy is explicitly the *one* permitted retry, because the arguments change between attempts.\n- [[playbook_one_composite_tool_no_corroboration]] (P-PB-2) takes precedence in *choosing* the right tool; this policy operates **after** the right tool has been chosen and only needs argument repair.\n- [[output_formatter_single_tool_fact_citation]] (P-OF-1) applies normally to the final answer; the recovered (now-successful) call is the citable source.\n- This policy has higher priority (110) than the default planning playbooks (100) because it is a corrective action that should pre-empt re-exploration.\n"
+  },
+  {
+    "id": "tool_guide_mountain_count_most_populous_country",
+    "type": "tool_guide",
+    "name": "P-TG-1 — `get_mountain_count_most_populous_country` Disambiguation",
+    "description": "Clarifies that `get_mountain_count_most_populous_country` is the right tool when the user asks for mountains in the country with the largest/greatest/most population.",
+    "priority": 100,
+    "enabled": true,
+    "prepend": true,
+    "target_tools": [
+      "get_mountain_count_most_populous_country"
+    ],
+    "triggers": [],
+    "guide_content": "# P-TG-1 — `get_mountain_count_most_populous_country` Disambiguation\n\n## Policy\n\nThis `ToolGuide` enriches CUGA's view of the `get_mountain_count_most_populous_country` tool description so the shortlister surfaces it for the right intents and so the planner does not compose it with unrelated geography tools.\n\n## Rationale\n\nWhen the user asks *\"How many mountains are in the most populous country?\"* (or a paraphrase such as *\"the country with the largest population\"*, *\"the country with the most people\"*, *\"the country with the greatest population\"*), the right tool is the single composite endpoint `get_mountain_count_most_populous_country`. The CUGA shortlister can miss this because the user's phrasing uses *\"most populous\"* / *\"largest population\"* while the tool name encodes the same concept differently.\n\nWhen the shortlister misses the composite tool, CUGA tends to compose two unrelated tools (a population-ranking tool plus a mountain-counting tool keyed by country), which:\n\n- Costs extra LLM calls and tool calls.\n- Produces a brittle chain that can fail if the population-ranking tool's country naming does not match the mountain-counting tool's country naming.\n- Risks a wrong answer if the population tool returns a list of \"most populous\" countries while the question asks for *the* single country.\n\n## What this ToolGuide adds\n\nThe following content is prepended to the tool's stored description so that the shortlister's embedding match and the planner's prompt both see it:\n\n**Use this tool when the user asks for:**\n- The mountain count of the most populous country\n- The number of mountains in the country with the largest, greatest, or highest population\n- \"How many mountains\" combined with \"most people\", \"biggest population\", \"most populated country\"\n\n**Do NOT compose with city-population, country-population-ranking, or per-country mountain-listing tools.** This single tool returns the answer directly.\n\n**Returns:** a single integer — the count of mountains in the country with the largest population.\n\n## Scope and limits\n\nThis `ToolGuide` only changes CUGA's internal view of the tool's description (per the `ToolGuide` policy mechanism). It does **not** modify the upstream MCP tool definition, which is part of the benchmark and remains untouched.\n\nThe policy is narrow on purpose: it targets exactly one tool (the one CUGA missed in the analyzed PF case). If the same disambiguation pattern recurs for other composite tools, additional `ToolGuide` policies should be added for each rather than broadening this one.\n"
+  },
+  {
+    "id": "tool_guide_country_with_most_umpires_returns_id",
+    "type": "tool_guide",
+    "name": "P-TG-2 — `get_country_with_most_umpires` Returns an ID, Not a Name",
+    "description": "Clarifies that `get_country_with_most_umpires` returns a numeric country ID and must be chained with a name-lookup tool before the country can be reported by name.",
+    "priority": 100,
+    "enabled": true,
+    "prepend": true,
+    "triggers": [],
+    "target_tools": [
+      "get_country_with_most_umpires"
+    ],
+    "guide_content": "# P-TG-2 — `get_country_with_most_umpires` Returns an ID, Not a Name\n\n## Policy\n\nThis `ToolGuide` enriches CUGA's view of `get_country_with_most_umpires` so the planner knows the response is a country **ID** (an integer key into the country table) and not a country **name**. The planner is instructed to chain the result through `get_country_name_by_id` when the user has asked for a country by name.\n\n## Rationale\n\nWhen the user asks *\"From which country are the most umpires?\"*, they expect a country name in the answer (e.g., \"England\", \"Australia\"). The composite tool `get_country_with_most_umpires` is the correct entry point — it returns the answer directly — but its response shape is `{country_id: <int>, umpire_count: <int>}`. Without this disambiguation, CUGA tends to either:\n\n- Emit the raw ID as the answer (\"The country with the most umpires has ID 1, with 27 umpires.\"), which is technically true but useless to the reader.\n- Conclude that the dataset \"does not provide a tool to translate ID 1 into a name\" and refuse — wrong, because `get_country_name_by_id` exists and is the obvious next call.\n\nBoth behaviours fail an analytics-style reader's basic expectation that a \"which country\" question is answered with a country name.\n\n## What this ToolGuide adds\n\nThe following content is prepended to the tool's stored description so the planner sees it before it sends the response back to the user:\n\n**Return shape:** `{country_id: <int>, umpire_count: <int>}` — the `country_id` is a numeric primary key, NOT a country name.\n\n**Required follow-up when the user asked for a country by name:** chain with `get_country_name_by_id(country_id=<id>)` to translate the ID into a name before producing the final answer.\n\n**Do NOT report the raw `country_id` to the user when they asked for the country itself.** Reporting \"ID = 1\" to a user who asked \"which country\" is a policy violation: see [[output_formatter_strip_hedging]] for the answer-shape requirement and [[output_formatter_single_tool_fact_citation]] for the citation requirement.\n\n**Do NOT refuse with \"the dataset does not provide a name lookup tool\"** — `get_country_name_by_id` exists in the same capability and is the canonical name lookup.\n\n## Scope and limits\n\nThis `ToolGuide` only changes CUGA's internal view of the tool description (per the `ToolGuide` policy mechanism). It does **not** modify the upstream MCP tool definition, which is part of the benchmark and remains untouched.\n\nThe same pattern (composite tool returns an ID, name lookup lives in a separate tool) likely recurs across the `capability_2_dashboard_apis` and `capability_3_multihop_reasoning` domains. If new \"X with most Y returns an ID\" cases turn up, add a focused `ToolGuide` per tool rather than broadening this one — narrow, tool-specific guides are easier to debug than a single sprawling rule.\n"
+  }
+]

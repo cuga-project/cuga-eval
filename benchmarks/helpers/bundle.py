@@ -43,6 +43,18 @@ _HELPERS_DIR = Path(__file__).resolve().parent
 PROJECT_ROOT = _HELPERS_DIR.parent.parent
 
 
+def _load_benchmark_env(benchmark_name: str) -> None:
+    """Load global + benchmark .env files (dotenv strips inline comments)."""
+    from dotenv import load_dotenv
+
+    global_env = PROJECT_ROOT / "config" / "global.env"
+    if global_env.exists():
+        load_dotenv(global_env, override=True)
+    benchmark_env = PROJECT_ROOT / "benchmarks" / benchmark_name / "config" / f"{benchmark_name}.env"
+    if benchmark_env.exists():
+        load_dotenv(benchmark_env, override=True)
+
+
 # ---------------------------------------------------------------------------
 # Git / hash helpers
 # ---------------------------------------------------------------------------
@@ -516,7 +528,19 @@ def assemble_compare_bundle(
 
     timestamp = datetime.now(timezone.utc).strftime("%Y%m%d_%H%M%S")
     models = sorted(set(k.split(":")[0] for k in config_results))
-    bundle_dir = bundle_root / f"{timestamp}_compare_{'_'.join(models)}"
+    # Detect inner-dim variants (agent and/or policy mode) so the dir name
+    # reflects what was compared. Config keys are "model[:agent[:policy_mode]]".
+    agents = sorted({parts[1] for k in config_results if len(parts := k.split(":")) > 1 and parts[1]})
+    policy_modes = sorted({parts[2] for k in config_results if len(parts := k.split(":")) > 2 and parts[2]})
+    suffix_bits = ["_".join(models)]
+    if len(agents) > 1:
+        suffix_bits.append("_".join(agents))
+    if len(policy_modes) > 1:
+        suffix_bits.append("_vs_".join(policy_modes))  # e.g. "policies_vs_no-policies"
+    elif len(policy_modes) == 1 and policy_modes[0] == "no-policies":
+        suffix_bits.append("no-policies")
+    suffix = "_".join(suffix_bits)
+    bundle_dir = bundle_root / f"{timestamp}_compare_{suffix}"
     bundle_dir.mkdir(parents=True, exist_ok=True)
 
     # Per-run results
@@ -710,6 +734,10 @@ def cli():
     p_cmp.add_argument("--zip", action="store_true")
 
     args = parser.parse_args()
+
+    # Reload benchmark env from disk (dotenv strips inline comments). Shell-sourced
+    # vars from eval.sh may include trailing comment text in values.
+    _load_benchmark_env(args.benchmark)
 
     policies_dir = Path(args.policies_dir) if getattr(args, "policies_dir", None) else None
 
