@@ -173,6 +173,15 @@ if port_in_use $REGISTRY_PORT 2>/dev/null; then
     sleep 1
 fi
 
+# Only the multiturn flow relies on an externally-started ("outer") registry.
+# The single-turn and --m3-data flows (eval_m3.py / eval_m3_react.py) start and
+# manage their OWN per-service registries on $REGISTRY_PORT, so starting an
+# outer registry here would just collide on the port (e.g. compare.sh forces
+# SKIP_SERVER_START=false on its first run). Force-skip unless multiturn.
+if [ "$MULTITURN" != "true" ]; then
+    SKIP_SERVER_START="true"
+fi
+
 if [ "${SKIP_SERVER_START:-true}" = "false" ]; then
     echo -e "${YELLOW:-}Starting registry server on port $REGISTRY_PORT...${NC:-}"
     bash "$SCRIPT_DIR/run_registry.sh" > /tmp/m3_registry.log 2>&1 &

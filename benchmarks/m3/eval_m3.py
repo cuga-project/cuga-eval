@@ -1571,6 +1571,51 @@ def get_registry_port() -> int:
     return int(settings.server_ports.registry)
 
 
+def _port_in_use(port: int) -> bool:
+    """Return True if something is listening on 127.0.0.1:`port`."""
+    import socket
+
+    sock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+    try:
+        return sock.connect_ex(("127.0.0.1", port)) == 0
+    finally:
+        sock.close()
+
+
+async def _wait_for_port_free(port: int, timeout: float = 20.0) -> bool:
+    """Poll until `port` has no listener. Returns True if it freed up in time.
+
+    Sequential mode starts/stops a registry per domain on the same port; a
+    just-stopped uvicorn worker can hold the socket for a few seconds during
+    graceful shutdown, so the next domain must wait rather than fail instantly.
+    """
+    import time
+
+    deadline = time.monotonic() + timeout
+    while True:
+        if not _port_in_use(port):
+            return True
+        if time.monotonic() >= deadline:
+            return False
+        await asyncio.sleep(0.5)
+
+
+def _kill_port_listeners(port: int) -> None:
+    """Best-effort SIGKILL of any process listening on `port` (via lsof)."""
+    import signal
+    import subprocess
+
+    try:
+        out = subprocess.run(["lsof", "-ti", f":{port}"], capture_output=True, text=True)  # noqa: S603,S607 — lsof from PATH, fixed args
+        for pid in out.stdout.split():
+            try:
+                os.kill(int(pid), signal.SIGKILL)
+            except (ProcessLookupError, ValueError):
+                pass
+    except Exception as e:  # noqa: BLE001 — best-effort cleanup
+        logger.debug(f"Could not enumerate/kill listeners on port {port}: {e}")
+
+
 async def start_registry_server(config_path: str) -> subprocess.Popen:
     """Start the registry server with the specified config.
 
@@ -1588,28 +1633,32 @@ async def start_registry_server(config_path: str) -> subprocess.Popen:
     # Check if the registry port is already in use
     logger.info(f"🔍 Checking if port {registry_port} is available...")
     try:
-        import socket
-
-        sock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
-        result = sock.connect_ex(('127.0.0.1', registry_port))
-        sock.close()
-
-        if result == 0:
-            # Port is in use
-            logger.error(f"❌ Port {registry_port} is already in use!")
-            logger.error("Another registry server or process is using this port.")
-            logger.error("")
-            logger.error("To fix this, run one of these commands:")
-            logger.error(f"  1. Kill processes on port {registry_port}:")
-            logger.error(f"     lsof -ti :{registry_port} | xargs kill")
-            logger.error("")
-            logger.error("  2. Or find and kill specific process:")
-            logger.error(f"     lsof -i :{registry_port}")
-            logger.error("     kill <PID>")
-            logger.error("")
-            raise RuntimeError(
-                f"Port {registry_port} is already in use. Please kill the existing process first."
+        if _port_in_use(registry_port):
+            # Port is busy — most often a registry from the PREVIOUS service in
+            # a sequential run that hasn't released the socket yet. Proactively
+            # kill any stray listener and wait for the port to free up before
+            # giving up.
+            logger.warning(
+                f"⚠️  Port {registry_port} is in use — attempting to free it "
+                f"(likely the previous service's registry shutting down)..."
             )
+            _kill_port_listeners(registry_port)
+            if not await _wait_for_port_free(registry_port, timeout=20.0):
+                logger.error(f"❌ Port {registry_port} is still in use after waiting!")
+                logger.error("Another registry server or process is using this port.")
+                logger.error("")
+                logger.error("To fix this, run one of these commands:")
+                logger.error(f"  1. Kill processes on port {registry_port}:")
+                logger.error(f"     lsof -ti :{registry_port} | xargs kill")
+                logger.error("")
+                logger.error("  2. Or find and kill specific process:")
+                logger.error(f"     lsof -i :{registry_port}")
+                logger.error("     kill <PID>")
+                logger.error("")
+                raise RuntimeError(
+                    f"Port {registry_port} is already in use. Please kill the existing process first."
+                )
+            logger.info(f"✅ Port {registry_port} is now free")
     except RuntimeError:
         raise  # Re-raise the port-in-use error
     except Exception as e:
@@ -1840,6 +1889,19 @@ async def stop_registry_server(process: subprocess.Popen):
             logger.info("✅ Registry server force-stopped")
     except Exception as e:
         logger.error(f"❌ Error stopping registry: {e}")
+
+    # `process.wait()` only reaps the `uv` wrapper; the uvicorn worker holding
+    # the port can linger briefly. Wait for the OS to release the registry port
+    # so the next sequential service can bind it without racing (the error that
+    # previously surfaced as "Port N is already in use" on the next domain).
+    try:
+        registry_port = get_registry_port()
+        if not await _wait_for_port_free(registry_port, timeout=15.0):
+            logger.warning(f"⚠️  Port {registry_port} still occupied after stop — killing stray listeners")
+            _kill_port_listeners(registry_port)
+            await _wait_for_port_free(registry_port, timeout=10.0)
+    except Exception as e:  # noqa: BLE001 — best-effort port-release wait
+        logger.debug(f"Port-release wait after stop failed (continuing): {e}")
 
 
 def rewrite_config_with_loader_domains(config_path: str, m3_data_loader: M3DataLoader) -> str:
