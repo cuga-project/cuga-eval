@@ -60,6 +60,7 @@ class GenericReactAgent:
         self.max_steps = max_steps
         self.special_instructions = special_instructions or ""
         self._tools_cache: Optional[list[Any]] = None
+        self._llm: Optional[Any] = None
         self.prompt_template = PROMPT_PATH.read_text(encoding="utf-8").lstrip()
 
     async def _get_tools(self) -> list[Any]:
@@ -120,27 +121,9 @@ class GenericReactAgent:
         )
         return self._text_to_messages(prompt)
 
-    async def _call_llm(self, messages: list[dict[str, str]]) -> str:
-        """Call LLM using LangChain wrappers for automatic Langfuse tracking."""
+    def _create_llm(self) -> Any:
+        """Build the LLM client from environment config. Called once and cached."""
         settings_config = os.getenv("AGENT_SETTING_CONFIG", "").strip()
-
-        # Convert messages to LangChain format
-        from langchain_core.messages import AIMessage, SystemMessage
-        from langchain_core.messages import HumanMessage as LCHumanMessage
-
-        lc_messages = []
-        for msg in messages:
-            role = msg.get("role", "user")
-            content = msg.get("content", "")
-            if role == "system":
-                lc_messages.append(SystemMessage(content=content))
-            elif role == "user":
-                lc_messages.append(LCHumanMessage(content=content))
-            elif role == "assistant":
-                lc_messages.append(AIMessage(content=content))
-            else:
-                # Default to user message
-                lc_messages.append(LCHumanMessage(content=content))
 
         if settings_config == "settings.groq.toml":
             try:
@@ -157,8 +140,7 @@ class GenericReactAgent:
                 raise RuntimeError("GROQ_API_KEY is required when AGENT_SETTING_CONFIG=settings.groq.toml")
 
             base_url = os.getenv("GROQ_BASE_URL", "https://api.groq.com").rstrip("/")
-
-            llm = ChatGroq(
+            return ChatGroq(
                 model=self.model,
                 temperature=0,
                 api_key=SecretStr(api_key),
@@ -174,35 +156,23 @@ class GenericReactAgent:
                     "Install with: pip install langchain-openai"
                 ) from exc
 
-            # Handle SSL verification (matching CUGA's LLMManager)
             disable_ssl = os.getenv("CUGA_DISABLE_SSL", "").lower() in ("true", "1", "yes")
             ssl_verify = (
                 os.getenv("OPENAI_SSL_VERIFY", "true").lower() not in ("false", "0", "no") and not disable_ssl
             )
-
             logger.info(
                 f"SSL verification: {ssl_verify} (OPENAI_SSL_VERIFY={os.getenv('OPENAI_SSL_VERIFY')}, CUGA_DISABLE_SSL={os.getenv('CUGA_DISABLE_SSL')})"
             )
 
-            # Get API configuration
             api_base = os.getenv("LITE_LLM_URL") or os.getenv("OPENAI_BASE_URL")
             api_key = os.getenv("LITE_LLM_KEY") or os.getenv("OPENAI_API_KEY")
-
             logger.info(f"OpenAI config: model={self.model}, api_base={api_base}, ssl_verify={ssl_verify}")
 
-            # Build ChatOpenAI kwargs
-            llm_kwargs: dict[str, Any] = {
-                "model": self.model,
-                "temperature": 0,
-            }
-
+            llm_kwargs: dict[str, Any] = {"model": self.model, "temperature": 0}
             if api_base:
                 llm_kwargs["base_url"] = api_base.rstrip("/")
-
             if api_key:
                 llm_kwargs["api_key"] = api_key
-
-            # Handle SSL verification
             if not ssl_verify:
                 import httpx
 
@@ -210,7 +180,7 @@ class GenericReactAgent:
                 llm_kwargs["http_async_client"] = httpx.AsyncClient(verify=False)  # noqa: S501  # nosec B501 — same
                 logger.info("SSL verification disabled for ChatOpenAI")
 
-            llm = ChatOpenAI(**llm_kwargs)
+            return ChatOpenAI(**llm_kwargs)
 
         else:
             raise RuntimeError(
@@ -218,17 +188,42 @@ class GenericReactAgent:
                 "Expected 'settings.groq.toml' or 'settings.openai.toml'."
             )
 
-        # Invoke LLM with callbacks for Langfuse tracking
+    def _get_llm(self) -> Any:
+        if self._llm is None:
+            self._llm = self._create_llm()
+        return self._llm
+
+    async def _call_llm(self, messages: list[dict[str, str]], stop: Optional[list[str]] = None) -> str:
+        """Call LLM using LangChain wrappers for automatic Langfuse tracking."""
+        from langchain_core.messages import AIMessage, SystemMessage
+        from langchain_core.messages import HumanMessage as LCHumanMessage
         from langchain_core.runnables import RunnableConfig
+
+        lc_messages = []
+        for msg in messages:
+            role = msg.get("role", "user")
+            content = msg.get("content", "")
+            if role == "system":
+                lc_messages.append(SystemMessage(content=content))
+            elif role == "user":
+                lc_messages.append(LCHumanMessage(content=content))
+            elif role == "assistant":
+                lc_messages.append(AIMessage(content=content))
+            else:
+                lc_messages.append(LCHumanMessage(content=content))
+
+        llm = self._get_llm()
+        invoke_kwargs: dict[str, Any] = {}
+        if stop:
+            invoke_kwargs["stop"] = stop
 
         if self.callbacks:
             config = RunnableConfig(callbacks=self.callbacks)
-            response = await llm.ainvoke(lc_messages, config=config)
+            response = await llm.ainvoke(lc_messages, config=config, **invoke_kwargs)
         else:
-            response = await llm.ainvoke(lc_messages)
+            response = await llm.ainvoke(lc_messages, **invoke_kwargs)
 
-        # Extract content from response
-        content = response.content if hasattr(response, 'content') else str(response)
+        content = response.content if hasattr(response, "content") else str(response)
         return content if isinstance(content, str) else str(content)
 
     def _extract_tool_request(self, text: str) -> Optional[ReactToolCall]:
