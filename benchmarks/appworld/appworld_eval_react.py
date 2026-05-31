@@ -55,12 +55,7 @@ from utils.appworld_utils import (
 from benchmarks.helpers.sdk_eval_helpers import setup_react_agent_for_evaluation
 
 REACT_PROMPT_PATH = (
-    Path(__file__).parent
-    / "appworld"
-    / "experiments"
-    / "prompts"
-    / "react_code_agent"
-    / "instructions.txt"
+    Path(__file__).parent / "appworld" / "experiments" / "prompts" / "react_code_agent" / "instructions.txt"
 )
 
 ROLE_RE = re.compile(r"(USER|ASSISTANT|SYSTEM):\n", re.IGNORECASE)
