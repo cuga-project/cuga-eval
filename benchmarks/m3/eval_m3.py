@@ -2084,31 +2084,6 @@ def _write_single_service_yaml(service_dict: Dict[str, Any]) -> str:
     return path
 
 
-def _write_single_service_yaml(service_dict: Dict[str, Any]) -> str:
-    """Write a minimal registry yaml containing only the given service.
-
-    Used in sequential mode so each expanded (task, domain) pair gets its own
-    registry with just that domain's MCP server loaded, instead of all ~20
-    MCP servers running at once.
-    """
-    import tempfile
-
-    service_name = list(service_dict.keys())[0]
-    mini = {"services": [service_dict]}
-    fd, path = tempfile.mkstemp(suffix=".yaml", prefix=f"m3_registry_{service_name}_")
-    try:
-        with os.fdopen(fd, "w") as f:
-            yaml.dump(mini, f, default_flow_style=False, sort_keys=False)
-    except Exception:
-        # Best effort: clean up if write failed
-        try:
-            os.unlink(path)
-        except Exception:  # noqa: S110 — unlink during error cleanup is best-effort
-            pass
-        raise
-    return path
-
-
 async def evaluate_tasks_in_batches(task_evaluations: List[tuple], batch_size: int, args) -> List[Any]:
     """Evaluate tasks in batches to manage resources for large-scale evaluation.
 
@@ -2174,7 +2149,80 @@ async def evaluate_tasks_in_batches(task_evaluations: List[tuple], batch_size: i
     return all_results
 
 
-async def run_config_mode(args, container_runtime: str):
+def _finalize_and_save_results(all_results: List[Dict[str, Any]], no_ground_truth: bool):
+    """Persist exactly one result file (plus ground-truth dump) for a run.
+
+    Shared by the single-capability path and the multi-capability aggregation
+    path so that ONE eval.sh invocation always yields ONE result file covering
+    every task it evaluated. Previously each capability pass saved its own
+    100-task file, which made compare_report count one logical run as several
+    runs (one per capability) and made each "run" look like only 100 tasks.
+    """
+    output_dir = Path(__file__).parent / "results"
+
+    # In no-ground-truth mode there's no scoring — render the tool-call-count
+    # summary instead and capture it to the summary file.
+    if no_ground_truth:
+        _emit_cleanly(print_no_gt_summary, all_results)
+        try:
+            with open(M3_SUMMARY_FILE, "w") as _sf:
+                _sf.write(_render_no_gt_summary(all_results))
+            logger.info(f"Summary written to {M3_SUMMARY_FILE}")
+        except Exception as e:
+            logger.warning(f"Failed to write summary to {M3_SUMMARY_FILE}: {e}")
+
+        # Save raw results JSON and skip vakra-format ground-truth dump.
+        saved_path = save_evaluation_results(all_results, output_dir, prefix="m3_config_no_gt")
+        logger.info(f"\nResults saved to: {saved_path}")
+        return saved_path
+
+    # Vakra is the source of truth for the overall summary. We capture it to
+    # M3_SUMMARY_FILE so eval.sh can re-echo it as the last thing on screen.
+    if any("vakra" in r for r in all_results):
+        _emit_cleanly(print_vakra_summary, all_results)
+        try:
+            import io as _io
+
+            buf = _io.StringIO()
+            _orig = sys.__stdout__
+
+            # Re-render to capture text for the summary file
+            class _Cap:
+                def write(self, s):
+                    buf.write(s)
+                    return len(s)
+
+                def flush(self):
+                    pass
+
+            sys.__stdout__ = _Cap()  # type: ignore[assignment]
+            try:
+                print_vakra_summary(all_results)
+            finally:
+                sys.__stdout__ = _orig  # type: ignore[assignment]
+            with open(M3_SUMMARY_FILE, "w") as _sf:
+                _sf.write(buf.getvalue())
+            logger.info(f"Summary written to {M3_SUMMARY_FILE}")
+        except Exception as e:
+            logger.warning(f"Failed to write summary to {M3_SUMMARY_FILE}: {e}")
+    else:
+        logger.warning(
+            "No Vakra scores produced for any task — check API_KEY and the per-domain Vakra warnings above."
+        )
+
+    # Save results
+    saved_path = save_evaluation_results(all_results, output_dir, prefix="m3_config")
+    logger.info(f"\nResults saved to: {saved_path}")
+
+    # Save ground truth format
+    evaluator_temp = M3Evaluator()
+    evaluator_temp.results = all_results
+    ground_truth_path = evaluator_temp._save_ground_truth_format(output_dir)
+    logger.info(f"Ground truth format saved to: {ground_truth_path}")
+    return saved_path
+
+
+async def run_config_mode(args, container_runtime: str, defer_save: bool = False):
     """Run evaluation in config mode with task-level parallelism and optional batching.
 
     Tasks run in parallel (each uses separate container).
@@ -2217,13 +2265,29 @@ async def run_config_mode(args, container_runtime: str):
             )
             import copy
 
+            # Run each capability as its own pass (separate registry/expanded
+            # config to dodge cross-task domain-name collisions), but collect
+            # every pass's results and persist them together as a SINGLE result
+            # file for this run. One eval.sh run -> one file -> all tasks.
+            combined_results: List[Dict[str, Any]] = []
             for task_id in cap_ids:
                 cap_name = f"m3_task_{task_id}"
                 logger.info(f"\n{'=' * 80}\n🔁 Auto capability pass: {cap_name}\n{'=' * 80}")
                 pass_args = copy.copy(args)
                 pass_args.task = [cap_name] + preserved
-                await run_config_mode(pass_args, container_runtime)
-            return
+                pass_results = await run_config_mode(pass_args, container_runtime, defer_save=True)
+                if pass_results:
+                    combined_results.extend(pass_results)
+
+            if combined_results:
+                logger.info(
+                    f"🧮 Aggregated {len(combined_results)} results across "
+                    f"{len(cap_ids)} capability pass(es) → writing one result file"
+                )
+                _finalize_and_save_results(combined_results, no_ground_truth)
+            else:
+                logger.warning("⚠️  No results produced across capability passes.")
+            return combined_results
         if len(cap_ids) == 1:
             cap_name = f"m3_task_{cap_ids[0]}"
             logger.info(f"No --capability filter: auto-narrowing to data capability {cap_name}")
@@ -2540,71 +2604,18 @@ async def run_config_mode(args, container_runtime: str):
         sys.stderr.flush()
 
         if all_results:
-            # In no-ground-truth mode there's no scoring — render the
-            # tool-call-count summary instead and capture to the summary file.
-            if no_ground_truth:
-                _emit_cleanly(print_no_gt_summary, all_results)
-                try:
-                    with open(M3_SUMMARY_FILE, "w") as _sf:
-                        _sf.write(_render_no_gt_summary(all_results))
-                    logger.info(f"Summary written to {M3_SUMMARY_FILE}")
-                except Exception as e:
-                    logger.warning(f"Failed to write summary to {M3_SUMMARY_FILE}: {e}")
-
-                # Save raw results JSON and skip vakra-format ground-truth dump.
-                output_dir = Path(__file__).parent / "results"
-                saved_path = save_evaluation_results(all_results, output_dir, prefix="m3_config_no_gt")
-                logger.info(f"\nResults saved to: {saved_path}")
-                return
-
-            # Vakra is the source of truth for the overall summary. We capture
-            # it to M3_SUMMARY_FILE so eval.sh can re-echo it as the last thing
-            # on screen.
-            if any("vakra" in r for r in all_results):
-                _emit_cleanly(print_vakra_summary, all_results)
-                try:
-                    import io as _io
-
-                    buf = _io.StringIO()
-                    _orig = sys.__stdout__
-
-                    # Re-render to capture text for the summary file
-                    class _Cap:
-                        def write(self, s):
-                            buf.write(s)
-                            return len(s)
-
-                        def flush(self):
-                            pass
-
-                    sys.__stdout__ = _Cap()  # type: ignore[assignment]
-                    try:
-                        print_vakra_summary(all_results)
-                    finally:
-                        sys.__stdout__ = _orig  # type: ignore[assignment]
-                    with open(M3_SUMMARY_FILE, "w") as _sf:
-                        _sf.write(buf.getvalue())
-                    logger.info(f"Summary written to {M3_SUMMARY_FILE}")
-                except Exception as e:
-                    logger.warning(f"Failed to write summary to {M3_SUMMARY_FILE}: {e}")
-            else:
-                logger.warning(
-                    "No Vakra scores produced for any task — check API_KEY and "
-                    "the per-domain Vakra warnings above."
-                )
-
-            # Save results
-            output_dir = Path(__file__).parent / "results"
-            saved_path = save_evaluation_results(all_results, output_dir, prefix="m3_config")
-            logger.info(f"\nResults saved to: {saved_path}")
-
-            # Save ground truth format
-            evaluator_temp = M3Evaluator()
-            evaluator_temp.results = all_results
-            ground_truth_path = evaluator_temp._save_ground_truth_format(output_dir)
-            logger.info(f"Ground truth format saved to: {ground_truth_path}")
+            # If this invocation is one capability sub-pass of a larger
+            # multi-capability run, return the results unsaved so the caller can
+            # aggregate every capability into ONE result file (one eval.sh run =
+            # one file = all tasks). Saving here is what previously produced a
+            # separate 100-task file per capability.
+            if defer_save:
+                return all_results
+            _finalize_and_save_results(all_results, no_ground_truth)
         else:
             logger.warning("⚠️  No results produced. Check the registry logs and task filters.")
+
+        return all_results
 
     finally:
         # Stop registry if it was started

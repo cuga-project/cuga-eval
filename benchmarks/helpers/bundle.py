@@ -517,11 +517,16 @@ def assemble_compare_bundle(
     bundle_root: Path | None = None,
     model_envs: dict | None = None,
     policies_dir: Path | None = None,
-    trajectory_dirs: dict[str, list[Path]] | None = None,
+    trajectory_dirs: dict[str, list[list[Path]]] | None = None,
     log_files: dict[str, list[str | Path]] | None = None,
     fetch_langfuse: bool = False,
 ) -> Path:
-    """Create a comparison-level bundle directory."""
+    """Create a comparison-level bundle directory.
+
+    ``trajectory_dirs`` maps each config key to a list of RUNS, where each run
+    is itself a list of trajectory folders (cuga emits one folder per domain).
+    All folders within a run are merged into a single ``runN/trajectories`` dir.
+    """
     benchmark_dir = PROJECT_ROOT / "benchmarks" / benchmark_name
     if bundle_root is None:
         bundle_root = benchmark_dir / "evaluation_bundles"
@@ -567,19 +572,28 @@ def assemble_compare_bundle(
     # Policies
     _copy_policies(bundle_dir, policies_dir)
 
-    # Cuga trajectories (per-model, per-run)
+    # Cuga trajectories (per-model, per-run). `trajectory_dirs[config]` is a
+    # list of RUNS, and each run is a list of trajectory folders (cuga writes
+    # one folder per domain). All folders belonging to one eval.sh run are
+    # merged into that run's single `trajectories/` dir, so one bundle run maps
+    # to one eval run (all 200 trajectories) rather than one per-domain folder.
     if trajectory_dirs:
-        for config_key, traj_paths in trajectory_dirs.items():
-            for i, traj_path in enumerate(traj_paths, 1):
-                traj_path = Path(traj_path)
-                if not traj_path.exists():
-                    continue
+        for config_key, run_groups in trajectory_dirs.items():
+            for i, group in enumerate(run_groups, 1):
                 run_label = f"{config_key.replace(':', '_')}_run{i}"
-                _copy_trajectories(
-                    bundle_dir,
-                    traj_path,
-                    dest_subdir=f"runs/{run_label}/trajectories",
-                )
+                copied_any = False
+                for traj_path in group:
+                    traj_path = Path(traj_path)
+                    if not traj_path.exists():
+                        continue
+                    if _copy_trajectories(
+                        bundle_dir,
+                        traj_path,
+                        dest_subdir=f"runs/{run_label}/trajectories",
+                    ):
+                        copied_any = True
+                if not copied_any:
+                    continue
                 # Copy .progress to run root so cuga-viz can find it
                 _run_progress = bundle_dir / "runs" / run_label / "trajectories" / ".progress"
                 if _run_progress.exists():
@@ -722,7 +736,12 @@ def cli():
     p_cmp.add_argument("--task-files", nargs="*", default=None)
     p_cmp.add_argument("--policies-dir", default=None)
     p_cmp.add_argument("--model-envs", default=None, help='JSON: {"model": {"MODEL_NAME": "...", ...}}')
-    p_cmp.add_argument("--trajectory-dirs", default=None, help='JSON: {"model": ["/path/to/traj_run1", ...]}')
+    p_cmp.add_argument(
+        "--trajectory-dirs",
+        default=None,
+        help='JSON grouped by run: {"model": [["/run1/domA", "/run1/domB"], ["/run2/domA"]]}. '
+        'A flat {"model": ["/dir1", ...]} is still accepted (each dir treated as its own run).',
+    )
     p_cmp.add_argument(
         "--log-files",
         default=None,
@@ -775,7 +794,15 @@ def cli():
         traj_dirs = None
         if args.trajectory_dirs:
             raw = json.loads(args.trajectory_dirs)
-            traj_dirs = {k: [Path(p) for p in v] for k, v in raw.items()}
+            # Accept two shapes:
+            #   grouped (preferred): {config: [[dir, ...run1], [dir, ...run2]]}
+            #   legacy flat:         {config: [dir, dir, ...]}  -> each dir = 1 run
+            traj_dirs = {}
+            for k, v in raw.items():
+                if v and isinstance(v[0], list):
+                    traj_dirs[k] = [[Path(p) for p in group] for group in v]
+                else:
+                    traj_dirs[k] = [[Path(p)] for p in v]
         log_file_map = None
         if args.log_files:
             log_file_map = json.loads(args.log_files)

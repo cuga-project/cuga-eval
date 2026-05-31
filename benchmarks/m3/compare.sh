@@ -222,7 +222,15 @@ for config in "${CONFIGS[@]}"; do
     # config's runs. Filtering by agent prevents stale files from the OTHER
     # agent leaking into this config's recent_files.
     before_files=$(_list_results_for_agent "$agent")
-    before_trajs=$(find "$SCRIPT_DIR/logging/trajectory_data" -mindepth 1 -maxdepth 1 -type d 2>/dev/null | sort)
+
+    # Trajectory dirs are grouped per eval.sh run: cuga writes one folder per
+    # domain, so we snapshot before/after EACH run and record that run's new
+    # folders as one group. Groups are separated by a sentinel line so the JSON
+    # builder below can emit a list-of-lists (one inner list per run). This
+    # keeps "one eval.sh run = one bundle run" instead of one run per domain.
+    run_before_trajs=$(find "$SCRIPT_DIR/logging/trajectory_data" -mindepth 1 -maxdepth 1 -type d 2>/dev/null | sort)
+    config_traj_groups=""
+    TRAJ_GROUP_SEP="@@RUN@@"
 
     for ((r=1; r<=RUNS; r++)); do
         total_runs=$((total_runs+1))
@@ -243,6 +251,12 @@ for config in "${CONFIGS[@]}"; do
         runs_done=$(( runs_done + 1 ))
         runs_elapsed_total=$(( runs_elapsed_total + run_dur ))
 
+        # Record the trajectory folders this single run produced as one group.
+        run_after_trajs=$(find "$SCRIPT_DIR/logging/trajectory_data" -mindepth 1 -maxdepth 1 -type d 2>/dev/null | sort)
+        run_new_trajs=$(comm -13 <(echo "$run_before_trajs") <(echo "$run_after_trajs"))
+        config_traj_groups+="${TRAJ_GROUP_SEP}"$'\n'"${run_new_trajs}"$'\n'
+        run_before_trajs="$run_after_trajs"
+
         # After first run, reuse servers for all subsequent runs
         export SKIP_SERVER_START="true"
         echo ""
@@ -255,11 +269,9 @@ for config in "${CONFIGS[@]}"; do
     CONFIG_RESULT_KEYS+=("$config")
     CONFIG_RESULT_VALS+=("$recent_files")
 
-    # Collect only NEW trajectory folders produced by this config's runs
-    after_trajs=$(find "$SCRIPT_DIR/logging/trajectory_data" -mindepth 1 -maxdepth 1 -type d 2>/dev/null | sort)
-    recent_trajs=$(comm -13 <(echo "$before_trajs") <(echo "$after_trajs"))
+    # Store the per-run trajectory groups (sentinel-delimited) for this config.
     CONFIG_TRAJ_KEYS+=("$config")
-    CONFIG_TRAJ_VALS+=("$recent_trajs")
+    CONFIG_TRAJ_VALS+=("$config_traj_groups")
 done
 
 total_dur=$(( $(date +%s) - compare_t0 ))
@@ -318,24 +330,41 @@ if [[ "${NO_BUNDLE:-false}" != "true" ]]; then
             MODEL_ENVS_JSON=$(build_model_envs_json "${MODEL_LIST[@]}")
         fi
 
-        # Build per-config trajectory dirs JSON: {"model:agent": ["/path/run1", ...]}
+        # Build per-config trajectory JSON grouped by run:
+        # {"model:agent:policy": [["/run1/domA", ...], ["/run2/domA", ...]]}
+        # CONFIG_TRAJ_VALS holds sentinel-delimited groups (one per eval run).
         TRAJ_JSON_PARTS=()
         for ci in "${!CONFIG_TRAJ_KEYS[@]}"; do
             tconfig="${CONFIG_TRAJ_KEYS[$ci]}"
-            tfiles="${CONFIG_TRAJ_VALS[$ci]}"
-            if [[ -z "$tfiles" ]]; then
+            tgroups="${CONFIG_TRAJ_VALS[$ci]}"
+            if [[ -z "$tgroups" ]]; then
                 continue
             fi
-            tfile_list=""
-            tfirst=true
-            for f in $tfiles; do
-                if [[ "$tfirst" != "true" ]]; then
-                    tfile_list+=","
+            groups_json=""
+            cur_group=""
+            in_group=false
+            while IFS= read -r line; do
+                if [[ "$line" == "$TRAJ_GROUP_SEP" ]]; then
+                    if [[ "$in_group" == "true" ]]; then
+                        if [[ -n "$groups_json" ]]; then groups_json+=","; fi
+                        groups_json+="[${cur_group}]"
+                    fi
+                    cur_group=""
+                    in_group=true
+                    continue
                 fi
-                tfirst=false
-                tfile_list+="\"${f}\""
-            done
-            TRAJ_JSON_PARTS+=("\"${tconfig}\":[${tfile_list}]")
+                [[ -z "$line" ]] && continue
+                if [[ -n "$cur_group" ]]; then cur_group+=","; fi
+                cur_group+="\"${line}\""
+            done <<< "$tgroups"
+            if [[ "$in_group" == "true" ]]; then
+                if [[ -n "$groups_json" ]]; then groups_json+=","; fi
+                groups_json+="[${cur_group}]"
+            fi
+            if [[ -z "$groups_json" ]]; then
+                continue
+            fi
+            TRAJ_JSON_PARTS+=("\"${tconfig}\":[${groups_json}]")
         done
 
         TRAJ_JSON_INPUT="{"
