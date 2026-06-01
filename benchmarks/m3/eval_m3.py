@@ -742,6 +742,8 @@ class M3Evaluator:
         if "uuid" in sample:
             result["uuid"] = sample["uuid"]
         result["domain"] = domain
+        if "task_number" in sample:
+            result["task_number"] = sample["task_number"]
 
         # Surface the GT bits Vakra needs so _to_vakra_pair can build a real
         # ground-truth dialogue (single-turn samples; multi-turn would need

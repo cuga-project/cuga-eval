@@ -526,6 +526,11 @@ def assemble_compare_bundle(
     ``trajectory_dirs`` maps each config key to a list of RUNS, where each run
     is itself a list of trajectory folders (cuga emits one folder per domain).
     All folders within a run are merged into a single ``runN/trajectories`` dir.
+
+    ``log_files`` maps each config key to either a grouped per-run list
+    (``[[run1 logs], [run2 logs], ...]`` → ``runN/logs``) or a flat list
+    (legacy / ``"shared"`` key → ``runs/<key>/logs``). Per-run grouping keeps
+    each run's own console + registry log instead of only the last run's.
     """
     benchmark_dir = PROJECT_ROOT / "benchmarks" / benchmark_name
     if bundle_root is None:
@@ -599,11 +604,21 @@ def assemble_compare_bundle(
                 if _run_progress.exists():
                     shutil.copy2(_run_progress, bundle_dir / "runs" / run_label / ".progress")
 
-    # Logs (per-model)
+    # Logs. Two accepted shapes per config key:
+    #   grouped per-run (preferred): [[run1 logs...], [run2 logs...], ...]
+    #     → each run's logs land in runs/<config>_run<i>/logs so every run in a
+    #       multi-run comparison keeps its OWN console/registry log.
+    #   flat (legacy / "shared"): [log, log, ...]
+    #     → placed in runs/<config>/logs (e.g. the "shared" key → runs/shared/logs).
     if log_files:
-        for config_key, lf_list in log_files.items():
-            run_label = f"{config_key.replace(':', '_')}"
-            _copy_logs(bundle_dir, lf_list, dest_subdir=f"runs/{run_label}/logs")
+        for config_key, lf_val in log_files.items():
+            if lf_val and isinstance(lf_val[0], list):
+                for i, group in enumerate(lf_val, 1):
+                    run_label = f"{config_key.replace(':', '_')}_run{i}"
+                    _copy_logs(bundle_dir, group, dest_subdir=f"runs/{run_label}/logs")
+            else:
+                run_label = f"{config_key.replace(':', '_')}"
+                _copy_logs(bundle_dir, lf_val, dest_subdir=f"runs/{run_label}/logs")
 
     # Langfuse traces (per-model, per-run)
     if fetch_langfuse:

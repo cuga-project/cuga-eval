@@ -199,7 +199,7 @@ class M3DataLoader:
         }
 
         merged: List[Dict[str, Any]] = []
-        for sample in inputs:
+        for idx, sample in enumerate(inputs, 1):
             uuid = sample.get("uuid")
             gold = outputs_by_uuid.get(uuid)
 
@@ -246,6 +246,9 @@ class M3DataLoader:
             merged_sample: Dict[str, Any] = {
                 "uuid": uuid,
                 "sample_id": uuid,
+                # 1-based position of this sample within its (capability, domain)
+                # input list — surfaced as the per-task "#" in reports.
+                "task_number": idx,
                 "domain": sample.get("domain", domain),
                 "num_turns": sample.get("num_turns", len(turns)),
                 "dialogue": {"turns": turns},

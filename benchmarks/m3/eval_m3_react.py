@@ -123,6 +123,7 @@ def _merged_to_react_test_case(
         "intent": intent,
         "domain": sample.get("domain"),
         "m3_task_id": task_id,
+        "task_number": sample.get("task_number"),
         "expected_output": {
             "response": gt_answer,
             "tool_calls": gold_calls,
@@ -400,6 +401,8 @@ class M3ReactEvaluator:
             result["uuid"] = task["uuid"]
         if task.get("domain") and not result.get("domain"):
             result["domain"] = task["domain"]
+        if task.get("task_number") is not None and "task_number" not in result:
+            result["task_number"] = task["task_number"]
         if task.get("intent") and not result.get("intent"):
             result["intent"] = task["intent"]
         if task.get("expected_output"):

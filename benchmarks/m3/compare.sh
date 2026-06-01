@@ -172,6 +172,8 @@ compare_t0=$(date +%s)
 compare_cleanup() {
     echo -e "${YELLOW:-}Stopping servers...${NC:-}"
     kill_port_processes "${REGISTRY_PORT:-8001}"
+    # Staged per-run logs were already copied into the bundle by now.
+    [[ -n "${LOG_STAGE_DIR:-}" && -d "$LOG_STAGE_DIR" ]] && rm -rf "$LOG_STAGE_DIR"
 }
 trap compare_cleanup EXIT INT TERM
 
@@ -182,6 +184,16 @@ CONFIG_RESULT_KEYS=()
 CONFIG_RESULT_VALS=()
 CONFIG_TRAJ_KEYS=()
 CONFIG_TRAJ_VALS=()
+CONFIG_LOG_KEYS=()
+CONFIG_LOG_VALS=()
+
+# Per-run logs are snapshotted into this staging dir after each eval.sh run.
+# The /tmp console/registry logs are overwritten by the next run, so without a
+# snapshot a multi-run bundle would only keep the LAST run's logs. Sentinel
+# grouping (one group per run) mirrors the trajectory collection below.
+LOG_STAGE_DIR="$(mktemp -d 2>/dev/null || echo "/tmp/m3_log_stage_$$")"
+mkdir -p "$LOG_STAGE_DIR"
+LOG_GROUP_SEP="@@RUN@@"
 
 # Per-agent filename discrimination. cuga's eval_m3.py saves result files
 # with prefix m3_config_*.json; eval_m3_react.py saves m3_*.json. The plain
@@ -230,6 +242,7 @@ for config in "${CONFIGS[@]}"; do
     # keeps "one eval.sh run = one bundle run" instead of one run per domain.
     run_before_trajs=$(find "$SCRIPT_DIR/logging/trajectory_data" -mindepth 1 -maxdepth 1 -type d 2>/dev/null | sort)
     config_traj_groups=""
+    config_log_groups=""
     TRAJ_GROUP_SEP="@@RUN@@"
 
     for ((r=1; r<=RUNS; r++)); do
@@ -257,6 +270,31 @@ for config in "${CONFIGS[@]}"; do
         config_traj_groups+="${TRAJ_GROUP_SEP}"$'\n'"${run_new_trajs}"$'\n'
         run_before_trajs="$run_after_trajs"
 
+        # Snapshot THIS run's logs before the next eval.sh run overwrites them.
+        # Console: eval.sh tees stdout to /tmp/m3_console.log (truncated each
+        # run, so it holds exactly this run). Registry: the --m3-data flow lets
+        # eval_m3.py manage per-service registries and write to
+        # benchmarks/m3/registry_server.log; the multiturn flow uses the outer
+        # /tmp/m3_registry.log. Prefer the former, fall back to the latter.
+        run_log_dir="$LOG_STAGE_DIR/$(echo "$config" | tr ':/' '__')_run${r}"
+        mkdir -p "$run_log_dir"
+        run_log_lines=""
+        if [[ -f /tmp/m3_console.log ]]; then
+            cp -f /tmp/m3_console.log "$run_log_dir/m3_console.log" 2>/dev/null \
+                && run_log_lines+="$run_log_dir/m3_console.log"$'\n'
+        fi
+        reg_src=""
+        if [[ -s "$SCRIPT_DIR/registry_server.log" ]]; then
+            reg_src="$SCRIPT_DIR/registry_server.log"
+        elif [[ -s /tmp/m3_registry.log ]]; then
+            reg_src="/tmp/m3_registry.log"
+        fi
+        if [[ -n "$reg_src" ]]; then
+            cp -f "$reg_src" "$run_log_dir/m3_registry.log" 2>/dev/null \
+                && run_log_lines+="$run_log_dir/m3_registry.log"$'\n'
+        fi
+        config_log_groups+="${LOG_GROUP_SEP}"$'\n'"${run_log_lines}"
+
         # After first run, reuse servers for all subsequent runs
         export SKIP_SERVER_START="true"
         echo ""
@@ -272,6 +310,10 @@ for config in "${CONFIGS[@]}"; do
     # Store the per-run trajectory groups (sentinel-delimited) for this config.
     CONFIG_TRAJ_KEYS+=("$config")
     CONFIG_TRAJ_VALS+=("$config_traj_groups")
+
+    # Store the per-run log groups (sentinel-delimited) for this config.
+    CONFIG_LOG_KEYS+=("$config")
+    CONFIG_LOG_VALS+=("$config_log_groups")
 done
 
 total_dur=$(( $(date +%s) - compare_t0 ))
@@ -399,9 +441,53 @@ if [[ "${NO_BUNDLE:-false}" != "true" ]]; then
         if [[ "$TRAJ_JSON_INPUT" != "{}" ]]; then
             BUNDLE_CMD+=(--trajectory-dirs "$TRAJ_JSON_INPUT")
         fi
-        # Include server logs (from last run)
-        LOG_JSON="{\"shared\":[\"/tmp/m3_registry.log\",\"/tmp/m3_console.log\"]}"
-        BUNDLE_CMD+=(--log-files "$LOG_JSON")
+        # Build per-config log JSON grouped by run (one console+registry log set
+        # per eval run) so each run folder gets its OWN logs:
+        # {"model:agent:policy": [["/run1/console.log", ...], ["/run2/...", ...]]}
+        LOG_JSON_PARTS=()
+        for ci in "${!CONFIG_LOG_KEYS[@]}"; do
+            lconfig="${CONFIG_LOG_KEYS[$ci]}"
+            lgroups="${CONFIG_LOG_VALS[$ci]}"
+            if [[ -z "$lgroups" ]]; then
+                continue
+            fi
+            lgroups_json=""
+            lcur_group=""
+            lin_group=false
+            while IFS= read -r line; do
+                if [[ "$line" == "$LOG_GROUP_SEP" ]]; then
+                    if [[ "$lin_group" == "true" ]]; then
+                        if [[ -n "$lgroups_json" ]]; then lgroups_json+=","; fi
+                        lgroups_json+="[${lcur_group}]"
+                    fi
+                    lcur_group=""
+                    lin_group=true
+                    continue
+                fi
+                [[ -z "$line" ]] && continue
+                if [[ -n "$lcur_group" ]]; then lcur_group+=","; fi
+                lcur_group+="\"${line}\""
+            done <<< "$lgroups"
+            if [[ "$lin_group" == "true" ]]; then
+                if [[ -n "$lgroups_json" ]]; then lgroups_json+=","; fi
+                lgroups_json+="[${lcur_group}]"
+            fi
+            if [[ -z "$lgroups_json" ]]; then
+                continue
+            fi
+            LOG_JSON_PARTS+=("\"${lconfig}\":[${lgroups_json}]")
+        done
+        LOG_JSON="{"
+        ljfirst=true
+        for part in "${LOG_JSON_PARTS[@]}"; do
+            if [[ "$ljfirst" != "true" ]]; then LOG_JSON+=","; fi
+            ljfirst=false
+            LOG_JSON+="$part"
+        done
+        LOG_JSON+="}"
+        if [[ "$LOG_JSON" != "{}" ]]; then
+            BUNDLE_CMD+=(--log-files "$LOG_JSON")
+        fi
         # Download Langfuse traces if available
         BUNDLE_CMD+=(--fetch-langfuse)
         if [[ "${BUNDLE_ZIP:-false}" == "true" ]]; then
