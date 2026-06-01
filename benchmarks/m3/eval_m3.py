@@ -92,6 +92,30 @@ from benchmarks.helpers import (
 from benchmarks.helpers.sdk_eval_helpers import add_policy_via_agent, clear_all_policies
 from benchmarks.m3.m3_data_loader import M3DataLoader, diff_tool_calls
 
+# Injected into CugaLite's system prompt via SDK special_instructions (eval-only).
+# Many M3 MCP tools lack a documented output/response schema (response_doc is empty).
+# Without guidance the model assumes dict-shaped results and calls .get() on lists/strings.
+M3_SPECIAL_INSTRUCTIONS = """
+## Undocumented tool outputs (M3 eval)
+
+When a tool in **Current Available Tools** has no **Response Schema** / output documentation:
+
+1. **First use — isolated probe:** Run the tool alone (Isolated Tools rule). End with a `print()` of a **compact shape summary**, not a full dump:
+   - Top-level type: `dict`, `list`, `str`, `int`, etc.
+   - If `dict`: key names (first ~10) and the type of each value at one level (e.g. `list`, `dict`, `str`).
+   - If `list`: length and the type of the first element (e.g. `list[dict]`, `list[str]`).
+   - Shallow shape is enough (`dict[str, object]`, `list[int]`, `dict[str, dict]`) — do not recurse deeply.
+
+2. **All follow-up code — handle defensively:** Never assume dict/list/key types from memory.
+   - Use `isinstance(result, dict)` before `.get()` or key access.
+   - Use `isinstance(result, list)` before indexing or iteration.
+   - If APIs vary (bare list vs `{"items": [...]}`), normalize once then proceed, e.g.:
+     `rows = result if isinstance(result, list) else (result.get("items") if isinstance(result, dict) else [])`
+   - Do not call `.get()`, `[0]`, or attribute access on a value until its type is confirmed.
+
+Reporting shape in step 1 is for choosing correct access in step 2 — the goal is **crash-free Python**, not type narration for its own sake.
+""".strip()
+
 
 async def _load_m3_policies(agent: CugaAgent, policies_enabled: bool = True) -> None:
     """Load CUGA policies into the per-domain agent.
@@ -1446,6 +1470,7 @@ async def evaluate_single_task(
             evaluator.agent = CugaAgent(
                 tool_provider=filtered_provider,  # Only sees this domain's tools
                 callbacks=callbacks,
+                special_instructions=M3_SPECIAL_INSTRUCTIONS,
                 # Policies are loaded explicitly by _load_m3_policies below per
                 # eval run. Disable .cuga auto-load and filesystem sync to keep
                 # the per-domain agent's policy set deterministic — otherwise
