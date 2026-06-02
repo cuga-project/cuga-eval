@@ -31,7 +31,6 @@ import asyncio
 import json
 import time
 import traceback
-import uuid
 from dataclasses import dataclass
 from datetime import datetime
 from typing import Any, Optional
@@ -54,7 +53,8 @@ from utils.appworld_utils import (
 
 from benchmarks.helpers.sdk_eval_helpers import (
     build_langfuse_invoke_config,
-    setup_langfuse,
+    is_langfuse_tracing_enabled,
+    record_harness_trace_output,
     setup_react_agent_for_evaluation,
 )
 
@@ -317,7 +317,7 @@ async def run_agent_on_task(
 
         max_output_length = config.max_output_length if config else 50000
         thread_id = task_id
-        langfuse_enabled = setup_langfuse() is not None
+        langfuse_enabled = is_langfuse_tracing_enabled()
         predefined_trace_id: Optional[str] = None
         invoke_callbacks: Optional[list[Any]] = None
         _langfuse = None
@@ -327,13 +327,12 @@ async def run_agent_on_task(
                 from langfuse import get_client
 
                 _langfuse = get_client()
-                predefined_trace_id = _langfuse.create_trace_id(
-                    seed=f"appworld_react_{task_id}_{uuid.uuid4().hex[:8]}"
-                )
+                # Deterministic seed (same task_id is re-runnable in Langfuse UI).
+                predefined_trace_id = _langfuse.create_trace_id(seed=f"appworld_react_{task_id}_{thread_id}")
                 langfuse_trace_id = predefined_trace_id
-                invoke_callbacks = build_langfuse_invoke_config(predefined_trace_id, thread_id).get(
-                    "callbacks"
-                )
+                lf_config = build_langfuse_invoke_config(predefined_trace_id, thread_id)
+                # ReAct has no LangGraph config; only trace-scoped callbacks are passed per LLM call.
+                invoke_callbacks = lf_config.get("callbacks")
                 logger.info(f"[APPWORLD-REACT] Langfuse trace ID: {predefined_trace_id}")
             except Exception as lf_err:
                 logger.warning(f"[APPWORLD-REACT] Langfuse init failed, tracing disabled: {lf_err}")
@@ -390,21 +389,19 @@ async def run_agent_on_task(
                     break
 
         try:
+            await _run_react_loop()
             if _langfuse and predefined_trace_id:
-                with _langfuse.start_as_current_observation(
-                    as_type="span",
-                    name=f"appworld_react_{task_id}",
-                    trace_context={"trace_id": predefined_trace_id},
+                record_harness_trace_output(
+                    _langfuse,
+                    predefined_trace_id,
                     input={"task_id": task_id, "intent": world.task.instruction},
+                    output={"final_answer": final_answer, "tool_calls": tool_calls},
                     metadata={"thread_id": thread_id},
-                ):
-                    await _run_react_loop()
+                )
                 try:
                     _langfuse.flush()
-                except Exception:  # noqa: S110
-                    pass
-            else:
-                await _run_react_loop()
+                except Exception as flush_err:
+                    logger.debug(f"[APPWORLD-REACT] Langfuse flush failed: {flush_err}")
 
             evaluation = world.evaluate()
             world.close_all()

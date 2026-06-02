@@ -283,10 +283,33 @@ def _langfuse_callback_handler_class():
             return None
 
 
-def is_langfuse_callback_handler(cb: Any) -> bool:
-    """True if *cb* is a Langfuse LangChain callback handler."""
-    cls = _langfuse_callback_handler_class()
-    return cls is not None and isinstance(cb, cls)
+_langfuse_nesting_warning_emitted = False
+
+
+def is_langfuse_tracing_enabled() -> bool:
+    """True when Langfuse tracing is enabled in cuga settings and the SDK is installed."""
+    try:
+        from cuga.config import settings
+
+        if not getattr(getattr(settings, "advanced_features", None), "langfuse_tracing", False):
+            return False
+    except ImportError:
+        pass
+    return _langfuse_callback_handler_class() is not None
+
+
+def _warn_unless_agent_langfuse_nesting() -> None:
+    """Warn once if cuga-agent lacks nested Langfuse callback propagation (PR #277)."""
+    try:
+        from cuga.backend.cuga_graph.utils.langfuse_tracing import (  # noqa: F401
+            sync_langfuse_callbacks_from_config,
+        )
+    except ImportError:
+        logger.warning(
+            "Langfuse single-trace nesting requires cuga-agent with langfuse_tracing "
+            "(cuga-project/cuga-agent#277). Without it, LLM calls may appear as separate "
+            "root traces in Langfuse."
+        )
 
 
 def build_langfuse_invoke_config(
@@ -295,12 +318,27 @@ def build_langfuse_invoke_config(
     *,
     parent_span_id: str | None = None,
 ) -> dict:
-    """LangGraph config so the LangChain callback owns the trace root under *trace_id*.
+    """Per-invoke Langfuse config for SDK/M3 (LangGraph) and AppWorld ReAct.
 
-    Do not wrap ``agent.invoke`` in a separate Langfuse eval span with the same
-    ``trace_id`` — that creates a sibling root next to the LangGraph run. Attach
-    harness scores via :func:`langfuse_score_on_trace` after ``flush()`` instead.
+    **SDK / M3 (``CugaAgent`` / LangGraph):** Pass this dict as ``config`` on
+    ``agent.invoke``. The trace-scoped ``CallbackHandler`` should own the trace
+    root; do **not** wrap ``agent.invoke`` in another ``start_as_current_observation``
+    with the same ``trace_id`` (that creates a competing root next to the graph).
+
+    **AppWorld ReAct:** There is no LangGraph run. Only the per-LLM
+    ``callbacks`` list is used (see ``GenericReactAgent._call_llm``); the
+    ``configurable`` entries are unused but kept so the harness trace id stays
+    aligned with the handler's ``trace_context``. Do not wrap the ReAct loop in a
+    sibling eval span either — record harness I/O via
+    :func:`record_harness_trace_output` after the loop instead.
+
+    Attach harness scores via :func:`langfuse_score_on_trace` after ``flush()``.
     """
+    global _langfuse_nesting_warning_emitted
+    if not _langfuse_nesting_warning_emitted:
+        _warn_unless_agent_langfuse_nesting()
+        _langfuse_nesting_warning_emitted = True
+
     handler = create_trace_langfuse_handler(trace_id, parent_span_id=parent_span_id)
     if handler is None:
         return {}
@@ -322,6 +360,31 @@ def create_trace_langfuse_handler(trace_id: str, *, parent_span_id: str | None =
     if parent_span_id:
         trace_context["parent_span_id"] = parent_span_id
     return cls(trace_context=trace_context)
+
+
+def record_harness_trace_output(
+    langfuse: Any,
+    trace_id: str,
+    *,
+    output: Any,
+    input: Any = None,
+    metadata: Optional[dict[str, Any]] = None,
+) -> None:
+    """Attach harness summary I/O on *trace_id* without wrapping ``agent.invoke``.
+
+    Uses a leaf ``harness_summary`` span on the existing trace (same pattern as
+    the old eval wrapper's ``span.update(output=...)``, but does not compete with
+    LangGraph's RunnableSequence root).
+    """
+    with langfuse.start_as_current_observation(
+        as_type="span",
+        name="harness_summary",
+        trace_context={"trace_id": trace_id},
+        input=input,
+        output=output,
+        metadata=metadata or {},
+    ):
+        pass
 
 
 def langfuse_score_on_trace(
@@ -1229,6 +1292,35 @@ async def evaluate_multiturn_task_with_langfuse(
                         data_type="BOOLEAN",
                         comment="Overall task success: True if all keywords found, otherwise False",
                     )
+
+                harness_output: dict[str, Any] = {
+                    "final_response": final_response,
+                    "all_responses": all_responses,
+                }
+                if keyword_check_result:
+                    harness_output["keyword_results"] = {
+                        "found_keywords": keyword_check_result["found_keywords"],
+                        "missing_keywords": keyword_check_result["missing_keywords"],
+                        "total_keywords": keyword_check_result["total_keywords"],
+                        "found_count": keyword_check_result["found_count"],
+                    }
+                record_harness_trace_output(
+                    langfuse,
+                    predefined_trace_id,
+                    input={
+                        "task_name": task_name,
+                        "num_turns": num_turns,
+                        "turns": [turn.get("query", "") for turn in turns],
+                        **(task_metadata or {}),
+                    },
+                    output=harness_output,
+                    metadata={
+                        "thread_id": thread_id,
+                        "task_index": task_index,
+                        "num_turns": num_turns,
+                        **(task_metadata or {}),
+                    },
+                )
 
                 try:
                     _langfuse_metrics = await fetch_langfuse_metrics_for_trace(predefined_trace_id)
