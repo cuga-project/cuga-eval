@@ -25,7 +25,7 @@ from pathlib import Path
 
 import pytest
 
-from benchmarks.helpers.compare_report import generate_report
+from benchmarks.helpers.compare_report import _parse_sdk_results, generate_report
 
 pytestmark = pytest.mark.regression
 
@@ -179,3 +179,13 @@ def test_per_difficulty_breakdown_suppressed_for_sdk(tmp_path):
 
     report = generate_report({"gpt-oss:cuga": [run1, run2]})
     assert "Per-Difficulty Breakdown" not in report
+
+
+def test_parse_sdk_results_includes_react_steps():
+    parsed = _parse_sdk_results(
+        {
+            "metrics": {"total_tasks": 1, "passed": 1},
+            "results": [{"task_name": "t1", "success": True, "steps": 3}],
+        }
+    )
+    assert parsed["tasks"]["t1"]["steps"] == 3

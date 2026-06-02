@@ -41,6 +41,7 @@ class ReactInvokeResult:
     answer: str
     tool_calls: list[dict[str, Any]] = field(default_factory=list)
     raw_messages: list[dict[str, str]] = field(default_factory=list)
+    react_steps: int = 0
 
 
 class GenericReactAgent:
@@ -193,7 +194,12 @@ class GenericReactAgent:
             self._llm = self._create_llm()
         return self._llm
 
-    async def _call_llm(self, messages: list[dict[str, str]], stop: Optional[list[str]] = None) -> str:
+    async def _call_llm(
+        self,
+        messages: list[dict[str, str]],
+        stop: Optional[list[str]] = None,
+        invoke_callbacks: Optional[list[Any]] = None,
+    ) -> str:
         """Call LLM using LangChain wrappers for automatic Langfuse tracking."""
         from langchain_core.messages import AIMessage, SystemMessage
         from langchain_core.messages import HumanMessage as LCHumanMessage
@@ -217,8 +223,9 @@ class GenericReactAgent:
         if stop:
             invoke_kwargs["stop"] = stop
 
-        if self.callbacks:
-            config = RunnableConfig(callbacks=self.callbacks)
+        callbacks = invoke_callbacks if invoke_callbacks is not None else self.callbacks
+        if callbacks:
+            config = RunnableConfig(callbacks=callbacks)
             response = await llm.ainvoke(lc_messages, config=config, **invoke_kwargs)
         else:
             response = await llm.ainvoke(lc_messages, **invoke_kwargs)
@@ -331,6 +338,7 @@ class GenericReactAgent:
         thread_id: str,
         user_context: str = "",
         track_tool_calls: bool = True,
+        invoke_callbacks: Optional[list[Any]] = None,
     ) -> ReactInvokeResult:
         del thread_id
 
@@ -343,7 +351,7 @@ class GenericReactAgent:
 
         for step in range(1, self.max_steps + 1):
             logger.info(f"[REACT] Step {step}/{self.max_steps}")
-            llm_text = await self._call_llm(convo)
+            llm_text = await self._call_llm(convo, invoke_callbacks=invoke_callbacks)
             logger.info(f"[REACT] Model output at step {step}: {llm_text}")
             convo.append({"role": "assistant", "content": llm_text})
 
@@ -371,6 +379,7 @@ class GenericReactAgent:
                     answer=final_answer,
                     tool_calls=tool_calls if track_tool_calls else [],
                     raw_messages=convo,
+                    react_steps=step,
                 )
 
             tool_request = self._extract_tool_request(llm_text)
@@ -413,6 +422,7 @@ class GenericReactAgent:
             answer="Unable to complete within max steps.",
             tool_calls=tool_calls if track_tool_calls else [],
             raw_messages=convo,
+            react_steps=self.max_steps,
         )
 
 
@@ -430,11 +440,12 @@ async def setup_react_agent_with_tools(
     logger.info(f"Loaded {len(all_tools)} tools for ReAct agent")
 
     langfuse_handler = setup_langfuse()
-    callbacks = [langfuse_handler] if langfuse_handler else []
+    if langfuse_handler:
+        logger.info("✅ Langfuse tracing enabled (per-task trace-scoped handler)")
 
     agent = GenericReactAgent(
         tool_provider=tool_provider,
-        callbacks=callbacks,
+        callbacks=[],
         model=os.getenv("MODEL_NAME"),
         special_instructions=special_instructions,
     )
