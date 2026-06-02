@@ -228,6 +228,37 @@ from langchain_core.messages import HumanMessage
 from .react_agent import GenericReactAgent, setup_react_agent_with_tools
 
 
+async def _invoke_agent_for_eval(
+    agent: Any,
+    messages: list[HumanMessage],
+    *,
+    thread_id: str,
+    user_context: str = "",
+    track_tool_calls: bool = True,
+    lf_config: Optional[dict[str, Any]] = None,
+) -> Any:
+    """Invoke CugaAgent (LangGraph config) or GenericReactAgent (per-LLM callbacks)."""
+    common = {
+        "messages": messages,
+        "thread_id": thread_id,
+        "user_context": user_context,
+        "track_tool_calls": track_tool_calls,
+    }
+    if isinstance(agent, GenericReactAgent):
+        if lf_config:
+            common["invoke_callbacks"] = lf_config.get("callbacks")
+        return await agent.invoke(**common)
+    if lf_config:
+        common["config"] = lf_config
+    return await agent.invoke(**common)
+
+
+def _langfuse_trace_root_log_message(agent: Any) -> str:
+    if isinstance(agent, GenericReactAgent):
+        return "ReAct per-LLM callbacks scoped to trace (no LangGraph run)"
+    return "LangGraph callback is trace root (no eval wrapper span)"
+
+
 async def setup_agent_with_tools(
     special_instructions: Optional[str] = None,
     extra_callbacks: Optional[List[Any]] = None,
@@ -450,6 +481,8 @@ def setup_langfuse():
 
 async def clear_all_policies(agent: CugaAgent):
     """Clear all existing policies from the database."""
+    if not hasattr(agent, "policies"):
+        return
     try:
         existing_policies = await agent.policies.list()
         if existing_policies:
@@ -740,17 +773,30 @@ async def evaluate_task_with_langfuse(
 
                 logger.info(
                     f"📊 Langfuse trace: {trace_name} (ID: {predefined_trace_id}) — "
-                    "LangGraph callback is trace root (no eval wrapper span)"
+                    f"{_langfuse_trace_root_log_message(agent)}"
                 )
 
                 lf_config = build_langfuse_invoke_config(predefined_trace_id, thread_id)
-                invoke_result = await agent.invoke(
+                invoke_result = await _invoke_agent_for_eval(
+                    agent,
                     [HumanMessage(content=intent)],
                     thread_id=thread_id,
                     user_context=user_context or "",
                     track_tool_calls=track_tool_calls,
-                    config=lf_config,
+                    lf_config=lf_config,
                 )
+                if isinstance(agent, GenericReactAgent) and predefined_trace_id:
+                    record_harness_trace_output(
+                        langfuse,
+                        predefined_trace_id,
+                        input={"task_name": task_name, "intent": intent},
+                        output={
+                            "response": invoke_result.answer
+                            if hasattr(invoke_result, "answer")
+                            else invoke_result
+                        },
+                        metadata={"thread_id": thread_id, "task_index": task_index},
+                    )
                 result_state = invoke_result.answer if hasattr(invoke_result, 'answer') else invoke_result
                 keyword_check = check_keywords(result_state, expected_keywords)
                 keyword_check_result = keyword_check
@@ -1213,7 +1259,7 @@ async def evaluate_multiturn_task_with_langfuse(
 
                 logger.info(
                     f"📊 Langfuse trace: {trace_name} (ID: {predefined_trace_id}) — "
-                    "LangGraph callback is trace root (no eval wrapper span)"
+                    f"{_langfuse_trace_root_log_message(agent)}"
                 )
 
                 lf_config = build_langfuse_invoke_config(predefined_trace_id, thread_id)
@@ -1222,12 +1268,13 @@ async def evaluate_multiturn_task_with_langfuse(
                     logger.info(f"\n[Turn {turn_idx}/{num_turns}] Query: {query}")
                     logger.info(f"[Turn {turn_idx}] Using thread_id: {thread_id}")
 
-                    invoke_result = await agent.invoke(
+                    invoke_result = await _invoke_agent_for_eval(
+                        agent,
                         [HumanMessage(content=query)],
                         thread_id=thread_id,
-                        user_context=user_context,
+                        user_context=user_context or "",
                         track_tool_calls=track_tool_calls,
-                        config=lf_config,
+                        lf_config=lf_config,
                     )
                     result_state = invoke_result.answer
                     turn_tool_calls = invoke_result.tool_calls or []
@@ -1804,7 +1851,7 @@ async def evaluate_task_with_langfuse_react(
     track_tool_calls: bool = True,
     metrics_config: Optional[MetricsConfig] = None,
 ) -> Dict[str, Any]:
-    """ReAct wrapper that reuses the standard single-turn evaluation/result flow."""
+    """ReAct single-turn eval; Langfuse callbacks are passed per LLM call, not via ``config``."""
     return await evaluate_task_with_langfuse(
         agent=agent,  # type: ignore[arg-type]
         task=task,

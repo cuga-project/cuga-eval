@@ -337,6 +337,7 @@ class GenericReactAgent:
         thread_id: str,
         user_context: str = "",
         track_tool_calls: bool = True,
+        invoke_callbacks: Optional[list[Any]] = None,
     ) -> ReactInvokeResult:
         del thread_id
 
@@ -349,7 +350,7 @@ class GenericReactAgent:
 
         for step in range(1, self.max_steps + 1):
             logger.info(f"[REACT] Step {step}/{self.max_steps}")
-            llm_text = await self._call_llm(convo)
+            llm_text = await self._call_llm(convo, invoke_callbacks=invoke_callbacks)
             logger.info(f"[REACT] Model output at step {step}: {llm_text}")
             convo.append({"role": "assistant", "content": llm_text})
 
