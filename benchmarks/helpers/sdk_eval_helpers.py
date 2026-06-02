@@ -253,6 +253,19 @@ async def _invoke_agent_for_eval(
     return await agent.invoke(**common)
 
 
+def _react_steps_from_invoke_result(invoke_result: Any) -> Optional[int]:
+    """ReAct loop iterations (matches ``[REACT] Step N/M`` console logs)."""
+    steps = getattr(invoke_result, "react_steps", None)
+    if steps is None:
+        return None
+    return int(steps)
+
+
+def _accumulate_react_steps(total: int, invoke_result: Any) -> int:
+    steps = _react_steps_from_invoke_result(invoke_result)
+    return total + steps if steps else total
+
+
 def _langfuse_trace_root_log_message(agent: Any) -> str:
     if isinstance(agent, GenericReactAgent):
         return "ReAct per-LLM callbacks scoped to trace (no LangGraph run)"
@@ -644,8 +657,10 @@ def create_activity_tracker_callback(
         """Callback for tracking evaluation results with ActivityTracker."""
         from cuga.backend.activity_tracker.tracker import Step
 
-        # Capture agent steps before callback adds its own
-        agent_steps = len(tracker.steps)
+        # ReAct reports loop iterations on the result dict; Cuga uses ActivityTracker.
+        agent_steps = result.get("steps")
+        if agent_steps is None:
+            agent_steps = len(tracker.steps)
 
         task_name = result["task_name"]
         response = result.get("response", "")
@@ -1019,6 +1034,10 @@ async def evaluate_task_with_langfuse(
         elif "sample_id" in task:
             result["uuid"] = task["sample_id"]
 
+        react_steps = _react_steps_from_invoke_result(invoke_result)
+        if react_steps is not None:
+            result["steps"] = react_steps
+
         # Add Langfuse metrics if available
         if langfuse_handler and _langfuse_metrics:
             result["total_tokens"] = _langfuse_metrics.total_tokens
@@ -1305,6 +1324,7 @@ async def evaluate_multiturn_task_with_langfuse(
         final_response = None
         _langfuse_metrics = None
         predefined_trace_id = None
+        total_react_steps = 0
 
         if langfuse_handler:
             try:
@@ -1334,6 +1354,7 @@ async def evaluate_multiturn_task_with_langfuse(
                         track_tool_calls=track_tool_calls,
                         lf_config=lf_config,
                     )
+                    total_react_steps = _accumulate_react_steps(total_react_steps, invoke_result)
                     result_state = invoke_result.answer
                     turn_tool_calls = invoke_result.tool_calls or []
                     all_tool_calls.extend([(turn_idx, tc) for tc in turn_tool_calls])
@@ -1446,6 +1467,7 @@ async def evaluate_multiturn_task_with_langfuse(
                         user_context=user_context,
                         track_tool_calls=track_tool_calls,
                     )
+                    total_react_steps = _accumulate_react_steps(total_react_steps, invoke_result)
                     result_state = invoke_result.answer
                     turn_tool_calls = invoke_result.tool_calls or []
                     all_tool_calls.extend([(turn_idx, tc) for tc in turn_tool_calls])
@@ -1500,6 +1522,7 @@ async def evaluate_multiturn_task_with_langfuse(
                     user_context=user_context,
                     track_tool_calls=track_tool_calls,
                 )
+                total_react_steps = _accumulate_react_steps(total_react_steps, invoke_result)
                 result_state = invoke_result.answer
                 turn_tool_calls = invoke_result.tool_calls or []
                 all_tool_calls.extend([(turn_idx, tc) for tc in turn_tool_calls])
@@ -1589,6 +1612,9 @@ async def evaluate_multiturn_task_with_langfuse(
             result.update(task_metadata)
             # Preserve UUID from task_metadata if present (M3 benchmark format)
             # task_metadata may contain "uuid" passed from the caller
+
+        if total_react_steps > 0:
+            result["steps"] = total_react_steps
 
         logger.info(f"✅ Completed: {task_name}")
         if keyword_check_result:

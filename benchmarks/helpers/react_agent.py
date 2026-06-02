@@ -41,6 +41,7 @@ class ReactInvokeResult:
     answer: str
     tool_calls: list[dict[str, Any]] = field(default_factory=list)
     raw_messages: list[dict[str, str]] = field(default_factory=list)
+    react_steps: int = 0
 
 
 class GenericReactAgent:
@@ -378,6 +379,7 @@ class GenericReactAgent:
                     answer=final_answer,
                     tool_calls=tool_calls if track_tool_calls else [],
                     raw_messages=convo,
+                    react_steps=step,
                 )
 
             tool_request = self._extract_tool_request(llm_text)
@@ -420,6 +422,7 @@ class GenericReactAgent:
             answer="Unable to complete within max steps.",
             tool_calls=tool_calls if track_tool_calls else [],
             raw_messages=convo,
+            react_steps=self.max_steps,
         )
 
 
