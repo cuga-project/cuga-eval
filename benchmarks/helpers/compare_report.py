@@ -91,7 +91,7 @@ def _parse_sdk_results(data: dict) -> dict:
             "llm_calls": r.get("total_llm_calls", 0) or 0,
             "cache_tokens": r.get("total_cache_input_tokens", 0) or 0,
             "duration": dur,
-            "steps": None,
+            "steps": r.get("steps"),
             # AppWorld results carry a per-task difficulty band; preserved for
             # the per-difficulty breakdown in the multi-run summary. Other
             # benchmarks won't emit it and the breakdown will collapse to None.
