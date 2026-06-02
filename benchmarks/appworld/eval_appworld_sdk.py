@@ -136,8 +136,9 @@ async def invoke_and_score_appworld(
     invoked = False
     eval_dict: Dict[str, Any] = {}
     trace_id: Optional[str] = None
+    _langfuse_metrics = None
 
-    async def run_invoke() -> None:
+    async def run_invoke(invoke_config: Optional[dict] = None) -> None:
         nonlocal response, tool_calls, err, is_error, invoked
         try:
             invoke_result = await agent.invoke(
@@ -145,6 +146,7 @@ async def invoke_and_score_appworld(
                 thread_id=thread_id,
                 user_context=user_context,
                 track_tool_calls=track_tool_calls,
+                config=invoke_config or {},
             )
             response = invoke_result.answer
             tool_calls = list(invoke_result.tool_calls or []) if track_tool_calls else []
@@ -184,7 +186,10 @@ async def invoke_and_score_appworld(
                 input={"intent": intent, "task_id": task_id, "difficulty": difficulty},
                 metadata={"thread_id": thread_id, "task_index": task_index},
             ) as span:
-                await run_invoke()
+                from benchmarks.helpers.sdk_eval_helpers import build_langfuse_invoke_config
+
+                lf_config = build_langfuse_invoke_config(predefined_trace_id, thread_id)
+                await run_invoke(lf_config)
                 complete_and_eval()
                 span.update(
                     output={
@@ -306,7 +311,7 @@ async def invoke_and_score_appworld(
     }
 
     # Add Langfuse metrics if available
-    if langfuse_handler and '_langfuse_metrics' in dir() and _langfuse_metrics:
+    if langfuse_handler and _langfuse_metrics:
         result["total_tokens"] = _langfuse_metrics.total_tokens
         result["total_llm_calls"] = _langfuse_metrics.total_llm_calls
         result["total_cost"] = _langfuse_metrics.total_cost

@@ -249,17 +249,16 @@ async def setup_agent_with_tools(
     logger.info(f"Loaded {len(all_tools)} tools")
 
     langfuse_handler = setup_langfuse()
-    callbacks = [langfuse_handler] if langfuse_handler else []
     if langfuse_handler:
-        logger.info("✅ Langfuse tracing enabled")
+        logger.info("✅ Langfuse tracing enabled (per-invoke trace-scoped handler)")
         logger.info(f"   Callback handler type: {type(langfuse_handler).__name__}")
     else:
         logger.info("ℹ️  Langfuse not available (optional)")
 
-    if extra_callbacks:
-        callbacks = callbacks + extra_callbacks
-
-    agent_kwargs = {"tool_provider": tool_provider, "callbacks": callbacks}
+    callbacks = list(extra_callbacks) if extra_callbacks else []
+    agent_kwargs = {"tool_provider": tool_provider}
+    if callbacks:
+        agent_kwargs["callbacks"] = callbacks
     if special_instructions:
         agent_kwargs["special_instructions"] = special_instructions
         logger.info("   Special instructions provided")
@@ -268,6 +267,48 @@ async def setup_agent_with_tools(
     logger.info(f"   Agent created with {len(callbacks)} callback(s)")
 
     return agent, langfuse_handler
+
+
+def _langfuse_callback_handler_class():
+    try:
+        from langfuse.langchain import CallbackHandler as LangfuseCallbackHandler
+
+        return LangfuseCallbackHandler
+    except ImportError:
+        try:
+            from langfuse.callback.langchain import LangchainCallbackHandler as LangfuseCallbackHandler
+
+            return LangfuseCallbackHandler
+        except ImportError:
+            return None
+
+
+def is_langfuse_callback_handler(cb: Any) -> bool:
+    """True if *cb* is a Langfuse LangChain callback handler."""
+    cls = _langfuse_callback_handler_class()
+    return cls is not None and isinstance(cb, cls)
+
+
+def create_trace_langfuse_handler(trace_id: str) -> Any | None:
+    """Return a Langfuse handler scoped to *trace_id* (one trace per eval task)."""
+    cls = _langfuse_callback_handler_class()
+    if cls is None:
+        return None
+    return cls(trace_context={"trace_id": trace_id})
+
+
+def build_langfuse_invoke_config(trace_id: str, thread_id: str) -> dict:
+    """LangGraph config for ``agent.invoke`` that nests all LLM calls under *trace_id*."""
+    handler = create_trace_langfuse_handler(trace_id)
+    if handler is None:
+        return {}
+    return {
+        "callbacks": [handler],
+        "configurable": {
+            "langfuse_trace_id": trace_id,
+            "thread_id": thread_id,
+        },
+    }
 
 
 def setup_langfuse():
@@ -288,16 +329,11 @@ def setup_langfuse():
         pass  # If cuga.config unavailable, fall through to package check
 
     try:
-        from langfuse.langchain import CallbackHandler as LangfuseCallbackHandler
-    except ImportError:
-        try:
-            from langfuse.callback.langchain import LangchainCallbackHandler as LangfuseCallbackHandler
-        except ImportError:
+        cls = _langfuse_callback_handler_class()
+        if cls is None:
             logger.warning("Langfuse package not installed. Install with: pip install langfuse")
             return None
-
-    try:
-        handler = LangfuseCallbackHandler()
+        handler = cls()
         return handler
     except Exception as e:
         logger.error(f"Failed to create Langfuse handler: {e}")
@@ -585,6 +621,8 @@ async def evaluate_task_with_langfuse(
     try:
         keyword_check_result = None
         tool_calls = []
+        _langfuse_metrics = None
+        predefined_trace_id = None
 
         if langfuse_handler:
             try:
@@ -609,11 +647,13 @@ async def evaluate_task_with_langfuse(
                     },
                     metadata={"thread_id": thread_id, "task_index": task_index},
                 ) as span:
+                    lf_config = build_langfuse_invoke_config(predefined_trace_id, thread_id)
                     invoke_result = await agent.invoke(
                         [HumanMessage(content=intent)],
                         thread_id=thread_id,
                         user_context=user_context or "",
                         track_tool_calls=track_tool_calls,
+                        config=lf_config,
                     )
                     # Handle both string and object return types
                     result_state = invoke_result.answer if hasattr(invoke_result, 'answer') else invoke_result
@@ -802,7 +842,7 @@ async def evaluate_task_with_langfuse(
             result["uuid"] = task["sample_id"]
 
         # Add Langfuse metrics if available
-        if langfuse_handler and '_langfuse_metrics' in dir() and _langfuse_metrics:
+        if langfuse_handler and _langfuse_metrics:
             result["total_tokens"] = _langfuse_metrics.total_tokens
             result["total_llm_calls"] = _langfuse_metrics.total_llm_calls
             result["total_cost"] = _langfuse_metrics.total_cost
@@ -1085,6 +1125,8 @@ async def evaluate_multiturn_task_with_langfuse(
         all_responses = []
         all_tool_calls = []
         final_response = None
+        _langfuse_metrics = None
+        predefined_trace_id = None
 
         if langfuse_handler:
             try:
@@ -1113,6 +1155,7 @@ async def evaluate_multiturn_task_with_langfuse(
                     },
                     metadata=metadata,
                 ) as span:
+                    lf_config = build_langfuse_invoke_config(predefined_trace_id, thread_id)
                     for turn_idx, turn in enumerate(turns, 1):
                         query = turn.get("query", "")
                         logger.info(f"\n[Turn {turn_idx}/{num_turns}] Query: {query}")
@@ -1123,6 +1166,7 @@ async def evaluate_multiturn_task_with_langfuse(
                             thread_id=thread_id,
                             user_context=user_context,
                             track_tool_calls=track_tool_calls,
+                            config=lf_config,
                         )
                         result_state = invoke_result.answer
                         turn_tool_calls = invoke_result.tool_calls or []
@@ -1379,7 +1423,7 @@ async def evaluate_multiturn_task_with_langfuse(
         }
 
         # Add Langfuse metrics if available
-        if langfuse_handler and '_langfuse_metrics' in dir() and _langfuse_metrics:
+        if langfuse_handler and _langfuse_metrics:
             result["total_tokens"] = _langfuse_metrics.total_tokens
             result["total_llm_calls"] = _langfuse_metrics.total_llm_calls
             result["total_cost"] = _langfuse_metrics.total_cost
