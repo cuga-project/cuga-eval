@@ -89,7 +89,11 @@ from benchmarks.helpers import (
     save_evaluation_results,
     setup_langfuse,
 )
-from benchmarks.helpers.sdk_eval_helpers import add_policy_via_agent, clear_all_policies
+from benchmarks.helpers.sdk_eval_helpers import (
+    add_policy_via_agent,
+    clear_all_policies,
+    is_langfuse_tracing_enabled,
+)
 from benchmarks.m3.m3_data_loader import M3DataLoader, diff_tool_calls
 
 # Injected into CugaLite's system prompt via SDK special_instructions (eval-only).
@@ -1463,13 +1467,14 @@ async def evaluate_single_task(
             if hasattr(filtered_provider, 'app_name'):
                 logger.info(f"  🔒 Filtered to app: {filtered_provider.app_name}")
 
-            # Create agent with filtered provider
+            # Langfuse: per-task trace-scoped handlers are attached in
+            # evaluate_task_with_langfuse via build_langfuse_invoke_config.
+            # Do not pass an unscoped CallbackHandler on the agent — that creates
+            # orphan root traces per LLM call (especially visible on Watsonx).
             langfuse_handler = setup_langfuse()
-            callbacks = [langfuse_handler] if langfuse_handler else []
 
             evaluator.agent = CugaAgent(
                 tool_provider=filtered_provider,  # Only sees this domain's tools
-                callbacks=callbacks,
                 special_instructions=M3_SPECIAL_INSTRUCTIONS,
                 # Policies are loaded explicitly by _load_m3_policies below per
                 # eval run. Disable .cuga auto-load and filesystem sync to keep
@@ -2576,14 +2581,8 @@ async def run_config_mode(args, container_runtime: str, defer_save: bool = False
             )
             services = filtered
 
-        # Initialize Langfuse (optional)
-        try:
-            from langfuse.callback import CallbackHandler
-
-            CallbackHandler()
-            logger.info("Langfuse handler initialized")
-        except Exception as e:
-            logger.warning(f"Could not initialize Langfuse: {e}")
+        if is_langfuse_tracing_enabled():
+            logger.info("Langfuse tracing enabled (per-task handlers via evaluate_task_with_langfuse)")
 
         # Collect task evaluation coroutines only for parallel/batched mode.
         # In sequential mode we await evaluate_single_task per service below

@@ -238,19 +238,26 @@ async def _invoke_agent_for_eval(
     lf_config: Optional[dict[str, Any]] = None,
 ) -> Any:
     """Invoke CugaAgent (LangGraph config) or GenericReactAgent (per-LLM callbacks)."""
-    common = {
-        "messages": messages,
+    if isinstance(agent, GenericReactAgent):
+        kwargs: dict[str, Any] = {
+            "messages": messages,
+            "thread_id": thread_id,
+            "user_context": user_context,
+            "track_tool_calls": track_tool_calls,
+        }
+        if lf_config:
+            kwargs["invoke_callbacks"] = lf_config.get("callbacks")
+        return await agent.invoke(**kwargs)
+
+    kwargs = {
+        "message": messages,
         "thread_id": thread_id,
-        "user_context": user_context,
+        "user_context": user_context or "",
         "track_tool_calls": track_tool_calls,
     }
-    if isinstance(agent, GenericReactAgent):
-        if lf_config:
-            common["invoke_callbacks"] = lf_config.get("callbacks")
-        return await agent.invoke(**common)
     if lf_config:
-        common["config"] = lf_config
-    return await agent.invoke(**common)
+        kwargs["config"] = lf_config
+    return await agent.invoke(**kwargs)
 
 
 def _react_steps_from_invoke_result(invoke_result: Any) -> Optional[int]:
