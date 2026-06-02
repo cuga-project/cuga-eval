@@ -193,7 +193,12 @@ class GenericReactAgent:
             self._llm = self._create_llm()
         return self._llm
 
-    async def _call_llm(self, messages: list[dict[str, str]], stop: Optional[list[str]] = None) -> str:
+    async def _call_llm(
+        self,
+        messages: list[dict[str, str]],
+        stop: Optional[list[str]] = None,
+        invoke_callbacks: Optional[list[Any]] = None,
+    ) -> str:
         """Call LLM using LangChain wrappers for automatic Langfuse tracking."""
         from langchain_core.messages import AIMessage, SystemMessage
         from langchain_core.messages import HumanMessage as LCHumanMessage
@@ -217,8 +222,9 @@ class GenericReactAgent:
         if stop:
             invoke_kwargs["stop"] = stop
 
-        if self.callbacks:
-            config = RunnableConfig(callbacks=self.callbacks)
+        callbacks = invoke_callbacks if invoke_callbacks is not None else self.callbacks
+        if callbacks:
+            config = RunnableConfig(callbacks=callbacks)
             response = await llm.ainvoke(lc_messages, config=config, **invoke_kwargs)
         else:
             response = await llm.ainvoke(lc_messages, **invoke_kwargs)
@@ -430,11 +436,12 @@ async def setup_react_agent_with_tools(
     logger.info(f"Loaded {len(all_tools)} tools for ReAct agent")
 
     langfuse_handler = setup_langfuse()
-    callbacks = [langfuse_handler] if langfuse_handler else []
+    if langfuse_handler:
+        logger.info("✅ Langfuse tracing enabled (per-task trace-scoped handler)")
 
     agent = GenericReactAgent(
         tool_provider=tool_provider,
-        callbacks=callbacks,
+        callbacks=[],
         model=os.getenv("MODEL_NAME"),
         special_instructions=special_instructions,
     )

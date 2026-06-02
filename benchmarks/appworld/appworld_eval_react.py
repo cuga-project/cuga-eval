@@ -31,6 +31,7 @@ import asyncio
 import json
 import time
 import traceback
+import uuid
 from dataclasses import dataclass
 from datetime import datetime
 from typing import Any, Optional
@@ -43,7 +44,6 @@ from cuga.config import settings
 from cuga.evaluation.langfuse.get_langfuse_data import LangfuseTraceHandler
 from jinja2 import Template
 from loguru import logger
-from opentelemetry import trace
 from utils.appworld_data_collection import ExperimentManager
 from utils.appworld_utils import (
     appworld_task_info,
@@ -52,7 +52,11 @@ from utils.appworld_utils import (
     get_task_difficulty,
 )
 
-from benchmarks.helpers.sdk_eval_helpers import setup_react_agent_for_evaluation
+from benchmarks.helpers.sdk_eval_helpers import (
+    build_langfuse_invoke_config,
+    setup_langfuse,
+    setup_react_agent_for_evaluation,
+)
 
 REACT_PROMPT_PATH = Path(__file__).parent / "prompts" / "react_code_agent" / "instructions.txt"
 
@@ -83,14 +87,6 @@ class Config:
     agent_type: str = "react"
     max_steps: int = 40
     max_output_length: int = 50000
-
-
-def get_current_trace_id() -> Optional[str]:
-    current_span = trace.get_current_span()
-    span_context = current_span.get_span_context()
-    if not span_context.is_valid:
-        return None
-    return format(span_context.trace_id, "032x")
 
 
 def _print_appworld_summary(report: dict):
@@ -320,12 +316,38 @@ async def run_agent_on_task(
         executed_steps = 0
 
         max_output_length = config.max_output_length if config else 50000
+        thread_id = task_id
+        langfuse_enabled = setup_langfuse() is not None
+        predefined_trace_id: Optional[str] = None
+        invoke_callbacks: Optional[list[Any]] = None
+        _langfuse = None
 
-        try:
+        if langfuse_enabled:
+            try:
+                from langfuse import get_client
+
+                _langfuse = get_client()
+                predefined_trace_id = _langfuse.create_trace_id(
+                    seed=f"appworld_react_{task_id}_{uuid.uuid4().hex[:8]}"
+                )
+                langfuse_trace_id = predefined_trace_id
+                invoke_callbacks = build_langfuse_invoke_config(predefined_trace_id, thread_id).get(
+                    "callbacks"
+                )
+                logger.info(f"[APPWORLD-REACT] Langfuse trace ID: {predefined_trace_id}")
+            except Exception as lf_err:
+                logger.warning(f"[APPWORLD-REACT] Langfuse init failed, tracing disabled: {lf_err}")
+
+        async def _run_react_loop() -> None:
+            nonlocal conversation, final_answer, executed_steps, tool_calls, is_error
             for step_index in range(1, (config.max_steps if config else 40) + 1):
                 logger.info(f"[APPWORLD-REACT] Step {step_index}")
                 trimmed = _trim_conversation(conversation, num_instruction_messages, max_output_length)
-                llm_text = await react_agent._call_llm(trimmed, stop=["```\n"])
+                llm_text = await react_agent._call_llm(
+                    trimmed,
+                    stop=["```\n"],
+                    invoke_callbacks=invoke_callbacks,
+                )
                 conversation.append({"role": "assistant", "content": llm_text})
                 code = _extract_python_block(llm_text)
 
@@ -367,6 +389,23 @@ async def run_agent_on_task(
                 if _completion_called(code):
                     break
 
+        try:
+            if _langfuse and predefined_trace_id:
+                with _langfuse.start_as_current_observation(
+                    as_type="span",
+                    name=f"appworld_react_{task_id}",
+                    trace_context={"trace_id": predefined_trace_id},
+                    input={"task_id": task_id, "intent": world.task.instruction},
+                    metadata={"thread_id": thread_id},
+                ):
+                    await _run_react_loop()
+                try:
+                    _langfuse.flush()
+                except Exception:  # noqa: S110
+                    pass
+            else:
+                await _run_react_loop()
+
             evaluation = world.evaluate()
             world.close_all()
             end_time = time.time()
@@ -380,7 +419,6 @@ async def run_agent_on_task(
             res = evaluation.report(print_it=False, colorize=False, save_file_path=None)
 
             langfuse_data = None
-            langfuse_trace_id = get_current_trace_id()
             if langfuse_trace_id:
                 langfuse_handler = LangfuseTraceHandler(langfuse_trace_id)
                 langfuse_data = await langfuse_handler.get_langfuse_data()
