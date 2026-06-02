@@ -437,6 +437,38 @@ def langfuse_score_on_trace(
     )
 
 
+def _find_generation_observations(
+    data: Any, generations: Optional[list[dict[str, Any]]] = None
+) -> list[dict[str, Any]]:
+    """Collect GENERATION observations from a Langfuse trace API payload."""
+    if generations is None:
+        generations = []
+    if isinstance(data, dict):
+        if data.get("type") == "GENERATION":
+            generations.append(data)
+        for value in data.values():
+            _find_generation_observations(value, generations)
+    elif isinstance(data, list):
+        for item in data:
+            _find_generation_observations(item, generations)
+    return generations
+
+
+def _sum_generation_cache_tokens_from_trace(langfuse_data: dict[str, Any]) -> int:
+    """Sum cache-read tokens from GENERATION observations.
+
+    Langfuse stores ``input_cache_read`` on ``usageDetails``; older cuga-agent
+    parsers only read ``usage.input_cache_read`` and report zero.
+    """
+    total = 0
+    for gen in _find_generation_observations(langfuse_data):
+        usage_details = gen.get("usageDetails") or {}
+        usage = gen.get("usage") or {}
+        cache = usage_details.get("input_cache_read") or usage.get("input_cache_read") or 0
+        total += int(cache)
+    return total
+
+
 async def fetch_langfuse_metrics_for_trace(trace_id: str) -> Any:
     """Flush the client and read token/cost/timing aggregates for *trace_id*."""
     from langfuse import get_client
@@ -444,7 +476,33 @@ async def fetch_langfuse_metrics_for_trace(trace_id: str) -> Any:
     get_client().flush()
     from cuga.evaluation.langfuse.get_langfuse_data import LangfuseTraceHandler
 
-    return await LangfuseTraceHandler(trace_id).get_langfuse_data()
+    handler = LangfuseTraceHandler(trace_id)
+    raw = await handler.extract_langfuse_data(
+        handler.config,
+        trace_id,
+        max_retries=10,
+        initial_delay=2.0,
+    )
+    metrics = handler.parse_langfuse_metrics(raw) if raw else None
+    if metrics is None:
+        metrics = await handler.get_langfuse_data()
+        return metrics
+    cache_tokens = _sum_generation_cache_tokens_from_trace(raw)
+    if cache_tokens:
+        metrics.total_cache_input_tokens = cache_tokens
+        for detail in metrics.llm_call_details:
+            gen_id = detail.get("id")
+            if not gen_id:
+                continue
+            for gen in _find_generation_observations(raw):
+                if gen.get("id") == gen_id:
+                    usage_details = gen.get("usageDetails") or {}
+                    usage = gen.get("usage") or {}
+                    detail["cache_input_tokens"] = int(
+                        usage_details.get("input_cache_read") or usage.get("input_cache_read") or 0
+                    )
+                    break
+    return metrics
 
 
 def setup_langfuse():
