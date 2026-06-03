@@ -38,6 +38,11 @@ _source_no_override() {
         fi
         # Skip if already set (allows model profile exports from compare.sh to win)
         [[ -n "${!key+x}" ]] && continue
+        # Strip trailing inline comments (e.g. KEY=value # note in *.env files)
+        if [[ "$val" =~ ^(.*)[[:space:]]+# ]]; then
+            val="${BASH_REMATCH[1]}"
+        fi
+        val="${val%"${val##*[![:space:]]}"}"
         # Strip surrounding quotes
         val="${val#\"}" ; val="${val%\"}"
         val="${val#\'}" ; val="${val%\'}"
