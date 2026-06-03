@@ -211,6 +211,8 @@ if [ "$NO_GROUND_TRUTH" = "true" ]; then
 fi
 if [ "$NO_POLICIES" = "true" ]; then
     EVAL_M3_EXTRA+=(--no-policies)
+    export DYNACONF_POLICY__ENABLED=false
+    echo -e "${YELLOW:-}Policy engine disabled (--no-policies)${NC:-}"
 fi
 
 # Compile policy markdowns -> policies.json (unless policies are disabled).
@@ -259,14 +261,14 @@ elif [ "$MULTITURN" = "true" ]; then
         echo -e "${RED:-}Error: M3 multi-turn evaluation is not available for the react agent${NC:-}"
         exit 1
     else
-        uv run python -m benchmarks.m3.eval_m3_multiturn --from-config "$SCRIPT_DIR/config/m3_registry.yaml" "${PASSTHROUGH_ARGS[@]}"
+        uv run python -m benchmarks.m3.eval_m3_multiturn --from-config "$SCRIPT_DIR/config/m3_registry.yaml" "${EVAL_M3_EXTRA[@]}" "${PASSTHROUGH_ARGS[@]}"
     fi
 else
     echo -e "${YELLOW:-}Running single-turn evaluation with agent ${AGENT:-cuga}...${NC:-}"
     if [ "${AGENT:-cuga}" = "react" ]; then
-        uv run python -m benchmarks.m3.eval_m3_react --from-config "$SCRIPT_DIR/config/m3_registry.yaml" "${PASSTHROUGH_ARGS[@]}"
+        uv run python -m benchmarks.m3.eval_m3_react --from-config "$SCRIPT_DIR/config/m3_registry.yaml" "${EVAL_M3_EXTRA[@]}" "${PASSTHROUGH_ARGS[@]}"
     else
-        uv run python -m benchmarks.m3.eval_m3 --from-config "$SCRIPT_DIR/config/m3_registry.yaml" "${PASSTHROUGH_ARGS[@]}"
+        uv run python -m benchmarks.m3.eval_m3 --from-config "$SCRIPT_DIR/config/m3_registry.yaml" "${EVAL_M3_EXTRA[@]}" "${PASSTHROUGH_ARGS[@]}"
     fi
 fi
 
@@ -301,6 +303,9 @@ if [ $EVAL_EXIT -eq 0 ]; then
                 --report "$REPORT_TMP")
             if [ -n "$MODEL_PROFILE" ]; then
                 BUNDLE_ARGS+=(--model-profile "$MODEL_PROFILE")
+            fi
+            if [ "$NO_POLICIES" = "true" ]; then
+                BUNDLE_ARGS+=(--no-policies)
             fi
             if [ "${BUNDLE_ZIP:-false}" = "true" ]; then
                 BUNDLE_ARGS+=(--zip)

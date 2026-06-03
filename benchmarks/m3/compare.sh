@@ -45,6 +45,7 @@ AGENT="${AGENT:-cuga}"
 AGENTS="${AGENTS:-}"
 COMPARE_AGENTS="${COMPARE_AGENTS:-false}"
 COMPARE_POLICIES="${COMPARE_POLICIES:-false}"
+GLOBAL_NO_POLICIES="${GLOBAL_NO_POLICIES:-false}"
 NO_BUNDLE="${NO_BUNDLE:-false}"
 BUNDLE_ZIP="${BUNDLE_ZIP:-false}"
 FORWARDED_ARGS=()
@@ -81,6 +82,10 @@ while [[ $idx -lt ${#ARGS[@]} ]]; do
             ;;
         --compare-policies)
             COMPARE_POLICIES=true
+            idx=$((idx+1))
+            ;;
+        --no-policies)
+            GLOBAL_NO_POLICIES=true
             idx=$((idx+1))
             ;;
         --no-bundle)
@@ -122,6 +127,8 @@ for _m in "${MODEL_LIST[@]}"; do
         if [[ "$COMPARE_POLICIES" == "true" ]]; then
             CONFIGS+=("${_m}:${_a}:policies")
             CONFIGS+=("${_m}:${_a}:no-policies")
+        elif [[ "$GLOBAL_NO_POLICIES" == "true" ]]; then
+            CONFIGS+=("${_m}:${_a}:no-policies")
         else
             CONFIGS+=("${_m}:${_a}:policies")
         fi
@@ -136,6 +143,11 @@ echo -e "  Agents:          ${CYAN:-}${AGENTS}${NC:-}"
 echo -e "  Models:          ${CYAN:-}${MODELS}${NC:-}"
 echo -e "  Configurations:  ${CYAN:-}${#CONFIGS[@]}${NC:-}"
 echo -e "  Runs per config: ${CYAN:-}${RUNS}${NC:-}"
+if [[ "$COMPARE_POLICIES" == "true" ]]; then
+    echo -e "  Compare policies:  ${CYAN:-}yes (policies vs no-policies)${NC:-}"
+elif [[ "$GLOBAL_NO_POLICIES" == "true" ]]; then
+    echo -e "  Policies:          ${CYAN:-}disabled (--no-policies)${NC:-}"
+fi
 echo ""
 
 if [[ "$DRY_RUN" == "true" ]]; then
@@ -226,7 +238,7 @@ for config in "${CONFIGS[@]}"; do
 
     # Per-config extra args (e.g., --no-policies when comparing policy modes).
     config_extra_args=()
-    if [[ "$policy_mode" == "no-policies" ]]; then
+    if [[ "$policy_mode" == "no-policies" ]] || [[ "$GLOBAL_NO_POLICIES" == "true" ]]; then
         config_extra_args+=(--no-policies)
     fi
 
