@@ -31,7 +31,7 @@ run_and_check() {
   local report
   report="$(latest_bundle_report "$benchmark")"
   echo "Validating $report"
-  uv run python "$VALIDATE" "$report"
+  uv run python -m benchmarks.helpers.validate_bundle_report "$report"
 }
 
 echo "Smoke benchmarks (ROOT=$ROOT)"
