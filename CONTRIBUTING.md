@@ -45,6 +45,7 @@ or under the root `tests/` directory.
 ```bash
 just lint            # ruff check + ruff format --check
 just test-sanity     # ~5s
+just test-smoke-e2e  # live: AppWorld + M3 (needs API keys, AppWorld, M3 containers)
 just test-regression # ~7s
 just security        # bandit + pip-audit
 just ci              # all of the above

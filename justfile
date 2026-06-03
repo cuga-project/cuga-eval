@@ -20,6 +20,10 @@ format:
 test-sanity:
     uv run pytest -m sanity
 
+# Live smoke: 1 AppWorld (SDK), 1 AppWorld (ReAct), 1 M3 hockey task; checks bundle report.md.
+test-smoke-e2e:
+    bash scripts/smoke_benchmarks.sh
+
 # Sanity + regression suite, run on every PR and push to master.
 test-regression:
     uv run pytest -m "sanity or regression"

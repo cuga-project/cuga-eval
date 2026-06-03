@@ -1037,6 +1037,8 @@ async def evaluate_task_with_langfuse(
         react_steps = _react_steps_from_invoke_result(invoke_result)
         if react_steps is not None:
             result["steps"] = react_steps
+        elif result.get("steps") is None and tool_calls:
+            result["steps"] = len(tool_calls)
 
         # Add Langfuse metrics if available
         if langfuse_handler and _langfuse_metrics:
