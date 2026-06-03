@@ -87,7 +87,7 @@ from benchmarks.helpers import (
     evaluate_task_with_langfuse,
     flush_langfuse,
     save_evaluation_results,
-    setup_langfuse,
+    should_trace_langfuse_task,
 )
 from benchmarks.helpers.sdk_eval_helpers import (
     add_policy_via_agent,
@@ -1471,7 +1471,8 @@ async def evaluate_single_task(
             # evaluate_task_with_langfuse via build_langfuse_invoke_config.
             # Do not pass an unscoped CallbackHandler on the agent — that creates
             # orphan root traces per LLM call (especially visible on Watsonx).
-            langfuse_handler = setup_langfuse()
+            # Gate only — per-task trace-scoped handlers are attached in invoke config.
+            evaluator.langfuse_handler = should_trace_langfuse_task()
 
             evaluator.agent = CugaAgent(
                 tool_provider=filtered_provider,  # Only sees this domain's tools
@@ -1484,7 +1485,6 @@ async def evaluate_single_task(
                 auto_load_policies=False,
                 filesystem_sync=False,
             )
-            evaluator.langfuse_handler = langfuse_handler
             logger.info(f"Agent created with filtered tool provider (domain: {domain})")
 
             # Load CUGA policies for this per-domain agent (mirrors benchmarks/bpo
