@@ -1,7 +1,6 @@
+### Step 1: Validate your local repository
 
-### Step 1: Validate Your Local Repository do it all against upstream `origin`
-
-Before creating a PR, you must ensure all your changes are committed and pushed to your branch.
+Validate your branch against upstream `origin` before creating a PR. Ensure all changes are committed and pushed to your branch.
 
 #### Check for Uncommitted Changes
 
@@ -14,7 +13,7 @@ git status --porcelain
 **⚠️ CRITICAL: If this command returns any output, STOP HERE!**
 
 You have uncommitted changes that must be handled before creating a PR. You must either:
-- **Commit your changes**: `git add . && git commit -m "your message"`
+- **Commit your changes**: stage only the files you intend to commit (e.g. `git add -p` or `git add path/to/file`), then `git commit -m "your message"`
 - **Stash your changes**: `git stash`
 
 **Do not proceed with PR creation until this is resolved.**
@@ -70,7 +69,7 @@ Before creating the PR, you must fill out the template with relevant information
    - **Testing**: Check off completed testing steps
    - **Checklist**: Verify all items are completed
 
-3. **Remember filled template**
+3. **Keep the filled template in context for the next step** (you will paste it into `gh pr create --body`).
 
 #### Local CI gate (this repo)
 

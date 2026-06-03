@@ -85,3 +85,5 @@ If you are working in an AI-assisted IDE or using an AI agent (Cursor, Claude, B
 | `cuga-ruff-check` | Runs `just format` (or `uv run ruff`) to fix and format Python |
 
 These commands follow all repo conventions (Conventional Commits, `gh` CLI, `just` tasks, no promotional footers). To invoke them, use the slash-command syntax of your tool (e.g. `/cuga-commit` in Cursor).
+
+**Maintenance:** The five `cuga-*.md` files are duplicated under `.cursor/commands/`, `.claude/commands/`, and `.bob/commands/`. When you edit one command, update the same filename in all three directories so they stay in sync.
