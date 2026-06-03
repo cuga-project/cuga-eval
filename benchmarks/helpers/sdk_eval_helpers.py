@@ -228,6 +228,50 @@ from langchain_core.messages import HumanMessage
 from .react_agent import GenericReactAgent, setup_react_agent_with_tools
 
 
+async def _invoke_agent_for_eval(
+    agent: Any,
+    messages: list[HumanMessage],
+    *,
+    thread_id: str,
+    user_context: str = "",
+    track_tool_calls: bool = True,
+    lf_config: Optional[dict[str, Any]] = None,
+) -> Any:
+    """Invoke CugaAgent (LangGraph config) or GenericReactAgent (per-LLM callbacks)."""
+    common = {
+        "messages": messages,
+        "thread_id": thread_id,
+        "user_context": user_context,
+        "track_tool_calls": track_tool_calls,
+    }
+    if isinstance(agent, GenericReactAgent):
+        if lf_config:
+            common["invoke_callbacks"] = lf_config.get("callbacks")
+        return await agent.invoke(**common)
+    if lf_config:
+        common["config"] = lf_config
+    return await agent.invoke(**common)
+
+
+def _react_steps_from_invoke_result(invoke_result: Any) -> Optional[int]:
+    """ReAct loop iterations (matches ``[REACT] Step N/M`` console logs)."""
+    steps = getattr(invoke_result, "react_steps", None)
+    if steps is None:
+        return None
+    return int(steps)
+
+
+def _accumulate_react_steps(total: int, invoke_result: Any) -> int:
+    steps = _react_steps_from_invoke_result(invoke_result)
+    return total + steps if steps else total
+
+
+def _langfuse_trace_root_log_message(agent: Any) -> str:
+    if isinstance(agent, GenericReactAgent):
+        return "ReAct per-LLM callbacks scoped to trace (no LangGraph run)"
+    return "LangGraph callback is trace root (no eval wrapper span)"
+
+
 async def setup_agent_with_tools(
     special_instructions: Optional[str] = None,
     extra_callbacks: Optional[List[Any]] = None,
@@ -249,17 +293,16 @@ async def setup_agent_with_tools(
     logger.info(f"Loaded {len(all_tools)} tools")
 
     langfuse_handler = setup_langfuse()
-    callbacks = [langfuse_handler] if langfuse_handler else []
     if langfuse_handler:
-        logger.info("✅ Langfuse tracing enabled")
+        logger.info("✅ Langfuse tracing enabled (per-invoke trace-scoped handler)")
         logger.info(f"   Callback handler type: {type(langfuse_handler).__name__}")
     else:
         logger.info("ℹ️  Langfuse not available (optional)")
 
-    if extra_callbacks:
-        callbacks = callbacks + extra_callbacks
-
-    agent_kwargs = {"tool_provider": tool_provider, "callbacks": callbacks}
+    callbacks = list(extra_callbacks) if extra_callbacks else []
+    agent_kwargs = {"tool_provider": tool_provider}
+    if callbacks:
+        agent_kwargs["callbacks"] = callbacks
     if special_instructions:
         agent_kwargs["special_instructions"] = special_instructions
         logger.info("   Special instructions provided")
@@ -268,6 +311,211 @@ async def setup_agent_with_tools(
     logger.info(f"   Agent created with {len(callbacks)} callback(s)")
 
     return agent, langfuse_handler
+
+
+def _langfuse_callback_handler_class():
+    try:
+        from langfuse.langchain import CallbackHandler as LangfuseCallbackHandler
+
+        return LangfuseCallbackHandler
+    except ImportError:
+        try:
+            from langfuse.callback.langchain import LangchainCallbackHandler as LangfuseCallbackHandler
+
+            return LangfuseCallbackHandler
+        except ImportError:
+            return None
+
+
+_langfuse_nesting_warning_emitted = False
+
+
+def is_langfuse_tracing_enabled() -> bool:
+    """True when Langfuse tracing is enabled in cuga settings and the SDK is installed."""
+    try:
+        from cuga.config import settings
+
+        if not getattr(getattr(settings, "advanced_features", None), "langfuse_tracing", False):
+            return False
+    except ImportError:
+        pass
+    return _langfuse_callback_handler_class() is not None
+
+
+def _warn_unless_agent_langfuse_nesting() -> None:
+    """Warn once if cuga-agent lacks nested Langfuse callback propagation (PR #277)."""
+    try:
+        from cuga.backend.cuga_graph.utils.langfuse_tracing import (  # noqa: F401
+            sync_langfuse_callbacks_from_config,
+        )
+    except ImportError:
+        logger.warning(
+            "Langfuse single-trace nesting requires cuga-agent with langfuse_tracing "
+            "(cuga-project/cuga-agent#277). Without it, LLM calls may appear as separate "
+            "root traces in Langfuse."
+        )
+
+
+def build_langfuse_invoke_config(
+    trace_id: str,
+    thread_id: str,
+    *,
+    parent_span_id: str | None = None,
+) -> dict:
+    """Per-invoke Langfuse config for SDK/M3 (LangGraph) and AppWorld ReAct.
+
+    **SDK / M3 (``CugaAgent`` / LangGraph):** Pass this dict as ``config`` on
+    ``agent.invoke``. The trace-scoped ``CallbackHandler`` should own the trace
+    root; do **not** wrap ``agent.invoke`` in another ``start_as_current_observation``
+    with the same ``trace_id`` (that creates a competing root next to the graph).
+
+    **AppWorld ReAct:** There is no LangGraph run. Only the per-LLM
+    ``callbacks`` list is used (see ``GenericReactAgent._call_llm``); the
+    ``configurable`` entries are unused but kept so the harness trace id stays
+    aligned with the handler's ``trace_context``. Do not wrap the ReAct loop in a
+    sibling eval span either — record harness I/O via
+    :func:`record_harness_trace_output` after the loop instead.
+
+    Attach harness scores via :func:`langfuse_score_on_trace` after ``flush()``.
+    """
+    global _langfuse_nesting_warning_emitted
+    if not _langfuse_nesting_warning_emitted:
+        _warn_unless_agent_langfuse_nesting()
+        _langfuse_nesting_warning_emitted = True
+
+    handler = create_trace_langfuse_handler(trace_id, parent_span_id=parent_span_id)
+    if handler is None:
+        return {}
+    return {
+        "callbacks": [handler],
+        "configurable": {
+            "langfuse_trace_id": trace_id,
+            "thread_id": thread_id,
+        },
+    }
+
+
+def create_trace_langfuse_handler(trace_id: str, *, parent_span_id: str | None = None) -> Any | None:
+    """Return a Langfuse handler scoped to *trace_id* (one trace per eval task)."""
+    cls = _langfuse_callback_handler_class()
+    if cls is None:
+        return None
+    trace_context: dict[str, str] = {"trace_id": trace_id}
+    if parent_span_id:
+        trace_context["parent_span_id"] = parent_span_id
+    return cls(trace_context=trace_context)
+
+
+def record_harness_trace_output(
+    langfuse: Any,
+    trace_id: str,
+    *,
+    output: Any,
+    input: Any = None,
+    metadata: Optional[dict[str, Any]] = None,
+) -> None:
+    """Attach harness summary I/O on *trace_id* without wrapping ``agent.invoke``.
+
+    Uses a leaf ``harness_summary`` span on the existing trace (same pattern as
+    the old eval wrapper's ``span.update(output=...)``, but does not compete with
+    LangGraph's RunnableSequence root).
+    """
+    with langfuse.start_as_current_observation(
+        as_type="span",
+        name="harness_summary",
+        trace_context={"trace_id": trace_id},
+        input=input,
+        output=output,
+        metadata=metadata or {},
+    ):
+        pass
+
+
+def langfuse_score_on_trace(
+    langfuse: Any,
+    trace_id: str,
+    *,
+    name: str,
+    value: Any,
+    data_type: str,
+    comment: str,
+) -> None:
+    """Attach harness scores to *trace_id* without creating a competing root span."""
+    langfuse.create_score(
+        trace_id=trace_id,
+        name=name,
+        value=value,
+        data_type=data_type,
+        comment=comment,
+    )
+
+
+def _find_generation_observations(
+    data: Any, generations: Optional[list[dict[str, Any]]] = None
+) -> list[dict[str, Any]]:
+    """Collect GENERATION observations from a Langfuse trace API payload."""
+    if generations is None:
+        generations = []
+    if isinstance(data, dict):
+        if data.get("type") == "GENERATION":
+            generations.append(data)
+        for value in data.values():
+            _find_generation_observations(value, generations)
+    elif isinstance(data, list):
+        for item in data:
+            _find_generation_observations(item, generations)
+    return generations
+
+
+def _sum_generation_cache_tokens_from_trace(langfuse_data: dict[str, Any]) -> int:
+    """Sum cache-read tokens from GENERATION observations.
+
+    Langfuse stores ``input_cache_read`` on ``usageDetails``; older cuga-agent
+    parsers only read ``usage.input_cache_read`` and report zero.
+    """
+    total = 0
+    for gen in _find_generation_observations(langfuse_data):
+        usage_details = gen.get("usageDetails") or {}
+        usage = gen.get("usage") or {}
+        cache = usage_details.get("input_cache_read") or usage.get("input_cache_read") or 0
+        total += int(cache)
+    return total
+
+
+async def fetch_langfuse_metrics_for_trace(trace_id: str) -> Any:
+    """Flush the client and read token/cost/timing aggregates for *trace_id*."""
+    from langfuse import get_client
+
+    get_client().flush()
+    from cuga.evaluation.langfuse.get_langfuse_data import LangfuseTraceHandler
+
+    handler = LangfuseTraceHandler(trace_id)
+    raw = await handler.extract_langfuse_data(
+        handler.config,
+        trace_id,
+        max_retries=10,
+        initial_delay=2.0,
+    )
+    metrics = handler.parse_langfuse_metrics(raw) if raw else None
+    if metrics is None:
+        metrics = await handler.get_langfuse_data()
+        return metrics
+    cache_tokens = _sum_generation_cache_tokens_from_trace(raw)
+    if cache_tokens:
+        metrics.total_cache_input_tokens = cache_tokens
+        for detail in metrics.llm_call_details:
+            gen_id = detail.get("id")
+            if not gen_id:
+                continue
+            for gen in _find_generation_observations(raw):
+                if gen.get("id") == gen_id:
+                    usage_details = gen.get("usageDetails") or {}
+                    usage = gen.get("usage") or {}
+                    detail["cache_input_tokens"] = int(
+                        usage_details.get("input_cache_read") or usage.get("input_cache_read") or 0
+                    )
+                    break
+    return metrics
 
 
 def setup_langfuse():
@@ -288,16 +536,11 @@ def setup_langfuse():
         pass  # If cuga.config unavailable, fall through to package check
 
     try:
-        from langfuse.langchain import CallbackHandler as LangfuseCallbackHandler
-    except ImportError:
-        try:
-            from langfuse.callback.langchain import LangchainCallbackHandler as LangfuseCallbackHandler
-        except ImportError:
+        cls = _langfuse_callback_handler_class()
+        if cls is None:
             logger.warning("Langfuse package not installed. Install with: pip install langfuse")
             return None
-
-    try:
-        handler = LangfuseCallbackHandler()
+        handler = cls()
         return handler
     except Exception as e:
         logger.error(f"Failed to create Langfuse handler: {e}")
@@ -309,6 +552,8 @@ def setup_langfuse():
 
 async def clear_all_policies(agent: CugaAgent):
     """Clear all existing policies from the database."""
+    if not hasattr(agent, "policies"):
+        return
     try:
         existing_policies = await agent.policies.list()
         if existing_policies:
@@ -412,8 +657,10 @@ def create_activity_tracker_callback(
         """Callback for tracking evaluation results with ActivityTracker."""
         from cuga.backend.activity_tracker.tracker import Step
 
-        # Capture agent steps before callback adds its own
-        agent_steps = len(tracker.steps)
+        # ReAct reports loop iterations on the result dict; Cuga uses ActivityTracker.
+        agent_steps = result.get("steps")
+        if agent_steps is None:
+            agent_steps = len(tracker.steps)
 
         task_name = result["task_name"]
         response = result.get("response", "")
@@ -585,6 +832,8 @@ async def evaluate_task_with_langfuse(
     try:
         keyword_check_result = None
         tool_calls = []
+        _langfuse_metrics = None
+        predefined_trace_id = None
 
         if langfuse_handler:
             try:
@@ -595,81 +844,65 @@ async def evaluate_task_with_langfuse(
                 trace_name = f"eval_{task_name}_{task_index}"
                 predefined_trace_id = langfuse.create_trace_id(seed=f"{task_name}_{task_index}_{thread_id}")
 
-                logger.info(f"📊 Starting Langfuse trace: {trace_name} (ID: {predefined_trace_id})")
+                logger.info(
+                    f"📊 Langfuse trace: {trace_name} (ID: {predefined_trace_id}) — "
+                    f"{_langfuse_trace_root_log_message(agent)}"
+                )
 
-                with langfuse.start_as_current_observation(
-                    as_type="span",
-                    name=trace_name,
-                    trace_context={"trace_id": predefined_trace_id},
-                    input={
-                        "intent": intent,
-                        "task_name": task_name,
-                        "difficulty": difficulty,
-                        "expected_keywords": expected_keywords,
-                    },
-                    metadata={"thread_id": thread_id, "task_index": task_index},
-                ) as span:
-                    invoke_result = await agent.invoke(
-                        [HumanMessage(content=intent)],
-                        thread_id=thread_id,
-                        user_context=user_context or "",
-                        track_tool_calls=track_tool_calls,
-                    )
-                    # Handle both string and object return types
-                    result_state = invoke_result.answer if hasattr(invoke_result, 'answer') else invoke_result
-
-                    keyword_check = check_keywords(result_state, expected_keywords)
-
-                    response_preview = result_state
-                    span.update(
+                lf_config = build_langfuse_invoke_config(predefined_trace_id, thread_id)
+                invoke_result = await _invoke_agent_for_eval(
+                    agent,
+                    [HumanMessage(content=intent)],
+                    thread_id=thread_id,
+                    user_context=user_context or "",
+                    track_tool_calls=track_tool_calls,
+                    lf_config=lf_config,
+                )
+                if isinstance(agent, GenericReactAgent) and predefined_trace_id:
+                    record_harness_trace_output(
+                        langfuse,
+                        predefined_trace_id,
+                        input={"task_name": task_name, "intent": intent},
                         output={
-                            "response_preview": response_preview,
-                            "keyword_results": {
-                                "found_keywords": keyword_check["found_keywords"],
-                                "missing_keywords": keyword_check["missing_keywords"],
-                                "total_keywords": keyword_check["total_keywords"],
-                                "found_count": keyword_check["found_count"],
-                            },
+                            "response": invoke_result.answer
+                            if hasattr(invoke_result, "answer")
+                            else invoke_result
                         },
-                        metadata={
-                            "thread_id": thread_id,
-                            "task_index": task_index,
-                        },
+                        metadata={"thread_id": thread_id, "task_index": task_index},
                     )
-
-                    missing_keywords_str = (
-                        ", ".join(keyword_check['missing_keywords'])
-                        if keyword_check['missing_keywords']
-                        else "none"
-                    )
-                    span.score_trace(
-                        name="keyword_match",
-                        value=keyword_check["match_rate"],
-                        data_type="NUMERIC",
-                        comment=f"Keyword match rate: {keyword_check['found_count']}/{keyword_check['total_keywords']} keywords found. Missing keywords: {missing_keywords_str}",
-                    )
-
-                    overall_score = True if keyword_check["all_found"] else False
-                    span.score_trace(
-                        name="success",
-                        value=overall_score,
-                        data_type="BOOLEAN",
-                        comment="Overall task success: True if all keywords found, otherwise False",
-                    )
-
-                response = result_state
+                result_state = invoke_result.answer if hasattr(invoke_result, 'answer') else invoke_result
+                keyword_check = check_keywords(result_state, expected_keywords)
                 keyword_check_result = keyword_check
+                response = result_state
 
-                # Fetch Langfuse metrics (token usage, LLM calls, cost, timing)
+                missing_keywords_str = (
+                    ", ".join(keyword_check['missing_keywords'])
+                    if keyword_check['missing_keywords']
+                    else "none"
+                )
+                langfuse_score_on_trace(
+                    langfuse,
+                    predefined_trace_id,
+                    name="keyword_match",
+                    value=keyword_check["match_rate"],
+                    data_type="NUMERIC",
+                    comment=(
+                        f"Keyword match rate: {keyword_check['found_count']}/"
+                        f"{keyword_check['total_keywords']} keywords found. "
+                        f"Missing keywords: {missing_keywords_str}"
+                    ),
+                )
+                langfuse_score_on_trace(
+                    langfuse,
+                    predefined_trace_id,
+                    name="success",
+                    value=bool(keyword_check["all_found"]),
+                    data_type="BOOLEAN",
+                    comment="Overall task success: True if all keywords found, otherwise False",
+                )
+
                 try:
-                    from langfuse import get_client as _get_langfuse_client
-
-                    _get_langfuse_client().flush()
-
-                    from cuga.evaluation.langfuse.get_langfuse_data import LangfuseTraceHandler
-
-                    _langfuse_trace_handler = LangfuseTraceHandler(predefined_trace_id)
-                    _langfuse_metrics = await _langfuse_trace_handler.get_langfuse_data()
+                    _langfuse_metrics = await fetch_langfuse_metrics_for_trace(predefined_trace_id)
                 except Exception as langfuse_err:
                     logger.warning(f"Failed to fetch Langfuse metrics: {langfuse_err}")
                     _langfuse_metrics = None
@@ -801,8 +1034,12 @@ async def evaluate_task_with_langfuse(
         elif "sample_id" in task:
             result["uuid"] = task["sample_id"]
 
+        react_steps = _react_steps_from_invoke_result(invoke_result)
+        if react_steps is not None:
+            result["steps"] = react_steps
+
         # Add Langfuse metrics if available
-        if langfuse_handler and '_langfuse_metrics' in dir() and _langfuse_metrics:
+        if langfuse_handler and _langfuse_metrics:
             result["total_tokens"] = _langfuse_metrics.total_tokens
             result["total_llm_calls"] = _langfuse_metrics.total_llm_calls
             result["total_cost"] = _langfuse_metrics.total_cost
@@ -1085,6 +1322,9 @@ async def evaluate_multiturn_task_with_langfuse(
         all_responses = []
         all_tool_calls = []
         final_response = None
+        _langfuse_metrics = None
+        predefined_trace_id = None
+        total_react_steps = 0
 
         if langfuse_handler:
             try:
@@ -1095,148 +1335,124 @@ async def evaluate_multiturn_task_with_langfuse(
                 trace_name = f"multiturn_{task_name}_{task_index}"
                 predefined_trace_id = langfuse.create_trace_id(seed=f"{task_name}_{task_index}_{thread_id}")
 
-                logger.info(f"📊 Starting Langfuse trace: {trace_name} (ID: {predefined_trace_id})")
+                logger.info(
+                    f"📊 Langfuse trace: {trace_name} (ID: {predefined_trace_id}) — "
+                    f"{_langfuse_trace_root_log_message(agent)}"
+                )
 
-                metadata = {"thread_id": thread_id, "task_index": task_index}
-                if task_metadata:
-                    metadata.update(task_metadata)
+                lf_config = build_langfuse_invoke_config(predefined_trace_id, thread_id)
+                for turn_idx, turn in enumerate(turns, 1):
+                    query = turn.get("query", "")
+                    logger.info(f"\n[Turn {turn_idx}/{num_turns}] Query: {query}")
+                    logger.info(f"[Turn {turn_idx}] Using thread_id: {thread_id}")
 
-                with langfuse.start_as_current_observation(
-                    as_type="span",
-                    name=trace_name,
-                    trace_context={"trace_id": predefined_trace_id},
+                    invoke_result = await _invoke_agent_for_eval(
+                        agent,
+                        [HumanMessage(content=query)],
+                        thread_id=thread_id,
+                        user_context=user_context or "",
+                        track_tool_calls=track_tool_calls,
+                        lf_config=lf_config,
+                    )
+                    total_react_steps = _accumulate_react_steps(total_react_steps, invoke_result)
+                    result_state = invoke_result.answer
+                    turn_tool_calls = invoke_result.tool_calls or []
+                    all_tool_calls.extend([(turn_idx, tc) for tc in turn_tool_calls])
+
+                    all_responses.append(
+                        {
+                            "turn": turn_idx,
+                            "query": query,
+                            "response": result_state,
+                            "tool_calls": [tc for tc in turn_tool_calls],
+                        }
+                    )
+
+                    answer_preview = result_state[:100] if result_state else "(empty)"
+                    logger.info(
+                        f"[Turn {turn_idx}] Response received: {answer_preview}{'...' if len(result_state) > 100 else ''}"
+                    )
+                    logger.info(f"[Turn {turn_idx}] Tool calls captured: {len(turn_tool_calls)}")
+
+                    if not turn_tool_calls and result_state:
+                        logger.warning(f"[Turn {turn_idx}] ⚠️  Answer provided but NO tool calls recorded!")
+                    elif turn_tool_calls:
+                        tool_names = [
+                            tc.get('name', 'unknown')
+                            if isinstance(tc, dict)
+                            else getattr(tc, 'name', 'unknown')
+                            for tc in turn_tool_calls
+                        ]
+                        logger.info(f"[Turn {turn_idx}] Tools used: {tool_names}")
+
+                    if turn_idx < num_turns:
+                        await asyncio.sleep(turn_delay)
+
+                final_response = all_responses[-1]["response"] if all_responses else None
+
+                if expected_keywords and final_response:
+                    keyword_check = check_keywords(final_response, expected_keywords)
+                    keyword_check_result = keyword_check
+                    missing_keywords_str = (
+                        ", ".join(keyword_check["missing_keywords"])
+                        if keyword_check["missing_keywords"]
+                        else "none"
+                    )
+                    langfuse_score_on_trace(
+                        langfuse,
+                        predefined_trace_id,
+                        name="keyword_match",
+                        value=keyword_check["match_rate"],
+                        data_type="NUMERIC",
+                        comment=(
+                            f"Keyword match rate: {keyword_check['found_count']}/"
+                            f"{keyword_check['total_keywords']} keywords found. "
+                            f"Missing keywords: {missing_keywords_str}"
+                        ),
+                    )
+                    langfuse_score_on_trace(
+                        langfuse,
+                        predefined_trace_id,
+                        name="success",
+                        value=bool(keyword_check["all_found"]),
+                        data_type="BOOLEAN",
+                        comment="Overall task success: True if all keywords found, otherwise False",
+                    )
+
+                harness_output: dict[str, Any] = {
+                    "final_response": final_response,
+                    "all_responses": all_responses,
+                }
+                if keyword_check_result:
+                    harness_output["keyword_results"] = {
+                        "found_keywords": keyword_check_result["found_keywords"],
+                        "missing_keywords": keyword_check_result["missing_keywords"],
+                        "total_keywords": keyword_check_result["total_keywords"],
+                        "found_count": keyword_check_result["found_count"],
+                    }
+                record_harness_trace_output(
+                    langfuse,
+                    predefined_trace_id,
                     input={
                         "task_name": task_name,
                         "num_turns": num_turns,
                         "turns": [turn.get("query", "") for turn in turns],
                         **(task_metadata or {}),
                     },
-                    metadata=metadata,
-                ) as span:
-                    for turn_idx, turn in enumerate(turns, 1):
-                        query = turn.get("query", "")
-                        logger.info(f"\n[Turn {turn_idx}/{num_turns}] Query: {query}")
-                        logger.info(f"[Turn {turn_idx}] Using thread_id: {thread_id}")
+                    output=harness_output,
+                    metadata={
+                        "thread_id": thread_id,
+                        "task_index": task_index,
+                        "num_turns": num_turns,
+                        **(task_metadata or {}),
+                    },
+                )
 
-                        invoke_result = await agent.invoke(
-                            [HumanMessage(content=query)],
-                            thread_id=thread_id,
-                            user_context=user_context,
-                            track_tool_calls=track_tool_calls,
-                        )
-                        result_state = invoke_result.answer
-                        turn_tool_calls = invoke_result.tool_calls or []
-                        all_tool_calls.extend([(turn_idx, tc) for tc in turn_tool_calls])
-
-                        all_responses.append(
-                            {
-                                "turn": turn_idx,
-                                "query": query,
-                                "response": result_state,
-                                "tool_calls": [tc for tc in turn_tool_calls],
-                            }
-                        )
-
-                        # Enhanced logging for tool call tracking
-                        answer_preview = result_state[:100] if result_state else "(empty)"
-                        logger.info(
-                            f"[Turn {turn_idx}] Response received: {answer_preview}{'...' if len(result_state) > 100 else ''}"
-                        )
-                        logger.info(f"[Turn {turn_idx}] Tool calls captured: {len(turn_tool_calls)}")
-
-                        if not turn_tool_calls and result_state:
-                            logger.warning(
-                                f"[Turn {turn_idx}] ⚠️  Answer provided but NO tool calls recorded!"
-                            )
-                            logger.warning(f"[Turn {turn_idx}] This suggests either:")
-                            logger.warning("  1. Agent hallucinated without using tools (agent failure)")
-                            logger.warning(
-                                "  2. Tool tracking system failed to capture calls (tracking failure)"
-                            )
-                            logger.warning(f"  3. track_tool_calls={track_tool_calls} - verify this is True")
-                        elif turn_tool_calls:
-                            tool_names = [
-                                tc.get('name', 'unknown')
-                                if isinstance(tc, dict)
-                                else getattr(tc, 'name', 'unknown')
-                                for tc in turn_tool_calls
-                            ]
-                            logger.info(f"[Turn {turn_idx}] Tools used: {tool_names}")
-
-                        if turn_idx < num_turns:
-                            await asyncio.sleep(turn_delay)
-
-                    final_response = all_responses[-1]["response"] if all_responses else None
-
-                    if expected_keywords and final_response:
-                        keyword_check = check_keywords(final_response, expected_keywords)
-                        keyword_check_result = keyword_check
-
-                        span.update(
-                            output={
-                                "final_response": final_response,
-                                "all_responses": all_responses,
-                                "keyword_results": {
-                                    "found_keywords": keyword_check["found_keywords"],
-                                    "missing_keywords": keyword_check["missing_keywords"],
-                                    "total_keywords": keyword_check["total_keywords"],
-                                    "found_count": keyword_check["found_count"],
-                                },
-                            },
-                            metadata={
-                                "thread_id": thread_id,
-                                "task_index": task_index,
-                                "num_turns": num_turns,
-                                **(task_metadata or {}),
-                            },
-                        )
-
-                        missing_keywords_str = (
-                            ", ".join(keyword_check["missing_keywords"])
-                            if keyword_check["missing_keywords"]
-                            else "none"
-                        )
-                        span.score_trace(
-                            name="keyword_match",
-                            value=keyword_check["match_rate"],
-                            data_type="NUMERIC",
-                            comment=f"Keyword match rate: {keyword_check['found_count']}/{keyword_check['total_keywords']} keywords found. Missing keywords: {missing_keywords_str}",
-                        )
-
-                        overall_score = True if keyword_check["all_found"] else False
-                        span.score_trace(
-                            name="success",
-                            value=overall_score,
-                            data_type="BOOLEAN",
-                            comment="Overall task success: True if all keywords found, otherwise False",
-                        )
-                    else:
-                        span.update(
-                            output={
-                                "final_response": final_response,
-                                "all_responses": all_responses,
-                            },
-                            metadata={
-                                "thread_id": thread_id,
-                                "task_index": task_index,
-                                "num_turns": num_turns,
-                                **(task_metadata or {}),
-                            },
-                        )
-
-                    # Fetch Langfuse metrics (token usage, LLM calls, cost, timing)
-                    try:
-                        from langfuse import get_client as _get_langfuse_client
-
-                        _get_langfuse_client().flush()
-
-                        from cuga.evaluation.langfuse.get_langfuse_data import LangfuseTraceHandler
-
-                        _langfuse_trace_handler = LangfuseTraceHandler(predefined_trace_id)
-                        _langfuse_metrics = await _langfuse_trace_handler.get_langfuse_data()
-                    except Exception as langfuse_err:
-                        logger.warning(f"Failed to fetch Langfuse metrics: {langfuse_err}")
-                        _langfuse_metrics = None
+                try:
+                    _langfuse_metrics = await fetch_langfuse_metrics_for_trace(predefined_trace_id)
+                except Exception as langfuse_err:
+                    logger.warning(f"Failed to fetch Langfuse metrics: {langfuse_err}")
+                    _langfuse_metrics = None
 
             except Exception as e:
                 logger.warning(f"Langfuse tracing failed: {e}")
@@ -1251,6 +1467,7 @@ async def evaluate_multiturn_task_with_langfuse(
                         user_context=user_context,
                         track_tool_calls=track_tool_calls,
                     )
+                    total_react_steps = _accumulate_react_steps(total_react_steps, invoke_result)
                     result_state = invoke_result.answer
                     turn_tool_calls = invoke_result.tool_calls or []
                     all_tool_calls.extend([(turn_idx, tc) for tc in turn_tool_calls])
@@ -1305,6 +1522,7 @@ async def evaluate_multiturn_task_with_langfuse(
                     user_context=user_context,
                     track_tool_calls=track_tool_calls,
                 )
+                total_react_steps = _accumulate_react_steps(total_react_steps, invoke_result)
                 result_state = invoke_result.answer
                 turn_tool_calls = invoke_result.tool_calls or []
                 all_tool_calls.extend([(turn_idx, tc) for tc in turn_tool_calls])
@@ -1379,7 +1597,7 @@ async def evaluate_multiturn_task_with_langfuse(
         }
 
         # Add Langfuse metrics if available
-        if langfuse_handler and '_langfuse_metrics' in dir() and _langfuse_metrics:
+        if langfuse_handler and _langfuse_metrics:
             result["total_tokens"] = _langfuse_metrics.total_tokens
             result["total_llm_calls"] = _langfuse_metrics.total_llm_calls
             result["total_cost"] = _langfuse_metrics.total_cost
@@ -1394,6 +1612,9 @@ async def evaluate_multiturn_task_with_langfuse(
             result.update(task_metadata)
             # Preserve UUID from task_metadata if present (M3 benchmark format)
             # task_metadata may contain "uuid" passed from the caller
+
+        if total_react_steps > 0:
+            result["steps"] = total_react_steps
 
         logger.info(f"✅ Completed: {task_name}")
         if keyword_check_result:
@@ -1714,7 +1935,7 @@ async def evaluate_task_with_langfuse_react(
     track_tool_calls: bool = True,
     metrics_config: Optional[MetricsConfig] = None,
 ) -> Dict[str, Any]:
-    """ReAct wrapper that reuses the standard single-turn evaluation/result flow."""
+    """ReAct single-turn eval; Langfuse callbacks are passed per LLM call, not via ``config``."""
     return await evaluate_task_with_langfuse(
         agent=agent,  # type: ignore[arg-type]
         task=task,

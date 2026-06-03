@@ -30,7 +30,8 @@ class ScriptedReactAgent(GenericReactAgent):
         self.scripted_responses = list(scripted_responses)
         self.llm_inputs = []
 
-    async def _call_llm(self, messages):
+    async def _call_llm(self, messages, invoke_callbacks=None):
+        del invoke_callbacks
         snapshot = [{"role": m["role"], "content": m["content"]} for m in messages]
         self.llm_inputs.append(snapshot)
         if not self.scripted_responses:
@@ -89,6 +90,7 @@ async def test_react_agent_executes_multi_step_tool_loop_and_logs_observations()
     )
 
     assert result.answer == "20"
+    assert result.react_steps == 3
     assert result.tool_calls == [
         {"name": "adder", "arguments": {"a": 2, "b": 3}},
         {"name": "multiplier", "arguments": {"value": 5, "factor": 4}},
@@ -151,6 +153,7 @@ async def test_react_agent_returns_tool_error_observation_and_continues():
     )
 
     assert result.answer == "FAILED - tool failed as expected"
+    assert result.react_steps == 2
     assert result.tool_calls == [
         {"name": "unstable_tool", "arguments": {"attempt": 1}},
     ]

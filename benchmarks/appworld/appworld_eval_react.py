@@ -18,7 +18,9 @@ from config_loader import load_eval_config
 
 load_eval_config("appworld")
 
+import copy
 import os
+import re
 
 cuga_logging_dir = os.getenv("CUGA_LOGGING_DIR")
 if not cuga_logging_dir:
@@ -41,7 +43,6 @@ from cuga.config import settings
 from cuga.evaluation.langfuse.get_langfuse_data import LangfuseTraceHandler
 from jinja2 import Template
 from loguru import logger
-from opentelemetry import trace
 from utils.appworld_data_collection import ExperimentManager
 from utils.appworld_utils import (
     appworld_task_info,
@@ -50,89 +51,16 @@ from utils.appworld_utils import (
     get_task_difficulty,
 )
 
-from benchmarks.helpers.sdk_eval_helpers import setup_react_agent_for_evaluation
+from benchmarks.helpers.sdk_eval_helpers import (
+    build_langfuse_invoke_config,
+    is_langfuse_tracing_enabled,
+    record_harness_trace_output,
+    setup_react_agent_for_evaluation,
+)
 
-APPWORLD_REACT_PROMPT = """USER:
-I am your supervisor, and you are an AI Assistant whose job is to complete my day-to-day tasks fully autonomously.
+REACT_PROMPT_PATH = Path(__file__).parent / "prompts" / "react_code_agent" / "instructions.txt"
 
-To do this, you will need to interact with app(s) using their associated APIs on my behalf. For this you will undertake a multi-step conversation using a python REPL environment. That is, you will write the python code, the environment will execute it and show you the result, based on which, you will write python code for the next step and so on, until you've achieved the goal. This environment will let you interact with app(s) using their associated APIs on my behalf.
-
-Here are three key APIs that you need to know to get more information:
-
-# To get a list of apps that are available to you.
-```python
-print(apis.api_docs.show_app_descriptions())
-```
-
-# To get the list of APIs under any app listed above, e.g. spotify
-```python
-print(apis.api_docs.show_api_descriptions(app_name='spotify'))
-```
-
-# To get the specification of a particular api, e.g. spotify app's login api
-```python
-print(apis.api_docs.show_api_doc(app_name='spotify', api_name='login'))
-```
-
-Each code execution will produce an output that you can use in subsequent calls.
-
-Key instructions:
-
-A. General instructions:
-- Act fully on your own. You must make all decisions yourself and never ask for confirmation or clarification.
-- Never invent or guess values. Always retrieve real values via APIs.
-- Never leave placeholders. Always fill in real values by retrieving them through APIs.
-- When details are omitted, choose any valid value.
-- Avoid collateral damage. Only perform what is explicitly required.
-
-B. App-specific instructions:
-- All personal information, credentials, addresses, and cards are stored in the Supervisor app.
-- References to friends, family or other people refer to the phone contacts app.
-- Always obtain current date/time from Python or app APIs, never from model memory.
-- References to file system mean the file_system app, not the OS.
-- Paginated APIs: always process all results by looping through page_index until exhausted.
-- If an app API returns unauthorized, missing token, invalid token, or expired token, inspect its API docs and authenticate explicitly using the proper login or signup/verify/login flow before continuing.
-- Prefer using api_docs discovery before making assumptions about method names or parameters.
-
-C. Code-operation instructions:
-- Return exactly one Python code block per step.
-- Make sure code blocks end cleanly.
-- You can use variables created in earlier steps in later steps.
-- Always inspect API specifications with `apis.api_docs.show_api_doc(...)` before calling an unfamiliar API.
-- Write small chunks of code and validate each step before making irreversible changes.
-- Use only the provided app APIs, not external Python packages for those services.
-- The API docs include both input arguments and response schemas; use them.
-
-D. Task-completion instructions:
-- You must call `apis.supervisor.complete_task` after completing the task.
-- If the task asks for an answer, your final code block must call exactly `apis.supervisor.complete_task(status="success", answer=<value>)`.
-- Do not stop after printing the answer. The final step must include the `complete_task(...)` call.
-- If no answer is required, call `apis.supervisor.complete_task(status="success")`.
-- Keep answers minimal: return only the direct entity / number / value requested.
-- Numbers must be numeric.
-- If you cannot find a way, call `apis.supervisor.complete_task(status="fail")`.
-
-Completion examples:
-```python
-answer = 23
-apis.supervisor.complete_task(status="success", answer=answer)
-```
-
-```python
-apis.supervisor.complete_task(status="success", answer="15")
-```
-
-```python
-apis.supervisor.complete_task(status="success")
-```
-
-My name is: {{ main_user.first_name }} {{ main_user.last_name }}. My personal email is {{ main_user.email }} and phone number is {{ main_user.phone_number }}.
-Available apps:
-{{ app_descriptions }}
-Task: {{ instruction }}
-
-ASSISTANT:
-"""
+ROLE_RE = re.compile(r"(USER|ASSISTANT|SYSTEM):\n", re.IGNORECASE)
 
 
 @dataclass
@@ -157,15 +85,8 @@ class Config:
     langfuse_secret_key: Optional[str] = os.getenv("LANGFUSE_SECRET_KEY")
     langfuse_host: Optional[str] = os.getenv("LANGFUSE_HOST", "https://cloud.langfuse.com")
     agent_type: str = "react"
-    max_steps: int = 12
-
-
-def get_current_trace_id() -> Optional[str]:
-    current_span = trace.get_current_span()
-    span_context = current_span.get_span_context()
-    if not span_context.is_valid:
-        return None
-    return format(span_context.trace_id, "032x")
+    max_steps: int = 40
+    max_output_length: int = 50000
 
 
 def _print_appworld_summary(report: dict):
@@ -184,31 +105,101 @@ def _print_appworld_summary(report: dict):
     print(f"Avg Duration: {avg_duration:.2f}s")
 
 
-def _render_initial_prompt(world: AppWorld) -> str:
-    template = Template(APPWORLD_REACT_PROMPT)
+def _parse_prompt_to_messages(input_str: str) -> list[dict[str, Any]]:
+    """Split a role-marked prompt string into a list of chat message dicts."""
+    messages: list[dict[str, Any]] = []
+    last_start = 0
+    for match in ROLE_RE.finditer(input_str):
+        last_end = match.span()[0]
+        if not messages:
+            if last_end != 0:
+                raise ValueError(f"Start of prompt has no assigned role: {input_str[:last_end]}")
+        else:
+            messages[-1]["content"] = input_str[last_start:last_end]
+        role = match.group(1).lower()
+        messages.append({"role": role, "content": ""})
+        last_start = match.span()[1]
+    if not messages:
+        raise ValueError("Prompt template must contain at least one role marker.")
+    messages[-1]["content"] = input_str[last_start:]
+    return messages
+
+
+def _render_initial_messages(world: AppWorld) -> list[dict[str, Any]]:
+    """Render the few-shot prompt template and return it as a list of chat messages."""
+    prompt_text = REACT_PROMPT_PATH.read_text(encoding="utf-8").lstrip()
+    template = Template(prompt_text)
     app_descriptions = json.dumps(
         [{"name": k, "description": v} for (k, v) in world.task.app_descriptions.items()],
         indent=1,
     )
-    return template.render(
+    rendered = template.render(
         instruction=world.task.instruction,
         main_user=world.task.supervisor,
         app_descriptions=app_descriptions,
-    ).strip()
+    )
+    return _parse_prompt_to_messages(rendered)
+
+
+def _trim_conversation(
+    conversation: list[dict[str, Any]],
+    num_fixed_messages: int,
+    max_output_length: int = 20000,
+) -> list[dict[str, Any]]:
+    """Trim conversation turns to stay within max_output_length characters.
+
+    The fixed few-shot prompt (first num_fixed_messages) is never touched.
+    max_output_length applies only to the conversation turns that follow it —
+    matching react_code_agent.py which measures post-instruction history only.
+
+    Strategy 1: replace old Output blocks with a placeholder (keep last 5 intact).
+    Strategy 2: drop oldest assistant+output pairs if still too long.
+    """
+
+    def total_length(msgs: list[dict[str, Any]]) -> int:
+        return sum(len(m.get("content", "") or "") for m in msgs)
+
+    fixed = conversation[:num_fixed_messages]
+    turns = conversation[num_fixed_messages:]
+
+    if total_length(turns) <= max_output_length:
+        return conversation  # nothing to trim
+
+    turns = copy.deepcopy(turns)  # only copy what we'll mutate
+
+    # Strategy 1: replace older Output: messages with placeholder, keep last 5 untouched
+    observation_index = 0
+    while total_length(turns) > max_output_length:
+        found = False
+        cutoff = len(turns) - 5
+        for i in range(observation_index, max(0, cutoff)):
+            msg = turns[i]
+            if msg["role"] == "user" and (msg.get("content") or "").startswith("Output:"):
+                turns[i]["content"] = "Output:\n```\n[NOT SHOWN FOR BREVITY]```\n\n"
+                observation_index = i + 1
+                found = True
+                break
+        if not found:
+            break
+
+    # Strategy 2: remove oldest complete history pairs (assistant + output) if still too long
+    while total_length(turns) > max_output_length and len(turns) >= 2:
+        turns = turns[2:]
+
+    return fixed + turns
 
 
 def _extract_python_block(text: str) -> str:
-    import re
-
     match = re.search(r"```python\s*(.*?)```", text, flags=re.DOTALL | re.IGNORECASE)
     if match:
         return match.group(1).strip()
 
-    partial_match = re.search(r"```python\s*(.*)$", text, flags=re.DOTALL | re.IGNORECASE)
+    # Partial block: LLM output was cut off before the closing ```
+    partial_match = re.search(r"```python\s*(.+)", text, flags=re.DOTALL | re.IGNORECASE)
     if partial_match:
         return partial_match.group(1).strip()
 
-    return text.strip()
+    return ""  # no code block found — caller handles this
 
 
 def _completion_called(code: str) -> bool:
@@ -295,12 +286,7 @@ async def run_agent_on_task(
         logger.info(f"Running task: {task_id}")
         logger.info(f"Task instruction: {world.task.instruction}")
 
-        react_agent, _ = await setup_react_agent_for_evaluation(
-            special_instructions=(
-                "For AppWorld, always emit executable Python code inside ```python fences. "
-                "The code runs directly in the AppWorld runtime."
-            )
-        )
+        react_agent, _ = await setup_react_agent_for_evaluation()
         if config:
             react_agent.max_steps = config.max_steps
 
@@ -319,22 +305,68 @@ async def run_agent_on_task(
             logger.info(f"[APPWORLD-REACT] Registry authenticate_apps result: {auth_result}")
         except Exception as auth_exc:
             logger.warning(f"[APPWORLD-REACT] authenticate_apps failed before task run: {auth_exc}")
-        initial_prompt = _render_initial_prompt(world)
-        conversation = [{"role": "user", "content": initial_prompt}]
+
+        initial_messages = _render_initial_messages(world)
+        num_instruction_messages = len(initial_messages)
+        conversation: list[dict[str, Any]] = list(initial_messages)
+
         tool_calls: list[dict[str, Any]] = []
         is_error = False
         final_answer = ""
         executed_steps = 0
 
-        try:
-            for step_index in range(1, (config.max_steps if config else 12) + 1):
+        max_output_length = config.max_output_length if config else 50000
+        thread_id = task_id
+        langfuse_enabled = is_langfuse_tracing_enabled()
+        predefined_trace_id: Optional[str] = None
+        invoke_callbacks: Optional[list[Any]] = None
+        _langfuse = None
+
+        if langfuse_enabled:
+            try:
+                from langfuse import get_client
+
+                _langfuse = get_client()
+                # Deterministic seed (same task_id is re-runnable in Langfuse UI).
+                predefined_trace_id = _langfuse.create_trace_id(seed=f"appworld_react_{task_id}_{thread_id}")
+                langfuse_trace_id = predefined_trace_id
+                lf_config = build_langfuse_invoke_config(predefined_trace_id, thread_id)
+                # ReAct has no LangGraph config; only trace-scoped callbacks are passed per LLM call.
+                invoke_callbacks = lf_config.get("callbacks")
+                logger.info(f"[APPWORLD-REACT] Langfuse trace ID: {predefined_trace_id}")
+            except Exception as lf_err:
+                logger.warning(f"[APPWORLD-REACT] Langfuse init failed, tracing disabled: {lf_err}")
+
+        async def _run_react_loop() -> None:
+            nonlocal conversation, final_answer, executed_steps, tool_calls, is_error
+            for step_index in range(1, (config.max_steps if config else 40) + 1):
                 logger.info(f"[APPWORLD-REACT] Step {step_index}")
-                llm_text = await react_agent._call_llm(conversation)
+                trimmed = _trim_conversation(conversation, num_instruction_messages, max_output_length)
+                llm_text = await react_agent._call_llm(
+                    trimmed,
+                    stop=["```\n"],
+                    invoke_callbacks=invoke_callbacks,
+                )
                 conversation.append({"role": "assistant", "content": llm_text})
                 code = _extract_python_block(llm_text)
 
                 if not code:
-                    raise RuntimeError("React agent returned no executable Python code for AppWorld.")
+                    logger.warning(
+                        "[APPWORLD-REACT] Step %s: no Python code block found; feeding format error back to model.",
+                        step_index,
+                    )
+                    conversation.append(
+                        {
+                            "role": "user",
+                            "content": (
+                                "Output:\n```\n"
+                                "Error: no Python code block found in your response. "
+                                "Please output exactly one ```python ... ``` block.\n"
+                                "```\n\n"
+                            ),
+                        }
+                    )
+                    continue
 
                 tool_calls.append({"name": "world.execute", "args": {"code": code}})
                 tracker.collect_step(Step(name="api_call_world_execute", data=json.dumps({"code": code})))
@@ -349,12 +381,27 @@ async def run_agent_on_task(
                 conversation.append(
                     {
                         "role": "user",
-                        "content": f"Output:\n```\n{output_text}\n```",
+                        "content": f"Output:\n```\n{output_text}\n```\n\n",
                     }
                 )
 
                 if _completion_called(code):
                     break
+
+        try:
+            await _run_react_loop()
+            if _langfuse and predefined_trace_id:
+                record_harness_trace_output(
+                    _langfuse,
+                    predefined_trace_id,
+                    input={"task_id": task_id, "intent": world.task.instruction},
+                    output={"final_answer": final_answer, "tool_calls": tool_calls},
+                    metadata={"thread_id": thread_id},
+                )
+                try:
+                    _langfuse.flush()
+                except Exception as flush_err:
+                    logger.debug(f"[APPWORLD-REACT] Langfuse flush failed: {flush_err}")
 
             evaluation = world.evaluate()
             world.close_all()
@@ -369,7 +416,6 @@ async def run_agent_on_task(
             res = evaluation.report(print_it=False, colorize=False, save_file_path=None)
 
             langfuse_data = None
-            langfuse_trace_id = get_current_trace_id()
             if langfuse_trace_id:
                 langfuse_handler = LangfuseTraceHandler(langfuse_trace_id)
                 langfuse_data = await langfuse_handler.get_langfuse_data()
