@@ -6,19 +6,35 @@ set -euo pipefail
 ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 cd "$ROOT"
 
-VALIDATE="$ROOT/scripts/validate_bundle_report.py"
 APPWORLD_TASK="${SMOKE_APPWORLD_TASK:-82e2fac_1}"
+RUN_START_TS=$(date +%s)
 
 latest_bundle_report() {
   local benchmark="$1"
   local bundle_root="$ROOT/benchmarks/$benchmark/evaluation_bundles"
-  local report
-  report="$(find "$bundle_root" -name report.md -type f 2>/dev/null | sort | tail -1)"
-  if [ -z "$report" ]; then
-    echo "No bundle report.md under $bundle_root" >&2
+  local newest="" newest_mtime=0
+  local f mtime
+  while IFS= read -r -d '' f; do
+    mtime=$(stat -f %m "$f" 2>/dev/null || stat -c %Y "$f")
+    if [ "$mtime" -ge "$RUN_START_TS" ] && [ "$mtime" -gt "$newest_mtime" ]; then
+      newest_mtime=$mtime
+      newest=$f
+    fi
+  done < <(find "$bundle_root" -name report.md -type f -print0 2>/dev/null || true)
+  if [ -z "$newest" ]; then
+    echo "No report.md from this smoke run under $bundle_root" >&2
     return 1
   fi
-  echo "$report"
+  echo "$newest"
+}
+
+free_port() {
+  local port="$1"
+  if command -v lsof >/dev/null 2>&1 && lsof -ti ":$port" >/dev/null 2>&1; then
+    echo "Freeing port $port..."
+    lsof -ti ":$port" | xargs kill 2>/dev/null || true
+    sleep 2
+  fi
 }
 
 run_and_check() {
@@ -34,7 +50,7 @@ run_and_check() {
   uv run python -m benchmarks.helpers.validate_bundle_report "$report"
 }
 
-echo "Smoke benchmarks (ROOT=$ROOT)"
+echo "Smoke benchmarks (ROOT=$ROOT, RUN_START_TS=$RUN_START_TS)"
 
 run_and_check "AppWorld SDK (cuga)" appworld \
   bash "$ROOT/benchmarks/appworld/eval.sh" --sdk --task "$APPWORLD_TASK"
@@ -42,6 +58,7 @@ run_and_check "AppWorld SDK (cuga)" appworld \
 run_and_check "AppWorld ReAct" appworld \
   bash "$ROOT/benchmarks/appworld/eval.sh" --agent react --task "$APPWORLD_TASK"
 
+free_port 8001
 run_and_check "M3 hockey (m3_task_2, max-samples 1)" m3 \
   bash "$ROOT/benchmarks/m3/eval.sh" \
   --m3-data "$ROOT/benchmarks/m3/data/small_train.zip" \
