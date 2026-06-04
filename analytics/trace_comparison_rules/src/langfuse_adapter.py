@@ -74,15 +74,19 @@ class LangfuseAdapter(TraceAdapter):
         # Old format (pre-PR#33): {"intent": "...", "task_name": "...", ...}
         # New format (post-PR#33): list of LangChain message dicts — LangGraph
         # callback is now the trace root, so input is the raw message list.
+        # LangChain message `content` may be a list (multi-modal blocks), so we
+        # only assign when the extracted value is a string; downstream code
+        # calls .strip() / concatenation on task_formulation.
         raw_input = data.get("input")
+        candidate: Any = None
         if isinstance(raw_input, dict):
-            trace.task_formulation = raw_input.get("intent")
+            candidate = raw_input.get("intent")
         elif isinstance(raw_input, list):
-            # Extract from the first user-role message content
-            trace.task_formulation = next(
+            candidate = next(
                 (m.get("content") for m in raw_input if isinstance(m, dict) and m.get("role") == "user"),
                 None,
             )
+        trace.task_formulation = candidate if isinstance(candidate, str) else None
 
         # Get observations list
         observations = data.get("observations", [])
