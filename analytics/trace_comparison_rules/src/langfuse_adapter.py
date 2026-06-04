@@ -70,8 +70,19 @@ class LangfuseAdapter(TraceAdapter):
         # Create trace IR
         trace = TraceIR(trace_id=trace_id)
 
-        # Extract task formulation from top-level input field
-        trace.task_formulation = data.get("input", {}).get("intent")
+        # Extract task formulation from top-level input field.
+        # Old format (pre-PR#33): {"intent": "...", "task_name": "...", ...}
+        # New format (post-PR#33): list of LangChain message dicts — LangGraph
+        # callback is now the trace root, so input is the raw message list.
+        raw_input = data.get("input")
+        if isinstance(raw_input, dict):
+            trace.task_formulation = raw_input.get("intent")
+        elif isinstance(raw_input, list):
+            # Extract from the first user-role message content
+            trace.task_formulation = next(
+                (m.get("content") for m in raw_input if isinstance(m, dict) and m.get("role") == "user"),
+                None,
+            )
 
         # Get observations list
         observations = data.get("observations", [])
