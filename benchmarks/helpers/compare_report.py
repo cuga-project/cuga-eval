@@ -99,6 +99,9 @@ def _parse_sdk_results(data: dict) -> dict:
             # M3-specific tags so the eval report can group by (task, domain).
             "m3_task_id": r.get("m3_task_id"),
             "domain": r.get("domain"),
+            # 1-based position of this sample within its (capability, domain)
+            # input file. Lets reports show the source "task number".
+            "task_number": r.get("task_number"),
             "uuid": r.get("uuid") or r.get("task_name") or r.get("name"),
         }
 
@@ -406,14 +409,57 @@ def generate_report(config_results: dict[str, list[str]], markdown: bool = True)
             lines.append(fence_open())
 
         # Collect all task IDs across runs
-        all_tasks = sorted({t for r in runs for t in r["tasks"].keys()})
+        all_tasks = list({t for r in runs for t in r["tasks"].keys()})
+
+        # M3 result files tag each task with capability (m3_task_id), domain and
+        # the 1-based task number from the input data. When present we surface
+        # them as leading columns and order rows by (capability, domain, #) so a
+        # UUID-only row becomes attributable. Non-M3 benchmarks (e.g. AppWorld)
+        # don't set these → columns are suppressed and the legacy layout stands.
+        task_meta = {}
+        for r in runs:
+            for tname, t in r["tasks"].items():
+                task_meta.setdefault(tname, t)
+
+        def _cap_label(t, _m=task_meta):
+            tid = _m.get(t, {}).get("m3_task_id")
+            return f"m3_task_{tid}" if tid is not None else ""
+
+        def _dom_label(t, _m=task_meta):
+            return _m.get(t, {}).get("domain") or ""
+
+        def _num_label(t, _m=task_meta):
+            n = _m.get(t, {}).get("task_number")
+            return str(n) if n is not None else ""
+
+        m3_mode = any(
+            task_meta.get(t, {}).get("m3_task_id") is not None and task_meta.get(t, {}).get("domain")
+            for t in all_tasks
+        )
+        if m3_mode:
+            all_tasks.sort(
+                key=lambda t: (
+                    task_meta.get(t, {}).get("m3_task_id") or 0,
+                    _dom_label(t),
+                    task_meta.get(t, {}).get("task_number") or 0,
+                    t,
+                )
+            )
+            cap_w = max(len("Capability"), max((len(_cap_label(t)) for t in all_tasks), default=0))
+            dom_w = max(len("Domain"), max((len(_dom_label(t)) for t in all_tasks), default=0))
+            num_w = max(len("#"), max((len(_num_label(t)) for t in all_tasks), default=0))
+            prefix_hdr = f"{'Capability':<{cap_w}} {'Domain':<{dom_w}} {'#':>{num_w}}  "
+        else:
+            all_tasks.sort()
+            cap_w = dom_w = num_w = 0
+            prefix_hdr = ""
 
         n_runs = len(runs)
         run_cols = "  ".join(f"R{i + 1}" for i in range(n_runs))
         # Truncate task IDs to keep table readable but distinguishable
         col_task_w = min(28, max((len(t) for t in all_tasks), default=8))
         task_header = (
-            f"{'Task':<{col_task_w}} {run_cols}   {'Successes':>10}   "
+            f"{prefix_hdr}{'Task':<{col_task_w}} {run_cols}   {'Successes':>10}   "
             f"{'Rate':>6}   {'Tokens':>8} {'LLM':>5} {'Time':>6}"
         )
         lines.append(task_header)
@@ -459,8 +505,13 @@ def generate_report(config_results: dict[str, list[str]], markdown: bool = True)
                 n_dur += 1
 
             task_disp = task if len(task) <= col_task_w else task[: col_task_w - 1] + "…"
+            row_prefix = (
+                f"{_cap_label(task):<{cap_w}} {_dom_label(task):<{dom_w}} {_num_label(task):>{num_w}}  "
+                if m3_mode
+                else ""
+            )
             lines.append(
-                f"{task_disp:<{col_task_w}} {symbols}   "
+                f"{row_prefix}{task_disp:<{col_task_w}} {symbols}   "
                 f"{successes:>3}/{total:<3}   {rate_pct:>5.1f}%   "
                 f"{_fmt(mt):>8} {_fmt(ml):>5} {_fmt(md, 's'):>6}"
             )
@@ -475,8 +526,9 @@ def generate_report(config_results: dict[str, list[str]], markdown: bool = True)
             avg_dur = _fmt(sum_dur / n_dur, "s") if n_dur else "--"
             lines.append("─" * len(task_header))
             spacer = "  ".join("──" for _ in range(n_runs))
+            avg_prefix = f"{'':<{cap_w}} {'':<{dom_w}} {'':>{num_w}}  " if m3_mode else ""
             lines.append(
-                f"{'AVERAGE':<{col_task_w}} {spacer}   "
+                f"{avg_prefix}{'AVERAGE':<{col_task_w}} {spacer}   "
                 f"{avg_successes:>3.1f}/{n_runs:<3}   {avg_rate:>5.1f}%   "
                 f"{avg_tok:>8} {avg_llm:>5} {avg_dur:>6}"
             )
@@ -551,14 +603,20 @@ def _bucket_m3_tasks(tasks: dict) -> tuple:
 
     rows = []
     for key in sorted(buckets.keys()):
-        members = sorted(buckets[key], key=lambda nt: nt[1].get("uuid") or nt[0])
+        # Order within a (capability, domain) bucket by the input-data task
+        # number when present (stable, matches the source file), else by uuid.
+        members = sorted(
+            buckets[key],
+            key=lambda nt: (nt[1].get("task_number") or 0, nt[1].get("uuid") or nt[0]),
+        )
         for i, (name, t) in enumerate(members, start=1):
             rows.append(
                 {
                     "label": name,
                     "m3_task_id": key[0],
                     "domain": key[1],
-                    "ordinal": i,
+                    # Prefer the source task number; fall back to positional.
+                    "ordinal": t.get("task_number") if t.get("task_number") is not None else i,
                     "uuid": t.get("uuid") or name,
                     "data": t,
                 }

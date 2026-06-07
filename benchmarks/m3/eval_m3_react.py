@@ -123,6 +123,7 @@ def _merged_to_react_test_case(
         "intent": intent,
         "domain": sample.get("domain"),
         "m3_task_id": task_id,
+        "task_number": sample.get("task_number"),
         "expected_output": {
             "response": gt_answer,
             "tool_calls": gold_calls,
@@ -201,7 +202,11 @@ class M3ReactEvaluator:
         if not os.path.isfile(config_path):
             raise FileNotFoundError(f"Registry config not found: {config_path}")
 
-        expanded_path = expand_registry_config(config_path)
+        # Pre-filter source services by --capability so bare-domain expanded
+        # names (e.g. `books` from m3_task_2 vs `books` from m3_task_3) can't
+        # collide in the same expanded yaml — mirrors eval_m3.py's handling.
+        capability_filter = [self.capability] if self.capability else None
+        expanded_path = expand_registry_config(config_path, capability_filter=capability_filter)
         try:
             with open(expanded_path) as f:
                 expanded = yaml.safe_load(f) or {}
@@ -243,8 +248,10 @@ class M3ReactEvaluator:
             self._registry_tmp_yaml = None
         # OS may take a moment to fully release the port (TIME_WAIT etc).
         # Without this poll, the next group's start_registry_server hits
-        # "Port 8001 is already in use" and aborts.
-        await self._wait_for_port_free(8001, timeout=15.0)
+        # "Port … is already in use" and aborts.
+        from benchmarks.m3.eval_m3 import get_registry_port
+
+        await self._wait_for_port_free(get_registry_port(), timeout=15.0)
         self._active_group = None
 
     async def _wait_for_port_free(self, port: int, timeout: float) -> None:
@@ -398,6 +405,8 @@ class M3ReactEvaluator:
             result["uuid"] = task["uuid"]
         if task.get("domain") and not result.get("domain"):
             result["domain"] = task["domain"]
+        if task.get("task_number") is not None and "task_number" not in result:
+            result["task_number"] = task["task_number"]
         if task.get("intent") and not result.get("intent"):
             result["intent"] = task["intent"]
         if task.get("expected_output"):

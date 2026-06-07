@@ -43,6 +43,18 @@ _HELPERS_DIR = Path(__file__).resolve().parent
 PROJECT_ROOT = _HELPERS_DIR.parent.parent
 
 
+def _load_benchmark_env(benchmark_name: str) -> None:
+    """Load global + benchmark .env files (dotenv strips inline comments)."""
+    from dotenv import load_dotenv
+
+    global_env = PROJECT_ROOT / "config" / "global.env"
+    if global_env.exists():
+        load_dotenv(global_env, override=True)
+    benchmark_env = PROJECT_ROOT / "benchmarks" / benchmark_name / "config" / f"{benchmark_name}.env"
+    if benchmark_env.exists():
+        load_dotenv(benchmark_env, override=True)
+
+
 # ---------------------------------------------------------------------------
 # Git / hash helpers
 # ---------------------------------------------------------------------------
@@ -505,18 +517,40 @@ def assemble_compare_bundle(
     bundle_root: Path | None = None,
     model_envs: dict | None = None,
     policies_dir: Path | None = None,
-    trajectory_dirs: dict[str, list[Path]] | None = None,
+    trajectory_dirs: dict[str, list[list[Path]]] | None = None,
     log_files: dict[str, list[str | Path]] | None = None,
     fetch_langfuse: bool = False,
 ) -> Path:
-    """Create a comparison-level bundle directory."""
+    """Create a comparison-level bundle directory.
+
+    ``trajectory_dirs`` maps each config key to a list of RUNS, where each run
+    is itself a list of trajectory folders (cuga emits one folder per domain).
+    All folders within a run are merged into a single ``runN/trajectories`` dir.
+
+    ``log_files`` maps each config key to either a grouped per-run list
+    (``[[run1 logs], [run2 logs], ...]`` → ``runN/logs``) or a flat list
+    (legacy / ``"shared"`` key → ``runs/<key>/logs``). Per-run grouping keeps
+    each run's own console + registry log instead of only the last run's.
+    """
     benchmark_dir = PROJECT_ROOT / "benchmarks" / benchmark_name
     if bundle_root is None:
         bundle_root = benchmark_dir / "evaluation_bundles"
 
     timestamp = datetime.now(timezone.utc).strftime("%Y%m%d_%H%M%S")
     models = sorted(set(k.split(":")[0] for k in config_results))
-    bundle_dir = bundle_root / f"{timestamp}_compare_{'_'.join(models)}"
+    # Detect inner-dim variants (agent and/or policy mode) so the dir name
+    # reflects what was compared. Config keys are "model[:agent[:policy_mode]]".
+    agents = sorted({parts[1] for k in config_results if len(parts := k.split(":")) > 1 and parts[1]})
+    policy_modes = sorted({parts[2] for k in config_results if len(parts := k.split(":")) > 2 and parts[2]})
+    suffix_bits = ["_".join(models)]
+    if len(agents) > 1:
+        suffix_bits.append("_".join(agents))
+    if len(policy_modes) > 1:
+        suffix_bits.append("_vs_".join(policy_modes))  # e.g. "policies_vs_no-policies"
+    elif len(policy_modes) == 1 and policy_modes[0] == "no-policies":
+        suffix_bits.append("no-policies")
+    suffix = "_".join(suffix_bits)
+    bundle_dir = bundle_root / f"{timestamp}_compare_{suffix}"
     bundle_dir.mkdir(parents=True, exist_ok=True)
 
     # Per-run results
@@ -543,29 +577,48 @@ def assemble_compare_bundle(
     # Policies
     _copy_policies(bundle_dir, policies_dir)
 
-    # Cuga trajectories (per-model, per-run)
+    # Cuga trajectories (per-model, per-run). `trajectory_dirs[config]` is a
+    # list of RUNS, and each run is a list of trajectory folders (cuga writes
+    # one folder per domain). All folders belonging to one eval.sh run are
+    # merged into that run's single `trajectories/` dir, so one bundle run maps
+    # to one eval run (all 200 trajectories) rather than one per-domain folder.
     if trajectory_dirs:
-        for config_key, traj_paths in trajectory_dirs.items():
-            for i, traj_path in enumerate(traj_paths, 1):
-                traj_path = Path(traj_path)
-                if not traj_path.exists():
-                    continue
+        for config_key, run_groups in trajectory_dirs.items():
+            for i, group in enumerate(run_groups, 1):
                 run_label = f"{config_key.replace(':', '_')}_run{i}"
-                _copy_trajectories(
-                    bundle_dir,
-                    traj_path,
-                    dest_subdir=f"runs/{run_label}/trajectories",
-                )
+                copied_any = False
+                for traj_path in group:
+                    traj_path = Path(traj_path)
+                    if not traj_path.exists():
+                        continue
+                    if _copy_trajectories(
+                        bundle_dir,
+                        traj_path,
+                        dest_subdir=f"runs/{run_label}/trajectories",
+                    ):
+                        copied_any = True
+                if not copied_any:
+                    continue
                 # Copy .progress to run root so cuga-viz can find it
                 _run_progress = bundle_dir / "runs" / run_label / "trajectories" / ".progress"
                 if _run_progress.exists():
                     shutil.copy2(_run_progress, bundle_dir / "runs" / run_label / ".progress")
 
-    # Logs (per-model)
+    # Logs. Two accepted shapes per config key:
+    #   grouped per-run (preferred): [[run1 logs...], [run2 logs...], ...]
+    #     → each run's logs land in runs/<config>_run<i>/logs so every run in a
+    #       multi-run comparison keeps its OWN console/registry log.
+    #   flat (legacy / "shared"): [log, log, ...]
+    #     → placed in runs/<config>/logs (e.g. the "shared" key → runs/shared/logs).
     if log_files:
-        for config_key, lf_list in log_files.items():
-            run_label = f"{config_key.replace(':', '_')}"
-            _copy_logs(bundle_dir, lf_list, dest_subdir=f"runs/{run_label}/logs")
+        for config_key, lf_val in log_files.items():
+            if lf_val and isinstance(lf_val[0], list):
+                for i, group in enumerate(lf_val, 1):
+                    run_label = f"{config_key.replace(':', '_')}_run{i}"
+                    _copy_logs(bundle_dir, group, dest_subdir=f"runs/{run_label}/logs")
+            else:
+                run_label = f"{config_key.replace(':', '_')}"
+                _copy_logs(bundle_dir, lf_val, dest_subdir=f"runs/{run_label}/logs")
 
     # Langfuse traces (per-model, per-run)
     if fetch_langfuse:
@@ -698,7 +751,12 @@ def cli():
     p_cmp.add_argument("--task-files", nargs="*", default=None)
     p_cmp.add_argument("--policies-dir", default=None)
     p_cmp.add_argument("--model-envs", default=None, help='JSON: {"model": {"MODEL_NAME": "...", ...}}')
-    p_cmp.add_argument("--trajectory-dirs", default=None, help='JSON: {"model": ["/path/to/traj_run1", ...]}')
+    p_cmp.add_argument(
+        "--trajectory-dirs",
+        default=None,
+        help='JSON grouped by run: {"model": [["/run1/domA", "/run1/domB"], ["/run2/domA"]]}. '
+        'A flat {"model": ["/dir1", ...]} is still accepted (each dir treated as its own run).',
+    )
     p_cmp.add_argument(
         "--log-files",
         default=None,
@@ -710,6 +768,10 @@ def cli():
     p_cmp.add_argument("--zip", action="store_true")
 
     args = parser.parse_args()
+
+    # Reload benchmark env from disk (dotenv strips inline comments). Shell-sourced
+    # vars from eval.sh may include trailing comment text in values.
+    _load_benchmark_env(args.benchmark)
 
     policies_dir = Path(args.policies_dir) if getattr(args, "policies_dir", None) else None
 
@@ -747,7 +809,15 @@ def cli():
         traj_dirs = None
         if args.trajectory_dirs:
             raw = json.loads(args.trajectory_dirs)
-            traj_dirs = {k: [Path(p) for p in v] for k, v in raw.items()}
+            # Accept two shapes:
+            #   grouped (preferred): {config: [[dir, ...run1], [dir, ...run2]]}
+            #   legacy flat:         {config: [dir, dir, ...]}  -> each dir = 1 run
+            traj_dirs = {}
+            for k, v in raw.items():
+                if v and isinstance(v[0], list):
+                    traj_dirs[k] = [[Path(p) for p in group] for group in v]
+                else:
+                    traj_dirs[k] = [[Path(p)] for p in v]
         log_file_map = None
         if args.log_files:
             log_file_map = json.loads(args.log_files)

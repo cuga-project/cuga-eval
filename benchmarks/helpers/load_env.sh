@@ -38,6 +38,12 @@ _source_no_override() {
         fi
         # Skip if already set (allows model profile exports from compare.sh to win)
         [[ -n "${!key+x}" ]] && continue
+        # Strip inline comments from unquoted values (e.g. KEY=value # comment).
+        # python-dotenv strips these; bash source does not unless we do it here.
+        if [[ "$val" != \"*\" && "$val" != \'*\' ]]; then
+            val="${val%%[[:space:]]#*}"
+            val="${val%"${val##*[![:space:]]}"}"
+        fi
         # Strip surrounding quotes
         val="${val#\"}" ; val="${val%\"}"
         val="${val#\'}" ; val="${val%\'}"

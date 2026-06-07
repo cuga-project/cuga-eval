@@ -199,7 +199,7 @@ class M3DataLoader:
         }
 
         merged: List[Dict[str, Any]] = []
-        for sample in inputs:
+        for idx, sample in enumerate(inputs, 1):
             uuid = sample.get("uuid")
             gold = outputs_by_uuid.get(uuid)
 
@@ -246,6 +246,9 @@ class M3DataLoader:
             merged_sample: Dict[str, Any] = {
                 "uuid": uuid,
                 "sample_id": uuid,
+                # 1-based position of this sample within its (capability, domain)
+                # input list — surfaced as the per-task "#" in reports.
+                "task_number": idx,
                 "domain": sample.get("domain", domain),
                 "num_turns": sample.get("num_turns", len(turns)),
                 "dialogue": {"turns": turns},
@@ -262,8 +265,21 @@ class M3DataLoader:
 
 
 def strip_registry_prefix(name: str, task_id: int, domain: str) -> str:
-    """Strip the `task_<task_id>_<domain>_` prefix the registry adds."""
-    prefix = f"task_{task_id}_{domain}_"
+    """Strip the registry app-name prefix the registry adds.
+
+    Current layout: the registry app_name is just the domain, so tool names
+    arrive as ``<domain>_<mcp_tool_name>``. We strip a single ``<domain>_``
+    prefix when present.
+
+    The ``task_id`` argument is retained for source-compatibility with older
+    bundles (where the prefix was ``task_<task_id>_<domain>_``); we also try
+    that legacy form so this function correctly normalises both new and old
+    saved data.
+    """
+    legacy_prefix = f"task_{task_id}_{domain}_"
+    if name.startswith(legacy_prefix):
+        return name[len(legacy_prefix) :]
+    prefix = f"{domain}_"
     if name.startswith(prefix):
         return name[len(prefix) :]
     return name

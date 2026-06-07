@@ -39,6 +39,7 @@ for arg in "$@"; do
         echo "  --difficulty LEVEL          Filter by difficulty level (easy, medium, hard)"
         echo "  --no-bundle                 Skip reproducibility bundle creation"
         echo "  --bundle-zip                Create zip archive of bundle"
+        echo "  --no-policies               Disable CUGA policies (for baselining; default: enabled)"
         echo "  --model-profile <name>      Model profile (for bundle metadata)"
         echo ""
         echo "Examples:"
@@ -57,6 +58,7 @@ MULTITURN=false
 M3_DATA=false
 M3_DATA_PATH=""
 NO_GROUND_TRUTH=false
+NO_POLICIES=false
 PASSTHROUGH_ARGS=()
 
 while [[ $# -gt 0 ]]; do
@@ -86,6 +88,10 @@ while [[ $# -gt 0 ]]; do
             BUNDLE_ZIP=true
             shift
             ;;
+        --no-policies)
+            NO_POLICIES=true
+            shift
+            ;;
         --model-profile)
             MODEL_PROFILE="$2"
             shift 2
@@ -106,7 +112,6 @@ while [[ $# -gt 0 ]]; do
 done
 
 
-REGISTRY_PORT=8001
 REGISTRY_PID=""
 
 cleanup() {
@@ -130,6 +135,12 @@ cd "$PROJECT_ROOT"
 # Load environment
 source "$PROJECT_ROOT/benchmarks/helpers/load_env.sh" "m3"
 
+# Single registry port for shell helpers and Python (eval_m3 / cuga-agent both
+# read DYNACONF_SERVER_PORTS__REGISTRY via settings.server_ports.registry).
+REGISTRY_PORT="${REGISTRY_PORT:-${DYNACONF_SERVER_PORTS__REGISTRY:-8001}}"
+export REGISTRY_PORT
+export DYNACONF_SERVER_PORTS__REGISTRY="$REGISTRY_PORT"
+
 # Make sure Python doesn't block-buffer stdout when it's piped through `tee`.
 # Without this, print() output from the summary can land after the process
 # exits, long after the surrounding loguru stderr stream, making it look like
@@ -150,15 +161,28 @@ echo -e "${BLUE:-}║  M3 Benchmark Evaluation                                  
 echo -e "${BLUE:-}╚════════════════════════════════════════════════════════════╝${NC:-}"
 echo ""
 
-# Start registry if not skipped
-if [ "${SKIP_SERVER_START:-false}" != "true" ]; then
-    # Kill any stale process on the registry port before starting
-    if port_in_use $REGISTRY_PORT 2>/dev/null; then
-        echo -e "${YELLOW:-}Killing existing process on port $REGISTRY_PORT...${NC:-}"
-        lsof -ti :$REGISTRY_PORT | xargs kill 2>/dev/null || true
-        sleep 1
-    fi
+# Kill any stale process on the registry port before delegating to the eval
+# script. eval_m3.py / eval_m3_react.py / eval_m3_multiturn all spin up their
+# own per-service registry on $REGISTRY_PORT (see start_registry_server() in
+# eval_m3.py), so starting another registry here would just collide on the
+# port. Opt-in: set SKIP_SERVER_START=false explicitly if you want this script
+# to also start an "outer" registry (legacy flow).
+if port_in_use $REGISTRY_PORT 2>/dev/null; then
+    echo -e "${YELLOW:-}Killing existing process on port $REGISTRY_PORT...${NC:-}"
+    lsof -ti :$REGISTRY_PORT | xargs kill 2>/dev/null || true
+    sleep 1
+fi
 
+# Only the multiturn flow relies on an externally-started ("outer") registry.
+# The single-turn and --m3-data flows (eval_m3.py / eval_m3_react.py) start and
+# manage their OWN per-service registries on $REGISTRY_PORT, so starting an
+# outer registry here would just collide on the port (e.g. compare.sh forces
+# SKIP_SERVER_START=false on its first run). Force-skip unless multiturn.
+if [ "$MULTITURN" != "true" ]; then
+    SKIP_SERVER_START="true"
+fi
+
+if [ "${SKIP_SERVER_START:-true}" = "false" ]; then
     echo -e "${YELLOW:-}Starting registry server on port $REGISTRY_PORT...${NC:-}"
     bash "$SCRIPT_DIR/run_registry.sh" > /tmp/m3_registry.log 2>&1 &
     REGISTRY_PID=$!
@@ -184,6 +208,27 @@ fi
 EVAL_M3_EXTRA=()
 if [ "$NO_GROUND_TRUTH" = "true" ]; then
     EVAL_M3_EXTRA+=(--no-ground-truth)
+fi
+if [ "$NO_POLICIES" = "true" ]; then
+    EVAL_M3_EXTRA+=(--no-policies)
+    export DYNACONF_POLICY__ENABLED=false
+    echo -e "${YELLOW:-}Policy engine disabled (--no-policies)${NC:-}"
+fi
+
+# Compile policy markdowns -> policies.json (unless policies are disabled).
+# CUGA's policy engine is turned on in benchmarks/m3/config/m3.env via
+# DYNACONF_POLICY__ENABLED=true (mirrors bpo). With --no-policies, the engine
+# is still on but no policies get loaded — same pattern as benchmarks/bpo.
+# Same pattern as benchmarks/bpo: the json is what CUGA loads; the .md files
+# are the human-readable source of truth.
+POLICIES_DIR="$SCRIPT_DIR/policies"
+if [ "$NO_POLICIES" != "true" ] && [ -d "$POLICIES_DIR" ]; then
+    if ls "$POLICIES_DIR"/*.md >/dev/null 2>&1; then
+        echo -e "${YELLOW:-}Compiling policy markdowns -> policies.json...${NC:-}"
+        uv run --no-sync python "$PROJECT_ROOT/scripts/policies_md_to_json.py" \
+            --policies-dir "$POLICIES_DIR" \
+            --output "$POLICIES_DIR/policies.json"
+    fi
 fi
 
 # Select eval script
@@ -216,14 +261,14 @@ elif [ "$MULTITURN" = "true" ]; then
         echo -e "${RED:-}Error: M3 multi-turn evaluation is not available for the react agent${NC:-}"
         exit 1
     else
-        uv run python -m benchmarks.m3.eval_m3_multiturn --from-config "$SCRIPT_DIR/config/m3_registry.yaml" "${PASSTHROUGH_ARGS[@]}"
+        uv run python -m benchmarks.m3.eval_m3_multiturn --from-config "$SCRIPT_DIR/config/m3_registry.yaml" "${EVAL_M3_EXTRA[@]}" "${PASSTHROUGH_ARGS[@]}"
     fi
 else
     echo -e "${YELLOW:-}Running single-turn evaluation with agent ${AGENT:-cuga}...${NC:-}"
     if [ "${AGENT:-cuga}" = "react" ]; then
-        uv run python -m benchmarks.m3.eval_m3_react --from-config "$SCRIPT_DIR/config/m3_registry.yaml" "${PASSTHROUGH_ARGS[@]}"
+        uv run python -m benchmarks.m3.eval_m3_react --from-config "$SCRIPT_DIR/config/m3_registry.yaml" "${EVAL_M3_EXTRA[@]}" "${PASSTHROUGH_ARGS[@]}"
     else
-        uv run python -m benchmarks.m3.eval_m3 --from-config "$SCRIPT_DIR/config/m3_registry.yaml" "${PASSTHROUGH_ARGS[@]}"
+        uv run python -m benchmarks.m3.eval_m3 --from-config "$SCRIPT_DIR/config/m3_registry.yaml" "${EVAL_M3_EXTRA[@]}" "${PASSTHROUGH_ARGS[@]}"
     fi
 fi
 
@@ -258,6 +303,9 @@ if [ $EVAL_EXIT -eq 0 ]; then
                 --report "$REPORT_TMP")
             if [ -n "$MODEL_PROFILE" ]; then
                 BUNDLE_ARGS+=(--model-profile "$MODEL_PROFILE")
+            fi
+            if [ "$NO_POLICIES" = "true" ]; then
+                BUNDLE_ARGS+=(--no-policies)
             fi
             if [ "${BUNDLE_ZIP:-false}" = "true" ]; then
                 BUNDLE_ARGS+=(--zip)
