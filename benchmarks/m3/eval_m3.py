@@ -87,9 +87,77 @@ from benchmarks.helpers import (
     evaluate_task_with_langfuse,
     flush_langfuse,
     save_evaluation_results,
-    setup_langfuse,
+    should_trace_langfuse_task,
+)
+from benchmarks.helpers.sdk_eval_helpers import (
+    add_policy_via_agent,
+    clear_all_policies,
+    is_langfuse_tracing_enabled,
 )
 from benchmarks.m3.m3_data_loader import M3DataLoader, diff_tool_calls
+
+# Injected into CugaLite's system prompt via SDK special_instructions (eval-only).
+# Many M3 MCP tools lack a documented output/response schema (response_doc is empty).
+# Without guidance the model assumes dict-shaped results and calls .get() on lists/strings.
+M3_SPECIAL_INSTRUCTIONS = """
+## Undocumented tool outputs (M3 eval)
+
+When a tool in **Current Available Tools** has no **Response Schema** / output documentation:
+
+1. **First use — isolated probe:** Run the tool alone (Isolated Tools rule). End with a `print()` of a **compact shape summary**, not a full dump:
+   - Top-level type: `dict`, `list`, `str`, `int`, etc.
+   - If `dict`: key names (first ~10) and the type of each value at one level (e.g. `list`, `dict`, `str`).
+   - If `list`: length and the type of the first element (e.g. `list[dict]`, `list[str]`).
+   - Shallow shape is enough (`dict[str, object]`, `list[int]`, `dict[str, dict]`) — do not recurse deeply.
+
+2. **All follow-up code — handle defensively:** Never assume dict/list/key types from memory.
+   - Use `isinstance(result, dict)` before `.get()` or key access.
+   - Use `isinstance(result, list)` before indexing or iteration.
+   - If APIs vary (bare list vs `{"items": [...]}`), normalize once then proceed, e.g.:
+     `rows = result if isinstance(result, list) else (result.get("items") if isinstance(result, dict) else [])`
+   - Do not call `.get()`, `[0]`, or attribute access on a value until its type is confirmed.
+
+Reporting shape in step 1 is for choosing correct access in step 2 — the goal is **crash-free Python**, not type narration for its own sake.
+""".strip()
+
+
+async def _load_m3_policies(agent: CugaAgent, policies_enabled: bool = True) -> None:
+    """Load CUGA policies into the per-domain agent.
+
+    Mirrors the bpo eval_bench_sdk.py pattern: clear any pre-existing policies
+    from the agent's policy DB, then (if enabled) load each entry in
+    benchmarks/m3/policies/policies.json and register it. The .json is
+    compiled from .md by scripts/policies_md_to_json.py — driven by eval.sh
+    before this code runs.
+    """
+    await clear_all_policies(agent)
+    if not policies_enabled:
+        logger.info("Policies disabled (--no-policies)")
+        return
+    policies_file = os.path.join(os.path.dirname(__file__), "policies", "policies.json")
+    if not os.path.exists(policies_file):
+        logger.warning(f"Policies file not found: {policies_file} — running without policies")
+        return
+    from cuga.backend.cuga_graph.policy.models import OutputFormatter, Playbook, ToolGuide
+
+    with open(policies_file) as f:
+        policies_data = json.load(f)
+    logger.info(f"Loading {len(policies_data)} policy/policies from policies.json...")
+    loaded = 0
+    for pdata in policies_data:
+        ptype = pdata.get("type", "")
+        if ptype == "playbook":
+            policy = Playbook.model_validate(pdata)
+        elif ptype == "tool_guide":
+            policy = ToolGuide.model_validate(pdata)
+        elif ptype == "output_formatter":
+            policy = OutputFormatter.model_validate(pdata)
+        else:
+            logger.warning(f"Unknown policy type: {ptype}, skipping")
+            continue
+        await add_policy_via_agent(agent, policy)
+        loaded += 1
+    logger.info(f"✅ Loaded {loaded} policy/policies")
 
 
 # m3_vakra_score is imported lazily — its top-level evaluator import instantiates
@@ -150,7 +218,11 @@ class FilteredToolProvider:
         await olympics_provider.initialize()
 
         # Agent only sees olympics tools
-        agent = CugaAgent(tool_provider=olympics_provider)
+        agent = CugaAgent(
+            tool_provider=olympics_provider,
+            auto_load_policies=False,
+            filesystem_sync=False,
+        )
     """
 
     def __init__(self, base_provider, app_name: str):
@@ -613,7 +685,7 @@ class M3Evaluator:
         self.m3_task_id = m3_task_id
         self.domain = domain
         self.agent: Optional[CugaAgent] = None
-        self.langfuse_handler = None
+        self.langfuse_enabled = None
         self.results: List[Dict[str, Any]] = []
 
     # Removed setup() method - now using registry mode only
@@ -641,7 +713,7 @@ class M3Evaluator:
             agent=self.agent,
             task=task,
             task_index=task_index,
-            langfuse_handler=self.langfuse_handler,
+            langfuse_handler=self.langfuse_enabled,
             user_context=None,
             tracker_callback=tracker_callback,
             track_tool_calls=True,
@@ -686,7 +758,7 @@ class M3Evaluator:
             turns=turns,
             task_name=sample_id,
             task_index=sample_index,
-            langfuse_handler=self.langfuse_handler,
+            langfuse_handler=self.langfuse_enabled,
             user_context=None,
             tracker_callback=tracker_callback,
             track_tool_calls=True,
@@ -698,6 +770,8 @@ class M3Evaluator:
         if "uuid" in sample:
             result["uuid"] = sample["uuid"]
         result["domain"] = domain
+        if "task_number" in sample:
+            result["task_number"] = sample["task_number"]
 
         # Surface the GT bits Vakra needs so _to_vakra_pair can build a real
         # ground-truth dialogue (single-turn samples; multi-turn would need
@@ -838,17 +912,17 @@ class M3Evaluator:
             # Multi-turn format: list of samples with sample_id/uuid, dialogue, etc.
             samples = data
 
-            # Filter by task_id (sample_id or uuid) if specified
-            if self.task_id:
-                samples = [
-                    s
-                    for s in samples
-                    if s.get("sample_id", s.get("uuid", "")).lower() == self.task_id.lower()
-                ]
+            # Filter by task_ids (sample_id or uuid) if specified. The plural
+            # form `self.task_ids` is what gets populated for both 1 and N
+            # UUIDs; `self.task_id` is only set when exactly one UUID was
+            # passed, so use the plural to handle both cases.
+            if self.task_ids:
+                wanted = {tid.lower() for tid in self.task_ids}
+                samples = [s for s in samples if s.get("sample_id", s.get("uuid", "")).lower() in wanted]
                 if not samples:
-                    logger.error(f"Sample '{self.task_id}' not found in test data")
+                    logger.error(f"Sample(s) {self.task_ids} not found in test data")
                     return
-                logger.info(f"Filtered to sample: {self.task_id}")
+                logger.info(f"Filtered to {len(samples)} sample(s): {self.task_ids}")
             else:
                 logger.info(f"Evaluating all {len(samples)} samples")
 
@@ -933,7 +1007,7 @@ class M3Evaluator:
         # `evaluate_single_task` (above), once each result has been tagged with
         # m3_task_id/domain so capability resolution works. Scoring inside this
         # method is a no-op for that path.
-        flush_langfuse(self.langfuse_handler)
+        flush_langfuse(self.langfuse_enabled)
 
     def print_summary(self):
         """Print evaluation summary (Vakra-only; legacy keyword/count reports removed)."""
@@ -1015,8 +1089,8 @@ class M3Evaluator:
                 # Shared helpers ------------------------------------------------
                 # Build the registry prefix to strip from tool names:
                 # Registry prefixes tools as "{app_name}_{tool_name}" where
-                # app_name = "task_{task_id}_{domain}"
-                registry_prefix = f"task_{task_id}_{domain}_"
+                # app_name = "{domain}" (no task_<n>_ prefix).
+                registry_prefix = f"{domain}_"
 
                 def _strip_prefix(name: str) -> str:
                     """Strip the registry app prefix from a tool name."""
@@ -1367,9 +1441,13 @@ async def evaluate_single_task(
         )
 
         try:
-            # Registry mode: Use FilteredToolProvider for domain isolation
-            # App name in registry is prefixed with task_id to avoid collisions across tasks
-            registry_app_name = f"task_{task_id}_{domain}"
+            # Registry mode: Use FilteredToolProvider for domain isolation.
+            # The registry app name is just the domain — no `task_<n>_` prefix —
+            # so the tool names CUGA records start with the domain itself, not
+            # the task ID. Cross-task collisions are prevented by the collision
+            # guard in expand_registry_config (and in practice each eval run is
+            # narrowed to a single task via --capability).
+            registry_app_name = domain
             logger.info(
                 f"🔧 Creating filtered tool provider for domain: {domain} (registry app: {registry_app_name})"
             )
@@ -1378,7 +1456,7 @@ async def evaluate_single_task(
             # This provides defense-in-depth: registry filters at MCP level, we filter at agent level
             filtered_provider = FilteredToolProvider(
                 base_provider=tool_provider,  # Shared provider with all domains
-                app_name=registry_app_name,  # Filter to only this domain's tools (task-prefixed)
+                app_name=registry_app_name,  # Filter to only this domain's tools
             )
             await filtered_provider.initialize()
 
@@ -1389,16 +1467,30 @@ async def evaluate_single_task(
             if hasattr(filtered_provider, 'app_name'):
                 logger.info(f"  🔒 Filtered to app: {filtered_provider.app_name}")
 
-            # Create agent with filtered provider
-            langfuse_handler = setup_langfuse()
-            callbacks = [langfuse_handler] if langfuse_handler else []
+            # Langfuse: per-task trace-scoped handlers are attached in
+            # evaluate_task_with_langfuse via build_langfuse_invoke_config.
+            # Do not pass an unscoped CallbackHandler on the agent — that creates
+            # orphan root traces per LLM call (especially visible on Watsonx).
+            # Gate only — per-task trace-scoped handlers are attached in invoke config.
+            evaluator.langfuse_enabled = should_trace_langfuse_task()
 
             evaluator.agent = CugaAgent(
                 tool_provider=filtered_provider,  # Only sees this domain's tools
-                callbacks=callbacks,
+                special_instructions=M3_SPECIAL_INSTRUCTIONS,
+                # Policies are loaded explicitly by _load_m3_policies below per
+                # eval run. Disable .cuga auto-load and filesystem sync to keep
+                # the per-domain agent's policy set deterministic — otherwise
+                # the .cuga folder drifts across domain iterations and policies
+                # disappear mid-run (see investigation 2026-05-17).
+                auto_load_policies=False,
+                filesystem_sync=False,
             )
-            evaluator.langfuse_handler = langfuse_handler
             logger.info(f"Agent created with filtered tool provider (domain: {domain})")
+
+            # Load CUGA policies for this per-domain agent (mirrors benchmarks/bpo
+            # eval_bench_sdk.py). The source of truth is benchmarks/m3/policies/*.md;
+            # eval.sh compiles them to policies.json before invoking us.
+            await _load_m3_policies(evaluator.agent, policies_enabled=not getattr(args, "no_policies", False))
 
             # DEBUG: Verify agent can see tools (check filtered provider)
             try:
@@ -1499,6 +1591,63 @@ async def evaluate_single_task(
     return task_results
 
 
+def get_registry_port() -> int:
+    """Registry port shared by the MCP server and cuga-agent HTTP client.
+
+    Reads ``settings.server_ports.registry`` (override via
+    ``DYNACONF_SERVER_PORTS__REGISTRY``), the same source
+    ``get_registry_base_url()`` uses when the agent calls the registry.
+    """
+    from cuga.config import settings
+
+    return int(settings.server_ports.registry)
+
+
+def _port_in_use(port: int) -> bool:
+    """Return True if something is listening on 127.0.0.1:`port`."""
+    import socket
+
+    sock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+    try:
+        return sock.connect_ex(("127.0.0.1", port)) == 0
+    finally:
+        sock.close()
+
+
+async def _wait_for_port_free(port: int, timeout: float = 20.0) -> bool:
+    """Poll until `port` has no listener. Returns True if it freed up in time.
+
+    Sequential mode starts/stops a registry per domain on the same port; a
+    just-stopped uvicorn worker can hold the socket for a few seconds during
+    graceful shutdown, so the next domain must wait rather than fail instantly.
+    """
+    import time
+
+    deadline = time.monotonic() + timeout
+    while True:
+        if not _port_in_use(port):
+            return True
+        if time.monotonic() >= deadline:
+            return False
+        await asyncio.sleep(0.5)
+
+
+def _kill_port_listeners(port: int) -> None:
+    """Best-effort SIGKILL of any process listening on `port` (via lsof)."""
+    import signal
+    import subprocess
+
+    try:
+        out = subprocess.run(["lsof", "-ti", f":{port}"], capture_output=True, text=True)  # noqa: S603,S607 — lsof from PATH, fixed args
+        for pid in out.stdout.split():
+            try:
+                os.kill(int(pid), signal.SIGKILL)
+            except (ProcessLookupError, ValueError):
+                pass
+    except Exception as e:  # noqa: BLE001 — best-effort cleanup
+        logger.debug(f"Could not enumerate/kill listeners on port {port}: {e}")
+
+
 async def start_registry_server(config_path: str) -> subprocess.Popen:
     """Start the registry server with the specified config.
 
@@ -1511,29 +1660,37 @@ async def start_registry_server(config_path: str) -> subprocess.Popen:
     import os
     import subprocess
 
-    # Check if port 8001 is already in use
-    logger.info("🔍 Checking if port 8001 is available...")
+    registry_port = get_registry_port()
+
+    # Check if the registry port is already in use
+    logger.info(f"🔍 Checking if port {registry_port} is available...")
     try:
-        import socket
-
-        sock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
-        result = sock.connect_ex(('127.0.0.1', 8001))
-        sock.close()
-
-        if result == 0:
-            # Port is in use
-            logger.error("❌ Port 8001 is already in use!")
-            logger.error("Another registry server or process is using this port.")
-            logger.error("")
-            logger.error("To fix this, run one of these commands:")
-            logger.error("  1. Kill processes on port 8001:")
-            logger.error("     lsof -ti :8001 | xargs kill")
-            logger.error("")
-            logger.error("  2. Or find and kill specific process:")
-            logger.error("     lsof -i :8001")
-            logger.error("     kill <PID>")
-            logger.error("")
-            raise RuntimeError("Port 8001 is already in use. Please kill the existing process first.")
+        if _port_in_use(registry_port):
+            # Port is busy — most often a registry from the PREVIOUS service in
+            # a sequential run that hasn't released the socket yet. Proactively
+            # kill any stray listener and wait for the port to free up before
+            # giving up.
+            logger.warning(
+                f"⚠️  Port {registry_port} is in use — attempting to free it "
+                f"(likely the previous service's registry shutting down)..."
+            )
+            _kill_port_listeners(registry_port)
+            if not await _wait_for_port_free(registry_port, timeout=20.0):
+                logger.error(f"❌ Port {registry_port} is still in use after waiting!")
+                logger.error("Another registry server or process is using this port.")
+                logger.error("")
+                logger.error("To fix this, run one of these commands:")
+                logger.error(f"  1. Kill processes on port {registry_port}:")
+                logger.error(f"     lsof -ti :{registry_port} | xargs kill")
+                logger.error("")
+                logger.error("  2. Or find and kill specific process:")
+                logger.error(f"     lsof -i :{registry_port}")
+                logger.error("     kill <PID>")
+                logger.error("")
+                raise RuntimeError(
+                    f"Port {registry_port} is already in use. Please kill the existing process first."
+                )
+            logger.info(f"✅ Port {registry_port} is now free")
     except RuntimeError:
         raise  # Re-raise the port-in-use error
     except Exception as e:
@@ -1557,6 +1714,8 @@ async def start_registry_server(config_path: str) -> subprocess.Popen:
     # Set environment variables for registry config
     env = os.environ.copy()
     env["MCP_SERVERS_FILE"] = abs_config_path
+    env["DYNACONF_SERVER_PORTS__REGISTRY"] = str(registry_port)
+    env["REGISTRY_PORT"] = str(registry_port)
 
     # Ensure CONTAINER_RUNTIME is set for the registry subprocess as a full path.
     # The registry server calls os.path.expandvars() on the YAML, so ${CONTAINER_RUNTIME}
@@ -1592,7 +1751,7 @@ async def start_registry_server(config_path: str) -> subprocess.Popen:
     # tree (uv wrapper → python → uvicorn → any docker exec children) in
     # one shot via killpg. process.terminate() on its own only SIGTERMs
     # the `uv` wrapper, and that doesn't always propagate to uvicorn.
-    process = subprocess.Popen(
+    process = subprocess.Popen(  # noqa: S603 — args are constant literals, no untrusted input
         [  # noqa: S607 — uv resolved from PATH by design
             "uv",
             "run",
@@ -1603,7 +1762,7 @@ async def start_registry_server(config_path: str) -> subprocess.Popen:
             "--host",
             "127.0.0.1",
             "--port",
-            "8001",
+            str(registry_port),
         ],
         stdout=log_file,
         stderr=subprocess.STDOUT,  # Combine stderr with stdout
@@ -1622,7 +1781,7 @@ async def start_registry_server(config_path: str) -> subprocess.Popen:
     for attempt in range(max_retries):
         try:
             async with httpx.AsyncClient() as client:
-                response = await client.get("http://localhost:8001/applications", timeout=5.0)
+                response = await client.get(f"http://localhost:{registry_port}/applications", timeout=5.0)
                 if response.status_code == 200:
                     apps = response.json()
                     logger.info(
@@ -1653,7 +1812,7 @@ async def start_registry_server(config_path: str) -> subprocess.Popen:
                                 # Check if all apps are ready (have tools loaded)
                                 # Note: Registry doesn't have /health endpoint, so we check /applications directly
                                 apps_response = await client.get(
-                                    "http://localhost:8001/applications", timeout=5.0
+                                    f"http://localhost:{registry_port}/applications", timeout=5.0
                                 )
                                 if apps_response.status_code == 200:
                                     apps = apps_response.json()
@@ -1763,6 +1922,19 @@ async def stop_registry_server(process: subprocess.Popen):
     except Exception as e:
         logger.error(f"❌ Error stopping registry: {e}")
 
+    # `process.wait()` only reaps the `uv` wrapper; the uvicorn worker holding
+    # the port can linger briefly. Wait for the OS to release the registry port
+    # so the next sequential service can bind it without racing (the error that
+    # previously surfaced as "Port N is already in use" on the next domain).
+    try:
+        registry_port = get_registry_port()
+        if not await _wait_for_port_free(registry_port, timeout=15.0):
+            logger.warning(f"⚠️  Port {registry_port} still occupied after stop — killing stray listeners")
+            _kill_port_listeners(registry_port)
+            await _wait_for_port_free(registry_port, timeout=10.0)
+    except Exception as e:  # noqa: BLE001 — best-effort port-release wait
+        logger.debug(f"Port-release wait after stop failed (continuing): {e}")
+
 
 def rewrite_config_with_loader_domains(config_path: str, m3_data_loader: M3DataLoader) -> str:
     """Write a copy of `config_path` with each service's `metadata.domains`
@@ -1801,7 +1973,34 @@ def rewrite_config_with_loader_domains(config_path: str, m3_data_loader: M3DataL
     return path
 
 
-def expand_registry_config(config_path: str) -> str:
+def _service_name_filters_from_task(task_list: Optional[List[str]]) -> Optional[List[str]]:
+    """Return source-yaml service names from args.task (e.g. m3_task_2).
+
+    UUIDs and hockey_395_0-style test-case IDs are not service-name filters.
+    """
+    if not task_list:
+        return None
+    import re
+
+    uuid_re = re.compile(r"^[a-f0-9]{12}-[a-f0-9]{12}$")
+    testcase_re = re.compile(r"^[a-z_]+_\d+_\d+$")
+    names = [f for f in task_list if not uuid_re.match(f) and not testcase_re.match(f)]
+    return names or None
+
+
+def _non_service_task_filters(task_list: List[str]) -> List[str]:
+    """Keep UUID / test-case filters when auto-sequencing capability passes."""
+    import re
+
+    uuid_re = re.compile(r"^[a-f0-9]{12}-[a-f0-9]{12}$")
+    testcase_re = re.compile(r"^[a-z_]+_\d+_\d+$")
+    return [f for f in task_list if uuid_re.match(f) or testcase_re.match(f)]
+
+
+def expand_registry_config(
+    config_path: str,
+    capability_filter: Optional[List[str]] = None,
+) -> str:
     """Expand registry config by replacing {domain} placeholders with actual domains
     and expanding environment variables.
 
@@ -1811,6 +2010,14 @@ def expand_registry_config(config_path: str) -> str:
 
     Args:
         config_path: Path to the generic config file with {domain} placeholders
+        capability_filter: Optional list of source-yaml service names (e.g.
+            ``["m3_task_2"]``). When provided, services whose key is not in
+            this list are skipped before expansion. This prevents the
+            post-expansion collision guard from firing when two tasks share a
+            domain name (e.g. both ``m3_task_2`` and ``m3_task_3`` define
+            ``books``). Items that don't look like service-name filters
+            (UUIDs, ``hockey_395_0``-style test-case IDs) are ignored — pass
+            them through as-is.
 
     Returns:
         Path to the temporary expanded config file
@@ -1834,8 +2041,27 @@ def expand_registry_config(config_path: str) -> str:
     services = config.get("services", [])
     expanded_services = []
 
+    # Build the set of source-service-name filters from capability_filter. Items
+    # that look like UUIDs or test-case IDs (hockey_395_0) are not service-name
+    # filters and don't constrain the expansion at all.
+    _service_filter: Optional[set] = None
+    if capability_filter:
+        import re as _re_cap
+
+        _uuid_re = _re_cap.compile(r"^[a-f0-9]{12}-[a-f0-9]{12}$")
+        _testcase_re = _re_cap.compile(r"^[a-z_]+_\d+_\d+$")
+        cap_items = [f for f in capability_filter if not _uuid_re.match(f) and not _testcase_re.match(f)]
+        if cap_items:
+            _service_filter = set(cap_items)
+            logger.info(
+                f"Pre-expansion filter: only services matching {sorted(_service_filter)} will be expanded"
+            )
+
     for service_dict in services:
         service_name = list(service_dict.keys())[0]
+        if _service_filter is not None and service_name not in _service_filter:
+            logger.info(f"  Skipping (filtered out): {service_name}")
+            continue
         service_config = service_dict[service_name]
 
         metadata = service_config.get("metadata", {})
@@ -1856,13 +2082,13 @@ def expand_registry_config(config_path: str) -> str:
                     domain_name = domain_config.get("name")
                     domain_multiturn = domain_config.get("multiturn")
 
-                # Prefix service name with task_id to avoid name collisions when multiple tasks
-                # share the same domain name (e.g. both task_1 and task_2 have "address").
-                # The registry uses the service name as the unique app identifier.
-                # The registry strips this prefix before calling the MCP server tool, so the
-                # container always receives the original unprefixed tool name.
-                task_id_val = metadata.get("task_id", "unknown")
-                expanded_service_name = f"task_{task_id_val}_{domain_name}"
+                # The expanded service name is just the domain. The registry uses
+                # this as the unique app identifier and CombinedToolProvider prefixes
+                # each MCP tool with `<app_name>_`, so CUGA's recorded tool names
+                # start with the bare domain (e.g. `codebase_comments_get_…`).
+                # Cross-task collisions (two tasks sharing a domain) are caught
+                # by the post-expansion check below.
+                expanded_service_name = domain_name
 
                 # Deep copy service config
                 import copy
@@ -1895,6 +2121,23 @@ def expand_registry_config(config_path: str) -> str:
             expanded_services.append(service_dict)
             logger.info(f"  Kept as-is: {service_name}")
 
+    # Collision guard: detect duplicate expanded service names. Since we now use
+    # the bare domain as the service name, two tasks sharing a domain (e.g.
+    # both task_2 and task_3 have "books") would silently overwrite each other
+    # when the dict-list is dumped to yaml. Fail loudly instead — the caller
+    # should narrow to a single task with --capability before getting here.
+    from collections import Counter as _Counter
+
+    _service_names = [list(s.keys())[0] for s in expanded_services]
+    _dups = sorted(n for n, c in _Counter(_service_names).items() if c > 1)
+    if _dups:
+        raise RuntimeError(
+            "Service-name collision in expanded registry config: "
+            f"{_dups}. This usually means multiple tasks share a domain name. "
+            "Narrow to a single task via --capability before expansion, "
+            "or differentiate the domain names in the source yaml."
+        )
+
     # Create temporary config file
     expanded_config = {"services": expanded_services}
 
@@ -1908,31 +2151,6 @@ def expand_registry_config(config_path: str) -> str:
     logger.info(f"   Expanded services: {len(expanded_services)}")
 
     return temp_path
-
-
-def _write_single_service_yaml(service_dict: Dict[str, Any]) -> str:
-    """Write a minimal registry yaml containing only the given service.
-
-    Used in sequential mode so each expanded (task, domain) pair gets its own
-    registry with just that domain's MCP server loaded, instead of all ~20
-    MCP servers running at once.
-    """
-    import tempfile
-
-    service_name = list(service_dict.keys())[0]
-    mini = {"services": [service_dict]}
-    fd, path = tempfile.mkstemp(suffix=".yaml", prefix=f"m3_registry_{service_name}_")
-    try:
-        with os.fdopen(fd, "w") as f:
-            yaml.dump(mini, f, default_flow_style=False, sort_keys=False)
-    except Exception:
-        # Best effort: clean up if write failed
-        try:
-            os.unlink(path)
-        except Exception:  # noqa: S110 — unlink during error cleanup is best-effort
-            pass
-        raise
-    return path
 
 
 def _write_single_service_yaml(service_dict: Dict[str, Any]) -> str:
@@ -2025,7 +2243,80 @@ async def evaluate_tasks_in_batches(task_evaluations: List[tuple], batch_size: i
     return all_results
 
 
-async def run_config_mode(args, container_runtime: str):
+def _finalize_and_save_results(all_results: List[Dict[str, Any]], no_ground_truth: bool):
+    """Persist exactly one result file (plus ground-truth dump) for a run.
+
+    Shared by the single-capability path and the multi-capability aggregation
+    path so that ONE eval.sh invocation always yields ONE result file covering
+    every task it evaluated. Previously each capability pass saved its own
+    100-task file, which made compare_report count one logical run as several
+    runs (one per capability) and made each "run" look like only 100 tasks.
+    """
+    output_dir = Path(__file__).parent / "results"
+
+    # In no-ground-truth mode there's no scoring — render the tool-call-count
+    # summary instead and capture it to the summary file.
+    if no_ground_truth:
+        _emit_cleanly(print_no_gt_summary, all_results)
+        try:
+            with open(M3_SUMMARY_FILE, "w") as _sf:
+                _sf.write(_render_no_gt_summary(all_results))
+            logger.info(f"Summary written to {M3_SUMMARY_FILE}")
+        except Exception as e:
+            logger.warning(f"Failed to write summary to {M3_SUMMARY_FILE}: {e}")
+
+        # Save raw results JSON and skip vakra-format ground-truth dump.
+        saved_path = save_evaluation_results(all_results, output_dir, prefix="m3_config_no_gt")
+        logger.info(f"\nResults saved to: {saved_path}")
+        return saved_path
+
+    # Vakra is the source of truth for the overall summary. We capture it to
+    # M3_SUMMARY_FILE so eval.sh can re-echo it as the last thing on screen.
+    if any("vakra" in r for r in all_results):
+        _emit_cleanly(print_vakra_summary, all_results)
+        try:
+            import io as _io
+
+            buf = _io.StringIO()
+            _orig = sys.__stdout__
+
+            # Re-render to capture text for the summary file
+            class _Cap:
+                def write(self, s):
+                    buf.write(s)
+                    return len(s)
+
+                def flush(self):
+                    pass
+
+            sys.__stdout__ = _Cap()  # type: ignore[assignment]
+            try:
+                print_vakra_summary(all_results)
+            finally:
+                sys.__stdout__ = _orig  # type: ignore[assignment]
+            with open(M3_SUMMARY_FILE, "w") as _sf:
+                _sf.write(buf.getvalue())
+            logger.info(f"Summary written to {M3_SUMMARY_FILE}")
+        except Exception as e:
+            logger.warning(f"Failed to write summary to {M3_SUMMARY_FILE}: {e}")
+    else:
+        logger.warning(
+            "No Vakra scores produced for any task — check API_KEY and the per-domain Vakra warnings above."
+        )
+
+    # Save results
+    saved_path = save_evaluation_results(all_results, output_dir, prefix="m3_config")
+    logger.info(f"\nResults saved to: {saved_path}")
+
+    # Save ground truth format
+    evaluator_temp = M3Evaluator()
+    evaluator_temp.results = all_results
+    ground_truth_path = evaluator_temp._save_ground_truth_format(output_dir)
+    logger.info(f"Ground truth format saved to: {ground_truth_path}")
+    return saved_path
+
+
+async def run_config_mode(args, container_runtime: str, defer_save: bool = False):
     """Run evaluation in config mode with task-level parallelism and optional batching.
 
     Tasks run in parallel (each uses separate container).
@@ -2050,6 +2341,52 @@ async def run_config_mode(args, container_runtime: str):
             f"no_ground_truth={no_ground_truth}"
         )
 
+    # When --m3-data is set but no --capability/--task service name was given,
+    # expand one capability at a time. Bare-domain registry names (books,
+    # mondial_geo, soccer_2016, …) collide across m3_task_2 and m3_task_3 if
+    # both are expanded into the same yaml (regression from the vakra tool-name
+    # fix in c0ce9f1). Sequential passes restore the old "run everything"
+    # behaviour without requiring --capability on the CLI.
+    _task_filters = list(args.task) if getattr(args, "task", None) else []
+    if m3_data_loader and _service_name_filters_from_task(_task_filters) is None:
+        cap_ids = m3_data_loader.available_capabilities()
+        preserved = _non_service_task_filters(_task_filters)
+        if len(cap_ids) > 1:
+            logger.info(
+                f"No --capability filter: running {len(cap_ids)} capability passes "
+                f"sequentially ({', '.join(f'm3_task_{i}' for i in cap_ids)}) "
+                f"to avoid cross-task domain-name collisions"
+            )
+            import copy
+
+            # Run each capability as its own pass (separate registry/expanded
+            # config to dodge cross-task domain-name collisions), but collect
+            # every pass's results and persist them together as a SINGLE result
+            # file for this run. One eval.sh run -> one file -> all tasks.
+            combined_results: List[Dict[str, Any]] = []
+            for task_id in cap_ids:
+                cap_name = f"m3_task_{task_id}"
+                logger.info(f"\n{'=' * 80}\n🔁 Auto capability pass: {cap_name}\n{'=' * 80}")
+                pass_args = copy.copy(args)
+                pass_args.task = [cap_name] + preserved
+                pass_results = await run_config_mode(pass_args, container_runtime, defer_save=True)
+                if pass_results:
+                    combined_results.extend(pass_results)
+
+            if combined_results:
+                logger.info(
+                    f"🧮 Aggregated {len(combined_results)} results across "
+                    f"{len(cap_ids)} capability pass(es) → writing one result file"
+                )
+                _finalize_and_save_results(combined_results, no_ground_truth)
+            else:
+                logger.warning("⚠️  No results produced across capability passes.")
+            return combined_results
+        if len(cap_ids) == 1:
+            cap_name = f"m3_task_{cap_ids[0]}"
+            logger.info(f"No --capability filter: auto-narrowing to data capability {cap_name}")
+            args.task = [cap_name] + preserved
+
     # In --no-ground-truth mode, rewrite the YAML so each service's
     # metadata.domains reflects the loader's view (test domains), not the
     # YAML's hard-coded small_train list. Without this, `--domain X` filters
@@ -2061,8 +2398,13 @@ async def run_config_mode(args, container_runtime: str):
         rewritten_config_path = rewrite_config_with_loader_domains(args.from_config, m3_data_loader)
         source_config_path = rewritten_config_path
 
-    # Expand config if it contains {domain} placeholders
-    expanded_config_path = expand_registry_config(source_config_path)
+    # Expand config if it contains {domain} placeholders. Pre-filter source
+    # services by --capability so the bare-domain expanded names (e.g.
+    # `books` from m3_task_2 vs `books` from m3_task_3) can't collide in
+    # the same expanded yaml. UUID / hockey_395_0-style items in args.task
+    # don't constrain the source service set; they're filtered later.
+    _capability_filter = list(args.task) if getattr(args, "task", None) else None
+    expanded_config_path = expand_registry_config(source_config_path, capability_filter=_capability_filter)
     temp_config_created = expanded_config_path != args.from_config
 
     # Check if registry mode is enabled
@@ -2120,11 +2462,28 @@ async def run_config_mode(args, container_runtime: str):
 
             # Check if any filter looks like a test case name (contains domain_number_number pattern)
             test_case_pattern = r'^[a-z_]+_\d+_\d+$'
+            # Also accept the --m3-data UUID format (12hex-12hex), e.g. "1960f609e439-e5d337d143b6".
+            # When UUIDs are used, the user must also pass --domain to constrain which
+            # service these UUIDs come from (a UUID alone doesn't encode its domain).
+            uuid_filter_pattern = r'^[a-f0-9]{12}-[a-f0-9]{12}$'
             task_filters = [task_filter] if isinstance(task_filter, str) else task_filter
 
             is_test_case_filter = any(_re.match(test_case_pattern, tf) for tf in task_filters)
+            is_uuid_filter = any(_re.match(uuid_filter_pattern, tf) for tf in task_filters)
 
-            if is_test_case_filter:
+            if is_uuid_filter:
+                # UUID filter: skip domain extraction (caller must use --domain),
+                # set test_case_filter so the evaluator filters per-sample at the
+                # right point. Strip out items that aren't sample UUIDs (e.g. a
+                # capability name like "m3_task_2" passed alongside via
+                # --capability) — those don't match any sample_id and would just
+                # be dead weight inside the per-sample filter. Capability-name
+                # items are already handled by expand_registry_config's
+                # capability_filter and the service-name filter below.
+                uuid_only_filters = [tf for tf in task_filters if _re.match(uuid_filter_pattern, tf)]
+                logger.info(f"Detected UUID-style test case filter: {uuid_only_filters}")
+                args.test_case_filter = uuid_only_filters
+            elif is_test_case_filter:
                 # This is a test case filter - extract domain and pass to evaluator
                 logger.info(f"Detected test case filter: {task_filters}")
 
@@ -2228,52 +2587,37 @@ async def run_config_mode(args, container_runtime: str):
             )
             services = filtered
 
-        # Initialize Langfuse (optional)
-        try:
-            from langfuse.callback import CallbackHandler
+        if is_langfuse_tracing_enabled():
+            logger.info("Langfuse tracing enabled (per-task handlers via evaluate_task_with_langfuse)")
 
-            CallbackHandler()
-            logger.info("Langfuse handler initialized")
-        except Exception as e:
-            logger.warning(f"Could not initialize Langfuse: {e}")
+        # Collect task evaluation coroutines only for parallel/batched mode.
+        # In sequential mode we await evaluate_single_task per service below
+        # (after starting a one-service registry). Building coroutines here
+        # and never awaiting them triggers "coroutine was never awaited".
+        task_evaluations: List[tuple[str, Any]] = []
 
-        # Collect all task evaluation coroutines
-        task_evaluations = []
+        if not sequential_mode:
+            for service_dict in services:
+                service_name = list(service_dict.keys())[0]
+                service_config = service_dict[service_name]
 
-        for service_dict in services:
-            # Extract service name and config
-            service_name = list(service_dict.keys())[0]
-            service_config = service_dict[service_name]
+                metadata = service_config.get("metadata", {})
+                task_id = metadata.get("task_id")
+                container = metadata.get("container")
+                domains = metadata.get("domains", [])
+                task_multiturn = metadata.get("multiturn", None)  # None = auto-detect
 
-            metadata = service_config.get("metadata", {})
-            task_id = metadata.get("task_id")
-            container = metadata.get("container")
-            domains = metadata.get("domains", [])
-            task_multiturn = metadata.get("multiturn", None)  # None = auto-detect
-
-            # Create coroutine for this task (will process all its domains)
-            # Task 1 uses uuid-based tool universe switching — route to dedicated handler
-            # if task_id == 1:
-            #     task_coro = evaluate_single_task_1(
-            #         service_name=service_name,
-            #         task_id=task_id,
-            #         container=container,
-            #         domains=domains,
-            #         args=args,
-            #         container_runtime=container_runtime
-            #     )
-            # else:
-            task_coro = evaluate_single_task(
-                service_name=service_name,
-                task_id=task_id,
-                container=container,
-                domains=domains,
-                task_multiturn=task_multiturn,
-                args=args,
-                container_runtime=container_runtime,
-                m3_data_loader=m3_data_loader,
-            )
-            task_evaluations.append((service_name, task_coro))
+                task_coro = evaluate_single_task(
+                    service_name=service_name,
+                    task_id=task_id,
+                    container=container,
+                    domains=domains,
+                    task_multiturn=task_multiturn,
+                    args=args,
+                    container_runtime=container_runtime,
+                    m3_data_loader=m3_data_loader,
+                )
+                task_evaluations.append((service_name, task_coro))
 
         # Concurrency: sequential by default, batched when --batch-size >= 2.
         # "Fully parallel" is just a large batch size (>= total tasks).
@@ -2362,71 +2706,18 @@ async def run_config_mode(args, container_runtime: str):
         sys.stderr.flush()
 
         if all_results:
-            # In no-ground-truth mode there's no scoring — render the
-            # tool-call-count summary instead and capture to the summary file.
-            if no_ground_truth:
-                _emit_cleanly(print_no_gt_summary, all_results)
-                try:
-                    with open(M3_SUMMARY_FILE, "w") as _sf:
-                        _sf.write(_render_no_gt_summary(all_results))
-                    logger.info(f"Summary written to {M3_SUMMARY_FILE}")
-                except Exception as e:
-                    logger.warning(f"Failed to write summary to {M3_SUMMARY_FILE}: {e}")
-
-                # Save raw results JSON and skip vakra-format ground-truth dump.
-                output_dir = Path(__file__).parent / "results"
-                saved_path = save_evaluation_results(all_results, output_dir, prefix="m3_config_no_gt")
-                logger.info(f"\nResults saved to: {saved_path}")
-                return
-
-            # Vakra is the source of truth for the overall summary. We capture
-            # it to M3_SUMMARY_FILE so eval.sh can re-echo it as the last thing
-            # on screen.
-            if any("vakra" in r for r in all_results):
-                _emit_cleanly(print_vakra_summary, all_results)
-                try:
-                    import io as _io
-
-                    buf = _io.StringIO()
-                    _orig = sys.__stdout__
-
-                    # Re-render to capture text for the summary file
-                    class _Cap:
-                        def write(self, s):
-                            buf.write(s)
-                            return len(s)
-
-                        def flush(self):
-                            pass
-
-                    sys.__stdout__ = _Cap()  # type: ignore[assignment]
-                    try:
-                        print_vakra_summary(all_results)
-                    finally:
-                        sys.__stdout__ = _orig  # type: ignore[assignment]
-                    with open(M3_SUMMARY_FILE, "w") as _sf:
-                        _sf.write(buf.getvalue())
-                    logger.info(f"Summary written to {M3_SUMMARY_FILE}")
-                except Exception as e:
-                    logger.warning(f"Failed to write summary to {M3_SUMMARY_FILE}: {e}")
-            else:
-                logger.warning(
-                    "No Vakra scores produced for any task — check API_KEY and "
-                    "the per-domain Vakra warnings above."
-                )
-
-            # Save results
-            output_dir = Path(__file__).parent / "results"
-            saved_path = save_evaluation_results(all_results, output_dir, prefix="m3_config")
-            logger.info(f"\nResults saved to: {saved_path}")
-
-            # Save ground truth format
-            evaluator_temp = M3Evaluator()
-            evaluator_temp.results = all_results
-            ground_truth_path = evaluator_temp._save_ground_truth_format(output_dir)
-            logger.info(f"Ground truth format saved to: {ground_truth_path}")
+            # If this invocation is one capability sub-pass of a larger
+            # multi-capability run, return the results unsaved so the caller can
+            # aggregate every capability into ONE result file (one eval.sh run =
+            # one file = all tasks). Saving here is what previously produced a
+            # separate 100-task file per capability.
+            if defer_save:
+                return all_results
+            _finalize_and_save_results(all_results, no_ground_truth)
         else:
             logger.warning("⚠️  No results produced. Check the registry logs and task filters.")
+
+        return all_results
 
     except (KeyboardInterrupt, asyncio.CancelledError):
         # User hit Ctrl-C or the task group was cancelled. Save whatever
@@ -2537,16 +2828,21 @@ Examples:
     # Task filtering. `--capability` is the preferred name when selecting a
     # service like `m3_task_2` / `m3_task_3`; `--task` is kept as an alias
     # for backward compatibility (it's referenced in README, other scripts,
-    # and older tooling). Both feed the same dest.
+    # and older tooling). Both feed the same dest via action='extend', so
+    # `--capability m3_task_2 --task <uuid>` appends both into args.task
+    # (the previous default `store` action made the second flag overwrite
+    # the first, which silently dropped one of the filters).
     parser.add_argument(
         "--capability",
         "--task",
         dest="task",
         type=str,
         nargs="*",
-        default=None,
+        action="extend",
+        default=[],
         help="Filter by capability/service name (e.g., 'm3_task_2') or by a "
-        "test-case ID (e.g., 'hockey_395_0'). Accepts multiple. "
+        "test-case ID (e.g., 'hockey_395_0' or M3-data UUID). Accepts "
+        "multiple values and multiple invocations (they're appended). "
         "Overrides --difficulty.",
     )
     parser.add_argument(
@@ -2610,6 +2906,14 @@ Examples:
         "and writes them to results/_vakra/prediction/<domain>.json. The "
         "domain list is taken from the data source rather than the YAML "
         "config, so unlabeled test domains run without editing the config.",
+    )
+    parser.add_argument(
+        "--no-policies",
+        action="store_true",
+        help="Disable CUGA policies (mirrors benchmarks/bpo). When enabled "
+        "(default), policies are loaded per-domain from "
+        "benchmarks/m3/policies/policies.json after the per-domain agent is "
+        "constructed.",
     )
 
     from benchmarks.helpers.logging_args import add_log_level_args, apply_log_level

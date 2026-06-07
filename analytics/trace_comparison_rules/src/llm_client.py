@@ -5,6 +5,7 @@ Provides a reusable base class for LLM analysis tasks.
 
 import logging
 import os
+import re
 from typing import Optional
 
 import litellm
@@ -16,6 +17,14 @@ load_dotenv()
 
 # Drop unsupported params (e.g. 'seed') silently for providers that don't accept them.
 litellm.drop_params = True
+
+# Claude 4.x deprecated the `temperature` parameter entirely.
+_CLAUDE4_RE = re.compile(r"claude-(opus|sonnet|haiku)-4[-_]", re.IGNORECASE)
+
+
+def _model_supports_temperature(model: str) -> bool:
+    return not _CLAUDE4_RE.search(model)
+
 
 # Configuration constants
 DEFAULT_MODEL = "Azure/gpt-4.1"
@@ -93,9 +102,11 @@ class LLMClient:
                     {"role": "system", "content": system_message},
                     {"role": "user", "content": prompt},
                 ],
-                "temperature": self.temperature,
                 "max_tokens": (max_tokens if max_tokens is not None else self.max_tokens),
             }
+
+            if _model_supports_temperature(self.model):
+                completion_args["temperature"] = self.temperature
 
             # Add seed if provided (for reproducibility)
             seed_value = seed if seed is not None else self.seed

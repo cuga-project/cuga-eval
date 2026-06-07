@@ -238,19 +238,26 @@ async def _invoke_agent_for_eval(
     lf_config: Optional[dict[str, Any]] = None,
 ) -> Any:
     """Invoke CugaAgent (LangGraph config) or GenericReactAgent (per-LLM callbacks)."""
-    common = {
-        "messages": messages,
+    if isinstance(agent, GenericReactAgent):
+        kwargs: dict[str, Any] = {
+            "messages": messages,
+            "thread_id": thread_id,
+            "user_context": user_context,
+            "track_tool_calls": track_tool_calls,
+        }
+        if lf_config:
+            kwargs["invoke_callbacks"] = lf_config.get("callbacks")
+        return await agent.invoke(**kwargs)
+
+    kwargs = {
+        "message": messages,
         "thread_id": thread_id,
-        "user_context": user_context,
+        "user_context": user_context or "",
         "track_tool_calls": track_tool_calls,
     }
-    if isinstance(agent, GenericReactAgent):
-        if lf_config:
-            common["invoke_callbacks"] = lf_config.get("callbacks")
-        return await agent.invoke(**common)
     if lf_config:
-        common["config"] = lf_config
-    return await agent.invoke(**common)
+        kwargs["config"] = lf_config
+    return await agent.invoke(**kwargs)
 
 
 def _react_steps_from_invoke_result(invoke_result: Any) -> Optional[int]:
@@ -328,6 +335,20 @@ def _langfuse_callback_handler_class():
 
 
 _langfuse_nesting_warning_emitted = False
+
+
+def should_trace_langfuse_task(langfuse_handler: Optional[Any] = None) -> bool:
+    """True when the harness should create one Langfuse trace per eval task.
+
+    Uses per-invoke trace-scoped handlers (``build_langfuse_invoke_config``), not an
+    unscoped ``CallbackHandler`` on the agent. *langfuse_handler* is a legacy gate
+    (``True`` / any truthy value); ``False`` forces tracing off for this evaluator.
+    """
+    if langfuse_handler is False:
+        return False
+    if langfuse_handler:
+        return True
+    return is_langfuse_tracing_enabled()
 
 
 def is_langfuse_tracing_enabled() -> bool:
@@ -835,7 +856,7 @@ async def evaluate_task_with_langfuse(
         _langfuse_metrics = None
         predefined_trace_id = None
 
-        if langfuse_handler:
+        if should_trace_langfuse_task(langfuse_handler):
             try:
                 from langfuse import get_client
 
@@ -909,7 +930,8 @@ async def evaluate_task_with_langfuse(
 
             except Exception as e:
                 logger.warning(f"Failed to start Langfuse trace: {e}")
-                invoke_result = await agent.invoke(
+                invoke_result = await _invoke_agent_for_eval(
+                    agent,
                     [HumanMessage(content=intent)],
                     thread_id=thread_id,
                     user_context=user_context or "",
@@ -1040,8 +1062,9 @@ async def evaluate_task_with_langfuse(
         elif result.get("steps") is None and tool_calls:
             result["steps"] = len(tool_calls)
 
-        # Add Langfuse metrics if available
-        if langfuse_handler and _langfuse_metrics:
+        if predefined_trace_id:
+            result["trace_id"] = predefined_trace_id
+        if _langfuse_metrics:
             result["total_tokens"] = _langfuse_metrics.total_tokens
             result["total_llm_calls"] = _langfuse_metrics.total_llm_calls
             result["total_cost"] = _langfuse_metrics.total_cost
@@ -1050,7 +1073,6 @@ async def evaluate_task_with_langfuse(
             result["generation_timings"] = _langfuse_metrics.generation_timings
             result["llm_call_details"] = _langfuse_metrics.llm_call_details
             result["node_timings"] = _langfuse_metrics.node_timings
-            result["trace_id"] = predefined_trace_id
 
         # Compute enhanced metrics if metrics_config is provided
         if metrics_config:
@@ -1328,7 +1350,7 @@ async def evaluate_multiturn_task_with_langfuse(
         predefined_trace_id = None
         total_react_steps = 0
 
-        if langfuse_handler:
+        if should_trace_langfuse_task(langfuse_handler):
             try:
                 from langfuse import get_client
 
@@ -1463,10 +1485,11 @@ async def evaluate_multiturn_task_with_langfuse(
                     logger.info(f"\n[Turn {turn_idx}/{num_turns}] Query: {query}")
                     logger.info(f"[Turn {turn_idx}] Using thread_id: {thread_id}")
 
-                    invoke_result = await agent.invoke(
+                    invoke_result = await _invoke_agent_for_eval(
+                        agent,
                         [HumanMessage(content=query)],
                         thread_id=thread_id,
-                        user_context=user_context,
+                        user_context=user_context or "",
                         track_tool_calls=track_tool_calls,
                     )
                     total_react_steps = _accumulate_react_steps(total_react_steps, invoke_result)
@@ -1598,8 +1621,9 @@ async def evaluate_multiturn_task_with_langfuse(
             "error": None,
         }
 
-        # Add Langfuse metrics if available
-        if langfuse_handler and _langfuse_metrics:
+        if predefined_trace_id:
+            result["trace_id"] = predefined_trace_id
+        if _langfuse_metrics:
             result["total_tokens"] = _langfuse_metrics.total_tokens
             result["total_llm_calls"] = _langfuse_metrics.total_llm_calls
             result["total_cost"] = _langfuse_metrics.total_cost
@@ -1608,7 +1632,6 @@ async def evaluate_multiturn_task_with_langfuse(
             result["generation_timings"] = _langfuse_metrics.generation_timings
             result["llm_call_details"] = _langfuse_metrics.llm_call_details
             result["node_timings"] = _langfuse_metrics.node_timings
-            result["trace_id"] = predefined_trace_id
 
         if task_metadata:
             result.update(task_metadata)
@@ -1818,21 +1841,22 @@ def print_evaluation_summary(results: List[Dict[str, Any]]):
         print(f"{status} {task_name:25s} ({difficulty:6s}) - {metrics_str}")
 
 
-def flush_langfuse(langfuse_handler: Optional[Any]):
+def flush_langfuse(langfuse_handler: Optional[Any] = None):
     """Flush Langfuse events in short-lived applications.
 
     Args:
-        langfuse_handler: Optional Langfuse handler
+        langfuse_handler: Legacy gate (any truthy value) or omit to flush when
+            tracing is enabled in settings.
     """
-    if langfuse_handler:
-        try:
-            from langfuse import get_client
+    if not should_trace_langfuse_task(langfuse_handler):
+        return
+    try:
+        from langfuse import get_client
 
-            langfuse = get_client()
-            langfuse.flush()
-            logger.info("✅ Flushed Langfuse events")
-        except Exception as e:
-            logger.warning(f"Failed to flush Langfuse events: {e}")
+        get_client().flush()
+        logger.info("✅ Flushed Langfuse events")
+    except Exception as e:
+        logger.warning(f"Failed to flush Langfuse events: {e}")
 
 
 def save_evaluation_results(

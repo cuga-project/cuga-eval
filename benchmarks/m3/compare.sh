@@ -25,6 +25,12 @@ if [ -f "$PROJECT_ROOT/benchmarks/helpers/common.sh" ]; then
     source "$PROJECT_ROOT/benchmarks/helpers/common.sh"
 fi
 
+# Align cleanup port with eval.sh / cuga-agent (DYNACONF_SERVER_PORTS__REGISTRY).
+source "$PROJECT_ROOT/benchmarks/helpers/load_env.sh" "m3"
+REGISTRY_PORT="${REGISTRY_PORT:-${DYNACONF_SERVER_PORTS__REGISTRY:-8001}}"
+export REGISTRY_PORT
+export DYNACONF_SERVER_PORTS__REGISTRY="$REGISTRY_PORT"
+
 # Source model profiles
 if [ -f "$PROJECT_ROOT/scripts/model_profiles.sh" ]; then
     source "$PROJECT_ROOT/scripts/model_profiles.sh"
@@ -38,6 +44,8 @@ MODELS="${MODELS:-gpt-oss}"
 AGENT="${AGENT:-cuga}"
 AGENTS="${AGENTS:-}"
 COMPARE_AGENTS="${COMPARE_AGENTS:-false}"
+COMPARE_POLICIES="${COMPARE_POLICIES:-false}"
+GLOBAL_NO_POLICIES="${GLOBAL_NO_POLICIES:-false}"
 NO_BUNDLE="${NO_BUNDLE:-false}"
 BUNDLE_ZIP="${BUNDLE_ZIP:-false}"
 FORWARDED_ARGS=()
@@ -72,6 +80,14 @@ while [[ $idx -lt ${#ARGS[@]} ]]; do
             COMPARE_AGENTS=true
             idx=$((idx+1))
             ;;
+        --compare-policies)
+            COMPARE_POLICIES=true
+            idx=$((idx+1))
+            ;;
+        --no-policies)
+            GLOBAL_NO_POLICIES=true
+            idx=$((idx+1))
+            ;;
         --no-bundle)
             NO_BUNDLE=true
             idx=$((idx+1))
@@ -102,11 +118,20 @@ fi
 IFS=',' read -ra MODEL_LIST <<< "$MODELS"
 IFS=',' read -ra AGENT_LIST <<< "$AGENTS"
 
-# Build CONFIGS as the cartesian product MODEL_LIST × AGENT_LIST, with labels "model:agent".
+# Build CONFIGS as the cartesian product MODEL_LIST × AGENT_LIST × POLICY_MODE.
+# When --compare-policies is off, the inner dim collapses to a single "policies"
+# entry so the label format stays consistent (always model:agent:policy).
 CONFIGS=()
 for _m in "${MODEL_LIST[@]}"; do
     for _a in "${AGENT_LIST[@]}"; do
-        CONFIGS+=("${_m}:${_a}")
+        if [[ "$COMPARE_POLICIES" == "true" ]]; then
+            CONFIGS+=("${_m}:${_a}:policies")
+            CONFIGS+=("${_m}:${_a}:no-policies")
+        elif [[ "$GLOBAL_NO_POLICIES" == "true" ]]; then
+            CONFIGS+=("${_m}:${_a}:no-policies")
+        else
+            CONFIGS+=("${_m}:${_a}:policies")
+        fi
     done
 done
 
@@ -118,15 +143,23 @@ echo -e "  Agents:          ${CYAN:-}${AGENTS}${NC:-}"
 echo -e "  Models:          ${CYAN:-}${MODELS}${NC:-}"
 echo -e "  Configurations:  ${CYAN:-}${#CONFIGS[@]}${NC:-}"
 echo -e "  Runs per config: ${CYAN:-}${RUNS}${NC:-}"
+if [[ "$COMPARE_POLICIES" == "true" ]]; then
+    echo -e "  Compare policies:  ${CYAN:-}yes (policies vs no-policies)${NC:-}"
+elif [[ "$GLOBAL_NO_POLICIES" == "true" ]]; then
+    echo -e "  Policies:          ${CYAN:-}disabled (--no-policies)${NC:-}"
+fi
 echo ""
 
 if [[ "$DRY_RUN" == "true" ]]; then
     echo -e "${YELLOW:-}DRY RUN — showing planned commands:${NC:-}"
     for config in "${CONFIGS[@]}"; do
-        model="${config%%:*}"
-        agent="${config##*:}"
+        IFS=':' read -r model agent policy_mode <<< "$config"
+        extra=""
+        if [[ "$policy_mode" == "no-policies" ]]; then
+            extra=" --no-policies"
+        fi
         for ((r=1; r<=RUNS; r++)); do
-            echo "  [${config} run ${r}/${RUNS}] ./eval.sh --agent ${agent} ${FORWARDED_ARGS[*]}"
+            echo "  [${config} run ${r}/${RUNS}] ./eval.sh --agent ${agent}${extra} ${FORWARDED_ARGS[*]}"
         done
     done
     exit 0
@@ -215,25 +248,42 @@ create_compare_bundle() {
         MODEL_ENVS_JSON=$(build_model_envs_json "${MODEL_LIST[@]}")
     fi
 
-    # Build per-config trajectory dirs JSON: {"model:agent": ["/path/run1", ...]}
+    # Build per-config trajectory dirs JSON grouped by run:
+    # {"model:agent:policy": [["/run1/domA", ...], ["/run2/domA", ...]]}
+    # CONFIG_TRAJ_VALS holds sentinel-delimited groups (one per eval run).
     local TRAJ_JSON_PARTS=()
-    local tconfig tfiles tfile_list tfirst
+    local tconfig tgroups groups_json cur_group in_group line
     for ci in "${!CONFIG_TRAJ_KEYS[@]}"; do
         tconfig="${CONFIG_TRAJ_KEYS[$ci]}"
-        tfiles="${CONFIG_TRAJ_VALS[$ci]}"
-        if [[ -z "$tfiles" ]]; then
+        tgroups="${CONFIG_TRAJ_VALS[$ci]}"
+        if [[ -z "$tgroups" ]]; then
             continue
         fi
-        tfile_list=""
-        tfirst=true
-        for f in $tfiles; do
-            if [[ "$tfirst" != "true" ]]; then
-                tfile_list+=","
+        groups_json=""
+        cur_group=""
+        in_group=false
+        while IFS= read -r line; do
+            if [[ "$line" == "$TRAJ_GROUP_SEP" ]]; then
+                if [[ "$in_group" == "true" ]]; then
+                    if [[ -n "$groups_json" ]]; then groups_json+=","; fi
+                    groups_json+="[${cur_group}]"
+                fi
+                cur_group=""
+                in_group=true
+                continue
             fi
-            tfirst=false
-            tfile_list+="\"${f}\""
-        done
-        TRAJ_JSON_PARTS+=("\"${tconfig}\":[${tfile_list}]")
+            [[ -z "$line" ]] && continue
+            if [[ -n "$cur_group" ]]; then cur_group+=","; fi
+            cur_group+="\"${line}\""
+        done <<< "$tgroups"
+        if [[ "$in_group" == "true" ]]; then
+            if [[ -n "$groups_json" ]]; then groups_json+=","; fi
+            groups_json+="[${cur_group}]"
+        fi
+        if [[ -z "$groups_json" ]]; then
+            continue
+        fi
+        TRAJ_JSON_PARTS+=("\"${tconfig}\":[${groups_json}]")
     done
 
     local TRAJ_JSON_INPUT="{"
@@ -269,9 +319,54 @@ create_compare_bundle() {
     if [[ "$TRAJ_JSON_INPUT" != "{}" ]]; then
         BUNDLE_CMD+=(--trajectory-dirs "$TRAJ_JSON_INPUT")
     fi
-    # Include server logs (from last run)
-    local LOG_JSON="{\"shared\":[\"/tmp/m3_registry.log\",\"/tmp/m3_console.log\"]}"
-    BUNDLE_CMD+=(--log-files "$LOG_JSON")
+    # Build per-config log JSON grouped by run (one console+registry log set
+    # per eval run) so each run folder gets its OWN logs:
+    # {"model:agent:policy": [["/run1/console.log", ...], ["/run2/...", ...]]}
+    local LOG_JSON_PARTS=()
+    local lconfig lgroups lgroups_json lcur_group lin_group
+    for ci in "${!CONFIG_LOG_KEYS[@]}"; do
+        lconfig="${CONFIG_LOG_KEYS[$ci]}"
+        lgroups="${CONFIG_LOG_VALS[$ci]}"
+        if [[ -z "$lgroups" ]]; then
+            continue
+        fi
+        lgroups_json=""
+        lcur_group=""
+        lin_group=false
+        while IFS= read -r line; do
+            if [[ "$line" == "$LOG_GROUP_SEP" ]]; then
+                if [[ "$lin_group" == "true" ]]; then
+                    if [[ -n "$lgroups_json" ]]; then lgroups_json+=","; fi
+                    lgroups_json+="[${lcur_group}]"
+                fi
+                lcur_group=""
+                lin_group=true
+                continue
+            fi
+            [[ -z "$line" ]] && continue
+            if [[ -n "$lcur_group" ]]; then lcur_group+=","; fi
+            lcur_group+="\"${line}\""
+        done <<< "$lgroups"
+        if [[ "$lin_group" == "true" ]]; then
+            if [[ -n "$lgroups_json" ]]; then lgroups_json+=","; fi
+            lgroups_json+="[${lcur_group}]"
+        fi
+        if [[ -z "$lgroups_json" ]]; then
+            continue
+        fi
+        LOG_JSON_PARTS+=("\"${lconfig}\":[${lgroups_json}]")
+    done
+    local LOG_JSON="{"
+    local ljfirst=true
+    for part in "${LOG_JSON_PARTS[@]}"; do
+        if [[ "$ljfirst" != "true" ]]; then LOG_JSON+=","; fi
+        ljfirst=false
+        LOG_JSON+="$part"
+    done
+    LOG_JSON+="}"
+    if [[ "$LOG_JSON" != "{}" ]]; then
+        BUNDLE_CMD+=(--log-files "$LOG_JSON")
+    fi
     # Download Langfuse traces if available
     BUNDLE_CMD+=(--fetch-langfuse)
     if [[ "${BUNDLE_ZIP:-false}" == "true" ]]; then
@@ -291,7 +386,9 @@ compare_cleanup() {
     create_compare_bundle || true
 
     echo -e "${YELLOW:-}Stopping servers...${NC:-}"
-    kill_port_processes 8001
+    kill_port_processes "${REGISTRY_PORT:-8001}"
+    # Staged per-run logs were already copied into the bundle by now.
+    [[ -n "${LOG_STAGE_DIR:-}" && -d "$LOG_STAGE_DIR" ]] && rm -rf "$LOG_STAGE_DIR"
 }
 trap compare_cleanup EXIT INT TERM
 
@@ -302,6 +399,16 @@ CONFIG_RESULT_KEYS=()
 CONFIG_RESULT_VALS=()
 CONFIG_TRAJ_KEYS=()
 CONFIG_TRAJ_VALS=()
+CONFIG_LOG_KEYS=()
+CONFIG_LOG_VALS=()
+
+# Per-run logs are snapshotted into this staging dir after each eval.sh run.
+# The /tmp console/registry logs are overwritten by the next run, so without a
+# snapshot a multi-run bundle would only keep the LAST run's logs. Sentinel
+# grouping (one group per run) mirrors the trajectory collection below.
+LOG_STAGE_DIR="$(mktemp -d 2>/dev/null || echo "/tmp/m3_log_stage_$$")"
+mkdir -p "$LOG_STAGE_DIR"
+LOG_GROUP_SEP="@@RUN@@"
 
 # Per-agent filename discrimination. cuga's eval_m3.py saves result files
 # with prefix m3_config_*.json; eval_m3_react.py saves m3_*.json. The plain
@@ -322,8 +429,7 @@ _list_results_for_agent() {
 }
 
 for config in "${CONFIGS[@]}"; do
-    model="${config%%:*}"
-    agent="${config##*:}"
+    IFS=':' read -r model agent policy_mode <<< "$config"
 
     echo -e "${BLUE:-}══════════════════════════════════════════════════════════════${NC:-}"
     echo -e "${CYAN:-}Configuration: ${config}${NC:-}"
@@ -333,11 +439,26 @@ for config in "${CONFIGS[@]}"; do
         apply_model_profile "$model"
     fi
 
+    # Per-config extra args (e.g., --no-policies when comparing policy modes).
+    config_extra_args=()
+    if [[ "$policy_mode" == "no-policies" ]] || [[ "$GLOBAL_NO_POLICIES" == "true" ]]; then
+        config_extra_args+=(--no-policies)
+    fi
+
     # Snapshot agent-specific result files and trajectory folders before this
     # config's runs. Filtering by agent prevents stale files from the OTHER
     # agent leaking into this config's recent_files.
     before_files=$(_list_results_for_agent "$agent")
-    before_trajs=$(find "$SCRIPT_DIR/logging/trajectory_data" -mindepth 1 -maxdepth 1 -type d 2>/dev/null | sort)
+
+    # Trajectory dirs are grouped per eval.sh run: cuga writes one folder per
+    # domain, so we snapshot before/after EACH run and record that run's new
+    # folders as one group. Groups are separated by a sentinel line so the JSON
+    # builder below can emit a list-of-lists (one inner list per run). This
+    # keeps "one eval.sh run = one bundle run" instead of one run per domain.
+    run_before_trajs=$(find "$SCRIPT_DIR/logging/trajectory_data" -mindepth 1 -maxdepth 1 -type d 2>/dev/null | sort)
+    config_traj_groups=""
+    config_log_groups=""
+    TRAJ_GROUP_SEP="@@RUN@@"
 
     for ((r=1; r<=RUNS; r++)); do
         total_runs=$((total_runs+1))
@@ -347,7 +468,7 @@ for config in "${CONFIGS[@]}"; do
         fi
 
         run_t0=$(date +%s)
-        if bash "$SCRIPT_DIR/eval.sh" --agent "$agent" --no-bundle "${FORWARDED_ARGS[@]}"; then
+        if bash "$SCRIPT_DIR/eval.sh" --agent "$agent" --no-bundle "${config_extra_args[@]}" "${FORWARDED_ARGS[@]}"; then
             run_dur=$(( $(date +%s) - run_t0 ))
             echo -e "${GREEN:-}✓${NC:-} Run $r complete in $(fmt_duration $run_dur)"
         else
@@ -357,6 +478,37 @@ for config in "${CONFIGS[@]}"; do
         fi
         runs_done=$(( runs_done + 1 ))
         runs_elapsed_total=$(( runs_elapsed_total + run_dur ))
+
+        # Record the trajectory folders this single run produced as one group.
+        run_after_trajs=$(find "$SCRIPT_DIR/logging/trajectory_data" -mindepth 1 -maxdepth 1 -type d 2>/dev/null | sort)
+        run_new_trajs=$(comm -13 <(echo "$run_before_trajs") <(echo "$run_after_trajs"))
+        config_traj_groups+="${TRAJ_GROUP_SEP}"$'\n'"${run_new_trajs}"$'\n'
+        run_before_trajs="$run_after_trajs"
+
+        # Snapshot THIS run's logs before the next eval.sh run overwrites them.
+        # Console: eval.sh tees stdout to /tmp/m3_console.log (truncated each
+        # run, so it holds exactly this run). Registry: the --m3-data flow lets
+        # eval_m3.py manage per-service registries and write to
+        # benchmarks/m3/registry_server.log; the multiturn flow uses the outer
+        # /tmp/m3_registry.log. Prefer the former, fall back to the latter.
+        run_log_dir="$LOG_STAGE_DIR/$(echo "$config" | tr ':/' '__')_run${r}"
+        mkdir -p "$run_log_dir"
+        run_log_lines=""
+        if [[ -f /tmp/m3_console.log ]]; then
+            cp -f /tmp/m3_console.log "$run_log_dir/m3_console.log" 2>/dev/null \
+                && run_log_lines+="$run_log_dir/m3_console.log"$'\n'
+        fi
+        reg_src=""
+        if [[ -s "$SCRIPT_DIR/registry_server.log" ]]; then
+            reg_src="$SCRIPT_DIR/registry_server.log"
+        elif [[ -s /tmp/m3_registry.log ]]; then
+            reg_src="/tmp/m3_registry.log"
+        fi
+        if [[ -n "$reg_src" ]]; then
+            cp -f "$reg_src" "$run_log_dir/m3_registry.log" 2>/dev/null \
+                && run_log_lines+="$run_log_dir/m3_registry.log"$'\n'
+        fi
+        config_log_groups+="${LOG_GROUP_SEP}"$'\n'"${run_log_lines}"
 
         # After first run, reuse servers for all subsequent runs
         export SKIP_SERVER_START="true"
@@ -370,11 +522,13 @@ for config in "${CONFIGS[@]}"; do
     CONFIG_RESULT_KEYS+=("$config")
     CONFIG_RESULT_VALS+=("$recent_files")
 
-    # Collect only NEW trajectory folders produced by this config's runs
-    after_trajs=$(find "$SCRIPT_DIR/logging/trajectory_data" -mindepth 1 -maxdepth 1 -type d 2>/dev/null | sort)
-    recent_trajs=$(comm -13 <(echo "$before_trajs") <(echo "$after_trajs"))
+    # Store the per-run trajectory groups (sentinel-delimited) for this config.
     CONFIG_TRAJ_KEYS+=("$config")
-    CONFIG_TRAJ_VALS+=("$recent_trajs")
+    CONFIG_TRAJ_VALS+=("$config_traj_groups")
+
+    # Store the per-run log groups (sentinel-delimited) for this config.
+    CONFIG_LOG_KEYS+=("$config")
+    CONFIG_LOG_VALS+=("$config_log_groups")
 done
 
 total_dur=$(( $(date +%s) - compare_t0 ))
