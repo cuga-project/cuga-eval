@@ -202,7 +202,11 @@ class M3ReactEvaluator:
         if not os.path.isfile(config_path):
             raise FileNotFoundError(f"Registry config not found: {config_path}")
 
-        expanded_path = expand_registry_config(config_path)
+        # Pre-filter source services by --capability so bare-domain expanded
+        # names (e.g. `books` from m3_task_2 vs `books` from m3_task_3) can't
+        # collide in the same expanded yaml — mirrors eval_m3.py's handling.
+        capability_filter = [self.capability] if self.capability else None
+        expanded_path = expand_registry_config(config_path, capability_filter=capability_filter)
         try:
             with open(expanded_path) as f:
                 expanded = yaml.safe_load(f) or {}
