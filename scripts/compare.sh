@@ -88,8 +88,8 @@ cd "$PROJECT_ROOT"
 # Load environment
 source "$PROJECT_ROOT/benchmarks/helpers/load_env.sh" "$BENCHMARK"
 
-# Apply model profile
-apply_model_profile_if_set
+# Apply model profile, then per-run CLI overrides
+finalize_model_config
 
 # Check Langfuse env vars
 check_langfuse_env

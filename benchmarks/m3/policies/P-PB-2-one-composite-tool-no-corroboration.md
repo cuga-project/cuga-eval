@@ -72,7 +72,7 @@ This policy does **not** apply when:
 ## Examples
 
 - ✗ Question: *"What is the forks-to-stars percentage for solution 104086?"*
-  ✗ Wrong: *Call `get_forks_to_stars_percentage(solution=104086)` → 0.00%. Then also call `get_repo_forks` and `get_repo_stars` to "double-check". Then report `0 forks / 1 star = 0.00%, confirmed by `get_forks_to_stars_percentage`.*
+  ✗ Wrong: *Call `get_forks_to_stars_percentage(solution=104086)` → 0.00%. Then also call `get_repo_forks` and `get_repo_stars` to "double-check". Then report 0 forks / 1 star = 0.00%, confirmed by `get_forks_to_stars_percentage`.*
   ✓ Right: *Call `get_forks_to_stars_percentage(solution=104086)` → 0.00%. Report: *"The forks-to-stars percentage for solution 104086 is 0.00% (source: `get_forks_to_stars_percentage`)."**
 - ✗ Question: *"Average net enrolment rate for Algeria 1975–1980?"*
   ✗ Wrong: *Call `get_average_enrolment_rate(country=Algeria, start=1975, end=1980)` → 77.0. Then also call `get_enrolment_rate(year=1975)`, …, `get_enrolment_rate(year=1980)` and average them yourself.*

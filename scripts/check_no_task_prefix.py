@@ -22,7 +22,7 @@ import re
 import sys
 from pathlib import Path
 
-LEGACY_RE = re.compile(r"^task_\d+_[a-z_]+_")
+LEGACY_RE = re.compile(r"^task_\d+_[A-Za-z0-9_]+_")
 
 
 def _iter_tool_calls(obj):
