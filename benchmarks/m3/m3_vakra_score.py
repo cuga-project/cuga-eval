@@ -160,13 +160,25 @@ def _match_live_name(name: str, live_tool_names: List[str]) -> Optional[str]:
     if forward_candidates:
         if len(forward_candidates) == 1:
             return forward_candidates[0]
-        return min(forward_candidates, key=len)
+        shortest = min(len(c) for c in forward_candidates)
+        ties = [c for c in forward_candidates if len(c) == shortest]
+        if len(ties) > 1:
+            logger.debug(
+                f"_match_live_name: forward-match length tie for {name!r}: {ties} — picking {ties[0]!r}"
+            )
+        return ties[0]
     # Fall back to suffix matches (new path for bare-domain registry prefix):
     # longest = most specific live name reachable from the tail of the input.
     if suffix_candidates:
         if len(suffix_candidates) == 1:
             return suffix_candidates[0]
-        return max(suffix_candidates, key=len)
+        longest = max(len(c) for c in suffix_candidates)
+        ties = [c for c in suffix_candidates if len(c) == longest]
+        if len(ties) > 1:
+            logger.debug(
+                f"_match_live_name: suffix-match length tie for {name!r}: {ties} — picking {ties[0]!r}"
+            )
+        return ties[0]
     return None
 
 

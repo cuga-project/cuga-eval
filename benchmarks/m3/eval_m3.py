@@ -685,7 +685,7 @@ class M3Evaluator:
         self.m3_task_id = m3_task_id
         self.domain = domain
         self.agent: Optional[CugaAgent] = None
-        self.langfuse_handler = None
+        self.langfuse_enabled = None
         self.results: List[Dict[str, Any]] = []
 
     # Removed setup() method - now using registry mode only
@@ -713,7 +713,7 @@ class M3Evaluator:
             agent=self.agent,
             task=task,
             task_index=task_index,
-            langfuse_handler=self.langfuse_handler,
+            langfuse_handler=self.langfuse_enabled,
             user_context=None,
             tracker_callback=tracker_callback,
             track_tool_calls=True,
@@ -758,7 +758,7 @@ class M3Evaluator:
             turns=turns,
             task_name=sample_id,
             task_index=sample_index,
-            langfuse_handler=self.langfuse_handler,
+            langfuse_handler=self.langfuse_enabled,
             user_context=None,
             tracker_callback=tracker_callback,
             track_tool_calls=True,
@@ -1007,7 +1007,7 @@ class M3Evaluator:
         # `evaluate_single_task` (above), once each result has been tagged with
         # m3_task_id/domain so capability resolution works. Scoring inside this
         # method is a no-op for that path.
-        flush_langfuse(self.langfuse_handler)
+        flush_langfuse(self.langfuse_enabled)
 
     def print_summary(self):
         """Print evaluation summary (Vakra-only; legacy keyword/count reports removed)."""
@@ -1472,7 +1472,7 @@ async def evaluate_single_task(
             # Do not pass an unscoped CallbackHandler on the agent — that creates
             # orphan root traces per LLM call (especially visible on Watsonx).
             # Gate only — per-task trace-scoped handlers are attached in invoke config.
-            evaluator.langfuse_handler = should_trace_langfuse_task()
+            evaluator.langfuse_enabled = should_trace_langfuse_task()
 
             evaluator.agent = CugaAgent(
                 tool_provider=filtered_provider,  # Only sees this domain's tools

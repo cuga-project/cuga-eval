@@ -46,6 +46,9 @@ _LAZY_EXPORTS = {
     "save_evaluation_results": ("sdk_eval_helpers", "save_evaluation_results"),
 }
 
+if not set(_LAZY_EXPORTS).issubset(__all__):
+    raise AssertionError("every lazy export must be declared in __all__")
+
 
 def __getattr__(name: str):
     if name in _LAZY_EXPORTS:

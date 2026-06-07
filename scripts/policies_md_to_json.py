@@ -53,11 +53,11 @@ def parse_frontmatter(text: str, src: Path) -> tuple[dict[str, Any], str]:
         raise ValueError(f"{src}: file must begin with a YAML frontmatter block delimited by '---'")
     # Find the closing '---' (must be on its own line, after the opening one)
     lines = text.splitlines(keepends=True)
-    if lines[0].rstrip("\n") != "---":
+    if lines[0].rstrip() != "---":
         raise ValueError(f"{src}: opening '---' must be on its own line")
     end_idx = None
     for i in range(1, len(lines)):
-        if lines[i].rstrip("\n") == "---":
+        if lines[i].rstrip() == "---":
             end_idx = i
             break
     if end_idx is None:
@@ -127,7 +127,9 @@ def main(argv: list[str] | None = None) -> int:
 
     output_path = args.output or (args.policies_dir / "policies.json")
     policies = collect_policies(args.policies_dir)
-    output_path.write_text(json.dumps(policies, indent=2, ensure_ascii=False) + "\n")
+    tmp_path = output_path.with_suffix(output_path.suffix + ".tmp")
+    tmp_path.write_text(json.dumps(policies, indent=2, ensure_ascii=False) + "\n")
+    tmp_path.replace(output_path)
     print(f"wrote {len(policies)} policy/policies to {output_path}", file=sys.stderr)
     for p in policies:
         print(f"  - {p['type']:18s} {p['id']}", file=sys.stderr)
