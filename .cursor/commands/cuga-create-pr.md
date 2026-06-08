@@ -81,6 +81,12 @@ just ci
 
 (`lint`, `test-regression`, and `security`). For docs-only or command-only changes, `just lint` may suffice.
 
+Optional live smoke (needs AppWorld + M3 runtime, API keys, capability containers):
+
+```bash
+just test-smoke-e2e
+```
+
 #### Run the Command
 
 

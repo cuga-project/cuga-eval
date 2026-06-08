@@ -48,8 +48,8 @@ def _format_config_label(config_key: str) -> str:
 
 
 def _fmt(val, fmt=","):
-    """Format a numeric value, returning '--' if zero/None."""
-    if val is None or val == 0:
+    """Format a numeric value, returning '--' if None (zero is shown as 0)."""
+    if val is None:
         return "--"
     if fmt == ",":
         # Use 1-decimal precision for floats so we don't surface float-repr

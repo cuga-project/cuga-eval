@@ -91,10 +91,13 @@ markers = [
     "regression: integration tests, run on every PR",
     "stability: long-running tests, scheduled only",
 ]
-# --import-mode=importlib avoids module-name collisions between the four
-# per-benchmark `tests/__init__.py` packages (each named ``tests``), which
-# under the default ``prepend`` mode would shadow each other and fail to
-# collect with ``ModuleNotFoundError: No module named 'tests.test_X'``.
+# Use importlib import mode (`--import-mode=importlib`) so per-benchmark
+# `tests/` packages don't collide on the shared `tests.*` module namespace.
+# Without this, the top-level `tests/` dir and `benchmarks/*/tests/`
+# packages both try to register as the `tests` package and pytest fails
+# to collect with `ModuleNotFoundError: No module named 'tests.test_avg_steps'`
+# (introduced by PR #87 when per-benchmark test dirs were added to
+# testpaths). importlib mode imports each test file independently.
 addopts = "-ra --strict-markers --import-mode=importlib"
 asyncio_mode = "auto"
 

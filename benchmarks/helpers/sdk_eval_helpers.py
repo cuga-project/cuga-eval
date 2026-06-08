@@ -1059,6 +1059,8 @@ async def evaluate_task_with_langfuse(
         react_steps = _react_steps_from_invoke_result(invoke_result)
         if react_steps is not None:
             result["steps"] = react_steps
+        elif result.get("steps") is None and tool_calls:
+            result["steps"] = len(tool_calls)
 
         if predefined_trace_id:
             result["trace_id"] = predefined_trace_id

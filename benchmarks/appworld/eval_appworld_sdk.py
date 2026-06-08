@@ -59,6 +59,7 @@ from benchmarks.helpers import (
     save_evaluation_results,
     setup_agent_with_tools,
 )
+from benchmarks.helpers.sdk_eval_helpers import _react_steps_from_invoke_result
 
 tracker = ActivityTracker()
 var_manager = VariablesManager()
@@ -137,6 +138,7 @@ async def invoke_and_score_appworld(
     eval_dict: Dict[str, Any] = {}
     trace_id: Optional[str] = None
     _langfuse_metrics = None
+    invoke_result_holder: List[Any] = []
 
     async def run_invoke(invoke_config: Optional[dict] = None) -> None:
         nonlocal response, tool_calls, err, is_error, invoked
@@ -148,6 +150,8 @@ async def invoke_and_score_appworld(
                 track_tool_calls=track_tool_calls,
                 config=invoke_config or {},
             )
+            invoke_result_holder.clear()
+            invoke_result_holder.append(invoke_result)
             response = invoke_result.answer
             tool_calls = list(invoke_result.tool_calls or []) if track_tool_calls else []
             invoked = True
@@ -310,6 +314,14 @@ async def invoke_and_score_appworld(
         result["llm_call_details"] = _langfuse_metrics.llm_call_details
         result["node_timings"] = _langfuse_metrics.node_timings
 
+    agent_steps = None
+    if invoke_result_holder:
+        agent_steps = _react_steps_from_invoke_result(invoke_result_holder[0])
+    if agent_steps is None:
+        agent_steps = len(tracker.steps) or len(tool_calls)
+    if agent_steps is not None:
+        result["steps"] = agent_steps
+
     return result
 
 
@@ -424,6 +436,9 @@ B. App-specific instructions:
                 user_context = _build_user_context(world)
 
                 def tracker_callback(result: Dict[str, Any], keyword_check: Dict[str, Any], intent: str):
+                    agent_steps = result.get("steps")
+                    if agent_steps is None:
+                        agent_steps = len(tracker.steps) or len(result.get("tool_calls") or [])
                     eval_info = result.get("appworld_evaluation") or {}
                     report_md = json.dumps(
                         {
@@ -443,7 +458,7 @@ B. App-specific instructions:
                             score=0.0,
                             agent_answer="",
                             exception=True,
-                            num_steps=0,
+                            num_steps=agent_steps,
                             total_llm_calls=result.get("total_llm_calls", 0),
                             total_tokens=result.get("total_tokens", 0),
                             total_cost=result.get("total_cost", 0.0),
@@ -461,7 +476,7 @@ B. App-specific instructions:
                             score=score,
                             agent_answer=result.get("response", ""),
                             exception=False,
-                            num_steps=0,
+                            num_steps=agent_steps,
                             total_llm_calls=result.get("total_llm_calls", 0),
                             total_tokens=result.get("total_tokens", 0),
                             total_cost=result.get("total_cost", 0.0),
