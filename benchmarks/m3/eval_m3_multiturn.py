@@ -3,7 +3,7 @@
 This script:
 1. Loads policies (optional)
 2. Loads tools from the registry
-3. Evaluates each multi-turn task in olympics_mutliturn.json
+3. Evaluates each multi-turn task in olympics_multiturn.json
 4. Handles multiple turns in the same conversation thread
 5. Checks keywords in final responses
 6. Reports results
@@ -104,7 +104,7 @@ class M3MultiTurnEvaluator:
         """Evaluate a single multi-turn task.
 
         Args:
-            sample: Sample dictionary from olympics_mutliturn.json
+            sample: Sample dictionary from olympics_multiturn.json
             sample_index: Index of the sample (for unique thread_id generation)
 
         Returns:
@@ -148,13 +148,13 @@ class M3MultiTurnEvaluator:
 
     async def evaluate_all(self, data_path: str = None):
         """
-        Evaluate all samples from olympics_mutliturn.json.
+        Evaluate all samples from olympics_multiturn.json.
 
         Args:
-            data_path: Path to olympics_mutliturn.json file (defaults to data/olympics_mutliturn.json)
+            data_path: Path to olympics_multiturn.json file (defaults to data/olympics_multiturn.json)
         """
         if data_path is None:
-            data_path = os.path.join(os.path.dirname(__file__), "data", "olympics_mutliturn.json")
+            data_path = os.path.join(os.path.dirname(__file__), "data", "olympics_multiturn.json")
 
         # Load test data
         with open(data_path, "r") as f:
@@ -218,7 +218,7 @@ async def main():
         dest="task",
         help="Run specific tasks/samples by ID (e.g., '91_sc_ONLY_API_OUT_DOMAIN'). Accepts multiple.",
     )
-    default_data_file = os.getenv("M3_MULTITURN_DATA_FILE", "olympics_mutliturn.json")
+    default_data_file = os.getenv("M3_MULTITURN_DATA_FILE", "olympics_multiturn.json")
     parser.add_argument(
         "--data",
         type=str,

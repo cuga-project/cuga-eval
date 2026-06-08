@@ -49,7 +49,7 @@ def _default_task_file(benchmark: str, result_file: Path) -> Path | None:
     data_dir = PROJECT_ROOT / "benchmarks" / benchmark / "data"
     if benchmark == "m3":
         if result_file.name.startswith("multiturn_"):
-            candidate = data_dir / "olympics_mutliturn.json"
+            candidate = data_dir / "olympics_multiturn.json"
         else:
             candidate = data_dir / "hockey.json"
         return candidate if candidate.exists() else None

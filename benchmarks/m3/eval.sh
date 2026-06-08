@@ -156,7 +156,7 @@ create_bundle() {
     # Determine task file used
     local task_file
     if [ "$MULTITURN" = "true" ]; then
-        task_file="$SCRIPT_DIR/data/olympics_mutliturn.json"
+        task_file="$SCRIPT_DIR/data/olympics_multiturn.json"
     else
         task_file="$SCRIPT_DIR/data/hockey.json"
     fi

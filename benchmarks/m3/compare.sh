@@ -302,7 +302,7 @@ create_compare_bundle() {
     local arg
     for arg in "${FORWARDED_ARGS[@]}"; do
         if [[ "$arg" == "--multiturn" ]]; then
-            TASK_FILE="$SCRIPT_DIR/data/olympics_mutliturn.json"
+            TASK_FILE="$SCRIPT_DIR/data/olympics_multiturn.json"
             break
         fi
     done
@@ -417,8 +417,14 @@ LOG_GROUP_SEP="@@RUN@@"
 # the right glob for each agent.
 _list_results_for_agent() {
     local agent="$1"
+    # Exclude interrupt/crash partial saves (m3_config_partial_*,
+    # m3_config_no_gt_partial_*) — they're incomplete runs and would skew
+    # compare_report's totals/pass-rate aggregates if folded in alongside
+    # complete runs.
     if [[ "$agent" == "cuga" ]]; then
-        ls -1 "$RESULTS_DIR"/m3_config_*.json 2>/dev/null | sort
+        ls -1 "$RESULTS_DIR"/m3_config_*.json 2>/dev/null \
+            | grep -vE '/m3_config_(no_gt_)?partial_' \
+            | sort
     else
         # react: m3_*.json but NOT m3_config_*.json (and not multiturn either,
         # which is a separate flow).
