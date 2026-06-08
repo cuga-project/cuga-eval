@@ -320,7 +320,7 @@ async def invoke_and_score_appworld(
         agent_steps = _react_steps_from_invoke_result(invoke_result_holder[0])
     if agent_steps is None:
         agent_steps = len(tracker.steps) or len(tool_calls)
-    if agent_steps:
+    if agent_steps is not None:
         result["steps"] = agent_steps
 
     return result
