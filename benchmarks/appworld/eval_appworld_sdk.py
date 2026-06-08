@@ -59,6 +59,7 @@ from benchmarks.helpers import (
     save_evaluation_results,
     setup_agent_with_tools,
 )
+from benchmarks.helpers.sdk_eval_helpers import _react_steps_from_invoke_result
 
 tracker = ActivityTracker()
 var_manager = VariablesManager()
@@ -312,8 +313,6 @@ async def invoke_and_score_appworld(
         result["generation_timings"] = _langfuse_metrics.generation_timings
         result["llm_call_details"] = _langfuse_metrics.llm_call_details
         result["node_timings"] = _langfuse_metrics.node_timings
-
-    from benchmarks.helpers.sdk_eval_helpers import _react_steps_from_invoke_result
 
     agent_steps = None
     if invoke_result_holder:

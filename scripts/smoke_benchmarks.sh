@@ -30,11 +30,23 @@ latest_bundle_report() {
 
 free_port() {
   local port="$1"
-  if command -v lsof >/dev/null 2>&1 && lsof -ti ":$port" >/dev/null 2>&1; then
-    echo "Freeing port $port..."
-    lsof -ti ":$port" | xargs kill 2>/dev/null || true
-    sleep 2
-  fi
+  command -v lsof >/dev/null 2>&1 || return 0
+  lsof -ti ":$port" >/dev/null 2>&1 || return 0
+
+  echo "Freeing port $port..."
+  lsof -ti ":$port" | xargs kill 2>/dev/null || true
+  for _ in 1 2 3 4 5; do
+    lsof -ti ":$port" >/dev/null 2>&1 || return 0
+    sleep 1
+  done
+  echo "Port $port still occupied; sending SIGKILL..."
+  lsof -ti ":$port" | xargs kill -9 2>/dev/null || true
+  for _ in 1 2 3 4 5; do
+    lsof -ti ":$port" >/dev/null 2>&1 || return 0
+    sleep 1
+  done
+  echo "Port $port still occupied after SIGKILL" >&2
+  return 1
 }
 
 run_and_check() {

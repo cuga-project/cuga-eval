@@ -13,9 +13,7 @@ def _parse_table_header(line: str) -> list[str] | None:
     if not line.startswith("|") or "---" in line:
         return None
     cells = [c.strip() for c in line.strip().strip("|").split("|")]
-    if not cells or cells[0] == "Task":
-        return cells
-    return None
+    return cells if cells and cells[0] == "Task" else None
 
 
 def _is_separator(line: str) -> bool:
