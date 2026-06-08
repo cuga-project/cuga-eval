@@ -48,7 +48,7 @@ just test-sanity     # ~5s
 just test-smoke-e2e  # live: AppWorld + M3 (needs API keys, AppWorld, M3 containers)
 just test-regression # ~7s
 just security        # bandit + pip-audit
-just ci              # all of the above
+just ci              # lint + test-regression + security (smoke is optional/manual, not included)
 ```
 
 CI runs the same `lint`, `test-regression`, and `security` checks on

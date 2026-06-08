@@ -417,6 +417,16 @@ Bundle structure (comparison):
 
 Bundles are stored in `benchmarks/{benchmark}/evaluation_bundles/` and are git-ignored.
 
+#### Resilience: bundles and partial results on interrupt or crash
+
+M3's `eval.sh`/`compare.sh` salvage a best-effort bundle even when a run is interrupted (**Ctrl-C**) or crashes mid-flight, instead of silently losing everything collected so far:
+
+- **Partial result files**: if the evaluator is interrupted or hits an unexpected exception mid-run, it saves whatever task results were already collected to `benchmarks/m3/results/m3_config_partial_*.json` (or `m3_config_no_gt_partial_*.json` with `--no-ground-truth`), distinguishable from complete-run files by the `partial` prefix.
+- **Bundle on exit**: `create_bundle`/`create_compare_bundle` are idempotent and run from both the success path and the script's `cleanup` trap (`trap cleanup EXIT INT TERM ERR`), so a bundle is produced exactly once whether the run finishes normally, is interrupted, or crashes — picking up the freshest result file written during that run.
+- **Comparisons exclude partials**: `compare.sh` filters `m3_config_partial_*`/`m3_config_no_gt_partial_*` out of its result-file collection so an interrupted run doesn't skew aggregate pass-rate/token totals in a comparison report.
+
+This salvage behavior is best-effort and bounded to the currently in-flight task — completed tasks/domains are preserved, but progress within the task that was running at the moment of interruption may still be lost.
+
 ---
 
 ## 🔧 Configuration
