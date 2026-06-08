@@ -6,13 +6,14 @@ import re
 from pathlib import Path
 
 _REQUIRED_COLS = frozenset({"Tokens", "LLM Calls", "Cache Tokens", "Duration", "Steps"})
+_EMPTY_MARKERS = frozenset({"--", "—", "-"})
 
 
 def _parse_table_header(line: str) -> list[str] | None:
     if not line.startswith("|") or "---" in line:
         return None
     cells = [c.strip() for c in line.strip().strip("|").split("|")]
-    if not cells or cells[0] in ("Task",):
+    if not cells or cells[0] == "Task":
         return cells
     return None
 
@@ -61,7 +62,7 @@ def validate_report_md(path: Path) -> list[str]:
         for idx in required_indices:
             col_name = header_cols[idx]
             val = cells[idx] if idx < len(cells) else ""
-            if not val or val in ("--", "—", "-"):
+            if not val or val in _EMPTY_MARKERS:
                 task_label = cells[0] or cells[1] or f"line {line_no}"
                 errors.append(f"{path}:{line_no}: {col_name} is empty for task {task_label!r}")
 
@@ -69,7 +70,7 @@ def validate_report_md(path: Path) -> list[str]:
         m = re.search(rf"\*\*{re.escape(label)}\*\*:\s*(.+)", text)
         if m:
             val = m.group(1).strip()
-            if not val or val == "--":
+            if not val or val in _EMPTY_MARKERS:
                 errors.append(f"{path}: summary {label} is missing")
 
     return errors
