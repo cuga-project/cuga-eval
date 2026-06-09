@@ -131,6 +131,7 @@ COMPARE_AGENTS="${COMPARE_AGENTS:-false}"
 NO_BUNDLE="${NO_BUNDLE:-false}"
 BUNDLE_ZIP="${BUNDLE_ZIP:-false}"
 FORWARDED_ARGS=()
+USE_DOTENV="${USE_DOTENV:-false}"
 
 parse_common_args() {
     local args=("$@")
@@ -191,6 +192,10 @@ parse_common_args() {
                 ;;
             --bundle-zip)
                 BUNDLE_ZIP=true
+                idx=$((idx+1))
+                ;;
+            --dotenv)
+                USE_DOTENV=true
                 idx=$((idx+1))
                 ;;
             --help|-h)
