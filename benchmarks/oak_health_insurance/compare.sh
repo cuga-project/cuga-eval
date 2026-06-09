@@ -36,6 +36,7 @@ AGENTS="${AGENTS:-}"
 COMPARE_AGENTS="${COMPARE_AGENTS:-false}"
 NO_BUNDLE="${NO_BUNDLE:-false}"
 BUNDLE_ZIP="${BUNDLE_ZIP:-false}"
+USE_DOTENV="${USE_DOTENV:-false}"
 FORWARDED_ARGS=()
 
 # Parse arguments
@@ -74,6 +75,10 @@ while [[ $idx -lt ${#ARGS[@]} ]]; do
             ;;
         --bundle-zip)
             BUNDLE_ZIP=true
+            idx=$((idx+1))
+            ;;
+        --dotenv)
+            USE_DOTENV=true
             idx=$((idx+1))
             ;;
         --dry-run)
@@ -155,8 +160,8 @@ for model in "${MODEL_LIST[@]}"; do
     echo -e "${CYAN:-}Model: ${model}${NC:-}"
     echo -e "${BLUE:-}══════════════════════════════════════════════════════════════${NC:-}"
 
-    if type apply_model_profile &>/dev/null; then
-        apply_model_profile "$model"
+    if type apply_model_config &>/dev/null; then
+        apply_model_config "$model"
     fi
 
     # Snapshot existing result files and trajectory folders before this model's runs
