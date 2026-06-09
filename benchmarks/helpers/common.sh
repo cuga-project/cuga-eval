@@ -294,9 +294,27 @@ apply_dotenv_model_overrides() {
     done < "$env_file"
 }
 
+# Apply a model profile and, when USE_DOTENV=true, layer .env overrides on top.
+# With no profile and USE_DOTENV=true, defaults to gpt-oss as the base.
+# env_file is optional; used by tests to supply a temp file instead of the real .env.
+apply_model_config() {
+    local profile="${1:-}"
+    local env_file="${2:-}"
+    if [[ "${USE_DOTENV:-false}" == "true" && -z "$profile" ]]; then
+        profile="gpt-oss"
+    fi
+    if [[ -n "$profile" ]]; then
+        _ensure_model_profiles_loaded || return 1
+        apply_model_profile "$profile" || return 1
+    fi
+    if [[ "${USE_DOTENV:-false}" == "true" ]]; then
+        apply_dotenv_model_overrides "$env_file"
+    fi
+}
+
 # Apply profile then CLI overrides. Call after load_env.sh and arg parsing.
 finalize_model_config() {
-    apply_model_profile_if_set || return 1
+    apply_model_config "$MODEL_PROFILE" || return 1
     apply_model_cli_overrides_if_set
 }
 
