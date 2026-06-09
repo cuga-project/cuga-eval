@@ -27,7 +27,7 @@ echo "apply_dotenv_model_overrides"
 # overrides existing vars from a supplied env file
 result=$(
     source "$SCRIPT_DIR/../common.sh"
-    TMP=$(mktemp); trap "rm -f $TMP" EXIT
+    TMP=$(mktemp); trap 'rm -f "$TMP"' EXIT
     printf 'MODEL_NAME=my-model\nOPENAI_BASE_URL=https://custom\n' > "$TMP"
     export MODEL_NAME=original; export OPENAI_BASE_URL=original
     apply_dotenv_model_overrides "$TMP" > /dev/null 2>&1
@@ -47,7 +47,7 @@ assert_eq "no-op when .env missing" "original" "$result"
 # strips surrounding quotes and inline comments
 result=$(
     source "$SCRIPT_DIR/../common.sh"
-    TMP=$(mktemp); trap "rm -f $TMP" EXIT
+    TMP=$(mktemp); trap 'rm -f "$TMP"' EXIT
     printf 'MODEL_NAME="quoted-model"\nOPENAI_BASE_URL=https://x # comment\n' > "$TMP"
     apply_dotenv_model_overrides "$TMP" > /dev/null 2>&1
     echo "$MODEL_NAME|$OPENAI_BASE_URL"
@@ -57,7 +57,7 @@ assert_eq "strips quotes and inline comments" "quoted-model|https://x" "$result"
 # handles export-prefixed lines
 result=$(
     source "$SCRIPT_DIR/../common.sh"
-    TMP=$(mktemp); trap "rm -f $TMP" EXIT
+    TMP=$(mktemp); trap 'rm -f "$TMP"' EXIT
     printf 'export MODEL_NAME=export-style\n' > "$TMP"
     apply_dotenv_model_overrides "$TMP" > /dev/null 2>&1
     echo "$MODEL_NAME"
@@ -80,7 +80,7 @@ assert_eq "USE_DOTENV=false: MODEL_NAME from profile" "openai/gpt-oss-120b" "$re
 # USE_DOTENV=true with profile: profile runs first, then .env overrides MODEL_NAME
 result=$(
     source "$SCRIPT_DIR/../common.sh"
-    TMP=$(mktemp); trap "rm -f $TMP" EXIT
+    TMP=$(mktemp); trap 'rm -f "$TMP"' EXIT
     printf 'MODEL_NAME=dotenv-override\n' > "$TMP"
     export USE_DOTENV=true
     apply_model_config "gpt-oss" "$TMP" > /dev/null 2>&1
@@ -91,7 +91,7 @@ assert_eq "USE_DOTENV=true: .env wins over profile" "dotenv-override" "$result"
 # USE_DOTENV=true, .env does NOT set MODEL_NAME: profile value is kept
 result=$(
     source "$SCRIPT_DIR/../common.sh"
-    TMP=$(mktemp); trap "rm -f $TMP" EXIT
+    TMP=$(mktemp); trap 'rm -f "$TMP"' EXIT
     printf 'SOME_OTHER_VAR=x\n' > "$TMP"
     export USE_DOTENV=true
     apply_model_config "gpt-oss" "$TMP" > /dev/null 2>&1
@@ -102,7 +102,7 @@ assert_eq "USE_DOTENV=true: profile value kept when .env omits var" "openai/gpt-
 # USE_DOTENV=true, no profile: defaults to gpt-oss base
 result=$(
     source "$SCRIPT_DIR/../common.sh"
-    TMP=$(mktemp); trap "rm -f $TMP" EXIT
+    TMP=$(mktemp); trap 'rm -f "$TMP"' EXIT
     printf 'SOME_OTHER_VAR=x\n' > "$TMP"
     export USE_DOTENV=true
     apply_model_config "" "$TMP" > /dev/null 2>&1
