@@ -30,7 +30,7 @@ result=$(
     TMP=$(mktemp); trap "rm -f $TMP" EXIT
     printf 'MODEL_NAME=my-model\nOPENAI_BASE_URL=https://custom\n' > "$TMP"
     export MODEL_NAME=original; export OPENAI_BASE_URL=original
-    apply_dotenv_model_overrides "$TMP" > /dev/null
+    apply_dotenv_model_overrides "$TMP" > /dev/null 2>&1
     echo "$MODEL_NAME|$OPENAI_BASE_URL"
 )
 assert_eq "overrides MODEL_NAME and OPENAI_BASE_URL" "my-model|https://custom" "$result"
@@ -49,7 +49,7 @@ result=$(
     source "$SCRIPT_DIR/../common.sh"
     TMP=$(mktemp); trap "rm -f $TMP" EXIT
     printf 'MODEL_NAME="quoted-model"\nOPENAI_BASE_URL=https://x # comment\n' > "$TMP"
-    apply_dotenv_model_overrides "$TMP" > /dev/null
+    apply_dotenv_model_overrides "$TMP" > /dev/null 2>&1
     echo "$MODEL_NAME|$OPENAI_BASE_URL"
 )
 assert_eq "strips quotes and inline comments" "quoted-model|https://x" "$result"
@@ -59,7 +59,7 @@ result=$(
     source "$SCRIPT_DIR/../common.sh"
     TMP=$(mktemp); trap "rm -f $TMP" EXIT
     printf 'export MODEL_NAME=export-style\n' > "$TMP"
-    apply_dotenv_model_overrides "$TMP" > /dev/null
+    apply_dotenv_model_overrides "$TMP" > /dev/null 2>&1
     echo "$MODEL_NAME"
 )
 assert_eq "handles export-prefixed lines" "export-style" "$result"
@@ -72,7 +72,7 @@ echo "apply_model_config"
 result=$(
     source "$SCRIPT_DIR/../common.sh"
     export USE_DOTENV=false
-    apply_model_config "gpt-oss" > /dev/null
+    apply_model_config "gpt-oss" > /dev/null 2>&1
     echo "$MODEL_NAME"
 )
 assert_eq "USE_DOTENV=false: MODEL_NAME from profile" "openai/gpt-oss-120b" "$result"
@@ -83,7 +83,7 @@ result=$(
     TMP=$(mktemp); trap "rm -f $TMP" EXIT
     printf 'MODEL_NAME=dotenv-override\n' > "$TMP"
     export USE_DOTENV=true
-    apply_model_config "gpt-oss" "$TMP" > /dev/null
+    apply_model_config "gpt-oss" "$TMP" > /dev/null 2>&1
     echo "$MODEL_NAME"
 )
 assert_eq "USE_DOTENV=true: .env wins over profile" "dotenv-override" "$result"
@@ -94,7 +94,7 @@ result=$(
     TMP=$(mktemp); trap "rm -f $TMP" EXIT
     printf 'SOME_OTHER_VAR=x\n' > "$TMP"
     export USE_DOTENV=true
-    apply_model_config "gpt-oss" "$TMP" > /dev/null
+    apply_model_config "gpt-oss" "$TMP" > /dev/null 2>&1
     echo "$MODEL_NAME"
 )
 assert_eq "USE_DOTENV=true: profile value kept when .env omits var" "openai/gpt-oss-120b" "$result"
@@ -105,7 +105,7 @@ result=$(
     TMP=$(mktemp); trap "rm -f $TMP" EXIT
     printf 'SOME_OTHER_VAR=x\n' > "$TMP"
     export USE_DOTENV=true
-    apply_model_config "" "$TMP" > /dev/null
+    apply_model_config "" "$TMP" > /dev/null 2>&1
     echo "$MODEL_NAME"
 )
 assert_eq "USE_DOTENV=true, no profile: defaults to gpt-oss" "openai/gpt-oss-120b" "$result"
