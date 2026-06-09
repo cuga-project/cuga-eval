@@ -254,6 +254,46 @@ apply_model_cli_overrides_if_set() {
     fi
 }
 
+# Re-read .env with force-export semantics so .env vars win over a
+# previously-applied model profile. Accepts an optional path argument for
+# testability; defaults to <project_root>/.env derived from BASH_SOURCE[0].
+apply_dotenv_model_overrides() {
+    local helpers_dir env_file
+    helpers_dir="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+    env_file="${1:-$helpers_dir/../../.env}"
+
+    if [ ! -f "$env_file" ]; then
+        echo -e "${YELLOW}Warning: --dotenv specified but .env not found at $env_file${NC}"
+        return 0
+    fi
+
+    echo -e "${GREEN}✓${NC} .env overrides (--dotenv):"
+    local line key val
+    while IFS= read -r line || [[ -n "$line" ]]; do
+        [[ "$line" =~ ^[[:space:]]*# ]] && continue
+        [[ -z "${line//[[:space:]]/}" ]] && continue
+        if [[ "$line" =~ ^[[:space:]]*export[[:space:]]+([A-Za-z_][A-Za-z0-9_]*)=(.*) ]]; then
+            key="${BASH_REMATCH[1]}"
+            val="${BASH_REMATCH[2]}"
+        elif [[ "$line" =~ ^[[:space:]]*([A-Za-z_][A-Za-z0-9_]*)=(.*) ]]; then
+            key="${BASH_REMATCH[1]}"
+            val="${BASH_REMATCH[2]}"
+        else
+            continue
+        fi
+        # Strip inline comments from unquoted values
+        if [[ "$val" != \"*\" && "$val" != \'*\' ]]; then
+            val="${val%%[[:space:]]#*}"
+            val="${val%"${val##*[![:space:]]}"}"
+        fi
+        # Strip surrounding quotes
+        val="${val#\"}" ; val="${val%\"}"
+        val="${val#\'}" ; val="${val%\'}"
+        echo -e "  ${GREEN}↳${NC} $key=$val"
+        export "$key=$val"
+    done < "$env_file"
+}
+
 # Apply profile then CLI overrides. Call after load_env.sh and arg parsing.
 finalize_model_config() {
     apply_model_profile_if_set || return 1
