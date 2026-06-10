@@ -328,6 +328,16 @@ if [ "$NO_POLICIES" != "true" ] && [ -d "$POLICIES_DIR" ]; then
 fi
 
 # Select eval script
+#
+# The evaluator may exit non-zero (task failures, agent crashes, etc.). With
+# `set -e` and `trap cleanup ERR` active (see top of script), a non-zero exit
+# from the commands below would immediately invoke cleanup() — which calls
+# `exit` — before EVAL_EXIT=$? and the success/failure banners below ever run
+# (issue #55). Suppress both around the invocation so the exit status falls
+# through to the explicit handling; cleanup() still runs via the EXIT trap at
+# the bottom of this script.
+trap '' ERR
+set +e
 if [ "$M3_DATA" = "true" ]; then
     if [ "${AGENT:-cuga}" = "react" ]; then
         if [ "$NO_GROUND_TRUTH" = "true" ]; then
@@ -369,6 +379,8 @@ else
 fi
 
 EVAL_EXIT=$?
+set -e
+trap cleanup ERR
 
 if [ $EVAL_EXIT -eq 0 ]; then
     echo -e "${GREEN:-}✓${NC:-} M3 evaluation completed successfully"
