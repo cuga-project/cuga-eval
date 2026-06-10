@@ -42,6 +42,7 @@ from benchmarks.helpers import (
     save_evaluation_results,
     setup_react_agent_for_evaluation,
 )
+from benchmarks.m3.eval_config_loader import filter_samples_by_eval_key, load_eval_key_ids
 from benchmarks.m3.m3_data_loader import M3DataLoader
 
 
@@ -159,11 +160,14 @@ class M3ReactEvaluator:
         max_samples: Optional[int] = None,
         from_config: Optional[str] = None,
         no_ground_truth: bool = False,
+        eval_key_ids: Optional[set] = None,
     ):
         self.difficulty_filter = difficulty_filter
         self.task_ids = [task_id] if isinstance(task_id, str) else task_id
         self.m3_data_path = m3_data_path
         self.capability = capability
+        # Lower-cased sample-id set from --eval-key, or None for no restriction.
+        self.eval_key_ids = eval_key_ids
         # Normalize domain_filter to a set[str] so single/multi forms behave the same
         if domain_filter is None:
             self.domain_filter: Optional[set] = None
@@ -438,6 +442,7 @@ class M3ReactEvaluator:
                 if self.domain_filter and dom not in self.domain_filter:
                     continue
                 merged_samples = loader.load_domain(tid, dom)
+                merged_samples = filter_samples_by_eval_key(merged_samples, self.eval_key_ids)
                 for sample in merged_samples:
                     tc = _merged_to_react_test_case(sample, task_id=tid)
                     if tc is not None:
@@ -735,6 +740,17 @@ async def main():
         "results/_vakra/prediction/<domain>.json.",
     )
     parser.add_argument(
+        "--eval-key",
+        dest="eval_key",
+        default=None,
+        metavar="KEY",
+        help="Restrict the --m3-data corpus to a named split from "
+        "benchmarks/m3/eval_config.toml (e.g. 'train' or 'test'), applied "
+        "before --task/--domain/--capability filters. Requires --m3-data. "
+        "If omitted, falls back to the config's default `eval_key` (if any), "
+        "otherwise the full corpus is used.",
+    )
+    parser.add_argument(
         "--capability",
         type=str,
         default=None,
@@ -777,6 +793,22 @@ async def main():
         logger.error("--no-ground-truth requires --m3-data <path>")
         return
 
+    eval_key_ids = None
+    if args.m3_data:
+        try:
+            eval_key_id_list = load_eval_key_ids(getattr(args, "eval_key", None))
+        except (KeyError, FileNotFoundError) as e:
+            logger.error(f"--eval-key error: {e}")
+            return
+        if eval_key_id_list:
+            eval_key_ids = {i.lower() for i in eval_key_id_list}
+            logger.info(
+                f"📦 --eval-key {getattr(args, 'eval_key', None) or '(default)'}: "
+                f"restricting --m3-data corpus to {len(eval_key_ids)} sample id(s)"
+            )
+    elif getattr(args, "eval_key", None):
+        logger.warning("--eval-key requires --m3-data; ignoring")
+
     evaluator = M3ReactEvaluator(
         difficulty_filter=args.difficulty,
         task_id=args.task,
@@ -786,6 +818,7 @@ async def main():
         max_samples=args.max_samples,
         from_config=args.from_config,
         no_ground_truth=getattr(args, "no_ground_truth", False),
+        eval_key_ids=eval_key_ids,
     )
 
     try:

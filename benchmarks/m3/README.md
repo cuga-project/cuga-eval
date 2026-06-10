@@ -157,6 +157,40 @@ Notes:
   samples are skipped with a warning if any appear (the bundled zip is all
   single-turn).
 
+### Evaluation Task Groups (`--eval-key`)
+
+[`eval_config.toml`](eval_config.toml) defines reproducible train/test splits over
+the `data/small_train.zip` corpus (200 samples: 20 domains × 10 tasks each, evenly
+split across the two capabilities). Pass `--eval-key <name>` to restrict
+`--m3-data` to one of these named sets, applied *before* any
+`--task`/`--domain`/`--capability`/`--max-samples-per-domain` filters (those still
+narrow the set further).
+
+| Eval key | Tasks | Description |
+|---|---|---|
+| `train` | 100 | Stratified 50% of each (capability, domain) group — for prompt/policy iteration |
+| `test` | 100 | The other 50% of each group — held out for final scoring |
+
+```bash
+# Run only the train split
+caffeinate -i bash benchmarks/m3/eval.sh \
+  --m3-data benchmarks/m3/data/small_train.zip --eval-key train
+
+# Run only the test split, hockey domain
+caffeinate -i bash benchmarks/m3/eval.sh \
+  --m3-data benchmarks/m3/data/small_train.zip --eval-key test \
+  --capability m3_task_2 --domain hockey
+```
+
+The committed `eval_config.toml` does not set a default `eval_key`, so omitting
+`--eval-key` runs the full corpus (unchanged behavior). Regenerate the split
+(e.g. with a different `--ratio`/`--seed`, or against a different `--m3-data`
+corpus) with:
+
+```bash
+uv run python benchmarks/m3/scripts/generate_eval_split.py --ratio 0.5 --seed 42
+```
+
 ### M3 unlabeled / no-ground-truth recipes
 
 For datasets that ship only an `input/` side (e.g. the Vakra test set under

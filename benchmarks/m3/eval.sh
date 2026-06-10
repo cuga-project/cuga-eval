@@ -22,13 +22,16 @@ fi
 # Early --help before any server startup
 for arg in "$@"; do
     if [[ "$arg" == "--help" || "$arg" == "-h" ]]; then
-        echo "Usage: ./eval.sh [--multiturn] [--m3-data PATH] [--capability NAME] [--task TASK] [--difficulty LEVEL] [--no-bundle] [--bundle-zip] [--model-profile NAME]"
+        echo "Usage: ./eval.sh [--multiturn] [--m3-data PATH] [--eval-key KEY] [--capability NAME] [--task TASK] [--difficulty LEVEL] [--no-bundle] [--bundle-zip] [--model-profile NAME]"
         echo ""
         echo "Options:"
         echo "  --multiturn                 Run multi-turn evaluation"
         echo "  --m3-data PATH              Load merged samples from an M3 data source — either a"
         echo "                              .zip or a directory containing capability_<id>_* subdirs."
         echo "                              Uses config/m3_registry_m3_data.yaml. Scores by tool-call count."
+        echo "  --eval-key KEY              Restrict --m3-data to a named split from"
+        echo "                              benchmarks/m3/eval_config.toml (e.g. 'train' or 'test'),"
+        echo "                              applied before --task/--domain/--capability filters."
         echo "  --no-ground-truth           Run --m3-data on input-only data (no output/ folder)."
         echo "                              Skips evaluation/scoring; collects predictions only into"
         echo "                              results/_vakra/prediction/<domain>.json."
@@ -48,6 +51,7 @@ for arg in "$@"; do
         echo "  ./eval.sh --m3-data /some/dir                                      # Directory of input/output files"
         echo "  ./eval.sh --m3-data some.zip                                       # Zip archive of input/output files"
         echo "  ./eval.sh --m3-data some.zip --capability m3_task_2 --domain hockey  # One capability, one domain"
+        echo "  ./eval.sh --m3-data some.zip --eval-key train                      # Train split only"
         echo "  ./eval.sh --task hockey_395_0                                      # Single test case"
         exit 0
     fi
@@ -57,6 +61,7 @@ done
 MULTITURN=false
 M3_DATA=false
 M3_DATA_PATH=""
+EVAL_KEY=""
 NO_GROUND_TRUTH=false
 NO_POLICIES=false
 PASSTHROUGH_ARGS=()
@@ -74,6 +79,14 @@ while [[ $# -gt 0 ]]; do
                 exit 2
             fi
             M3_DATA_PATH="$2"
+            shift 2
+            ;;
+        --eval-key)
+            if [[ -z "${2:-}" || "$2" == --* ]]; then
+                echo "Error: --eval-key requires a name (e.g. 'train' or 'test')" >&2
+                exit 2
+            fi
+            EVAL_KEY="$2"
             shift 2
             ;;
         --no-ground-truth)
@@ -175,6 +188,9 @@ create_bundle() {
         --report "$report_tmp")
     if [ -n "$MODEL_PROFILE" ]; then
         bundle_args+=(--model-profile "$MODEL_PROFILE")
+    fi
+    if [ -n "$EVAL_KEY" ]; then
+        bundle_args+=(--eval-key "$EVAL_KEY")
     fi
     if [ "$NO_POLICIES" = "true" ]; then
         bundle_args+=(--no-policies)
@@ -301,9 +317,19 @@ if [ "$NO_GROUND_TRUTH" = "true" ] && [ "$M3_DATA" != "true" ]; then
     exit 2
 fi
 
+# --eval-key only makes sense against an --m3-data corpus (it restricts that
+# corpus to a named train/test split before --task/--domain/--capability).
+if [ -n "$EVAL_KEY" ] && [ "$M3_DATA" != "true" ]; then
+    echo -e "${RED:-}Error: --eval-key requires --m3-data <path>${NC:-}" >&2
+    exit 2
+fi
+
 EVAL_M3_EXTRA=()
 if [ "$NO_GROUND_TRUTH" = "true" ]; then
     EVAL_M3_EXTRA+=(--no-ground-truth)
+fi
+if [ -n "$EVAL_KEY" ]; then
+    EVAL_M3_EXTRA+=(--eval-key "$EVAL_KEY")
 fi
 if [ "$NO_POLICIES" = "true" ]; then
     EVAL_M3_EXTRA+=(--no-policies)

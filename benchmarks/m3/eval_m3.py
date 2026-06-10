@@ -94,6 +94,7 @@ from benchmarks.helpers.sdk_eval_helpers import (
     clear_all_policies,
     is_langfuse_tracing_enabled,
 )
+from benchmarks.m3.eval_config_loader import filter_samples_by_eval_key, load_eval_key_ids
 from benchmarks.m3.m3_data_loader import M3DataLoader, diff_tool_calls
 
 # Injected into CugaLite's system prompt via SDK special_instructions (eval-only).
@@ -1382,6 +1383,19 @@ async def evaluate_single_task(
                 continue
             domain_multiturn = True
             logger.info(f"📦 --m3-data: loaded {len(preloaded_data)} samples for task_{task_id}/{domain}")
+
+            eval_key_ids = getattr(args, "eval_key_ids", None)
+            if eval_key_ids is not None:
+                preloaded_data = filter_samples_by_eval_key(preloaded_data, eval_key_ids)
+                if not preloaded_data:
+                    logger.info(
+                        f"[{service_name}/{domain}] --eval-key: no samples in this split for "
+                        f"this domain; skipping"
+                    )
+                    continue
+                logger.info(
+                    f"📦 --eval-key: restricted task_{task_id}/{domain} to {len(preloaded_data)} sample(s)"
+                )
         else:
             # Determine data file path
             # Use M3_DATA_DIR environment variable if set, otherwise default to benchmarks/m3/data
@@ -2341,6 +2355,27 @@ async def run_config_mode(args, container_runtime: str, defer_save: bool = False
             f"no_ground_truth={no_ground_truth}"
         )
 
+    # Resolve --eval-key (or the config's default eval_key) to a set of
+    # sample ids that restricts the --m3-data corpus. Stashed on `args` so
+    # evaluate_single_task can read it without a signature change, mirroring
+    # how --domain is read via getattr(args, "domain", None).
+    if m3_data_loader is not None:
+        try:
+            eval_key_id_list = load_eval_key_ids(getattr(args, "eval_key", None))
+        except (KeyError, FileNotFoundError) as e:
+            logger.error(f"--eval-key error: {e}")
+            return
+        if eval_key_id_list:
+            args.eval_key_ids = {i.lower() for i in eval_key_id_list}
+            logger.info(
+                f"📦 --eval-key {getattr(args, 'eval_key', None) or '(default)'}: "
+                f"restricting --m3-data corpus to {len(args.eval_key_ids)} sample id(s)"
+            )
+        else:
+            args.eval_key_ids = None
+    elif getattr(args, "eval_key", None):
+        logger.warning("--eval-key requires --m3-data; ignoring")
+
     # When --m3-data is set but no --capability/--task service name was given,
     # expand one capability at a time. Bare-domain registry names (books,
     # mondial_geo, soccer_2016, …) collide across m3_task_2 and m3_task_3 if
@@ -2897,6 +2932,17 @@ Examples:
         "per domain. When set, samples are loaded by merging input/output "
         "pairs. Pass/fail is scored by tool-call count match against "
         "gold_sequence; keyword matching is bypassed.",
+    )
+    parser.add_argument(
+        "--eval-key",
+        dest="eval_key",
+        default=None,
+        metavar="KEY",
+        help="Restrict the --m3-data corpus to a named split from "
+        "benchmarks/m3/eval_config.toml (e.g. 'train' or 'test'), applied "
+        "before --task/--domain/--capability filters. Requires --m3-data. "
+        "If omitted, falls back to the config's default `eval_key` (if any), "
+        "otherwise the full corpus is used.",
     )
     parser.add_argument(
         "--no-ground-truth",

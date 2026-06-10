@@ -297,13 +297,17 @@ create_compare_bundle() {
     done
     TRAJ_JSON_INPUT+="}"
 
-    # Determine task file
+    # Determine task file, and pick up --eval-key (forwarded to each eval.sh
+    # run already; captured here too so the compare bundle records it).
     local TASK_FILE="$SCRIPT_DIR/data/hockey.json"
-    local arg
-    for arg in "${FORWARDED_ARGS[@]}"; do
+    local EVAL_KEY=""
+    local arg i
+    for ((i = 0; i < ${#FORWARDED_ARGS[@]}; i++)); do
+        arg="${FORWARDED_ARGS[$i]}"
         if [[ "$arg" == "--multiturn" ]]; then
             TASK_FILE="$SCRIPT_DIR/data/olympics_multiturn.json"
-            break
+        elif [[ "$arg" == "--eval-key" ]]; then
+            EVAL_KEY="${FORWARDED_ARGS[$((i+1))]:-}"
         fi
     done
 
@@ -312,6 +316,9 @@ create_compare_bundle() {
         --config-results "$JSON_INPUT"
         --report "$REPORT_TMP"
         --task-files "$TASK_FILE")
+    if [[ -n "$EVAL_KEY" ]]; then
+        BUNDLE_CMD+=(--eval-key "$EVAL_KEY")
+    fi
 
     if [[ -n "$MODEL_ENVS_JSON" ]]; then
         BUNDLE_CMD+=(--model-envs "$MODEL_ENVS_JSON")

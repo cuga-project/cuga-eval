@@ -293,6 +293,9 @@ cd benchmarks/m3 && ./eval.sh --task hockey_395_0
 # M3-specific: filter by difficulty
 ./benchmarks/m3/eval.sh --difficulty easy
 
+# M3-specific: run a predefined train/test split from eval_config.toml
+./benchmarks/m3/eval.sh --m3-data benchmarks/m3/data/small_train.zip --eval-key train
+
 # ── Compare by model ─────────────────────────────────────────
 ./benchmarks/m3/compare.sh --models gpt-oss,gpt4o --runs 1 --task hockey_395_0
 
@@ -363,6 +366,7 @@ Benchmark-specific flags:
 | Flag | Benchmark | Effect |
 |---|---|---|
 | `--eval-key <key>` | AppWorld | Run a predefined task group from `benchmarks/appworld/eval_config.toml` (e.g. `test_challenge_easy`, `test_normal_all_hard`). |
+| `--eval-key train\|test` | M3 | Restrict `--m3-data` to a predefined split from `benchmarks/m3/eval_config.toml`, applied before `--task`/`--domain`/`--capability`. Requires `--m3-data`. |
 | `--specific-task-levels 1 2 3` | AppWorld | Filter by difficulty level. |
 | `--multiturn` | M3 | Run multi-turn evaluation (CUGA agent only). |
 | `--difficulty easy\|medium\|hard` | M3, Oak | Filter tasks by difficulty. |
