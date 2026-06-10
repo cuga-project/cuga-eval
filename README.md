@@ -342,6 +342,10 @@ cd benchmarks/appworld && ./eval.sh --task 82e2fac_1
 # Compare via dispatcher
 ./scripts/compare.sh --benchmark bpo --runs 3
 ./scripts/compare.sh --benchmark m3 --runs 2
+
+# .env overrides model profile (.env wins; defaults to gpt-oss base if no --model-profile)
+./scripts/eval.sh --benchmark bpo --dotenv
+./scripts/eval.sh --benchmark bpo --model-profile gpt4o --dotenv
 ```
 
 ### Common flags
@@ -355,6 +359,7 @@ Flags accepted by every `eval.sh` (and forwarded by every `compare.sh`):
 | `--task <id>...` | Run only the listed task(s) (numeric IDs, task names, or — for AppWorld — task UUIDs). |
 | `--agent cuga\|react` | Pick agent. `cuga` is the default; `react` runs the lightweight ReAct baseline. Not all benchmarks support both (see Agent Selection above). |
 | `--model-profile <name>` | Pick model profile (`gpt-oss`, `gpt4o`, `gpt4.1`, `opus4.5`). Default comes from `.env`. |
+| `--dotenv` | After applying the model profile, re-read `.env` and force-export every variable it contains. `.env` values override the profile. If no `--model-profile` is given, defaults to `gpt-oss` as the base. In `compare.sh` this forces a single model, so it cannot be combined with a multi-model `--models a,b,…` list (the run would compare a model against itself). |
 | `--no-bundle` | Skip reproducibility bundle creation. |
 | `--bundle-zip` | Zip the bundle for sharing. |
 

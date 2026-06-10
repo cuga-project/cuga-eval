@@ -30,6 +30,7 @@ for arg in "${FORWARDED_ARGS[@]}"; do
         echo "  --benchmark, -b <name>    Benchmark to run (required)"
         echo "  --agent <name>            Agent to run (cuga, react; default: cuga)"
         echo "  --model-profile <name>    Model profile (gpt-oss, gpt4o, gpt4.1, opus4.5)"
+        echo "  --dotenv                  Use .env values to override the model profile"
         echo "  --verbose, -v             Enable verbose output"
         echo "  --no-bundle               Skip reproducibility bundle creation"
         echo "  --bundle-zip              Create zip archive of bundle"
@@ -86,7 +87,7 @@ finalize_model_config
 check_langfuse_env
 
 # Export common variables for the benchmark script
-export NO_BUNDLE BUNDLE_ZIP MODEL_PROFILE VERBOSE AGENT
+export NO_BUNDLE BUNDLE_ZIP MODEL_PROFILE VERBOSE AGENT USE_DOTENV
 
 echo -e "${BLUE}╔════════════════════════════════════════════════════════════╗${NC}"
 echo -e "${BLUE}║  Evaluation: ${BENCHMARK} [${AGENT}]$(printf '%*s' $((34 - ${#BENCHMARK} - ${#AGENT})) '')║${NC}"

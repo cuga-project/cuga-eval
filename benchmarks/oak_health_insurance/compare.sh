@@ -36,6 +36,7 @@ AGENTS="${AGENTS:-}"
 COMPARE_AGENTS="${COMPARE_AGENTS:-false}"
 NO_BUNDLE="${NO_BUNDLE:-false}"
 BUNDLE_ZIP="${BUNDLE_ZIP:-false}"
+USE_DOTENV="${USE_DOTENV:-false}"
 FORWARDED_ARGS=()
 
 # Parse arguments
@@ -76,6 +77,10 @@ while [[ $idx -lt ${#ARGS[@]} ]]; do
             BUNDLE_ZIP=true
             idx=$((idx+1))
             ;;
+        --dotenv)
+            USE_DOTENV=true
+            idx=$((idx+1))
+            ;;
         --dry-run)
             DRY_RUN=true
             idx=$((idx+1))
@@ -102,6 +107,11 @@ if [[ -z "$AGENTS" ]]; then
 fi
 
 IFS=',' read -ra MODEL_LIST <<< "$MODELS"
+
+# --dotenv forces a single model from .env; reject multi-model comparisons.
+if type require_single_model_for_dotenv &>/dev/null; then
+    require_single_model_for_dotenv "${MODEL_LIST[@]}" || exit 1
+fi
 
 echo -e "${BLUE:-}╔════════════════════════════════════════════════════════════╗${NC:-}"
 echo -e "${BLUE:-}║  Oak Health Insurance: Multi-Run Comparison                ║${NC:-}"
@@ -155,8 +165,12 @@ for model in "${MODEL_LIST[@]}"; do
     echo -e "${CYAN:-}Model: ${model}${NC:-}"
     echo -e "${BLUE:-}══════════════════════════════════════════════════════════════${NC:-}"
 
-    if type apply_model_profile &>/dev/null; then
-        apply_model_profile "$model"
+    if type apply_model_config &>/dev/null; then
+        if ! apply_model_config "$model"; then
+            echo -e "${RED:-}Error: Failed to apply model config '$model'${NC:-}"
+            echo -e "${YELLOW:-}Valid profiles: gpt-oss, gpt4o, gpt4.1, opus4.5${NC:-}"
+            exit 1
+        fi
     fi
 
     # Snapshot existing result files and trajectory folders before this model's runs

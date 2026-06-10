@@ -23,6 +23,9 @@ else
     GREEN='' BLUE='' YELLOW='' RED='' CYAN='' NC=''
 fi
 
+# Shared .env parser (_parse_env_file), used by apply_dotenv_model_overrides.
+source "$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)/env_parse.sh"
+
 # Tracked PIDs for cleanup
 _CLEANUP_PIDS=()
 
@@ -131,6 +134,7 @@ COMPARE_AGENTS="${COMPARE_AGENTS:-false}"
 NO_BUNDLE="${NO_BUNDLE:-false}"
 BUNDLE_ZIP="${BUNDLE_ZIP:-false}"
 FORWARDED_ARGS=()
+USE_DOTENV="${USE_DOTENV:-false}"
 
 parse_common_args() {
     local args=("$@")
@@ -193,6 +197,10 @@ parse_common_args() {
                 BUNDLE_ZIP=true
                 idx=$((idx+1))
                 ;;
+            --dotenv)
+                USE_DOTENV=true
+                idx=$((idx+1))
+                ;;
             --help|-h)
                 # Let the caller handle --help
                 FORWARDED_ARGS+=("$arg")
@@ -249,26 +257,79 @@ apply_model_cli_overrides_if_set() {
     fi
 }
 
+# Re-read .env with force-export semantics so .env vars win over a
+# previously-applied model profile. Resolution order for the file:
+#   $1 (explicit path, used by tests) → $DOTENV_FILE → <project_root>/.env
+apply_dotenv_model_overrides() {
+    local helpers_dir env_file
+    helpers_dir="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+    env_file="${1:-${DOTENV_FILE:-$helpers_dir/../../.env}}"
+
+    if [ ! -f "$env_file" ]; then
+        echo -e "${YELLOW}Warning: --dotenv specified but .env not found at $env_file${NC}"
+        return 0
+    fi
+
+    echo -e "${GREEN}✓${NC} .env overrides (--dotenv):"
+    _parse_env_file "$env_file" true true
+}
+
+# Guard: --dotenv forces model configuration from .env, so comparing more than
+# one model would silently run the same model for every config (the comparison
+# would be meaningless). Refuse the combination loudly.
+# Usage: require_single_model_for_dotenv "${MODEL_LIST[@]}"
+require_single_model_for_dotenv() {
+    if [[ "${USE_DOTENV:-false}" == "true" && $# -gt 1 ]]; then
+        echo -e "${RED}Error: --dotenv cannot be combined with multiple models: $*${NC}" >&2
+        echo -e "${YELLOW}--dotenv forces model configuration from .env, so every config would run the same model and the comparison would be meaningless.${NC}" >&2
+        echo -e "${YELLOW}Run a single model with --dotenv, or drop --dotenv to compare profiles.${NC}" >&2
+        return 1
+    fi
+    return 0
+}
+
+# Apply a model profile and, when USE_DOTENV=true, layer .env overrides on top.
+# With no profile and USE_DOTENV=true, defaults to gpt-oss as the base.
+# env_file is optional; used by tests to supply a temp file instead of the real .env.
+apply_model_config() {
+    local profile="${1:-}"
+    local env_file="${2:-}"
+    if [[ "${USE_DOTENV:-false}" == "true" && -z "$profile" ]]; then
+        profile="gpt-oss"
+    fi
+    if [[ -n "$profile" ]]; then
+        _ensure_model_profiles_loaded || return 1
+        apply_model_profile "$profile" || return 1
+    fi
+    if [[ "${USE_DOTENV:-false}" == "true" ]]; then
+        apply_dotenv_model_overrides "$env_file"
+    fi
+}
+
 # Apply profile then CLI overrides. Call after load_env.sh and arg parsing.
 finalize_model_config() {
-    apply_model_profile_if_set || return 1
+    apply_model_config "$MODEL_PROFILE" || return 1
     apply_model_cli_overrides_if_set
 }
 
 # Build model-envs JSON for bundle CLI.
 # Usage: build_model_envs_json model1 model2 ...
-# Applies each profile, captures env vars, and outputs JSON to stdout.
-# Restores original env after each model.
+# Applies each model config (profile + .env overrides when USE_DOTENV=true) so
+# the captured snapshot matches what actually ran, then outputs JSON to stdout.
+# Restores original env afterwards.
 build_model_envs_json() {
     local models=("$@")
     local json="{"
     local first=true
 
-    # Save current env
+    # Save current env. DYNACONF_* are snapshotted too because apply_model_config
+    # (profile and/or .env when --dotenv) can export them as a side effect.
     local orig_agent_setting="${AGENT_SETTING_CONFIG:-}"
     local orig_model_name="${MODEL_NAME:-}"
     local orig_base_url="${OPENAI_BASE_URL:-}"
     local orig_api_version="${OPENAI_API_VERSION:-}"
+    local orig_dynaconf
+    orig_dynaconf="$(env | grep '^DYNACONF_' || true)"
 
     for model in "${models[@]}"; do
         if [[ "$first" != "true" ]]; then
@@ -276,8 +337,8 @@ build_model_envs_json() {
         fi
         first=false
 
-        # Apply profile (silently)
-        apply_model_profile "$model" > /dev/null 2>&1
+        # Apply model config (profile + .env overrides when --dotenv) silently
+        apply_model_config "$model" > /dev/null 2>&1
 
         # Build per-model JSON object with model vars + DYNACONF overrides
         json+="\"${model}\":{"
@@ -317,6 +378,14 @@ build_model_envs_json() {
     else
         unset OPENAI_API_VERSION 2>/dev/null || true
     fi
+    # Restore DYNACONF_* to the pre-call state: drop any added by the loop, then
+    # re-export the snapshot so this function leaves the environment unchanged.
+    while IFS= read -r line; do
+        [[ -n "$line" ]] && unset "${line%%=*}" 2>/dev/null || true
+    done < <(env | grep '^DYNACONF_' || true)
+    while IFS= read -r line; do
+        [[ -n "$line" ]] && export "$line"
+    done <<< "$orig_dynaconf"
 
     echo "$json"
 }

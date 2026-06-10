@@ -51,6 +51,7 @@ COMPARE_AGENTS="${COMPARE_AGENTS:-false}"
 COMPARE_POLICIES=false
 NO_BUNDLE="${NO_BUNDLE:-false}"
 BUNDLE_ZIP="${BUNDLE_ZIP:-false}"
+USE_DOTENV="${USE_DOTENV:-false}"
 FORWARDED_ARGS=()
 
 # Parse arguments
@@ -95,6 +96,10 @@ while [[ $idx -lt ${#ARGS[@]} ]]; do
             BUNDLE_ZIP=true
             idx=$((idx+1))
             ;;
+        --dotenv)
+            USE_DOTENV=true
+            idx=$((idx+1))
+            ;;
         --dry-run)
             DRY_RUN=true
             idx=$((idx+1))
@@ -117,6 +122,11 @@ fi
 # Split models and agents into arrays
 IFS=',' read -ra MODEL_LIST <<< "$MODELS"
 IFS=',' read -ra AGENT_LIST <<< "$AGENTS"
+
+# --dotenv forces a single model from .env; reject multi-model comparisons.
+if type require_single_model_for_dotenv &>/dev/null; then
+    require_single_model_for_dotenv "${MODEL_LIST[@]}" || exit 1
+fi
 
 # Build list of configurations: model:agent:policy_flag (3-D cartesian product).
 # When --compare-policies is off, we still emit "policies" as the inner dim so
@@ -214,10 +224,10 @@ for config in "${CONFIGS[@]}"; do
     echo -e "${CYAN:-}Configuration: ${config}${NC:-}"
     echo -e "${BLUE:-}══════════════════════════════════════════════════════════════${NC:-}"
 
-    # Apply model profile
-    if type apply_model_profile &>/dev/null; then
-        if ! apply_model_profile "$model"; then
-            echo -e "${RED:-}Error: Failed to apply model profile '$model'${NC:-}"
+    # Apply model config (profile + optional .env overrides)
+    if type apply_model_config &>/dev/null; then
+        if ! apply_model_config "$model"; then
+            echo -e "${RED:-}Error: Failed to apply model config '$model'${NC:-}"
             echo -e "${YELLOW:-}Valid profiles: gpt-oss, gpt4o, gpt4.1, opus4.5${NC:-}"
             exit 1
         fi

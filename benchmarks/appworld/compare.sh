@@ -35,6 +35,7 @@ AGENTS="${AGENTS:-}"
 COMPARE_AGENTS="${COMPARE_AGENTS:-false}"
 NO_BUNDLE="${NO_BUNDLE:-false}"
 BUNDLE_ZIP="${BUNDLE_ZIP:-false}"
+USE_DOTENV="${USE_DOTENV:-false}"
 FORWARDED_ARGS=()
 
 # Parse arguments
@@ -79,6 +80,10 @@ while [[ $idx -lt ${#ARGS[@]} ]]; do
             BUNDLE_ZIP=true
             idx=$((idx+1))
             ;;
+        --dotenv)
+            USE_DOTENV=true
+            idx=$((idx+1))
+            ;;
         *)
             FORWARDED_ARGS+=("${ARGS[$idx]}")
             idx=$((idx+1))
@@ -96,6 +101,11 @@ fi
 
 IFS=',' read -ra MODEL_LIST <<< "$MODELS"
 IFS=',' read -ra AGENT_LIST <<< "$AGENTS"
+
+# --dotenv forces a single model from .env; reject multi-model comparisons.
+if type require_single_model_for_dotenv &>/dev/null; then
+    require_single_model_for_dotenv "${MODEL_LIST[@]}" || exit 1
+fi
 
 # Build CONFIGS as the cartesian product MODEL_LIST × AGENT_LIST, with labels "model:agent".
 CONFIGS=()
@@ -161,8 +171,12 @@ for config in "${CONFIGS[@]}"; do
     echo -e "${CYAN:-}Configuration: ${config}${NC:-}"
     echo -e "${BLUE:-}══════════════════════════════════════════════════════════════${NC:-}"
 
-    if type apply_model_profile &>/dev/null; then
-        apply_model_profile "$model"
+    if type apply_model_config &>/dev/null; then
+        if ! apply_model_config "$model"; then
+            echo -e "${RED:-}Error: Failed to apply model config '$model'${NC:-}"
+            echo -e "${YELLOW:-}Valid profiles: gpt-oss, gpt4o, gpt4.1, opus4.5${NC:-}"
+            exit 1
+        fi
     fi
 
     # Snapshot existing result files before this config's runs

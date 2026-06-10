@@ -34,6 +34,7 @@ for arg in "${FORWARDED_ARGS[@]}"; do
         echo "  --runs <N>                Number of runs (default: 1)"
         echo "  --output, -o <file>       Save comparison report to file"
         echo "  --model-profile <name>    Model profile (gpt-oss, gpt4o, gpt4.1, opus4.5)"
+        echo "  --dotenv                  Use .env values to override the model profile"
         echo "  --dry-run                 Print what would be run without executing"
         echo "  --no-bundle               Skip reproducibility bundle creation"
         echo "  --verbose, -v             Enable verbose output"
@@ -95,7 +96,7 @@ finalize_model_config
 check_langfuse_env
 
 # Export common variables
-export RUNS OUTPUT_FILE DRY_RUN NO_BUNDLE BUNDLE_ZIP MODEL_PROFILE VERBOSE AGENT AGENTS COMPARE_AGENTS
+export RUNS OUTPUT_FILE DRY_RUN NO_BUNDLE BUNDLE_ZIP MODEL_PROFILE VERBOSE AGENT AGENTS COMPARE_AGENTS USE_DOTENV
 
 # Banner: when comparing multiple agents, show the agent list instead of the singular AGENT.
 BANNER_AGENT_LABEL="$AGENT"
