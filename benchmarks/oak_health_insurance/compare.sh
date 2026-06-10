@@ -108,6 +108,11 @@ fi
 
 IFS=',' read -ra MODEL_LIST <<< "$MODELS"
 
+# --dotenv forces a single model from .env; reject multi-model comparisons.
+if type require_single_model_for_dotenv &>/dev/null; then
+    require_single_model_for_dotenv "${MODEL_LIST[@]}" || exit 1
+fi
+
 echo -e "${BLUE:-}╔════════════════════════════════════════════════════════════╗${NC:-}"
 echo -e "${BLUE:-}║  Oak Health Insurance: Multi-Run Comparison                ║${NC:-}"
 echo -e "${BLUE:-}╚════════════════════════════════════════════════════════════╝${NC:-}"
@@ -161,7 +166,11 @@ for model in "${MODEL_LIST[@]}"; do
     echo -e "${BLUE:-}══════════════════════════════════════════════════════════════${NC:-}"
 
     if type apply_model_config &>/dev/null; then
-        apply_model_config "$model"
+        if ! apply_model_config "$model"; then
+            echo -e "${RED:-}Error: Failed to apply model config '$model'${NC:-}"
+            echo -e "${YELLOW:-}Valid profiles: gpt-oss, gpt4o, gpt4.1, opus4.5${NC:-}"
+            exit 1
+        fi
     fi
 
     # Snapshot existing result files and trajectory folders before this model's runs

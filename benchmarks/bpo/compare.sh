@@ -123,6 +123,11 @@ fi
 IFS=',' read -ra MODEL_LIST <<< "$MODELS"
 IFS=',' read -ra AGENT_LIST <<< "$AGENTS"
 
+# --dotenv forces a single model from .env; reject multi-model comparisons.
+if type require_single_model_for_dotenv &>/dev/null; then
+    require_single_model_for_dotenv "${MODEL_LIST[@]}" || exit 1
+fi
+
 # Build list of configurations: model:agent:policy_flag (3-D cartesian product).
 # When --compare-policies is off, we still emit "policies" as the inner dim so
 # label format stays consistent (always model:agent:policy).

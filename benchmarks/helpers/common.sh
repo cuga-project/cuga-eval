@@ -23,6 +23,9 @@ else
     GREEN='' BLUE='' YELLOW='' RED='' CYAN='' NC=''
 fi
 
+# Shared .env parser (_parse_env_file), used by apply_dotenv_model_overrides.
+source "$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)/env_parse.sh"
+
 # Tracked PIDs for cleanup
 _CLEANUP_PIDS=()
 
@@ -255,12 +258,12 @@ apply_model_cli_overrides_if_set() {
 }
 
 # Re-read .env with force-export semantics so .env vars win over a
-# previously-applied model profile. Accepts an optional path argument for
-# testability; defaults to <project_root>/.env derived from BASH_SOURCE[0].
+# previously-applied model profile. Resolution order for the file:
+#   $1 (explicit path, used by tests) → $DOTENV_FILE → <project_root>/.env
 apply_dotenv_model_overrides() {
     local helpers_dir env_file
     helpers_dir="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
-    env_file="${1:-$helpers_dir/../../.env}"
+    env_file="${1:-${DOTENV_FILE:-$helpers_dir/../../.env}}"
 
     if [ ! -f "$env_file" ]; then
         echo -e "${YELLOW}Warning: --dotenv specified but .env not found at $env_file${NC}"
@@ -268,30 +271,21 @@ apply_dotenv_model_overrides() {
     fi
 
     echo -e "${GREEN}✓${NC} .env overrides (--dotenv):"
-    local line key val
-    while IFS= read -r line || [[ -n "$line" ]]; do
-        [[ "$line" =~ ^[[:space:]]*# ]] && continue
-        [[ -z "${line//[[:space:]]/}" ]] && continue
-        if [[ "$line" =~ ^[[:space:]]*export[[:space:]]+([A-Za-z_][A-Za-z0-9_]*)=(.*) ]]; then
-            key="${BASH_REMATCH[1]}"
-            val="${BASH_REMATCH[2]}"
-        elif [[ "$line" =~ ^[[:space:]]*([A-Za-z_][A-Za-z0-9_]*)=(.*) ]]; then
-            key="${BASH_REMATCH[1]}"
-            val="${BASH_REMATCH[2]}"
-        else
-            continue
-        fi
-        # Strip inline comments from unquoted values
-        if [[ "$val" != \"*\" && "$val" != \'*\' ]]; then
-            val="${val%%[[:space:]]#*}"
-            val="${val%"${val##*[![:space:]]}"}"
-        fi
-        # Strip surrounding quotes
-        val="${val#\"}" ; val="${val%\"}"
-        val="${val#\'}" ; val="${val%\'}"
-        echo -e "  ${GREEN}↳${NC} $key=$val"
-        export "$key=$val"
-    done < "$env_file"
+    _parse_env_file "$env_file" true true
+}
+
+# Guard: --dotenv forces model configuration from .env, so comparing more than
+# one model would silently run the same model for every config (the comparison
+# would be meaningless). Refuse the combination loudly.
+# Usage: require_single_model_for_dotenv "${MODEL_LIST[@]}"
+require_single_model_for_dotenv() {
+    if [[ "${USE_DOTENV:-false}" == "true" && $# -gt 1 ]]; then
+        echo -e "${RED}Error: --dotenv cannot be combined with multiple models: $*${NC}" >&2
+        echo -e "${YELLOW}--dotenv forces model configuration from .env, so every config would run the same model and the comparison would be meaningless.${NC}" >&2
+        echo -e "${YELLOW}Run a single model with --dotenv, or drop --dotenv to compare profiles.${NC}" >&2
+        return 1
+    fi
+    return 0
 }
 
 # Apply a model profile and, when USE_DOTENV=true, layer .env overrides on top.
@@ -320,8 +314,9 @@ finalize_model_config() {
 
 # Build model-envs JSON for bundle CLI.
 # Usage: build_model_envs_json model1 model2 ...
-# Applies each profile, captures env vars, and outputs JSON to stdout.
-# Restores original env after each model.
+# Applies each model config (profile + .env overrides when USE_DOTENV=true) so
+# the captured snapshot matches what actually ran, then outputs JSON to stdout.
+# Restores original env afterwards.
 build_model_envs_json() {
     local models=("$@")
     local json="{"
@@ -339,8 +334,8 @@ build_model_envs_json() {
         fi
         first=false
 
-        # Apply profile (silently)
-        apply_model_profile "$model" > /dev/null 2>&1
+        # Apply model config (profile + .env overrides when --dotenv) silently
+        apply_model_config "$model" > /dev/null 2>&1
 
         # Build per-model JSON object with model vars + DYNACONF overrides
         json+="\"${model}\":{"

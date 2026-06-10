@@ -15,6 +15,15 @@ assert_eq() {
     fi
 }
 
+# assert_contains <name> <needle> <haystack>
+assert_contains() {
+    if [[ "${3}" == *"${2}"* ]]; then
+        echo "  PASS: ${1}"; PASS=$((PASS+1))
+    else
+        echo "  FAIL: ${1}"; echo "        expected to contain: ${2}"; echo "        got:                 ${3}"; FAIL=$((FAIL+1))
+    fi
+}
+
 # ─── apply_dotenv_model_overrides ────────────────────────────────────────────
 
 echo "apply_dotenv_model_overrides"
@@ -109,6 +118,95 @@ result=$(
     echo "$MODEL_NAME"
 )
 assert_eq "USE_DOTENV=true, no profile: defaults to gpt-oss" "openai/gpt-oss-120b" "$result"
+
+# ─── _parse_env_file (shared parser) ─────────────────────────────────────────
+
+echo "_parse_env_file"
+
+# override=false keeps an already-set variable (profile exports win)
+result=$(
+    source "$SCRIPT_DIR/../common.sh"
+    TMP=$(mktemp); trap 'rm -f "$TMP"' EXIT
+    printf 'MODEL_NAME=from-file\n' > "$TMP"
+    export MODEL_NAME=preexisting
+    _parse_env_file "$TMP" false > /dev/null 2>&1
+    echo "$MODEL_NAME"
+)
+assert_eq "_parse_env_file override=false keeps existing value" "preexisting" "$result"
+
+# override=false sets a variable that is not already present
+result=$(
+    source "$SCRIPT_DIR/../common.sh"
+    TMP=$(mktemp); trap 'rm -f "$TMP"' EXIT
+    printf 'A_FRESH_VAR=fresh\n' > "$TMP"
+    unset A_FRESH_VAR 2>/dev/null || true
+    _parse_env_file "$TMP" false > /dev/null 2>&1
+    echo "${A_FRESH_VAR:-unset}"
+)
+assert_eq "_parse_env_file override=false sets unset value" "fresh" "$result"
+
+# override=true overwrites an already-set variable
+result=$(
+    source "$SCRIPT_DIR/../common.sh"
+    TMP=$(mktemp); trap 'rm -f "$TMP"' EXIT
+    printf 'MODEL_NAME=forced\n' > "$TMP"
+    export MODEL_NAME=preexisting
+    _parse_env_file "$TMP" true > /dev/null 2>&1
+    echo "$MODEL_NAME"
+)
+assert_eq "_parse_env_file override=true overwrites" "forced" "$result"
+
+# ─── require_single_model_for_dotenv ─────────────────────────────────────────
+
+echo "require_single_model_for_dotenv"
+
+# multiple models + --dotenv → rejected (nonzero)
+result=$(
+    source "$SCRIPT_DIR/../common.sh"
+    export USE_DOTENV=true
+    if require_single_model_for_dotenv gpt-oss gpt4o > /dev/null 2>&1; then echo ok; else echo rejected; fi
+)
+assert_eq "rejects --dotenv with multiple models" "rejected" "$result"
+
+# single model + --dotenv → allowed
+result=$(
+    source "$SCRIPT_DIR/../common.sh"
+    export USE_DOTENV=true
+    if require_single_model_for_dotenv gpt-oss > /dev/null 2>&1; then echo ok; else echo rejected; fi
+)
+assert_eq "allows --dotenv with single model" "ok" "$result"
+
+# multiple models without --dotenv → allowed
+result=$(
+    source "$SCRIPT_DIR/../common.sh"
+    export USE_DOTENV=false
+    if require_single_model_for_dotenv gpt-oss gpt4o > /dev/null 2>&1; then echo ok; else echo rejected; fi
+)
+assert_eq "allows multiple models without --dotenv" "ok" "$result"
+
+# ─── build_model_envs_json honours --dotenv ──────────────────────────────────
+
+echo "build_model_envs_json"
+
+# With USE_DOTENV=true the per-model snapshot must reflect the .env override so
+# the bundle records the model that actually ran (not the bare profile value).
+result=$(
+    source "$SCRIPT_DIR/../common.sh"
+    TMP=$(mktemp); trap 'rm -f "$TMP"' EXIT
+    printf 'MODEL_NAME=bundle-dotenv\n' > "$TMP"
+    export USE_DOTENV=true
+    export DOTENV_FILE="$TMP"
+    build_model_envs_json "gpt-oss" 2>/dev/null
+)
+assert_contains "bundle snapshot reflects .env override" '"MODEL_NAME":"bundle-dotenv"' "$result"
+
+# Without --dotenv the snapshot uses the profile value (unchanged behaviour).
+result=$(
+    source "$SCRIPT_DIR/../common.sh"
+    export USE_DOTENV=false
+    build_model_envs_json "gpt-oss" 2>/dev/null
+)
+assert_contains "bundle snapshot uses profile value without --dotenv" '"MODEL_NAME":"openai/gpt-oss-120b"' "$result"
 
 # ─── Summary ─────────────────────────────────────────────────────────────────
 
