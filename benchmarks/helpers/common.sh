@@ -322,11 +322,14 @@ build_model_envs_json() {
     local json="{"
     local first=true
 
-    # Save current env
+    # Save current env. DYNACONF_* are snapshotted too because apply_model_config
+    # (profile and/or .env when --dotenv) can export them as a side effect.
     local orig_agent_setting="${AGENT_SETTING_CONFIG:-}"
     local orig_model_name="${MODEL_NAME:-}"
     local orig_base_url="${OPENAI_BASE_URL:-}"
     local orig_api_version="${OPENAI_API_VERSION:-}"
+    local orig_dynaconf
+    orig_dynaconf="$(env | grep '^DYNACONF_' || true)"
 
     for model in "${models[@]}"; do
         if [[ "$first" != "true" ]]; then
@@ -375,6 +378,14 @@ build_model_envs_json() {
     else
         unset OPENAI_API_VERSION 2>/dev/null || true
     fi
+    # Restore DYNACONF_* to the pre-call state: drop any added by the loop, then
+    # re-export the snapshot so this function leaves the environment unchanged.
+    while IFS= read -r line; do
+        [[ -n "$line" ]] && unset "${line%%=*}" 2>/dev/null || true
+    done < <(env | grep '^DYNACONF_' || true)
+    while IFS= read -r line; do
+        [[ -n "$line" ]] && export "$line"
+    done <<< "$orig_dynaconf"
 
     echo "$json"
 }

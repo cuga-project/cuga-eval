@@ -7,6 +7,7 @@ SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 
 PASS=0; FAIL=0
 
+# assert_eq <name> <expected> <actual>
 assert_eq() {
     if [[ "${2}" == "${3}" ]]; then
         echo "  PASS: ${1}"; PASS=$((PASS+1))
@@ -207,6 +208,29 @@ result=$(
     build_model_envs_json "gpt-oss" 2>/dev/null
 )
 assert_contains "bundle snapshot uses profile value without --dotenv" '"MODEL_NAME":"openai/gpt-oss-120b"' "$result"
+
+# DYNACONF_* set via .env must not leak out of build_model_envs_json.
+result=$(
+    source "$SCRIPT_DIR/../common.sh"
+    TMP=$(mktemp); trap 'rm -f "$TMP"' EXIT
+    printf 'DYNACONF_TEST_LEAK=leaked\n' > "$TMP"
+    export USE_DOTENV=true
+    export DOTENV_FILE="$TMP"
+    unset DYNACONF_TEST_LEAK 2>/dev/null || true
+    build_model_envs_json "gpt-oss" > /dev/null 2>&1
+    echo "${DYNACONF_TEST_LEAK:-unset}"
+)
+assert_eq "build_model_envs_json does not leak .env DYNACONF_*" "unset" "$result"
+
+# A pre-existing DYNACONF_* is preserved across build_model_envs_json.
+result=$(
+    source "$SCRIPT_DIR/../common.sh"
+    export USE_DOTENV=false
+    export DYNACONF_PRESET=keepme
+    build_model_envs_json "gpt-oss" > /dev/null 2>&1
+    echo "${DYNACONF_PRESET:-unset}"
+)
+assert_eq "build_model_envs_json preserves pre-existing DYNACONF_*" "keepme" "$result"
 
 # ─── Summary ─────────────────────────────────────────────────────────────────
 
