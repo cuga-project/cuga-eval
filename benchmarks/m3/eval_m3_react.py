@@ -405,6 +405,8 @@ class M3ReactEvaluator:
             result["uuid"] = task["uuid"]
         if task.get("domain") and not result.get("domain"):
             result["domain"] = task["domain"]
+        if task.get("m3_task_id") is not None and result.get("m3_task_id") is None:
+            result["m3_task_id"] = task["m3_task_id"]
         if task.get("task_number") is not None and "task_number" not in result:
             result["task_number"] = task["task_number"]
         if task.get("intent") and not result.get("intent"):

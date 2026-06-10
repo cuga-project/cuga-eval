@@ -64,6 +64,38 @@ def _fmt(val, fmt=","):
     return str(val)
 
 
+def _fmt_score(val) -> str:
+    """Format a 0.0-1.0 Vakra dialogue/judge score to 2dp, or '--' if absent."""
+    return f"{val:.2f}" if val is not None else "--"
+
+
+# Vakra LLM-judge dimensions, in display order. Mirrors
+# ``m3_vakra_score._JUDGE_KEYS`` / ``_last_turn_judge_scores``; re-implemented
+# here (rather than imported) so this module stays benchmark-agnostic.
+_JUDGE_KEYS = ("exactmatch", "answer", "groundedness")
+
+
+def _last_turn_judge_scores(vakra: dict) -> dict:
+    """Extract per-judge scores from the last scored turn of a Vakra dialogue.
+
+    ``vakra`` is the ``r["vakra"]`` dict M3 attaches to scored results
+    (``{"score": ..., "details": {"per_turn": [{"metadata": {...}}, ...]}}``).
+    Returns {} if ``vakra`` has no per-turn data, or a subset of
+    ``_JUDGE_KEYS`` for judges that ran on the last turn (a judge may be
+    skipped, e.g. the answer judge when exactmatch already scored 1.0).
+    """
+    per_turn = (vakra.get("details") or {}).get("per_turn") or []
+    if not per_turn:
+        return {}
+    meta = per_turn[-1].get("metadata") or {}
+    scores = {}
+    for key in _JUDGE_KEYS:
+        val = meta.get(f"{key}_score")
+        if val is not None:
+            scores[key] = float(val)
+    return scores
+
+
 def _parse_sdk_results(data: dict) -> dict:
     """Parse SDK-style results (BPO, M3, Oak)."""
     metrics = data.get("metrics", {})
@@ -103,6 +135,12 @@ def _parse_sdk_results(data: dict) -> dict:
             # input file. Lets reports show the source "task number".
             "task_number": r.get("task_number"),
             "uuid": r.get("uuid") or r.get("task_name") or r.get("name"),
+            # Vakra LLM-judge scores (M3 only). `match_rate` is the aggregated
+            # dialogue score (>= 1.0 = pass); `judge_scores` is a subset of
+            # _JUDGE_KEYS from the last scored turn. Both are absent (None /
+            # {}) for non-Vakra-scored results.
+            "match_rate": r.get("match_rate"),
+            "judge_scores": _last_turn_judge_scores(r.get("vakra") or {}),
         }
 
     return {
@@ -298,6 +336,12 @@ def _stats_for_task(task_runs):
         "mean_tokens": _avg([r.get("tokens") for r in task_runs]),
         "mean_llm": _avg([r.get("llm_calls") for r in task_runs]),
         "mean_dur": _avg([r.get("duration") for r in task_runs]),
+        # Vakra scores (M3 only): mean dialogue score and mean per-judge
+        # scores across runs, ignoring runs where a judge was skipped.
+        "mean_match_rate": _avg([r.get("match_rate") for r in task_runs]),
+        "mean_judge": {
+            key: _avg([(r.get("judge_scores") or {}).get(key) for r in task_runs]) for key in _JUDGE_KEYS
+        },
     }
 
 
@@ -436,6 +480,11 @@ def generate_report(config_results: dict[str, list[str]], markdown: bool = True)
             task_meta.get(t, {}).get("m3_task_id") is not None and task_meta.get(t, {}).get("domain")
             for t in all_tasks
         )
+        # Vakra-scored M3 results carry `match_rate` on every task; when
+        # present, the table gains Dialogue + per-judge mean-score columns.
+        has_vakra = m3_mode and any(
+            r["tasks"].get(t, {}).get("match_rate") is not None for r in runs for t in all_tasks
+        )
         if m3_mode:
             all_tasks.sort(
                 key=lambda t: (
@@ -458,9 +507,10 @@ def generate_report(config_results: dict[str, list[str]], markdown: bool = True)
         run_cols = "  ".join(f"R{i + 1}" for i in range(n_runs))
         # Truncate task IDs to keep table readable but distinguishable
         col_task_w = min(28, max((len(t) for t in all_tasks), default=8))
+        vakra_hdr = f"{'Dialog':>6} {'ExctM':>5} {'Answer':>6} {'Ground':>6}   " if has_vakra else ""
         task_header = (
             f"{prefix_hdr}{'Task':<{col_task_w}} {run_cols}   {'Successes':>10}   "
-            f"{'Rate':>6}   {'Tokens':>8} {'LLM':>5} {'Time':>6}"
+            f"{'Rate':>6}   {vakra_hdr}{'Tokens':>8} {'LLM':>5} {'Time':>6}"
         )
         lines.append(task_header)
         lines.append("─" * len(task_header))
@@ -472,6 +522,10 @@ def generate_report(config_results: dict[str, list[str]], markdown: bool = True)
         n_llm = 0
         sum_dur = 0.0
         n_dur = 0
+        sum_match_rate = 0.0
+        n_match_rate = 0
+        sum_judge = dict.fromkeys(_JUDGE_KEYS, 0.0)
+        n_judge = dict.fromkeys(_JUDGE_KEYS, 0)
         total_successes = 0
         any_pass = 0
         all_pass = 0
@@ -503,6 +557,15 @@ def generate_report(config_results: dict[str, list[str]], markdown: bool = True)
             if md is not None:
                 sum_dur += md
                 n_dur += 1
+            mr = stats["mean_match_rate"]
+            if mr is not None:
+                sum_match_rate += mr
+                n_match_rate += 1
+            for key in _JUDGE_KEYS:
+                jv = stats["mean_judge"].get(key)
+                if jv is not None:
+                    sum_judge[key] += jv
+                    n_judge[key] += 1
 
             task_disp = task if len(task) <= col_task_w else task[: col_task_w - 1] + "…"
             row_prefix = (
@@ -510,9 +573,18 @@ def generate_report(config_results: dict[str, list[str]], markdown: bool = True)
                 if m3_mode
                 else ""
             )
+            vakra_cols = ""
+            if has_vakra:
+                mj = stats["mean_judge"]
+                vakra_cols = (
+                    f"{_fmt_score(mr):>6} "
+                    f"{_fmt_score(mj.get('exactmatch')):>5} "
+                    f"{_fmt_score(mj.get('answer')):>6} "
+                    f"{_fmt_score(mj.get('groundedness')):>6}   "
+                )
             lines.append(
                 f"{row_prefix}{task_disp:<{col_task_w}} {symbols}   "
-                f"{successes:>3}/{total:<3}   {rate_pct:>5.1f}%   "
+                f"{successes:>3}/{total:<3}   {rate_pct:>5.1f}%   {vakra_cols}"
                 f"{_fmt(mt):>8} {_fmt(ml):>5} {_fmt(md, 's'):>6}"
             )
 
@@ -527,9 +599,20 @@ def generate_report(config_results: dict[str, list[str]], markdown: bool = True)
             lines.append("─" * len(task_header))
             spacer = "  ".join("──" for _ in range(n_runs))
             avg_prefix = f"{'':<{cap_w}} {'':<{dom_w}} {'':>{num_w}}  " if m3_mode else ""
+            avg_vakra_cols = ""
+            if has_vakra:
+                avg_mr = _fmt_score(sum_match_rate / n_match_rate) if n_match_rate else "--"
+                avg_judge = {
+                    key: (_fmt_score(sum_judge[key] / n_judge[key]) if n_judge[key] else "--")
+                    for key in _JUDGE_KEYS
+                }
+                avg_vakra_cols = (
+                    f"{avg_mr:>6} {avg_judge['exactmatch']:>5} "
+                    f"{avg_judge['answer']:>6} {avg_judge['groundedness']:>6}   "
+                )
             lines.append(
                 f"{avg_prefix}{'AVERAGE':<{col_task_w}} {spacer}   "
-                f"{avg_successes:>3.1f}/{n_runs:<3}   {avg_rate:>5.1f}%   "
+                f"{avg_successes:>3.1f}/{n_runs:<3}   {avg_rate:>5.1f}%   {avg_vakra_cols}"
                 f"{avg_tok:>8} {avg_llm:>5} {avg_dur:>6}"
             )
             lines.append("")
@@ -669,14 +752,36 @@ def generate_eval_report(result_file: str, markdown: bool = True) -> str:
     lines.append(h2("Per-Task Results"))
     lines.append("")
 
+    # M3 Vakra-scored results carry `match_rate` (dialogue score) on every
+    # task. When present, the table gains Dialogue + per-judge columns; absent
+    # for non-Vakra-scored M3 runs (e.g. keyword-only scoring) so those reports
+    # stay unchanged.
+    has_vakra = grouped and any(row["data"].get("match_rate") is not None for row in rows)
+    if has_vakra:
+        lines.append(
+            "Dialogue = Vakra aggregated dialogue score (>= 1.00 = pass). "
+            "ExactMatch/Answer/Groundedness = last-turn judge scores (`--` = judge skipped)."
+        )
+        lines.append("")
+
     if grouped:
         if markdown:
-            lines.append(
-                "| Task | Domain | # | Result | Tokens | Cost | LLM Calls | Cache Tokens | Duration | Steps |"
-            )
-            lines.append(
-                "|------|--------|---|--------|--------|------|-----------|--------------|----------|-------|"
-            )
+            if has_vakra:
+                lines.append(
+                    "| Task | Domain | # | Result | Dialogue | ExactMatch | Answer | Groundedness "
+                    "| Tokens | Cost | LLM Calls | Cache Tokens | Duration | Steps |"
+                )
+                lines.append(
+                    "|------|--------|---|--------|----------|------------|--------|--------------"
+                    "|--------|------|-----------|--------------|----------|-------|"
+                )
+            else:
+                lines.append(
+                    "| Task | Domain | # | Result | Tokens | Cost | LLM Calls | Cache Tokens | Duration | Steps |"
+                )
+                lines.append(
+                    "|------|--------|---|--------|--------|------|-----------|--------------|----------|-------|"
+                )
             current_key: tuple = (None, None)
             for row in rows:
                 t = row["data"]
@@ -694,8 +799,17 @@ def generate_eval_report(result_file: str, markdown: bool = True) -> str:
                     current_key = key
                 ordn_disp = str(ordn) if ordn is not None else "—"
                 status = "✓" if t["success"] else "✗"
+                vakra_cols = ""
+                if has_vakra:
+                    judge = t.get("judge_scores") or {}
+                    vakra_cols = (
+                        f"| {_fmt_score(t.get('match_rate'))} "
+                        f"| {_fmt_score(judge.get('exactmatch'))} "
+                        f"| {_fmt_score(judge.get('answer'))} "
+                        f"| {_fmt_score(judge.get('groundedness'))} "
+                    )
                 lines.append(
-                    f"| {tid_disp} | {dom_disp} | {ordn_disp} | {status} "
+                    f"| {tid_disp} | {dom_disp} | {ordn_disp} | {status} {vakra_cols}"
                     f"| {_fmt(t['tokens'])} | {_fmt(t.get('cost'), '$')} "
                     f"| {_fmt(t.get('llm_calls'))} | {_fmt(t.get('cache_tokens'))} "
                     f"| {_fmt(t.get('duration'), 's')} | {_fmt(t.get('steps'))} |"
@@ -704,11 +818,19 @@ def generate_eval_report(result_file: str, markdown: bool = True) -> str:
             # Plain-text table — fixed widths, separators between (task, domain) groups.
             col_task = "Task"
             col_dom_w = max(len("Domain"), max((len(r["domain"] or "") for r in rows), default=8))
-            header = (
-                f"  {col_task:<4}  {'Domain':<{col_dom_w}}  {'#':>2}  "
-                f"{'R':<1}  {'Tokens':>10}  {'Cost':>7}  {'LLM':>5}  "
-                f"{'Cache':>10}  {'Duration':>9}  {'Steps':>5}"
-            )
+            if has_vakra:
+                header = (
+                    f"  {col_task:<4}  {'Domain':<{col_dom_w}}  {'#':>2}  "
+                    f"{'R':<1}  {'Dialog':>6}  {'ExctM':>5}  {'Answer':>6}  {'Ground':>6}  "
+                    f"{'Tokens':>10}  {'Cost':>7}  {'LLM':>5}  "
+                    f"{'Cache':>10}  {'Duration':>9}  {'Steps':>5}"
+                )
+            else:
+                header = (
+                    f"  {col_task:<4}  {'Domain':<{col_dom_w}}  {'#':>2}  "
+                    f"{'R':<1}  {'Tokens':>10}  {'Cost':>7}  {'LLM':>5}  "
+                    f"{'Cache':>10}  {'Duration':>9}  {'Steps':>5}"
+                )
             lines.append(header)
             lines.append("  " + "─" * (len(header) - 2))
             current_key2: tuple = (None, None)
@@ -729,9 +851,19 @@ def generate_eval_report(result_file: str, markdown: bool = True) -> str:
                     current_key2 = key
                 ordn_disp = str(ordn) if ordn is not None else "—"
                 mark = "✓" if t["success"] else "✗"
+                vakra_cols = ""
+                if has_vakra:
+                    judge = t.get("judge_scores") or {}
+                    vakra_cols = (
+                        f"{_fmt_score(t.get('match_rate')):>6}  "
+                        f"{_fmt_score(judge.get('exactmatch')):>5}  "
+                        f"{_fmt_score(judge.get('answer')):>6}  "
+                        f"{_fmt_score(judge.get('groundedness')):>6}  "
+                    )
                 lines.append(
                     f"  {tid_disp:<4}  {dom_disp:<{col_dom_w}}  {ordn_disp:>2}  "
-                    f"{mark:<1}  {_fmt(t['tokens']):>10}  "
+                    f"{mark:<1}  {vakra_cols}"
+                    f"{_fmt(t['tokens']):>10}  "
                     f"{_fmt(t.get('cost'), '$'):>7}  "
                     f"{_fmt(t.get('llm_calls')):>5}  "
                     f"{_fmt(t.get('cache_tokens')):>10}  "
