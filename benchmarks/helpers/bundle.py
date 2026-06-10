@@ -44,9 +44,19 @@ PROJECT_ROOT = _HELPERS_DIR.parent.parent
 
 
 def _load_benchmark_env(benchmark_name: str) -> None:
-    """Load global + benchmark .env files (dotenv strips inline comments)."""
+    """Load project .env + global + benchmark .env files (dotenv strips inline comments).
+
+    Project ``.env`` is loaded first with ``override=False`` so local-only secrets
+    (e.g. ``LANGFUSE_PUBLIC_KEY``, ``LANGFUSE_SECRET_KEY``, ``LANGFUSE_HOST`` for
+    self-hosted Langfuse) reach this CLI when it runs as a subprocess from the
+    benchmark shell scripts. Without it, the trace-download step silently
+    bails out with zero files because the env vars are invisible.
+    """
     from dotenv import load_dotenv
 
+    project_env = PROJECT_ROOT / ".env"
+    if project_env.exists():
+        load_dotenv(project_env, override=False)
     global_env = PROJECT_ROOT / "config" / "global.env"
     if global_env.exists():
         load_dotenv(global_env, override=True)
@@ -272,6 +282,7 @@ def _download_langfuse_traces(
     public_key = os.environ.get("LANGFUSE_PUBLIC_KEY")
     secret_key = os.environ.get("LANGFUSE_SECRET_KEY")
     if not public_key or not secret_key:
+        print("Langfuse trace download skipped: LANGFUSE_PUBLIC_KEY / LANGFUSE_SECRET_KEY not set.")
         return False
 
     host = os.environ.get("LANGFUSE_HOST") or os.environ.get(
@@ -307,6 +318,8 @@ def _download_langfuse_traces(
         return False
 
     import base64
+    import time
+    import urllib.error
     import urllib.request
 
     dest = bundle_dir / dest_subdir
@@ -316,6 +329,10 @@ def _download_langfuse_traces(
 
     max_attempts = 10
     retry_delay = 2.0
+    # Inter-request pause: self-hosted Langfuse (e.g. local Docker) drops
+    # connections under back-to-back urlopen bursts. Cloud Langfuse is fine
+    # with this and pays only the small total wall-clock cost (~0.3s × N).
+    inter_request_pause = 0.3
 
     for task_name, trace_id in trace_ids:
         url = f"{host}/api/public/traces/{trace_id}"
@@ -341,8 +358,20 @@ def _download_langfuse_traces(
                             f"  Trace {trace_id} not yet available, "
                             f"retrying (up to {max_attempts} attempts)..."
                         )
-                    import time
-
+                    time.sleep(retry_delay)
+                    continue
+                # 4xx/5xx other than 404 are typically permanent (e.g. 500
+                # "Observations in trace are too large"); don't retry.
+                print(f"  Warning: Failed to download Langfuse trace {trace_id}: {e}")
+                break
+            except (urllib.error.URLError, TimeoutError, ConnectionError) as e:
+                # Transient network/connection issues — retry with backoff.
+                if attempt < max_attempts:
+                    if attempt == 1:
+                        print(
+                            f"  Connection issue fetching trace {trace_id}: {e}; "
+                            f"retrying (up to {max_attempts} attempts)..."
+                        )
                     time.sleep(retry_delay)
                     continue
                 print(f"  Warning: Failed to download Langfuse trace {trace_id}: {e}")
@@ -353,6 +382,9 @@ def _download_langfuse_traces(
 
         if not success and not out_file.exists():
             print(f"  Warning: Could not fetch trace {trace_id} after {max_attempts} attempts")
+
+        if inter_request_pause > 0:
+            time.sleep(inter_request_pause)
 
     return downloaded
 
