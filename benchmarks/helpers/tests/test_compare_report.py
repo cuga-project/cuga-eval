@@ -25,7 +25,7 @@ from pathlib import Path
 
 import pytest
 
-from benchmarks.helpers.compare_report import _parse_sdk_results, generate_report
+from benchmarks.helpers.compare_report import _parse_sdk_results, generate_eval_report, generate_report
 
 pytestmark = pytest.mark.regression
 
@@ -189,3 +189,170 @@ def test_parse_sdk_results_includes_react_steps():
         }
     )
     assert parsed["tasks"]["t1"]["steps"] == 3
+
+
+def _m3_run(tmp_path: Path, name: str, task_specs: list) -> str:
+    """Write an SDK-shape result file with M3 capability/domain tags.
+
+    Each entry of ``task_specs`` is a dict with ``task_name``, ``success``,
+    ``m3_task_id``, ``domain`` and an optional ``task_number``.
+    """
+    results = [
+        {
+            "task_name": s["task_name"],
+            "success": s["success"],
+            "total_tokens": 1000,
+            "total_llm_calls": 5,
+            "full_execution_time": 12.5,
+            "m3_task_id": s["m3_task_id"],
+            "domain": s["domain"],
+            "task_number": s.get("task_number", 1),
+        }
+        for s in task_specs
+    ]
+    payload = {
+        "metrics": {
+            "total_tasks": len(results),
+            "passed": sum(1 for r in results if r["success"]),
+        },
+        "results": results,
+    }
+    p = tmp_path / name
+    p.write_text(json.dumps(payload))
+    return str(p)
+
+
+def _appworld_eval_run(tmp_path: Path, name: str, task_results: dict) -> str:
+    """Write an appworld-shape (``task_results`` dict) single-run result file."""
+    payload = {
+        "tasks_total": len(task_results),
+        "tasks_completed": sum(1 for t in task_results.values() if t.get("success")),
+        "task_results": task_results,
+    }
+    p = tmp_path / name
+    p.write_text(json.dumps(payload))
+    return str(p)
+
+
+def test_compare_report_cost_summary_section(tmp_path):
+    """Cost Summary shows per-config totals AND per-task averages for
+    tokens / LLM calls / time (issue #51)."""
+    run1 = _appworld_run(tmp_path, "r1.json", {"A": True, "B": False, "C": True})
+
+    report = generate_report({"gpt-oss:cuga": [run1]})
+
+    assert "Cost Summary" in report
+    assert "Avg/Task" in report
+    # 3 tasks at 1000 tokens / 5 LLM calls / 12.5s each -> per-task averages.
+    assert "1,000.0" in report
+    assert "12.5s" in report
+
+
+def test_per_test_set_breakdown_appears_for_appworld(tmp_path):
+    """AppWorld task ids that appear in appworld/eval_config.toml's
+    test_challenge_*/test_normal_all_* lists get grouped into "challenge" /
+    "normal" rows (issue #51 item 3)."""
+    run1 = _appworld_run(tmp_path, "r1.json", {"e775c78_1": True, "fd1f8fa_1": False})
+
+    report = generate_report({"gpt-oss:cuga": [run1]})
+
+    assert "Per-Test-Set Breakdown (AppWorld)" in report
+    assert "challenge" in report
+    assert "normal" in report
+
+
+def test_per_capability_domain_breakdown_appears_for_m3(tmp_path):
+    """M3 tasks (m3_task_id + domain) get grouped into capability/domain rows
+    in compare reports, alongside pass@k/pass^k/maj@k (issue #51 item 3)."""
+    run1 = _m3_run(
+        tmp_path,
+        "r1.json",
+        [
+            {"task_name": "t1", "success": True, "m3_task_id": 2, "domain": "hockey", "task_number": 1},
+            {"task_name": "t2", "success": False, "m3_task_id": 2, "domain": "hockey", "task_number": 2},
+            {"task_name": "t3", "success": True, "m3_task_id": 3, "domain": "books", "task_number": 1},
+        ],
+    )
+
+    report = generate_report({"gpt4o:react": [run1]})
+
+    assert "Per-Capability/Domain Breakdown (M3)" in report
+    assert "m3_task_2/hockey" in report
+    assert "m3_task_3/books" in report
+
+
+def test_eval_report_pass1_and_avg_per_task_bullets(tmp_path):
+    """Single-run eval report renames "Pass Rate" to "Pass@1" and adds
+    avg-per-task bullets alongside the pre-existing totals (issue #51 item 1)."""
+    run = _m3_run(
+        tmp_path,
+        "eval.json",
+        [
+            {"task_name": "t1", "success": True, "m3_task_id": 2, "domain": "hockey", "task_number": 1},
+            {"task_name": "t2", "success": False, "m3_task_id": 2, "domain": "hockey", "task_number": 2},
+        ],
+    )
+
+    report = generate_eval_report(run)
+
+    assert "**Pass@1**: 1/2 (50.0%)" in report
+    assert "Pass Rate" not in report
+    assert "**Avg Tokens / Task**" in report
+    assert "**Avg LLM Calls / Task**" in report
+    assert "**Avg Duration / Task**" in report
+    # validate_bundle_report.py keys off these exact bullet labels.
+    assert "**Total Tokens**" in report
+    assert "**Total LLM Calls**" in report
+    assert "**Total Duration**" in report
+
+
+def test_eval_report_capability_domain_breakdown(tmp_path):
+    """Single-run M3 eval report gets a Capability/Domain Breakdown table
+    (issue #51 item 3)."""
+    run = _m3_run(
+        tmp_path,
+        "eval.json",
+        [
+            {"task_name": "t1", "success": True, "m3_task_id": 2, "domain": "hockey", "task_number": 1},
+            {"task_name": "t2", "success": False, "m3_task_id": 2, "domain": "hockey", "task_number": 2},
+            {"task_name": "t3", "success": True, "m3_task_id": 3, "domain": "books", "task_number": 1},
+        ],
+    )
+
+    report = generate_eval_report(run)
+
+    assert "Capability/Domain Breakdown" in report
+    assert "m3_task_2/hockey" in report
+    assert "m3_task_3/books" in report
+
+
+def test_eval_report_appworld_difficulty_and_test_set_breakdowns(tmp_path):
+    """Single-run AppWorld eval report gets Difficulty and Test-Set (normal vs.
+    challenge, via appworld/eval_config.toml) breakdown tables (issue #51 item 3)."""
+    run = _appworld_eval_run(
+        tmp_path,
+        "eval.json",
+        {
+            "e775c78_1": {  # test_challenge_easy
+                "success": True,
+                "total_tokens": 1000,
+                "total_llm_calls": 5,
+                "full_execution_time": 12.5,
+                "difficulty": 1,
+            },
+            "fd1f8fa_1": {  # test_normal_all_easy
+                "success": False,
+                "total_tokens": 800,
+                "total_llm_calls": 4,
+                "full_execution_time": 10.0,
+                "difficulty": 1,
+            },
+        },
+    )
+
+    report = generate_eval_report(run)
+
+    assert "Difficulty Breakdown" in report
+    assert "Test-Set Breakdown (AppWorld)" in report
+    assert "challenge" in report
+    assert "normal" in report
