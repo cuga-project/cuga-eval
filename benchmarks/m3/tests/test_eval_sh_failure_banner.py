@@ -23,8 +23,15 @@ These tests reproduce that exact guard idiom in an isolated harness (no `uv`
 
 A static check then confirms ``benchmarks/m3/eval.sh`` itself still wraps
 the evaluator-selection block with this guard, in the right order.
+
+Finally, an end-to-end test drives the *real* ``eval.sh`` with the evaluator
+stubbed to fail (a fake ``uv`` on PATH), asserting the failure banner prints,
+``cleanup`` runs, and the script's own exit code is non-zero — i.e. the
+trailing ``exit $EVAL_EXIT`` propagates the evaluator's status through the
+cleanup EXIT trap.
 """
 
+import os
 import subprocess
 import textwrap
 from pathlib import Path
@@ -144,3 +151,46 @@ def test_eval_sh_wraps_evaluator_selection_with_err_trap_guard() -> None:
         "expected EVAL_EXIT=$? to be captured before `set -e` / "
         "`trap cleanup ERR` are restored, after the evaluator-selection block"
     )
+
+
+def test_real_eval_sh_propagates_failing_evaluator_exit(tmp_path: Path) -> None:
+    """End-to-end: run the real ``eval.sh`` with the evaluator stubbed to fail
+    (a fake ``uv`` on PATH that exits 1) and assert the failure banner prints,
+    ``cleanup`` runs, and the script's own exit code is non-zero.
+
+    Unlike the harness tests above, this drives the actual script, so it locks
+    in exit-code propagation through the real cleanup EXIT trap and the trailing
+    ``exit $EVAL_EXIT`` — guarding against a regression that makes the banner
+    reachable but loses the evaluator's exit status (or vice versa).
+
+    ``--no-policies``/``--no-bundle`` keep the run hermetic: the evaluator
+    invocation is then the only ``uv`` call reached, so the fake ``uv`` failure
+    exercises exactly the issue #55 path. Single-turn (no ``--multiturn``) means
+    no registry server is started.
+    """
+    fake_bin = tmp_path / "bin"
+    fake_bin.mkdir()
+    fake_uv = fake_bin / "uv"
+    fake_uv.write_text("#!/bin/bash\nexit 1\n")
+    fake_uv.chmod(0o755)
+
+    env = dict(os.environ)
+    env["PATH"] = f"{fake_bin}{os.pathsep}{env['PATH']}"
+    # Use an unlikely port so the stale-port check never kills a real process.
+    env["REGISTRY_PORT"] = "8757"
+
+    out_file = tmp_path / "eval_out.txt"
+    with out_file.open("wb") as fh:
+        result = subprocess.run(  # noqa: S603 — fixed args, no shell, no untrusted input
+            ["bash", str(EVAL_SH), "--no-policies", "--no-bundle", "--task", "hockey_395_0"],  # noqa: S607
+            stdin=subprocess.DEVNULL,
+            stdout=fh,
+            stderr=subprocess.STDOUT,
+            env=env,
+            cwd=str(EVAL_SH.parent),
+        )
+    output = out_file.read_text()
+
+    assert result.returncode != 0, f"eval.sh must exit non-zero when the evaluator fails; output:\n{output}"
+    assert "M3 evaluation failed" in output, output
+    assert "Cleaning up" in output, output
