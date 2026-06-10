@@ -44,9 +44,19 @@ PROJECT_ROOT = _HELPERS_DIR.parent.parent
 
 
 def _load_benchmark_env(benchmark_name: str) -> None:
-    """Load global + benchmark .env files (dotenv strips inline comments)."""
+    """Load project .env + global + benchmark .env files (dotenv strips inline comments).
+
+    Project ``.env`` is loaded first with ``override=False`` so local-only secrets
+    (e.g. ``LANGFUSE_PUBLIC_KEY``, ``LANGFUSE_SECRET_KEY``, ``LANGFUSE_HOST`` for
+    self-hosted Langfuse) reach this CLI when it runs as a subprocess from the
+    benchmark shell scripts. Without it, the trace-download step silently
+    bails out with zero files because the env vars are invisible.
+    """
     from dotenv import load_dotenv
 
+    project_env = PROJECT_ROOT / ".env"
+    if project_env.exists():
+        load_dotenv(project_env, override=False)
     global_env = PROJECT_ROOT / "config" / "global.env"
     if global_env.exists():
         load_dotenv(global_env, override=True)
