@@ -43,6 +43,10 @@ def split_ids(data_path: Path, ratio: float, seed: int) -> Tuple[List[str], List
     so the split is reproducible and independent of group iteration order.
     Returns the combined train ids, combined test ids, and per-group
     ``(train_count, test_count)`` for provenance reporting.
+
+    Any group with at least two samples is guaranteed to contribute to both
+    splits (the rounded split index is clamped into ``[1, n-1]``). A single
+    sample group cannot be represented in both and lands entirely on one side.
     """
     loader = M3DataLoader(data_path, allow_missing_output=True)
 
@@ -59,6 +63,10 @@ def split_ids(data_path: Path, ratio: float, seed: int) -> Tuple[List[str], List
         rng.shuffle(shuffled)
 
         split_idx = round(len(shuffled) * ratio)
+        # Keep groups with >= 2 samples represented in both splits; a naive
+        # round() can otherwise send a small group entirely to one side.
+        if len(shuffled) >= 2:
+            split_idx = min(max(split_idx, 1), len(shuffled) - 1)
         group_train, group_test = shuffled[:split_idx], shuffled[split_idx:]
 
         train_ids.extend(group_train)

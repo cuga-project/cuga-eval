@@ -1,10 +1,12 @@
 """Unit tests for benchmarks/m3/scripts/generate_eval_split.py (issue #44).
 
-Builds a tiny synthetic M3DataLoader-compatible directory (2 capabilities x 2
-domains x 6 samples = 24 total) and exercises the split generator against it,
-checking disjointness, full coverage, reproducibility, and --ratio handling.
+Builds a tiny synthetic M3DataLoader-compatible directory (3 groups: task 2 with
+2 domains, task 3 with 1 domain, 6 samples each = 18 total) and exercises the
+split generator against it, checking disjointness, full coverage,
+reproducibility, and --ratio handling.
 """
 
+import json
 import tomllib
 from pathlib import Path
 
@@ -36,7 +38,7 @@ def _make_corpus(root: Path) -> Path:
             }
             for i in range(n)
         ]
-        (input_dir / f"{domain}.json").write_text(__import__("json").dumps(samples))
+        (input_dir / f"{domain}.json").write_text(json.dumps(samples))
     return root
 
 
