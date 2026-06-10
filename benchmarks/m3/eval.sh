@@ -22,12 +22,15 @@ fi
 # Early --help before any server startup
 for arg in "$@"; do
     if [[ "$arg" == "--help" || "$arg" == "-h" ]]; then
-        echo "Usage: ./eval.sh [--multiturn] [--m3-data PATH] [--capability NAME] [--task TASK] [--difficulty LEVEL] [--no-bundle] [--bundle-zip] [--model-profile NAME]"
+        echo "Usage: ./eval.sh [--multiturn] [--m3-data [PATH]] [--capability NAME] [--task TASK] [--difficulty LEVEL] [--no-bundle] [--bundle-zip] [--model-profile NAME]"
         echo ""
         echo "Options:"
         echo "  --multiturn                 Run multi-turn evaluation"
-        echo "  --m3-data PATH              Load merged samples from an M3 data source — either a"
+        echo "  --m3-data [PATH]            Load merged samples from an M3 data source — either a"
         echo "                              .zip or a directory containing capability_<id>_* subdirs."
+        echo "                              If PATH is omitted, defaults to the bundled"
+        echo "                              data/small_train.zip (CC BY-NC-SA 4.0; see"
+        echo "                              benchmarks/m3/data/NOTICE)."
         echo "                              Uses config/m3_registry_m3_data.yaml. Scores by tool-call count."
         echo "  --no-ground-truth           Run --m3-data on input-only data (no output/ folder)."
         echo "                              Skips evaluation/scoring; collects predictions only into"
@@ -45,6 +48,7 @@ for arg in "$@"; do
         echo "Examples:"
         echo "  ./eval.sh                                                          # Default evaluation"
         echo "  ./eval.sh --multiturn                                              # Multi-turn evaluation"
+        echo "  ./eval.sh --m3-data                                                # Bundled small_train.zip (default)"
         echo "  ./eval.sh --m3-data /some/dir                                      # Directory of input/output files"
         echo "  ./eval.sh --m3-data some.zip                                       # Zip archive of input/output files"
         echo "  ./eval.sh --m3-data some.zip --capability m3_task_2 --domain hockey  # One capability, one domain"
@@ -70,11 +74,15 @@ while [[ $# -gt 0 ]]; do
         --m3-data)
             M3_DATA=true
             if [[ -z "${2:-}" || "$2" == --* ]]; then
-                echo "Error: --m3-data requires a path (zip file or directory)" >&2
-                exit 2
+                # No path supplied — fall back to the bundled VAKRA-derived
+                # dataset (issue #61). CC BY-NC-SA 4.0; see
+                # benchmarks/m3/data/NOTICE and benchmarks/m3/data/LICENSE.
+                M3_DATA_PATH="$SCRIPT_DIR/data/small_train.zip"
+            else
+                M3_DATA_PATH="$2"
+                shift
             fi
-            M3_DATA_PATH="$2"
-            shift 2
+            shift
             ;;
         --no-ground-truth)
             NO_GROUND_TRUTH=true
