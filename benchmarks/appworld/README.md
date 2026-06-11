@@ -82,6 +82,16 @@ Both forms succeed regardless of whether the appworld clone exists. The `appworl
 
 The `eval.sh` and `compare.sh` scripts handle the full server lifecycle (start, health-check, cleanup) automatically.
 
+### Agent Options
+
+AppWorld supports three agent backends via `--agent`:
+
+- **`cuga`** (default) — `CugaAgent` from `cuga.sdk` with the full policy system and MCP tool loading
+- **`react`** — pre-PR-31 baseline: `appworld_eval_react.py` with a short embedded prompt. Runs the CodeAct pattern (Python REPL via `world.execute()`), kept for A/B comparison
+- **`codeact`** — improved CodeAct: `appworld_eval_codeact.py` with the `instructions.txt` few-shot prompt, stop sequences, larger trim budget, and pre-authentication
+
+Despite the names, both `react` and `codeact` follow the CodeAct pattern (the model emits a ` ```python ``` ` block executed in AppWorld's REPL), not true ReAct with JSON tool calls. `--agent codeact` is only supported by AppWorld; other benchmarks reject it with a clear error.
+
 ### Single Evaluation Run
 
 ```bash
@@ -91,7 +101,10 @@ The `eval.sh` and `compare.sh` scripts handle the full server lifecycle (start, 
 # Run a predefined task group by eval-key
 ./benchmarks/appworld/eval.sh --sdk --eval-key test_challenge_easy
 
-# Run with ReAct agent instead of CUGA
+# Run with CodeAct agent (improved loop, instructions.txt few-shot prompt)
+./benchmarks/appworld/eval.sh --sdk --agent codeact --eval-key test_challenge_easy
+
+# Run with ReAct agent (pre-PR-31 baseline with short embedded prompt)
 ./benchmarks/appworld/eval.sh --sdk --agent react --eval-key test_challenge_easy
 
 # Run with a specific model profile
@@ -131,8 +144,8 @@ Runs `eval.sh` multiple times and collects results into an evaluation bundle.
 |---|---|---|
 | `--runs N` | Number of runs per model/agent | `--runs 5` |
 | `--models M1,M2` | Comma-separated model profiles to compare | `--models gpt-oss,gpt4.1` |
-| `--agent AGENT` | Agent type for all runs (`cuga` or `react`) | `--agent react` |
-| `--compare-agents` | Run both `cuga` and `react` agents and compare | `--compare-agents` |
+| `--agent AGENT` | Agent type for all runs (`cuga`, `react`, or `codeact`) | `--agent codeact` |
+| `--compare-agents` | Run both `cuga` and `react` agents and compare (for three-way comparison, pass `--agents cuga,react,codeact` explicitly) | `--compare-agents` |
 | `--dry-run` | Preview commands without executing | `--dry-run` |
 | `--no-bundle` | Skip evaluation bundle creation | `--no-bundle` |
 | `--bundle-zip` | Create a zip archive of the evaluation bundle | `--bundle-zip` |
@@ -146,7 +159,7 @@ All other flags (e.g. `--sdk`, `--eval-key`, `--task`, `--model-profile`) are fo
 | `--task ID` | Run a specific task | `--task 82e2fac_1` |
 | `--eval-key KEY` | Run a predefined task group from `eval_config.toml` | `--eval-key test_challenge_easy` |
 | `--sdk` | Use the SDK evaluator | `--sdk` |
-| `--agent AGENT` | Agent type (`cuga` or `react`) | `--agent react` |
+| `--agent AGENT` | Agent type (`cuga`, `react`, or `codeact`) | `--agent codeact` |
 | `--model-profile P` | Apply a model profile (`gpt-oss`, `gpt4o`, `gpt4.1`, `opus4.5`) | `--model-profile gpt4.1` |
 | `--specific-task-levels N` | Filter tasks by difficulty level (1, 2, 3) | `--specific-task-levels 1` |
 | `--no-bundle` | Skip evaluation bundle creation | `--no-bundle` |

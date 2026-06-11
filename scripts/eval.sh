@@ -28,7 +28,8 @@ for arg in "${FORWARDED_ARGS[@]}"; do
         echo ""
         echo "Common options:"
         echo "  --benchmark, -b <name>    Benchmark to run (required)"
-        echo "  --agent <name>            Agent to run (cuga, react; default: cuga)"
+        echo "  --agent <name>            Agent to run (cuga, react, codeact; default: cuga)"
+        echo "                            Note: 'codeact' is only supported by the appworld benchmark."
         echo "  --model-profile <name>    Model profile (gpt-oss, gpt4o, gpt4.1, opus4.5)"
         echo "  --dotenv                  Use .env values to override the model profile"
         echo "  --verbose, -v             Enable verbose output"
@@ -59,8 +60,13 @@ if [ ! -d "$BENCHMARK_DIR" ]; then
     exit 1
 fi
 
-if [[ "$AGENT" != "cuga" && "$AGENT" != "react" ]]; then
-    echo -e "${RED}Error: Unsupported agent '$AGENT'. Supported agents: cuga, react${NC}"
+if [[ "$AGENT" != "cuga" && "$AGENT" != "react" && "$AGENT" != "codeact" ]]; then
+    echo -e "${RED}Error: Unsupported agent '$AGENT'. Supported agents: cuga, react, codeact${NC}"
+    exit 1
+fi
+
+if [[ "$AGENT" == "codeact" && "$BENCHMARK" != "appworld" ]]; then
+    echo -e "${RED}Error: --agent codeact is supported only by the appworld benchmark (got '$BENCHMARK').${NC}"
     exit 1
 fi
 

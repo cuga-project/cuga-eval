@@ -327,6 +327,11 @@ if [ "$NO_POLICIES" != "true" ] && [ -d "$POLICIES_DIR" ]; then
     fi
 fi
 
+if [ "${AGENT:-cuga}" = "codeact" ]; then
+    echo -e "${RED:-}Error: --agent codeact is supported only by the appworld benchmark.${NC:-}"
+    exit 2
+fi
+
 # Select eval script
 if [ "$M3_DATA" = "true" ]; then
     if [ "${AGENT:-cuga}" = "react" ]; then

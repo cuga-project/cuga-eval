@@ -131,10 +131,16 @@ while [[ $# -gt 0 ]]; do
         --no-bundle)   NO_BUNDLE=true;    shift ;;
         --bundle-zip)  BUNDLE_ZIP=true;   shift ;;
         --model-profile) MODEL_PROFILE="$2"; shift 2 ;;
+        --agent)       AGENT="$2"; shift 2 ;;
         --verbose|-v|--quiet|-q)  PASSTHROUGH_ARGS+=("$1"); shift ;;
         *)             PASSTHROUGH_ARGS+=("$1"); shift ;;
     esac
 done
+
+if [ "${AGENT:-cuga}" = "codeact" ]; then
+    echo -e "${RED:-}Error: --agent codeact is supported only by the appworld benchmark.${NC:-}"
+    exit 2
+fi
 
 # Run evaluation
 echo -e "${YELLOW:-}Starting evaluation...${NC:-}"

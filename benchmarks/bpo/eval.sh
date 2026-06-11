@@ -257,6 +257,11 @@ fi
 echo -e "${YELLOW:-}Starting evaluation...${NC:-}"
 echo ""
 
+if [ "${AGENT:-cuga}" = "codeact" ]; then
+    echo -e "${RED:-}Error: --agent codeact is supported only by the appworld benchmark.${NC:-}"
+    exit 2
+fi
+
 # Run with resolved --data args and any remaining passthrough arguments
 if [ "${AGENT:-cuga}" = "react" ]; then
     uv run python -m benchmarks.bpo.eval_bench_sdk_react "${DATA_ARGS[@]}" "${PASSTHROUGH_ARGS[@]}"

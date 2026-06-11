@@ -182,10 +182,11 @@ Available profiles: `gpt-oss`, `gpt4o`, `gpt4.1`, `opus4.5`
 
 ### Agent Selection
 
-The evaluation framework supports two agent types:
+The evaluation framework supports the following agent types:
 
 - **`cuga`** (default) - The full CUGA agent with planning, reflection, and advanced features
-- **`react`** - A lightweight ReAct-style agent for iterative reasoning and tool execution
+- **`react`** - A lightweight ReAct-style agent for iterative reasoning and tool execution (uses JSON tool calls on BPO/M3; for AppWorld this is a CodeAct-pattern baseline preserved for A/B comparison)
+- **`codeact`** - **AppWorld only.** Improved CodeAct loop (`appworld_eval_codeact.py`) with the `instructions.txt` few-shot prompt, stop sequences, larger trim budget, and pre-authentication. Other benchmarks reject `--agent codeact` with a clear error.
 
 Use the `--agent` flag to select the agent type:
 
@@ -199,6 +200,11 @@ Use the `--agent` flag to select the agent type:
 # Compare agents on same tasks
 ./benchmarks/bpo/eval.sh --task 1 2 3                    # CUGA agent
 ./benchmarks/bpo/eval.sh --agent react --task 1 2 3      # ReAct agent
+
+# AppWorld-only: compare three modes
+./benchmarks/appworld/eval.sh --agent cuga --task 82e2fac_1
+./benchmarks/appworld/eval.sh --agent react --task 82e2fac_1     # baseline CodeAct
+./benchmarks/appworld/eval.sh --agent codeact --task 82e2fac_1   # improved CodeAct
 ```
 
 **What is the ReAct Agent?**
@@ -208,7 +214,7 @@ The ReAct (Reasoning + Acting) agent is a lightweight, prompt-based agent that u
 - Uses the same MCP tools and evaluation infrastructure
 - Enables direct comparison of agent architectures on the same tasks
 
-> **Note:** Oak Health Insurance does not currently support `--agent` selection — its `eval.sh` runs the CUGA agent only. M3's `--multiturn` mode is also CUGA-only and will error out if combined with `--agent react`.
+> **Note:** Oak Health Insurance does not currently support `--agent` selection — its `eval.sh` runs the CUGA agent only and rejects `--agent codeact`. M3's `--multiturn` mode is also CUGA-only and will error out if combined with `--agent react`. `--agent codeact` is supported only by AppWorld.
 
 
 ---
@@ -310,8 +316,11 @@ cd benchmarks/m3 && ./eval.sh --task hockey_395_0
 # From local:
 cd benchmarks/appworld && ./eval.sh --task 82e2fac_1
 
-# With ReAct agent
+# With ReAct agent (pre-PR-31 baseline CodeAct)
 ./benchmarks/appworld/eval.sh --agent react --task 82e2fac_1
+
+# With improved CodeAct agent (AppWorld-only)
+./benchmarks/appworld/eval.sh --agent codeact --task 82e2fac_1
 
 # AppWorld-specific: specific task levels
 ./benchmarks/appworld/eval.sh --specific-task-levels 1
@@ -357,7 +366,7 @@ Flags accepted by every `eval.sh` (and forwarded by every `compare.sh`):
 | `--verbose`, `-v` | Set loguru level to DEBUG. Useful for diagnosing tool-call or agent-graph behaviour. |
 | `--quiet`, `-q` | Set loguru level to WARNING. Drops the per-step INFO chatter for cleaner CI logs. |
 | `--task <id>...` | Run only the listed task(s) (numeric IDs, task names, or — for AppWorld — task UUIDs). |
-| `--agent cuga\|react` | Pick agent. `cuga` is the default; `react` runs the lightweight ReAct baseline. Not all benchmarks support both (see Agent Selection above). |
+| `--agent cuga\|react\|codeact` | Pick agent. `cuga` is the default; `react` runs the lightweight ReAct baseline. `codeact` is AppWorld-only — the improved CodeAct loop. See Agent Selection above for per-benchmark support. |
 | `--model-profile <name>` | Pick model profile (`gpt-oss`, `gpt4o`, `gpt4.1`, `opus4.5`). Default comes from `.env`. |
 | `--dotenv` | After applying the model profile, re-read `.env` and force-export every variable it contains. `.env` values override the profile. If no `--model-profile` is given, defaults to `gpt-oss` as the base. In `compare.sh` this forces a single model, so it cannot be combined with a multi-model `--models a,b,…` list (the run would compare a model against itself). |
 | `--no-bundle` | Skip reproducibility bundle creation. |
