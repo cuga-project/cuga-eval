@@ -185,8 +185,10 @@ Available profiles: `gpt-oss`, `gpt4o`, `gpt4.1`, `opus4.5`
 The evaluation framework supports the following agent types:
 
 - **`cuga`** (default) - The full CUGA agent with planning, reflection, and advanced features
-- **`react`** - A lightweight ReAct-style agent for iterative reasoning and tool execution (uses JSON tool calls on BPO/M3; for AppWorld this is a CodeAct-pattern baseline preserved for A/B comparison)
-- **`codeact`** - **AppWorld only.** Improved CodeAct loop (`appworld_eval_codeact.py`) with the `instructions.txt` few-shot prompt, stop sequences, larger trim budget, and pre-authentication. Other benchmarks reject `--agent codeact` with a clear error.
+- **`react`** - A lightweight ReAct-style agent. On BPO/M3 it emits JSON tool calls (true ReAct: decisions live between turns). On AppWorld it runs through the Python REPL but the short prompt encourages small one-API-per-step blocks, so behavior is still ReAct-flavored — decisions remain between turns.
+- **`codeact`** - **AppWorld only.** Uses an `instructions.txt` few-shot prompt that demonstrates richer code blocks (loops, conditionals, multiple API calls + computation per step). Encodes workflow logic **inside** the generated code instead of deferring every branch to the next LLM turn. Also adds stop sequences, a larger trim budget, and pre-authentication. Other benchmarks reject `--agent codeact` with a clear error.
+
+> **Note on naming:** The CodeAct vs ReAct distinction here is about *where decisions live* (between turns vs in-code), not about the action mechanism. AppWorld's `--agent react` and `--agent codeact` share the same Python-REPL harness but use prompts that push the model in different directions.
 
 Use the `--agent` flag to select the agent type:
 

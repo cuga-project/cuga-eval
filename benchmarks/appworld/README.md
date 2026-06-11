@@ -87,10 +87,10 @@ The `eval.sh` and `compare.sh` scripts handle the full server lifecycle (start, 
 AppWorld supports three agent backends via `--agent`:
 
 - **`cuga`** (default) — `CugaAgent` from `cuga.sdk` with the full policy system and MCP tool loading
-- **`react`** — pre-PR-31 baseline: `appworld_eval_react.py` with a short embedded prompt. Runs the CodeAct pattern (Python REPL via `world.execute()`), kept for A/B comparison
-- **`codeact`** — improved CodeAct: `appworld_eval_codeact.py` with the `instructions.txt` few-shot prompt, stop sequences, larger trim budget, and pre-authentication
+- **`react`** — pre-PR-31 baseline: `appworld_eval_react.py` with a short embedded prompt that instructs the model to *"Write small chunks of code and validate each step"*. Behaves in a ReAct-flavored way: each step is typically a tiny Python block with a single API call, and the model defers branching/looping decisions to the next LLM turn after observing the result.
+- **`codeact`** — `appworld_eval_codeact.py` with the `instructions.txt` few-shot prompt that demonstrates richer code blocks (`for` loops, conditionals, multiple API calls + computation per step). Encourages true CodeAct: workflow logic is encoded **inside** the generated code rather than spread across LLM turns.
 
-Despite the names, both `react` and `codeact` follow the CodeAct pattern (the model emits a ` ```python ``` ` block executed in AppWorld's REPL), not true ReAct with JSON tool calls. `--agent codeact` is only supported by AppWorld; other benchmarks reject it with a clear error.
+Both share the same harness (Python REPL via `world.execute()` with variables persisting across steps), so the mechanism is identical. The ReAct vs CodeAct distinction here is about **where decisions live**: with the `react` prompt the model makes decisions between turns (ReAct-flavored), with the `codeact` prompt the model embeds branching, iteration, and error handling directly in code (true CodeAct). `--agent codeact` also adds engineering improvements over the baseline: stop sequences on the closing code fence, a larger trim budget, and pre-authentication of all task apps. `--agent codeact` is only supported by AppWorld; other benchmarks reject it with a clear error.
 
 ### Single Evaluation Run
 
