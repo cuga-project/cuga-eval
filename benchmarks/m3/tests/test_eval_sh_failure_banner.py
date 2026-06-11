@@ -156,7 +156,7 @@ def test_eval_sh_wraps_evaluator_selection_with_err_trap_guard() -> None:
 def test_real_eval_sh_propagates_failing_evaluator_exit(tmp_path: Path) -> None:
     """End-to-end: run the real ``eval.sh`` with the evaluator stubbed to fail
     (a fake ``uv`` on PATH that exits 1) and assert the failure banner prints,
-    ``cleanup`` runs, and the script's own exit code is non-zero.
+    ``cleanup`` runs, and the script's own exit code matches the evaluator's.
 
     Unlike the harness tests above, this drives the actual script, so it locks
     in exit-code propagation through the real cleanup EXIT trap and the trailing
@@ -166,17 +166,23 @@ def test_real_eval_sh_propagates_failing_evaluator_exit(tmp_path: Path) -> None:
     ``--no-policies``/``--no-bundle`` keep the run hermetic: the evaluator
     invocation is then the only ``uv`` call reached, so the fake ``uv`` failure
     exercises exactly the issue #55 path. Single-turn (no ``--multiturn``) means
-    no registry server is started.
+    no registry server is started. The fake ``uv`` also logs each invocation's
+    arguments so the test can confirm it was reached via the guarded
+    ``eval_m3`` call, not some earlier ``uv`` invocation.
     """
     fake_bin = tmp_path / "bin"
     fake_bin.mkdir()
+    uv_log = tmp_path / "uv_invocations.log"
     fake_uv = fake_bin / "uv"
-    fake_uv.write_text("#!/bin/bash\nexit 1\n")
+    fake_uv.write_text(f'#!/bin/bash\necho "$@" >> "{uv_log}"\nexit 1\n')
     fake_uv.chmod(0o755)
 
     env = dict(os.environ)
     env["PATH"] = f"{fake_bin}{os.pathsep}{env['PATH']}"
-    # Use an unlikely port so the stale-port check never kills a real process.
+    # Arbitrary port outside eval.sh's default (8001), passed only to this
+    # subprocess. If something else happens to be bound to it, eval.sh's
+    # stale-port check runs `lsof -ti :8757 | xargs kill` before starting the
+    # evaluator — low risk, but worth knowing if this test ever flakes.
     env["REGISTRY_PORT"] = "8757"
 
     out_file = tmp_path / "eval_out.txt"
@@ -191,6 +197,10 @@ def test_real_eval_sh_propagates_failing_evaluator_exit(tmp_path: Path) -> None:
         )
     output = out_file.read_text()
 
-    assert result.returncode != 0, f"eval.sh must exit non-zero when the evaluator fails; output:\n{output}"
+    assert result.returncode == 1, f"eval.sh must propagate the evaluator's exit code; output:\n{output}"
     assert "M3 evaluation failed" in output, output
     assert "Cleaning up" in output, output
+
+    uv_invocations = uv_log.read_text().splitlines()
+    assert len(uv_invocations) == 1, f"expected exactly one uv invocation, got: {uv_invocations}"
+    assert uv_invocations[0].startswith("run python -m benchmarks.m3.eval_m3 "), uv_invocations[0]
