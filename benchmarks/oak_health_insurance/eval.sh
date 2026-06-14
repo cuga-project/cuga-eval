@@ -30,7 +30,6 @@ for arg in "$@"; do
         echo "  --no-bundle              Skip reproducibility bundle creation"
         echo "  --bundle-zip             Create zip archive of bundle"
         echo "  --model-profile <name>   Model profile (for bundle metadata)"
-        echo "  --no-policies            Disable CUGA policies (for baselining)"
         echo ""
         echo "Examples:"
         echo "  ./eval.sh                        # Default evaluation"
@@ -90,8 +89,7 @@ if [ "${SKIP_SERVER_START:-false}" != "true" ]; then
     fi
 
     echo -e "${YELLOW:-}Starting FastAPI server on port $FASTAPI_PORT...${NC:-}"
-    # Oak app uses relative imports (from models import ...), must run from its directory
-    (cd "$SCRIPT_DIR" && uv run uvicorn main:app --port $FASTAPI_PORT) > /tmp/oak_fastapi.log 2>&1 &
+    uv run uvicorn oak_health.main:app --host 127.0.0.1 --port $FASTAPI_PORT > /tmp/oak_fastapi.log 2>&1 &
     FASTAPI_PID=$!
 
     if wait_for_server "http://127.0.0.1:$FASTAPI_PORT/" "FastAPI server" 30; then

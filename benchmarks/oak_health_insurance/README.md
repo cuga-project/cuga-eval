@@ -8,7 +8,7 @@ The Oak Health Insurance benchmark evaluates agent capabilities with a realistic
 - Navigate health plans
 - Answer general health insurance questions
 
-The benchmark includes a FastAPI application that simulates a real insurance system with policies, claims, and member data.
+The benchmark uses the [oak-bench](https://github.com/cuga-project/oak-bench) open-source package for the FastAPI application and dataset.
 
 ---
 
@@ -94,11 +94,10 @@ Results are stored in `benchmarks/oak_health_insurance/logging/` and `trajectory
 
 The evaluation script (`eval_bench_sdk.py`) performs the following steps:
 
-1. **Load Policies** - Applies policies from `oak_policies.py`
-2. **Load Tools** - Retrieves available tools from the registry
-3. **Evaluate Tasks** - Processes each task in the test suite
-4. **Keyword Checking** - Validates responses contain expected keywords
-5. **Generate Report** - Creates results with difficulty-based filtering
+1. **Load Tools** - Retrieves available tools from the registry
+2. **Evaluate Tasks** - Processes each task in the test suite
+3. **Keyword Checking** - Validates responses contain expected keywords
+4. **Generate Report** - Creates results with difficulty-based filtering
 
 ---
 
@@ -198,17 +197,16 @@ benchmarks/oak_health_insurance/
 │   └── oak_health_insurance.env   # Oak-specific configuration
 ├── eval_bench_sdk.py              # Main evaluation script (recommended)
 ├── eval_bench.py                  # Alternative evaluation script
-├── main.py                        # FastAPI application
-├── models.py                      # Data models for insurance entities
-├── data.py                        # Test data and fixtures
-├── oak_policies.py                # Policy definitions
 ├── oak_mcp_servers.yaml           # MCP servers configuration
-├── oak_health_test_suite_v1.json  # Test suite with all tasks
+├── oak_health_test_suite_v1.json  # Test suite with all tasks (from oak-bench)
 ├── run_app.sh                     # Script to start FastAPI app
 ├── run_registry.sh                # Script to start registry
 ├── logging/                       # Evaluation results (generated)
 └── trajectory_data/               # Detailed execution traces (generated)
 ```
+
+The FastAPI application and its data are provided by the `cuga-oak-health` package
+from [cuga-project/oak-bench](https://github.com/cuga-project/oak-bench).
 
 ---
 
