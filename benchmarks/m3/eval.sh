@@ -167,7 +167,7 @@ create_bundle() {
     local f
     for f in $(ls -t "$SCRIPT_DIR/results"/m3_*.json "$SCRIPT_DIR/results"/multiturn_*.json 2>/dev/null); do
         local f_mtime
-        f_mtime=$(stat -f %m "$f" 2>/dev/null || stat -c %Y "$f" 2>/dev/null)
+        f_mtime=$(stat -c %Y "$f" 2>/dev/null || stat -f %m "$f" 2>/dev/null)
         if [ -n "$f_mtime" ] && [ "$f_mtime" -ge "$RUN_START_TS" ]; then
             latest_result="$f"
             break
@@ -208,6 +208,9 @@ create_bundle() {
     fi
     if [ "$NO_POLICIES" = "true" ]; then
         bundle_args+=(--no-policies)
+    fi
+    if [ -n "$CUGA_GIT_INFO_JSON" ]; then
+        bundle_args+=(--cuga-git-info "$CUGA_GIT_INFO_JSON")
     fi
     if [ "${BUNDLE_ZIP:-false}" = "true" ]; then
         bundle_args+=(--zip)
@@ -266,6 +269,26 @@ source "$PROJECT_ROOT/benchmarks/helpers/load_env.sh" "m3"
 REGISTRY_PORT="${REGISTRY_PORT:-${DYNACONF_SERVER_PORTS__REGISTRY:-8001}}"
 export REGISTRY_PORT
 export DYNACONF_SERVER_PORTS__REGISTRY="$REGISTRY_PORT"
+
+# Capture the cuga-agent checkout's git state now, before the eval run starts
+# — not at bundle-assembly time (after the run finishes). If the checkout is
+# shared (e.g. someone switches branches in it for unrelated work) while a
+# long run is in flight, a live git query at the end would silently mislabel
+# the bundle with whatever happens to be checked out by then.
+CUGA_REPO_PATH_RESOLVED="${CUGA_REPO_PATH:-$HOME/workspace/cuga-agent}"
+CUGA_GIT_INFO_JSON=""
+if [ -d "$CUGA_REPO_PATH_RESOLVED" ]; then
+    _cuga_commit=$(git -C "$CUGA_REPO_PATH_RESOLVED" rev-parse --short HEAD 2>/dev/null || echo "")
+    _cuga_branch=$(git -C "$CUGA_REPO_PATH_RESOLVED" rev-parse --abbrev-ref HEAD 2>/dev/null || echo "")
+    _cuga_dirty=false
+    [ -n "$(git -C "$CUGA_REPO_PATH_RESOLVED" status --short 2>/dev/null)" ] && _cuga_dirty=true
+    CUGA_GIT_INFO_JSON=$(jq -cn \
+        --arg git_commit "$_cuga_commit" \
+        --arg git_branch "$_cuga_branch" \
+        --argjson git_dirty "$_cuga_dirty" \
+        '{"git_commit":$git_commit,"git_branch":$git_branch,"git_dirty":$git_dirty}')
+fi
+export CUGA_GIT_INFO_JSON
 
 # Make sure Python doesn't block-buffer stdout when it's piped through `tee`.
 # Without this, print() output from the summary can land after the process
