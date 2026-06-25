@@ -111,7 +111,19 @@ def collect_repo_git_info() -> dict:
     }
 
 
-def collect_cuga_info() -> dict:
+def collect_cuga_info(git_info: dict | None = None) -> dict:
+    """Git/version info for the cuga-agent checkout used by this run.
+
+    ``git_info`` is an optional pre-captured {"git_commit", "git_branch",
+    "git_dirty"} snapshot. Pass it for any multi-run bundle (eval.sh/compare.sh
+    runs that take more than a few seconds) — querying git live here, in the
+    bundle-assembly step, reflects whatever is checked out at *finalization*
+    time, not what was actually checked out while the run(s) executed. If the
+    checkout is shared (e.g. someone switches branches in it for unrelated
+    work) while a long compare.sh run is in flight, a live query silently
+    mislabels the whole bundle. Callers should capture git_info once, before
+    kicking off any eval.sh subprocess, and thread it through unchanged.
+    """
     cuga_version = None
     try:
         import cuga
@@ -120,16 +132,18 @@ def collect_cuga_info() -> dict:
     except ImportError:
         pass
 
-    cuga_repo = os.environ.get("CUGA_REPO_PATH", os.path.expanduser("~/workspace/cuga-agent"))
-    cuga_repo_path = Path(cuga_repo)
-
-    cuga_git = {}
-    if cuga_repo_path.exists():
-        cuga_git = {
-            "git_commit": _run_git(["rev-parse", "--short", "HEAD"], cwd=cuga_repo_path),
-            "git_branch": _run_git(["rev-parse", "--abbrev-ref", "HEAD"], cwd=cuga_repo_path),
-            "git_dirty": bool(_run_git(["status", "--short"], cwd=cuga_repo_path) or ""),
-        }
+    if git_info is not None:
+        cuga_git = git_info
+    else:
+        cuga_repo = os.environ.get("CUGA_REPO_PATH", os.path.expanduser("~/workspace/cuga-agent"))
+        cuga_repo_path = Path(cuga_repo)
+        cuga_git = {}
+        if cuga_repo_path.exists():
+            cuga_git = {
+                "git_commit": _run_git(["rev-parse", "--short", "HEAD"], cwd=cuga_repo_path),
+                "git_branch": _run_git(["rev-parse", "--abbrev-ref", "HEAD"], cwd=cuga_repo_path),
+                "git_dirty": bool(_run_git(["status", "--short"], cwd=cuga_repo_path) or ""),
+            }
 
     return {
         "version": cuga_version,
@@ -442,6 +456,7 @@ def assemble_bundle(
     log_files: list[str | Path] | None = None,
     fetch_langfuse: bool = False,
     report_content: str | None = None,
+    cuga_git_info: dict | None = None,
 ) -> Path:
     """Create a single-run reproducibility bundle.
 
@@ -529,7 +544,7 @@ def assemble_bundle(
             "openai_base_url": os.environ.get("OPENAI_BASE_URL"),
             "openai_api_version": os.environ.get("OPENAI_API_VERSION"),
         },
-        "cuga": collect_cuga_info(),
+        "cuga": collect_cuga_info(cuga_git_info),
         "policies": collect_policy_metadata(policies_dir),
         "environment": collect_environment(),
         "ground_truth": {
@@ -554,6 +569,7 @@ def assemble_compare_bundle(
     log_files: dict[str, list[str | Path]] | None = None,
     fetch_langfuse: bool = False,
     eval_key: str | None = None,
+    cuga_git_info: dict | None = None,
 ) -> Path:
     """Create a comparison-level bundle directory.
 
@@ -718,7 +734,7 @@ def assemble_compare_bundle(
             "openai_base_url": os.environ.get("OPENAI_BASE_URL"),
             "openai_api_version": os.environ.get("OPENAI_API_VERSION"),
         },
-        "cuga": collect_cuga_info(),
+        "cuga": collect_cuga_info(cuga_git_info),
         "policies": collect_policy_metadata(policies_dir),
         "environment": collect_environment(),
         "ground_truth": {
@@ -781,6 +797,13 @@ def cli():
         "--fetch-langfuse", action="store_true", help="Download Langfuse traces for tasks that have trace IDs"
     )
     p_asm.add_argument("--report", default=None, help="Path to report.md to include in bundle")
+    p_asm.add_argument(
+        "--cuga-git-info",
+        default=None,
+        help='JSON {"git_commit", "git_branch", "git_dirty"} captured before the run started, e.g. by '
+        "eval.sh. Overrides a live git query, which would otherwise reflect whatever is checked out "
+        "in the cuga-agent repo at bundle-assembly time (after the run), not what actually ran.",
+    )
     p_asm.add_argument("--zip", action="store_true")
 
     # --- assemble-compare ---
@@ -809,6 +832,14 @@ def cli():
         "--eval-key",
         default=None,
         help="Eval-config split used for these runs (e.g. 'train'/'test'), recorded in bundle metadata",
+    )
+    p_cmp.add_argument(
+        "--cuga-git-info",
+        default=None,
+        help='JSON {"git_commit", "git_branch", "git_dirty"} captured before any run started, e.g. by '
+        "compare.sh. Overrides a live git query, which would otherwise reflect whatever is checked out "
+        "in the cuga-agent repo at bundle-assembly time (after all runs finish), not what actually ran "
+        "-- a real risk for multi-run comparisons if the checkout is shared with other work.",
     )
     p_cmp.add_argument("--zip", action="store_true")
 
@@ -842,6 +873,7 @@ def cli():
             log_files=args.log_files,
             fetch_langfuse=args.fetch_langfuse,
             report_content=report_content,
+            cuga_git_info=json.loads(args.cuga_git_info) if args.cuga_git_info else None,
         )
         print(f"Bundle created: {bundle_dir}")
         if args.zip:
@@ -881,6 +913,7 @@ def cli():
             log_files=log_file_map,
             fetch_langfuse=args.fetch_langfuse,
             eval_key=getattr(args, "eval_key", None),
+            cuga_git_info=json.loads(args.cuga_git_info) if args.cuga_git_info else None,
         )
         print(f"Bundle created: {bundle_dir}")
         if args.zip:
