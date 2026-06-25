@@ -282,7 +282,11 @@ if [ -d "$CUGA_REPO_PATH_RESOLVED" ]; then
     _cuga_branch=$(git -C "$CUGA_REPO_PATH_RESOLVED" rev-parse --abbrev-ref HEAD 2>/dev/null || echo "")
     _cuga_dirty=false
     [ -n "$(git -C "$CUGA_REPO_PATH_RESOLVED" status --short 2>/dev/null)" ] && _cuga_dirty=true
-    CUGA_GIT_INFO_JSON="{\"git_commit\":\"${_cuga_commit}\",\"git_branch\":\"${_cuga_branch}\",\"git_dirty\":${_cuga_dirty}}"
+    CUGA_GIT_INFO_JSON=$(jq -cn \
+        --arg git_commit "$_cuga_commit" \
+        --arg git_branch "$_cuga_branch" \
+        --argjson git_dirty "$_cuga_dirty" \
+        '{"git_commit":$git_commit,"git_branch":$git_branch,"git_dirty":$git_dirty}')
 fi
 export CUGA_GIT_INFO_JSON
 
