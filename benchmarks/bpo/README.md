@@ -58,6 +58,11 @@ GROQ_API_KEY=your_groq_api_key_here
 AGENT_SETTING_CONFIG=settings.groq.toml
 MODEL_NAME=openai/gpt-oss-120b
 
+# LLM judge configuration
+QWEN_API_KEY=your_qwen_api_key_here
+LLM_JUDGE_MODEL=qwen3.7-max
+LLM_JUDGE_BASE_URL=https://dashscope.aliyuncs.com/compatible-mode/v1
+
 # Langfuse Observability (required for tracing)
 LANGFUSE_HOST=https://cloud.langfuse.com
 LANGFUSE_PUBLIC_KEY=pk-lf-...
@@ -107,6 +112,9 @@ uv run python -m benchmarks.bpo.eval_bench_sdk --task task_1
 Environment variables are loaded from `config/bpo.env`. See `config/.env.example` for all supported variables.
 
 Model profiles are available via `--model-profile`: `gpt-oss`, `gpt4o`, `gpt4.1`, `opus4.5`.
+Task-level LLM judging uses Qwen3.7 Max. Use `qwen3.7-max` for
+DashScope-compatible routing or `qwen/qwen3.7-max` with
+`LLM_JUDGE_BASE_URL=https://openrouter.ai/api/v1` for OpenRouter.
 
 ## Available APIs (32 endpoints)
 

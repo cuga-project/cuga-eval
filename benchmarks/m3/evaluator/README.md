@@ -41,7 +41,7 @@ You will typically need the same setup used for running the benchmark itself:
 - Python 3.10+
 - benchmark dependencies installed with `pip install -r requirements_benchmark.txt`
 - benchmark containers or MCP servers running and reachable via [`benchmark/mcp_connection_config.yaml`](/vakra/benchmark/mcp_connection_config.yaml)
-- an OpenAI-compatible LLM configuration for the correctness and groundedness judges. We would be using `openai/gpt-oss-120b` internally for evaluation.
+- an OpenAI-compatible LLM configuration for the correctness and groundedness judges. Use Qwen3.7 Max for judge calls.
 
 If you are setting up the benchmark from scratch, use the top-level guide in [`setup.md`](/vakra/setup.md).
 
@@ -105,7 +105,16 @@ Notes:
 
 Run the evaluator from the repository root:
 
-1) export `API_KEY=GROQ_API_KEY`
+1) export Qwen3.7 Max judge credentials:
+
+```bash
+export QWEN_API_KEY=...
+export LLM_JUDGE_MODEL=qwen3.7-max
+export LLM_JUDGE_BASE_URL=https://dashscope.aliyuncs.com/compatible-mode
+```
+
+For OpenRouter, use `OPENROUTER_API_KEY`, `LLM_JUDGE_MODEL=qwen/qwen3.7-max`,
+and `LLM_JUDGE_BASE_URL=https://openrouter.ai/api`.
 
 2) Run the evaluation script using the following command
 

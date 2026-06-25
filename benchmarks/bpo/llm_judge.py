@@ -129,15 +129,31 @@ class MockJudge(LLMJudge):
         return "mock"
 
 
-class GroqJudge(LLMJudge):
+QWEN_GRADER_MODEL = "qwen3.7-max"
+OPENROUTER_QWEN_GRADER_MODEL = "qwen/qwen3.7-max"
+ALLOWED_GRADER_MODELS = {QWEN_GRADER_MODEL, OPENROUTER_QWEN_GRADER_MODEL}
+QWEN_BASE_URL = "https://dashscope.aliyuncs.com/compatible-mode/v1"
+OPENROUTER_BASE_URL = "https://openrouter.ai/api/v1"
+
+
+def _normalize_chat_base_url(base_url: str) -> str:
+    value = base_url.rstrip("/")
+    if value.endswith("/v1"):
+        return value
+    if value.endswith("/compatible-mode") or value.endswith("/api"):
+        return value + "/v1"
+    return value
+
+
+class QwenJudge(LLMJudge):
     """
-    Groq-backed semantic judge using Groq's OpenAI-compatible chat endpoint.
+    Qwen3.7 Max semantic judge using an OpenAI-compatible chat endpoint.
 
     Requires:
-      - GROQ_API_KEY
+      - QWEN_API_KEY, OPENROUTER_API_KEY, or LLM_JUDGE_API_KEY
     Optional:
-      - LLM_JUDGE_MODEL (defaults to a small/fast Groq model)
-      - GROQ_BASE_URL (defaults to Groq OpenAI-compatible base)
+      - LLM_JUDGE_MODEL (qwen3.7-max or qwen/qwen3.7-max)
+      - LLM_JUDGE_BASE_URL, QWEN_BASE_URL, or OPENROUTER_BASE_URL
     """
 
     def __init__(
@@ -148,18 +164,39 @@ class GroqJudge(LLMJudge):
         api_key: Optional[str] = None,
         timeout_s: int = 30,
     ) -> None:
-        self._api_key = api_key or os.getenv("GROQ_API_KEY")
+        self._model = model or os.getenv("LLM_JUDGE_MODEL")
+        if not self._model:
+            self._model = (
+                OPENROUTER_QWEN_GRADER_MODEL
+                if os.getenv("OPENROUTER_API_KEY") and not os.getenv("QWEN_API_KEY")
+                else QWEN_GRADER_MODEL
+            )
+        if self._model not in ALLOWED_GRADER_MODELS:
+            allowed = ", ".join(sorted(ALLOWED_GRADER_MODELS))
+            raise ValueError(f"LLM judge model must be Qwen3.7 Max ({allowed}), got {self._model!r}")
+        self._api_key = api_key or os.getenv("LLM_JUDGE_API_KEY")
         if not self._api_key:
-            raise ValueError("GROQ_API_KEY is required for GroqJudge")
+            self._api_key = (
+                os.getenv("OPENROUTER_API_KEY")
+                if self._model == OPENROUTER_QWEN_GRADER_MODEL
+                else os.getenv("QWEN_API_KEY")
+            )
+        if not self._api_key:
+            raise ValueError("QWEN_API_KEY, OPENROUTER_API_KEY, or LLM_JUDGE_API_KEY is required for QwenJudge")
 
-        # Default to gpt-oss-120b for best judgment quality
-        self._model = model or os.getenv("LLM_JUDGE_MODEL") or "openai/gpt-oss-120b"
-        self._base_url = (base_url or os.getenv("GROQ_BASE_URL") or "https://api.groq.com").rstrip("/")
+        explicit_base_url = base_url or os.getenv("LLM_JUDGE_BASE_URL")
+        if explicit_base_url:
+            resolved_base_url = explicit_base_url
+        elif self._model == OPENROUTER_QWEN_GRADER_MODEL:
+            resolved_base_url = os.getenv("OPENROUTER_BASE_URL") or OPENROUTER_BASE_URL
+        else:
+            resolved_base_url = os.getenv("QWEN_BASE_URL") or QWEN_BASE_URL
+        self._base_url = _normalize_chat_base_url(resolved_base_url)
         self._timeout_s = timeout_s
 
     @property
     def name(self) -> str:
-        return f"groq:{self._model}"
+        return f"qwen:{self._model}"
 
     async def judge(
         self,
@@ -214,7 +251,7 @@ class GroqJudge(LLMJudge):
         }
 
         def _do_request() -> Dict[str, Any]:
-            url = f"{self._base_url}/openai/v1/chat/completions"
+            url = f"{self._base_url}/chat/completions"
 
             if requests is not None:
                 # Prefer requests library (more reliable, better error handling)
@@ -259,7 +296,7 @@ class GroqJudge(LLMJudge):
             start = content.find("{")
             end = content.rfind("}")
             if start == -1 or end == -1 or end <= start:
-                raise ValueError(f"GroqJudge returned non-JSON: {content[:200]!r}")
+                raise ValueError(f"QwenJudge returned non-JSON: {content[:200]!r}")
             parsed = json.loads(content[start : end + 1])
 
         score = float(parsed.get("score", 0.0))
@@ -270,10 +307,17 @@ class GroqJudge(LLMJudge):
             "score": score,
             "rationale": rationale,
             "metadata": {
-                "judge": "groq",
+                "judge": "qwen",
                 "model": self._model,
             },
         }
+
+
+class GroqJudge(QwenJudge):
+    """Deprecated compatibility alias. Configure provider `qwen` instead."""
+
+    def __init__(self, *args: Any, **kwargs: Any) -> None:
+        raise ValueError("GroqJudge is retired for task judging. Use provider 'qwen' with Qwen3.7 Max.")
 
 
 def get_llm_judge(provider: Optional[str] = None, **kwargs: Any) -> LLMJudge:
@@ -284,7 +328,7 @@ def get_llm_judge(provider: Optional[str] = None, **kwargs: Any) -> LLMJudge:
         provider: Name of the judge provider. Options:
             - None: Returns NotConfiguredJudge
             - "mock": Returns MockJudge for testing
-            - Other values: Reserved for future implementations
+            - "qwen": Returns QwenJudge for Qwen3.7 Max
 
     Returns:
         LLMJudge instance
@@ -298,10 +342,12 @@ def get_llm_judge(provider: Optional[str] = None, **kwargs: Any) -> LLMJudge:
     if provider == "mock":
         return MockJudge()
 
+    if provider == "qwen":
+        return QwenJudge(**kwargs)
     if provider == "groq":
-        return GroqJudge(**kwargs)
+        raise ValueError("Provider 'groq' is retired for task judging. Use provider 'qwen'.")
 
-    raise ValueError(f"Unknown LLM judge provider: {provider}. Available providers: mock, groq")
+    raise ValueError(f"Unknown LLM judge provider: {provider}. Available providers: mock, qwen")
 
 
 async def judge_output(

@@ -147,7 +147,7 @@ class BPOEvaluator:
         metrics_config = {
             "enable_similarity": True,
             "enable_llm_judge": True,
-            "llm_judge_provider": "groq",
+            "llm_judge_provider": "qwen",
             "enable_api_metrics": True,
             "expected_output_key": "expected_output.response",
             "final_score_threshold_exact": 0.85,

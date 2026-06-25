@@ -33,7 +33,7 @@ class MetricsConfig(TypedDict, total=False):
     Fields:
         enable_similarity: Compute string similarity score (0.0-1.0)
         enable_llm_judge: Run LLM judge for semantic evaluation
-        llm_judge_provider: LLM judge provider ("groq", "mock", etc.)
+        llm_judge_provider: LLM judge provider ("qwen", "mock", etc.)
         expected_output_key: Key path to expected output in task dict (default: "expected_output.answer")
         final_score_threshold_exact: Threshold when exact match (default: 0.85)
         final_score_threshold_inexact: Threshold when no exact match (default: 0.9)
@@ -1107,7 +1107,7 @@ async def evaluate_task_with_langfuse(
 
             # LLM Judge metrics
             if metrics_config.get("enable_llm_judge", False):
-                provider = metrics_config.get("llm_judge_provider", "groq")
+                provider = metrics_config.get("llm_judge_provider", "qwen")
                 judge = _get_llm_judge(provider)
                 if judge:
                     try:

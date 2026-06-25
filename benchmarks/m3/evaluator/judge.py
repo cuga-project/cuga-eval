@@ -15,6 +15,11 @@ _CONCLUSION_RE = re.compile(r"<conclusion>\s*(.*?)\s*</conclusion>", re.IGNORECA
 _SCORE_MAP = {"yes": 1.0, "partial": 0.0, "no": 0.0, "unsure": 0.0}
 
 N_TOOL_CALLS_PER_TURN = 20
+QWEN_GRADER_MODEL = "qwen3.7-max"
+OPENROUTER_QWEN_GRADER_MODEL = "qwen/qwen3.7-max"
+ALLOWED_GRADER_MODELS = {QWEN_GRADER_MODEL, OPENROUTER_QWEN_GRADER_MODEL}
+QWEN_BASE_URL = "https://dashscope.aliyuncs.com/compatible-mode"
+OPENROUTER_BASE_URL = "https://openrouter.ai/api"
 
 
 class JudgeOutputParseError(ValueError):
@@ -29,18 +34,38 @@ class JudgeValidationError(ValueError):
 
 class ChatModel(ChatOpenAI):
     """
-    openai/gpt-oss-120b chat model is being used as LLM-as-a-judge using langchain-openai.
-    Groq-backed OpenAI-compatible chat model.
+    Qwen3.7 Max chat model used as the LLM-as-a-judge through langchain-openai.
     """
 
     def __init__(self, config: dict):
-        # Set model with model or model_name
-        model_name = config.get("model_name", "openai/gpt-oss-120b")
-        end_point = config.get("end_point", "https://api.groq.com/openai")
+        model_name = config.get("model_name") or os.getenv("LLM_JUDGE_MODEL")
+        if not model_name:
+            model_name = (
+                OPENROUTER_QWEN_GRADER_MODEL
+                if os.getenv("OPENROUTER_API_KEY") and not os.getenv("QWEN_API_KEY")
+                else QWEN_GRADER_MODEL
+            )
+        if model_name not in ALLOWED_GRADER_MODELS:
+            allowed = ", ".join(sorted(ALLOWED_GRADER_MODELS))
+            raise ValueError(f"LLM judge model must be Qwen3.7 Max ({allowed}), got {model_name!r}")
 
-        api_key = os.getenv("API_KEY")
+        explicit_end_point = config.get("end_point") or os.getenv("LLM_JUDGE_BASE_URL")
+        if explicit_end_point:
+            end_point = explicit_end_point
+        elif model_name == OPENROUTER_QWEN_GRADER_MODEL:
+            end_point = os.getenv("OPENROUTER_BASE_URL") or OPENROUTER_BASE_URL
+        else:
+            end_point = os.getenv("QWEN_BASE_URL") or QWEN_BASE_URL
+
+        api_key = os.getenv("LLM_JUDGE_API_KEY")
+        if not api_key:
+            api_key = (
+                os.getenv("OPENROUTER_API_KEY")
+                if model_name == OPENROUTER_QWEN_GRADER_MODEL
+                else os.getenv("QWEN_API_KEY")
+            )
         if api_key is None or api_key == "":
-            raise ValueError("API_KEY is required")
+            raise ValueError("LLM_JUDGE_API_KEY, QWEN_API_KEY, or OPENROUTER_API_KEY is required")
 
         params = config.get("params", {})
 
@@ -48,10 +73,16 @@ class ChatModel(ChatOpenAI):
         config = {}
         config.setdefault("model", model_name)
         config.setdefault("api_key", api_key)
-        config.setdefault("base_url", end_point.rstrip("/") + "/v1")
+        base_url = end_point.rstrip("/")
+        if not base_url.endswith("/v1"):
+            base_url += "/v1"
+        config.setdefault("base_url", base_url)
         config.setdefault("temperature", 0)
 
         config.update(params)
+        if config.get("model") not in ALLOWED_GRADER_MODELS:
+            allowed = ", ".join(sorted(ALLOWED_GRADER_MODELS))
+            raise ValueError(f"LLM judge model must be Qwen3.7 Max ({allowed}), got {config.get('model')!r}")
 
         super().__init__(**config)
 
