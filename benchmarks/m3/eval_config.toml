@@ -391,6 +391,32 @@ wave1_c1_4stable = [
 debug_stall_1 = ["bc9218680ed5-787eda184fe2"]   # student_loan: "students who filed for bankruptcy and have payment due" (was 2tc, em=1, gnd=1)
 debug_stall_3 = ["bc9218680ed5-787eda184fe2", "35a1befb81d1-616dfb77883f", "1960f609e439-8c022719a1ca"]
 
+# ─────────────────────────────────────────────────────────────────────────────
+# Wave 1 / Change #4 — fix tool parameter validation (missing required params)
+#
+# Largest Type-C bucket: the agent omits required tool params (full_name, limit,
+# team_name, start_season, …); the tool returns a validation error and the agent
+# fails to recover. Fix at the schema/registry layer (surface required[]) +
+# validation-retry, with #5 (numeric precision) folded in as a prompt rider.
+#
+# PROVISIONAL — these UUIDs are placeholders from param-heavy domains so the
+# dev/test ladder exists now. Replace from Phase-0 log mining of a full run
+# (grep console logs for the validation signature: HTTP 422 / "field required"
+# / "missing required parameter") to pin the real (uuid, domain, missing_param)
+# failures. Ladder mirrors wave1_c1_n1/n2/all: fix n1 alone → n2 → measure all.
+# ─────────────────────────────────────────────────────────────────────────────
+wave1_c4_n1 = ["d14bbb0be92d-b94c0c0446e9"]  # PROVISIONAL: profl_bball (team_name/start_season params)
+wave1_c4_n2 = [
+  "d14bbb0be92d-b94c0c0446e9",  # PROVISIONAL: profl_bball  — single-hop param omission
+  "2b28654158b1-e0bf826a9e36",  # PROVISIONAL: college_comp — task_3 multi-hop (0% domain)
+]
+wave1_c4_all = [
+  "d14bbb0be92d-b94c0c0446e9",  # PROVISIONAL: profl_bball    (param-heavy)
+  "2b28654158b1-e0bf826a9e36",  # PROVISIONAL: college_comp   (0% domain)
+  "3e2b8f7655a2-d5464931bd4a",  # PROVISIONAL: trains         (10% domain)
+  "31d9743578dc-3b59b2d5a9b3",  # PROVISIONAL: movie_platform (limit param)
+]
+
 schema_bug_task1 = ["308738b8195d-5bd16a8893c5"]
 schema_bug_task2 = ["308738b8195d-3e3d6db9ab3d"]
 schema_bug_2 = ["308738b8195d-5bd16a8893c5", "308738b8195d-3e3d6db9ab3d"]
