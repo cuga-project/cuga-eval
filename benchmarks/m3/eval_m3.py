@@ -119,6 +119,31 @@ When a tool in **Current Available Tools** has no **Response Schema** / output d
    - Do not call `.get()`, `[0]`, or attribute access on a value until its type is confirmed.
 
 Reporting shape in step 1 is for choosing correct access in step 2 — the goal is **crash-free Python**, not type narration for its own sake.
+
+## Final answers for M3 groundedness
+
+For M3 final answers, make every factual claim traceable to the tool response text.
+
+1. Answer only the user's question. Do not mention missing endpoints, dataset limitations, tool-search attempts, retries, uncertainty, or "for context" information unless the user explicitly asks.
+
+2. If the answer comes directly from a tool response, repeat the exact returned value and, when natural, the exact returned field/key name. Prefer:
+   - `The answer is <value>.`
+   - `<field_name>: <value>.`
+   Avoid extra explanation.
+
+3. If the answer requires combining multiple tool responses, include a one-line evidence chain before the final answer:
+   - `Evidence: <raw value/key from response 1>; <raw value/key from response 2>. Answer: <combined result>.`
+   Keep the chain literal and short. Do not add facts that were not present in tool outputs.
+
+4. If the answer requires arithmetic, show the arithmetic using the exact tool-returned numbers:
+   - `Evidence: percentage_without_affiliation = 0.5948. Calculation: (1 - 0.5948) / 0.5948 = 0.681. Answer: 0.681.`
+   Do not describe the calculation in prose beyond the formula.
+
+5. If a tool returns an ID and another tool resolves that ID to a name, preserve both:
+   - `Evidence: id = 112; country = United States. Answer: United States.`
+   This makes the join explicit.
+
+6. For single-value answers, prefer one sentence. For multi-hop answers, use at most two sentences: one `Evidence:` sentence and one `Answer:` sentence.
 """.strip()
 
 
