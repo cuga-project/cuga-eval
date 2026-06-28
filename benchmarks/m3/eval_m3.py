@@ -1662,11 +1662,40 @@ def _kill_port_listeners(port: int) -> None:
         logger.debug(f"Could not enumerate/kill listeners on port {port}: {e}")
 
 
-async def start_registry_server(config_path: str) -> subprocess.Popen:
+async def _force_free_registry_port(port: int, attempts: int = 12) -> bool:
+    """Actively kill every registry listener/process until `port` is verifiably free.
+
+    Sequential mode reuses one port across domains. A previous domain's uvicorn
+    occasionally survives teardown and keeps answering on the port, so the next
+    domain's tool calls hit a *stale* registry serving the wrong app (observed as
+    ``Application '<domain>' not found in registry. Available apps: ['<prev>']`` →
+    404). Passive waiting is not enough; we loop kill-then-verify so we never
+    proceed while a stray listener still owns the socket.
+    """
+    import subprocess
+
+    for _ in range(attempts):
+        if not _port_in_use(port):
+            return True
+        _kill_port_listeners(port)
+        # Belt-and-suspenders: also nuke by process signature in case lsof misses
+        # a uvicorn worker that briefly lost the bind but is still alive.
+        subprocess.run(["pkill", "-9", "-f", "uvicorn.*api_registry_server"], capture_output=True)  # noqa: S603,S607 — fixed args, no untrusted input
+        await asyncio.sleep(1.0)
+    return not _port_in_use(port)
+
+
+async def start_registry_server(
+    config_path: str, expected_apps: Optional[List[str]] = None
+) -> subprocess.Popen:
     """Start the registry server with the specified config.
 
     Args:
         config_path: Path to the registry config file
+        expected_apps: App/domain name(s) this registry must serve. When given,
+            the live ``/applications`` is verified to contain them after warmup;
+            a mismatch means a stale registry is answering and we abort rather
+            than run tasks against the wrong app.
 
     Returns:
         Process object for the registry server
@@ -1681,26 +1710,16 @@ async def start_registry_server(config_path: str) -> subprocess.Popen:
     try:
         if _port_in_use(registry_port):
             # Port is busy — most often a registry from the PREVIOUS service in
-            # a sequential run that hasn't released the socket yet. Proactively
-            # kill any stray listener and wait for the port to free up before
-            # giving up.
+            # a sequential run that hasn't released the socket yet. Aggressively
+            # kill-then-verify (loop) so we never bind on top of, or alongside,
+            # a stale registry that would keep answering with the old app.
             logger.warning(
-                f"⚠️  Port {registry_port} is in use — attempting to free it "
+                f"⚠️  Port {registry_port} is in use — force-freeing it "
                 f"(likely the previous service's registry shutting down)..."
             )
-            _kill_port_listeners(registry_port)
-            if not await _wait_for_port_free(registry_port, timeout=20.0):
-                logger.error(f"❌ Port {registry_port} is still in use after waiting!")
-                logger.error("Another registry server or process is using this port.")
-                logger.error("")
-                logger.error("To fix this, run one of these commands:")
-                logger.error(f"  1. Kill processes on port {registry_port}:")
+            if not await _force_free_registry_port(registry_port):
+                logger.error(f"❌ Port {registry_port} is still in use after force-free!")
                 logger.error(f"     lsof -ti :{registry_port} | xargs kill")
-                logger.error("")
-                logger.error("  2. Or find and kill specific process:")
-                logger.error(f"     lsof -i :{registry_port}")
-                logger.error("     kill <PID>")
-                logger.error("")
                 raise RuntimeError(
                     f"Port {registry_port} is already in use. Please kill the existing process first."
                 )
@@ -1798,10 +1817,32 @@ async def start_registry_server(config_path: str) -> subprocess.Popen:
                 response = await client.get(f"http://localhost:{registry_port}/applications", timeout=5.0)
                 if response.status_code == 200:
                     apps = response.json()
+                    live_apps = [app.get("name", "unknown") for app in apps]
                     logger.info(
                         f"✅ Registry started successfully with {len(apps)} applications (attempt {attempt + 1}/{max_retries})"
                     )
-                    logger.info(f"📋 Registered applications: {[app.get('name', 'unknown') for app in apps]}")
+                    logger.info(f"📋 Registered applications: {live_apps}")
+
+                    # Identity check: make sure the registry answering on this port
+                    # is the one we just started, not a stale survivor from the
+                    # previous domain. We only abort on the unambiguous stale
+                    # signature — a non-empty app list that is *completely
+                    # disjoint* from what we expect (e.g. serving ['mondial_geo']
+                    # while we want professional_basketball). Partial/naming
+                    # overlaps are tolerated so legitimate domain↔app-name
+                    # differences don't trigger false aborts.
+                    if expected_apps and live_apps:
+                        if not (set(expected_apps) & set(live_apps)):
+                            logger.error(
+                                f"❌ Registry identity mismatch: expected one of {expected_apps} but "
+                                f"port {registry_port} serves {live_apps}. "
+                                "A stale registry is squatting the port."
+                            )
+                            await stop_registry_server(process)
+                            raise RuntimeError(
+                                f"Registry on port {registry_port} serves {live_apps}, "
+                                f"expected {expected_apps}; aborting to avoid stale-registry results."
+                            )
 
                     # Poll registry health to ensure all MCP servers are ready
                     # MCP servers with large tool sets (e.g. 206 hockey tools) need time to
@@ -1878,6 +1919,9 @@ async def start_registry_server(config_path: str) -> subprocess.Popen:
                     break
                 else:
                     logger.debug(f"Registry responded with status {response.status_code}, retrying...")
+        except RuntimeError:
+            # Identity mismatch (stale registry) is fatal — do not retry/swallow.
+            raise
         except Exception as e:
             if attempt < max_retries - 1:
                 logger.debug(
@@ -1937,15 +1981,19 @@ async def stop_registry_server(process: subprocess.Popen):
         logger.error(f"❌ Error stopping registry: {e}")
 
     # `process.wait()` only reaps the `uv` wrapper; the uvicorn worker holding
-    # the port can linger briefly. Wait for the OS to release the registry port
-    # so the next sequential service can bind it without racing (the error that
-    # previously surfaced as "Port N is already in use" on the next domain).
+    # the port can linger (or survive killpg if it escaped the group). Do NOT
+    # return until the port is verifiably free and no api_registry_server is
+    # left alive — otherwise the next sequential domain races a stale registry
+    # that keeps answering tool calls with the previous domain's app (→ 404).
     try:
         registry_port = get_registry_port()
-        if not await _wait_for_port_free(registry_port, timeout=15.0):
-            logger.warning(f"⚠️  Port {registry_port} still occupied after stop — killing stray listeners")
-            _kill_port_listeners(registry_port)
-            await _wait_for_port_free(registry_port, timeout=10.0)
+        if not await _force_free_registry_port(registry_port):
+            logger.error(
+                f"❌ Port {registry_port} still occupied after teardown — "
+                "next domain may hit a stale registry"
+            )
+        else:
+            logger.info(f"✅ Registry port {registry_port} released and verified free")
     except Exception as e:  # noqa: BLE001 — best-effort port-release wait
         logger.debug(f"Port-release wait after stop failed (continuing): {e}")
 
@@ -2707,7 +2755,7 @@ async def run_config_mode(args, container_runtime: str, defer_save: bool = False
                     if registry_enabled:
                         mini_yaml = _write_single_service_yaml(service_dict)
                         logger.info(f"🔧 [{service_name}] Starting one-service registry from {mini_yaml}")
-                        svc_registry = await start_registry_server(mini_yaml)
+                        svc_registry = await start_registry_server(mini_yaml, expected_apps=domains)
                         os.environ["MCP_SERVERS_FILE"] = str(Path(mini_yaml).resolve())
 
                     task_results = await evaluate_single_task(
