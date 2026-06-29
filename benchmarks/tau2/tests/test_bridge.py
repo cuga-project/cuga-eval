@@ -147,67 +147,7 @@ async def test_register_after_close_returns_cancelled_future():
     assert fut.cancelled()
 
 
-# ── retry-aware coalescing (§11.1b) ───────────────────────────────────────────
-# Scenario: cuga's 30s code-block timeout cancels an in-flight tool call, cuga
-# retries it, and τ² must NOT run the tool a second time (no double-booking).
-
-
-@pytest.mark.asyncio
-async def test_retry_after_late_result_is_coalesced():
-    """Late result arrives, THEN cuga retries → served from the stash, no re-forward."""
-    bridge = ConversationBridge()
-    bridge.bind_loop(asyncio.get_running_loop())
-
-    fut1 = bridge.register_action(ToolAction("book", {"id": 7}))
-    assert isinstance(bridge.wait_for_action(), ToolAction)  # τ² received it (1st forward)
-
-    fut1.cancel()  # cuga's 30s timeout cancels the in-flight decoy
-    await asyncio.sleep(0)  # let _on_pending_done mark it abandoned
-    assert fut1.cancelled()
-
-    bridge.complete_pending({"ok": True, "id": 7})  # τ² finished the real tool, late
-    await asyncio.sleep(0)  # let _complete_on_loop stash it
-
-    fut2 = bridge.register_action(ToolAction("book", {"id": 7}))  # cuga retries
-    await asyncio.sleep(0)
-    assert fut2.done() and fut2.result() == {"ok": True, "id": 7}
-    assert bridge._actions.empty(), "retry must NOT re-forward to τ² (double-exec)"
-
-
-@pytest.mark.asyncio
-async def test_retry_before_late_result_waits_then_resolves():
-    """cuga retries BEFORE the late result → retry waits, no re-forward, resolves later."""
-    bridge = ConversationBridge()
-    bridge.bind_loop(asyncio.get_running_loop())
-
-    fut1 = bridge.register_action(ToolAction("book", {"id": 9}))
-    assert isinstance(bridge.wait_for_action(), ToolAction)  # 1st forward
-
-    fut1.cancel()
-    await asyncio.sleep(0)
-
-    fut2 = bridge.register_action(ToolAction("book", {"id": 9}))  # retry before result
-    await asyncio.sleep(0)
-    assert not fut2.done(), "retry has no result yet — must wait"
-    assert bridge._actions.empty(), "retry must NOT re-forward to τ²"
-
-    bridge.complete_pending({"ok": True, "id": 9})  # the original tool finishes
-    await asyncio.sleep(0)
-    assert fut2.done() and fut2.result() == {"ok": True, "id": 9}
-
-
-@pytest.mark.asyncio
-async def test_legitimate_repeat_call_is_not_coalesced():
-    """Two identical tool calls WITHOUT a timeout must both reach τ² (no over-coalescing)."""
-    bridge = ConversationBridge()
-    bridge.bind_loop(asyncio.get_running_loop())
-
-    fut1 = bridge.register_action(ToolAction("get", {"id": 1}))
-    assert isinstance(bridge.wait_for_action(), ToolAction)
-    bridge.complete_pending({"v": 1})  # completes normally (no cancel)
-    await asyncio.sleep(0)
-    assert fut1.result() == {"v": 1}
-
-    bridge.register_action(ToolAction("get", {"id": 1}))  # same args, normal flow
-    await asyncio.sleep(0)
-    assert not bridge._actions.empty(), "a normal repeat call must still forward to τ²"
+# NOTE: retry-aware coalescing was intentionally removed (2026-06-29) — see the
+# "Why no coalescing?" note in tau2_bridge.py and plan §11.1b (mitigation 3). The
+# timeout->retry->double-exec hazard is now prevented upstream (mitigations 1/2/4).
+# If coalescing is ever restored, its tests come back with it.
