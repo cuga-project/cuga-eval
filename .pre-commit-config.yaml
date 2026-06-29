@@ -61,3 +61,11 @@ repos:
         language: script
         files: '^(pyproject\.toml|uv\.lock)$'
         pass_filenames: false
+      # Same guard for tau2: ./setup_tau2.sh injects a local editable entry into
+      # pyproject.toml AND uv.lock pointing at benchmarks/tau2/tau2-bench.
+      - id: no-local-tau2
+        name: no local tau2 in pyproject.toml / uv.lock
+        entry: scripts/check_no_local_tau2.sh
+        language: script
+        files: '^(pyproject\.toml|uv\.lock)$'
+        pass_filenames: false
