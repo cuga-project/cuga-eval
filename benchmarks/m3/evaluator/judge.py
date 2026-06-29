@@ -56,6 +56,52 @@ class ChatModel(ChatOpenAI):
         super().__init__(**config)
 
 
+class LiteLLMChatModel(ChatOpenAI):
+    """
+    Azure/gpt-4.1 served through the IBM LiteLLM proxy, used as LLM-as-a-judge.
+
+    Default judge backend (see ``_build_judge_llm``). The Groq ``ChatModel`` above
+    is retained and still selectable via ``JUDGE_BACKEND=groq`` (or gpt-oss).
+    Reads the same proxy env the agent's gpt4.1 profile uses: ``OPENAI_BASE_URL``
+    + ``OPENAI_API_KEY``. Override the model with ``JUDGE_MODEL_NAME``.
+    """
+
+    def __init__(self, config: dict):
+        model_name = config.get("model_name") or os.getenv("JUDGE_MODEL_NAME", "Azure/gpt-4.1")
+        base_url = (
+            config.get("end_point")
+            or os.getenv("JUDGE_BASE_URL")
+            or os.getenv("OPENAI_BASE_URL", "https://ete-litellm.bx.cloud9.ibm.com")
+        )
+        api_key = os.getenv("JUDGE_API_KEY") or os.getenv("OPENAI_API_KEY")
+        if api_key is None or api_key == "":
+            raise ValueError("OPENAI_API_KEY (or JUDGE_API_KEY) is required for the LiteLLM judge")
+
+        params = config.get("params", {})
+
+        # The LiteLLM proxy serves the OpenAI routes at the root, so use base_url
+        # as-is (no "/v1" suffix) — matching the agent's gpt4.1 profile.
+        cfg = {
+            "model": model_name,
+            "api_key": api_key,
+            "base_url": base_url.rstrip("/"),
+            "temperature": 0,
+        }
+        cfg.update(params)
+
+        super().__init__(**cfg)
+
+
+def _build_judge_llm(config: dict) -> ChatOpenAI:
+    """Select the judge backend. Default ``litellm`` -> Azure/gpt-4.1 via the
+    LiteLLM proxy; set ``JUDGE_BACKEND=groq`` (or gpt-oss) for the legacy
+    Groq-backed gpt-oss-120b judge. An explicit ``config["backend"]`` wins."""
+    backend = (config.get("backend") or os.getenv("JUDGE_BACKEND", "litellm")).strip().lower()
+    if backend in ("groq", "gpt-oss", "gpt_oss", "oss"):
+        return ChatModel(config)
+    return LiteLLMChatModel(config)
+
+
 class LLMJudge:
     """
     Interface you implement with your provider (OpenAI, vLLM, etc).
@@ -64,7 +110,7 @@ class LLMJudge:
 
     def __init__(self, config: dict = {}):
         self.model_config = config
-        self.llm = ChatModel(self.model_config)
+        self.llm = _build_judge_llm(self.model_config)
 
     def invoke(self, prompt: str) -> str:
         res = self.llm.invoke(prompt).content
@@ -78,6 +124,15 @@ class GroundednessJudge(LLMJudge):
     """
     Check if the predicted answer is grounded in the answers in the turn.
     """
+
+    def __init__(self, config: dict = {}):
+        # Allow overriding ONLY the groundedness judge model, independent of the
+        # shared JUDGE_MODEL_NAME used by the correctness judge. Falls back to the
+        # standard default in LiteLLMChatModel when unset.
+        override = os.getenv("GROUNDEDNESS_JUDGE_MODEL_NAME")
+        if override and not config.get("model_name"):
+            config = {**config, "model_name": override}
+        super().__init__(config)
 
     _ws = re.compile(r"\s+")
 

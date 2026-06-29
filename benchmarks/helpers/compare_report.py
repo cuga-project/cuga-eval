@@ -296,6 +296,27 @@ def _m3_capability_domain_group(t: dict) -> str | None:
     return f"m3_task_{tid}/{dom}"
 
 
+def _m3_capability_group(t: dict) -> str | None:
+    """Group key: M3 capability only, "m3_task_<id>", or None when absent.
+
+    A coarser rollup than `_m3_capability_domain_group` — one row per
+    capability instead of per (capability, domain).
+    """
+    tid = t.get("m3_task_id")
+    dom = t.get("domain")
+    if tid is None or not dom:
+        return None
+    return f"m3_task_{tid}"
+
+
+def _m3_capability_sort_key(g: str):
+    """Sort m3_task_<id> capability labels by numeric id (m3_task_2 < m3_task_10)."""
+    try:
+        return (0, int(g.rsplit("_", 1)[-1]))
+    except (ValueError, TypeError):
+        return (1, g)
+
+
 def _load_appworld_categories(config_path: Path | None = None) -> dict[str, str]:
     """Map AppWorld task ids to "normal"/"challenge" via the
     ``test_challenge_*`` / ``test_normal_all_*`` lists in
@@ -450,12 +471,16 @@ def _per_group_section(
 
 
 def _eval_group_breakdown(
-    tasks: dict, fence_open, fence_close, h2, *, title, col_label, group_fn, sort_key=None
+    tasks: dict, fence_open, fence_close, h2, *, title, col_label, group_fn, sort_key=None, markdown=False
 ) -> list[str]:
     """Per-group cost/pass breakdown for a single eval report.
 
     No pass@k / pass^k / maj@k here — those are compare-only metrics (a
     single eval run has k=1). Returns [] when no task is assigned to a group.
+
+    When ``markdown`` is set the section is rendered as a GitHub-flavored
+    markdown table (matching the Per-Task Results table) instead of a
+    fixed-width monospace block; otherwise the legacy fenced text table is used.
     """
     groups: dict[str, dict] = {}
     for name, t in tasks.items():
@@ -467,13 +492,52 @@ def _eval_group_breakdown(
         return []
 
     sorted_groups = sorted(groups, key=sort_key) if sort_key else sorted(groups)
-    grp_w = max(len(col_label), max(len(g) for g in sorted_groups))
-    out: list[str] = [h2(title), ""]
-    if fence_open():
-        out.append(fence_open())
+
     # Totals AND per-task averages: raw totals across groups of different sizes
     # aren't directly comparable, so the avg-per-task columns let you compare
     # cost across groups (issue #51 review).
+    cols = (
+        col_label,
+        "Tasks",
+        "Pass@1",
+        "Tokens",
+        "Tok/Task",
+        "LLM Calls",
+        "LLM/Task",
+        "Duration",
+        "Dur/Task",
+    )
+
+    def _row_cells(grp: str) -> tuple:
+        grp_tasks = groups[grp]
+        n = len(grp_tasks)
+        passed = sum(1 for t in grp_tasks.values() if t.get("success"))
+        rate = (passed / n * 100) if n else 0.0
+        agg = _aggregate_costs(grp_tasks)
+        return (
+            grp,
+            str(n),
+            f"{rate:.1f}%",
+            _fmt(agg["total_tokens"]),
+            _fmt(agg["avg_tokens"]),
+            _fmt(agg["total_llm_calls"]),
+            _fmt(agg["avg_llm_calls"]),
+            _fmt(agg["total_duration"], "s"),
+            _fmt(agg["avg_duration"], "s"),
+        )
+
+    out: list[str] = [h2(title), ""]
+    if markdown:
+        out.append("| " + " | ".join(cols) + " |")
+        out.append("|" + "|".join("---" for _ in cols) + "|")
+        for grp in sorted_groups:
+            out.append("| " + " | ".join(_row_cells(grp)) + " |")
+        out.append("")
+        return out
+
+    grp_w = max(len(col_label), max(len(g) for g in sorted_groups))
+    if fence_open():
+        out.append(fence_open())
     header = (
         f"{col_label:<{grp_w}}  {'Tasks':>5}  {'Pass@1':>8}  "
         f"{'Tokens':>10}  {'Tok/Task':>10}  {'LLM Calls':>9}  {'LLM/Task':>9}  "
@@ -482,16 +546,11 @@ def _eval_group_breakdown(
     out.append(header)
     out.append("─" * len(header))
     for grp in sorted_groups:
-        grp_tasks = groups[grp]
-        n = len(grp_tasks)
-        passed = sum(1 for t in grp_tasks.values() if t.get("success"))
-        rate = (passed / n * 100) if n else 0.0
-        agg = _aggregate_costs(grp_tasks)
+        cells = _row_cells(grp)
         out.append(
-            f"{grp:<{grp_w}}  {n:>5}  {rate:>7.1f}%  "
-            f"{_fmt(agg['total_tokens']):>10}  {_fmt(agg['avg_tokens']):>10}  "
-            f"{_fmt(agg['total_llm_calls']):>9}  {_fmt(agg['avg_llm_calls']):>9}  "
-            f"{_fmt(agg['total_duration'], 's'):>9}  {_fmt(agg['avg_duration'], 's'):>9}"
+            f"{cells[0]:<{grp_w}}  {cells[1]:>5}  {cells[2]:>8}  "
+            f"{cells[3]:>10}  {cells[4]:>10}  {cells[5]:>9}  {cells[6]:>9}  "
+            f"{cells[7]:>9}  {cells[8]:>9}"
         )
     if fence_close():
         out.append(fence_close())
@@ -1166,9 +1225,23 @@ def generate_eval_report(result_file: str, markdown: bool = True) -> str:
 
     # ---- Per-group breakdowns (only when this report's tasks carry the
     # relevant metadata, so unrelated reports stay unchanged):
-    #   - capability/domain (M3)
+    #   - capability rollup (M3)        — coarse, one row per capability
+    #   - capability/domain (M3)        — fine, one row per (capability, domain)
     #   - difficulty (AppWorld)
     #   - normal/challenge test set (AppWorld, via eval_config.toml)
+    lines.extend(
+        _eval_group_breakdown(
+            parsed["tasks"],
+            fence_open,
+            fence_close,
+            h2,
+            title="Capability Breakdown",
+            col_label="Capability",
+            group_fn=_m3_capability_group,
+            sort_key=_m3_capability_sort_key,
+            markdown=markdown,
+        )
+    )
     lines.extend(
         _eval_group_breakdown(
             parsed["tasks"],
@@ -1178,6 +1251,7 @@ def generate_eval_report(result_file: str, markdown: bool = True) -> str:
             title="Capability/Domain Breakdown",
             col_label="Capability/Domain",
             group_fn=_m3_capability_domain_group,
+            markdown=markdown,
         )
     )
     lines.extend(
@@ -1190,6 +1264,7 @@ def generate_eval_report(result_file: str, markdown: bool = True) -> str:
             col_label="Diff",
             group_fn=_difficulty_group,
             sort_key=_difficulty_sort_key,
+            markdown=markdown,
         )
     )
     lines.extend(
@@ -1201,6 +1276,7 @@ def generate_eval_report(result_file: str, markdown: bool = True) -> str:
             title="Test-Set Breakdown (AppWorld)",
             col_label="Test Set",
             group_fn=_appworld_test_set_group(_load_appworld_categories()),
+            markdown=markdown,
         )
     )
 

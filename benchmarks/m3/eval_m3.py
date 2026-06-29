@@ -100,7 +100,7 @@ from benchmarks.m3.m3_data_loader import M3DataLoader, diff_tool_calls
 # Injected into CugaLite's system prompt via SDK special_instructions (eval-only).
 # Many M3 MCP tools lack a documented output/response schema (response_doc is empty).
 # Without guidance the model assumes dict-shaped results and calls .get() on lists/strings.
-M3_SPECIAL_INSTRUCTIONS = """
+M3_TOOL_OUTPUT_INSTRUCTIONS = """
 ## Undocumented tool outputs (M3 eval)
 
 When a tool in **Current Available Tools** has no **Response Schema** / output documentation:
@@ -119,32 +119,80 @@ When a tool in **Current Available Tools** has no **Response Schema** / output d
    - Do not call `.get()`, `[0]`, or attribute access on a value until its type is confirmed.
 
 Reporting shape in step 1 is for choosing correct access in step 2 — the goal is **crash-free Python**, not type narration for its own sake.
+""".strip()
 
+
+# Wave-1 Change #1: the evidence-chain / groundedness rider. Split out from the
+# tool-output section so it can be A/B-toggled via M3_GROUNDEDNESS_PROMPT
+# (default on). The tool-output section above stays constant across both arms.
+M3_GROUNDEDNESS_INSTRUCTIONS = """
 ## Final answers for M3 groundedness
 
-For M3 final answers, make every factual claim traceable to the tool response text.
+For M3 final answers, make every factual claim traceable to the tool response text. Add no claim the tool output does not literally support.
 
-1. Answer only the user's question. Do not mention missing endpoints, dataset limitations, tool-search attempts, retries, uncertainty, or "for context" information unless the user explicitly asks.
+1. Answer only the user's question, using the data you retrieved. Never refuse, and never claim that a tool, API, or dataset "cannot", "does not provide", "is unable to", or "lacks" something — those are ungrounded claims about capabilities. Do not mention missing endpoints, dataset limitations, tool-search attempts, retries, uncertainty, or "for context" information. If you obtained the values needed, state the answer.
 
-2. If the answer comes directly from a tool response, repeat the exact returned value and, when natural, the exact returned field/key name. Prefer:
+2. State values exactly as the tool returned them. Round only if the question explicitly asks for it; otherwise give the value as returned.
+
+3. If the answer comes directly from a tool response, repeat the exact returned value and, when natural, the exact returned field/key name. Prefer:
    - `The answer is <value>.`
    - `<field_name>: <value>.`
    Avoid extra explanation.
 
-3. If the answer requires combining multiple tool responses, include a one-line evidence chain before the final answer:
+4. If the answer requires combining multiple tool responses, include a one-line evidence chain before the final answer:
    - `Evidence: <raw value/key from response 1>; <raw value/key from response 2>. Answer: <combined result>.`
    Keep the chain literal and short. Do not add facts that were not present in tool outputs.
 
-4. If the answer requires arithmetic, show the arithmetic using the exact tool-returned numbers:
-   - `Evidence: percentage_without_affiliation = 0.5948. Calculation: (1 - 0.5948) / 0.5948 = 0.681. Answer: 0.681.`
-   Do not describe the calculation in prose beyond the formula.
+5. If the answer requires arithmetic, compute it directly from the exact tool-returned values and show the formula using those values. Use only the source values the question asks you to combine; do not introduce a complement, total, difference, or any other quantity the question did not ask for. The final answer is the result of the formula — never an intermediate value:
+   - `Evidence: numerator = 17, denominator = 25. Calculation: 17 / 25 = 0.68. Answer: 0.68.`
+   Use only values/field names that appear in the tool output. Do not describe the calculation in prose beyond the formula.
 
-5. If a tool returns an ID and another tool resolves that ID to a name, preserve both:
+6. If a tool returns an ID and another tool resolves that ID to a name, preserve both:
    - `Evidence: id = 112; country = United States. Answer: United States.`
    This makes the join explicit.
 
-6. For single-value answers, prefer one sentence. For multi-hop answers, use at most two sentences: one `Evidence:` sentence and one `Answer:` sentence.
+7. For single-value answers, prefer one sentence. For multi-hop answers, use at most two sentences: one `Evidence:` sentence and one `Answer:` sentence.
 """.strip()
+
+
+# Wave-1 Change #1b: the "selector / derivation-encapsulation" trim sub-rule.
+# Targets tasks where a single tool selected/ranked the answer entity by criteria
+# the agent did NOT separately retrieve (the gold tool encapsulates the
+# derivation), so the underlying premises never enter the evidence. Restating
+# those criteria as fact is therefore ungrounded and fails the whole answer.
+# Gated separately via M3_GROUNDEDNESS_TRIM (default off) so it can be A/B'd as
+# an extra rule on top of the rider. Appended as rule 8 when enabled.
+M3_GROUNDEDNESS_TRIM_RULE = """
+8. Do not restate the question's selection criteria as asserted facts. If a tool selected or ranked an entity by criteria whose underlying values you did not separately retrieve (e.g. a single tool returned the answer entity directly), name the entity and answer the question — do not assert *why* it was selected. Prefer `United States: 0 mountains.` over `The United States, which has the highest GDP and the lowest agriculture proportion, has 0 mountains.` The selection criteria live in the question, not in any tool output; repeating them as fact adds an ungrounded claim that fails the whole answer.
+""".strip()
+
+
+def _groundedness_prompt_enabled() -> bool:
+    """Wave-1 Change #1 A/B toggle. Default on; set M3_GROUNDEDNESS_PROMPT to
+    off / 0 / false / no to drop the evidence-chain rider (the baseline arm)."""
+    return os.getenv("M3_GROUNDEDNESS_PROMPT", "on").strip().lower() not in ("0", "off", "false", "no")
+
+
+def _trim_selection_enabled() -> bool:
+    """Wave-1 Change #1b sub-toggle (rule 8, selector/derivation-encapsulation
+    trim). Default OFF — opt in with M3_GROUNDEDNESS_TRIM=on/1/true/yes. Only
+    takes effect when the groundedness rider itself is enabled."""
+    return os.getenv("M3_GROUNDEDNESS_TRIM", "off").strip().lower() in ("1", "on", "true", "yes")
+
+
+def _build_m3_special_instructions() -> str:
+    """Compose the eval-only system rider. The tool-output (crash-free) section
+    is always present; the Change #1 groundedness rider is gated for A/B, and the
+    Change #1b trim rule is a further opt-in sub-rule on top of the rider."""
+    parts = [M3_TOOL_OUTPUT_INSTRUCTIONS]
+    if _groundedness_prompt_enabled():
+        parts.append(M3_GROUNDEDNESS_INSTRUCTIONS)
+        if _trim_selection_enabled():
+            parts.append(M3_GROUNDEDNESS_TRIM_RULE)
+    return "\n\n".join(parts)
+
+
+M3_SPECIAL_INSTRUCTIONS = _build_m3_special_instructions()
 
 
 async def _load_m3_policies(agent: CugaAgent, policies_enabled: bool = True) -> None:
