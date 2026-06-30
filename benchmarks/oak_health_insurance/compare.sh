@@ -2,14 +2,16 @@
 # Oak Health Insurance benchmark multi-run comparison script.
 #
 # Orchestrates multiple eval.sh runs and collects results.
-# Supports multi-model comparison.
+# Supports multi-model and multi-agent comparison.
 #
 # Usage:
-#   ./compare.sh --runs 5                                    # 5 runs, default model
+#   ./compare.sh --runs 5                                    # 5 runs, default model+agent
 #   ./compare.sh --models gpt-oss,gpt4o --runs 2             # Compare 2 models
-#   ./compare.sh --runs 3 --difficulty easy                   # Filter by difficulty
-#   ./compare.sh --runs 5 --output report.md                  # Save report
-#   ./compare.sh --dry-run                                    # Preview commands
+#   ./compare.sh --compare-agents                            # Compare cuga vs react
+#   ./compare.sh --agents cuga,react --runs 2                # Same as --compare-agents
+#   ./compare.sh --runs 3 --difficulty easy                  # Filter by difficulty
+#   ./compare.sh --runs 5 --output report.md                 # Save report
+#   ./compare.sh --dry-run                                   # Preview commands
 
 set -e
 
@@ -92,21 +94,26 @@ while [[ $idx -lt ${#ARGS[@]} ]]; do
     esac
 done
 
-# Oak's eval.sh has no --agent flag (only cuga is wired up), so reject any
-# attempt to compare agents. Surface the limitation early instead of producing
-# duplicate cuga runs labeled as different agents.
-if [[ "$COMPARE_AGENTS" == "true" || "$AGENTS" == *,* ]]; then
-    echo -e "${RED:-}Error: oak does not support agent comparison.${NC:-}" >&2
-    echo "       benchmarks/oak_health_insurance/eval.sh has no --agent flag." >&2
-    echo "       Drop --compare-agents / --agents to run a single-agent comparison." >&2
-    exit 1
+# Resolve AGENTS: --compare-agents implies cuga,react; default to singular AGENT.
+if [[ "$COMPARE_AGENTS" == "true" && -z "$AGENTS" ]]; then
+    AGENTS="cuga,react"
 fi
-# Single-agent path: relabel runs as "model:cuga" for downstream consistency.
 if [[ -z "$AGENTS" ]]; then
     AGENTS="$AGENT"
 fi
 
 IFS=',' read -ra MODEL_LIST <<< "$MODELS"
+IFS=',' read -ra AGENT_LIST <<< "$AGENTS"
+
+# Build list of configurations: model:agent (2-D cartesian product).
+CONFIGS=()
+CONFIG_LABELS=()
+for model in "${MODEL_LIST[@]}"; do
+    for agent in "${AGENT_LIST[@]}"; do
+        CONFIGS+=("${model}:${agent}")
+        CONFIG_LABELS+=("${model}:${agent}")
+    done
+done
 
 # --dotenv forces a single model from .env; reject multi-model comparisons.
 if type require_single_model_for_dotenv &>/dev/null; then
@@ -117,16 +124,21 @@ echo -e "${BLUE:-}╔═══════════════════�
 echo -e "${BLUE:-}║  Oak Health Insurance: Multi-Run Comparison                ║${NC:-}"
 echo -e "${BLUE:-}╚════════════════════════════════════════════════════════════╝${NC:-}"
 echo ""
-echo -e "  Agent:           ${CYAN:-}${AGENTS}${NC:-}"
+echo -e "  Agents:          ${CYAN:-}${AGENTS}${NC:-}"
 echo -e "  Models:          ${CYAN:-}${MODELS}${NC:-}"
-echo -e "  Runs per model:  ${CYAN:-}${RUNS}${NC:-}"
+echo -e "  Runs per config: ${CYAN:-}${RUNS}${NC:-}"
+echo -e "  Configurations:  ${CYAN:-}${#CONFIGS[@]}${NC:-}"
+if [[ "$COMPARE_AGENTS" == "true" || "$AGENTS" == *,* ]]; then
+    echo -e "  Compare agents:  ${CYAN:-}yes${NC:-}"
+fi
 echo ""
 
 if [[ "$DRY_RUN" == "true" ]]; then
     echo -e "${YELLOW:-}DRY RUN — showing planned commands:${NC:-}"
-    for model in "${MODEL_LIST[@]}"; do
+    for config in "${CONFIGS[@]}"; do
+        IFS=':' read -r model agent <<< "$config"
         for ((r=1; r<=RUNS; r++)); do
-            echo "  [${model}:${AGENTS} run ${r}/${RUNS}] ./eval.sh ${FORWARDED_ARGS[*]}"
+            echo "  [${config} run ${r}/${RUNS}] ./eval.sh --agent ${agent} ${FORWARDED_ARGS[*]}"
         done
     done
     exit 0
@@ -143,7 +155,7 @@ failed=0
 total_runs=0
 
 # ETA bookkeeping (fmt_eta / fmt_duration live in benchmarks/helpers/common.sh).
-TOTAL_PLANNED=$(( ${#MODEL_LIST[@]} * RUNS ))
+TOTAL_PLANNED=$(( ${#CONFIGS[@]} * RUNS ))
 runs_done=0
 runs_elapsed_total=0
 compare_t0=$(date +%s)
@@ -154,15 +166,17 @@ compare_cleanup() {
 }
 trap compare_cleanup EXIT INT TERM
 
-# Collect result files and trajectories grouped by model (bash 3 compat)
-MODEL_RESULT_KEYS=()
-MODEL_RESULT_VALS=()
-MODEL_TRAJ_KEYS=()
-MODEL_TRAJ_VALS=()
+# Collect result files and trajectories grouped by config (bash 3 compat)
+CONFIG_RESULT_KEYS=()
+CONFIG_RESULT_VALS=()
+CONFIG_TRAJ_KEYS=()
+CONFIG_TRAJ_VALS=()
 
-for model in "${MODEL_LIST[@]}"; do
+for config in "${CONFIGS[@]}"; do
+    IFS=':' read -r model agent <<< "$config"
+
     echo -e "${BLUE:-}══════════════════════════════════════════════════════════════${NC:-}"
-    echo -e "${CYAN:-}Model: ${model}${NC:-}"
+    echo -e "${CYAN:-}Configuration: ${config}${NC:-}"
     echo -e "${BLUE:-}══════════════════════════════════════════════════════════════${NC:-}"
 
     if type apply_model_config &>/dev/null; then
@@ -173,19 +187,19 @@ for model in "${MODEL_LIST[@]}"; do
         fi
     fi
 
-    # Snapshot existing result files and trajectory folders before this model's runs
-    before_files=$(ls -1 "$RESULTS_DIR"/oak_health_*.json 2>/dev/null | sort)
+    # Snapshot existing result files and trajectory folders before this config's runs
+    before_files=$(ls -1 "$RESULTS_DIR"/oak_health_*.json "$RESULTS_DIR"/react_oak_health_*.json 2>/dev/null | sort)
     before_trajs=$(find "$SCRIPT_DIR/logging/trajectory_data" -mindepth 1 -maxdepth 1 -type d 2>/dev/null | sort)
 
     for ((r=1; r<=RUNS; r++)); do
         total_runs=$((total_runs+1))
-        echo -e "${CYAN:-}[${model}]${NC:-} Run ${GREEN:-}${r}/${RUNS}${NC:-} (overall ${total_runs}/${TOTAL_PLANNED})"
+        echo -e "${CYAN:-}[${config}]${NC:-} Run ${GREEN:-}${r}/${RUNS}${NC:-} (overall ${total_runs}/${TOTAL_PLANNED})"
         if (( runs_done > 0 )); then
             echo -e "  ${YELLOW:-}$(fmt_eta $runs_elapsed_total $runs_done $(( TOTAL_PLANNED - runs_done )))${NC:-}"
         fi
 
         run_t0=$(date +%s)
-        if bash "$SCRIPT_DIR/eval.sh" --no-bundle "${FORWARDED_ARGS[@]}"; then
+        if bash "$SCRIPT_DIR/eval.sh" --agent "$agent" --no-bundle "${FORWARDED_ARGS[@]}"; then
             run_dur=$(( $(date +%s) - run_t0 ))
             echo -e "${GREEN:-}✓${NC:-} Run $r complete in $(fmt_duration $run_dur)"
         else
@@ -201,19 +215,17 @@ for model in "${MODEL_LIST[@]}"; do
         echo ""
     done
 
-    # Collect only NEW result files produced by this model's runs
-    after_files=$(ls -1 "$RESULTS_DIR"/oak_health_*.json 2>/dev/null | sort)
+    # Collect only NEW result files produced by this config's runs
+    after_files=$(ls -1 "$RESULTS_DIR"/oak_health_*.json "$RESULTS_DIR"/react_oak_health_*.json 2>/dev/null | sort)
     recent_files=$(comm -13 <(echo "$before_files") <(echo "$after_files"))
-    # Use model:agent label for consistency with m3/appworld/bpo. Oak only ever runs cuga
-    # (single-agent path enforced above), so $AGENTS is the resolved single agent.
-    MODEL_RESULT_KEYS+=("${model}:${AGENTS}")
-    MODEL_RESULT_VALS+=("$recent_files")
+    CONFIG_RESULT_KEYS+=("${config}")
+    CONFIG_RESULT_VALS+=("$recent_files")
 
-    # Collect only NEW trajectory folders produced by this model's runs
+    # Collect only NEW trajectory folders produced by this config's runs
     after_trajs=$(find "$SCRIPT_DIR/logging/trajectory_data" -mindepth 1 -maxdepth 1 -type d 2>/dev/null | sort)
     recent_trajs=$(comm -13 <(echo "$before_trajs") <(echo "$after_trajs"))
-    MODEL_TRAJ_KEYS+=("${model}:${AGENTS}")
-    MODEL_TRAJ_VALS+=("$recent_trajs")
+    CONFIG_TRAJ_KEYS+=("${config}")
+    CONFIG_TRAJ_VALS+=("$recent_trajs")
 done
 
 total_dur=$(( $(date +%s) - compare_t0 ))
@@ -228,11 +240,11 @@ if [[ "${NO_BUNDLE:-false}" != "true" ]]; then
     echo ""
     echo -e "${YELLOW:-}Creating comparison bundle...${NC:-}"
 
-    # Build JSON input: {"model": ["file1.json", ...]}
+    # Build JSON input: {"model:agent": ["file1.json", ...]}
     JSON_PARTS=()
-    for ci in "${!MODEL_RESULT_KEYS[@]}"; do
-        model="${MODEL_RESULT_KEYS[$ci]}"
-        files="${MODEL_RESULT_VALS[$ci]}"
+    for ci in "${!CONFIG_RESULT_KEYS[@]}"; do
+        config="${CONFIG_RESULT_KEYS[$ci]}"
+        files="${CONFIG_RESULT_VALS[$ci]}"
         if [[ -z "$files" ]]; then
             continue
         fi
@@ -245,7 +257,7 @@ if [[ "${NO_BUNDLE:-false}" != "true" ]]; then
             pfirst=false
             file_list+="\"${f}\""
         done
-        JSON_PARTS+=("\"${model}\":[${file_list}]")
+        JSON_PARTS+=("\"${config}\":[${file_list}]")
     done
 
     JSON_INPUT="{"
@@ -272,11 +284,11 @@ if [[ "${NO_BUNDLE:-false}" != "true" ]]; then
             MODEL_ENVS_JSON=$(build_model_envs_json "${MODEL_LIST[@]}")
         fi
 
-        # Build per-model trajectory dirs JSON
+        # Build per-config trajectory dirs JSON
         TRAJ_JSON_PARTS=()
-        for ci in "${!MODEL_TRAJ_KEYS[@]}"; do
-            tmodel="${MODEL_TRAJ_KEYS[$ci]}"
-            tfiles="${MODEL_TRAJ_VALS[$ci]}"
+        for ci in "${!CONFIG_TRAJ_KEYS[@]}"; do
+            tconfig="${CONFIG_TRAJ_KEYS[$ci]}"
+            tfiles="${CONFIG_TRAJ_VALS[$ci]}"
             if [[ -z "$tfiles" ]]; then
                 continue
             fi
@@ -289,7 +301,7 @@ if [[ "${NO_BUNDLE:-false}" != "true" ]]; then
                 tfirst=false
                 tfile_list+="\"${f}\""
             done
-            TRAJ_JSON_PARTS+=("\"${tmodel}\":[${tfile_list}]")
+            TRAJ_JSON_PARTS+=("\"${tconfig}\":[${tfile_list}]")
         done
 
         TRAJ_JSON_INPUT="{"

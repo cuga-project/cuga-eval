@@ -22,19 +22,22 @@ fi
 # Early --help before any server startup
 for arg in "$@"; do
     if [[ "$arg" == "--help" || "$arg" == "-h" ]]; then
-        echo "Usage: ./eval.sh [--task TASK] [--difficulty LEVEL] [--no-bundle] [--bundle-zip] [--model-profile NAME]"
+        echo "Usage: ./eval.sh [--agent cuga|react] [--task TASK] [--difficulty LEVEL] [--no-bundle] [--bundle-zip] [--model-profile NAME]"
         echo ""
         echo "Options:"
+        echo "  --agent <name>           Agent to run (cuga, react; default: cuga)"
         echo "  --task TASK              Run a specific task by ID/name (e.g., 'approved_claims')"
         echo "  --difficulty LEVEL       Filter by difficulty level (easy, medium, hard)"
+        echo "  --no-policy              Skip loading oak policies"
         echo "  --no-bundle              Skip reproducibility bundle creation"
         echo "  --bundle-zip             Create zip archive of bundle"
         echo "  --model-profile <name>   Model profile (for bundle metadata)"
         echo ""
         echo "Examples:"
-        echo "  ./eval.sh                        # Default evaluation"
-        echo "  ./eval.sh --task approved_claims  # Single task"
-        echo "  ./eval.sh --difficulty easy       # Filter by difficulty"
+        echo "  ./eval.sh                          # Default evaluation (cuga agent)"
+        echo "  ./eval.sh --agent react            # Run with react agent"
+        echo "  ./eval.sh --task approved_claims   # Single task"
+        echo "  ./eval.sh --difficulty easy        # Filter by difficulty"
         exit 0
     fi
 done
@@ -43,6 +46,7 @@ FASTAPI_PORT=8090
 REGISTRY_PORT=8001
 FASTAPI_PID=""
 REGISTRY_PID=""
+AGENT="cuga"
 
 cleanup() {
     local exit_code=$?
@@ -122,13 +126,14 @@ fi
 
 echo ""
 
-# Parse bundle / model-profile flags; forward everything else to Python
+# Parse bundle / model-profile / agent flags; forward everything else to Python
 PASSTHROUGH_ARGS=()
 while [[ $# -gt 0 ]]; do
     case "$1" in
         --no-bundle)   NO_BUNDLE=true;    shift ;;
         --bundle-zip)  BUNDLE_ZIP=true;   shift ;;
         --model-profile) MODEL_PROFILE="$2"; shift 2 ;;
+        --agent)       AGENT="$2"; PASSTHROUGH_ARGS+=("$1" "$2"); shift 2 ;;
         --verbose|-v|--quiet|-q)  PASSTHROUGH_ARGS+=("$1"); shift ;;
         *)             PASSTHROUGH_ARGS+=("$1"); shift ;;
     esac
@@ -148,7 +153,7 @@ if [ $EVAL_EXIT -eq 0 ]; then
         echo ""
         echo -e "${YELLOW:-}Creating reproducibility bundle...${NC:-}"
 
-        LATEST_RESULT=$(ls -t "$SCRIPT_DIR/results"/oak_health_*.json 2>/dev/null | head -1)
+        LATEST_RESULT=$(ls -t "$SCRIPT_DIR/results"/oak_health_*.json "$SCRIPT_DIR/results"/react_oak_health_*.json 2>/dev/null | head -1)
         if [ -n "$LATEST_RESULT" ]; then
             # Generate eval report
             REPORT_TMP=$(mktemp /tmp/oak_eval_report_XXXXXX)
