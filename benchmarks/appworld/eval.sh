@@ -32,12 +32,15 @@ for arg in "$@"; do
         echo "  --no-bundle                  Skip reproducibility bundle creation"
         echo "  --bundle-zip                 Create zip archive of bundle"
         echo "  --model-profile <name>       Model profile (for bundle metadata)"
+        echo "  --agent <name>               Agent to run (cuga, react, codeact; default: cuga)"
         echo ""
         echo "Examples:"
-        echo "  ./eval.sh                          # Default evaluation"
+        echo "  ./eval.sh                          # Default evaluation (cuga)"
         echo "  ./eval.sh --sdk                    # Use SDK evaluator"
         echo "  ./eval.sh --specific-task-levels 1  # Level 1 tasks only"
         echo "  ./eval.sh --task 82e2fac_1           # Single task"
+        echo "  ./eval.sh --agent codeact            # Improved CodeAct loop"
+        echo "  ./eval.sh --agent react              # Baseline (pre-PR-31) CodeAct loop"
         exit 0
     fi
 done
@@ -139,9 +142,12 @@ done
 
 # Run evaluation
 echo -e "${YELLOW:-}Starting evaluation with agent ${AGENT:-cuga}...${NC:-}"
-if [ "${AGENT:-cuga}" = "react" ]; then
+if [ "${AGENT:-cuga}" = "codeact" ]; then
+    echo -e "${BLUE:-}Using CodeAct agent (appworld_eval_codeact.py)${NC:-}"
+    uv run --no-sync python -m benchmarks.appworld.appworld_eval_codeact --agent codeact "${PASSTHROUGH_ARGS[@]}"
+elif [ "${AGENT:-cuga}" = "react" ]; then
     echo -e "${BLUE:-}Using React agent (appworld_eval_react.py)${NC:-}"
-    uv run --no-sync python -m benchmarks.appworld.appworld_eval_react --agent "${AGENT:-cuga}" "${PASSTHROUGH_ARGS[@]}"
+    uv run --no-sync python -m benchmarks.appworld.appworld_eval_react --agent react "${PASSTHROUGH_ARGS[@]}"
 elif [[ "$USE_SDK" == "true" ]]; then
     echo -e "${BLUE:-}Using SDK evaluator (eval_appworld_sdk.py)${NC:-}"
     uv run --no-sync python -m benchmarks.appworld.eval_appworld_sdk "${PASSTHROUGH_ARGS[@]}"

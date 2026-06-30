@@ -15,6 +15,7 @@ Modes:
 import argparse
 import json
 import sys
+import tomllib
 from pathlib import Path
 
 MODEL_DISPLAY_NAMES = {
@@ -64,6 +65,38 @@ def _fmt(val, fmt=","):
     return str(val)
 
 
+def _fmt_score(val) -> str:
+    """Format a 0.0-1.0 Vakra dialogue/judge score to 2dp, or '--' if absent."""
+    return f"{val:.2f}" if val is not None else "--"
+
+
+# Vakra LLM-judge dimensions, in display order. Mirrors
+# ``m3_vakra_score._JUDGE_KEYS`` / ``_last_turn_judge_scores``; re-implemented
+# here (rather than imported) so this module stays benchmark-agnostic.
+_JUDGE_KEYS = ("exactmatch", "answer", "groundedness")
+
+
+def _last_turn_judge_scores(vakra: dict) -> dict:
+    """Extract per-judge scores from the last scored turn of a Vakra dialogue.
+
+    ``vakra`` is the ``r["vakra"]`` dict M3 attaches to scored results
+    (``{"score": ..., "details": {"per_turn": [{"metadata": {...}}, ...]}}``).
+    Returns {} if ``vakra`` has no per-turn data, or a subset of
+    ``_JUDGE_KEYS`` for judges that ran on the last turn (a judge may be
+    skipped, e.g. the answer judge when exactmatch already scored 1.0).
+    """
+    per_turn = (vakra.get("details") or {}).get("per_turn") or []
+    if not per_turn:
+        return {}
+    meta = per_turn[-1].get("metadata") or {}
+    scores = {}
+    for key in _JUDGE_KEYS:
+        val = meta.get(f"{key}_score")
+        if val is not None:
+            scores[key] = float(val)
+    return scores
+
+
 def _parse_sdk_results(data: dict) -> dict:
     """Parse SDK-style results (BPO, M3, Oak)."""
     metrics = data.get("metrics", {})
@@ -103,6 +136,12 @@ def _parse_sdk_results(data: dict) -> dict:
             # input file. Lets reports show the source "task number".
             "task_number": r.get("task_number"),
             "uuid": r.get("uuid") or r.get("task_name") or r.get("name"),
+            # Vakra LLM-judge scores (M3 only). `match_rate` is the aggregated
+            # dialogue score (>= 1.0 = pass); `judge_scores` is a subset of
+            # _JUDGE_KEYS from the last scored turn. Both are absent (None /
+            # {}) for non-Vakra-scored results.
+            "match_rate": r.get("match_rate"),
+            "judge_scores": _last_turn_judge_scores(r.get("vakra") or {}),
         }
 
     return {
@@ -142,6 +181,7 @@ def _parse_appworld_results(data: dict) -> dict:
             "duration": t.get("full_execution_time") or t.get("duration"),
             "steps": t.get("steps"),
             "difficulty": t.get("difficulty"),
+            "uuid": tid,
         }
 
     return {
@@ -232,52 +272,227 @@ def _per_config_pass_stats(runs, task_filter=None) -> dict:
     }
 
 
-def _per_difficulty_section(model_data, fence_open, fence_close, h2) -> list[str]:
-    """Build per-difficulty breakdown rows. Returns [] when no difficulty info
-    is available (so non-AppWorld reports stay unchanged)."""
-    # Collect all difficulty levels seen across configs/runs.
-    levels: set = set()
+def _difficulty_group(t: dict) -> str | None:
+    """Group key: AppWorld difficulty band, or None for non-AppWorld tasks."""
+    d = t.get("difficulty")
+    if d in (None, "", "unknown"):
+        return None
+    return str(d)
+
+
+def _difficulty_sort_key(d: str):
+    try:
+        return (0, int(d))
+    except (ValueError, TypeError):
+        return (1, d)
+
+
+def _m3_capability_domain_group(t: dict) -> str | None:
+    """Group key: M3 "m3_task_<id>/<domain>", or None when absent."""
+    tid = t.get("m3_task_id")
+    dom = t.get("domain")
+    if tid is None or not dom:
+        return None
+    return f"m3_task_{tid}/{dom}"
+
+
+def _load_appworld_categories(config_path: Path | None = None) -> dict[str, str]:
+    """Map AppWorld task ids to "normal"/"challenge" via the
+    ``test_challenge_*`` / ``test_normal_all_*`` lists in
+    ``benchmarks/appworld/eval_config.toml``.
+
+    Returns {} if that file doesn't exist (keeps non-AppWorld reports
+    unaffected), warning on stderr since the file is a committed repo asset.
+    ``config_path`` is overridable for tests.
+    """
+    if config_path is None:
+        config_path = Path(__file__).resolve().parents[1] / "appworld" / "eval_config.toml"
+    if not config_path.exists():
+        # This is a committed repo asset, so its absence almost always means it
+        # was moved/renamed in a refactor — which would silently drop the
+        # AppWorld test-set breakdown from every report. Surface it on stderr
+        # (not the report stdout) instead of failing silently (issue #51 review).
+        print(
+            f"WARNING: AppWorld category config not found at {config_path}; "
+            "AppWorld test-set breakdown will be omitted.",
+            file=sys.stderr,
+        )
+        return {}
+    with config_path.open("rb") as f:
+        config = tomllib.load(f).get("eval_config", {})
+    categories: dict[str, str] = {}
+    for key, ids in config.items():
+        if not isinstance(ids, list):
+            continue
+        if key.startswith("test_challenge_"):
+            label = "challenge"
+        elif key.startswith("test_normal_all_"):
+            label = "normal"
+        else:
+            continue
+        for tid in ids:
+            categories[str(tid)] = label
+    return categories
+
+
+def _appworld_test_set_group(categories: dict[str, str]):
+    """Return a group_fn mapping a task's ``uuid`` to "normal"/"challenge"
+    via ``categories`` (from ``_load_appworld_categories``). Tasks whose
+    ``uuid`` isn't in ``categories`` (non-AppWorld, or outside the
+    categorized full test set) are excluded."""
+
+    def _group(t: dict) -> str | None:
+        return categories.get(t.get("uuid"))
+
+    return _group
+
+
+def _aggregate_costs(tasks: dict) -> dict:
+    """Sum and average tokens / LLM calls / duration across a dict of task
+    dicts (as produced by ``_parse_sdk_results`` / ``_parse_appworld_results``).
+
+    ``total_duration`` / ``avg_duration`` are None when no task carries a
+    duration.
+    """
+    n = len(tasks)
+    total_tokens = sum(t.get("tokens", 0) or 0 for t in tasks.values())
+    total_llm_calls = sum(t.get("llm_calls", 0) or 0 for t in tasks.values())
+    durations = [t.get("duration") for t in tasks.values() if t.get("duration") is not None]
+    total_duration = sum(durations) if durations else None
+    return {
+        "n_tasks": n,
+        "total_tokens": total_tokens,
+        "total_llm_calls": total_llm_calls,
+        "total_duration": total_duration,
+        "avg_tokens": (total_tokens / n) if n else None,
+        "avg_llm_calls": (total_llm_calls / n) if n else None,
+        "avg_duration": (total_duration / n) if (n and total_duration is not None) else None,
+    }
+
+
+def _per_config_cost_stats(runs, task_filter=None) -> dict:
+    """Mean tokens / LLM calls / duration *per task* across runs for the
+    filtered task subset. Companion to ``_per_config_pass_stats`` so the
+    per-group compare sections can answer "did this group cost more?" and not
+    just "did it pass more?" (issue #51 review). Per-task means (not totals)
+    keep groups of different sizes comparable.
+    """
+    tokens, llm, durs = [], [], []
+    for r in runs:
+        for t in r["tasks"].values():
+            if task_filter is not None and not task_filter(t):
+                continue
+            tokens.append(t.get("tokens"))
+            llm.append(t.get("llm_calls"))
+            durs.append(t.get("duration"))
+    return {
+        "avg_tokens": _avg(tokens),
+        "avg_llm_calls": _avg(llm),
+        "avg_duration": _avg(durs),
+    }
+
+
+def _per_group_section(
+    model_data, fence_open, fence_close, h2, *, title, col_label, group_fn, sort_key=None
+) -> list[str]:
+    """Build a per-group breakdown section (difficulty / test-set /
+    capability+domain / ...).
+
+    ``group_fn(task_dict) -> str | None`` assigns each task to a group label;
+    tasks for which it returns a falsy value are excluded from every group.
+    Returns [] when no task is assigned to a group, so reports that don't
+    carry the relevant metadata stay unchanged.
+    """
+    groups: set = set()
     for runs in model_data.values():
         for r in runs:
             for t in r["tasks"].values():
-                d = t.get("difficulty")
-                if d not in (None, "", "unknown"):
-                    levels.add(str(d))
-    if not levels:
+                g = group_fn(t)
+                if g:
+                    groups.add(g)
+    if not groups:
         return []
 
-    def _sort_key(d: str):
-        try:
-            return (0, int(d))
-        except (ValueError, TypeError):
-            return (1, d)
-
-    sorted_levels = sorted(levels, key=_sort_key)
-    out: list[str] = [h2("Per-Difficulty Breakdown"), ""]
+    sorted_groups = sorted(groups, key=sort_key) if sort_key else sorted(groups)
+    grp_w = max(len(col_label), max(len(g) for g in sorted_groups))
+    out: list[str] = [h2(title), ""]
     if fence_open():
         out.append(fence_open())
     header = (
-        f"{'Configuration':<28} {'Diff':>4}  {'Tasks':>5}  "
-        f"{'Pass Rate':>9}  {'pass@k':>8}  {'pass^k':>8}  "
-        f"{'maj@k':>8}  {'Cons':>5}"
+        f"{'Configuration':<28} {col_label:>{grp_w}}  {'Tasks':>5}  "
+        f"{'Pass@1':>9}  {'pass@k':>8}  {'pass^k':>8}  "
+        f"{'maj@k':>8}  {'Cons':>5}  "
+        f"{'Tok/Task':>10}  {'LLM/Task':>9}  {'Dur/Task':>9}"
     )
     out.append(header)
     out.append("─" * len(header))
     for config_key, runs in model_data.items():
         display = _format_config_label(config_key)
-        for lvl in sorted_levels:
-            stats = _per_config_pass_stats(
-                runs, task_filter=lambda t, _lvl=lvl: str(t.get("difficulty")) == _lvl
-            )
+        for grp in sorted_groups:
+            grp_filter = lambda t, _g=grp: group_fn(t) == _g  # noqa: E731
+            stats = _per_config_pass_stats(runs, task_filter=grp_filter)
             if stats["n_tasks"] == 0:
                 continue
+            cost = _per_config_cost_stats(runs, task_filter=grp_filter)
             cons_s = f"{stats['consistency']:.2f}" if stats["consistency"] is not None else "  --"
             out.append(
-                f"{display:<28} {lvl:>4}  {stats['n_tasks']:>5}  "
+                f"{display:<28} {grp:>{grp_w}}  {stats['n_tasks']:>5}  "
                 f"{stats['avg_rate'] * 100:>8.1f}%  "
                 f"{stats['pass_at_n'] * 100:>7.1f}%  {stats['pass_pow_n'] * 100:>7.1f}%  "
-                f"{stats['maj_at_n'] * 100:>7.1f}%  {cons_s:>5}"
+                f"{stats['maj_at_n'] * 100:>7.1f}%  {cons_s:>5}  "
+                f"{_fmt(cost['avg_tokens']):>10}  {_fmt(cost['avg_llm_calls']):>9}  "
+                f"{_fmt(cost['avg_duration'], 's'):>9}"
             )
+    if fence_close():
+        out.append(fence_close())
+    out.append("")
+    return out
+
+
+def _eval_group_breakdown(
+    tasks: dict, fence_open, fence_close, h2, *, title, col_label, group_fn, sort_key=None
+) -> list[str]:
+    """Per-group cost/pass breakdown for a single eval report.
+
+    No pass@k / pass^k / maj@k here — those are compare-only metrics (a
+    single eval run has k=1). Returns [] when no task is assigned to a group.
+    """
+    groups: dict[str, dict] = {}
+    for name, t in tasks.items():
+        g = group_fn(t)
+        if not g:
+            continue
+        groups.setdefault(g, {})[name] = t
+    if not groups:
+        return []
+
+    sorted_groups = sorted(groups, key=sort_key) if sort_key else sorted(groups)
+    grp_w = max(len(col_label), max(len(g) for g in sorted_groups))
+    out: list[str] = [h2(title), ""]
+    if fence_open():
+        out.append(fence_open())
+    # Totals AND per-task averages: raw totals across groups of different sizes
+    # aren't directly comparable, so the avg-per-task columns let you compare
+    # cost across groups (issue #51 review).
+    header = (
+        f"{col_label:<{grp_w}}  {'Tasks':>5}  {'Pass@1':>8}  "
+        f"{'Tokens':>10}  {'Tok/Task':>10}  {'LLM Calls':>9}  {'LLM/Task':>9}  "
+        f"{'Duration':>9}  {'Dur/Task':>9}"
+    )
+    out.append(header)
+    out.append("─" * len(header))
+    for grp in sorted_groups:
+        grp_tasks = groups[grp]
+        n = len(grp_tasks)
+        passed = sum(1 for t in grp_tasks.values() if t.get("success"))
+        rate = (passed / n * 100) if n else 0.0
+        agg = _aggregate_costs(grp_tasks)
+        out.append(
+            f"{grp:<{grp_w}}  {n:>5}  {rate:>7.1f}%  "
+            f"{_fmt(agg['total_tokens']):>10}  {_fmt(agg['avg_tokens']):>10}  "
+            f"{_fmt(agg['total_llm_calls']):>9}  {_fmt(agg['avg_llm_calls']):>9}  "
+            f"{_fmt(agg['total_duration'], 's'):>9}  {_fmt(agg['avg_duration'], 's'):>9}"
+        )
     if fence_close():
         out.append(fence_close())
     out.append("")
@@ -298,6 +513,12 @@ def _stats_for_task(task_runs):
         "mean_tokens": _avg([r.get("tokens") for r in task_runs]),
         "mean_llm": _avg([r.get("llm_calls") for r in task_runs]),
         "mean_dur": _avg([r.get("duration") for r in task_runs]),
+        # Vakra scores (M3 only): mean dialogue score and mean per-judge
+        # scores across runs, ignoring runs where a judge was skipped.
+        "mean_match_rate": _avg([r.get("match_rate") for r in task_runs]),
+        "mean_judge": {
+            key: _avg([(r.get("judge_scores") or {}).get(key) for r in task_runs]) for key in _JUDGE_KEYS
+        },
     }
 
 
@@ -344,7 +565,7 @@ def generate_report(config_results: dict[str, list[str]], markdown: bool = True)
     if fence_open():
         lines.append(fence_open())
     header = (
-        f"{'Configuration':<28} {'Runs':>4}  {'Pass Rate':>9}  "
+        f"{'Configuration':<28} {'Runs':>4}  {'Pass@1':>9}  "
         f"{'pass@' + str(max_runs):>9}  {'pass^' + str(max_runs):>9}  "
         f"{'maj@' + str(max_runs):>9}  {'Cons':>5}  "
         f"{'Tokens':>10}  {'LLM':>5}  {'Time':>7}"
@@ -370,13 +591,80 @@ def generate_report(config_results: dict[str, list[str]], markdown: bool = True)
         lines.append(fence_close())
     lines.append("")
 
-    # ---- 2b. Per-difficulty breakdown (only when result files carry it).
-    # Difficulty is opt-in: AppWorld emits a `difficulty` per task; other
-    # benchmarks don't, in which case the entire section is suppressed so
-    # SDK reports stay unchanged.
-    diff_section = _per_difficulty_section(model_data, fence_open, fence_close, h2)
+    # ---- 2a. Cost Summary: per-config totals and per-task averages for
+    # tokens, LLM calls, and time. "Total" here is the per-run total averaged
+    # across runs (same basis as the Tokens/LLM/Time columns above);
+    # "Avg/Task" divides that by the average task count per run.
+    lines.append(h2("Cost Summary"))
+    lines.append("")
+    if fence_open():
+        lines.append(fence_open())
+    cost_header = (
+        f"{'Configuration':<28} {'Tokens':>10}  {'Avg/Task':>10}  "
+        f"{'LLM':>6}  {'Avg/Task':>9}  {'Time':>8}  {'Avg/Task':>9}"
+    )
+    lines.append(cost_header)
+    lines.append("─" * len(cost_header))
+    for config_key, runs in model_data.items():
+        display = _format_config_label(config_key)
+        n = len(runs)
+        avg_tokens = sum(r["tokens"] for r in runs) / n
+        avg_llm = sum(r["llm_calls"] for r in runs) / n
+        avg_dur = _avg([r["duration"] for r in runs])
+        avg_n_tasks = _avg([r["total"] for r in runs])
+        per_task_tokens = (avg_tokens / avg_n_tasks) if avg_n_tasks else None
+        per_task_llm = (avg_llm / avg_n_tasks) if avg_n_tasks else None
+        per_task_dur = (avg_dur / avg_n_tasks) if (avg_dur is not None and avg_n_tasks) else None
+        lines.append(
+            f"{display:<28} {_fmt(avg_tokens):>10}  {_fmt(per_task_tokens):>10}  "
+            f"{_fmt(avg_llm):>6}  {_fmt(per_task_llm):>9}  "
+            f"{_fmt(avg_dur, 's'):>8}  {_fmt(per_task_dur, 's'):>9}"
+        )
+    if fence_close():
+        lines.append(fence_close())
+    lines.append("")
+
+    # ---- 2b. Per-group breakdowns (only when result files carry the relevant
+    # metadata, so unrelated reports stay unchanged):
+    #   - difficulty (AppWorld)
+    #   - normal/challenge test set (AppWorld, via eval_config.toml)
+    #   - capability/domain (M3)
+    diff_section = _per_group_section(
+        model_data,
+        fence_open,
+        fence_close,
+        h2,
+        title="Per-Difficulty Breakdown",
+        col_label="Diff",
+        group_fn=_difficulty_group,
+        sort_key=_difficulty_sort_key,
+    )
     if diff_section:
         lines.extend(diff_section)
+
+    testset_section = _per_group_section(
+        model_data,
+        fence_open,
+        fence_close,
+        h2,
+        title="Per-Test-Set Breakdown (AppWorld)",
+        col_label="Test Set",
+        group_fn=_appworld_test_set_group(_load_appworld_categories()),
+    )
+    if testset_section:
+        lines.extend(testset_section)
+
+    capdom_section = _per_group_section(
+        model_data,
+        fence_open,
+        fence_close,
+        h2,
+        title="Per-Capability/Domain Breakdown (M3)",
+        col_label="Capability/Domain",
+        group_fn=_m3_capability_domain_group,
+    )
+    if capdom_section:
+        lines.extend(capdom_section)
 
     # ---- 3. Per-Run Scores
     lines.append(h2("Per-Run Scores"))
@@ -436,6 +724,11 @@ def generate_report(config_results: dict[str, list[str]], markdown: bool = True)
             task_meta.get(t, {}).get("m3_task_id") is not None and task_meta.get(t, {}).get("domain")
             for t in all_tasks
         )
+        # Vakra-scored M3 results carry `match_rate` on every task; when
+        # present, the table gains Dialogue + per-judge mean-score columns.
+        has_vakra = m3_mode and any(
+            r["tasks"].get(t, {}).get("match_rate") is not None for r in runs for t in all_tasks
+        )
         if m3_mode:
             all_tasks.sort(
                 key=lambda t: (
@@ -458,9 +751,10 @@ def generate_report(config_results: dict[str, list[str]], markdown: bool = True)
         run_cols = "  ".join(f"R{i + 1}" for i in range(n_runs))
         # Truncate task IDs to keep table readable but distinguishable
         col_task_w = min(28, max((len(t) for t in all_tasks), default=8))
+        vakra_hdr = f"{'Dialog':>6} {'ExctM':>5} {'Answer':>6} {'Ground':>6}   " if has_vakra else ""
         task_header = (
             f"{prefix_hdr}{'Task':<{col_task_w}} {run_cols}   {'Successes':>10}   "
-            f"{'Rate':>6}   {'Tokens':>8} {'LLM':>5} {'Time':>6}"
+            f"{'Rate':>6}   {vakra_hdr}{'Tokens':>8} {'LLM':>5} {'Time':>6}"
         )
         lines.append(task_header)
         lines.append("─" * len(task_header))
@@ -472,6 +766,10 @@ def generate_report(config_results: dict[str, list[str]], markdown: bool = True)
         n_llm = 0
         sum_dur = 0.0
         n_dur = 0
+        sum_match_rate = 0.0
+        n_match_rate = 0
+        sum_judge = dict.fromkeys(_JUDGE_KEYS, 0.0)
+        n_judge = dict.fromkeys(_JUDGE_KEYS, 0)
         total_successes = 0
         any_pass = 0
         all_pass = 0
@@ -503,6 +801,15 @@ def generate_report(config_results: dict[str, list[str]], markdown: bool = True)
             if md is not None:
                 sum_dur += md
                 n_dur += 1
+            mr = stats["mean_match_rate"]
+            if mr is not None:
+                sum_match_rate += mr
+                n_match_rate += 1
+            for key in _JUDGE_KEYS:
+                jv = stats["mean_judge"].get(key)
+                if jv is not None:
+                    sum_judge[key] += jv
+                    n_judge[key] += 1
 
             task_disp = task if len(task) <= col_task_w else task[: col_task_w - 1] + "…"
             row_prefix = (
@@ -510,9 +817,18 @@ def generate_report(config_results: dict[str, list[str]], markdown: bool = True)
                 if m3_mode
                 else ""
             )
+            vakra_cols = ""
+            if has_vakra:
+                mj = stats["mean_judge"]
+                vakra_cols = (
+                    f"{_fmt_score(mr):>6} "
+                    f"{_fmt_score(mj.get('exactmatch')):>5} "
+                    f"{_fmt_score(mj.get('answer')):>6} "
+                    f"{_fmt_score(mj.get('groundedness')):>6}   "
+                )
             lines.append(
                 f"{row_prefix}{task_disp:<{col_task_w}} {symbols}   "
-                f"{successes:>3}/{total:<3}   {rate_pct:>5.1f}%   "
+                f"{successes:>3}/{total:<3}   {rate_pct:>5.1f}%   {vakra_cols}"
                 f"{_fmt(mt):>8} {_fmt(ml):>5} {_fmt(md, 's'):>6}"
             )
 
@@ -527,9 +843,20 @@ def generate_report(config_results: dict[str, list[str]], markdown: bool = True)
             lines.append("─" * len(task_header))
             spacer = "  ".join("──" for _ in range(n_runs))
             avg_prefix = f"{'':<{cap_w}} {'':<{dom_w}} {'':>{num_w}}  " if m3_mode else ""
+            avg_vakra_cols = ""
+            if has_vakra:
+                avg_mr = _fmt_score(sum_match_rate / n_match_rate) if n_match_rate else "--"
+                avg_judge = {
+                    key: (_fmt_score(sum_judge[key] / n_judge[key]) if n_judge[key] else "--")
+                    for key in _JUDGE_KEYS
+                }
+                avg_vakra_cols = (
+                    f"{avg_mr:>6} {avg_judge['exactmatch']:>5} "
+                    f"{avg_judge['answer']:>6} {avg_judge['groundedness']:>6}   "
+                )
             lines.append(
                 f"{avg_prefix}{'AVERAGE':<{col_task_w}} {spacer}   "
-                f"{avg_successes:>3.1f}/{n_runs:<3}   {avg_rate:>5.1f}%   "
+                f"{avg_successes:>3.1f}/{n_runs:<3}   {avg_rate:>5.1f}%   {avg_vakra_cols}"
                 f"{avg_tok:>8} {avg_llm:>5} {avg_dur:>6}"
             )
             lines.append("")
@@ -647,36 +974,67 @@ def generate_eval_report(result_file: str, markdown: bool = True) -> str:
     """
     parsed = parse_result_file(result_file)
     rows, grouped = _bucket_m3_tasks(parsed["tasks"])
+    cost = _aggregate_costs(parsed["tasks"])
 
     h1 = (lambda s: f"# {s}") if markdown else (lambda s: f"\n{s}\n{'=' * len(s)}")
     h2 = (lambda s: f"## {s}") if markdown else (lambda s: f"\n{s}\n{'-' * len(s)}")
+    fence_open = (lambda: "```text") if markdown else (lambda: "")
+    fence_close = (lambda: "```") if markdown else (lambda: "")
 
     lines = [h1("Evaluation Report"), ""]
     lines.append(h2("Summary"))
     lines.append("")
     if markdown:
-        lines.append(f"- **Pass Rate**: {parsed['passed']}/{parsed['total']} ({parsed['rate']:.1%})")
+        lines.append(f"- **Pass@1**: {parsed['passed']}/{parsed['total']} ({parsed['rate']:.1%})")
         lines.append(f"- **Total Tokens**: {_fmt(parsed['tokens'])}")
+        lines.append(f"- **Avg Tokens / Task**: {_fmt(cost['avg_tokens'])}")
         lines.append(f"- **Total LLM Calls**: {_fmt(parsed['llm_calls'])}")
+        lines.append(f"- **Avg LLM Calls / Task**: {_fmt(cost['avg_llm_calls'])}")
         lines.append(f"- **Total Duration**: {_fmt(parsed.get('duration'), 's')}")
+        lines.append(f"- **Avg Duration / Task**: {_fmt(cost['avg_duration'], 's')}")
     else:
-        lines.append(f"  Pass Rate         {parsed['passed']}/{parsed['total']} ({parsed['rate']:.1%})")
-        lines.append(f"  Total Tokens      {_fmt(parsed['tokens'])}")
-        lines.append(f"  Total LLM Calls   {_fmt(parsed['llm_calls'])}")
-        lines.append(f"  Total Duration    {_fmt(parsed.get('duration'), 's')}")
+        lines.append(f"  Pass@1             {parsed['passed']}/{parsed['total']} ({parsed['rate']:.1%})")
+        lines.append(f"  Total Tokens       {_fmt(parsed['tokens'])}")
+        lines.append(f"  Avg Tokens/Task    {_fmt(cost['avg_tokens'])}")
+        lines.append(f"  Total LLM Calls    {_fmt(parsed['llm_calls'])}")
+        lines.append(f"  Avg LLM Calls/Task {_fmt(cost['avg_llm_calls'])}")
+        lines.append(f"  Total Duration     {_fmt(parsed.get('duration'), 's')}")
+        lines.append(f"  Avg Duration/Task  {_fmt(cost['avg_duration'], 's')}")
     lines.append("")
 
     lines.append(h2("Per-Task Results"))
     lines.append("")
 
+    # M3 Vakra-scored results carry `match_rate` (dialogue score) on every
+    # task. When present, the table gains Dialogue + per-judge columns; absent
+    # for non-Vakra-scored M3 runs (e.g. keyword-only scoring) so those reports
+    # stay unchanged.
+    has_vakra = grouped and any(row["data"].get("match_rate") is not None for row in rows)
+    if has_vakra:
+        lines.append(
+            "Dialogue = Vakra aggregated dialogue score (>= 1.00 = pass). "
+            "ExactMatch/Answer/Groundedness = last-turn judge scores (`--` = judge skipped)."
+        )
+        lines.append("")
+
     if grouped:
         if markdown:
-            lines.append(
-                "| Task | Domain | # | Result | Tokens | Cost | LLM Calls | Cache Tokens | Duration | Steps |"
-            )
-            lines.append(
-                "|------|--------|---|--------|--------|------|-----------|--------------|----------|-------|"
-            )
+            if has_vakra:
+                lines.append(
+                    "| Task | Domain | # | Result | Dialogue | ExactMatch | Answer | Groundedness "
+                    "| Tokens | Cost | LLM Calls | Cache Tokens | Duration | Steps |"
+                )
+                lines.append(
+                    "|------|--------|---|--------|----------|------------|--------|--------------"
+                    "|--------|------|-----------|--------------|----------|-------|"
+                )
+            else:
+                lines.append(
+                    "| Task | Domain | # | Result | Tokens | Cost | LLM Calls | Cache Tokens | Duration | Steps |"
+                )
+                lines.append(
+                    "|------|--------|---|--------|--------|------|-----------|--------------|----------|-------|"
+                )
             current_key: tuple = (None, None)
             for row in rows:
                 t = row["data"]
@@ -694,8 +1052,17 @@ def generate_eval_report(result_file: str, markdown: bool = True) -> str:
                     current_key = key
                 ordn_disp = str(ordn) if ordn is not None else "—"
                 status = "✓" if t["success"] else "✗"
+                vakra_cols = ""
+                if has_vakra:
+                    judge = t.get("judge_scores") or {}
+                    vakra_cols = (
+                        f"| {_fmt_score(t.get('match_rate'))} "
+                        f"| {_fmt_score(judge.get('exactmatch'))} "
+                        f"| {_fmt_score(judge.get('answer'))} "
+                        f"| {_fmt_score(judge.get('groundedness'))} "
+                    )
                 lines.append(
-                    f"| {tid_disp} | {dom_disp} | {ordn_disp} | {status} "
+                    f"| {tid_disp} | {dom_disp} | {ordn_disp} | {status} {vakra_cols}"
                     f"| {_fmt(t['tokens'])} | {_fmt(t.get('cost'), '$')} "
                     f"| {_fmt(t.get('llm_calls'))} | {_fmt(t.get('cache_tokens'))} "
                     f"| {_fmt(t.get('duration'), 's')} | {_fmt(t.get('steps'))} |"
@@ -704,11 +1071,19 @@ def generate_eval_report(result_file: str, markdown: bool = True) -> str:
             # Plain-text table — fixed widths, separators between (task, domain) groups.
             col_task = "Task"
             col_dom_w = max(len("Domain"), max((len(r["domain"] or "") for r in rows), default=8))
-            header = (
-                f"  {col_task:<4}  {'Domain':<{col_dom_w}}  {'#':>2}  "
-                f"{'R':<1}  {'Tokens':>10}  {'Cost':>7}  {'LLM':>5}  "
-                f"{'Cache':>10}  {'Duration':>9}  {'Steps':>5}"
-            )
+            if has_vakra:
+                header = (
+                    f"  {col_task:<4}  {'Domain':<{col_dom_w}}  {'#':>2}  "
+                    f"{'R':<1}  {'Dialog':>6}  {'ExctM':>5}  {'Answer':>6}  {'Ground':>6}  "
+                    f"{'Tokens':>10}  {'Cost':>7}  {'LLM':>5}  "
+                    f"{'Cache':>10}  {'Duration':>9}  {'Steps':>5}"
+                )
+            else:
+                header = (
+                    f"  {col_task:<4}  {'Domain':<{col_dom_w}}  {'#':>2}  "
+                    f"{'R':<1}  {'Tokens':>10}  {'Cost':>7}  {'LLM':>5}  "
+                    f"{'Cache':>10}  {'Duration':>9}  {'Steps':>5}"
+                )
             lines.append(header)
             lines.append("  " + "─" * (len(header) - 2))
             current_key2: tuple = (None, None)
@@ -729,9 +1104,19 @@ def generate_eval_report(result_file: str, markdown: bool = True) -> str:
                     current_key2 = key
                 ordn_disp = str(ordn) if ordn is not None else "—"
                 mark = "✓" if t["success"] else "✗"
+                vakra_cols = ""
+                if has_vakra:
+                    judge = t.get("judge_scores") or {}
+                    vakra_cols = (
+                        f"{_fmt_score(t.get('match_rate')):>6}  "
+                        f"{_fmt_score(judge.get('exactmatch')):>5}  "
+                        f"{_fmt_score(judge.get('answer')):>6}  "
+                        f"{_fmt_score(judge.get('groundedness')):>6}  "
+                    )
                 lines.append(
                     f"  {tid_disp:<4}  {dom_disp:<{col_dom_w}}  {ordn_disp:>2}  "
-                    f"{mark:<1}  {_fmt(t['tokens']):>10}  "
+                    f"{mark:<1}  {vakra_cols}"
+                    f"{_fmt(t['tokens']):>10}  "
                     f"{_fmt(t.get('cost'), '$'):>7}  "
                     f"{_fmt(t.get('llm_calls')):>5}  "
                     f"{_fmt(t.get('cache_tokens')):>10}  "
@@ -778,6 +1163,47 @@ def generate_eval_report(result_file: str, markdown: bool = True) -> str:
                 )
 
     lines.append("")
+
+    # ---- Per-group breakdowns (only when this report's tasks carry the
+    # relevant metadata, so unrelated reports stay unchanged):
+    #   - capability/domain (M3)
+    #   - difficulty (AppWorld)
+    #   - normal/challenge test set (AppWorld, via eval_config.toml)
+    lines.extend(
+        _eval_group_breakdown(
+            parsed["tasks"],
+            fence_open,
+            fence_close,
+            h2,
+            title="Capability/Domain Breakdown",
+            col_label="Capability/Domain",
+            group_fn=_m3_capability_domain_group,
+        )
+    )
+    lines.extend(
+        _eval_group_breakdown(
+            parsed["tasks"],
+            fence_open,
+            fence_close,
+            h2,
+            title="Difficulty Breakdown",
+            col_label="Diff",
+            group_fn=_difficulty_group,
+            sort_key=_difficulty_sort_key,
+        )
+    )
+    lines.extend(
+        _eval_group_breakdown(
+            parsed["tasks"],
+            fence_open,
+            fence_close,
+            h2,
+            title="Test-Set Breakdown (AppWorld)",
+            col_label="Test Set",
+            group_fn=_appworld_test_set_group(_load_appworld_categories()),
+        )
+    )
+
     return "\n".join(lines)
 
 

@@ -25,6 +25,15 @@ assert_contains() {
     fi
 }
 
+# assert_not_contains <name> <needle> <haystack>
+assert_not_contains() {
+    if [[ "${3}" != *"${2}"* ]]; then
+        echo "  PASS: ${1}"; PASS=$((PASS+1))
+    else
+        echo "  FAIL: ${1}"; echo "        expected NOT to contain: ${2}"; echo "        got: ${3}"; FAIL=$((FAIL+1))
+    fi
+}
+
 # ─── apply_dotenv_model_overrides ────────────────────────────────────────────
 
 echo "apply_dotenv_model_overrides"
@@ -231,6 +240,41 @@ result=$(
     echo "${DYNACONF_PRESET:-unset}"
 )
 assert_eq "build_model_envs_json preserves pre-existing DYNACONF_*" "keepme" "$result"
+
+# ─── scripts/compare.sh MODEL_PROFILE propagation ────────────────────────────
+# Regression: MODEL_PROFILE was consumed by parse_common_args but never added to
+# DISPATCH_ARGS, so benchmark compare scripts silently fell back to their own
+# MODELS default (e.g. gpt-oss for appworld) instead of honouring --model-profile.
+
+echo "compare.sh --model-profile propagation"
+
+# --model-profile gpt5 → DISPATCH_ARGS contains --models gpt5
+result=$(
+    TMPBENCH=$(mktemp -d "$SCRIPT_DIR/../../../benchmarks/_test_XXXXXX")
+    trap 'rm -rf "$TMPBENCH"' EXIT
+    BENCH_NAME=$(basename "$TMPBENCH")
+    printf '%s\n' '#!/bin/bash' 'echo "$@"' > "$TMPBENCH/compare.sh"
+    chmod +x "$TMPBENCH/compare.sh"
+    bash "$SCRIPT_DIR/../../../scripts/compare.sh" \
+        --benchmark "$BENCH_NAME" \
+        --model-profile gpt5 \
+        --dry-run --runs 1 --no-bundle 2>/dev/null
+)
+assert_contains "--model-profile gpt5 → --models gpt5 in DISPATCH_ARGS" "--models gpt5" "$result"
+
+# no --model-profile → --models absent from DISPATCH_ARGS
+result=$(
+    TMPBENCH=$(mktemp -d "$SCRIPT_DIR/../../../benchmarks/_test_XXXXXX")
+    trap 'rm -rf "$TMPBENCH"' EXIT
+    BENCH_NAME=$(basename "$TMPBENCH")
+    printf '%s\n' '#!/bin/bash' 'echo "$@"' > "$TMPBENCH/compare.sh"
+    chmod +x "$TMPBENCH/compare.sh"
+    unset MODEL_PROFILE
+    bash "$SCRIPT_DIR/../../../scripts/compare.sh" \
+        --benchmark "$BENCH_NAME" \
+        --dry-run --runs 1 --no-bundle 2>/dev/null
+)
+assert_not_contains "no --model-profile → --models absent from DISPATCH_ARGS" "--models" "$result"
 
 # ─── Summary ─────────────────────────────────────────────────────────────────
 

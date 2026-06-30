@@ -117,6 +117,10 @@ fi
 if [ "$DRY_RUN" = "true" ]; then
     DISPATCH_ARGS+=(--dry-run)
 fi
+# Propagate MODEL_PROFILE as --models so the per-benchmark compare.sh uses the right model.
+if [ -n "$MODEL_PROFILE" ]; then
+    DISPATCH_ARGS+=(--models "$MODEL_PROFILE")
+fi
 # Propagate AGENTS so the per-benchmark compare.sh can iterate over them.
 # We always pass --agents (resolved to at least the singular AGENT in parse_common_args).
 DISPATCH_ARGS+=(--agents "$AGENTS")

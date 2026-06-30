@@ -31,6 +31,27 @@ REGISTRY_PORT="${REGISTRY_PORT:-${DYNACONF_SERVER_PORTS__REGISTRY:-8001}}"
 export REGISTRY_PORT
 export DYNACONF_SERVER_PORTS__REGISTRY="$REGISTRY_PORT"
 
+# Capture the cuga-agent checkout's git state now, before any eval.sh run
+# starts — not at bundle-assembly time (after every run finishes). A
+# multi-run comparison can take a long time; if the cuga-agent checkout is
+# shared (e.g. someone switches branches in it for unrelated work) while
+# runs are in flight, a live git query at the end would silently mislabel
+# the whole bundle with whatever happens to be checked out by then.
+CUGA_REPO_PATH_RESOLVED="${CUGA_REPO_PATH:-$HOME/workspace/cuga-agent}"
+CUGA_GIT_INFO_JSON=""
+if [ -d "$CUGA_REPO_PATH_RESOLVED" ]; then
+    _cuga_commit=$(git -C "$CUGA_REPO_PATH_RESOLVED" rev-parse --short HEAD 2>/dev/null || echo "")
+    _cuga_branch=$(git -C "$CUGA_REPO_PATH_RESOLVED" rev-parse --abbrev-ref HEAD 2>/dev/null || echo "")
+    _cuga_dirty=false
+    [ -n "$(git -C "$CUGA_REPO_PATH_RESOLVED" status --short 2>/dev/null)" ] && _cuga_dirty=true
+    CUGA_GIT_INFO_JSON=$(jq -cn \
+        --arg git_commit "$_cuga_commit" \
+        --arg git_branch "$_cuga_branch" \
+        --argjson git_dirty "$_cuga_dirty" \
+        '{"git_commit":$git_commit,"git_branch":$git_branch,"git_dirty":$git_dirty}')
+fi
+export CUGA_GIT_INFO_JSON
+
 # Source model profiles
 if [ -f "$PROJECT_ROOT/scripts/model_profiles.sh" ]; then
     source "$PROJECT_ROOT/scripts/model_profiles.sh"
@@ -307,13 +328,17 @@ create_compare_bundle() {
     done
     TRAJ_JSON_INPUT+="}"
 
-    # Determine task file
+    # Determine task file, and pick up --eval-key (forwarded to each eval.sh
+    # run already; captured here too so the compare bundle records it).
     local TASK_FILE="$SCRIPT_DIR/data/hockey.json"
-    local arg
-    for arg in "${FORWARDED_ARGS[@]}"; do
+    local EVAL_KEY=""
+    local arg i
+    for ((i = 0; i < ${#FORWARDED_ARGS[@]}; i++)); do
+        arg="${FORWARDED_ARGS[$i]}"
         if [[ "$arg" == "--multiturn" ]]; then
             TASK_FILE="$SCRIPT_DIR/data/olympics_multiturn.json"
-            break
+        elif [[ "$arg" == "--eval-key" ]]; then
+            EVAL_KEY="${FORWARDED_ARGS[$((i+1))]:-}"
         fi
     done
 
@@ -322,6 +347,12 @@ create_compare_bundle() {
         --config-results "$JSON_INPUT"
         --report "$REPORT_TMP"
         --task-files "$TASK_FILE")
+    if [[ -n "$EVAL_KEY" ]]; then
+        BUNDLE_CMD+=(--eval-key "$EVAL_KEY")
+    fi
+    if [[ -n "$CUGA_GIT_INFO_JSON" ]]; then
+        BUNDLE_CMD+=(--cuga-git-info "$CUGA_GIT_INFO_JSON")
+    fi
 
     if [[ -n "$MODEL_ENVS_JSON" ]]; then
         BUNDLE_CMD+=(--model-envs "$MODEL_ENVS_JSON")

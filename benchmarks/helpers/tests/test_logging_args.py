@@ -86,6 +86,7 @@ _ENTRYPOINTS = [
     "benchmarks.appworld.eval_appworld_sdk",
     "benchmarks.appworld.appworld_eval",
     "benchmarks.appworld.appworld_eval_react",
+    "benchmarks.appworld.appworld_eval_codeact",
     "benchmarks.bpo.eval_bench_sdk",
     "benchmarks.bpo.eval_bench_sdk_react",
     "benchmarks.oak_health_insurance.eval_bench_sdk",

@@ -15,7 +15,7 @@ latest_bundle_report() {
   local newest="" newest_mtime=0
   local f mtime
   while IFS= read -r -d '' f; do
-    mtime=$(stat -f %m "$f" 2>/dev/null || stat -c %Y "$f")
+    mtime=$(stat -c %Y "$f" 2>/dev/null || stat -f %m "$f")
     if [ "$mtime" -ge "$RUN_START_TS" ] && [ "$mtime" -gt "$newest_mtime" ]; then
       newest_mtime=$mtime
       newest=$f

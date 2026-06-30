@@ -36,9 +36,10 @@ test-stability:
 # --skip-editable: cuga and appworld are editable path installs not on PyPI.
 # --ignore-vuln CVE-2026-47214: docling is pinned to <2.92 until langchain-docling
 #   supports the newer "slim" docling layout. See issue #45.
+# --ignore-vuln CVE-2025-3000: torch CPU-only wheel has no published fix.
 security:
     uv run bandit -c pyproject.toml -r benchmarks scripts -ll
-    uv run pip-audit --skip-editable --ignore-vuln CVE-2026-47214
+    uv run pip-audit --skip-editable --ignore-vuln CVE-2026-47214 --ignore-vuln CVE-2025-3000
 
 # Composite gate matching what CI runs.
 ci: lint test-regression security

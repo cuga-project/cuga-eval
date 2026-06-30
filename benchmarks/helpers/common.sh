@@ -399,10 +399,20 @@ find_latest_trajectory() {
         echo ""
         return
     fi
+    # GNU coreutils stat uses -c; BSD/macOS stat uses -f. GNU's -f means
+    # something else entirely (filesystem status, not file status) and
+    # succeeds instead of erroring, so detect the flavor up front rather
+    # than relying on a `||` fallback after the fact.
+    local stat_fmt
+    if stat -c '%Y' "$traj_data_dir" >/dev/null 2>&1; then
+        stat_fmt=(-c '%Y %n')
+    else
+        stat_fmt=(-f '%m %N')
+    fi
     # Find the most recently modified directory
     local latest
     latest=$(find "$traj_data_dir" -mindepth 1 -maxdepth 1 -type d -print0 2>/dev/null \
-        | xargs -0 stat -f '%m %N' 2>/dev/null \
+        | xargs -0 stat "${stat_fmt[@]}" 2>/dev/null \
         | sort -rn | head -1 | cut -d' ' -f2-)
     echo "$latest"
 }
