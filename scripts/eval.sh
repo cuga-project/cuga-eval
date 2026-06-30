@@ -28,8 +28,8 @@ for arg in "${FORWARDED_ARGS[@]}"; do
         echo ""
         echo "Common options:"
         echo "  --benchmark, -b <name>    Benchmark to run (required)"
-        echo "  --agent <name>            Agent to run (cuga, react, codeact; default: cuga)"
-        echo "                            Note: 'codeact' is only supported by the appworld benchmark."
+        echo "  --agent <name>            Agent to run (cuga, react, codeact, opencode; default: cuga)"
+        echo "                            Note: 'codeact' and 'opencode' are only supported by the appworld benchmark."
         echo "  --model-profile <name>    Model profile (gpt-oss, gpt4o, gpt4.1, opus4.5)"
         echo "  --dotenv                  Use .env values to override the model profile"
         echo "  --verbose, -v             Enable verbose output"
@@ -60,13 +60,13 @@ if [ ! -d "$BENCHMARK_DIR" ]; then
     exit 1
 fi
 
-if [[ "$AGENT" != "cuga" && "$AGENT" != "react" && "$AGENT" != "codeact" ]]; then
-    echo -e "${RED}Error: Unsupported agent '$AGENT'. Supported agents: cuga, react, codeact${NC}"
+if [[ "$AGENT" != "cuga" && "$AGENT" != "react" && "$AGENT" != "codeact" && "$AGENT" != "opencode" ]]; then
+    echo -e "${RED}Error: Unsupported agent '$AGENT'. Supported agents: cuga, react, codeact, opencode${NC}"
     exit 1
 fi
 
-if [[ "$AGENT" == "codeact" && "$BENCHMARK" != "appworld" ]]; then
-    echo -e "${RED}Error: --agent codeact is supported only by the appworld benchmark (got '$BENCHMARK').${NC}"
+if [[ ( "$AGENT" == "codeact" || "$AGENT" == "opencode" ) && "$BENCHMARK" != "appworld" ]]; then
+    echo -e "${RED}Error: --agent $AGENT is supported only by the appworld benchmark (got '$BENCHMARK').${NC}"
     exit 1
 fi
 

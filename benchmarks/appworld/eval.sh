@@ -32,7 +32,8 @@ for arg in "$@"; do
         echo "  --no-bundle                  Skip reproducibility bundle creation"
         echo "  --bundle-zip                 Create zip archive of bundle"
         echo "  --model-profile <name>       Model profile (for bundle metadata)"
-        echo "  --agent <name>               Agent to run (cuga, react, codeact; default: cuga)"
+        echo "  --agent <name>               Agent to run (cuga, react, codeact, opencode; default: cuga)"
+        echo "  --opencode-tools <repl|apis> OpenCode action surface (only with --agent opencode; default: repl)"
         echo ""
         echo "Examples:"
         echo "  ./eval.sh                          # Default evaluation (cuga)"
@@ -41,6 +42,8 @@ for arg in "$@"; do
         echo "  ./eval.sh --task 82e2fac_1           # Single task"
         echo "  ./eval.sh --agent codeact            # Improved CodeAct loop"
         echo "  ./eval.sh --agent react              # Baseline (pre-PR-31) CodeAct loop"
+        echo "  ./eval.sh --agent opencode --task 82e2fac_1            # OpenCode agent (repl tools)"
+        echo "  ./eval.sh --agent opencode --opencode-tools apis ...   # OpenCode agent (per-API tools)"
         exit 0
     fi
 done
@@ -148,6 +151,9 @@ if [ "${AGENT:-cuga}" = "codeact" ]; then
 elif [ "${AGENT:-cuga}" = "react" ]; then
     echo -e "${BLUE:-}Using React agent (appworld_eval_react.py)${NC:-}"
     uv run --no-sync python -m benchmarks.appworld.appworld_eval_react --agent react "${PASSTHROUGH_ARGS[@]}"
+elif [ "${AGENT:-cuga}" = "opencode" ]; then
+    echo -e "${BLUE:-}Using OpenCode agent (opencode/eval.py)${NC:-}"
+    uv run --no-sync python -m benchmarks.appworld.opencode.eval --agent opencode "${PASSTHROUGH_ARGS[@]}"
 elif [[ "$USE_SDK" == "true" ]]; then
     echo -e "${BLUE:-}Using SDK evaluator (eval_appworld_sdk.py)${NC:-}"
     uv run --no-sync python -m benchmarks.appworld.eval_appworld_sdk "${PASSTHROUGH_ARGS[@]}"

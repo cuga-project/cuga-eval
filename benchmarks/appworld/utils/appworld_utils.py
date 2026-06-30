@@ -1,3 +1,4 @@
+import ast
 import logging
 import os
 from pathlib import Path
@@ -8,6 +9,44 @@ from appworld import AppWorld
 from appworld.evaluator import TestTracker
 
 logger = logging.getLogger("api_cuga_agent")
+
+
+def completion_called(code: str) -> bool:
+    """Return True if the given code contains a call to ``complete_task(...)``.
+
+    Shared by the codeact and opencode AppWorld harnesses to detect when the
+    agent has signalled task completion.
+    """
+    return "complete_task(" in code
+
+
+def extract_completion_answer(code: str) -> str:
+    """Extract the literal ``answer=`` argument from a ``complete_task(...)`` call.
+
+    Returns the stringified answer if present and literal-evaluable, else "".
+    Used to capture the agent's final answer for logging/trajectory (the actual
+    score still comes from ``world.evaluate()``).
+    """
+    try:
+        tree = ast.parse(code)
+    except SyntaxError:
+        return ""
+
+    for node in ast.walk(tree):
+        if not isinstance(node, ast.Call):
+            continue
+
+        func = node.func
+        if isinstance(func, ast.Attribute) and func.attr == "complete_task":
+            for keyword in node.keywords:
+                if keyword.arg != "answer":
+                    continue
+                try:
+                    value = ast.literal_eval(keyword.value)
+                except Exception:
+                    return ""
+                return str(value)
+    return ""
 
 
 def read_json(file_path: str, use_json_plus: bool = True) -> dict:

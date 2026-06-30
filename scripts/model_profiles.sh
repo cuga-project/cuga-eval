@@ -53,6 +53,28 @@ apply_model_profile() {
             echo -e "${GREEN}  OPENAI_BASE_URL=$OPENAI_BASE_URL${NC}"
             echo -e "${GREEN}  OPENAI_API_VERSION=$OPENAI_API_VERSION${NC}"
             ;;
+        gpt-5.2)
+            # Azure GPT-5.2 via the OpenAI-compatible gateway (same upstream as gpt4o/gpt5).
+            # For the opencode agent, cost is computed from token counts in opencode/runner.py
+            # (MODEL_PRICES) since the gateway may not price this model.
+            export AGENT_SETTING_CONFIG="settings.openai.toml"
+            export MODEL_NAME="Azure/gpt-5.2-chat-2025-12-11"
+            export OPENAI_BASE_URL="https://ete-litellm.bx.cloud9.ibm.com"
+            export OPENAI_API_VERSION="2024-08-06"
+            echo -e "${GREEN}✓${NC} Model profile: gpt-5.2 (Azure/gpt-5.2-chat-2025-12-11)"
+            echo -e "${GREEN}  MODEL_NAME=$MODEL_NAME${NC}"
+            echo -e "${GREEN}  OPENAI_BASE_URL=$OPENAI_BASE_URL${NC}"
+            ;;
+        gpt-5.5)
+            # Azure GPT-5.5 — see gpt-5.2 note above.
+            export AGENT_SETTING_CONFIG="settings.openai.toml"
+            export MODEL_NAME="Azure/gpt-5.5"
+            export OPENAI_BASE_URL="https://ete-litellm.bx.cloud9.ibm.com"
+            export OPENAI_API_VERSION="2024-08-06"
+            echo -e "${GREEN}✓${NC} Model profile: gpt-5.5 (Azure/gpt-5.5)"
+            echo -e "${GREEN}  MODEL_NAME=$MODEL_NAME${NC}"
+            echo -e "${GREEN}  OPENAI_BASE_URL=$OPENAI_BASE_URL${NC}"
+            ;;
         opus4.5)
             export AGENT_SETTING_CONFIG="settings.openai.toml"
             export MODEL_NAME="claude-opus-4-5-20251101"
@@ -85,7 +107,7 @@ apply_model_profile() {
             ;;
         *)
             echo -e "${RED}Error: Unknown model profile '$profile'${NC}"
-            echo -e "${YELLOW}Valid values: gpt-oss, gpt4o, gpt4.1, gpt5, opus4.5, vllm, local${NC}"
+            echo -e "${YELLOW}Valid values: gpt-oss, gpt4o, gpt4.1, gpt5, gpt-5.2, gpt-5.5, opus4.5, vllm, local${NC}"
             return 1
             ;;
     esac

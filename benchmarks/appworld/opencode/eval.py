@@ -2,11 +2,11 @@
 import sys
 from pathlib import Path
 
-project_root = Path(__file__).parent.parent.parent
+project_root = Path(__file__).parent.parent.parent.parent
 sys.path.insert(0, str(project_root))
 
-# Add appworld benchmark directory to path for local utils imports
-appworld_benchmark_dir = Path(__file__).parent
+# Add appworld benchmark directory to path for local utils/opencode imports
+appworld_benchmark_dir = Path(__file__).parent.parent
 sys.path.insert(0, str(appworld_benchmark_dir))
 
 # Add appworld source directory to path
@@ -18,9 +18,19 @@ from config_loader import load_eval_config
 
 load_eval_config("appworld")
 
-import copy
 import os
-import re
+
+# Load the root .env (LLM + Langfuse secrets) so the opencode harness reads the SAME variables as the
+# rest of the framework — even when run directly (not via eval.sh's load_env.sh). `override=False` so
+# values already set by the shell / model profiles / config files take precedence.
+try:
+    from dotenv import load_dotenv
+
+    _root_env = project_root / ".env"
+    if _root_env.exists():
+        load_dotenv(_root_env, override=False)
+except Exception:
+    pass
 
 cuga_logging_dir = os.getenv("CUGA_LOGGING_DIR")
 if not cuga_logging_dir:
@@ -29,6 +39,8 @@ if not cuga_logging_dir:
 import argparse
 import asyncio
 import json
+import shutil
+import tempfile
 import time
 import traceback
 from dataclasses import dataclass
@@ -40,55 +52,42 @@ from appworld import AppWorld, load_task_ids  # pyright: ignore[reportAttributeA
 from cuga.backend.activity_tracker.tracker import ActivityTracker, Step
 from cuga.backend.cuga_graph.state.agent_state import VariablesManager
 from cuga.config import settings
-from cuga.evaluation.langfuse.get_langfuse_data import LangfuseTraceHandler
-from jinja2 import Template
 from loguru import logger
 from utils.appworld_data_collection import ExperimentManager
 from utils.appworld_utils import (
     appworld_task_info,
-    completion_called as _completion_called,
     evaluation_task_info,
-    extract_completion_answer as _extract_completion_answer,
     get_specific_task_levels,
     get_task_difficulty,
 )
+from opencode.bridge import AppWorldMcpBridge
+from opencode.runner import OpencodeResult, compute_cost, opencode_available, run_opencode
+from opencode.trace import summarize_tool_calls_for_trace
 
 from benchmarks.helpers.sdk_eval_helpers import (
-    build_langfuse_invoke_config,
     is_langfuse_tracing_enabled,
     record_harness_trace_output,
-    setup_react_agent_for_evaluation,
 )
-
-REACT_PROMPT_PATH = Path(__file__).parent / "prompts" / "react_code_agent" / "instructions.txt"
-
-ROLE_RE = re.compile(r"(USER|ASSISTANT|SYSTEM):\n", re.IGNORECASE)
 
 
 @dataclass
 class Config:
-    model_name: str = "gpt-4o"
-    temperature: float = 0.2
-    max_tokens: int = 2000
-    seed: int = 100
-    provider: str = "openai"
-    max_retries: int = 3
-    retry_delay: int = 2
-    max_history_tokens: int = 14000
+    # OpenCode is evaluated with MODEL_NAME (resolved by the runner when left None), matching how
+    # react/codeact pick the configured model. OpenCode points directly at the LLM endpoint below.
+    model_name: Optional[str] = None
     environment_url: Optional[str] = None
     apis_url: Optional[str] = None
     agent_server_url: Optional[str] = None
-    use_examples: bool = True
-    prompt_template_path: Optional[str] = None
     verbose: bool = True
     specific_tasks: Optional[list[str]] = None
     specific_task_levels: Optional[list[int]] = None
-    langfuse_public_key: Optional[str] = os.getenv("LANGFUSE_PUBLIC_KEY")
-    langfuse_secret_key: Optional[str] = os.getenv("LANGFUSE_SECRET_KEY")
-    langfuse_host: Optional[str] = os.getenv("LANGFUSE_HOST", "https://cloud.langfuse.com")
-    agent_type: str = "react"
-    max_steps: int = 40
-    max_output_length: int = 50000
+    agent_type: str = "opencode"
+    # OpenCode-specific knobs
+    opencode_tools: str = "repl"  # "repl" | "apis"
+    opencode_bin: str = "opencode"
+    opencode_base_url: Optional[str] = None  # default: env LITE_LLM_URL/OPENAI_BASE_URL
+    opencode_extra_args: Optional[list[str]] = None
+    opencode_timeout: float = 900.0
 
 
 def _print_appworld_summary(report: dict):
@@ -105,103 +104,6 @@ def _print_appworld_summary(report: dict):
     print(f"Completed: {completed}/{total} ({success_rate:.1%})")
     print(f"Avg Steps: {avg_steps:.2f}")
     print(f"Avg Duration: {avg_duration:.2f}s")
-
-
-def _parse_prompt_to_messages(input_str: str) -> list[dict[str, Any]]:
-    """Split a role-marked prompt string into a list of chat message dicts."""
-    messages: list[dict[str, Any]] = []
-    last_start = 0
-    for match in ROLE_RE.finditer(input_str):
-        last_end = match.span()[0]
-        if not messages:
-            if last_end != 0:
-                raise ValueError(f"Start of prompt has no assigned role: {input_str[:last_end]}")
-        else:
-            messages[-1]["content"] = input_str[last_start:last_end]
-        role = match.group(1).lower()
-        messages.append({"role": role, "content": ""})
-        last_start = match.span()[1]
-    if not messages:
-        raise ValueError("Prompt template must contain at least one role marker.")
-    messages[-1]["content"] = input_str[last_start:]
-    return messages
-
-
-def _render_initial_messages(world: AppWorld) -> list[dict[str, Any]]:
-    """Render the few-shot prompt template and return it as a list of chat messages."""
-    prompt_text = REACT_PROMPT_PATH.read_text(encoding="utf-8").lstrip()
-    template = Template(prompt_text)
-    app_descriptions = json.dumps(
-        [{"name": k, "description": v} for (k, v) in world.task.app_descriptions.items()],
-        indent=1,
-    )
-    rendered = template.render(
-        instruction=world.task.instruction,
-        main_user=world.task.supervisor,
-        app_descriptions=app_descriptions,
-    )
-    return _parse_prompt_to_messages(rendered)
-
-
-def _trim_conversation(
-    conversation: list[dict[str, Any]],
-    num_fixed_messages: int,
-    max_output_length: int = 20000,
-) -> list[dict[str, Any]]:
-    """Trim conversation turns to stay within max_output_length characters.
-
-    The fixed few-shot prompt (first num_fixed_messages) is never touched.
-    max_output_length applies only to the conversation turns that follow it —
-    matching react_code_agent.py which measures post-instruction history only.
-
-    Strategy 1: replace old Output blocks with a placeholder (keep last 5 intact).
-    Strategy 2: drop oldest assistant+output pairs if still too long.
-    """
-
-    def total_length(msgs: list[dict[str, Any]]) -> int:
-        return sum(len(m.get("content", "") or "") for m in msgs)
-
-    fixed = conversation[:num_fixed_messages]
-    turns = conversation[num_fixed_messages:]
-
-    if total_length(turns) <= max_output_length:
-        return conversation  # nothing to trim
-
-    turns = copy.deepcopy(turns)  # only copy what we'll mutate
-
-    # Strategy 1: replace older Output: messages with placeholder, keep last 5 untouched
-    observation_index = 0
-    while total_length(turns) > max_output_length:
-        found = False
-        cutoff = len(turns) - 5
-        for i in range(observation_index, max(0, cutoff)):
-            msg = turns[i]
-            if msg["role"] == "user" and (msg.get("content") or "").startswith("Output:"):
-                turns[i]["content"] = "Output:\n```\n[NOT SHOWN FOR BREVITY]```\n\n"
-                observation_index = i + 1
-                found = True
-                break
-        if not found:
-            break
-
-    # Strategy 2: remove oldest complete history pairs (assistant + output) if still too long
-    while total_length(turns) > max_output_length and len(turns) >= 2:
-        turns = turns[2:]
-
-    return fixed + turns
-
-
-def _extract_python_block(text: str) -> str:
-    match = re.search(r"```python\s*(.*?)```", text, flags=re.DOTALL | re.IGNORECASE)
-    if match:
-        return match.group(1).strip()
-
-    # Partial block: LLM output was cut off before the closing ```
-    partial_match = re.search(r"```python\s*(.+)", text, flags=re.DOTALL | re.IGNORECASE)
-    if partial_match:
-        return partial_match.group(1).strip()
-
-    return ""  # no code block found — caller handles this
 
 
 def _get_registry_base_url() -> str:
@@ -233,9 +135,35 @@ async def _authenticate_apps(app_names: list[str]) -> dict[str, Any]:
             return {"status_code": response.status_code, "text": response.text[:500]}
 
 
+def _resolve_llm_endpoint(config: Optional[Config]) -> tuple[str, str]:
+    """Return (base_url, api_key) for OpenCode → LLM endpoint (same upstream the other agents use)."""
+    base_url = (
+        (config.opencode_base_url if config and config.opencode_base_url else None)
+        or os.getenv("LITE_LLM_URL")
+        or os.getenv("OPENAI_BASE_URL")
+        or ""
+    )
+    api_key = os.getenv("LITE_LLM_KEY") or os.getenv("OPENAI_API_KEY") or "sk-none"
+    return base_url, api_key
+
+
+def _apply_usage(task_result: Any, usage: dict[str, Any], model: str) -> None:
+    """Populate token/cost/call metrics from OpenCode's own JSON usage."""
+    if task_result is None or not usage:
+        return
+    task_result.total_tokens = int(usage.get("total_tokens") or 0)
+    task_result.total_llm_calls = int(usage.get("llm_calls") or 0)
+    cost = usage.get("cost")
+    if cost is None:
+        cost = compute_cost(
+            model, int(usage.get("input_tokens") or 0), int(usage.get("output_tokens") or 0)
+        )
+    task_result.total_cost = float(cost) if cost is not None else 0.0
+
+
 async def run_agent_on_task(
     task_id: str,
-    experiment_name: str = "api_codeact_agent",
+    experiment_name: str = "api_opencode_agent",
     config: Optional[Config] = None,
     save_outputs: bool = True,
     experiment_manager: Optional[ExperimentManager] = None,
@@ -246,9 +174,11 @@ async def run_agent_on_task(
     var_manager = VariablesManager()
     start_time = time.time()
     end_time = None
-    langfuse_trace_id = None
     task_metadata = get_task_difficulty(task_id)
     task_result = None
+
+    mode = config.opencode_tools if config and config.opencode_tools else "repl"
+    model = (config.model_name if config and config.model_name else None) or os.getenv("MODEL_NAME") or "gpt-4o"
 
     with AppWorld(
         task_id=task_id,
@@ -258,10 +188,6 @@ async def run_agent_on_task(
     ) as world:
         logger.info(f"Running task: {task_id}")
         logger.info(f"Task instruction: {world.task.instruction}")
-
-        react_agent, _ = await setup_react_agent_for_evaluation()
-        if config:
-            react_agent.max_steps = config.max_steps
 
         tracker.reset(intent=world.task.instruction, task_id=world.task_id)
         var_manager.reset()
@@ -275,110 +201,89 @@ async def run_agent_on_task(
         app_names = sorted(world.task.app_descriptions.keys())
         try:
             auth_result = await _authenticate_apps(app_names)
-            logger.info(f"[APPWORLD-CODEACT] Registry authenticate_apps result: {auth_result}")
+            logger.info(f"[APPWORLD-OPENCODE] Registry authenticate_apps result: {auth_result}")
         except Exception as auth_exc:
-            logger.warning(f"[APPWORLD-CODEACT] authenticate_apps failed before task run: {auth_exc}")
+            logger.warning(f"[APPWORLD-OPENCODE] authenticate_apps failed before task run: {auth_exc}")
 
-        initial_messages = _render_initial_messages(world)
-        num_instruction_messages = len(initial_messages)
-        conversation: list[dict[str, Any]] = list(initial_messages)
-
-        tool_calls: list[dict[str, Any]] = []
-        is_error = False
-        final_answer = ""
-        executed_steps = 0
-
-        max_output_length = config.max_output_length if config else 50000
-        thread_id = task_id
-        langfuse_enabled = is_langfuse_tracing_enabled()
-        predefined_trace_id: Optional[str] = None
-        invoke_callbacks: Optional[list[Any]] = None
+        # Optional Langfuse: record a harness-level trace for this opencode run (no proxy — OpenCode's
+        # per-LLM-call generations aren't traced; we push the run's I/O + token/cost/score). Reads
+        # LANGFUSE_* from the same .env as the other agents.
         _langfuse = None
-
-        if langfuse_enabled:
+        predefined_trace_id: Optional[str] = None
+        if is_langfuse_tracing_enabled():
             try:
                 from langfuse import get_client
 
                 _langfuse = get_client()
-                # Deterministic seed (same task_id is re-runnable in Langfuse UI).
-                # Use a codeact-specific prefix so a codeact run doesn't collide
-                # with the react run's trace for the same task (PR #79/#74 review).
-                predefined_trace_id = _langfuse.create_trace_id(
-                    seed=f"appworld_codeact_{task_id}_{thread_id}"
-                )
-                langfuse_trace_id = predefined_trace_id
-                lf_config = build_langfuse_invoke_config(predefined_trace_id, thread_id)
-                # ReAct has no LangGraph config; only trace-scoped callbacks are passed per LLM call.
-                invoke_callbacks = lf_config.get("callbacks")
-                logger.info(f"[APPWORLD-CODEACT] Langfuse trace ID: {predefined_trace_id}")
+                predefined_trace_id = _langfuse.create_trace_id(seed=f"appworld_opencode_{task_id}")
+                logger.info(f"[APPWORLD-OPENCODE] Langfuse trace ID: {predefined_trace_id}")
             except Exception as lf_err:
-                logger.warning(f"[APPWORLD-CODEACT] Langfuse init failed, tracing disabled: {lf_err}")
+                logger.warning(f"[APPWORLD-OPENCODE] Langfuse init failed, tracing disabled: {lf_err}")
 
-        async def _run_react_loop() -> None:
-            nonlocal conversation, final_answer, executed_steps, tool_calls, is_error
-            for step_index in range(1, (config.max_steps if config else 40) + 1):
-                logger.info(f"[APPWORLD-CODEACT] Step {step_index}")
-                trimmed = _trim_conversation(conversation, num_instruction_messages, max_output_length)
-                llm_text = await react_agent._call_llm(
-                    trimmed,
-                    stop=["```\n"],
-                    invoke_callbacks=invoke_callbacks,
-                )
-                conversation.append({"role": "assistant", "content": llm_text})
-                code = _extract_python_block(llm_text)
-
-                if not code:
-                    logger.warning(
-                        "[APPWORLD-CODEACT] Step %s: no Python code block found; feeding format error back to model.",
-                        step_index,
-                    )
-                    conversation.append(
-                        {
-                            "role": "user",
-                            "content": (
-                                "Output:\n```\n"
-                                "Error: no Python code block found in your response. "
-                                "Please output exactly one ```python ... ``` block.\n"
-                                "```\n\n"
-                            ),
-                        }
-                    )
-                    continue
-
-                tool_calls.append({"name": "world.execute", "args": {"code": code}})
-                tracker.collect_step(Step(name="api_call_world_execute", data=json.dumps({"code": code})))
-
-                execution_output = world.execute("\n" + code + "\n")
-                executed_steps += 1
-                completion_answer = _extract_completion_answer(code)
-                if completion_answer:
-                    final_answer = completion_answer
-
-                output_text = str(execution_output)
-                conversation.append(
-                    {
-                        "role": "user",
-                        "content": f"Output:\n```\n{output_text}\n```\n\n",
-                    }
-                )
-
-                if _completion_called(code):
-                    break
+        tool_calls: list[dict[str, Any]] = []
+        final_answer = ""
+        executed_steps = 0
+        opencode_result: Optional[OpencodeResult] = None
+        is_error = False
 
         try:
-            await _run_react_loop()
-            if _langfuse and predefined_trace_id:
-                record_harness_trace_output(
-                    _langfuse,
-                    predefined_trace_id,
-                    input={"task_id": task_id, "intent": world.task.instruction},
-                    output={"final_answer": final_answer, "tool_calls": tool_calls},
-                    metadata={"thread_id": thread_id},
+            bridge = AppWorldMcpBridge(world, mode=mode)
+            bridge.start()
+            scratch_dir = tempfile.mkdtemp(prefix=f"opencode_{task_id}_")
+            try:
+                base_url, api_key = _resolve_llm_endpoint(config)
+                # Always-on LLM capture for opencode: tee every request/response to a per-task
+                # JSONL next to the other task outputs (falls back to the scratch dir if there's
+                # no experiment manager — that run isn't persisted anyway).
+                capture_dir = (
+                    os.path.join(experiment_manager.experiment_dir, "tasks")
+                    if experiment_manager is not None
+                    else scratch_dir
                 )
-                try:
-                    _langfuse.flush()
-                except Exception as flush_err:
-                    logger.debug(f"[APPWORLD-CODEACT] Langfuse flush failed: {flush_err}")
+                os.makedirs(capture_dir, exist_ok=True)
+                llm_capture_path = os.path.join(capture_dir, f"{task_id}_llm_calls.jsonl")
+                logger.info(
+                    f"[APPWORLD-OPENCODE] tools={mode} model={model} bridge={bridge.url} "
+                    f"base={base_url or '<default openai>'} llm_capture={llm_capture_path}"
+                )
+                opencode_result = await run_opencode(
+                    instruction=world.task.instruction,
+                    app_descriptions=world.task.app_descriptions,
+                    bridge_url=bridge.url,
+                    base_url=base_url,
+                    api_key=api_key,
+                    mode=mode,
+                    model=model,
+                    opencode_bin=(config.opencode_bin if config else "opencode"),
+                    scratch_dir=scratch_dir,
+                    extra_args=(config.opencode_extra_args if config else None),
+                    timeout=(config.opencode_timeout if config else 900.0),
+                    llm_capture_path=llm_capture_path,
+                )
+            finally:
+                bridge.stop()
+                shutil.rmtree(scratch_dir, ignore_errors=True)
+
+            tool_calls = bridge.state.tool_calls
+            final_answer = bridge.state.final_answer or (
+                opencode_result.final_answer if opencode_result else ""
+            )
+            executed_steps = len(tool_calls)
+            if not bridge.state.completed:
+                logger.warning(
+                    "[APPWORLD-OPENCODE] Agent finished without calling complete_task; evaluating as-is."
+                )
+
+            # Replay the bridge's tool calls into the tracker (main thread).
+            for call in tool_calls:
+                tracker.collect_step(
+                    Step(
+                        name=f"opencode_{call['name']}",
+                        data=json.dumps(
+                            {"args": call.get("args"), "output": (call.get("output") or "")[:2000]}
+                        ),
+                    )
+                )
 
             evaluation = world.evaluate()
             world.close_all()
@@ -392,21 +297,35 @@ async def run_agent_on_task(
 
             res = evaluation.report(print_it=False, colorize=False, save_file_path=None)
 
-            langfuse_data = None
-            if langfuse_trace_id:
-                langfuse_handler = LangfuseTraceHandler(langfuse_trace_id)
-                langfuse_data = await langfuse_handler.get_langfuse_data()
+            if task_result and opencode_result:
+                _apply_usage(task_result, opencode_result.usage, model)
 
-            if task_result and langfuse_data:
-                task_result.total_llm_calls = langfuse_data.total_llm_calls
-                task_result.total_tokens = langfuse_data.total_tokens
-                task_result.total_cost = langfuse_data.total_cost
-                task_result.node_timings = langfuse_data.node_timings
-                task_result.llm_call_details = langfuse_data.llm_call_details
-                task_result.generation_timings = langfuse_data.generation_timings
-                task_result.full_execution_time = langfuse_data.full_execution_time
-                task_result.total_cache_input_tokens = langfuse_data.total_cache_input_tokens
-                task_result.trace_id = langfuse_trace_id
+            if _langfuse and predefined_trace_id:
+                if task_result:
+                    task_result.trace_id = predefined_trace_id
+                try:
+                    record_harness_trace_output(
+                        _langfuse,
+                        predefined_trace_id,
+                        input={"task_id": task_id, "intent": world.task.instruction},
+                        output={
+                            "final_answer": final_answer,
+                            # Surface the generated code per call (not just the tool name) so the
+                            # run is inspectable in Langfuse.
+                            "tool_calls": summarize_tool_calls_for_trace(tool_calls),
+                        },
+                        metadata={
+                            "opencode_tools": mode,
+                            "model": model,
+                            "success": bool(evaluation.success),
+                            "total_tokens": task_result.total_tokens if task_result else 0,
+                            "total_cost": task_result.total_cost if task_result else 0.0,
+                            "total_llm_calls": task_result.total_llm_calls if task_result else 0,
+                        },
+                    )
+                    _langfuse.flush()
+                except Exception as lf_err:
+                    logger.debug(f"[APPWORLD-OPENCODE] Langfuse record failed: {lf_err}")
 
             report_md = json.dumps({"report": "---\n" + res})
             score = 1.0 if evaluation.success else 0.0
@@ -424,7 +343,7 @@ async def run_agent_on_task(
                 total_cost=task_result.total_cost if task_result else 0.0,
                 total_cache_input_tokens=task_result.total_cache_input_tokens if task_result else 0,
                 duration=int((end_time - start_time) if end_time else 0),
-                agent_v="codeact",
+                agent_v="opencode",
             )
             tracker.collect_step(Step(name="EvaluationResult", data=report_md))
             tracker.collect_score(score)
@@ -433,8 +352,6 @@ async def run_agent_on_task(
                 task_result.api_calls = len(tool_calls)
                 task_result.steps = len(tracker.steps)
                 task_result.duration = end_time - start_time if end_time else 0
-                if not task_result.total_tokens:
-                    task_result.total_tokens = tracker.token_usage
                 eval_dict = evaluation_task_info(evaluation)
                 task_result.add_evaluation(eval_dict)
                 task_result.success = eval_dict["success"]
@@ -455,7 +372,7 @@ async def run_agent_on_task(
             end_time = time.time()
 
             if task_result:
-                task_result.add_exception(e, "run_agent_on_task_codeact")
+                task_result.add_exception(e, "run_agent_on_task_opencode")
                 task_result.api_calls = len(tool_calls)
                 task_result.steps = len(tracker.steps)
                 task_result.duration = end_time - start_time if end_time else 0
@@ -464,6 +381,21 @@ async def run_agent_on_task(
                 task_result.add_evaluation(eval_dict)
                 if experiment_manager:
                     experiment_manager.update_task_result(task_result)
+
+            if _langfuse and predefined_trace_id:
+                if task_result:
+                    task_result.trace_id = predefined_trace_id
+                try:
+                    record_harness_trace_output(
+                        _langfuse,
+                        predefined_trace_id,
+                        input={"task_id": task_id, "intent": world.task.instruction},
+                        output={"final_answer": "", "error": str(e)},
+                        metadata={"opencode_tools": mode, "model": model, "success": False},
+                    )
+                    _langfuse.flush()
+                except Exception:
+                    pass
 
             report_md = json.dumps(
                 {"report": "---\n" + evaluation.report(print_it=False, colorize=False, save_file_path=None)}
@@ -482,7 +414,7 @@ async def run_agent_on_task(
                 total_cost=task_result.total_cost if task_result else 0.0,
                 total_cache_input_tokens=task_result.total_cache_input_tokens if task_result else 0,
                 duration=int((end_time - start_time) if end_time else 0),
-                agent_v="codeact",
+                agent_v="opencode",
             )
             tracker.collect_step(Step(name="EvaluationResult", data=report_md))
             tracker.collect_score(0.0)
@@ -490,7 +422,7 @@ async def run_agent_on_task(
 
 async def run_agent_on_dataset(
     dataset_name: str,
-    experiment_name: str = "api_codeact_agent",
+    experiment_name: str = "api_opencode_agent",
     config: Optional[Config] = None,
     save_outputs: bool = True,
     continue_experiment: bool = False,
@@ -501,8 +433,6 @@ async def run_agent_on_dataset(
         dataset_name=dataset_name,
         continue_experiment=continue_experiment,
     )
-
-    datetime.now()
 
     try:
         task_ids = config.specific_tasks if config and config.specific_tasks else load_task_ids(dataset_name)
@@ -537,14 +467,14 @@ async def run_agent_on_dataset(
 
 
 async def main():
-    parser = argparse.ArgumentParser(description="Run CodeAct agent on AppWorld tasks")
+    parser = argparse.ArgumentParser(description="Run the OpenCode agent on AppWorld tasks")
     parser.add_argument("--task-id", nargs="*", help="Run specific task ID(s)")
     parser.add_argument(
         "--dataset",
         default="train",
         help="Dataset to run (train, dev, test_normal, test_challenge)",
     )
-    parser.add_argument("--experiment-name", default="api_codeact_agent", help="Name for the experiment")
+    parser.add_argument("--experiment-name", default="api_opencode_agent", help="Name for the experiment")
     parser.add_argument(
         "--environment-url",
         default=f"http://localhost:{settings.server_ports.environment_url}",
@@ -556,11 +486,17 @@ async def main():
         help="URL of the API server",
     )
     parser.add_argument(
-        "--agent-server-url",
-        default=f"http://localhost:{settings.server_ports.demo}/stream",
-        help="URL of the agent server",
+        "--opencode-tools",
+        choices=["repl", "apis"],
+        default="repl",
+        help="OpenCode action surface: 'repl' (execute_python) or 'apis' (per-API tools)",
     )
-    parser.add_argument("--evaluate", action="store_true", help="Run evaluation after completion")
+    parser.add_argument("--opencode-bin", default="opencode", help="Path/name of the opencode CLI binary")
+    parser.add_argument(
+        "--opencode-base-url",
+        default=None,
+        help="LLM endpoint OpenCode posts to (default env LITE_LLM_URL/OPENAI_BASE_URL, else OpenAI)",
+    )
     parser.add_argument(
         "--specific-task-levels",
         type=int,
@@ -578,9 +514,9 @@ async def main():
     parser.add_argument(
         "--agent",
         type=str,
-        choices=["cuga", "codeact"],
-        default="codeact",
-        help="Agent to run (default: codeact)",
+        choices=["opencode"],
+        default="opencode",
+        help="Agent to run (only 'opencode' for this harness)",
     )
 
     from benchmarks.helpers.logging_args import add_log_level_args, apply_log_level
@@ -589,6 +525,12 @@ async def main():
 
     args = parser.parse_args()
     apply_log_level(args)
+
+    if not opencode_available(args.opencode_bin):
+        logger.warning(
+            f"[APPWORLD-OPENCODE] opencode CLI ({args.opencode_bin!r}) not found on PATH. "
+            "Install it (e.g. `npm i -g opencode-ai` or `brew install opencode`) before running real tasks."
+        )
 
     eval_key = (
         args.eval_key
@@ -607,7 +549,7 @@ async def main():
     tracker = ActivityTracker()
     tracker.start_experiment(
         task_ids=filtered_task_ids or [],
-        experiment_name=eval_key or "appworld_codeact",
+        experiment_name=eval_key or "appworld_opencode",
         description="",
     )
 
@@ -621,10 +563,12 @@ async def main():
     config = Config(
         environment_url=args.environment_url,
         apis_url=args.apis_url,
-        agent_server_url=args.agent_server_url,
         specific_tasks=specific_tasks,
         specific_task_levels=args.specific_task_levels if args.specific_task_levels else None,
         agent_type=args.agent,
+        opencode_tools=args.opencode_tools,
+        opencode_bin=args.opencode_bin,
+        opencode_base_url=args.opencode_base_url,
     )
 
     try:

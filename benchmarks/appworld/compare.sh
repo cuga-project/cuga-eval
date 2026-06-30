@@ -9,6 +9,11 @@
 #   ./compare.sh --models gpt-oss,gpt4o --runs 2             # Compare 2 models
 #   ./compare.sh --runs 3 --verbose                           # With verbose output
 #   ./compare.sh --dry-run                                    # Preview commands
+#   ./compare.sh --agents cuga,opencode --runs 3              # Compare agents (incl. opencode)
+#   ./compare.sh --models gpt-5.2,gpt-5.5 --agent opencode    # OpenCode on Azure GPT-5.x
+#
+# Notes for --agent opencode: OpenCode posts to the configured LLM endpoint (OPENAI_BASE_URL /
+# LITE_LLM_URL) directly — no extra proxy. Token/cost metrics come from OpenCode's JSON output.
 
 set -e
 
