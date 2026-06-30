@@ -99,7 +99,13 @@ def _build_judge_llm(config: dict) -> ChatOpenAI:
     backend = (config.get("backend") or os.getenv("JUDGE_BACKEND", "litellm")).strip().lower()
     if backend in ("groq", "gpt-oss", "gpt_oss", "oss"):
         return ChatModel(config)
-    return LiteLLMChatModel(config)
+    if backend in ("litellm", "azure", ""):
+        return LiteLLMChatModel(config)
+    raise ValueError(
+        f"Unknown judge backend {backend!r}. Set JUDGE_BACKEND (or config['backend']) to one of: "
+        "'litellm'/'azure' (default, Azure/gpt-4.1 via the LiteLLM proxy) or "
+        "'groq'/'gpt-oss' (legacy Groq gpt-oss-120b)."
+    )
 
 
 class LLMJudge:

@@ -53,17 +53,25 @@ done
 
 COMMON=(--runs "$RUNS" --no-policies --m3-data --eval-key "$EVAL_KEY" "${DOTENV[@]}" "${PASS[@]}")
 
+# Hold the rule-8 trim rider constant across both arms so the A/B isolates
+# ONLY M3_GROUNDEDNESS_PROMPT. Honour an explicit caller override, otherwise
+# pin to off — without this the arms would silently inherit any ambient
+# M3_GROUNDEDNESS_TRIM and conflate two independent changes.
+TRIM="${M3_GROUNDEDNESS_TRIM:-off}"
+
 run_arm() {
     local label="$1" ground="$2"
     echo ""
     echo "############################################################"
     echo "# ARM: ${label}"
     echo "#   M3_GROUNDEDNESS_PROMPT=${ground}"
+    echo "#   M3_GROUNDEDNESS_TRIM=${TRIM}  (pinned across both arms)"
     echo "#   eval-key=${EVAL_KEY}  runs=${RUNS}  extra=${PASS[*]:-none}"
     echo "############################################################"
-    echo "arm=${label} groundedness=${ground} eval_key=${EVAL_KEY} ts=$(date -u +%FT%TZ)" \
+    echo "arm=${label} groundedness=${ground} trim=${TRIM} eval_key=${EVAL_KEY} ts=$(date -u +%FT%TZ)" \
         > "/tmp/m3_groundedness_arm.txt"
-    M3_GROUNDEDNESS_PROMPT="$ground" bash "$SCRIPT_DIR/compare.sh" "${COMMON[@]}"
+    M3_GROUNDEDNESS_PROMPT="$ground" M3_GROUNDEDNESS_TRIM="$TRIM" \
+        bash "$SCRIPT_DIR/compare.sh" "${COMMON[@]}"
 }
 
 run_arm "A_baseline" off

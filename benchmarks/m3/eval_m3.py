@@ -2828,7 +2828,14 @@ async def run_config_mode(args, container_runtime: str, defer_save: bool = False
                     if registry_enabled:
                         mini_yaml = _write_single_service_yaml(service_dict)
                         logger.info(f"🔧 [{service_name}] Starting one-service registry from {mini_yaml}")
-                        svc_registry = await start_registry_server(mini_yaml, expected_apps=domains)
+                        # Normalise domains to plain hashable strings: entries may be
+                        # bare strings or dict-backed ({"name": ...}) configs, and
+                        # start_registry_server does set(expected_apps) for the
+                        # identity check, which would raise on unhashable dicts.
+                        # Keep original case so the intersection with live_apps holds.
+                        expected_apps = [d if isinstance(d, str) else str(d.get("name", "")) for d in domains]
+                        expected_apps = [a for a in expected_apps if a]
+                        svc_registry = await start_registry_server(mini_yaml, expected_apps=expected_apps)
                         os.environ["MCP_SERVERS_FILE"] = str(Path(mini_yaml).resolve())
 
                     task_results = await evaluate_single_task(

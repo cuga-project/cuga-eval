@@ -27,12 +27,23 @@ import pytest
 
 from benchmarks.helpers.compare_report import (
     _last_turn_judge_scores,
+    _m3_capability_group,
     _parse_sdk_results,
     generate_eval_report,
     generate_report,
 )
 
 pytestmark = pytest.mark.regression
+
+
+def test_m3_capability_group_keys_on_task_id_without_domain():
+    """The capability rollup is capability-only: a task with m3_task_id but no
+    domain must still group under m3_task_<id>, not be dropped."""
+    assert _m3_capability_group({"m3_task_id": 2, "domain": "hockey"}) == "m3_task_2"
+    assert _m3_capability_group({"m3_task_id": 2}) == "m3_task_2"
+    assert _m3_capability_group({"m3_task_id": 2, "domain": ""}) == "m3_task_2"
+    assert _m3_capability_group({"domain": "hockey"}) is None
+    assert _m3_capability_group({}) is None
 
 
 def _appworld_run(

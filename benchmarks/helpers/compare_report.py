@@ -303,8 +303,7 @@ def _m3_capability_group(t: dict) -> str | None:
     capability instead of per (capability, domain).
     """
     tid = t.get("m3_task_id")
-    dom = t.get("domain")
-    if tid is None or not dom:
+    if tid is None:
         return None
     return f"m3_task_{tid}"
 
