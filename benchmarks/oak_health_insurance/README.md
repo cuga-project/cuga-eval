@@ -1,18 +1,19 @@
-# 🏥 Oak Health Insurance Benchmark
+# Oak Health Insurance Benchmark
 
-## 📊 Overview
+## Overview
 
 The Oak Health Insurance benchmark evaluates agent capabilities with a realistic healthcare insurance application. It tests the agent's ability to:
 - Process insurance claims
 - Query coverage and benefits information
+- Find in-network care providers
 - Navigate health plans
 - Answer general health insurance questions
 
-The benchmark uses the [oak-bench](https://github.com/cuga-project/oak-bench) open-source package for the FastAPI application and dataset.
+The benchmark uses the [oak-bench](https://github.com/cuga-project/oak-bench) open-source package for the FastAPI application and dataset, and supports both the **cuga** and **react** agents.
 
 ---
 
-## 📋 Prerequisites
+## Prerequisites
 
 - CUGA Agent installed at `../cuga-agent`
 - Python environment set up with `uv`
@@ -21,7 +22,7 @@ The benchmark uses the [oak-bench](https://github.com/cuga-project/oak-bench) op
 
 ---
 
-## ⚙️ Configuration
+## Configuration
 
 ### Configuration Files
 
@@ -34,130 +35,144 @@ The benchmark uses the [oak-bench](https://github.com/cuga-project/oak-bench) op
 
 3. **`.env`** - API keys and secrets (repository root)
 
-### Configuration Loading
-
-The `run_app.sh` and `run_registry.sh` scripts automatically load all configurations in the correct order.
-
 ---
 
-## 🚀 Running the Benchmark
+## Running the Benchmark
 
-### Step 1: Start the FastAPI Application
+### Quick start — single run (default cuga agent)
 
-In one terminal:
 ```bash
 cd benchmarks/oak_health_insurance
-./run_app.sh
+./eval.sh
 ```
 
-The app will run on `http://127.0.0.1:8090`
+### Quick start — compare runs across models
 
-This script automatically loads:
-- `.env` (secrets/API keys)
-- `config/global.env` (global configuration)
-- `config/oak_health_insurance.env` (Oak-specific configuration)
-
-### Step 2: Start the CUGA Registry
-
-In another terminal:
 ```bash
-cd benchmarks/oak_health_insurance
-./run_registry.sh
+./compare.sh --runs 3 --models gpt-oss,gpt4o
 ```
 
-### Step 3: Run Evaluation
+### Quick start — compare agents
 
-In a third terminal:
 ```bash
-cd benchmarks/oak_health_insurance
-uv run eval_bench_sdk.py
-```
-
-**Run specific task range:**
-```bash
-uv run eval_bench_sdk.py -r 0-4
-```
-
-### Step 4: View Results
-
-Open the visualization dashboard:
-```bash
-cd ../..
-./scripts/viz.sh oak_health_insurance
-```
-
-Results are stored in `benchmarks/oak_health_insurance/logging/` and `trajectory_data/`
-
----
-
-## 📝 Evaluation Process
-
-The evaluation script (`eval_bench_sdk.py`) performs the following steps:
-
-1. **Load Tools** - Retrieves available tools from the registry
-2. **Evaluate Tasks** - Processes each task in the test suite
-3. **Keyword Checking** - Validates responses contain expected keywords
-4. **Generate Report** - Creates results with difficulty-based filtering
-
----
-
-## 🔧 Advanced Configuration
-
-### CUGA Agent Settings
-
-For optimal performance, configure CUGA agent settings in `config/oak_helath_insurance.env`:
-
-**Mode Settings:**
-```env
-DYNACONF_ADVANCED_FEATURES__CUGA_MODE = "accurate"
-DYNACONF_ADVANCED_FEATURES__LITE_MODE = false
-```
-**Accurate Mode Settings:**
-```toml
-DYNACONF_FEATURES__FORCED_APPS = ["oak_health_insurance"]
-DYNACONF_FEATURES__LOCAL_SANDBOX = true
-```
-
-### User Context (Optional)
-
-To provide context about the Oak Health Insurance app, edit the task decomposition instructions:
-
-**File:** `../cuga-agent/src/cuga/configurations/instructions/default/task_decomposition.md`
-
-**Add:**
-```markdown
-## Oak Health Insurance App:
-
-- The tools are from Oak Health Insurance app for both the user and his family.
-- The user is already connected to the app. Their member_id is 121231234 and location is latitude:40.7128, longitude:-74.0060.
-- For each sub task you create, you **must** explicitly include the member_id information and location.
+./compare.sh --compare-agents            # cuga vs react
+./compare.sh --agents cuga,react --runs 2
 ```
 
 ---
 
-## 📊 Test Suite
+## eval.sh — Single Evaluation Run
 
-The test suite (`oak_health_test_suite_v1.json`) contains tasks across different categories:
-- **Claims Processing** - Submit, query, and manage claims
-- **Coverage Information** - Check coverage details and limits
-- **Benefits Queries** - Understand plan benefits
-- **Plan Information** - Compare and select health plans
-- **General Health** - Answer health-related questions
+Starts FastAPI app, registry, runs evaluation, creates bundle.
+
+```
+Usage: ./eval.sh [OPTIONS]
+
+Options:
+  --agent <name>           Agent to run (cuga, react; default: cuga)
+  --task TASK              Run a specific task by ID/name
+  --difficulty LEVEL       Filter by difficulty (easy, medium, hard)
+  --no-policy              Skip loading oak policies
+  --no-bundle              Skip reproducibility bundle creation
+  --bundle-zip             Create zip archive of bundle
+  --model-profile <name>   Model profile (for bundle metadata)
+```
+
+Examples:
+```bash
+./eval.sh                            # Default (cuga agent, all tasks)
+./eval.sh --agent react              # Run with react agent
+./eval.sh --task approved_claims     # Single task
+./eval.sh --difficulty easy          # Filter by difficulty
+./eval.sh --agent react --no-policy  # React agent without policies
+```
+
+Result files are saved in `results/`:
+- `oak_health_TIMESTAMP.json` for cuga agent
+- `react_oak_health_TIMESTAMP.json` for react agent
 
 ---
 
-## 🔍 Metrics and Results
+## compare.sh — Multi-Run Comparison
+
+Orchestrates multiple eval.sh runs and produces a comparison bundle.
+
+```
+Usage: ./compare.sh [OPTIONS]
+
+Options:
+  --runs <N>              Number of runs per configuration (default: 1)
+  --models <list>         Comma-separated model profiles (default: gpt-oss)
+  --agent <name>          Single agent (default: cuga)
+  --agents <list>         Comma-separated agents (e.g., cuga,react)
+  --compare-agents        Compare cuga vs react (shorthand for --agents cuga,react)
+  --no-bundle             Skip reproducibility bundle creation
+  --bundle-zip            Create zip archive of bundle
+  --dry-run               Preview commands without executing
+  All other args forwarded to eval.sh (e.g. --difficulty, --task)
+```
+
+Examples:
+```bash
+./compare.sh --runs 5                              # 5 cuga runs
+./compare.sh --runs 3 --models gpt-oss,gpt4o       # Compare 2 models
+./compare.sh --compare-agents                      # cuga vs react, 1 run each
+./compare.sh --compare-agents --runs 3             # cuga vs react, 3 runs each
+./compare.sh --difficulty easy --runs 2            # Easy tasks, 2 runs
+./compare.sh --dry-run                             # Preview commands
+```
+
+---
+
+## Metrics
 
 The benchmark tracks:
-- **Success Rate** - Percentage of correctly completed tasks
-- **Keyword Matches** - Whether responses contain expected keywords
-- **Tool Usage** - Which tools were called for each task
-- **Response Accuracy** - Quality of information provided
-- **Execution Time** - Time taken per task
+- **Keyword match rate** — whether responses contain expected keywords
+- **API call tracking** — which tools were called vs expected (`enable_api_metrics=True`)
+  - `expected_apis` — tools expected for the task
+  - `apis_called` — tools actually called
+  - `apis_missing` — expected tools not called
+  - `apis_extra` — extra tools called
+  - `apis_correct` — 1 if no missing APIs
 
 ---
 
-## 📊 Langfuse Tracing (Optional)
+## Policies
+
+Oak-specific playbooks and tool enrichments are defined in `oak_policies.py`. They are loaded automatically on `setup()` unless `--no-policy` is passed.
+
+Policies include:
+- Playbooks for claims, care providers, benefits, payments, family members, plan information
+- Tool enrichments for all oak tools (coverage, search_benefits, find_care_specialty, etc.)
+
+---
+
+## File Structure
+
+```
+benchmarks/oak_health_insurance/
+├── README.md                       # This file
+├── config/
+│   └── oak_health_insurance.env   # Oak-specific configuration
+├── eval_bench_sdk.py              # Main evaluation script (cuga + react)
+├── eval.sh                        # Single-run shell script
+├── compare.sh                     # Multi-run comparison script
+├── oak_policies.py                # Playbooks and tool enrichments
+├── oak_mcp_servers.yaml           # MCP servers configuration
+├── oak_health_test_suite_v1.json  # Test suite (from oak-bench)
+├── run_app.sh                     # Script to start FastAPI app
+├── run_registry.sh                # Script to start registry
+├── results/                       # Evaluation result JSON files (generated)
+├── logging/                       # Evaluation logs (generated)
+└── trajectory_data/               # Detailed execution traces (generated)
+```
+
+The FastAPI application and its data are provided by the `cuga-oak-health` package
+from [cuga-project/oak-bench](https://github.com/cuga-project/oak-bench).
+
+---
+
+## Langfuse Tracing (Optional)
 
 For detailed tracing and analytics, you can enable Langfuse integration.
 
@@ -172,9 +187,7 @@ docker compose up
 
 2. **Get API Keys:**
    - Access UI at `http://localhost:3000`
-   - Log in or create account
    - Navigate to Project Settings → API Keys
-   - Copy `LANGFUSE_PUBLIC_KEY` and `LANGFUSE_SECRET_KEY`
 
 3. **Configure in `.env`:**
 ```env
@@ -183,33 +196,8 @@ LANGFUSE_PUBLIC_KEY="your-public-key"
 LANGFUSE_HOST="http://localhost:3000"
 ```
 
-4. **Enable/Disable in GLOBAL settings**
-Enabled by default in gloabl.env file
-
 ---
 
-## 📁 File Structure
-
-```
-benchmarks/oak_health_insurance/
-├── README.md                       # This file
-├── config/
-│   └── oak_health_insurance.env   # Oak-specific configuration
-├── eval_bench_sdk.py              # Main evaluation script (recommended)
-├── eval_bench.py                  # Alternative evaluation script
-├── oak_mcp_servers.yaml           # MCP servers configuration
-├── oak_health_test_suite_v1.json  # Test suite with all tasks (from oak-bench)
-├── run_app.sh                     # Script to start FastAPI app
-├── run_registry.sh                # Script to start registry
-├── logging/                       # Evaluation results (generated)
-└── trajectory_data/               # Detailed execution traces (generated)
-```
-
-The FastAPI application and its data are provided by the `cuga-oak-health` package
-from [cuga-project/oak-bench](https://github.com/cuga-project/oak-bench).
-
----
-
-## 🔗 Related Documentation
+## Related Documentation
 
 - [Main README](../../README.md) - Repository overview and setup
