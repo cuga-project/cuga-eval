@@ -3,8 +3,10 @@
 This script:
 1. Loads tools from the registry
 2. Evaluates each task in oak_health_test_suite_v1.json
-3. Checks keywords in responses
+3. Checks keywords in responses and tracks tool-call metrics
 4. Reports results with filtering by difficulty
+
+Supports both cuga and react agents via --agent flag.
 """
 
 # CRITICAL: Load environment variables FIRST, before ANY other imports
@@ -38,22 +40,27 @@ from cuga.backend.activity_tracker.tracker import ActivityTracker
 from cuga.backend.cuga_graph.state.agent_state import VariablesManager
 
 # Import cuga modules (these will read env vars, which are now set)
-from cuga.sdk import CugaAgent
 from loguru import logger
 
 # Import helpers after cuga modules (helpers import cuga modules too)
 from benchmarks.helpers import (
+    MetricsConfig,
+    add_policy_via_agent,
     clear_all_policies,
     create_activity_tracker_callback,
     evaluate_task_with_langfuse,
+    evaluate_task_with_langfuse_react,
     flush_langfuse,
     print_evaluation_summary,
     save_evaluation_results,
     setup_agent_with_tools,
+    setup_react_agent_for_evaluation,
 )
 
 tracker = ActivityTracker()
 var_manager = VariablesManager()
+
+_METRICS_CONFIG: MetricsConfig = {"enable_api_metrics": True}
 
 
 class OakEvaluator:
@@ -63,37 +70,60 @@ class OakEvaluator:
         self,
         difficulty_filter: Optional[str] = None,
         task_id: Optional[Union[str, List[str]]] = None,
+        agent_type: str = "cuga",
+        load_policies: bool = True,
     ):
         """
         Initialize the evaluator.
 
         Args:
             difficulty_filter: Filter by difficulty ("easy", "medium", "hard", or None for all)
-            task_id: Filter by specific task ID(s) (if provided, only these tasks will be evaluated)
+            task_id: Filter by specific task ID(s)
+            agent_type: Agent to use ("cuga" or "react")
+            load_policies: Whether to load oak policies (default True)
         """
         self.difficulty_filter = difficulty_filter
         self.task_ids = [task_id] if isinstance(task_id, str) else task_id
-        self.agent: Optional[CugaAgent] = None
+        self.agent_type = agent_type
+        self.load_policies = load_policies
+        self.agent = None
+        self.langfuse_handler = None
         self.results: List[Dict[str, Any]] = []
 
     async def setup(self):
-        """Set up the agent with tools."""
-        self.agent, self.langfuse_handler = await setup_agent_with_tools()
+        """Set up the agent with tools and optional policies."""
+        if self.agent_type == "react":
+            self.agent, self.langfuse_handler = await setup_react_agent_for_evaluation()
+            logger.info("ReAct agent ready")
+        else:
+            self.agent, self.langfuse_handler = await setup_agent_with_tools()
+            logger.info("Resetting policy database...")
+            await clear_all_policies(self.agent)
+            logger.info("CugaAgent ready")
 
-        logger.info("Resetting policy database...")
-        await clear_all_policies(self.agent)
-        logger.info("✅ Agent ready")
+        if self.load_policies:
+            await self._load_oak_policies()
+
+    async def _load_oak_policies(self):
+        """Load oak health insurance policies into the agent."""
+        try:
+            from benchmarks.oak_health_insurance.oak_policies import get_all_oak_policies
+
+            policies = get_all_oak_policies()
+            logger.info(f"Loading {len(policies)} oak policies...")
+            loaded = 0
+            for policy in policies:
+                try:
+                    await add_policy_via_agent(self.agent, policy)
+                    loaded += 1
+                except Exception as e:
+                    logger.warning(f"Skipping policy '{policy.id}': {e}")
+            logger.info(f"✅ Loaded {loaded}/{len(policies)} policies")
+        except Exception as e:
+            logger.warning(f"Could not load oak policies: {e}")
 
     async def evaluate_task(self, task: Dict[str, Any], task_index: int) -> Dict[str, Any]:
-        """Evaluate a single task.
-
-        Args:
-            task: Task dictionary from oak_health_test_suite_v1.json
-            task_index: Index of the task (for unique thread_id generation)
-
-        Returns:
-            Evaluation result dictionary
-        """
+        """Evaluate a single task."""
         task_name = task.get("name", "unknown")
         intent = task.get("intent", "")
 
@@ -108,24 +138,31 @@ class OakEvaluator:
 
         tracker_callback = create_activity_tracker_callback(tracker, var_manager)
 
-        return await evaluate_task_with_langfuse(
-            agent=self.agent,
-            task=task,
-            task_index=task_index,
-            langfuse_handler=self.langfuse_handler,
-            user_context=user_context,
-            tracker_callback=tracker_callback,
-            track_tool_calls=True,
-        )
+        if self.agent_type == "react":
+            return await evaluate_task_with_langfuse_react(
+                agent=self.agent,
+                task=task,
+                task_index=task_index,
+                langfuse_handler=self.langfuse_handler,
+                user_context=user_context,
+                tracker_callback=tracker_callback,
+                track_tool_calls=True,
+                metrics_config=_METRICS_CONFIG,
+            )
+        else:
+            return await evaluate_task_with_langfuse(
+                agent=self.agent,
+                task=task,
+                task_index=task_index,
+                langfuse_handler=self.langfuse_handler,
+                user_context=user_context,
+                tracker_callback=tracker_callback,
+                track_tool_calls=True,
+                metrics_config=_METRICS_CONFIG,
+            )
 
     async def evaluate_all(self, oak_data_path: str = "oak_health_test_suite_v1.json"):
-        """
-        Evaluate all tasks from the test suite JSON.
-
-        Args:
-            oak_data_path: Path to oak_health_test_suite_v1.json
-        """
-        # Load test data
+        """Evaluate all tasks from the test suite JSON."""
         with open(oak_data_path, "r") as f:
             data = json.load(f)
 
@@ -143,7 +180,6 @@ class OakEvaluator:
                 logger.error(f"Task(s) {self.task_ids} not found in test data")
                 return
             logger.info(f"Filtered to {len(test_cases)} task(s): {self.task_ids}")
-        # Filter by difficulty if specified
         elif self.difficulty_filter:
             test_cases = [
                 tc for tc in test_cases if tc.get("difficulty", "").lower() == self.difficulty_filter.lower()
@@ -152,25 +188,21 @@ class OakEvaluator:
         else:
             logger.info(f"Evaluating all {len(test_cases)} tasks")
 
-        # Start experiment tracking
-        experiment_name = os.getenv("OAK_EXPERIMENT_NAME", "oak_health_evaluation")
+        experiment_name = os.getenv("OAK_EXPERIMENT_NAME", f"oak_health_{self.agent_type}_evaluation")
         task_ids = [tc.get("name", f"task_{i}") for i, tc in enumerate(test_cases, 1)]
         tracker.start_experiment(
             task_ids=task_ids,
             experiment_name=experiment_name,
-            description="Oak Health Insurance benchmark evaluation",
+            description=f"Oak Health Insurance benchmark evaluation ({self.agent_type})",
         )
 
-        # Evaluate each task
         self.results = []
         for i, task in enumerate(test_cases, 1):
             logger.info(f"\n[{i}/{len(test_cases)}] Processing task...")
-            # Pass task index to generate unique thread_id and ensure fresh state
             result = await self.evaluate_task(task, task_index=i)
             self.results.append(result)
 
-            # Small delay to avoid rate limiting between tasks
-            if i < len(test_cases):  # Don't sleep after last task
+            if i < len(test_cases):
                 await asyncio.sleep(0.5)
 
         flush_langfuse(self.langfuse_handler)
@@ -183,7 +215,8 @@ class OakEvaluator:
         """Save evaluation results to JSON files."""
         if output_dir is None:
             output_dir = Path(__file__).parent / "results"
-        return save_evaluation_results(self.results, output_dir, prefix="oak_health")
+        prefix = "react_oak_health" if self.agent_type == "react" else "oak_health"
+        return save_evaluation_results(self.results, output_dir, prefix=prefix)
 
 
 async def main():
@@ -211,6 +244,19 @@ async def main():
         default=None,
         help="Run specific tasks by ID/name (e.g., 'care_providers_mri'). Accepts multiple. Overrides --difficulty filter.",
     )
+    parser.add_argument(
+        "--agent",
+        type=str,
+        choices=["cuga", "react"],
+        default="cuga",
+        help="Agent to run (default: cuga)",
+    )
+    parser.add_argument(
+        "--no-policy",
+        action="store_true",
+        default=False,
+        help="Skip loading oak policies",
+    )
     from benchmarks.helpers.logging_args import add_log_level_args, apply_log_level
 
     add_log_level_args(parser)
@@ -218,20 +264,17 @@ async def main():
     args = parser.parse_args()
     apply_log_level(args)
 
-    # Create evaluator
-    evaluator = OakEvaluator(difficulty_filter=args.difficulty, task_id=args.task)
+    evaluator = OakEvaluator(
+        difficulty_filter=args.difficulty,
+        task_id=args.task,
+        agent_type=args.agent,
+        load_policies=not args.no_policy,
+    )
 
     try:
-        # Setup
         await evaluator.setup()
-
-        # Evaluate
         await evaluator.evaluate_all(args.data)
-
-        # Print summary
         evaluator.print_summary()
-
-        # Save results
         evaluator.save_results()
 
     except KeyboardInterrupt:
