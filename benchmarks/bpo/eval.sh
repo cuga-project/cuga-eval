@@ -263,14 +263,33 @@ fi
 echo -e "${YELLOW:-}Starting evaluation...${NC:-}"
 echo ""
 
+# Marks the start of THIS run. Only result files newer than this are bundled,
+# so a run that dies before writing a report never falls back to a previous
+# run's stale report (the misleading "green bundle" bug fixed in appworld/m3).
+RUN_START_TS=$(date +%s)
+
+# Capture the evaluator's exit code instead of letting `set -e` + the ERR trap
+# abort here — an abort would skip both the bundle and the failure banner below
+# (the else branch was previously dead code).
+set +e
 # Run with resolved --data args and any remaining passthrough arguments
 if [ "${AGENT:-cuga}" = "react" ]; then
     uv run python -m benchmarks.bpo.eval_bench_sdk_react "${DATA_ARGS[@]}" "${PASSTHROUGH_ARGS[@]}"
 else
     uv run python -m benchmarks.bpo.eval_bench_sdk "${DATA_ARGS[@]}" "${PASSTHROUGH_ARGS[@]}"
 fi
-
 EVAL_EXIT_CODE=$?
+set -e
+
+# Select only a result file produced by this run (mtime >= RUN_START_TS).
+LATEST_RESULT=""
+for f in $(ls -t "$SCRIPT_DIR/results"/bpo_*.json 2>/dev/null); do
+    f_mtime=$(stat -c %Y "$f" 2>/dev/null || stat -f %m "$f" 2>/dev/null)
+    if [ -n "$f_mtime" ] && [ "$f_mtime" -ge "$RUN_START_TS" ]; then
+        LATEST_RESULT="$f"
+        break
+    fi
+done
 
 echo ""
 if [ $EVAL_EXIT_CODE -eq 0 ]; then
@@ -278,47 +297,53 @@ if [ $EVAL_EXIT_CODE -eq 0 ]; then
     echo -e "${GREEN:-}║  Evaluation completed successfully                         ║${NC:-}"
     echo -e "${GREEN:-}╚════════════════════════════════════════════════════════════╝${NC:-}"
 
+    # A clean exit MUST come with a fresh result from this run. Refuse to bundle
+    # otherwise: the old `ls -t | head -1` fallback silently bundled a previous
+    # run's report as if it were this run's results.
+    if [ -z "$LATEST_RESULT" ]; then
+        echo -e "${RED:-}✗ Evaluator exited 0 but wrote no fresh result file — refusing to bundle stale results.${NC:-}"
+        echo -e "${RED:-}  The evaluator was likely terminated before saving; check the console log above.${NC:-}"
+        exit 1
+    fi
+
     # Create reproducibility bundle unless skipped
     if [ "${NO_BUNDLE:-false}" != "true" ]; then
         echo ""
         echo -e "${YELLOW:-}Creating reproducibility bundle...${NC:-}"
 
-        LATEST_RESULT=$(ls -t "$SCRIPT_DIR/results"/bpo_*.json 2>/dev/null | head -1)
-        if [ -n "$LATEST_RESULT" ]; then
-            # Generate eval report
-            REPORT_TMP=$(mktemp /tmp/bpo_eval_report_XXXXXX)
-            uv run --no-sync python -m benchmarks.helpers.compare_report eval \
-                --result-file "$LATEST_RESULT" --output "$REPORT_TMP"
+        # Generate eval report
+        REPORT_TMP=$(mktemp /tmp/bpo_eval_report_XXXXXX)
+        uv run --no-sync python -m benchmarks.helpers.compare_report eval \
+            --result-file "$LATEST_RESULT" --output "$REPORT_TMP"
 
-            BUNDLE_ARGS=(assemble --benchmark bpo
-                --result-files "$LATEST_RESULT"
-                --task-files "${DATA_ARGS[@]:1}"
-                --policies-dir "$SCRIPT_DIR/policies"
-                --report "$REPORT_TMP")
-            if [ -n "$MODEL_PROFILE" ]; then
-                BUNDLE_ARGS+=(--model-profile "$MODEL_PROFILE")
-            fi
-            for arg in "${PASSTHROUGH_ARGS[@]}"; do
-                if [[ "$arg" == "--no-policies" ]]; then
-                    BUNDLE_ARGS+=(--no-policies)
-                    break
-                fi
-            done
-            if [ "${BUNDLE_ZIP:-false}" = "true" ]; then
-                BUNDLE_ARGS+=(--zip)
-            fi
-            # Include cuga trajectories
-            TRAJ_DIR=$(find_latest_trajectory "$SCRIPT_DIR/logging/trajectory_data")
-            if [ -n "$TRAJ_DIR" ]; then
-                BUNDLE_ARGS+=(--trajectory-dir "$TRAJ_DIR")
-            fi
-            # Include server and console logs
-            BUNDLE_ARGS+=(--log-files /tmp/bpo_fastapi.log /tmp/bpo_registry.log "$CONSOLE_LOG")
-            # Download Langfuse traces if available
-            BUNDLE_ARGS+=(--fetch-langfuse)
-            uv run python -m benchmarks.helpers.bundle "${BUNDLE_ARGS[@]}"
-            rm -f "$REPORT_TMP"
+        BUNDLE_ARGS=(assemble --benchmark bpo
+            --result-files "$LATEST_RESULT"
+            --task-files "${DATA_ARGS[@]:1}"
+            --policies-dir "$SCRIPT_DIR/policies"
+            --report "$REPORT_TMP")
+        if [ -n "$MODEL_PROFILE" ]; then
+            BUNDLE_ARGS+=(--model-profile "$MODEL_PROFILE")
         fi
+        for arg in "${PASSTHROUGH_ARGS[@]}"; do
+            if [[ "$arg" == "--no-policies" ]]; then
+                BUNDLE_ARGS+=(--no-policies)
+                break
+            fi
+        done
+        if [ "${BUNDLE_ZIP:-false}" = "true" ]; then
+            BUNDLE_ARGS+=(--zip)
+        fi
+        # Include cuga trajectories
+        TRAJ_DIR=$(find_latest_trajectory "$SCRIPT_DIR/logging/trajectory_data")
+        if [ -n "$TRAJ_DIR" ]; then
+            BUNDLE_ARGS+=(--trajectory-dir "$TRAJ_DIR")
+        fi
+        # Include server and console logs
+        BUNDLE_ARGS+=(--log-files /tmp/bpo_fastapi.log /tmp/bpo_registry.log "$CONSOLE_LOG")
+        # Download Langfuse traces if available
+        BUNDLE_ARGS+=(--fetch-langfuse)
+        uv run python -m benchmarks.helpers.bundle "${BUNDLE_ARGS[@]}"
+        rm -f "$REPORT_TMP"
     fi
 else
     echo -e "${RED:-}╔════════════════════════════════════════════════════════════╗${NC:-}"

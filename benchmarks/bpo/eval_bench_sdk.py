@@ -217,6 +217,11 @@ class BPOEvaluator:
             description="BPO benchmark evaluation",
         )
 
+        # Total intended for this run; compared against len(self.results) so a
+        # run that stops early (crash/interrupt) is detected as partial rather
+        # than silently reported as complete.
+        self.total_tasks = len(test_cases)
+
         # Evaluate each task
         self.results = []
         for i, task in enumerate(test_cases, 1):
@@ -284,30 +289,44 @@ async def main():
         policies_enabled=not args.no_policies,
     )
 
+    exit_code = 0
     try:
-        # Setup
         await evaluator.setup()
-
-        # Evaluate
         await evaluator.evaluate_all(args.data)
-
-        # Print summary
-        evaluator.print_summary()
-
-        # Save results
-        evaluator.save_results()
-
     except KeyboardInterrupt:
         logger.warning("\nEvaluation interrupted by user")
-        if evaluator.results:
-            evaluator.print_summary()
-            evaluator.save_results()
+        exit_code = 130
     except Exception as e:
         logger.error(f"Evaluation failed: {e}")
         import traceback
 
         traceback.print_exc()
-        sys.exit(1)
+        exit_code = 1
+    finally:
+        # Persist whatever completed — even on crash/interrupt — so partial
+        # results are recoverable instead of orphaned, and so the harness
+        # bundles this run's real (partial) data rather than falling back to a
+        # previous run's report.
+        results = getattr(evaluator, "results", None)
+        if results:
+            evaluator.print_summary()
+            try:
+                evaluator.save_results()
+            except Exception as e:
+                logger.error(f"Failed to save results: {e}")
+        else:
+            logger.warning("No results to save")
+
+    # Fewer results than intended means the run stopped early. Report it as a
+    # failure so the harness does not present a partial run as a clean pass.
+    total = getattr(evaluator, "total_tasks", None)
+    completed = len(getattr(evaluator, "results", []) or [])
+    if exit_code == 0 and total is not None and completed < total:
+        logger.error(f"Partial run: only {completed}/{total} tasks completed — marking as failed")
+        exit_code = 2
+
+    if exit_code:
+        sys.exit(exit_code)
 
 
 if __name__ == "__main__":

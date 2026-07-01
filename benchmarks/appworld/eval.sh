@@ -142,6 +142,16 @@ done
 
 # Run evaluation
 echo -e "${YELLOW:-}Starting evaluation with agent ${AGENT:-cuga}...${NC:-}"
+
+# Marker whose mtime marks the start of THIS run. We bundle only result reports
+# newer than it, so a run that dies before writing a report never falls back to
+# an earlier run's report (the "24 + 19" test_med mislabel bug). POSIX -newer is
+# portable to BSD/macOS (unlike GNU-only -newermt).
+RUN_MARKER=$(mktemp "${TMPDIR:-/tmp}/appworld_run_marker.XXXXXX")
+
+# Capture the evaluator's exit code instead of letting `set -e` abort here — an
+# abort would skip both bundling and the failure banner below.
+set +e
 if [ "${AGENT:-cuga}" = "codeact" ]; then
     echo -e "${BLUE:-}Using CodeAct agent (appworld_eval_codeact.py)${NC:-}"
     uv run --no-sync python -m benchmarks.appworld.appworld_eval_codeact --agent codeact "${PASSTHROUGH_ARGS[@]}"
@@ -155,50 +165,61 @@ else
     echo -e "${BLUE:-}Using default evaluator (appworld_eval.py)${NC:-}"
     uv run --no-sync python -m benchmarks.appworld.appworld_eval --agent "${AGENT:-cuga}" "${PASSTHROUGH_ARGS[@]}"
 fi
-
 EVAL_EXIT=$?
+set -e
+
+# Select ONLY a report produced by this run (mtime newer than the marker).
+LATEST_RESULT=$(find "$SCRIPT_DIR/experiments/outputs" -name "*_final_report.json" -type f -newer "$RUN_MARKER" 2>/dev/null | sort | tail -1)
+rm -f "$RUN_MARKER"
 
 if [ $EVAL_EXIT -eq 0 ]; then
     echo -e "${GREEN:-}✓${NC:-} AppWorld evaluation completed successfully"
-
-    # Create reproducibility bundle unless skipped
-    if [ "${NO_BUNDLE:-false}" != "true" ]; then
-        echo ""
-        echo -e "${YELLOW:-}Creating reproducibility bundle...${NC:-}"
-
-        # Find the most recent experiment result
-        LATEST_RESULT=$(find "$SCRIPT_DIR/experiments/outputs" -name "*_final_report.json" -type f 2>/dev/null | sort | tail -1)
-        if [ -n "$LATEST_RESULT" ]; then
-            # Generate eval report
-            REPORT_TMP=$(mktemp /tmp/appworld_eval_report_XXXXXX)
-            uv run --no-sync python -m benchmarks.helpers.compare_report eval \
-                --result-file "$LATEST_RESULT" --output "$REPORT_TMP"
-
-            BUNDLE_ARGS=(assemble --benchmark appworld
-                --result-files "$LATEST_RESULT"
-                --task-files "$SCRIPT_DIR/eval_config.toml"
-                --report "$REPORT_TMP")
-            if [ -n "$MODEL_PROFILE" ]; then
-                BUNDLE_ARGS+=(--model-profile "$MODEL_PROFILE")
-            fi
-            if [ "${BUNDLE_ZIP:-false}" = "true" ]; then
-                BUNDLE_ARGS+=(--zip)
-            fi
-            # Include cuga trajectories
-            TRAJ_DIR=$(find_latest_trajectory "$SCRIPT_DIR/logging/trajectory_data")
-            if [ -n "$TRAJ_DIR" ]; then
-                BUNDLE_ARGS+=(--trajectory-dir "$TRAJ_DIR")
-            fi
-            # Include server and console logs
-            BUNDLE_ARGS+=(--log-files /tmp/appworld.log /tmp/appworld_registry.log "$CONSOLE_LOG")
-            # Download Langfuse traces if available
-            BUNDLE_ARGS+=(--fetch-langfuse)
-            uv run --no-sync python -m benchmarks.helpers.bundle "${BUNDLE_ARGS[@]}"
-            rm -f "$REPORT_TMP"
-        fi
-    fi
 else
     echo -e "${RED:-}✗ AppWorld evaluation failed (exit code: $EVAL_EXIT)${NC:-}"
+fi
+
+# A clean exit MUST come with a fresh report from this run. If it does not,
+# refuse to bundle: the old `find | sort | tail -1` fallback silently bundled a
+# previous run's report as if it were this run's results.
+if [ $EVAL_EXIT -eq 0 ] && [ -z "$LATEST_RESULT" ]; then
+    echo -e "${RED:-}✗ Evaluator exited 0 but wrote no fresh result report — refusing to bundle stale results.${NC:-}"
+    echo -e "${RED:-}  The evaluator process was likely terminated before saving; check the console log above.${NC:-}"
+    exit 1
+fi
+
+# Bundle whenever this run produced a report. A partial report from a non-zero
+# exit is still bundled for forensics, but EVAL_EXIT is preserved so the run is
+# not mistaken for a clean pass.
+if [ -n "$LATEST_RESULT" ] && [ "${NO_BUNDLE:-false}" != "true" ]; then
+    echo ""
+    echo -e "${YELLOW:-}Creating reproducibility bundle...${NC:-}"
+
+    # Generate eval report
+    REPORT_TMP=$(mktemp /tmp/appworld_eval_report_XXXXXX)
+    uv run --no-sync python -m benchmarks.helpers.compare_report eval \
+        --result-file "$LATEST_RESULT" --output "$REPORT_TMP"
+
+    BUNDLE_ARGS=(assemble --benchmark appworld
+        --result-files "$LATEST_RESULT"
+        --task-files "$SCRIPT_DIR/eval_config.toml"
+        --report "$REPORT_TMP")
+    if [ -n "$MODEL_PROFILE" ]; then
+        BUNDLE_ARGS+=(--model-profile "$MODEL_PROFILE")
+    fi
+    if [ "${BUNDLE_ZIP:-false}" = "true" ]; then
+        BUNDLE_ARGS+=(--zip)
+    fi
+    # Include cuga trajectories
+    TRAJ_DIR=$(find_latest_trajectory "$SCRIPT_DIR/logging/trajectory_data")
+    if [ -n "$TRAJ_DIR" ]; then
+        BUNDLE_ARGS+=(--trajectory-dir "$TRAJ_DIR")
+    fi
+    # Include server and console logs
+    BUNDLE_ARGS+=(--log-files /tmp/appworld.log /tmp/appworld_registry.log "$CONSOLE_LOG")
+    # Download Langfuse traces if available
+    BUNDLE_ARGS+=(--fetch-langfuse)
+    uv run --no-sync python -m benchmarks.helpers.bundle "${BUNDLE_ARGS[@]}"
+    rm -f "$REPORT_TMP"
 fi
 
 exit $EVAL_EXIT
