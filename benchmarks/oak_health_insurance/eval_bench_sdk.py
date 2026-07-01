@@ -5,8 +5,6 @@ This script:
 2. Evaluates each task in oak_health_test_suite_v1.json
 3. Checks keywords in responses and tracks tool-call metrics
 4. Reports results with filtering by difficulty
-
-Supports both cuga and react agents via --agent flag.
 """
 
 # CRITICAL: Load environment variables FIRST, before ANY other imports
@@ -49,12 +47,10 @@ from benchmarks.helpers import (
     clear_all_policies,
     create_activity_tracker_callback,
     evaluate_task_with_langfuse,
-    evaluate_task_with_langfuse_react,
     flush_langfuse,
     print_evaluation_summary,
     save_evaluation_results,
     setup_agent_with_tools,
-    setup_react_agent_for_evaluation,
 )
 
 tracker = ActivityTracker()
@@ -70,7 +66,6 @@ class OakEvaluator:
         self,
         difficulty_filter: Optional[str] = None,
         task_id: Optional[Union[str, List[str]]] = None,
-        agent_type: str = "cuga",
         load_policies: bool = True,
     ):
         """
@@ -79,12 +74,10 @@ class OakEvaluator:
         Args:
             difficulty_filter: Filter by difficulty ("easy", "medium", "hard", or None for all)
             task_id: Filter by specific task ID(s)
-            agent_type: Agent to use ("cuga" or "react")
             load_policies: Whether to load oak policies (default True)
         """
         self.difficulty_filter = difficulty_filter
         self.task_ids = [task_id] if isinstance(task_id, str) else task_id
-        self.agent_type = agent_type
         self.load_policies = load_policies
         self.agent = None
         self.langfuse_handler = None
@@ -92,14 +85,10 @@ class OakEvaluator:
 
     async def setup(self):
         """Set up the agent with tools and optional policies."""
-        if self.agent_type == "react":
-            self.agent, self.langfuse_handler = await setup_react_agent_for_evaluation()
-            logger.info("ReAct agent ready")
-        else:
-            self.agent, self.langfuse_handler = await setup_agent_with_tools()
-            logger.info("Resetting policy database...")
-            await clear_all_policies(self.agent)
-            logger.info("CugaAgent ready")
+        self.agent, self.langfuse_handler = await setup_agent_with_tools()
+        logger.info("Resetting policy database...")
+        await clear_all_policies(self.agent)
+        logger.info("CugaAgent ready")
 
         if self.load_policies:
             await self._load_oak_policies()
@@ -132,34 +121,22 @@ class OakEvaluator:
 
         user_context = """
         Member ID (string): 121231234
-        Location: latitude(str):40.7128, longitude(str):-74.0060
+        Location: stateCode:NY, zipCode:11211
         Current Date: 2025-12-31
         """
 
         tracker_callback = create_activity_tracker_callback(tracker, var_manager)
 
-        if self.agent_type == "react":
-            return await evaluate_task_with_langfuse_react(
-                agent=self.agent,
-                task=task,
-                task_index=task_index,
-                langfuse_handler=self.langfuse_handler,
-                user_context=user_context,
-                tracker_callback=tracker_callback,
-                track_tool_calls=True,
-                metrics_config=_METRICS_CONFIG,
-            )
-        else:
-            return await evaluate_task_with_langfuse(
-                agent=self.agent,
-                task=task,
-                task_index=task_index,
-                langfuse_handler=self.langfuse_handler,
-                user_context=user_context,
-                tracker_callback=tracker_callback,
-                track_tool_calls=True,
-                metrics_config=_METRICS_CONFIG,
-            )
+        return await evaluate_task_with_langfuse(
+            agent=self.agent,
+            task=task,
+            task_index=task_index,
+            langfuse_handler=self.langfuse_handler,
+            user_context=user_context,
+            tracker_callback=tracker_callback,
+            track_tool_calls=True,
+            metrics_config=_METRICS_CONFIG,
+        )
 
     async def evaluate_all(self, oak_data_path: str = "oak_health_test_suite_v1.json"):
         """Evaluate all tasks from the test suite JSON."""
@@ -188,12 +165,12 @@ class OakEvaluator:
         else:
             logger.info(f"Evaluating all {len(test_cases)} tasks")
 
-        experiment_name = os.getenv("OAK_EXPERIMENT_NAME", f"oak_health_{self.agent_type}_evaluation")
+        experiment_name = os.getenv("OAK_EXPERIMENT_NAME", "oak_health_evaluation")
         task_ids = [tc.get("name", f"task_{i}") for i, tc in enumerate(test_cases, 1)]
         tracker.start_experiment(
             task_ids=task_ids,
             experiment_name=experiment_name,
-            description=f"Oak Health Insurance benchmark evaluation ({self.agent_type})",
+            description="Oak Health Insurance benchmark evaluation",
         )
 
         self.results = []
@@ -215,8 +192,7 @@ class OakEvaluator:
         """Save evaluation results to JSON files."""
         if output_dir is None:
             output_dir = Path(__file__).parent / "results"
-        prefix = "react_oak_health" if self.agent_type == "react" else "oak_health"
-        return save_evaluation_results(self.results, output_dir, prefix=prefix)
+        return save_evaluation_results(self.results, output_dir, prefix="oak_health")
 
 
 async def main():
@@ -245,13 +221,6 @@ async def main():
         help="Run specific tasks by ID/name (e.g., 'care_providers_mri'). Accepts multiple. Overrides --difficulty filter.",
     )
     parser.add_argument(
-        "--agent",
-        type=str,
-        choices=["cuga", "react"],
-        default="cuga",
-        help="Agent to run (default: cuga)",
-    )
-    parser.add_argument(
         "--no-policy",
         action="store_true",
         default=False,
@@ -267,7 +236,6 @@ async def main():
     evaluator = OakEvaluator(
         difficulty_filter=args.difficulty,
         task_id=args.task,
-        agent_type=args.agent,
         load_policies=not args.no_policy,
     )
 

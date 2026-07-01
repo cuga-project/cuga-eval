@@ -9,7 +9,7 @@ The Oak Health Insurance benchmark evaluates agent capabilities with a realistic
 - Navigate health plans
 - Answer general health insurance questions
 
-The benchmark uses the [oak-bench](https://github.com/cuga-project/oak-bench) open-source package for the FastAPI application and dataset, and supports both the **cuga** and **react** agents.
+The benchmark uses the [oak-bench](https://github.com/cuga-project/oak-bench) open-source package for the FastAPI application and dataset.
 
 ---
 
@@ -52,13 +52,6 @@ cd benchmarks/oak_health_insurance
 ./compare.sh --runs 3 --models gpt-oss,gpt4o
 ```
 
-### Quick start — compare agents
-
-```bash
-./compare.sh --compare-agents            # cuga vs react
-./compare.sh --agents cuga,react --runs 2
-```
-
 ---
 
 ## eval.sh — Single Evaluation Run
@@ -69,7 +62,6 @@ Starts FastAPI app, registry, runs evaluation, creates bundle.
 Usage: ./eval.sh [OPTIONS]
 
 Options:
-  --agent <name>           Agent to run (cuga, react; default: cuga)
   --task TASK              Run a specific task by ID/name
   --difficulty LEVEL       Filter by difficulty (easy, medium, hard)
   --no-policy              Skip loading oak policies
@@ -80,16 +72,13 @@ Options:
 
 Examples:
 ```bash
-./eval.sh                            # Default (cuga agent, all tasks)
-./eval.sh --agent react              # Run with react agent
-./eval.sh --task approved_claims     # Single task
-./eval.sh --difficulty easy          # Filter by difficulty
-./eval.sh --agent react --no-policy  # React agent without policies
+./eval.sh                           # Default evaluation, all tasks
+./eval.sh --task approved_claims    # Single task
+./eval.sh --difficulty easy         # Filter by difficulty
+./eval.sh --no-policy               # Skip policy loading
 ```
 
-Result files are saved in `results/`:
-- `oak_health_TIMESTAMP.json` for cuga agent
-- `react_oak_health_TIMESTAMP.json` for react agent
+Result files are saved in `results/oak_health_TIMESTAMP.json`.
 
 ---
 
@@ -101,11 +90,8 @@ Orchestrates multiple eval.sh runs and produces a comparison bundle.
 Usage: ./compare.sh [OPTIONS]
 
 Options:
-  --runs <N>              Number of runs per configuration (default: 1)
+  --runs <N>              Number of runs per model (default: 1)
   --models <list>         Comma-separated model profiles (default: gpt-oss)
-  --agent <name>          Single agent (default: cuga)
-  --agents <list>         Comma-separated agents (e.g., cuga,react)
-  --compare-agents        Compare cuga vs react (shorthand for --agents cuga,react)
   --no-bundle             Skip reproducibility bundle creation
   --bundle-zip            Create zip archive of bundle
   --dry-run               Preview commands without executing
@@ -114,10 +100,8 @@ Options:
 
 Examples:
 ```bash
-./compare.sh --runs 5                              # 5 cuga runs
+./compare.sh --runs 5                              # 5 runs, default model
 ./compare.sh --runs 3 --models gpt-oss,gpt4o       # Compare 2 models
-./compare.sh --compare-agents                      # cuga vs react, 1 run each
-./compare.sh --compare-agents --runs 3             # cuga vs react, 3 runs each
 ./compare.sh --difficulty easy --runs 2            # Easy tasks, 2 runs
 ./compare.sh --dry-run                             # Preview commands
 ```
@@ -154,7 +138,7 @@ benchmarks/oak_health_insurance/
 ├── README.md                       # This file
 ├── config/
 │   └── oak_health_insurance.env   # Oak-specific configuration
-├── eval_bench_sdk.py              # Main evaluation script (cuga + react)
+├── eval_bench_sdk.py              # Main evaluation script
 ├── eval.sh                        # Single-run shell script
 ├── compare.sh                     # Multi-run comparison script
 ├── oak_policies.py                # Playbooks and tool enrichments

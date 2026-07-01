@@ -2,16 +2,14 @@
 # Oak Health Insurance benchmark multi-run comparison script.
 #
 # Orchestrates multiple eval.sh runs and collects results.
-# Supports multi-model and multi-agent comparison.
+# Supports multi-model comparison.
 #
 # Usage:
-#   ./compare.sh --runs 5                                    # 5 runs, default model+agent
+#   ./compare.sh --runs 5                                    # 5 runs, default model
 #   ./compare.sh --models gpt-oss,gpt4o --runs 2             # Compare 2 models
-#   ./compare.sh --compare-agents                            # Compare cuga vs react
-#   ./compare.sh --agents cuga,react --runs 2                # Same as --compare-agents
-#   ./compare.sh --runs 3 --difficulty easy                  # Filter by difficulty
-#   ./compare.sh --runs 5 --output report.md                 # Save report
-#   ./compare.sh --dry-run                                   # Preview commands
+#   ./compare.sh --runs 3 --difficulty easy                   # Filter by difficulty
+#   ./compare.sh --runs 5 --output report.md                  # Save report
+#   ./compare.sh --dry-run                                    # Preview commands
 
 set -e
 
@@ -33,9 +31,6 @@ RUNS="${RUNS:-1}"
 DRY_RUN="${DRY_RUN:-false}"
 OUTPUT_FILE="${OUTPUT_FILE:-}"
 MODELS="${MODELS:-gpt-oss}"
-AGENT="${AGENT:-cuga}"
-AGENTS="${AGENTS:-}"
-COMPARE_AGENTS="${COMPARE_AGENTS:-false}"
 NO_BUNDLE="${NO_BUNDLE:-false}"
 BUNDLE_ZIP="${BUNDLE_ZIP:-false}"
 USE_DOTENV="${USE_DOTENV:-false}"
@@ -58,18 +53,6 @@ while [[ $idx -lt ${#ARGS[@]} ]]; do
         --models)
             MODELS="${ARGS[$((idx+1))]}"
             idx=$((idx+2))
-            ;;
-        --agent)
-            AGENT="${ARGS[$((idx+1))]}"
-            idx=$((idx+2))
-            ;;
-        --agents)
-            AGENTS="${ARGS[$((idx+1))]}"
-            idx=$((idx+2))
-            ;;
-        --compare-agents)
-            COMPARE_AGENTS=true
-            idx=$((idx+1))
             ;;
         --no-bundle)
             NO_BUNDLE=true
@@ -94,25 +77,12 @@ while [[ $idx -lt ${#ARGS[@]} ]]; do
     esac
 done
 
-# Resolve AGENTS: --compare-agents implies cuga,react; default to singular AGENT.
-if [[ "$COMPARE_AGENTS" == "true" && -z "$AGENTS" ]]; then
-    AGENTS="cuga,react"
-fi
-if [[ -z "$AGENTS" ]]; then
-    AGENTS="$AGENT"
-fi
-
 IFS=',' read -ra MODEL_LIST <<< "$MODELS"
-IFS=',' read -ra AGENT_LIST <<< "$AGENTS"
 
-# Build list of configurations: model:agent (2-D cartesian product).
+# Build list of configurations: one per model (cuga agent only).
 CONFIGS=()
-CONFIG_LABELS=()
 for model in "${MODEL_LIST[@]}"; do
-    for agent in "${AGENT_LIST[@]}"; do
-        CONFIGS+=("${model}:${agent}")
-        CONFIG_LABELS+=("${model}:${agent}")
-    done
+    CONFIGS+=("${model}:cuga")
 done
 
 # --dotenv forces a single model from .env; reject multi-model comparisons.
@@ -124,21 +94,15 @@ echo -e "${BLUE:-}╔═══════════════════�
 echo -e "${BLUE:-}║  Oak Health Insurance: Multi-Run Comparison                ║${NC:-}"
 echo -e "${BLUE:-}╚════════════════════════════════════════════════════════════╝${NC:-}"
 echo ""
-echo -e "  Agents:          ${CYAN:-}${AGENTS}${NC:-}"
 echo -e "  Models:          ${CYAN:-}${MODELS}${NC:-}"
-echo -e "  Runs per config: ${CYAN:-}${RUNS}${NC:-}"
-echo -e "  Configurations:  ${CYAN:-}${#CONFIGS[@]}${NC:-}"
-if [[ "$COMPARE_AGENTS" == "true" || "$AGENTS" == *,* ]]; then
-    echo -e "  Compare agents:  ${CYAN:-}yes${NC:-}"
-fi
+echo -e "  Runs per model:  ${CYAN:-}${RUNS}${NC:-}"
 echo ""
 
 if [[ "$DRY_RUN" == "true" ]]; then
     echo -e "${YELLOW:-}DRY RUN — showing planned commands:${NC:-}"
-    for config in "${CONFIGS[@]}"; do
-        IFS=':' read -r model agent <<< "$config"
+    for model in "${MODEL_LIST[@]}"; do
         for ((r=1; r<=RUNS; r++)); do
-            echo "  [${config} run ${r}/${RUNS}] ./eval.sh --agent ${agent} ${FORWARDED_ARGS[*]}"
+            echo "  [${model}:cuga run ${r}/${RUNS}] ./eval.sh ${FORWARDED_ARGS[*]}"
         done
     done
     exit 0
@@ -188,7 +152,7 @@ for config in "${CONFIGS[@]}"; do
     fi
 
     # Snapshot existing result files and trajectory folders before this config's runs
-    before_files=$(ls -1 "$RESULTS_DIR"/oak_health_*.json "$RESULTS_DIR"/react_oak_health_*.json 2>/dev/null | sort)
+    before_files=$(ls -1 "$RESULTS_DIR"/oak_health_*.json 2>/dev/null | sort)
     before_trajs=$(find "$SCRIPT_DIR/logging/trajectory_data" -mindepth 1 -maxdepth 1 -type d 2>/dev/null | sort)
 
     for ((r=1; r<=RUNS; r++)); do
@@ -199,7 +163,7 @@ for config in "${CONFIGS[@]}"; do
         fi
 
         run_t0=$(date +%s)
-        if bash "$SCRIPT_DIR/eval.sh" --agent "$agent" --no-bundle "${FORWARDED_ARGS[@]}"; then
+        if bash "$SCRIPT_DIR/eval.sh" --no-bundle "${FORWARDED_ARGS[@]}"; then
             run_dur=$(( $(date +%s) - run_t0 ))
             echo -e "${GREEN:-}✓${NC:-} Run $r complete in $(fmt_duration $run_dur)"
         else
@@ -216,7 +180,7 @@ for config in "${CONFIGS[@]}"; do
     done
 
     # Collect only NEW result files produced by this config's runs
-    after_files=$(ls -1 "$RESULTS_DIR"/oak_health_*.json "$RESULTS_DIR"/react_oak_health_*.json 2>/dev/null | sort)
+    after_files=$(ls -1 "$RESULTS_DIR"/oak_health_*.json 2>/dev/null | sort)
     recent_files=$(comm -13 <(echo "$before_files") <(echo "$after_files"))
     CONFIG_RESULT_KEYS+=("${config}")
     CONFIG_RESULT_VALS+=("$recent_files")
