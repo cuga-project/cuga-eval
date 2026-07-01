@@ -664,6 +664,10 @@ async def main():
                 evaluator.save_results()
             except Exception as e:
                 logger.error(f"Failed to save results: {e}")
+                # A clean run that cannot persist its report is not a success —
+                # don't let the process exit 0 with no durable result on disk.
+                if exit_code == 0:
+                    exit_code = 1
         else:
             logger.warning("No results to save")
 

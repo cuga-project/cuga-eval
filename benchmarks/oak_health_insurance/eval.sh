@@ -165,10 +165,13 @@ fi
 # Run evaluation
 echo -e "${YELLOW:-}Starting evaluation...${NC:-}"
 
-# Marks the start of THIS run. Only result files newer than this are bundled,
-# so a run that dies before writing a report never falls back to a previous
-# run's stale report (the misleading "green bundle" bug fixed in appworld/m3).
-RUN_START_TS=$(date +%s)
+# Marker whose mtime marks the start of THIS run. We bundle only result files
+# newer than it (via `find -newer`, full filesystem mtime granularity), so a run
+# that dies before writing a report never falls back to a previous run's stale
+# report — and a stale file written earlier in the same wall-clock second cannot
+# satisfy the check the way a second-resolution timestamp could. Mirrors the
+# AppWorld harness; POSIX -newer is portable to BSD/macOS (unlike -newermt).
+RUN_MARKER=$(mktemp "${TMPDIR:-/tmp}/oak_run_marker.XXXXXX")
 
 # Capture the evaluator's exit code instead of letting `set -e` + the ERR trap
 # abort here — an abort would skip both the bundle and the failure banner below
@@ -178,15 +181,9 @@ uv run python -m benchmarks.oak_health_insurance.eval_bench_sdk "${PASSTHROUGH_A
 EVAL_EXIT=$?
 set -e
 
-# Select only a result file produced by this run (mtime >= RUN_START_TS).
-LATEST_RESULT=""
-for f in $(ls -t "$SCRIPT_DIR/results"/oak_health_*.json 2>/dev/null); do
-    f_mtime=$(stat -c %Y "$f" 2>/dev/null || stat -f %m "$f" 2>/dev/null)
-    if [ -n "$f_mtime" ] && [ "$f_mtime" -ge "$RUN_START_TS" ]; then
-        LATEST_RESULT="$f"
-        break
-    fi
-done
+# Select only a result file produced by this run (mtime newer than the marker).
+LATEST_RESULT=$(find "$SCRIPT_DIR/results" -name 'oak_health_*.json' -type f -newer "$RUN_MARKER" 2>/dev/null | sort | tail -1)
+rm -f "$RUN_MARKER"
 
 if [ $EVAL_EXIT -eq 0 ]; then
     echo -e "${GREEN:-}✓${NC:-} Oak Health Insurance evaluation completed successfully"
