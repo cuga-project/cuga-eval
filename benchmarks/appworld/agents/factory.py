@@ -20,6 +20,4 @@ def create_appworld_agent(name: str, tools: list[Any], **kwargs: Any) -> AppWorl
         return OpenClawAppWorldAgent(tools=tools, **kwargs)
     if normalized == "hermes":
         return HermesAppWorldAgent(tools=tools, **kwargs)
-    raise ValueError(
-        f"Unknown external agent {name!r}. Supported: {', '.join(sorted(EXTERNAL_AGENT_NAMES))}"
-    )
+    raise ValueError(f"Unknown external agent {name!r}. Supported: {', '.join(sorted(EXTERNAL_AGENT_NAMES))}")

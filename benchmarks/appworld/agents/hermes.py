@@ -14,9 +14,7 @@ from benchmarks.appworld.agents.tools import create_eval_llm
 
 
 def _missing_hermes_error() -> RuntimeError:
-    return RuntimeError(
-        "hermes is not installed. Install with: uv sync --group appworld --group hermes"
-    )
+    return RuntimeError("hermes is not installed. Install with: uv sync --group appworld --group hermes")
 
 
 class HermesAppWorldAgent:

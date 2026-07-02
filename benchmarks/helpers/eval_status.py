@@ -7,22 +7,21 @@ View with ``./scripts/eval_status.sh`` (opens auto-refreshing HTML dashboard).
 from __future__ import annotations
 
 import argparse
+import http.client
 import json
 import os
 import re
-import subprocess
-import sys
 import tempfile
 import threading
-import urllib.error
-import urllib.request
 import webbrowser
 from datetime import datetime, timezone
 from http.server import SimpleHTTPRequestHandler, ThreadingHTTPServer
 from pathlib import Path
 from typing import Any, Optional
 
-DEFAULT_CONSOLE_LOG = Path("/tmp/appworld_console.log")
+DEFAULT_CONSOLE_LOG = Path(
+    os.getenv("APPWORLD_CONSOLE_LOG", str(Path(tempfile.gettempdir()) / "appworld_console.log"))
+)
 RECENT_CAP = 15
 STALE_SECONDS = 300
 TOOL_REACT_STEP_RE = re.compile(r"\[TOOL-REACT\] Step (\d+)/(\d+)")
@@ -309,10 +308,7 @@ def print_status(data: dict[str, Any]) -> None:
 
 
 def _open_browser(url: str) -> None:
-    if sys.platform == "darwin":
-        subprocess.run(["open", url], check=False)
-    else:
-        webbrowser.open(url)
+    webbrowser.open(url)
 
 
 def _dashboard_url(port: int) -> str:
@@ -320,11 +316,16 @@ def _dashboard_url(port: int) -> str:
 
 
 def _dashboard_is_serving(port: int) -> bool:
+    conn: http.client.HTTPConnection | None = None
     try:
-        with urllib.request.urlopen(_dashboard_url(port), timeout=1) as resp:
-            return resp.status == 200
-    except (urllib.error.URLError, TimeoutError, OSError):
+        conn = http.client.HTTPConnection("127.0.0.1", port, timeout=1)
+        conn.request("GET", "/status.html")
+        return conn.getresponse().status == 200
+    except (OSError, TimeoutError, http.client.HTTPException):
         return False
+    finally:
+        if conn is not None:
+            conn.close()
 
 
 def _bind_server(
@@ -343,9 +344,7 @@ def _bind_server(
             if exc.errno not in (48, 98):  # macOS / Linux "address already in use"
                 raise
             last_err = exc
-    raise OSError(
-        f"No free port in range {port}-{port + max_attempts - 1}: {last_err}"
-    ) from last_err
+    raise OSError(f"No free port in range {port}-{port + max_attempts - 1}: {last_err}") from last_err
 
 
 def serve_dashboard(*, port: int = 8765, no_open: bool = False) -> None:

@@ -10,50 +10,13 @@ from langchain_core.messages import HumanMessage
 from loguru import logger
 
 from benchmarks.appworld.agents.final_answer import maybe_format_appworld_final_answer
+from benchmarks.appworld.utils.appworld_token_metrics import (
+    apply_token_metrics,
+    invoke_config_with_token_callback,
+)
 from benchmarks.appworld.utils.appworld_utils import evaluation_task_info
 from benchmarks.helpers.sdk_eval_helpers import _react_steps_from_invoke_result
 from benchmarks.helpers.token_usage import TokenUsageCallback
-
-
-def _invoke_config_with_token_callback(
-    token_callback: TokenUsageCallback,
-    base: Optional[dict] = None,
-) -> dict:
-    cfg = dict(base or {})
-    callbacks = list(cfg.get("callbacks") or [])
-    if token_callback not in callbacks:
-        callbacks.append(token_callback)
-    cfg["callbacks"] = callbacks
-    return cfg
-
-
-def _apply_token_metrics(
-    result: Dict[str, Any],
-    token_callback: TokenUsageCallback,
-    langfuse_metrics: Any = None,
-) -> None:
-    result.update(token_callback.as_result_fields())
-
-    if not langfuse_metrics:
-        return
-
-    if getattr(langfuse_metrics, "total_tokens", 0):
-        result["total_tokens"] = langfuse_metrics.total_tokens
-    if getattr(langfuse_metrics, "total_llm_calls", 0):
-        result["total_llm_calls"] = langfuse_metrics.total_llm_calls
-    if getattr(langfuse_metrics, "total_cost", None) is not None:
-        result["total_cost"] = langfuse_metrics.total_cost
-    if getattr(langfuse_metrics, "full_execution_time", None) is not None:
-        result["full_execution_time"] = langfuse_metrics.full_execution_time
-    cache_tokens = getattr(langfuse_metrics, "total_cache_input_tokens", 0) or 0
-    if cache_tokens:
-        result["total_cache_input_tokens"] = cache_tokens
-    if getattr(langfuse_metrics, "generation_timings", None):
-        result["generation_timings"] = langfuse_metrics.generation_timings
-    if getattr(langfuse_metrics, "llm_call_details", None):
-        result["llm_call_details"] = langfuse_metrics.llm_call_details
-    if getattr(langfuse_metrics, "node_timings", None):
-        result["node_timings"] = langfuse_metrics.node_timings
 
 
 def build_user_context(world: Any) -> str:
@@ -178,7 +141,7 @@ async def invoke_and_score_appworld_agent(
             logger.info(f"Langfuse trace: {trace_name} (ID: {predefined_trace_id})")
 
             lf_config = build_langfuse_invoke_config(predefined_trace_id, thread_id)
-            await run_invoke(_invoke_config_with_token_callback(token_callback, lf_config))
+            await run_invoke(invoke_config_with_token_callback(token_callback, lf_config))
             complete_and_eval()
             langfuse_score_on_trace(
                 langfuse,
@@ -208,7 +171,7 @@ async def invoke_and_score_appworld_agent(
 
     if not harness_done:
         if not invoked:
-            await run_invoke(_invoke_config_with_token_callback(token_callback))
+            await run_invoke(invoke_config_with_token_callback(token_callback))
         if not harness_done:
             complete_and_eval()
 
@@ -248,7 +211,7 @@ async def invoke_and_score_appworld_agent(
         "appworld_evaluation": eval_dict,
     }
 
-    _apply_token_metrics(result, token_callback, _langfuse_metrics)
+    apply_token_metrics(result, token_callback, _langfuse_metrics)
 
     agent_steps = None
     if invoke_result_holder:

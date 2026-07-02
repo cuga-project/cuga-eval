@@ -39,9 +39,7 @@ def _add_usage_from_mapping(mapping: dict, callback: "TokenUsageCallback") -> bo
     if not mapping:
         return False
     input_tokens = _int_or_zero(
-        mapping.get("input_tokens")
-        or mapping.get("prompt_tokens")
-        or mapping.get("prompt_token_count")
+        mapping.get("input_tokens") or mapping.get("prompt_tokens") or mapping.get("prompt_token_count")
     )
     output_tokens = _int_or_zero(
         mapping.get("output_tokens")

@@ -2,7 +2,11 @@
 
 from types import SimpleNamespace
 
+import pytest
+
 from benchmarks.helpers.token_usage import TokenUsageCallback
+
+pytestmark = pytest.mark.sanity
 
 
 def _llm_result(*, llm_output=None, generations=None):
@@ -20,9 +24,7 @@ def test_token_usage_from_llm_output_usage():
 
 def test_token_usage_from_llm_output_token_usage():
     cb = TokenUsageCallback()
-    cb.on_llm_end(
-        _llm_result(llm_output={"token_usage": {"prompt_tokens": 20, "completion_tokens": 5}})
-    )
+    cb.on_llm_end(_llm_result(llm_output={"token_usage": {"prompt_tokens": 20, "completion_tokens": 5}}))
     assert cb.input_tokens == 20
     assert cb.output_tokens == 5
     assert cb.total_tokens == 25
@@ -31,9 +33,7 @@ def test_token_usage_from_llm_output_token_usage():
 
 def test_token_usage_from_usage_metadata():
     cb = TokenUsageCallback()
-    message = SimpleNamespace(
-        usage_metadata={"input_tokens": 100, "output_tokens": 25, "total_tokens": 125}
-    )
+    message = SimpleNamespace(usage_metadata={"input_tokens": 100, "output_tokens": 25, "total_tokens": 125})
     generation = SimpleNamespace(message=message)
     cb.on_llm_end(_llm_result(generations=[[generation]]))
     assert cb.input_tokens == 100

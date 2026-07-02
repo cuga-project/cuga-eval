@@ -5,11 +5,13 @@ from typing import Any
 
 import pytest
 
-from benchmarks.appworld.utils.appworld_harness import (
-    _apply_token_metrics,
-    _invoke_config_with_token_callback,
+from benchmarks.appworld.utils.appworld_token_metrics import (
+    apply_token_metrics,
+    invoke_config_with_token_callback,
 )
 from benchmarks.helpers.token_usage import TokenUsageCallback
+
+pytestmark = pytest.mark.sanity
 
 
 class _MockTool:
@@ -24,7 +26,7 @@ class _MockTool:
 
 def test_invoke_config_appends_token_callback():
     cb = TokenUsageCallback()
-    cfg = _invoke_config_with_token_callback(cb, {"callbacks": ["existing"]})
+    cfg = invoke_config_with_token_callback(cb, {"callbacks": ["existing"]})
     assert cfg["callbacks"] == ["existing", cb]
 
 
@@ -37,7 +39,7 @@ def test_apply_token_metrics_uses_callback_by_default():
         )
     )
     result: dict = {}
-    _apply_token_metrics(result, cb)
+    apply_token_metrics(result, cb)
     assert result["total_tokens"] == 15
     assert result["total_llm_calls"] == 1
     assert result["input_tokens"] == 12
@@ -63,7 +65,7 @@ def test_apply_token_metrics_prefers_langfuse_when_nonzero():
         node_timings={"n": 0.1},
     )
     result: dict = {}
-    _apply_token_metrics(result, cb, langfuse)
+    apply_token_metrics(result, cb, langfuse)
     assert result["total_tokens"] == 999
     assert result["total_llm_calls"] == 7
     assert result["total_cost"] == 0.42

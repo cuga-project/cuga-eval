@@ -161,9 +161,7 @@ def create_eval_llm(model: str | None = None) -> Any:
             from langchain_groq import ChatGroq
             from pydantic import SecretStr
         except ImportError as exc:
-            raise RuntimeError(
-                "langchain-groq is required. Install with: uv sync --group groq"
-            ) from exc
+            raise RuntimeError("langchain-groq is required. Install with: uv sync --group groq") from exc
 
         api_key = os.getenv("GROQ_API_KEY")
         if not api_key:
@@ -200,8 +198,8 @@ def create_eval_llm(model: str | None = None) -> Any:
         if not ssl_verify:
             import httpx
 
-            llm_kwargs["http_client"] = httpx.Client(verify=False)  # noqa: S501
-            llm_kwargs["http_async_client"] = httpx.AsyncClient(verify=False)  # noqa: S501
+            llm_kwargs["http_client"] = httpx.Client(verify=False)  # noqa: S501  # nosec B501 — opt-in for self-signed corporate endpoints
+            llm_kwargs["http_async_client"] = httpx.AsyncClient(verify=False)  # noqa: S501  # nosec B501 — same
 
         return ChatOpenAI(**llm_kwargs)
 

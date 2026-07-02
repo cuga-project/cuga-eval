@@ -13,9 +13,7 @@ from benchmarks.appworld.agents.tools import create_eval_llm, execute_tool_by_na
 
 
 def _missing_openclaw_error() -> RuntimeError:
-    return RuntimeError(
-        "openclaw is not installed. Install with: uv sync --group appworld --group openclaw"
-    )
+    return RuntimeError("openclaw is not installed. Install with: uv sync --group appworld --group openclaw")
 
 
 class OpenClawAppWorldAgent:

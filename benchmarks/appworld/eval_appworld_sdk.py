@@ -49,6 +49,10 @@ from cuga.config import settings
 from cuga.sdk import CugaAgent
 
 from benchmarks.appworld.agents.base import APPWORLD_AGENT_PROMPT
+from benchmarks.appworld.utils.appworld_token_metrics import (
+    apply_token_metrics,
+    invoke_config_with_token_callback,
+)
 from benchmarks.appworld.utils.appworld_utils import (
     evaluation_task_info,
     get_specific_task_levels,
@@ -59,10 +63,6 @@ from benchmarks.helpers import (
     print_evaluation_summary,
     save_evaluation_results,
     setup_agent_with_tools,
-)
-from benchmarks.appworld.utils.appworld_harness import (
-    _apply_token_metrics,
-    _invoke_config_with_token_callback,
 )
 from benchmarks.helpers.sdk_eval_helpers import _react_steps_from_invoke_result
 from benchmarks.helpers.token_usage import TokenUsageCallback
@@ -201,7 +201,7 @@ async def invoke_and_score_appworld(
             )
 
             lf_config = build_langfuse_invoke_config(predefined_trace_id, thread_id)
-            await run_invoke(_invoke_config_with_token_callback(token_callback, lf_config))
+            await run_invoke(invoke_config_with_token_callback(token_callback, lf_config))
             complete_and_eval()
             langfuse_score_on_trace(
                 langfuse,
@@ -231,7 +231,7 @@ async def invoke_and_score_appworld(
 
     if not harness_done:
         if not invoked:
-            await run_invoke(_invoke_config_with_token_callback(token_callback))
+            await run_invoke(invoke_config_with_token_callback(token_callback))
         if not harness_done:
             complete_and_eval()
 
@@ -312,7 +312,7 @@ async def invoke_and_score_appworld(
     }
 
     # Langfuse metrics when available; TokenUsageCallback always fills per-task token fields.
-    _apply_token_metrics(result, token_callback, _langfuse_metrics)
+    apply_token_metrics(result, token_callback, _langfuse_metrics)
 
     agent_steps = None
     if invoke_result_holder:

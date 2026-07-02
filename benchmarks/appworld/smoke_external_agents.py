@@ -68,8 +68,7 @@ def _validate_llm_env() -> None:
         logger.info(f"Groq LLM: model={model!r}")
     else:
         raise RuntimeError(
-            f"Unsupported AGENT_SETTING_CONFIG={setting!r}. "
-            "Use settings.openai.toml or settings.groq.toml"
+            f"Unsupported AGENT_SETTING_CONFIG={setting!r}. Use settings.openai.toml or settings.groq.toml"
         )
 
 
@@ -180,7 +179,14 @@ async def main() -> int:
         try:
             row = await smoke_agent(name, prefer_eval_llm=prefer_eval_llm, max_steps=args.max_steps)
         except Exception as exc:
-            row = {"agent": name, "ok": False, "error": str(exc), "answer": "", "tool_calls": 0, "steps": None}
+            row = {
+                "agent": name,
+                "ok": False,
+                "error": str(exc),
+                "answer": "",
+                "tool_calls": 0,
+                "steps": None,
+            }
         results.append(row)
         status = "PASS" if row["ok"] else "FAIL"
         logger.info(

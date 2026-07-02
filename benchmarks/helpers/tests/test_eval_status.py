@@ -10,10 +10,11 @@ import pytest
 from benchmarks.helpers.eval_status import (
     EvalStatusWriter,
     _bind_server,
-    _dashboard_is_serving,
     parse_tool_react_step,
     read_status,
 )
+
+pytestmark = pytest.mark.sanity
 
 
 @pytest.fixture
@@ -75,12 +76,7 @@ def test_atomic_write_survives_rapid_updates(status_path: Path, monkeypatch: pyt
 
 def test_parse_tool_react_step(tmp_path: Path) -> None:
     log = tmp_path / "console.log"
-    log.write_text(
-        "noise\n"
-        "[TOOL-REACT] Step 1/12\n"
-        "more\n"
-        "[TOOL-REACT] Step 4/12\n"
-    )
+    log.write_text("noise\n[TOOL-REACT] Step 1/12\nmore\n[TOOL-REACT] Step 4/12\n")
     assert parse_tool_react_step(log) == {"step": 4, "max_steps": 12}
 
 

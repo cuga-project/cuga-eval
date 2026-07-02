@@ -100,8 +100,7 @@ async def run_tool_react_loop(
                 {
                     "role": "user",
                     "content": (
-                        "Invalid format. Return either a ```json tool call block or "
-                        "'Final Answer: ...'."
+                        "Invalid format. Return either a ```json tool call block or 'Final Answer: ...'."
                     ),
                 }
             )

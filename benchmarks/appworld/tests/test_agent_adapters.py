@@ -20,6 +20,8 @@ from benchmarks.appworld.agents.tool_loop import (
     run_tool_react_loop,
 )
 
+pytestmark = pytest.mark.sanity
+
 
 class _MockTool:
     def __init__(self, name: str, result: Any = "ok"):
@@ -126,9 +128,7 @@ async def test_deepagents_adapter_invoke():
     tools = [_MockTool("t1")]
 
     mock_agent = MagicMock()
-    mock_agent.ainvoke = AsyncMock(
-        return_value={"messages": [AIMessage(content="Final answer here")]}
-    )
+    mock_agent.ainvoke = AsyncMock(return_value={"messages": [AIMessage(content="Final answer here")]})
 
     mock_deepagents = MagicMock()
     mock_deepagents.create_deep_agent = MagicMock(return_value=mock_agent)
