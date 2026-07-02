@@ -1871,17 +1871,20 @@ def save_evaluation_results(
         results: List of evaluation result dictionaries
         output_dir: Output directory path
         prefix: Filename prefix (e.g., "multiturn", "evaluation")
-        run_timestamp: If set, used for filename and metrics (e.g. process start time); otherwise now.
+        run_timestamp: If set, used for filename and metrics (e.g. process start time); otherwise
+            the EVAL_RUN_ID env var (set by eval.sh, unique per process even within the same
+            second) if present; otherwise now.
 
     Returns:
         Path to the saved results file
     """
+    import os
     from datetime import datetime
 
     output_dir = Path(output_dir)
     output_dir.mkdir(parents=True, exist_ok=True)
 
-    timestamp = run_timestamp if run_timestamp else datetime.now().strftime("%Y%m%d_%H%M%S")
+    timestamp = run_timestamp or os.environ.get("EVAL_RUN_ID") or datetime.now().strftime("%Y%m%d_%H%M%S")
 
     def serialize_tool_calls(obj):
         if hasattr(obj, 'model_dump'):

@@ -4,11 +4,15 @@ No policy loading — tools come from CombinedToolProvider via setup_agent_with_
 Task success is determined by AppWorld's harness (world.evaluate()), not keyword checks.
 """
 
+import os
 import sys
 from datetime import datetime
 from pathlib import Path
 
-_eval_run_timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
+# Prefer EVAL_RUN_ID (set by eval.sh, unique per process even within the same
+# wall-clock second) so concurrent runs on the same host never produce
+# same-named/same-mtime reports that a sibling run's `find` could pick up.
+_eval_run_timestamp = os.environ.get("EVAL_RUN_ID") or datetime.now().strftime("%Y%m%d_%H%M%S")
 
 project_root = Path(__file__).parent.parent.parent
 sys.path.insert(0, str(project_root))
@@ -25,7 +29,6 @@ load_eval_config("appworld")
 import argparse
 import asyncio
 import json
-import os
 import uuid
 from typing import Any, Dict, List, Optional
 
@@ -350,6 +353,11 @@ class AppWorldSdkEvaluator:
         self.agent: Optional[CugaAgent] = None
         self.langfuse_handler: Optional[Any] = None
         self.results: List[Dict[str, Any]] = []
+        # Bound from __init__, not inside evaluate_all(): if evaluate_all() raises
+        # before task discovery (e.g. bad --dataset), total_tasks must still be 0
+        # (not None) so the partial-run check in main() can't be silently
+        # disabled by a future refactor that catches exceptions inside evaluate_all().
+        self.total_tasks: int = 0
         self.special_instructions: Optional[str] = """
 # INSTRUCTIONS
 

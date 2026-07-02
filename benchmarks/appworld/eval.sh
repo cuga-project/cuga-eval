@@ -33,6 +33,7 @@ for arg in "$@"; do
         echo "  --bundle-zip                 Create zip archive of bundle"
         echo "  --model-profile <name>       Model profile (for bundle metadata)"
         echo "  --agent <name>               Agent to run (cuga, react, codeact; default: cuga)"
+        echo "  --eval-key <key>             Task group key in eval_config.toml (e.g. test_med); recorded in bundle metadata"
         echo ""
         echo "Examples:"
         echo "  ./eval.sh                          # Default evaluation (cuga)"
@@ -65,6 +66,10 @@ cleanup() {
             wait "$REGISTRY_PID" 2>/dev/null || true
         fi
     fi
+    # RUN_MARKER (if created) is only used up to the LATEST_RESULT lookup right
+    # after the evaluator exits; clean it up here instead of a dedicated trap so
+    # it can't leak on SIGKILL/early-abort without clobbering this EXIT trap.
+    [ -n "${RUN_MARKER:-}" ] && rm -f "$RUN_MARKER"
     exit $exit_code
 }
 
@@ -131,6 +136,7 @@ while [[ $# -gt 0 ]]; do
         --sdk)         USE_SDK=true;      shift ;;
         --model-profile) MODEL_PROFILE="$2"; shift 2 ;;
         --agent)       AGENT="$2"; shift 2 ;;
+        --eval-key)    EVAL_KEY="$2"; PASSTHROUGH_ARGS+=(--eval-key "$2"); shift 2 ;;
         --verbose|-v|--quiet|-q)  PASSTHROUGH_ARGS+=("$1"); shift ;;
         --task)        PASSTHROUGH_ARGS+=("--task-id"); shift
                        while [[ $# -gt 0 && ! "$1" =~ ^-- ]]; do
@@ -143,10 +149,19 @@ done
 # Run evaluation
 echo -e "${YELLOW:-}Starting evaluation with agent ${AGENT:-cuga}...${NC:-}"
 
-# Marker whose mtime marks the start of THIS run. We bundle only result reports
-# newer than it, so a run that dies before writing a report never falls back to
-# an earlier run's report (the "24 + 19" test_med mislabel bug). POSIX -newer is
-# portable to BSD/macOS (unlike GNU-only -newermt).
+# Unique per-process ID (timestamp + PID) so concurrent runs on this host never
+# collide, even if started in the same wall-clock second. Exported so the SDK
+# evaluator embeds it in its result filename (see save_evaluation_results).
+RUN_ID="$(date +%Y%m%d_%H%M%S)_$$"
+export EVAL_RUN_ID="$RUN_ID"
+
+# Marker whose mtime marks the start of THIS run, used as a fallback for
+# evaluators that don't embed EVAL_RUN_ID in their output filename (the
+# non-SDK cuga/codeact/react evaluators, which use ExperimentManager, not
+# save_evaluation_results). POSIX -newer is portable to BSD/macOS (unlike
+# GNU-only -newermt). NOTE: mtime-newer alone is not run-scoped — it can still
+# pick up a concurrent sibling run's report, not just a stale one; it's kept
+# only as a safety net for the paths that don't have a real per-run ID.
 RUN_MARKER=$(mktemp "${TMPDIR:-/tmp}/appworld_run_marker.XXXXXX")
 
 # Capture the evaluator's exit code instead of letting `set -e` abort here — an
@@ -168,9 +183,20 @@ fi
 EVAL_EXIT=$?
 set -e
 
-# Select ONLY a report produced by this run (mtime newer than the marker).
-LATEST_RESULT=$(find "$SCRIPT_DIR/experiments/outputs" -name "*_final_report.json" -type f -newer "$RUN_MARKER" 2>/dev/null | sort | tail -1)
-rm -f "$RUN_MARKER"
+# Select ONLY a report produced by this run. Prefer an exact match on our
+# unique RUN_ID (true run-scoping, safe under concurrent runs); fall back to
+# mtime-newer-than-marker for evaluators that don't embed EVAL_RUN_ID.
+# (stderr is not redirected to /dev/null here — a missing/unreadable output
+# dir should surface as a real error, not silently look like "no fresh result".)
+LATEST_RESULT=""
+if [ -d "$SCRIPT_DIR/experiments/outputs" ]; then
+    LATEST_RESULT=$(find "$SCRIPT_DIR/experiments/outputs" -name "*_${RUN_ID}_final_report.json" -type f | sort | tail -1)
+    if [ -z "$LATEST_RESULT" ]; then
+        LATEST_RESULT=$(find "$SCRIPT_DIR/experiments/outputs" -name "*_final_report.json" -type f -newer "$RUN_MARKER" | sort | tail -1)
+    fi
+else
+    echo -e "${RED:-}✗ $SCRIPT_DIR/experiments/outputs does not exist — the evaluator never got as far as writing a report.${NC:-}" >&2
+fi
 
 if [ $EVAL_EXIT -eq 0 ]; then
     echo -e "${GREEN:-}✓${NC:-} AppWorld evaluation completed successfully"
@@ -206,6 +232,7 @@ if [ -n "$LATEST_RESULT" ] && [ "${NO_BUNDLE:-false}" != "true" ]; then
     if [ -n "$MODEL_PROFILE" ]; then
         BUNDLE_ARGS+=(--model-profile "$MODEL_PROFILE")
     fi
+    [[ -n "${EVAL_KEY:-}" ]] && BUNDLE_ARGS+=(--eval-key "$EVAL_KEY")
     if [ "${BUNDLE_ZIP:-false}" = "true" ]; then
         BUNDLE_ARGS+=(--zip)
     fi

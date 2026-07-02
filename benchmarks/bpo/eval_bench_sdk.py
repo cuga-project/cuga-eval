@@ -81,6 +81,11 @@ class BPOEvaluator:
         self.policies_enabled = policies_enabled
         self.agent: Optional[CugaAgent] = None
         self.results: List[Dict[str, Any]] = []
+        # Bound from __init__, not inside evaluate_all(): if evaluate_all() raises
+        # before task discovery, total_tasks must still be 0 (not None) so the
+        # partial-run check in main() can't be silently disabled by a future
+        # refactor that catches exceptions inside evaluate_all().
+        self.total_tasks: int = 0
 
     async def setup(self):
         """Set up the agent with tools and optionally load policies."""

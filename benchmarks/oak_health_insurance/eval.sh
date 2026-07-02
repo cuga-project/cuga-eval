@@ -81,6 +81,10 @@ cleanup() {
             wait "$REGISTRY_PID" 2>/dev/null || true
         fi
     fi
+    # RUN_MARKER (if created) is only used up to the LATEST_RESULT lookup right
+    # after the evaluator exits; clean it up here instead of a dedicated trap so
+    # it can't leak on SIGKILL/early-abort without clobbering this EXIT trap.
+    [ -n "${RUN_MARKER:-}" ] && rm -f "$RUN_MARKER"
     exit $exit_code
 }
 
@@ -165,12 +169,17 @@ fi
 # Run evaluation
 echo -e "${YELLOW:-}Starting evaluation...${NC:-}"
 
-# Marker whose mtime marks the start of THIS run. We bundle only result files
-# newer than it (via `find -newer`, full filesystem mtime granularity), so a run
-# that dies before writing a report never falls back to a previous run's stale
-# report — and a stale file written earlier in the same wall-clock second cannot
-# satisfy the check the way a second-resolution timestamp could. Mirrors the
-# AppWorld harness; POSIX -newer is portable to BSD/macOS (unlike -newermt).
+# Unique per-process ID (timestamp + PID) so concurrent runs on this host never
+# collide, even if started in the same wall-clock second. Exported so the SDK
+# evaluator embeds it in its result filename (see save_evaluation_results).
+RUN_ID="$(date +%Y%m%d_%H%M%S)_$$"
+export EVAL_RUN_ID="$RUN_ID"
+
+# Marker whose mtime marks the start of THIS run, used only as a fallback if
+# for some reason the result file doesn't carry EVAL_RUN_ID. NOTE: mtime-newer
+# alone is not run-scoped — it can still pick up a concurrent sibling run's
+# report, not just a stale one. POSIX -newer is portable to BSD/macOS (unlike
+# -newermt). Mirrors the AppWorld harness.
 RUN_MARKER=$(mktemp "${TMPDIR:-/tmp}/oak_run_marker.XXXXXX")
 
 # Capture the evaluator's exit code instead of letting `set -e` + the ERR trap
@@ -181,9 +190,20 @@ uv run python -m benchmarks.oak_health_insurance.eval_bench_sdk "${PASSTHROUGH_A
 EVAL_EXIT=$?
 set -e
 
-# Select only a result file produced by this run (mtime newer than the marker).
-LATEST_RESULT=$(find "$SCRIPT_DIR/results" -name 'oak_health_*.json' -type f -newer "$RUN_MARKER" 2>/dev/null | sort | tail -1)
-rm -f "$RUN_MARKER"
+# Select only a result file produced by this run. Prefer an exact match on our
+# unique RUN_ID (true run-scoping, safe under concurrent runs); fall back to
+# mtime-newer-than-marker otherwise. (stderr is not redirected to /dev/null
+# here — a missing/unreadable results dir should surface as a real error, not
+# silently look like "no fresh result".)
+LATEST_RESULT=""
+if [ -d "$SCRIPT_DIR/results" ]; then
+    LATEST_RESULT=$(find "$SCRIPT_DIR/results" -name "oak_health_${RUN_ID}.json" -type f | sort | tail -1)
+    if [ -z "$LATEST_RESULT" ]; then
+        LATEST_RESULT=$(find "$SCRIPT_DIR/results" -name 'oak_health_*.json' -type f -newer "$RUN_MARKER" | sort | tail -1)
+    fi
+else
+    echo -e "${RED:-}✗ $SCRIPT_DIR/results does not exist — the evaluator never got as far as writing a report.${NC:-}" >&2
+fi
 
 if [ $EVAL_EXIT -eq 0 ]; then
     echo -e "${GREEN:-}✓${NC:-} Oak Health Insurance evaluation completed successfully"
