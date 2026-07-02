@@ -190,7 +190,7 @@ def _extract_tool_calls_from_tracker() -> List[Dict[str, Any]]:
                                         # Estimate: tool calls typically take 500-2000ms
                                         # Use a base of 1000ms plus 200ms per intermediate step
                                         duration_ms = 1000 + (steps_between - 1) * 200
-                                except Exception:  # noqa: S110 — duration heuristic is best-effort
+                                except Exception:  # noqa: S110 - duration heuristic is best-effort
                                     pass
 
                                 tool_call_record = {
@@ -301,10 +301,10 @@ async def setup_agent_with_tools(
 
     langfuse_handler = setup_langfuse()
     if langfuse_handler:
-        logger.info("✅ Langfuse tracing enabled (per-invoke trace-scoped handler)")
+        logger.info("? Langfuse tracing enabled (per-invoke trace-scoped handler)")
         logger.info(f"   Callback handler type: {type(langfuse_handler).__name__}")
     else:
-        logger.info("ℹ️  Langfuse not available (optional)")
+        logger.info("??  Langfuse not available (optional)")
 
     callbacks = list(extra_callbacks) if extra_callbacks else []
     agent_kwargs = {"tool_provider": tool_provider}
@@ -394,7 +394,7 @@ def build_langfuse_invoke_config(
     ``callbacks`` list is used (see ``GenericReactAgent._call_llm``); the
     ``configurable`` entries are unused but kept so the harness trace id stays
     aligned with the handler's ``trace_context``. Do not wrap the ReAct loop in a
-    sibling eval span either — record harness I/O via
+    sibling eval span either - record harness I/O via
     :func:`record_harness_trace_output` after the loop instead.
 
     Attach harness scores via :func:`langfuse_score_on_trace` after ``flush()``.
@@ -581,7 +581,7 @@ async def clear_all_policies(agent: CugaAgent):
             logger.info(f"Found {len(existing_policies)} existing policies, deleting...")
             for policy in existing_policies:
                 await agent.policies.delete(policy["id"])
-            logger.info(f"✅ Cleared {len(existing_policies)} existing policies")
+            logger.info(f"? Cleared {len(existing_policies)} existing policies")
         else:
             logger.info("No existing policies to clear")
     except Exception as e:
@@ -866,7 +866,7 @@ async def evaluate_task_with_langfuse(
                 predefined_trace_id = langfuse.create_trace_id(seed=f"{task_name}_{task_index}_{thread_id}")
 
                 logger.info(
-                    f"📊 Langfuse trace: {trace_name} (ID: {predefined_trace_id}) — "
+                    f"?? Langfuse trace: {trace_name} (ID: {predefined_trace_id}) - "
                     f"{_langfuse_trace_root_log_message(agent)}"
                 )
 
@@ -1240,9 +1240,9 @@ async def evaluate_task_with_langfuse(
 
         # Log results
         if result["success"]:
-            logger.info("✅ PASS: All keywords found")
+            logger.info("? PASS: All keywords found")
         else:
-            logger.warning(f"❌ FAIL: Missing keywords: {keyword_check['missing_keywords']}")
+            logger.warning(f"? FAIL: Missing keywords: {keyword_check['missing_keywords']}")
             logger.info(f"   Match rate: {keyword_check['match_rate']:.1%}")
 
         # Log enhanced metrics if present
@@ -1250,22 +1250,22 @@ async def evaluate_task_with_langfuse(
             if "output_similarity" in result and result["output_similarity"] is not None:
                 logger.info(f"   Similarity: {result['output_similarity']:.2f}")
             if "llm_judge_score" in result and result["llm_judge_score"] is not None:
-                binary_str = "✓" if result.get("llm_judge_binary") == 1 else "✗"
+                binary_str = "?" if result.get("llm_judge_binary") == 1 else "?"
                 logger.info(f"   LLM Judge: {result['llm_judge_score']:.2f} ({binary_str})")
             if "apis_called" in result:
-                api_status = "✓" if result.get("apis_correct") == 1 else "✗"
+                api_status = "?" if result.get("apis_correct") == 1 else "?"
                 logger.info(f"   APIs: {len(result.get('apis_called', []))} called, {api_status}")
                 if result.get("apis_missing"):
                     logger.info(f"   Missing APIs: {', '.join(result['apis_missing'])}")
             if "task_final_score" in result and result["task_final_score"] is not None:
-                final_str = "✓ PASS" if result["task_final_score"] == 1 else "✗ FAIL"
+                final_str = "? PASS" if result["task_final_score"] == 1 else "? FAIL"
                 logger.info(f"   Final Score: {final_str}")
 
         if tool_calls:
-            logger.debug(f"\n{'─' * 40} TOOL CALLS {'─' * 40}")
+            logger.debug(f"\n{'?' * 40} TOOL CALLS {'?' * 40}")
             for tc in tool_calls:
                 logger.debug(tc)
-            logger.debug(f"{'─' * 93}\n")
+            logger.debug(f"{'?' * 93}\n")
 
         if tracker_callback:
             tracker_callback(result, keyword_check, intent)
@@ -1276,7 +1276,7 @@ async def evaluate_task_with_langfuse(
         import traceback
 
         logger.error(traceback.format_exc())
-        logger.error(f"❌ ERROR in task {task_name}: {e}")
+        logger.error(f"? ERROR in task {task_name}: {e}")
 
         error_result = {
             "task_name": task_name,
@@ -1360,7 +1360,7 @@ async def evaluate_multiturn_task_with_langfuse(
                 predefined_trace_id = langfuse.create_trace_id(seed=f"{task_name}_{task_index}_{thread_id}")
 
                 logger.info(
-                    f"📊 Langfuse trace: {trace_name} (ID: {predefined_trace_id}) — "
+                    f"?? Langfuse trace: {trace_name} (ID: {predefined_trace_id}) - "
                     f"{_langfuse_trace_root_log_message(agent)}"
                 )
 
@@ -1399,7 +1399,7 @@ async def evaluate_multiturn_task_with_langfuse(
                     logger.info(f"[Turn {turn_idx}] Tool calls captured: {len(turn_tool_calls)}")
 
                     if not turn_tool_calls and result_state:
-                        logger.warning(f"[Turn {turn_idx}] ⚠️  Answer provided but NO tool calls recorded!")
+                        logger.warning(f"[Turn {turn_idx}] ??  Answer provided but NO tool calls recorded!")
                     elif turn_tool_calls:
                         tool_names = [
                             tc.get('name', 'unknown')
@@ -1514,7 +1514,7 @@ async def evaluate_multiturn_task_with_langfuse(
                     logger.info(f"[Turn {turn_idx}] Tool calls captured: {len(turn_tool_calls)}")
 
                     if not turn_tool_calls and result_state:
-                        logger.warning(f"[Turn {turn_idx}] ⚠️  Answer provided but NO tool calls recorded!")
+                        logger.warning(f"[Turn {turn_idx}] ??  Answer provided but NO tool calls recorded!")
                         logger.warning(f"[Turn {turn_idx}] This suggests either:")
                         logger.warning("  1. Agent hallucinated without using tools (agent failure)")
                         logger.warning("  2. Tool tracking system failed to capture calls (tracking failure)")
@@ -1569,7 +1569,7 @@ async def evaluate_multiturn_task_with_langfuse(
                 logger.info(f"[Turn {turn_idx}] Tool calls captured: {len(turn_tool_calls)}")
 
                 if not turn_tool_calls and result_state:
-                    logger.warning(f"[Turn {turn_idx}] ⚠️  Answer provided but NO tool calls recorded!")
+                    logger.warning(f"[Turn {turn_idx}] ??  Answer provided but NO tool calls recorded!")
                     logger.warning(f"[Turn {turn_idx}] This suggests either:")
                     logger.warning("  1. Agent hallucinated without using tools (agent failure)")
                     logger.warning("  2. Tool tracking system failed to capture calls (tracking failure)")
@@ -1641,7 +1641,7 @@ async def evaluate_multiturn_task_with_langfuse(
         if total_react_steps > 0:
             result["steps"] = total_react_steps
 
-        logger.info(f"✅ Completed: {task_name}")
+        logger.info(f"? Completed: {task_name}")
         if keyword_check_result:
             logger.info(
                 f"   Keywords: {keyword_check_result['found_count']}/{keyword_check_result['total_keywords']} found"
@@ -1649,10 +1649,10 @@ async def evaluate_multiturn_task_with_langfuse(
             logger.info(f"   Match rate: {keyword_check_result['match_rate']:.2%}")
 
         if all_tool_calls:
-            logger.debug(f"\n{'─' * 40} TOOL CALLS ({len(all_tool_calls)} total) {'─' * 30}")
+            logger.debug(f"\n{'?' * 40} TOOL CALLS ({len(all_tool_calls)} total) {'?' * 30}")
             for turn_idx, tc in all_tool_calls:
                 logger.debug(f"[Turn {turn_idx}] {tc}")
-            logger.debug(f"{'─' * 93}\n")
+            logger.debug(f"{'?' * 93}\n")
 
         if tracker_callback:
             tracker_callback(result, keyword_check_result, initial_intent)
@@ -1663,7 +1663,7 @@ async def evaluate_multiturn_task_with_langfuse(
         import traceback
 
         logger.error(traceback.format_exc())
-        logger.error(f"❌ ERROR in multi-turn task {task_name}: {e}")
+        logger.error(f"? ERROR in multi-turn task {task_name}: {e}")
 
         intent = turns[0].get("query", "") if turns else ""
 
@@ -1784,16 +1784,44 @@ def print_evaluation_summary(results: List[Dict[str, Any]]):
         api_count_correct = sum(1 for r in results if r.get("api_count_correct") == 1)
         print(f"API Count Accuracy: {api_count_correct}/{total} ({api_count_correct / total * 100:.1f}%)")
 
+    from benchmarks.helpers.token_usage import format_token_summary, rollup_token_metrics
+
+    has_token_metrics = any(r.get("total_tokens") for r in results)
+    if has_token_metrics:
+        token_rollup = rollup_token_metrics(results)
+        print("\nToken Usage:")
+        print(
+            f"  Input:  {token_rollup['total_input_tokens']:,} "
+            f"(avg {token_rollup['avg_input_tokens_per_task']:,.0f}/task)"
+        )
+        print(
+            f"  Output: {token_rollup['total_output_tokens']:,} "
+            f"(avg {token_rollup['avg_output_tokens_per_task']:,.0f}/task)"
+        )
+        print(
+            f"  Total:  {token_rollup['total_tokens']:,} "
+            f"(avg {token_rollup['avg_tokens_per_task']:,.0f}/task)"
+        )
+        if token_rollup.get("total_cache_input_tokens"):
+            print(
+                f"  Cache:  {token_rollup['total_cache_input_tokens']:,} "
+                f"(avg {token_rollup['avg_cache_input_tokens_per_task']:,.0f}/task)"
+            )
+        print(
+            f"  LLM calls: {token_rollup['total_llm_calls']:,} "
+            f"(avg {token_rollup['avg_llm_calls_per_task']:.1f}/task)"
+        )
+
     print("\n" + "-" * 80)
     print("Results by Difficulty:")
     print("-" * 80)
     for difficulty in sorted(by_difficulty.keys()):
-        results = by_difficulty[difficulty]
-        passed_count = sum(1 for r in results if r["success"])
+        diff_results = by_difficulty[difficulty]
+        passed_count = sum(1 for r in diff_results if r["success"])
         print(f"\n{difficulty.upper()}:")
-        print(f"  Total: {len(results)}")
-        print(f"  Passed: {passed_count} ({passed_count / len(results) * 100:.1f}%)")
-        print(f"  Failed: {len(results) - passed_count}")
+        print(f"  Total: {len(diff_results)}")
+        print(f"  Passed: {passed_count} ({passed_count / len(diff_results) * 100:.1f}%)")
+        print(f"  Failed: {len(diff_results) - passed_count}")
 
     print("\n" + "-" * 80)
     print("Failed Tasks:")
@@ -1801,7 +1829,7 @@ def print_evaluation_summary(results: List[Dict[str, Any]]):
     failed_results = [r for r in results if not r["success"]]
     if failed_results:
         for result in failed_results:
-            print(f"\n❌ {result['task_name']} ({result.get('difficulty', 'unknown')})")
+            print(f"\n? {result['task_name']} ({result.get('difficulty', 'unknown')})")
             print(f"   Intent: {result['intent']}")
             print(f"   Keyword Match: {result['match_rate']:.1%}")
             if result.get('missing_keywords'):
@@ -1809,20 +1837,20 @@ def print_evaluation_summary(results: List[Dict[str, Any]]):
             if result.get('output_similarity') is not None:
                 print(f"   Similarity: {result['output_similarity']:.2f}")
             if result.get('llm_judge_score') is not None:
-                binary_str = "✓" if result.get('llm_judge_binary') == 1 else "✗"
+                binary_str = "?" if result.get('llm_judge_binary') == 1 else "?"
                 print(f"   LLM Judge: {result['llm_judge_score']:.2f} ({binary_str})")
             if result.get('apis_missing'):
                 print(f"   Missing APIs: {', '.join(result['apis_missing'])}")
             if result.get('error'):
                 print(f"   Error: {result['error']}")
     else:
-        print("  None! 🎉")
+        print("  None! ??")
 
     print("\n" + "-" * 80)
     print("All Results:")
     print("-" * 80)
     for result in results:
-        status = "✅" if result["success"] else "❌"
+        status = "?" if result["success"] else "?"
         task_name = result.get('task_name', 'unknown')
         difficulty = result.get('difficulty', 'unknown')
         match_rate = result.get('match_rate', 0)
@@ -1834,8 +1862,10 @@ def print_evaluation_summary(results: List[Dict[str, Any]]):
         if result.get('llm_judge_score') is not None:
             metrics_parts.append(f"llm={result['llm_judge_score']:.2f}")
         if result.get('task_final_score') is not None:
-            final_str = "✓" if result['task_final_score'] == 1 else "✗"
+            final_str = "?" if result['task_final_score'] == 1 else "?"
             metrics_parts.append(f"final={final_str}")
+        if result.get("total_tokens"):
+            metrics_parts.append(format_token_summary(result))
 
         metrics_str = ", ".join(metrics_parts)
         print(f"{status} {task_name:25s} ({difficulty:6s}) - {metrics_str}")
@@ -1854,7 +1884,7 @@ def flush_langfuse(langfuse_handler: Optional[Any] = None):
         from langfuse import get_client
 
         get_client().flush()
-        logger.info("✅ Flushed Langfuse events")
+        logger.info("? Flushed Langfuse events")
     except Exception as e:
         logger.warning(f"Failed to flush Langfuse events: {e}")
 
@@ -1919,22 +1949,27 @@ def save_evaluation_results(
     passed = sum(1 for r in results if r.get("success"))
     avg_match_rate = sum(r.get("match_rate", 0) for r in results) / total if total > 0 else 0
 
+    from benchmarks.helpers.token_usage import rollup_token_metrics
+
+    metrics = {
+        "timestamp": timestamp,
+        "total_tasks": total,
+        "passed": passed,
+        "failed": total - passed,
+        "pass_rate": passed / total if total > 0 else 0,
+        "avg_match_rate": avg_match_rate,
+    }
+    metrics.update(rollup_token_metrics(results))
+
     output = {
-        "metrics": {
-            "timestamp": timestamp,
-            "total_tasks": total,
-            "passed": passed,
-            "failed": total - passed,
-            "pass_rate": passed / total if total > 0 else 0,
-            "avg_match_rate": avg_match_rate,
-        },
+        "metrics": metrics,
         "results": serializable_results,
     }
 
     output_file = output_dir / f"{prefix}_{timestamp}.json"
     with open(output_file, "w") as f:
         json.dump(output, f, indent=2, default=str)
-    logger.info(f"📁 Results saved to: {output_file}")
+    logger.info(f"?? Results saved to: {output_file}")
 
     return output_file
 

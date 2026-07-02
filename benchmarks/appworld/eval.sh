@@ -32,7 +32,7 @@ for arg in "$@"; do
         echo "  --no-bundle                  Skip reproducibility bundle creation"
         echo "  --bundle-zip                 Create zip archive of bundle"
         echo "  --model-profile <name>       Model profile (for bundle metadata)"
-        echo "  --agent <name>               Agent to run (cuga, react, codeact; default: cuga)"
+        echo "  --agent <name>               Agent to run (cuga, react, codeact, deepagents, openclaw, hermes; default: cuga)"
         echo ""
         echo "Examples:"
         echo "  ./eval.sh                          # Default evaluation (cuga)"
@@ -148,7 +148,10 @@ if [ "${AGENT:-cuga}" = "codeact" ]; then
 elif [ "${AGENT:-cuga}" = "react" ]; then
     echo -e "${BLUE:-}Using React agent (appworld_eval_react.py)${NC:-}"
     uv run --no-sync python -m benchmarks.appworld.appworld_eval_react --agent react "${PASSTHROUGH_ARGS[@]}"
-elif [[ "$USE_SDK" == "true" ]]; then
+elif [ "${AGENT:-cuga}" = "deepagents" ] || [ "${AGENT:-cuga}" = "openclaw" ] || [ "${AGENT:-cuga}" = "hermes" ]; then
+    echo -e "${BLUE:-}Using external agent ${AGENT} (appworld_eval_external.py)${NC:-}"
+    uv run --no-sync python -m benchmarks.appworld.appworld_eval_external --agent "${AGENT}" "${PASSTHROUGH_ARGS[@]}"
+elif [[ "$USE_SDK" == "true" ]] || [ "${AGENT:-cuga}" = "cuga" ]; then
     echo -e "${BLUE:-}Using SDK evaluator (eval_appworld_sdk.py)${NC:-}"
     uv run --no-sync python -m benchmarks.appworld.eval_appworld_sdk "${PASSTHROUGH_ARGS[@]}"
 else
