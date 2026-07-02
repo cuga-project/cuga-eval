@@ -117,6 +117,34 @@ while [[ $# -gt 0 ]]; do
             MODEL_PROFILE="$2"
             shift 2
             ;;
+        --experiment)
+            EXPERIMENT="$2"
+            shift 2
+            ;;
+        --resume)
+            RESUME=true
+            shift
+            ;;
+        --resume-experiment)
+            RESUME_EXPERIMENT="$2"
+            shift 2
+            ;;
+        --background)
+            BACKGROUND=true
+            shift
+            ;;
+        --stop)
+            STOP=true
+            shift
+            ;;
+        --restart)
+            RESTART=true
+            shift
+            ;;
+        --status)
+            STATUS=true
+            shift
+            ;;
         --agent)
             AGENT="$2"
             shift 2
@@ -138,6 +166,9 @@ if [ "${AGENT:-cuga}" = "codeact" ]; then
     exit 2
 fi
 
+if handle_eval_lifecycle "m3" "$0" "${PASSTHROUGH_ARGS[@]}"; then
+    exit 0
+fi
 
 REGISTRY_PID=""
 
@@ -157,6 +188,44 @@ create_bundle() {
     BUNDLE_DONE=true
 
     echo ""
+    if [ -n "${WORKSPACE_BUNDLE_DIR:-}" ]; then
+        echo -e "${YELLOW:-}Finalizing experiment workspace...${NC:-}"
+
+        local task_file
+        if [ "$M3_DATA" = "true" ] && [ -n "$M3_DATA_PATH" ]; then
+            # Record the actual --m3-data source used for this run, not the
+            # hard-coded example corpus below (which this run didn't read from).
+            task_file="$M3_DATA_PATH"
+        elif [ "$MULTITURN" = "true" ]; then
+            task_file="$SCRIPT_DIR/data/olympics_multiturn.json"
+        else
+            task_file="$SCRIPT_DIR/data/hockey.json"
+        fi
+
+        local fin_extra=(--task-file "$task_file")
+        if [ "$NO_POLICIES" != "true" ]; then
+            fin_extra+=(--policies-dir "$POLICIES_DIR")
+        fi
+        local traj_dir
+        traj_dir=$(find_latest_trajectory "$SCRIPT_DIR/logging/trajectory_data")
+        if [ -n "$traj_dir" ]; then
+            fin_extra+=(--trajectory-dir "$traj_dir")
+        fi
+        local registry_log="$SCRIPT_DIR/registry_server.log"
+        if [ -f "$registry_log" ]; then
+            fin_extra+=(--log-file "$registry_log" --log-file "$CONSOLE_LOG")
+        else
+            fin_extra+=(--log-file /tmp/m3_registry.log --log-file "$CONSOLE_LOG")
+        fi
+        if [ "${PARTIAL_FINALIZE:-false}" = "true" ]; then
+            fin_extra+=(--partial)
+        fi
+
+        finalize_experiment_workspace "m3" "${fin_extra[@]}" || \
+            echo -e "${YELLOW:-}Experiment workspace finalization reported errors (best-effort).${NC:-}"
+        return 0
+    fi
+
     echo -e "${YELLOW:-}Creating reproducibility bundle...${NC:-}"
 
     # Find the most recent result file produced by *this* run (mtime newer
@@ -231,16 +300,28 @@ create_bundle() {
     # Download Langfuse traces if available
     bundle_args+=(--fetch-langfuse)
 
-    uv run --no-sync python -m benchmarks.helpers.bundle "${bundle_args[@]}" || \
+    local bundle_out
+    bundle_out=$(uv run --no-sync python -m benchmarks.helpers.bundle "${bundle_args[@]}" 2>&1 | tee /dev/stderr) || \
         echo -e "${YELLOW:-}Bundle creation reported errors (best-effort).${NC:-}"
 
     rm -f "$report_tmp"
+
+    local bundle_path
+    bundle_path=$(echo "$bundle_out" | sed -n 's/^Bundle created: //p' | tail -1)
+    if [ -n "$bundle_path" ]; then
+        write_legacy_experiment_pointer "m3" "$bundle_path"
+    fi
 }
 
 cleanup() {
     local exit_code=$?
+    finalize_run_state_on_exit "$exit_code"
     echo ""
     echo -e "${YELLOW:-}Cleaning up...${NC:-}"
+
+    if [ $exit_code -ne 0 ] && [ -n "${WORKSPACE_BUNDLE_DIR:-}" ]; then
+        PARTIAL_FINALIZE=true
+    fi
 
     # Best-effort bundle on interrupt/crash. Idempotent (no-op if already
     # created on the success path below). Wrapped in `|| true` so a bundle
@@ -388,6 +469,11 @@ if [ "$NO_POLICIES" != "true" ] && [ -d "$POLICIES_DIR" ]; then
             --policies-dir "$POLICIES_DIR" \
             --output "$POLICIES_DIR/policies.json"
     fi
+fi
+
+if prepare_experiment_workspace "m3"; then
+    PASSTHROUGH_ARGS+=(--bundle-dir "$WORKSPACE_BUNDLE_DIR")
+    mark_run_state_started
 fi
 
 # Select eval script

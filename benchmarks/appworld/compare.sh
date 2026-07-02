@@ -84,6 +84,22 @@ while [[ $idx -lt ${#ARGS[@]} ]]; do
             USE_DOTENV=true
             idx=$((idx+1))
             ;;
+        --experiment)
+            EXPERIMENT="${ARGS[$((idx+1))]}"
+            idx=$((idx+2))
+            ;;
+        --resume)
+            RESUME=true
+            idx=$((idx+1))
+            ;;
+        --resume-experiment)
+            RESUME_EXPERIMENT="${ARGS[$((idx+1))]}"
+            idx=$((idx+2))
+            ;;
+        --status)
+            STATUS=true
+            idx=$((idx+1))
+            ;;
         *)
             FORWARDED_ARGS+=("${ARGS[$idx]}")
             idx=$((idx+1))
@@ -125,6 +141,11 @@ echo -e "  Configurations:  ${CYAN:-}${#CONFIGS[@]}${NC:-}"
 echo -e "  Runs per config: ${CYAN:-}${RUNS}${NC:-}"
 echo ""
 
+if [[ "${STATUS:-false}" == "true" ]]; then
+    dispatch_compare_status "appworld"
+    exit 0
+fi
+
 if [[ "$DRY_RUN" == "true" ]]; then
     echo -e "${YELLOW:-}DRY RUN — showing planned commands:${NC:-}"
     for config in "${CONFIGS[@]}"; do
@@ -149,6 +170,12 @@ TOTAL_PLANNED=$(( ${#CONFIGS[@]} * RUNS ))
 runs_done=0
 runs_elapsed_total=0
 compare_t0=$(date +%s)
+
+COMPARE_EXPERIMENT=""
+if prepare_compare_experiment_workspace "appworld"; then
+    COMPARE_EXPERIMENT=$(resolve_compare_experiment_name)
+    init_compare_state_for_run "$COMPARE_EXPERIMENT" "$TOTAL_PLANNED" "$RUNS" "${CONFIGS[@]}"
+fi
 
 compare_cleanup() {
     echo -e "${YELLOW:-}Stopping servers...${NC:-}"
@@ -185,20 +212,42 @@ for config in "${CONFIGS[@]}"; do
     before_trajs=$(find "$SCRIPT_DIR/logging/trajectory_data" -mindepth 1 -maxdepth 1 -type d 2>/dev/null | sort)
 
     for ((r=1; r<=RUNS; r++)); do
+        if [[ -n "${WORKSPACE_BUNDLE_DIR:-}" ]] && compare_combo_is_done "$config" "$r"; then
+            echo -e "${YELLOW:-}Skipping completed combo ${config} run ${r}/${RUNS}${NC:-}"
+            runs_done=$(( runs_done + 1 ))
+            total_runs=$((total_runs+1))
+            continue
+        fi
+
         total_runs=$((total_runs+1))
         echo -e "${CYAN:-}[${config}]${NC:-} Run ${GREEN:-}${r}/${RUNS}${NC:-} (overall ${total_runs}/${TOTAL_PLANNED})"
         if (( runs_done > 0 )); then
             echo -e "  ${YELLOW:-}$(fmt_eta $runs_elapsed_total $runs_done $(( TOTAL_PLANNED - runs_done )))${NC:-}"
         fi
 
+        combo_eval_args=()
+        if [[ -n "${COMPARE_EXPERIMENT:-}" ]]; then
+            read -r -a combo_eval_args <<< "$(compare_combo_eval_flags "$COMPARE_EXPERIMENT" "$config" "$r")"
+            sub_exp=$(uv run python -m benchmarks.helpers.compare_state sub-name \
+                --compare-experiment "$COMPARE_EXPERIMENT" --config "$config" --run "$r")
+            compare_mark_combo_started "$config" "$r" "$sub_exp"
+        fi
+
         run_t0=$(date +%s)
-        if bash "$SCRIPT_DIR/eval.sh" --agent "$agent" --no-bundle "${FORWARDED_ARGS[@]}"; then
+        run_exit=0
+        eval_extra=(--no-bundle)
+        [[ -n "${COMPARE_EXPERIMENT:-}" ]] && eval_extra=()
+        if bash "$SCRIPT_DIR/eval.sh" --agent "$agent" "${eval_extra[@]}" "${combo_eval_args[@]}" "${FORWARDED_ARGS[@]}"; then
             run_dur=$(( $(date +%s) - run_t0 ))
             echo -e "${GREEN:-}✓${NC:-} Run $r complete in $(fmt_duration $run_dur)"
         else
+            run_exit=$?
             run_dur=$(( $(date +%s) - run_t0 ))
             echo -e "${RED:-}✗ Run $r failed after $(fmt_duration $run_dur)${NC:-}"
             failed=$((failed+1))
+        fi
+        if [[ -n "${WORKSPACE_BUNDLE_DIR:-}" ]]; then
+            compare_mark_combo_completed "$config" "$r" "$run_exit"
         fi
         runs_done=$(( runs_done + 1 ))
         runs_elapsed_total=$(( runs_elapsed_total + run_dur ))
@@ -229,36 +278,46 @@ echo ""
 if [[ "${NO_BUNDLE:-false}" != "true" ]]; then
     echo -e "${YELLOW:-}Creating comparison bundle...${NC:-}"
 
-    # Build JSON input: {"model:agent": ["file1.json", ...]}
-    JSON_PARTS=()
-    for ci in "${!CONFIG_RESULT_KEYS[@]}"; do
-        config="${CONFIG_RESULT_KEYS[$ci]}"
-        files="${CONFIG_RESULT_VALS[$ci]}"
-        if [[ -z "$files" ]]; then
-            continue
-        fi
-        file_list=""
-        pfirst=true
-        for f in $files; do
-            if [[ "$pfirst" != "true" ]]; then
-                file_list+=","
+    if [[ -n "${WORKSPACE_BUNDLE_DIR:-}" ]]; then
+        # Workspace mode: each combo writes into its own sub-experiment bundle
+        # (a sibling of WORKSPACE_BUNDLE_DIR), not into this benchmark's flat
+        # results/ scratch dir — the before/after diff above collects nothing
+        # for ANY combo, executed or resumed-and-skipped. Source directly from
+        # compare_state.json's recorded sub-bundles instead.
+        JSON_INPUT=$(cd "$PROJECT_ROOT" && uv run --no-sync python -m benchmarks.helpers.compare_state \
+            bundle-inputs --compare-dir "$WORKSPACE_BUNDLE_DIR" --field config-results)
+    else
+        # Build JSON input: {"model:agent": ["file1.json", ...]}
+        JSON_PARTS=()
+        for ci in "${!CONFIG_RESULT_KEYS[@]}"; do
+            config="${CONFIG_RESULT_KEYS[$ci]}"
+            files="${CONFIG_RESULT_VALS[$ci]}"
+            if [[ -z "$files" ]]; then
+                continue
             fi
-            pfirst=false
-            file_list+="\"${f}\""
+            file_list=""
+            pfirst=true
+            for f in $files; do
+                if [[ "$pfirst" != "true" ]]; then
+                    file_list+=","
+                fi
+                pfirst=false
+                file_list+="\"${f}\""
+            done
+            JSON_PARTS+=("\"${config}\":[${file_list}]")
         done
-        JSON_PARTS+=("\"${config}\":[${file_list}]")
-    done
 
-    JSON_INPUT="{"
-    jfirst=true
-    for part in "${JSON_PARTS[@]}"; do
-        if [[ "$jfirst" != "true" ]]; then
-            JSON_INPUT+=","
-        fi
-        jfirst=false
-        JSON_INPUT+="$part"
-    done
-    JSON_INPUT+="}"
+        JSON_INPUT="{"
+        jfirst=true
+        for part in "${JSON_PARTS[@]}"; do
+            if [[ "$jfirst" != "true" ]]; then
+                JSON_INPUT+=","
+            fi
+            jfirst=false
+            JSON_INPUT+="$part"
+        done
+        JSON_INPUT+="}"
+    fi
 
     if [[ "$JSON_INPUT" != "{}" ]]; then
         # Generate comparison report
@@ -273,36 +332,41 @@ if [[ "${NO_BUNDLE:-false}" != "true" ]]; then
             MODEL_ENVS_JSON=$(build_model_envs_json "${MODEL_LIST[@]}")
         fi
 
-        # Build per-config trajectory dirs JSON: {"model:agent": ["/path/run1", ...]}
-        TRAJ_JSON_PARTS=()
-        for ci in "${!CONFIG_TRAJ_KEYS[@]}"; do
-            tconfig="${CONFIG_TRAJ_KEYS[$ci]}"
-            tfiles="${CONFIG_TRAJ_VALS[$ci]}"
-            if [[ -z "$tfiles" ]]; then
-                continue
-            fi
-            tfile_list=""
-            tfirst=true
-            for f in $tfiles; do
-                if [[ "$tfirst" != "true" ]]; then
-                    tfile_list+=","
+        if [[ -n "${WORKSPACE_BUNDLE_DIR:-}" ]]; then
+            TRAJ_JSON_INPUT=$(cd "$PROJECT_ROOT" && uv run --no-sync python -m benchmarks.helpers.compare_state \
+                bundle-inputs --compare-dir "$WORKSPACE_BUNDLE_DIR" --field trajectory-dirs)
+        else
+            # Build per-config trajectory dirs JSON: {"model:agent": ["/path/run1", ...]}
+            TRAJ_JSON_PARTS=()
+            for ci in "${!CONFIG_TRAJ_KEYS[@]}"; do
+                tconfig="${CONFIG_TRAJ_KEYS[$ci]}"
+                tfiles="${CONFIG_TRAJ_VALS[$ci]}"
+                if [[ -z "$tfiles" ]]; then
+                    continue
                 fi
-                tfirst=false
-                tfile_list+="\"${f}\""
+                tfile_list=""
+                tfirst=true
+                for f in $tfiles; do
+                    if [[ "$tfirst" != "true" ]]; then
+                        tfile_list+=","
+                    fi
+                    tfirst=false
+                    tfile_list+="\"${f}\""
+                done
+                TRAJ_JSON_PARTS+=("\"${tconfig}\":[${tfile_list}]")
             done
-            TRAJ_JSON_PARTS+=("\"${tconfig}\":[${tfile_list}]")
-        done
 
-        TRAJ_JSON_INPUT="{"
-        tjfirst=true
-        for part in "${TRAJ_JSON_PARTS[@]}"; do
-            if [[ "$tjfirst" != "true" ]]; then
-                TRAJ_JSON_INPUT+=","
-            fi
-            tjfirst=false
-            TRAJ_JSON_INPUT+="$part"
-        done
-        TRAJ_JSON_INPUT+="}"
+            TRAJ_JSON_INPUT="{"
+            tjfirst=true
+            for part in "${TRAJ_JSON_PARTS[@]}"; do
+                if [[ "$tjfirst" != "true" ]]; then
+                    TRAJ_JSON_INPUT+=","
+                fi
+                tjfirst=false
+                TRAJ_JSON_INPUT+="$part"
+            done
+            TRAJ_JSON_INPUT+="}"
+        fi
 
         BUNDLE_CMD=(uv run --no-sync python -m benchmarks.helpers.bundle assemble-compare
             --benchmark appworld
@@ -316,13 +380,24 @@ if [[ "${NO_BUNDLE:-false}" != "true" ]]; then
         if [[ "$TRAJ_JSON_INPUT" != "{}" ]]; then
             BUNDLE_CMD+=(--trajectory-dirs "$TRAJ_JSON_INPUT")
         fi
-        # Include server logs (from last run)
-        LOG_JSON="{\"shared\":[\"/tmp/appworld.log\",\"/tmp/appworld_registry.log\",\"/tmp/appworld_console.log\"]}"
+        if [[ -n "${WORKSPACE_BUNDLE_DIR:-}" ]]; then
+            LOG_JSON=$(cd "$PROJECT_ROOT" && uv run --no-sync python -m benchmarks.helpers.compare_state \
+                bundle-inputs --compare-dir "$WORKSPACE_BUNDLE_DIR" --field log-files)
+            [[ "$LOG_JSON" == "{}" ]] && LOG_JSON="{\"shared\":[\"/tmp/appworld.log\",\"/tmp/appworld_registry.log\",\"/tmp/appworld_console.log\"]}"
+        else
+            # Include server logs (from last run)
+            LOG_JSON="{\"shared\":[\"/tmp/appworld.log\",\"/tmp/appworld_registry.log\",\"/tmp/appworld_console.log\"]}"
+        fi
         BUNDLE_CMD+=(--log-files "$LOG_JSON")
         # Download Langfuse traces if available
         BUNDLE_CMD+=(--fetch-langfuse)
         if [[ "${BUNDLE_ZIP:-false}" == "true" ]]; then
             BUNDLE_CMD+=(--zip)
+        fi
+        if [[ -n "${WORKSPACE_BUNDLE_DIR:-}" ]]; then
+            # Finalize in place into the already-existing named compare bundle
+            # instead of creating a second, separate timestamped directory.
+            BUNDLE_CMD+=(--bundle-dir "$WORKSPACE_BUNDLE_DIR")
         fi
 
         # Bundle CLI needs project root on PYTHONPATH

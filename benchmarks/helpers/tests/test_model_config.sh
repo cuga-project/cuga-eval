@@ -276,6 +276,70 @@ result=$(
 )
 assert_not_contains "no --model-profile → --models absent from DISPATCH_ARGS" "--models" "$result"
 
+# ─── scripts/eval.sh experiment flag propagation ─────────────────────────────
+# Experiment flags are consumed by parse_common_args and must not leak into
+# FORWARDED_ARGS (same pattern as --model-profile).
+
+echo "eval.sh experiment flag propagation"
+
+result=$(
+    TMPBENCH=$(mktemp -d "$SCRIPT_DIR/../../../benchmarks/_test_XXXXXX")
+    trap 'rm -rf "$TMPBENCH"' EXIT
+    BENCH_NAME=$(basename "$TMPBENCH")
+    printf '%s\n' '#!/bin/bash' 'echo "$@"' > "$TMPBENCH/eval.sh"
+    chmod +x "$TMPBENCH/eval.sh"
+    bash "$SCRIPT_DIR/../../../scripts/eval.sh" \
+        --benchmark "$BENCH_NAME" \
+        --experiment my-run \
+        --dry-run --no-bundle 2>/dev/null
+)
+assert_not_contains "--experiment stripped from FORWARDED_ARGS" "--experiment" "$result"
+assert_not_contains "--experiment name stripped from FORWARDED_ARGS" "my-run" "$result"
+
+result=$(
+    TMPBENCH=$(mktemp -d "$SCRIPT_DIR/../../../benchmarks/_test_XXXXXX")
+    trap 'rm -rf "$TMPBENCH"' EXIT
+    BENCH_NAME=$(basename "$TMPBENCH")
+    printf '%s\n' '#!/bin/bash' 'echo "EXP=${EXPERIMENT:-unset}"; echo "$@"' > "$TMPBENCH/eval.sh"
+    chmod +x "$TMPBENCH/eval.sh"
+    bash "$SCRIPT_DIR/../../../scripts/eval.sh" \
+        --benchmark "$BENCH_NAME" \
+        --experiment flag-test \
+        --dry-run --no-bundle 2>/dev/null
+)
+assert_contains "EXPERIMENT exported to benchmark eval.sh" "EXP=flag-test" "$result"
+
+# ─── scripts/eval.sh lifecycle flag propagation ─────────────────────────────
+
+echo "eval.sh lifecycle flag propagation"
+
+result=$(
+    TMPBENCH=$(mktemp -d "$SCRIPT_DIR/../../../benchmarks/_test_XXXXXX")
+    trap 'rm -rf "$TMPBENCH"' EXIT
+    BENCH_NAME=$(basename "$TMPBENCH")
+    printf '%s\n' '#!/bin/bash' 'echo "$@"' > "$TMPBENCH/eval.sh"
+    chmod +x "$TMPBENCH/eval.sh"
+    bash "$SCRIPT_DIR/../../../scripts/eval.sh" \
+        --benchmark "$BENCH_NAME" \
+        --background --status --stop --restart \
+        --dry-run --no-bundle 2>/dev/null
+)
+assert_not_contains "--background stripped from FORWARDED_ARGS" "--background" "$result"
+assert_not_contains "--status stripped from FORWARDED_ARGS" "--status" "$result"
+
+result=$(
+    TMPBENCH=$(mktemp -d "$SCRIPT_DIR/../../../benchmarks/_test_XXXXXX")
+    trap 'rm -rf "$TMPBENCH"' EXIT
+    BENCH_NAME=$(basename "$TMPBENCH")
+    printf '%s\n' '#!/bin/bash' 'echo "BG=${BACKGROUND:-false} ST=${STATUS:-false}"' > "$TMPBENCH/eval.sh"
+    chmod +x "$TMPBENCH/eval.sh"
+    bash "$SCRIPT_DIR/../../../scripts/eval.sh" \
+        --benchmark "$BENCH_NAME" \
+        --background --status \
+        --dry-run --no-bundle 2>/dev/null
+)
+assert_contains "lifecycle flags exported to benchmark eval.sh" "BG=true ST=true" "$result"
+
 # ─── Summary ─────────────────────────────────────────────────────────────────
 
 echo ""

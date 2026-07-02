@@ -50,8 +50,41 @@ APPWORLD_PID=""
 REGISTRY_PID=""
 REGISTRY_PORT=8001
 
+# Parse bundle / model-profile / sdk flags before any server startup so
+# --status / --stop / --background can short-circuit without side effects.
+USE_SDK=false
+PASSTHROUGH_ARGS=()
+while [[ $# -gt 0 ]]; do
+    case "$1" in
+        --no-bundle)   NO_BUNDLE=true;    shift ;;
+        --bundle-zip)  BUNDLE_ZIP=true;   shift ;;
+        --sdk)         USE_SDK=true;      shift ;;
+        --model-profile) MODEL_PROFILE="$2"; shift 2 ;;
+        --eval-key)    EVAL_KEY="$2"; PASSTHROUGH_ARGS+=(--eval-key "$2"); shift 2 ;;
+        --experiment)  EXPERIMENT="$2"; shift 2 ;;
+        --resume)      RESUME=true; shift ;;
+        --resume-experiment) RESUME_EXPERIMENT="$2"; shift 2 ;;
+        --background)  BACKGROUND=true; shift ;;
+        --stop)        STOP=true; shift ;;
+        --restart)     RESTART=true; shift ;;
+        --status)      STATUS=true; shift ;;
+        --agent)       AGENT="$2"; shift 2 ;;
+        --verbose|-v|--quiet|-q)  PASSTHROUGH_ARGS+=("$1"); shift ;;
+        --task)        PASSTHROUGH_ARGS+=("--task-id"); shift
+                       while [[ $# -gt 0 && ! "$1" =~ ^-- ]]; do
+                           PASSTHROUGH_ARGS+=("$1"); shift
+                       done ;;
+        *)             PASSTHROUGH_ARGS+=("$1"); shift ;;
+    esac
+done
+
+if handle_eval_lifecycle "appworld" "$0" "${PASSTHROUGH_ARGS[@]}"; then
+    exit 0
+fi
+
 cleanup() {
     local exit_code=$?
+    finalize_run_state_on_exit "$exit_code"
     echo ""
     echo -e "${YELLOW:-}Cleaning up...${NC:-}"
     if [ "${SKIP_SERVER_CLEANUP:-false}" != "true" ]; then
@@ -125,26 +158,17 @@ fi
 
 echo ""
 
-# Parse bundle / model-profile / sdk flags; forward everything else to Python
-# --task is the standard interface; mapped to --task-id for the AppWorld Python CLI.
-USE_SDK=false
-PASSTHROUGH_ARGS=()
-while [[ $# -gt 0 ]]; do
-    case "$1" in
-        --no-bundle)   NO_BUNDLE=true;    shift ;;
-        --bundle-zip)  BUNDLE_ZIP=true;   shift ;;
-        --sdk)         USE_SDK=true;      shift ;;
-        --model-profile) MODEL_PROFILE="$2"; shift 2 ;;
-        --agent)       AGENT="$2"; shift 2 ;;
-        --eval-key)    EVAL_KEY="$2"; PASSTHROUGH_ARGS+=(--eval-key "$2"); shift 2 ;;
-        --verbose|-v|--quiet|-q)  PASSTHROUGH_ARGS+=("$1"); shift ;;
-        --task)        PASSTHROUGH_ARGS+=("--task-id"); shift
-                       while [[ $# -gt 0 && ! "$1" =~ ^-- ]]; do
-                           PASSTHROUGH_ARGS+=("$1"); shift
-                       done ;;
-        *)             PASSTHROUGH_ARGS+=("$1"); shift ;;
-    esac
-done
+if experiment_workspace_requested; then
+    if [[ "$USE_SDK" != "true" ]]; then
+        echo -e "${YELLOW:-}Note: experiment workspace requires the SDK evaluator; enabling --sdk${NC:-}"
+        USE_SDK=true
+    fi
+fi
+
+if prepare_experiment_workspace "appworld"; then
+    PASSTHROUGH_ARGS+=(--bundle-dir "$WORKSPACE_BUNDLE_DIR")
+    mark_run_state_started
+fi
 
 # Run evaluation
 echo -e "${YELLOW:-}Starting evaluation with agent ${AGENT:-cuga}...${NC:-}"
@@ -218,35 +242,50 @@ fi
 # not mistaken for a clean pass.
 if [ -n "$LATEST_RESULT" ] && [ "${NO_BUNDLE:-false}" != "true" ]; then
     echo ""
-    echo -e "${YELLOW:-}Creating reproducibility bundle...${NC:-}"
+    if [ -n "${WORKSPACE_BUNDLE_DIR:-}" ]; then
+        echo -e "${YELLOW:-}Finalizing experiment workspace...${NC:-}"
+        FIN_EXTRA=(--task-file "$SCRIPT_DIR/eval_config.toml")
+        TRAJ_DIR=$(find_latest_trajectory "$SCRIPT_DIR/logging/trajectory_data")
+        if [ -n "$TRAJ_DIR" ]; then
+            FIN_EXTRA+=(--trajectory-dir "$TRAJ_DIR")
+        fi
+        FIN_EXTRA+=(--log-file /tmp/appworld.log --log-file /tmp/appworld_registry.log --log-file "$CONSOLE_LOG")
+        finalize_experiment_workspace "appworld" "${FIN_EXTRA[@]}"
+    else
+        echo -e "${YELLOW:-}Creating reproducibility bundle...${NC:-}"
 
-    # Generate eval report
-    REPORT_TMP=$(mktemp /tmp/appworld_eval_report_XXXXXX)
-    uv run --no-sync python -m benchmarks.helpers.compare_report eval \
-        --result-file "$LATEST_RESULT" --output "$REPORT_TMP"
+        # Generate eval report
+        REPORT_TMP=$(mktemp /tmp/appworld_eval_report_XXXXXX)
+        uv run --no-sync python -m benchmarks.helpers.compare_report eval \
+            --result-file "$LATEST_RESULT" --output "$REPORT_TMP"
 
-    BUNDLE_ARGS=(assemble --benchmark appworld
-        --result-files "$LATEST_RESULT"
-        --task-files "$SCRIPT_DIR/eval_config.toml"
-        --report "$REPORT_TMP")
-    if [ -n "$MODEL_PROFILE" ]; then
-        BUNDLE_ARGS+=(--model-profile "$MODEL_PROFILE")
+        BUNDLE_ARGS=(assemble --benchmark appworld
+            --result-files "$LATEST_RESULT"
+            --task-files "$SCRIPT_DIR/eval_config.toml"
+            --report "$REPORT_TMP")
+        if [ -n "$MODEL_PROFILE" ]; then
+            BUNDLE_ARGS+=(--model-profile "$MODEL_PROFILE")
+        fi
+        [[ -n "${EVAL_KEY:-}" ]] && BUNDLE_ARGS+=(--eval-key "$EVAL_KEY")
+        if [ "${BUNDLE_ZIP:-false}" = "true" ]; then
+            BUNDLE_ARGS+=(--zip)
+        fi
+        # Include cuga trajectories
+        TRAJ_DIR=$(find_latest_trajectory "$SCRIPT_DIR/logging/trajectory_data")
+        if [ -n "$TRAJ_DIR" ]; then
+            BUNDLE_ARGS+=(--trajectory-dir "$TRAJ_DIR")
+        fi
+        # Include server and console logs
+        BUNDLE_ARGS+=(--log-files /tmp/appworld.log /tmp/appworld_registry.log "$CONSOLE_LOG")
+        # Download Langfuse traces if available
+        BUNDLE_ARGS+=(--fetch-langfuse)
+        BUNDLE_OUT=$(uv run --no-sync python -m benchmarks.helpers.bundle "${BUNDLE_ARGS[@]}" 2>&1 | tee /dev/stderr)
+        BUNDLE_PATH=$(echo "$BUNDLE_OUT" | sed -n 's/^Bundle created: //p' | tail -1)
+        if [ -n "$BUNDLE_PATH" ]; then
+            write_legacy_experiment_pointer "appworld" "$BUNDLE_PATH"
+        fi
+        rm -f "$REPORT_TMP"
     fi
-    [[ -n "${EVAL_KEY:-}" ]] && BUNDLE_ARGS+=(--eval-key "$EVAL_KEY")
-    if [ "${BUNDLE_ZIP:-false}" = "true" ]; then
-        BUNDLE_ARGS+=(--zip)
-    fi
-    # Include cuga trajectories
-    TRAJ_DIR=$(find_latest_trajectory "$SCRIPT_DIR/logging/trajectory_data")
-    if [ -n "$TRAJ_DIR" ]; then
-        BUNDLE_ARGS+=(--trajectory-dir "$TRAJ_DIR")
-    fi
-    # Include server and console logs
-    BUNDLE_ARGS+=(--log-files /tmp/appworld.log /tmp/appworld_registry.log "$CONSOLE_LOG")
-    # Download Langfuse traces if available
-    BUNDLE_ARGS+=(--fetch-langfuse)
-    uv run --no-sync python -m benchmarks.helpers.bundle "${BUNDLE_ARGS[@]}"
-    rm -f "$REPORT_TMP"
 fi
 
 exit $EVAL_EXIT

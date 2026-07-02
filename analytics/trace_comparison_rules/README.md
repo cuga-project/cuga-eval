@@ -20,17 +20,25 @@ benchmarks/{benchmark}/analytics_output/trace_comparison_rules/
 ## Prerequisites
 
 - Evaluation bundles with Langfuse traces in `benchmarks/{benchmark}/evaluation_bundles/`
-  (produced by `compare.sh` runs; requires Langfuse tracing to be enabled)
+  (produced by `compare.sh` or named `--experiment` runs; requires Langfuse tracing to be enabled)
+- If traces are missing from a bundle (e.g. Langfuse rate limits during assembly), re-fetch them without re-running eval:
+
+  ```bash
+  uv run python -m benchmarks.helpers.bundle retry-langfuse \
+    --bundle-dir benchmarks/{benchmark}/evaluation_bundles/<bundle-name>
+  ```
+
+  Named experiment dirs (`evaluation_bundles/my-run/`) and legacy timestamped dirs both work.
 - API access to an LLM for the analysis steps. The pipeline uses [LiteLLM](https://docs.litellm.ai/) as a routing layer, so any provider LiteLLM supports works: OpenAI, Azure OpenAI, Anthropic, AWS Bedrock, and others. The provider is inferred from the model name prefix (e.g. `azure/gpt-4.1`, `aws/claude-opus-4-6`, `aws/claude-sonnet-4-5`). Configure credentials in `.env`:
 
   ```env
   # Option A: direct provider credentials (LiteLLM picks up standard env vars)
-  OPENAI_API_KEY=...          # for openai/* or azure/* models
-  AZURE_API_KEY=...           # for azure/* models
-  ANTHROPIC_API_KEY=...       # for anthropic/* models
+  OPENAI_API_KEY=...          # for openai/* or azure/* models  # pragma: allowlist secret
+  AZURE_API_KEY=...           # for azure/* models  # pragma: allowlist secret
+  ANTHROPIC_API_KEY=...       # for anthropic/* models  # pragma: allowlist secret
 
   # Option B: LiteLLM proxy (e.g. an IBM internal gateway)
-  LITELLM_API_KEY=...         # or falls back to OPENAI_API_KEY
+  LITELLM_API_KEY=...         # or falls back to OPENAI_API_KEY  # pragma: allowlist secret
   LITELLM_BASE_URL=...        # or falls back to OPENAI_BASE_URL
   ```
 

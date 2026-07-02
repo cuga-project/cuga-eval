@@ -133,6 +133,14 @@ AGENTS="${AGENTS:-}"
 COMPARE_AGENTS="${COMPARE_AGENTS:-false}"
 NO_BUNDLE="${NO_BUNDLE:-false}"
 BUNDLE_ZIP="${BUNDLE_ZIP:-false}"
+EXPERIMENT="${EXPERIMENT:-}"
+RESUME="${RESUME:-false}"
+RESUME_EXPERIMENT="${RESUME_EXPERIMENT:-}"
+WORKSPACE_BUNDLE_DIR="${WORKSPACE_BUNDLE_DIR:-}"
+BACKGROUND="${BACKGROUND:-false}"
+STOP="${STOP:-false}"
+RESTART="${RESTART:-false}"
+STATUS="${STATUS:-false}"
 FORWARDED_ARGS=()
 USE_DOTENV="${USE_DOTENV:-false}"
 
@@ -195,6 +203,34 @@ parse_common_args() {
                 ;;
             --bundle-zip)
                 BUNDLE_ZIP=true
+                idx=$((idx+1))
+                ;;
+            --experiment)
+                EXPERIMENT="${args[$((idx+1))]}"
+                idx=$((idx+2))
+                ;;
+            --resume)
+                RESUME=true
+                idx=$((idx+1))
+                ;;
+            --resume-experiment)
+                RESUME_EXPERIMENT="${args[$((idx+1))]}"
+                idx=$((idx+2))
+                ;;
+            --background)
+                BACKGROUND=true
+                idx=$((idx+1))
+                ;;
+            --stop)
+                STOP=true
+                idx=$((idx+1))
+                ;;
+            --restart)
+                RESTART=true
+                idx=$((idx+1))
+                ;;
+            --status)
+                STATUS=true
                 idx=$((idx+1))
                 ;;
             --dotenv)
@@ -461,6 +497,386 @@ fmt_eta() {
     local avg=$(( elapsed / done_count ))
     local eta=$(( avg * remaining ))
     echo "~$(fmt_duration $eta) remaining (avg $(fmt_duration $avg)/run)"
+}
+
+# True when any experiment/resume flag requests the workspace bundle path.
+experiment_workspace_requested() {
+    [[ -n "${EXPERIMENT:-}" || "${RESUME:-false}" == "true" || -n "${RESUME_EXPERIMENT:-}" ]]
+}
+
+# Parse --experiment / --resume / --resume-experiment in a benchmark eval.sh loop.
+# Usage: parse_eval_experiment_flag "$1" "$2"  -> returns 0 if consumed (caller should shift).
+parse_eval_experiment_flag() {
+    case "$1" in
+        --experiment)
+            EXPERIMENT="$2"
+            return 0
+            ;;
+        --resume)
+            RESUME=true
+            return 0
+            ;;
+        --resume-experiment)
+            RESUME_EXPERIMENT="$2"
+            return 0
+            ;;
+    esac
+    return 1
+}
+
+# Create or re-open an experiment workspace before the evaluator runs.
+# Sets WORKSPACE_BUNDLE_DIR on success. Returns 1 for legacy/no-op paths.
+prepare_experiment_workspace() {
+    local benchmark="$1"
+    WORKSPACE_BUNDLE_DIR=""
+    if ! experiment_workspace_requested; then
+        return 1
+    fi
+    if [[ "${NO_BUNDLE:-false}" == "true" ]]; then
+        if [[ -n "${EXPERIMENT:-}" || "${RESUME:-false}" == "true" || -n "${RESUME_EXPERIMENT:-}" ]]; then
+            echo -e "${YELLOW:-}Warning: --no-bundle skips workspace creation — --experiment/--resume/--resume-experiment are ignored, running a fresh legacy (non-resumed) evaluation${NC:-}" >&2
+        fi
+        return 1
+    fi
+
+    local prep_args=(prepare-workspace --benchmark "$benchmark")
+    [[ -n "${EXPERIMENT:-}" ]] && prep_args+=(--experiment "$EXPERIMENT")
+    [[ "${RESUME:-false}" == "true" ]] && prep_args+=(--resume)
+    [[ -n "${RESUME_EXPERIMENT:-}" ]] && prep_args+=(--resume-experiment "$RESUME_EXPERIMENT")
+    [[ -n "${MODEL_PROFILE:-}" ]] && prep_args+=(--model-profile "$MODEL_PROFILE")
+    [[ -n "${AGENT:-}" ]] && prep_args+=(--agent "$AGENT")
+    [[ "${NO_POLICIES:-false}" == "true" ]] && prep_args+=(--no-policies)
+    [[ -n "${EVAL_KEY:-}" ]] && prep_args+=(--eval-key "$EVAL_KEY")
+
+    WORKSPACE_BUNDLE_DIR=$(uv run python -m benchmarks.helpers.experiment "${prep_args[@]}")
+    echo -e "${GREEN:-}Experiment workspace:${NC:-} $WORKSPACE_BUNDLE_DIR"
+    return 0
+}
+
+# Finalize an experiment workspace after the evaluator exits.
+# Remaining args are forwarded to ``experiment finalize-workspace`` (e.g.
+# --task-file, --policies-dir, --trajectory-dir, --log-file, --partial).
+finalize_experiment_workspace() {
+    local benchmark="$1"
+    shift
+    [[ -n "${WORKSPACE_BUNDLE_DIR:-}" ]] || return 1
+    [[ "${NO_BUNDLE:-false}" == "true" ]] && return 1
+
+    local fin_args=(
+        finalize-workspace
+        --benchmark "$benchmark"
+        --bundle-dir "$WORKSPACE_BUNDLE_DIR"
+    )
+    [[ -n "${MODEL_PROFILE:-}" ]] && fin_args+=(--model-profile "$MODEL_PROFILE")
+    [[ -n "${AGENT:-}" ]] && fin_args+=(--agent "$AGENT")
+    [[ "${NO_POLICIES:-false}" == "true" ]] && fin_args+=(--no-policies)
+    [[ -n "${EVAL_KEY:-}" ]] && fin_args+=(--eval-key "$EVAL_KEY")
+    [[ -n "${CUGA_GIT_INFO_JSON:-}" ]] && fin_args+=(--cuga-git-info "$CUGA_GIT_INFO_JSON")
+    [[ "${BUNDLE_ZIP:-false}" == "true" ]] && fin_args+=(--zip)
+    fin_args+=("$@")
+
+    uv run python -m benchmarks.helpers.experiment "${fin_args[@]}"
+}
+
+# Record a legacy post-hoc bundle dir in .last_experiment (unnamed runs).
+write_legacy_experiment_pointer() {
+    local benchmark="$1"
+    local bundle_dir="$2"
+    [[ -n "$bundle_dir" ]] || return 0
+    uv run python -m benchmarks.helpers.experiment write-pointer \
+        --benchmark "$benchmark" \
+        --bundle-dir "$bundle_dir" >/dev/null
+}
+
+# Resolve bundle dir for --status / --stop (uses experiment.py resolve).
+resolve_lifecycle_bundle_dir() {
+    local benchmark="$1"
+    if [[ -n "${WORKSPACE_BUNDLE_DIR:-}" ]]; then
+        echo "$WORKSPACE_BUNDLE_DIR"
+        return 0
+    fi
+    local use_resume="${RESUME:-false}"
+    if ! experiment_workspace_requested; then
+        use_resume=true
+    fi
+    local resolve_args=(resolve --benchmark "$benchmark")
+    [[ -n "${EXPERIMENT:-}" ]] && resolve_args+=(--experiment "$EXPERIMENT")
+    [[ "$use_resume" == "true" ]] && resolve_args+=(--resume)
+    [[ -n "${RESUME_EXPERIMENT:-}" ]] && resolve_args+=(--resume-experiment "$RESUME_EXPERIMENT")
+    local out
+    if ! out=$(uv run python -m benchmarks.helpers.experiment "${resolve_args[@]}" 2>&1); then
+        echo -e "${RED:-}Error: $out${NC:-}" >&2
+        return 1
+    fi
+    if [[ "$out" == "legacy" ]]; then
+        echo -e "${RED:-}Error: no experiment workspace found (use --experiment, --resume, or --resume-experiment)${NC:-}" >&2
+        return 1
+    fi
+    echo "${out%%$'\t'*}"
+}
+
+dispatch_run_status() {
+    local benchmark="$1"
+    local bundle_dir
+    bundle_dir=$(resolve_lifecycle_bundle_dir "$benchmark") || return 1
+    uv run python -m benchmarks.helpers.run_state status --bundle-dir "$bundle_dir"
+}
+
+dispatch_run_stop() {
+    local benchmark="$1"
+    local bundle_dir
+    bundle_dir=$(resolve_lifecycle_bundle_dir "$benchmark") || return 1
+    uv run python -m benchmarks.helpers.run_state stop --bundle-dir "$bundle_dir"
+}
+
+# Filter lifecycle flags out of an arg array for background re-exec.
+_filter_lifecycle_args() {
+    local -a filtered=()
+    local skip_next=false
+    local arg
+    for arg in "$@"; do
+        if [[ "$skip_next" == "true" ]]; then
+            skip_next=false
+            continue
+        fi
+        case "$arg" in
+            --background|--stop|--restart|--status)
+                ;;
+            --experiment|--resume-experiment)
+                skip_next=true
+                ;;
+            --resume)
+                ;;
+            *)
+                filtered+=("$arg")
+                ;;
+        esac
+    done
+    printf '%s\0' "${filtered[@]}"
+}
+
+launch_background_eval() {
+    local benchmark="$1"
+    local script_path="$2"
+    shift 2
+
+    if ! prepare_experiment_workspace "$benchmark"; then
+        echo -e "${RED:-}Error: --background requires --experiment, --resume, or --resume-experiment${NC:-}" >&2
+        return 1
+    fi
+
+    local log_file="${WORKSPACE_BUNDLE_DIR}/background.log"
+    local -a child_flags=()
+    if [[ -n "${RESUME_EXPERIMENT:-}" ]]; then
+        child_flags+=(--resume-experiment "$RESUME_EXPERIMENT")
+    elif [[ -n "${EXPERIMENT:-}" ]]; then
+        child_flags+=(--resume-experiment "$EXPERIMENT")
+    elif [[ "${RESUME:-false}" == "true" ]]; then
+        child_flags+=(--resume)
+    fi
+
+    local -a filtered=()
+    while IFS= read -r -d '' arg; do
+        filtered+=("$arg")
+    done < <(_filter_lifecycle_args "$@")
+
+    nohup bash "$script_path" "${child_flags[@]}" "${filtered[@]}" >>"$log_file" 2>&1 &
+    local bg_pid=$!
+    disown "$bg_pid" 2>/dev/null || true
+
+    uv run python -m benchmarks.helpers.run_state mark-running \
+        --bundle-dir "$WORKSPACE_BUNDLE_DIR" --pid "$bg_pid" >/dev/null
+
+    echo -e "${GREEN:-}Started in background${NC:-} (pid $bg_pid)"
+    echo -e "${GREEN:-}Log:${NC:-} $log_file"
+    echo -e "${GREEN:-}Bundle:${NC:-} $WORKSPACE_BUNDLE_DIR"
+}
+
+# Short-circuit for --status / --stop / --restart / --background.
+# Returns 0 when the caller should exit immediately.
+handle_eval_lifecycle() {
+    local benchmark="$1"
+    local script_path="$2"
+    shift 2
+
+    if [[ "${STATUS:-false}" == "true" ]]; then
+        dispatch_run_status "$benchmark"
+        return 0
+    fi
+
+    if [[ "${STOP:-false}" == "true" ]]; then
+        dispatch_run_stop "$benchmark"
+        return 0
+    fi
+
+    if [[ "${RESTART:-false}" == "true" ]]; then
+        # Validate the resume target BEFORE stopping anything — a bare
+        # --restart with no --experiment/--resume/--resume-experiment must
+        # fail without touching a currently-running process.
+        if [[ -z "${RESUME_EXPERIMENT:-}" && -n "${EXPERIMENT:-}" ]]; then
+            RESUME_EXPERIMENT="$EXPERIMENT"
+            EXPERIMENT=""
+        fi
+        if [[ -z "${RESUME_EXPERIMENT:-}" && "${RESUME:-false}" != "true" ]]; then
+            echo -e "${RED:-}Error: --restart requires --experiment, --resume, or --resume-experiment${NC:-}" >&2
+            exit 1
+        fi
+        dispatch_run_stop "$benchmark" || true
+        RESUME=true
+        EXPERIMENT=""
+        BACKGROUND=true
+    fi
+
+    if [[ "${BACKGROUND:-false}" == "true" ]]; then
+        launch_background_eval "$benchmark" "$script_path" "$@"
+        return 0
+    fi
+
+    return 1
+}
+
+mark_run_state_started() {
+    [[ -n "${WORKSPACE_BUNDLE_DIR:-}" ]] || return 0
+    [[ "${BACKGROUND:-false}" == "true" ]] && return 0
+    uv run python -m benchmarks.helpers.run_state mark-running \
+        --bundle-dir "$WORKSPACE_BUNDLE_DIR" --pid $$ >/dev/null
+}
+
+finalize_run_state_on_exit() {
+    local exit_code="${1:-$?}"
+    [[ -n "${WORKSPACE_BUNDLE_DIR:-}" ]] || return 0
+    uv run python -m benchmarks.helpers.run_state mark-finished \
+        --bundle-dir "$WORKSPACE_BUNDLE_DIR" \
+        --exit-code "$exit_code" >/dev/null 2>&1 || true
+}
+
+# Create or re-open a compare experiment workspace (compare.sh).
+prepare_compare_experiment_workspace() {
+    local benchmark="$1"
+    WORKSPACE_BUNDLE_DIR=""
+    if ! experiment_workspace_requested; then
+        return 1
+    fi
+    if [[ "${NO_BUNDLE:-false}" == "true" ]]; then
+        if [[ -n "${EXPERIMENT:-}" || "${RESUME:-false}" == "true" || -n "${RESUME_EXPERIMENT:-}" ]]; then
+            echo -e "${YELLOW:-}Warning: --no-bundle skips compare workspace creation — --experiment/--resume/--resume-experiment are ignored, running a fresh legacy (non-resumed) comparison${NC:-}" >&2
+        fi
+        return 1
+    fi
+
+    local prep_args=(prepare-workspace --benchmark "$benchmark" --compare)
+    [[ -n "${EXPERIMENT:-}" ]] && prep_args+=(--experiment "$EXPERIMENT")
+    [[ "${RESUME:-false}" == "true" ]] && prep_args+=(--resume)
+    [[ -n "${RESUME_EXPERIMENT:-}" ]] && prep_args+=(--resume-experiment "$RESUME_EXPERIMENT")
+    [[ -n "${MODEL_PROFILE:-}" ]] && prep_args+=(--model-profile "$MODEL_PROFILE")
+
+    WORKSPACE_BUNDLE_DIR=$(uv run python -m benchmarks.helpers.experiment "${prep_args[@]}")
+    echo -e "${GREEN:-}Compare workspace:${NC:-} $WORKSPACE_BUNDLE_DIR"
+    return 0
+}
+
+dispatch_compare_status() {
+    local benchmark="$1"
+    local bundle_dir
+    bundle_dir=$(resolve_lifecycle_bundle_dir "$benchmark") || return 1
+    uv run python -m benchmarks.helpers.compare_state status --compare-dir "$bundle_dir"
+}
+
+resolve_compare_experiment_name() {
+    if [[ -n "${EXPERIMENT:-}" ]]; then
+        echo "$EXPERIMENT"
+    elif [[ -n "${RESUME_EXPERIMENT:-}" ]]; then
+        echo "$RESUME_EXPERIMENT"
+    elif [[ -n "${WORKSPACE_BUNDLE_DIR:-}" ]]; then
+        basename "$WORKSPACE_BUNDLE_DIR"
+    else
+        echo ""
+    fi
+}
+
+init_compare_state_for_run() {
+    local compare_exp="$1"
+    local total_planned="$2"
+    local runs_per_config="$3"
+    shift 3
+    [[ -n "${WORKSPACE_BUNDLE_DIR:-}" ]] || return 0
+    local init_args=(
+        init
+        --compare-dir "$WORKSPACE_BUNDLE_DIR"
+        --compare-experiment "$compare_exp"
+        --total-planned "$total_planned"
+        --runs-per-config "$runs_per_config"
+    )
+    local config
+    for config in "$@"; do
+        init_args+=(--config "$config")
+    done
+    uv run python -m benchmarks.helpers.compare_state "${init_args[@]}" >/dev/null
+}
+
+compare_combo_is_done() {
+    local config="$1"
+    local run="$2"
+    [[ -n "${WORKSPACE_BUNDLE_DIR:-}" ]] || return 1
+    uv run python -m benchmarks.helpers.compare_state is-done \
+        --compare-dir "$WORKSPACE_BUNDLE_DIR" \
+        --config "$config" --run "$run" >/dev/null 2>&1
+}
+
+compare_combo_eval_flags() {
+    local compare_exp="$1"
+    local config="$2"
+    local run="$3"
+    [[ -n "${WORKSPACE_BUNDLE_DIR:-}" ]] || return 0
+    uv run python -m benchmarks.helpers.compare_state eval-flags \
+        --compare-dir "${WORKSPACE_BUNDLE_DIR:-}" \
+        --compare-experiment "$compare_exp" \
+        --config "$config" --run "$run"
+}
+
+compare_mark_combo_started() {
+    local config="$1"
+    local run="$2"
+    local sub_exp="$3"
+    [[ -n "${WORKSPACE_BUNDLE_DIR:-}" ]] || return 0
+    uv run python -m benchmarks.helpers.compare_state mark-started \
+        --compare-dir "$WORKSPACE_BUNDLE_DIR" \
+        --config "$config" --run "$run" \
+        --sub-experiment "$sub_exp" >/dev/null
+}
+
+compare_mark_combo_completed() {
+    local config="$1"
+    local run="$2"
+    local exit_code="$3"
+    [[ -n "${WORKSPACE_BUNDLE_DIR:-}" ]] || return 0
+    uv run python -m benchmarks.helpers.compare_state mark-completed \
+        --compare-dir "$WORKSPACE_BUNDLE_DIR" \
+        --config "$config" --run "$run" \
+        --exit-code "$exit_code" >/dev/null
+}
+
+# Parse --background / --stop / --restart / --status in a benchmark eval.sh loop.
+parse_eval_lifecycle_flag() {
+    case "$1" in
+        --background)
+            BACKGROUND=true
+            return 0
+            ;;
+        --stop)
+            STOP=true
+            return 0
+            ;;
+        --restart)
+            RESTART=true
+            return 0
+            ;;
+        --status)
+            STATUS=true
+            return 0
+            ;;
+    esac
+    return 1
 }
 
 # Check and normalize Langfuse environment variables.

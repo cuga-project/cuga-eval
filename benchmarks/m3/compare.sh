@@ -126,6 +126,22 @@ while [[ $idx -lt ${#ARGS[@]} ]]; do
             DRY_RUN=true
             idx=$((idx+1))
             ;;
+        --experiment)
+            EXPERIMENT="${ARGS[$((idx+1))]}"
+            idx=$((idx+2))
+            ;;
+        --resume)
+            RESUME=true
+            idx=$((idx+1))
+            ;;
+        --resume-experiment)
+            RESUME_EXPERIMENT="${ARGS[$((idx+1))]}"
+            idx=$((idx+2))
+            ;;
+        --status)
+            STATUS=true
+            idx=$((idx+1))
+            ;;
         *)
             FORWARDED_ARGS+=("${ARGS[$idx]}")
             idx=$((idx+1))
@@ -181,6 +197,11 @@ elif [[ "$GLOBAL_NO_POLICIES" == "true" ]]; then
 fi
 echo ""
 
+if [[ "${STATUS:-false}" == "true" ]]; then
+    dispatch_compare_status "m3"
+    exit 0
+fi
+
 if [[ "$DRY_RUN" == "true" ]]; then
     echo -e "${YELLOW:-}DRY RUN — showing planned commands:${NC:-}"
     for config in "${CONFIGS[@]}"; do
@@ -212,6 +233,12 @@ runs_done=0
 runs_elapsed_total=0
 compare_t0=$(date +%s)
 
+COMPARE_EXPERIMENT=""
+if prepare_compare_experiment_workspace "m3"; then
+    COMPARE_EXPERIMENT=$(resolve_compare_experiment_name)
+    init_compare_state_for_run "$COMPARE_EXPERIMENT" "$TOTAL_PLANNED" "$RUNS" "${CONFIGS[@]}"
+fi
+
 BUNDLE_DONE=false
 
 # Best-effort comparison bundle. Defined as a function so it can be called
@@ -228,37 +255,48 @@ create_compare_bundle() {
     echo ""
     echo -e "${YELLOW:-}Creating comparison bundle...${NC:-}"
 
-    # Build JSON input: {"model:agent": ["file1.json", ...]}
-    local JSON_PARTS=()
-    local ci config files file_list pfirst f
-    for ci in "${!CONFIG_RESULT_KEYS[@]}"; do
-        config="${CONFIG_RESULT_KEYS[$ci]}"
-        files="${CONFIG_RESULT_VALS[$ci]}"
-        if [[ -z "$files" ]]; then
-            continue
-        fi
-        file_list=""
-        pfirst=true
-        for f in $files; do
-            if [[ "$pfirst" != "true" ]]; then
-                file_list+=","
+    local JSON_INPUT
+    if [[ -n "${WORKSPACE_BUNDLE_DIR:-}" ]]; then
+        # Workspace mode: each combo writes into its own sub-experiment bundle
+        # (a sibling of WORKSPACE_BUNDLE_DIR), not into this benchmark's flat
+        # results/ scratch dir — the before/after diff below would see nothing
+        # for ANY combo, executed or resumed-and-skipped. Source directly from
+        # compare_state.json's recorded sub-bundles instead.
+        JSON_INPUT=$(cd "$PROJECT_ROOT" && uv run --no-sync python -m benchmarks.helpers.compare_state \
+            bundle-inputs --compare-dir "$WORKSPACE_BUNDLE_DIR" --field config-results)
+    else
+        # Build JSON input: {"model:agent": ["file1.json", ...]}
+        local JSON_PARTS=()
+        local ci config files file_list pfirst f
+        for ci in "${!CONFIG_RESULT_KEYS[@]}"; do
+            config="${CONFIG_RESULT_KEYS[$ci]}"
+            files="${CONFIG_RESULT_VALS[$ci]}"
+            if [[ -z "$files" ]]; then
+                continue
             fi
-            pfirst=false
-            file_list+="\"${f}\""
+            file_list=""
+            pfirst=true
+            for f in $files; do
+                if [[ "$pfirst" != "true" ]]; then
+                    file_list+=","
+                fi
+                pfirst=false
+                file_list+="\"${f}\""
+            done
+            JSON_PARTS+=("\"${config}\":[${file_list}]")
         done
-        JSON_PARTS+=("\"${config}\":[${file_list}]")
-    done
 
-    local JSON_INPUT="{"
-    local jfirst=true part
-    for part in "${JSON_PARTS[@]}"; do
-        if [[ "$jfirst" != "true" ]]; then
-            JSON_INPUT+=","
-        fi
-        jfirst=false
-        JSON_INPUT+="$part"
-    done
-    JSON_INPUT+="}"
+        JSON_INPUT="{"
+        local jfirst=true part
+        for part in "${JSON_PARTS[@]}"; do
+            if [[ "$jfirst" != "true" ]]; then
+                JSON_INPUT+=","
+            fi
+            jfirst=false
+            JSON_INPUT+="$part"
+        done
+        JSON_INPUT+="}"
+    fi
 
     if [[ "$JSON_INPUT" == "{}" ]]; then
         echo -e "${YELLOW:-}No completed runs to bundle — skipping.${NC:-}"
@@ -279,54 +317,60 @@ create_compare_bundle() {
         MODEL_ENVS_JSON=$(build_model_envs_json "${MODEL_LIST[@]}")
     fi
 
-    # Build per-config trajectory dirs JSON grouped by run:
-    # {"model:agent:policy": [["/run1/domA", ...], ["/run2/domA", ...]]}
-    # CONFIG_TRAJ_VALS holds sentinel-delimited groups (one per eval run).
-    local TRAJ_JSON_PARTS=()
-    local tconfig tgroups groups_json cur_group in_group line
-    for ci in "${!CONFIG_TRAJ_KEYS[@]}"; do
-        tconfig="${CONFIG_TRAJ_KEYS[$ci]}"
-        tgroups="${CONFIG_TRAJ_VALS[$ci]}"
-        if [[ -z "$tgroups" ]]; then
-            continue
-        fi
-        groups_json=""
-        cur_group=""
-        in_group=false
-        while IFS= read -r line; do
-            if [[ "$line" == "$TRAJ_GROUP_SEP" ]]; then
-                if [[ "$in_group" == "true" ]]; then
-                    if [[ -n "$groups_json" ]]; then groups_json+=","; fi
-                    groups_json+="[${cur_group}]"
-                fi
-                cur_group=""
-                in_group=true
+    local TRAJ_JSON_INPUT
+    if [[ -n "${WORKSPACE_BUNDLE_DIR:-}" ]]; then
+        TRAJ_JSON_INPUT=$(cd "$PROJECT_ROOT" && uv run --no-sync python -m benchmarks.helpers.compare_state \
+            bundle-inputs --compare-dir "$WORKSPACE_BUNDLE_DIR" --field trajectory-dirs)
+    else
+        # Build per-config trajectory dirs JSON grouped by run:
+        # {"model:agent:policy": [["/run1/domA", ...], ["/run2/domA", ...]]}
+        # CONFIG_TRAJ_VALS holds sentinel-delimited groups (one per eval run).
+        local TRAJ_JSON_PARTS=()
+        local tconfig tgroups groups_json cur_group in_group line
+        for ci in "${!CONFIG_TRAJ_KEYS[@]}"; do
+            tconfig="${CONFIG_TRAJ_KEYS[$ci]}"
+            tgroups="${CONFIG_TRAJ_VALS[$ci]}"
+            if [[ -z "$tgroups" ]]; then
                 continue
             fi
-            [[ -z "$line" ]] && continue
-            if [[ -n "$cur_group" ]]; then cur_group+=","; fi
-            cur_group+="\"${line}\""
-        done <<< "$tgroups"
-        if [[ "$in_group" == "true" ]]; then
-            if [[ -n "$groups_json" ]]; then groups_json+=","; fi
-            groups_json+="[${cur_group}]"
-        fi
-        if [[ -z "$groups_json" ]]; then
-            continue
-        fi
-        TRAJ_JSON_PARTS+=("\"${tconfig}\":[${groups_json}]")
-    done
+            groups_json=""
+            cur_group=""
+            in_group=false
+            while IFS= read -r line; do
+                if [[ "$line" == "$TRAJ_GROUP_SEP" ]]; then
+                    if [[ "$in_group" == "true" ]]; then
+                        if [[ -n "$groups_json" ]]; then groups_json+=","; fi
+                        groups_json+="[${cur_group}]"
+                    fi
+                    cur_group=""
+                    in_group=true
+                    continue
+                fi
+                [[ -z "$line" ]] && continue
+                if [[ -n "$cur_group" ]]; then cur_group+=","; fi
+                cur_group+="\"${line}\""
+            done <<< "$tgroups"
+            if [[ "$in_group" == "true" ]]; then
+                if [[ -n "$groups_json" ]]; then groups_json+=","; fi
+                groups_json+="[${cur_group}]"
+            fi
+            if [[ -z "$groups_json" ]]; then
+                continue
+            fi
+            TRAJ_JSON_PARTS+=("\"${tconfig}\":[${groups_json}]")
+        done
 
-    local TRAJ_JSON_INPUT="{"
-    local tjfirst=true
-    for part in "${TRAJ_JSON_PARTS[@]}"; do
-        if [[ "$tjfirst" != "true" ]]; then
-            TRAJ_JSON_INPUT+=","
-        fi
-        tjfirst=false
-        TRAJ_JSON_INPUT+="$part"
-    done
-    TRAJ_JSON_INPUT+="}"
+        TRAJ_JSON_INPUT="{"
+        local tjfirst=true
+        for part in "${TRAJ_JSON_PARTS[@]}"; do
+            if [[ "$tjfirst" != "true" ]]; then
+                TRAJ_JSON_INPUT+=","
+            fi
+            tjfirst=false
+            TRAJ_JSON_INPUT+="$part"
+        done
+        TRAJ_JSON_INPUT+="}"
+    fi
 
     # Determine task file, and pick up --eval-key (forwarded to each eval.sh
     # run already; captured here too so the compare bundle records it).
@@ -360,51 +404,57 @@ create_compare_bundle() {
     if [[ "$TRAJ_JSON_INPUT" != "{}" ]]; then
         BUNDLE_CMD+=(--trajectory-dirs "$TRAJ_JSON_INPUT")
     fi
-    # Build per-config log JSON grouped by run (one console+registry log set
-    # per eval run) so each run folder gets its OWN logs:
-    # {"model:agent:policy": [["/run1/console.log", ...], ["/run2/...", ...]]}
-    local LOG_JSON_PARTS=()
-    local lconfig lgroups lgroups_json lcur_group lin_group
-    for ci in "${!CONFIG_LOG_KEYS[@]}"; do
-        lconfig="${CONFIG_LOG_KEYS[$ci]}"
-        lgroups="${CONFIG_LOG_VALS[$ci]}"
-        if [[ -z "$lgroups" ]]; then
-            continue
-        fi
-        lgroups_json=""
-        lcur_group=""
-        lin_group=false
-        while IFS= read -r line; do
-            if [[ "$line" == "$LOG_GROUP_SEP" ]]; then
-                if [[ "$lin_group" == "true" ]]; then
-                    if [[ -n "$lgroups_json" ]]; then lgroups_json+=","; fi
-                    lgroups_json+="[${lcur_group}]"
-                fi
-                lcur_group=""
-                lin_group=true
+    local LOG_JSON
+    if [[ -n "${WORKSPACE_BUNDLE_DIR:-}" ]]; then
+        LOG_JSON=$(cd "$PROJECT_ROOT" && uv run --no-sync python -m benchmarks.helpers.compare_state \
+            bundle-inputs --compare-dir "$WORKSPACE_BUNDLE_DIR" --field log-files)
+    else
+        # Build per-config log JSON grouped by run (one console+registry log set
+        # per eval run) so each run folder gets its OWN logs:
+        # {"model:agent:policy": [["/run1/console.log", ...], ["/run2/...", ...]]}
+        local LOG_JSON_PARTS=()
+        local lconfig lgroups lgroups_json lcur_group lin_group
+        for ci in "${!CONFIG_LOG_KEYS[@]}"; do
+            lconfig="${CONFIG_LOG_KEYS[$ci]}"
+            lgroups="${CONFIG_LOG_VALS[$ci]}"
+            if [[ -z "$lgroups" ]]; then
                 continue
             fi
-            [[ -z "$line" ]] && continue
-            if [[ -n "$lcur_group" ]]; then lcur_group+=","; fi
-            lcur_group+="\"${line}\""
-        done <<< "$lgroups"
-        if [[ "$lin_group" == "true" ]]; then
-            if [[ -n "$lgroups_json" ]]; then lgroups_json+=","; fi
-            lgroups_json+="[${lcur_group}]"
-        fi
-        if [[ -z "$lgroups_json" ]]; then
-            continue
-        fi
-        LOG_JSON_PARTS+=("\"${lconfig}\":[${lgroups_json}]")
-    done
-    local LOG_JSON="{"
-    local ljfirst=true
-    for part in "${LOG_JSON_PARTS[@]}"; do
-        if [[ "$ljfirst" != "true" ]]; then LOG_JSON+=","; fi
-        ljfirst=false
-        LOG_JSON+="$part"
-    done
-    LOG_JSON+="}"
+            lgroups_json=""
+            lcur_group=""
+            lin_group=false
+            while IFS= read -r line; do
+                if [[ "$line" == "$LOG_GROUP_SEP" ]]; then
+                    if [[ "$lin_group" == "true" ]]; then
+                        if [[ -n "$lgroups_json" ]]; then lgroups_json+=","; fi
+                        lgroups_json+="[${lcur_group}]"
+                    fi
+                    lcur_group=""
+                    lin_group=true
+                    continue
+                fi
+                [[ -z "$line" ]] && continue
+                if [[ -n "$lcur_group" ]]; then lcur_group+=","; fi
+                lcur_group+="\"${line}\""
+            done <<< "$lgroups"
+            if [[ "$lin_group" == "true" ]]; then
+                if [[ -n "$lgroups_json" ]]; then lgroups_json+=","; fi
+                lgroups_json+="[${lcur_group}]"
+            fi
+            if [[ -z "$lgroups_json" ]]; then
+                continue
+            fi
+            LOG_JSON_PARTS+=("\"${lconfig}\":[${lgroups_json}]")
+        done
+        LOG_JSON="{"
+        local ljfirst=true
+        for part in "${LOG_JSON_PARTS[@]}"; do
+            if [[ "$ljfirst" != "true" ]]; then LOG_JSON+=","; fi
+            ljfirst=false
+            LOG_JSON+="$part"
+        done
+        LOG_JSON+="}"
+    fi
     if [[ "$LOG_JSON" != "{}" ]]; then
         BUNDLE_CMD+=(--log-files "$LOG_JSON")
     fi
@@ -412,6 +462,11 @@ create_compare_bundle() {
     BUNDLE_CMD+=(--fetch-langfuse)
     if [[ "${BUNDLE_ZIP:-false}" == "true" ]]; then
         BUNDLE_CMD+=(--zip)
+    fi
+    if [[ -n "${WORKSPACE_BUNDLE_DIR:-}" ]]; then
+        # Finalize in place into the already-existing named compare bundle
+        # instead of creating a second, separate timestamped directory.
+        BUNDLE_CMD+=(--bundle-dir "$WORKSPACE_BUNDLE_DIR")
     fi
 
     # Bundle CLI needs project root on PYTHONPATH
@@ -512,20 +567,42 @@ for config in "${CONFIGS[@]}"; do
     TRAJ_GROUP_SEP="@@RUN@@"
 
     for ((r=1; r<=RUNS; r++)); do
+        if [[ -n "${WORKSPACE_BUNDLE_DIR:-}" ]] && compare_combo_is_done "$config" "$r"; then
+            echo -e "${YELLOW:-}Skipping completed combo ${config} run ${r}/${RUNS}${NC:-}"
+            runs_done=$(( runs_done + 1 ))
+            total_runs=$((total_runs+1))
+            continue
+        fi
+
         total_runs=$((total_runs+1))
         echo -e "${CYAN:-}[${config}]${NC:-} Run ${GREEN:-}${r}/${RUNS}${NC:-} (overall ${total_runs}/${TOTAL_PLANNED})"
         if (( runs_done > 0 )); then
             echo -e "  ${YELLOW:-}$(fmt_eta $runs_elapsed_total $runs_done $(( TOTAL_PLANNED - runs_done )))${NC:-}"
         fi
 
+        combo_eval_args=()
+        if [[ -n "${COMPARE_EXPERIMENT:-}" ]]; then
+            read -r -a combo_eval_args <<< "$(compare_combo_eval_flags "$COMPARE_EXPERIMENT" "$config" "$r")"
+            sub_exp=$(uv run python -m benchmarks.helpers.compare_state sub-name \
+                --compare-experiment "$COMPARE_EXPERIMENT" --config "$config" --run "$r")
+            compare_mark_combo_started "$config" "$r" "$sub_exp"
+        fi
+
         run_t0=$(date +%s)
-        if bash "$SCRIPT_DIR/eval.sh" --agent "$agent" --no-bundle "${config_extra_args[@]}" "${FORWARDED_ARGS[@]}"; then
+        run_exit=0
+        eval_extra=(--no-bundle)
+        [[ -n "${COMPARE_EXPERIMENT:-}" ]] && eval_extra=()
+        if bash "$SCRIPT_DIR/eval.sh" --agent "$agent" "${eval_extra[@]}" "${config_extra_args[@]}" "${combo_eval_args[@]}" "${FORWARDED_ARGS[@]}"; then
             run_dur=$(( $(date +%s) - run_t0 ))
             echo -e "${GREEN:-}✓${NC:-} Run $r complete in $(fmt_duration $run_dur)"
         else
+            run_exit=$?
             run_dur=$(( $(date +%s) - run_t0 ))
             echo -e "${RED:-}✗ Run $r failed after $(fmt_duration $run_dur)${NC:-}"
             failed=$((failed+1))
+        fi
+        if [[ -n "${WORKSPACE_BUNDLE_DIR:-}" ]]; then
+            compare_mark_combo_completed "$config" "$r" "$run_exit"
         fi
         runs_done=$(( runs_done + 1 ))
         runs_elapsed_total=$(( runs_elapsed_total + run_dur ))
