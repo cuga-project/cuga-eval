@@ -84,13 +84,65 @@ The `eval.sh` and `compare.sh` scripts handle the full server lifecycle (start, 
 
 ### Agent Options
 
-AppWorld supports three agent backends via `--agent`:
+AppWorld supports multiple agent backends via `--agent`:
 
-- **`cuga`** (default) — `CugaAgent` from `cuga.sdk` with the full policy system and MCP tool loading
-- **`react`** — pre-PR-31 baseline: `appworld_eval_react.py` with a short embedded prompt that instructs the model to *"Write small chunks of code and validate each step"*. Behaves in a ReAct-flavored way: each step is typically a tiny Python block with a single API call, and the model defers branching/looping decisions to the next LLM turn after observing the result.
-- **`codeact`** — `appworld_eval_codeact.py` with the `instructions.txt` few-shot prompt that demonstrates richer code blocks (`for` loops, conditionals, multiple API calls + computation per step). Encourages true CodeAct: workflow logic is encoded **inside** the generated code rather than spread across LLM turns.
+- **`cuga`** (default) — `CugaAgent` SDK path (`eval_appworld_sdk.py`) with `CombinedToolProvider` MCP tools
+- **`deepagents`** — [LangChain Deep Agents](https://docs.langchain.com/oss/python/deepagents/overview) with the same registry LangChain tools
+- **`openclaw`** — OpenClaw agent with LangChain tool bridge
+- **`hermes`** — Hermes client with ReAct tool loop over registry tools
+- **`react`** — pre-PR-31 baseline: `appworld_eval_react.py` (Python REPL via `world.execute()`)
+- **`codeact`** — `appworld_eval_codeact.py` with richer in-code workflow logic
 
-Both share the same harness (Python REPL via `world.execute()` with variables persisting across steps), so the mechanism is identical. The ReAct vs CodeAct distinction here is about **where decisions live**: with the `react` prompt the model makes decisions between turns (ReAct-flavored), with the `codeact` prompt the model embeds branching, iteration, and error handling directly in code (true CodeAct). `--agent codeact` also adds engineering improvements over the baseline: stop sequences on the closing code fence, a larger trim budget, and pre-authentication of all task apps. `--agent codeact` is only supported by AppWorld; other benchmarks reject it with a clear error.
+External agents (`deepagents`, `openclaw`, `hermes`) share the same AppWorld system prompt and MCP tool set as the CUGA SDK path for fair comparison.
+
+### External Agent Dependencies
+
+Install optional agent SDKs alongside AppWorld:
+
+```bash
+uv sync --group appworld --group appworld-agents
+# Or install individually:
+uv sync --group appworld --group deepagents
+uv sync --group appworld --group openclaw
+```
+
+Hermes (`pip install hermes`) conflicts with CUGA's `litellm` dependency (`jsonschema` version mismatch). The Hermes adapter falls back to the eval LLM (same as CUGA) when the native client is unavailable — install Hermes only if you need the native client in an isolated environment.
+
+### Smoke test (no CUGA, no AppWorld servers)
+
+Verify external agents can reach your LLM before running full AppWorld evals:
+
+```bash
+# 1. Copy Azure/LiteLLM settings into repo-root .env:
+#    AGENT_SETTING_CONFIG=settings.openai.toml
+#    OPENAI_API_KEY=...
+#    OPENAI_BASE_URL=https://ete-litellm.bx.cloud9.ibm.com
+#    MODEL_NAME=Azure/gpt-5.2-chat-2025-12-11
+
+# 2. Install Deep Agents SDK (optional groups for openclaw)
+uv sync --group deepagents
+
+# 3. Run smoke test (uses eval LLM for all three; no registry/AppWorld)
+./benchmarks/appworld/smoke_external.sh
+
+# Single agent
+./benchmarks/appworld/smoke_external.sh --agents deepagents
+
+# Try native OpenClaw/Hermes SDKs instead of eval LLM
+./benchmarks/appworld/smoke_external.sh --native-sdk
+```
+
+Pass criteria: direct LLM check returns `OK`, each agent calls the `ping` tool and answers `Final Answer: success`.
+
+Required API keys (set in `.env` at repo root):
+
+| Agent | Environment variables |
+|---|---|
+| CUGA / Deep Agents / Hermes (via eval LLM) | `OPENAI_API_KEY` or `GROQ_API_KEY` (per `AGENT_SETTING_CONFIG`) |
+| OpenClaw | `OPENCLAW_API_KEY` |
+| Hermes (native client) | Hermes provider key from `hermes setup` |
+
+Both share the same harness (Python REPL via `world.execute()` with variables persisting across steps) for `react`/`codeact`, so the mechanism is identical. The ReAct vs CodeAct distinction here is about **where decisions live**: with the `react` prompt the model makes decisions between turns (ReAct-flavored), with the `codeact` prompt the model embeds branching, iteration, and error handling directly in code (true CodeAct). `--agent codeact` also adds engineering improvements over the baseline: stop sequences on the closing code fence, a larger trim budget, and pre-authentication of all task apps. `--agent codeact` is only supported by AppWorld; other benchmarks reject it with a clear error.
 
 ### Single Evaluation Run
 
@@ -107,6 +159,13 @@ Both share the same harness (Python REPL via `world.execute()` with variables pe
 # Run with ReAct agent (pre-PR-31 baseline with short embedded prompt)
 ./benchmarks/appworld/eval.sh --sdk --agent react --eval-key test_challenge_easy
 
+# Run with Deep Agents (registry LangChain tools)
+./benchmarks/appworld/eval.sh --agent deepagents --eval-key test_challenge_easy
+
+# Run with OpenClaw or Hermes
+./benchmarks/appworld/eval.sh --agent openclaw --eval-key test_challenge_easy
+./benchmarks/appworld/eval.sh --agent hermes --eval-key test_challenge_easy
+
 # Run with a specific model profile
 ./benchmarks/appworld/eval.sh --sdk --model-profile gpt4.1 --eval-key test_challenge_easy
 
@@ -116,6 +175,25 @@ Both share the same harness (Python REPL via `world.execute()` with variables pe
 # Skip evaluation bundle creation
 ./benchmarks/appworld/eval.sh --sdk --eval-key test_challenge_easy --no-bundle
 ```
+
+### Live status dashboard
+
+Track progress while external-agent or compare runs are in flight. In a **second terminal**:
+
+```bash
+./scripts/eval_status.sh
+# or: ./scripts/eval.sh status
+```
+
+This opens a browser dashboard at `http://127.0.0.1:8765/status.html` that auto-refreshes every 2s. It reads `benchmarks/appworld/experiments/.eval_status.json`, updated after each task completes.
+
+```bash
+./scripts/eval_status.sh print      # one-shot terminal summary
+./scripts/eval_status.sh --no-open    # serve without opening browser
+uv run eval-status path               # print status file location
+```
+
+Disable status writes with `EVAL_STATUS=0`.
 
 ### Comparison Runs (`compare.sh`)
 
@@ -128,8 +206,11 @@ Runs `eval.sh` multiple times and collects results into an evaluation bundle.
 # Compare two models, 3 runs each
 ./benchmarks/appworld/compare.sh --sdk --eval-key test_challenge_easy --models gpt-oss,gpt4.1 --runs 3
 
-# Compare CUGA agent vs ReAct agent
-./benchmarks/appworld/compare.sh --sdk --eval-key test_challenge_easy --compare-agents --runs 3
+# Compare CUGA SDK vs Deep Agents, OpenClaw, and Hermes
+./benchmarks/appworld/compare.sh --eval-key test_challenge_easy --compare-agents --runs 1
+
+# Compare specific agents explicitly
+./benchmarks/appworld/compare.sh --eval-key test_challenge_easy --agents cuga,deepagents --runs 3
 
 # Preview commands without executing
 ./benchmarks/appworld/compare.sh --sdk --eval-key test_challenge_easy --models gpt-oss,gpt4.1 --runs 2 --dry-run
@@ -144,8 +225,8 @@ Runs `eval.sh` multiple times and collects results into an evaluation bundle.
 |---|---|---|
 | `--runs N` | Number of runs per model/agent | `--runs 5` |
 | `--models M1,M2` | Comma-separated model profiles to compare | `--models gpt-oss,gpt4.1` |
-| `--agent AGENT` | Agent type for all runs (`cuga`, `react`, or `codeact`) | `--agent codeact` |
-| `--compare-agents` | Run both `cuga` and `react` agents and compare (for three-way comparison, pass `--agents cuga,react,codeact` explicitly) | `--compare-agents` |
+| `--agent AGENT` | Agent type (`cuga`, `react`, `codeact`, `deepagents`, `openclaw`, `hermes`) | `--agent deepagents` |
+| `--compare-agents` | Run `cuga`, `deepagents`, `openclaw`, and `hermes` and compare (CUGA uses SDK path) | `--compare-agents` |
 | `--dry-run` | Preview commands without executing | `--dry-run` |
 | `--no-bundle` | Skip evaluation bundle creation | `--no-bundle` |
 | `--bundle-zip` | Create a zip archive of the evaluation bundle | `--bundle-zip` |
@@ -159,7 +240,7 @@ All other flags (e.g. `--sdk`, `--eval-key`, `--task`, `--model-profile`) are fo
 | `--task ID` | Run a specific task | `--task 82e2fac_1` |
 | `--eval-key KEY` | Run a predefined task group from `eval_config.toml` | `--eval-key test_challenge_easy` |
 | `--sdk` | Use the SDK evaluator | `--sdk` |
-| `--agent AGENT` | Agent type (`cuga`, `react`, or `codeact`) | `--agent codeact` |
+| `--agent AGENT` | Agent type (`cuga`, `react`, `codeact`, `deepagents`, `openclaw`, `hermes`) | `--agent deepagents` |
 | `--model-profile P` | Apply a model profile (`gpt-oss`, `gpt4o`, `gpt4.1`, `opus4.5`) | `--model-profile gpt4.1` |
 | `--specific-task-levels N` | Filter tasks by difficulty level (1, 2, 3) | `--specific-task-levels 1` |
 | `--no-bundle` | Skip evaluation bundle creation | `--no-bundle` |

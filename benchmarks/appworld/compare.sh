@@ -91,9 +91,9 @@ while [[ $idx -lt ${#ARGS[@]} ]]; do
     esac
 done
 
-# Resolve AGENTS: --compare-agents implies cuga,react; default to singular AGENT.
+# Resolve AGENTS: --compare-agents implies cuga + external agents; default to singular AGENT.
 if [[ "$COMPARE_AGENTS" == "true" && -z "$AGENTS" ]]; then
-    AGENTS="cuga,react"
+    AGENTS="cuga,deepagents,openclaw,hermes"
 fi
 if [[ -z "$AGENTS" ]]; then
     AGENTS="$AGENT"
@@ -131,7 +131,11 @@ if [[ "$DRY_RUN" == "true" ]]; then
         model="${config%%:*}"
         agent="${config##*:}"
         for ((r=1; r<=RUNS; r++)); do
-            echo "  [${config} run ${r}/${RUNS}] ./eval.sh --agent ${agent} ${FORWARDED_ARGS[*]}"
+            extra=""
+            if [[ "$agent" == "cuga" ]]; then
+                extra="--sdk "
+            fi
+            echo "  [${config} run ${r}/${RUNS}] ./eval.sh ${extra}--agent ${agent} ${FORWARDED_ARGS[*]}"
         done
     done
     exit 0
@@ -149,6 +153,10 @@ TOTAL_PLANNED=$(( ${#CONFIGS[@]} * RUNS ))
 runs_done=0
 runs_elapsed_total=0
 compare_t0=$(date +%s)
+
+CONFIGS_CSV=$(IFS=,; echo "${CONFIGS[*]}")
+(cd "$PROJECT_ROOT" && uv run --no-sync python -m benchmarks.helpers.eval_status compare-start \
+    --configs "$CONFIGS_CSV" --overall-total "$TOTAL_PLANNED") 2>/dev/null || true
 
 compare_cleanup() {
     echo -e "${YELLOW:-}Stopping servers...${NC:-}"
@@ -174,7 +182,7 @@ for config in "${CONFIGS[@]}"; do
     if type apply_model_config &>/dev/null; then
         if ! apply_model_config "$model"; then
             echo -e "${RED:-}Error: Failed to apply model config '$model'${NC:-}"
-            echo -e "${YELLOW:-}Valid profiles: gpt-oss, gpt4o, gpt4.1, opus4.5${NC:-}"
+            echo -e "${YELLOW:-}Valid profiles: gpt-oss, gpt4o, gpt4.1, gpt5, gpt5.2, opus4.5${NC:-}"
             exit 1
         fi
     fi
@@ -192,7 +200,13 @@ for config in "${CONFIGS[@]}"; do
         fi
 
         run_t0=$(date +%s)
-        if bash "$SCRIPT_DIR/eval.sh" --agent "$agent" --no-bundle "${FORWARDED_ARGS[@]}"; then
+        EVAL_ARGS=(--agent "$agent" --no-bundle "${FORWARDED_ARGS[@]}")
+        if [[ "$agent" == "cuga" ]]; then
+            EVAL_ARGS=(--sdk "${EVAL_ARGS[@]}")
+        fi
+        (cd "$PROJECT_ROOT" && uv run --no-sync python -m benchmarks.helpers.eval_status compare-update \
+            --active-config "$config" --run "$r" --runs-per-config "$RUNS" --overall-run "$total_runs") 2>/dev/null || true
+        if bash "$SCRIPT_DIR/eval.sh" "${EVAL_ARGS[@]}"; then
             run_dur=$(( $(date +%s) - run_t0 ))
             echo -e "${GREEN:-}✓${NC:-} Run $r complete in $(fmt_duration $run_dur)"
         else

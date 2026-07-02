@@ -226,6 +226,7 @@ from cuga.sdk import CugaAgent
 from langchain_core.messages import HumanMessage
 
 from .react_agent import GenericReactAgent, setup_react_agent_with_tools
+from .token_usage import TokenUsageCallback, apply_token_metrics, invoke_config_with_token_callback
 
 
 async def _invoke_agent_for_eval(
@@ -855,6 +856,8 @@ async def evaluate_task_with_langfuse(
         tool_calls = []
         _langfuse_metrics = None
         predefined_trace_id = None
+        token_callback = TokenUsageCallback()
+        token_callback.reset()
 
         if should_trace_langfuse_task(langfuse_handler):
             try:
@@ -870,7 +873,10 @@ async def evaluate_task_with_langfuse(
                     f"{_langfuse_trace_root_log_message(agent)}"
                 )
 
-                lf_config = build_langfuse_invoke_config(predefined_trace_id, thread_id)
+                lf_config = invoke_config_with_token_callback(
+                    token_callback,
+                    build_langfuse_invoke_config(predefined_trace_id, thread_id),
+                )
                 invoke_result = await _invoke_agent_for_eval(
                     agent,
                     [HumanMessage(content=intent)],
@@ -936,16 +942,19 @@ async def evaluate_task_with_langfuse(
                     thread_id=thread_id,
                     user_context=user_context or "",
                     track_tool_calls=track_tool_calls,
+                    lf_config=invoke_config_with_token_callback(token_callback),
                 )
                 # Handle both string and object return types
                 response = invoke_result.answer if hasattr(invoke_result, 'answer') else invoke_result
                 keyword_check_result = check_keywords(response, expected_keywords)
         else:
-            invoke_result = await agent.invoke(
+            invoke_result = await _invoke_agent_for_eval(
+                agent,
                 [HumanMessage(content=intent)],
                 thread_id=thread_id,
                 user_context=user_context or "",
                 track_tool_calls=track_tool_calls,
+                lf_config=invoke_config_with_token_callback(token_callback),
             )
             # Handle both string and object return types
             response = invoke_result.answer if hasattr(invoke_result, 'answer') else invoke_result
@@ -1064,15 +1073,7 @@ async def evaluate_task_with_langfuse(
 
         if predefined_trace_id:
             result["trace_id"] = predefined_trace_id
-        if _langfuse_metrics:
-            result["total_tokens"] = _langfuse_metrics.total_tokens
-            result["total_llm_calls"] = _langfuse_metrics.total_llm_calls
-            result["total_cost"] = _langfuse_metrics.total_cost
-            result["full_execution_time"] = _langfuse_metrics.full_execution_time
-            result["total_cache_input_tokens"] = _langfuse_metrics.total_cache_input_tokens
-            result["generation_timings"] = _langfuse_metrics.generation_timings
-            result["llm_call_details"] = _langfuse_metrics.llm_call_details
-            result["node_timings"] = _langfuse_metrics.node_timings
+        apply_token_metrics(result, token_callback, _langfuse_metrics)
 
         # Compute enhanced metrics if metrics_config is provided
         if metrics_config:
@@ -1349,6 +1350,8 @@ async def evaluate_multiturn_task_with_langfuse(
         _langfuse_metrics = None
         predefined_trace_id = None
         total_react_steps = 0
+        token_callback = TokenUsageCallback()
+        token_callback.reset()
 
         if should_trace_langfuse_task(langfuse_handler):
             try:
@@ -1364,7 +1367,10 @@ async def evaluate_multiturn_task_with_langfuse(
                     f"{_langfuse_trace_root_log_message(agent)}"
                 )
 
-                lf_config = build_langfuse_invoke_config(predefined_trace_id, thread_id)
+                lf_config = invoke_config_with_token_callback(
+                    token_callback,
+                    build_langfuse_invoke_config(predefined_trace_id, thread_id),
+                )
                 for turn_idx, turn in enumerate(turns, 1):
                     query = turn.get("query", "")
                     logger.info(f"\n[Turn {turn_idx}/{num_turns}] Query: {query}")
@@ -1491,6 +1497,7 @@ async def evaluate_multiturn_task_with_langfuse(
                         thread_id=thread_id,
                         user_context=user_context or "",
                         track_tool_calls=track_tool_calls,
+                        lf_config=invoke_config_with_token_callback(token_callback),
                     )
                     total_react_steps = _accumulate_react_steps(total_react_steps, invoke_result)
                     result_state = invoke_result.answer
@@ -1541,11 +1548,13 @@ async def evaluate_multiturn_task_with_langfuse(
                 logger.info(f"\n[Turn {turn_idx}/{num_turns}] Query: {query}")
                 logger.info(f"[Turn {turn_idx}] Using thread_id: {thread_id}")
 
-                invoke_result = await agent.invoke(
+                invoke_result = await _invoke_agent_for_eval(
+                    agent,
                     [HumanMessage(content=query)],
                     thread_id=thread_id,
-                    user_context=user_context,
+                    user_context=user_context or "",
                     track_tool_calls=track_tool_calls,
+                    lf_config=invoke_config_with_token_callback(token_callback),
                 )
                 total_react_steps = _accumulate_react_steps(total_react_steps, invoke_result)
                 result_state = invoke_result.answer
@@ -1623,15 +1632,7 @@ async def evaluate_multiturn_task_with_langfuse(
 
         if predefined_trace_id:
             result["trace_id"] = predefined_trace_id
-        if _langfuse_metrics:
-            result["total_tokens"] = _langfuse_metrics.total_tokens
-            result["total_llm_calls"] = _langfuse_metrics.total_llm_calls
-            result["total_cost"] = _langfuse_metrics.total_cost
-            result["full_execution_time"] = _langfuse_metrics.full_execution_time
-            result["total_cache_input_tokens"] = _langfuse_metrics.total_cache_input_tokens
-            result["generation_timings"] = _langfuse_metrics.generation_timings
-            result["llm_call_details"] = _langfuse_metrics.llm_call_details
-            result["node_timings"] = _langfuse_metrics.node_timings
+        apply_token_metrics(result, token_callback, _langfuse_metrics)
 
         if task_metadata:
             result.update(task_metadata)
@@ -1784,16 +1785,44 @@ def print_evaluation_summary(results: List[Dict[str, Any]]):
         api_count_correct = sum(1 for r in results if r.get("api_count_correct") == 1)
         print(f"API Count Accuracy: {api_count_correct}/{total} ({api_count_correct / total * 100:.1f}%)")
 
+    from benchmarks.helpers.token_usage import format_token_summary, rollup_token_metrics
+
+    has_token_metrics = any(r.get("total_tokens") for r in results)
+    if has_token_metrics:
+        token_rollup = rollup_token_metrics(results)
+        print("\nToken Usage:")
+        print(
+            f"  Input:  {token_rollup['total_input_tokens']:,} "
+            f"(avg {token_rollup['avg_input_tokens_per_task']:,.0f}/task)"
+        )
+        print(
+            f"  Output: {token_rollup['total_output_tokens']:,} "
+            f"(avg {token_rollup['avg_output_tokens_per_task']:,.0f}/task)"
+        )
+        print(
+            f"  Total:  {token_rollup['total_tokens']:,} "
+            f"(avg {token_rollup['avg_tokens_per_task']:,.0f}/task)"
+        )
+        if token_rollup.get("total_cache_input_tokens"):
+            print(
+                f"  Cache:  {token_rollup['total_cache_input_tokens']:,} "
+                f"(avg {token_rollup['avg_cache_input_tokens_per_task']:,.0f}/task)"
+            )
+        print(
+            f"  LLM calls: {token_rollup['total_llm_calls']:,} "
+            f"(avg {token_rollup['avg_llm_calls_per_task']:.1f}/task)"
+        )
+
     print("\n" + "-" * 80)
     print("Results by Difficulty:")
     print("-" * 80)
     for difficulty in sorted(by_difficulty.keys()):
-        results = by_difficulty[difficulty]
-        passed_count = sum(1 for r in results if r["success"])
+        diff_results = by_difficulty[difficulty]
+        passed_count = sum(1 for r in diff_results if r["success"])
         print(f"\n{difficulty.upper()}:")
-        print(f"  Total: {len(results)}")
-        print(f"  Passed: {passed_count} ({passed_count / len(results) * 100:.1f}%)")
-        print(f"  Failed: {len(results) - passed_count}")
+        print(f"  Total: {len(diff_results)}")
+        print(f"  Passed: {passed_count} ({passed_count / len(diff_results) * 100:.1f}%)")
+        print(f"  Failed: {len(diff_results) - passed_count}")
 
     print("\n" + "-" * 80)
     print("Failed Tasks:")
@@ -1836,6 +1865,8 @@ def print_evaluation_summary(results: List[Dict[str, Any]]):
         if result.get('task_final_score') is not None:
             final_str = "✓" if result['task_final_score'] == 1 else "✗"
             metrics_parts.append(f"final={final_str}")
+        if result.get("total_tokens"):
+            metrics_parts.append(format_token_summary(result))
 
         metrics_str = ", ".join(metrics_parts)
         print(f"{status} {task_name:25s} ({difficulty:6s}) - {metrics_str}")
@@ -1919,15 +1950,20 @@ def save_evaluation_results(
     passed = sum(1 for r in results if r.get("success"))
     avg_match_rate = sum(r.get("match_rate", 0) for r in results) / total if total > 0 else 0
 
+    from benchmarks.helpers.token_usage import rollup_token_metrics
+
+    metrics = {
+        "timestamp": timestamp,
+        "total_tasks": total,
+        "passed": passed,
+        "failed": total - passed,
+        "pass_rate": passed / total if total > 0 else 0,
+        "avg_match_rate": avg_match_rate,
+    }
+    metrics.update(rollup_token_metrics(results))
+
     output = {
-        "metrics": {
-            "timestamp": timestamp,
-            "total_tasks": total,
-            "passed": passed,
-            "failed": total - passed,
-            "pass_rate": passed / total if total > 0 else 0,
-            "avg_match_rate": avg_match_rate,
-        },
+        "metrics": metrics,
         "results": serializable_results,
     }
 
