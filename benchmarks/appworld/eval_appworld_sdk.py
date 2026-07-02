@@ -48,6 +48,11 @@ from cuga.backend.cuga_graph.utils.controller import AgentRunner
 from cuga.config import settings
 from cuga.sdk import CugaAgent
 
+from benchmarks.appworld.agents.base import APPWORLD_AGENT_PROMPT
+from benchmarks.appworld.utils.appworld_token_metrics import (
+    apply_token_metrics,
+    invoke_config_with_token_callback,
+)
 from benchmarks.appworld.utils.appworld_utils import (
     evaluation_task_info,
     get_specific_task_levels,
@@ -60,6 +65,7 @@ from benchmarks.helpers import (
     setup_agent_with_tools,
 )
 from benchmarks.helpers.sdk_eval_helpers import _react_steps_from_invoke_result
+from benchmarks.helpers.token_usage import TokenUsageCallback
 
 tracker = ActivityTracker()
 var_manager = VariablesManager()
@@ -139,6 +145,8 @@ async def invoke_and_score_appworld(
     trace_id: Optional[str] = None
     _langfuse_metrics = None
     invoke_result_holder: List[Any] = []
+    token_callback = TokenUsageCallback()
+    token_callback.reset()
 
     async def run_invoke(invoke_config: Optional[dict] = None) -> None:
         nonlocal response, tool_calls, err, is_error, invoked
@@ -193,7 +201,7 @@ async def invoke_and_score_appworld(
             )
 
             lf_config = build_langfuse_invoke_config(predefined_trace_id, thread_id)
-            await run_invoke(lf_config)
+            await run_invoke(invoke_config_with_token_callback(token_callback, lf_config))
             complete_and_eval()
             langfuse_score_on_trace(
                 langfuse,
@@ -223,7 +231,7 @@ async def invoke_and_score_appworld(
 
     if not harness_done:
         if not invoked:
-            await run_invoke()
+            await run_invoke(invoke_config_with_token_callback(token_callback))
         if not harness_done:
             complete_and_eval()
 
@@ -303,16 +311,8 @@ async def invoke_and_score_appworld(
         "appworld_evaluation": eval_dict,
     }
 
-    # Add Langfuse metrics if available
-    if langfuse_handler and _langfuse_metrics:
-        result["total_tokens"] = _langfuse_metrics.total_tokens
-        result["total_llm_calls"] = _langfuse_metrics.total_llm_calls
-        result["total_cost"] = _langfuse_metrics.total_cost
-        result["full_execution_time"] = _langfuse_metrics.full_execution_time
-        result["total_cache_input_tokens"] = _langfuse_metrics.total_cache_input_tokens
-        result["generation_timings"] = _langfuse_metrics.generation_timings
-        result["llm_call_details"] = _langfuse_metrics.llm_call_details
-        result["node_timings"] = _langfuse_metrics.node_timings
+    # Langfuse metrics when available; TokenUsageCallback always fills per-task token fields.
+    apply_token_metrics(result, token_callback, _langfuse_metrics)
 
     agent_steps = None
     if invoke_result_holder:
@@ -350,21 +350,7 @@ class AppWorldSdkEvaluator:
         self.agent: Optional[CugaAgent] = None
         self.langfuse_handler: Optional[Any] = None
         self.results: List[Dict[str, Any]] = []
-        self.special_instructions: Optional[str] = """
-# INSTRUCTIONS
-
-A. General instructions:
-
-- Never invent or guess values. For example, if I ask you to play a song, do not assume the ID is 123. Instead, look it up properly through the right API.
-- Never leave placeholders; don't output things like "your_username". Always fill in the real value by retrieving it via APIs (e.g., Supervisor app for credentials).
-- Always map specific nouns in the user's prompt (e.g., 'friends', 'unread emails', 'recent transactions') to the available parameters or schema fields for each tool (from **Current Available Tools** or from **`find_tools`** output). Never fetch a generalized list if the tool provides a parameter to filter the exact subset the user asked for.
-
-B. App-specific instructions:
-
-- Any reference to my friends, family or any other person or relation refers to the people in my phone's contacts list.
-- Always obtain the current date or time, from Python function calls like `datetime.now()`, or from the phone app's get_current_date_and_time API, never from your internal clock.
-- For temporal requests, use proper time boundaries, e.g., when asked about periods like "yesterday", use complete ranges: 00:00:00 to 23:59:59.
-        """
+        self.special_instructions: Optional[str] = APPWORLD_AGENT_PROMPT
 
     async def setup(self):
         self.agent, self.langfuse_handler = await setup_agent_with_tools(

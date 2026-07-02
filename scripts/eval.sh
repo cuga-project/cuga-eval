@@ -15,6 +15,11 @@ set -e
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 PROJECT_ROOT="$(cd "$SCRIPT_DIR/.." && pwd)"
 
+if [[ "${1:-}" == "status" ]]; then
+    shift
+    exec bash "$SCRIPT_DIR/eval_status.sh" "$@"
+fi
+
 # Source common helpers
 source "$PROJECT_ROOT/benchmarks/helpers/common.sh"
 
@@ -28,8 +33,8 @@ for arg in "${FORWARDED_ARGS[@]}"; do
         echo ""
         echo "Common options:"
         echo "  --benchmark, -b <name>    Benchmark to run (required)"
-        echo "  --agent <name>            Agent to run (cuga, react, codeact; default: cuga)"
-        echo "                            Note: 'codeact' is only supported by the appworld benchmark."
+        echo "  --agent <name>            Agent to run (cuga, react, codeact, deepagents, openclaw, hermes; default: cuga)"
+        echo "                            Note: 'codeact' and external agents are only supported by appworld."
         echo "  --model-profile <name>    Model profile (gpt-oss, gpt4o, gpt4.1, opus4.5)"
         echo "  --dotenv                  Use .env values to override the model profile"
         echo "  --verbose, -v             Enable verbose output"
@@ -60,8 +65,20 @@ if [ ! -d "$BENCHMARK_DIR" ]; then
     exit 1
 fi
 
-if [[ "$AGENT" != "cuga" && "$AGENT" != "react" && "$AGENT" != "codeact" ]]; then
-    echo -e "${RED}Error: Unsupported agent '$AGENT'. Supported agents: cuga, react, codeact${NC}"
+EXTERNAL_AGENTS="deepagents openclaw hermes"
+SUPPORTED_AGENTS="cuga react codeact $EXTERNAL_AGENTS"
+
+is_supported_agent() {
+    for a in $SUPPORTED_AGENTS; do
+        if [[ "$AGENT" == "$a" ]]; then
+            return 0
+        fi
+    done
+    return 1
+}
+
+if ! is_supported_agent; then
+    echo -e "${RED}Error: Unsupported agent '$AGENT'. Supported agents: ${SUPPORTED_AGENTS}${NC}"
     exit 1
 fi
 
@@ -69,6 +86,13 @@ if [[ "$AGENT" == "codeact" && "$BENCHMARK" != "appworld" ]]; then
     echo -e "${RED}Error: --agent codeact is supported only by the appworld benchmark (got '$BENCHMARK').${NC}"
     exit 1
 fi
+
+for ext in $EXTERNAL_AGENTS; do
+    if [[ "$AGENT" == "$ext" && "$BENCHMARK" != "appworld" ]]; then
+        echo -e "${RED}Error: --agent $ext is supported only by the appworld benchmark (got '$BENCHMARK').${NC}"
+        exit 1
+    fi
+done
 
 # Find the benchmark eval script
 BENCHMARK_EVAL=""
