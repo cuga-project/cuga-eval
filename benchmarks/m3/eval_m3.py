@@ -183,16 +183,18 @@ def _trim_selection_enabled() -> bool:
 def _build_m3_special_instructions() -> str:
     """Compose the eval-only system rider. The tool-output (crash-free) section
     is always present; the Change #1 groundedness rider is gated for A/B, and the
-    Change #1b trim rule is a further opt-in sub-rule on top of the rider."""
+    Change #1b trim rule is a further opt-in sub-rule on top of the rider.
+
+    Called fresh at each agent creation (not cached at import time) so that
+    in-process env var changes — a pytest fixture, a subprocess-free A/B
+    toggle, an interactive flip — take effect immediately instead of reading
+    a value baked in when this module was first imported."""
     parts = [M3_TOOL_OUTPUT_INSTRUCTIONS]
     if _groundedness_prompt_enabled():
         parts.append(M3_GROUNDEDNESS_INSTRUCTIONS)
         if _trim_selection_enabled():
             parts.append(M3_GROUNDEDNESS_TRIM_RULE)
     return "\n\n".join(parts)
-
-
-M3_SPECIAL_INSTRUCTIONS = _build_m3_special_instructions()
 
 
 async def _load_m3_policies(agent: CugaAgent, policies_enabled: bool = True) -> None:
@@ -1563,7 +1565,7 @@ async def evaluate_single_task(
 
             evaluator.agent = CugaAgent(
                 tool_provider=filtered_provider,  # Only sees this domain's tools
-                special_instructions=M3_SPECIAL_INSTRUCTIONS,
+                special_instructions=_build_m3_special_instructions(),
                 # Policies are loaded explicitly by _load_m3_policies below per
                 # eval run. Disable .cuga auto-load and filesystem sync to keep
                 # the per-domain agent's policy set deterministic — otherwise
@@ -1735,6 +1737,23 @@ def _kill_port_listeners(port: int) -> None:
         logger.debug(f"Could not enumerate/kill listeners on port {port}: {e}")
 
 
+def _pkill_registry_on_port(port: int) -> None:
+    """SIGKILL uvicorn registry workers bound to `port`, scoped by port.
+
+    Plain ``pkill -f "uvicorn.*api_registry_server"`` has no port filter and
+    kills *every* matching uvicorn on the machine — fine for the current
+    sequential single-eval usage, but it will nuke a sibling job's registry
+    (a parallel eval-key run, a CI shard sharing the host, a dev running
+    something else) the moment two of these overlap. The uvicorn command
+    line always ends in ``--port <port>`` (see the Popen args below), so
+    anchor the pattern there to keep the kill scoped to our own process.
+    """
+    import subprocess
+
+    pattern = f"uvicorn.*api_registry_server.*--port {port}$"
+    subprocess.run(["pkill", "-9", "-f", pattern], capture_output=True)  # noqa: S603,S607 — fixed args, int port, no untrusted input
+
+
 async def _force_free_registry_port(port: int, attempts: int = 12) -> bool:
     """Actively kill every registry listener/process until `port` is verifiably free.
 
@@ -1745,15 +1764,13 @@ async def _force_free_registry_port(port: int, attempts: int = 12) -> bool:
     404). Passive waiting is not enough; we loop kill-then-verify so we never
     proceed while a stray listener still owns the socket.
     """
-    import subprocess
-
     for _ in range(attempts):
         if not _port_in_use(port):
             return True
         _kill_port_listeners(port)
         # Belt-and-suspenders: also nuke by process signature in case lsof misses
         # a uvicorn worker that briefly lost the bind but is still alive.
-        subprocess.run(["pkill", "-9", "-f", "uvicorn.*api_registry_server"], capture_output=True)  # noqa: S603,S607 — fixed args, no untrusted input
+        _pkill_registry_on_port(port)
         await asyncio.sleep(1.0)
     return not _port_in_use(port)
 
@@ -1805,10 +1822,20 @@ async def start_registry_server(
     # Kill any existing registry servers to avoid conflicts
     logger.info("🧹 Cleaning up any existing registry servers...")
     try:
-        # More specific pattern to avoid killing this script
+        # These two legacy launch patterns (uv-run-registry entrypoint, and the
+        # fastapi-cli path it goes through) set their port via env var, not a
+        # CLI arg, so unlike the uvicorn pattern below they can't be scoped by
+        # port here — this is a genuinely machine-wide kill. Log loudly rather
+        # than silently sweeping: a concurrent job's registry landing on either
+        # pattern is disruptive and worth surfacing in the logs.
+        logger.warning(
+            "⚠️  Sweeping ALL 'uv run registry' / 'fastapi.*registry' processes on this "
+            "machine (port-unscoped legacy patterns) — will disrupt any concurrent eval run."
+        )
         subprocess.run(["pkill", "-9", "-f", "uv run registry"], capture_output=True)  # noqa: S607 — relies on PATH for shell tools
         subprocess.run(["pkill", "-9", "-f", "fastapi.*registry"], capture_output=True)  # noqa: S607 — same
-        subprocess.run(["pkill", "-9", "-f", "uvicorn.*api_registry_server"], capture_output=True)  # noqa: S607 — same
+        # More specific pattern to avoid killing this script
+        _pkill_registry_on_port(registry_port)
         await asyncio.sleep(1)  # Give time for processes to die
     except Exception as e:
         logger.debug(f"Error during cleanup (this is OK): {e}")
@@ -1898,17 +1925,37 @@ async def start_registry_server(
 
                     # Identity check: make sure the registry answering on this port
                     # is the one we just started, not a stale survivor from the
-                    # previous domain. We only abort on the unambiguous stale
-                    # signature — a non-empty app list that is *completely
-                    # disjoint* from what we expect (e.g. serving ['mondial_geo']
-                    # while we want professional_basketball). Partial/naming
-                    # overlaps are tolerated so legitimate domain↔app-name
-                    # differences don't trigger false aborts.
+                    # previous domain. Two stale signatures, both aborted:
+                    #   1. Completely disjoint — a non-empty app list sharing
+                    #      nothing with what we expect (e.g. serving
+                    #      ['mondial_geo'] while we want professional_basketball).
+                    #   2. Expected-plus-extra — live_apps contains every app we
+                    #      expect but ALSO apps we didn't ask for (e.g. a
+                    #      survivor from the previous domain lingering alongside
+                    #      the fresh one). Since each registry here is built from
+                    #      a single-service mini yaml (`_write_single_service_yaml`),
+                    #      it should never legitimately serve more apps than that
+                    #      one service declares — extra apps beyond expected_apps
+                    #      mean stale global state (open sockets, per-app caches,
+                    #      the previous run's env) is still resident even though
+                    #      our app also happens to answer.
+                    # Partial/naming overlaps within expected_apps are tolerated
+                    # (case 1 only fires when there's zero overlap) so legitimate
+                    # domain↔app-name differences don't trigger false aborts.
                     if expected_apps and live_apps:
-                        if not (set(expected_apps) & set(live_apps)):
+                        expected_set = set(expected_apps)
+                        live_set = set(live_apps)
+                        disjoint = not (expected_set & live_set)
+                        extra_apps = live_set - expected_set
+                        if disjoint or extra_apps:
+                            reason = (
+                                "completely disjoint from expected"
+                                if disjoint
+                                else f"serves unexpected extra app(s) {sorted(extra_apps)} alongside the expected one(s)"
+                            )
                             logger.error(
                                 f"❌ Registry identity mismatch: expected one of {expected_apps} but "
-                                f"port {registry_port} serves {live_apps}. "
+                                f"port {registry_port} serves {live_apps} ({reason}). "
                                 "A stale registry is squatting the port."
                             )
                             await stop_registry_server(process)
@@ -2286,6 +2333,21 @@ def expand_registry_config(
     logger.info(f"   Expanded services: {len(expanded_services)}")
 
     return temp_path
+
+
+def _domain_entry_name(d: Any) -> str:
+    """Extract a plain string app/domain name from a `domains` metadata entry.
+
+    Entries may be bare strings or dict-backed (``{"name": ...}``) configs.
+    Returns "" for anything that isn't a real string name — in particular an
+    explicit ``{"name": None}`` — rather than ``str(None)`` == "None", which
+    would otherwise survive the empty-string filter and pollute the
+    identity-check's expected-apps set.
+    """
+    if isinstance(d, str):
+        return d
+    name = d.get("name") if isinstance(d, dict) else None
+    return name if isinstance(name, str) else ""
 
 
 def _write_single_service_yaml(service_dict: Dict[str, Any]) -> str:
@@ -2833,8 +2895,7 @@ async def run_config_mode(args, container_runtime: str, defer_save: bool = False
                         # start_registry_server does set(expected_apps) for the
                         # identity check, which would raise on unhashable dicts.
                         # Keep original case so the intersection with live_apps holds.
-                        expected_apps = [d if isinstance(d, str) else str(d.get("name", "")) for d in domains]
-                        expected_apps = [a for a in expected_apps if a]
+                        expected_apps = [a for a in (_domain_entry_name(d) for d in domains) if a]
                         svc_registry = await start_registry_server(mini_yaml, expected_apps=expected_apps)
                         os.environ["MCP_SERVERS_FILE"] = str(Path(mini_yaml).resolve())
 
