@@ -63,6 +63,18 @@ else
   fi
 fi
 
+# Step 1b: relax tau2's litellm upper bound so it can coexist with cuga.
+# tau2 pins `litellm>=1.80.15,<1.82.7`, but cuga requires `litellm>=1.84.0`. Since tau2
+# and cuga run in the SAME process (the in-process bridge), they must share one litellm —
+# cuga's floor wins, so tau2 has to run on >=1.84. The upper bound is conservative; drop it.
+# (This edits the git-ignored clone, so it never leaves this machine.)
+TAU2_PYPROJECT="${TAU2_REPO_DIR}/pyproject.toml"
+if grep -q 'litellm>=1.80.15,<1.82.7' "$TAU2_PYPROJECT" 2>/dev/null; then
+  echo "Relaxing tau2's litellm upper bound (to coexist with cuga's litellm>=1.84)..."
+  # BSD/macOS sed needs the '' after -i; this also works on GNU sed via a temp file fallback.
+  sed -i.bak 's/"litellm>=1.80.15,<1.82.7"/"litellm>=1.80.15"/' "$TAU2_PYPROJECT" && rm -f "${TAU2_PYPROJECT}.bak"
+fi
+
 # Step 2: register tau2 as an editable dep in the `tau2` group.
 # --no-workspace: add tau2 as a plain editable source under [tool.uv.sources],
 #   NOT a uv workspace member, so uv does not resolve tau2's optional extras
