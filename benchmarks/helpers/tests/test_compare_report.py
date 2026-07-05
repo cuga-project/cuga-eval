@@ -27,12 +27,23 @@ import pytest
 
 from benchmarks.helpers.compare_report import (
     _last_turn_judge_scores,
+    _m3_capability_group,
     _parse_sdk_results,
     generate_eval_report,
     generate_report,
 )
 
 pytestmark = pytest.mark.regression
+
+
+def test_m3_capability_group_keys_on_task_id_without_domain():
+    """The capability rollup is capability-only: a task with m3_task_id but no
+    domain must still group under m3_task_<id>, not be dropped."""
+    assert _m3_capability_group({"m3_task_id": 2, "domain": "hockey"}) == "m3_task_2"
+    assert _m3_capability_group({"m3_task_id": 2}) == "m3_task_2"
+    assert _m3_capability_group({"m3_task_id": 2, "domain": ""}) == "m3_task_2"
+    assert _m3_capability_group({"domain": "hockey"}) is None
+    assert _m3_capability_group({}) is None
 
 
 def _appworld_run(
@@ -518,6 +529,39 @@ def test_eval_report_capability_domain_breakdown(tmp_path):
     assert "Capability/Domain Breakdown" in report
     assert "m3_task_2/hockey" in report
     assert "m3_task_3/books" in report
+
+
+def test_eval_report_capability_rollup_above_domain_breakdown(tmp_path):
+    """Single-run M3 eval report gets a coarse per-Capability rollup table
+    placed ABOVE the per-(capability, domain) breakdown, and both render as
+    markdown tables (consistent with the Per-Task Results table)."""
+    run = _m3_run(
+        tmp_path,
+        "eval.json",
+        [
+            {"task_name": "t1", "success": True, "m3_task_id": 2, "domain": "hockey", "task_number": 1},
+            {"task_name": "t2", "success": False, "m3_task_id": 2, "domain": "books", "task_number": 1},
+            {"task_name": "t3", "success": True, "m3_task_id": 3, "domain": "books", "task_number": 1},
+        ],
+    )
+
+    report = generate_eval_report(run)
+
+    # Coarse rollup present, one row per capability (no "/domain").
+    assert "## Capability Breakdown" in report
+    cap_idx = report.index("## Capability Breakdown")
+    capdom_idx = report.index("## Capability/Domain Breakdown")
+    assert cap_idx < capdom_idx  # rollup above the detail table
+
+    # Rollup is a markdown table with a markdown header row.
+    cap_section = report[cap_idx:capdom_idx]
+    assert "| Capability | Tasks | Pass@1 |" in cap_section
+    assert "| m3_task_2 |" in cap_section  # capability-only label, not m3_task_2/hockey
+    assert "| m3_task_3 |" in cap_section
+
+    # Detail table is now markdown too (consistency aside).
+    assert "| Capability/Domain | Tasks | Pass@1 |" in report
+    assert "| m3_task_2/hockey |" in report
 
 
 def test_eval_report_appworld_difficulty_and_test_set_breakdowns(tmp_path):

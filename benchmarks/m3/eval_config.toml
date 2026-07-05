@@ -246,6 +246,240 @@ test = [
 # .strip()/.split()/etc. on it, but the tool actually returns an already-parsed dict
 # (the response shape isn't documented anywhere find_tools surfaces it). Use to fix
 # incrementally: task1 alone, task2 alone, both together, then the wider 10-task check.
+# ─────────────────────────────────────────────────────────────────────────────
+# Wave 1 / Change #1 — suppress ungrounded API-limitation caveats
+#
+# 26 tasks from evaluation_bundles/m3-toolcalling-20260625 that failed ONLY on
+# the Groundedness judge (ExactMatch=1 or Answer=1, but Groundedness=0).  The
+# agent got the right answer but added claims not present in any tool output:
+#   - "a separate All-Star-only endpoint is not provided"
+#   - "The soccer_2016 dataset does not include wager data"
+#   - "Extensive attempts to discover additional endpoints…"
+#   - narrating tool choices, over-interpreting numbers, explaining BMI formula, etc.
+#
+# Breakdown:
+#   10 clearly fixed by #1 (explicit caveats / meta-commentary in final answer)
+#    2 fixed by #6 (max-steps hit — response IS the step-limit message)
+#   14 uncertain (short clean-looking answers; judge sees synthesis as ungrounded)
+#
+# Stable eval keys derived from 5-run compare (2026-06-26, no-policies, no-fix):
+#   Ordered by groundedness-failure stability (most reliable fail first).
+#
+#   Stable gnd=0 failures (the targets):
+#     fe971e7f850a-0bd47606e297  soccer bowling   0/5  em=1.00 gnd=0.00
+#     d14bbb0be92d-b94c0c0446e9  profl_bball USA  0/5  ans=1.00 gnd=0.00
+#     adba6c0ec8a8-b04dba450471  university       0/5  ans=0.80 gnd=0.00
+#     55b7e50368aa-a1ea6e0aee2e  mondial_geo      0/5  em=0.40  gnd=0.00
+#     840942187214-d5d07b87e19a  authors ratio    1/5  em=1.00  gnd=0.20
+#     a823e527d383-03f8c708e98a  beer_factory     1/5  em=1.00  gnd=0.20
+#     adba6c0ec8a8-ea3c7885c2c2  university       2/5  ans=0.80 gnd=0.50
+#     2ffd766bcf59-d565d4ddc1b7  world_dev_ind    3/5  em=1.00  gnd=0.60
+#   Regression anchors (stable passes):
+#     308738b8195d-02960c8c0d16  hockey           5/5  gnd=1.00
+#     d14bbb0be92d-77fce6c85d4d  profl_bball      5/5  gnd=1.00
+# ─────────────────────────────────────────────────────────────────────────────
+
+# Clearest stable groundedness failure: soccer bowling skill (em=1, gnd=0, 0/5)
+wave1_c1_n1 = ["fe971e7f850a-0bd47606e297"]
+
+# + profl_bball USA count (ans=1, gnd=0, 0/5)
+wave1_c1_n2 = [
+  "fe971e7f850a-0bd47606e297",
+  "d14bbb0be92d-b94c0c0446e9",
+]
+
+# + university multi-part synthesis (ans=0.80, gnd=0.00, 0/5)
+wave1_c1_n3 = [
+  "fe971e7f850a-0bd47606e297",
+  "d14bbb0be92d-b94c0c0446e9",
+  "adba6c0ec8a8-b04dba450471",
+]
+
+# All stable groundedness targets (from 5-run compare) + regression anchors.
+# Ordered: stable gnd=0 failures first, then variable, then stable passes.
+wave1_c1_all = [
+  # ── Stable gnd=0 failures (0/5 pass, gnd=0.00 every run) ─────────────────
+  "fe971e7f850a-0bd47606e297",  # soccer_2016   — em=1 gnd=0 (bowling skill verbatim)
+  "d14bbb0be92d-b94c0c0446e9",  # profl_bball   — ans=1 gnd=0 (USA count not in doc)
+  "adba6c0ec8a8-b04dba450471",  # university    — ans=0.80 gnd=0 (multi-part synthesis)
+  "55b7e50368aa-a1ea6e0aee2e",  # mondial_geo   — gnd=0 (country+count join)
+  # ── Mostly-failing gnd targets (1/5, gnd=0.20) ───────────────────────────
+  "840942187214-d5d07b87e19a",  # authors       — em=1 gnd=0.20 (ratio derivation)
+  "a823e527d383-03f8c708e98a",  # beer_factory  — em=1 gnd=0.20
+  # ── Variable gnd targets (2-3/5, gnd=0.50-0.60) ──────────────────────────
+  "adba6c0ec8a8-ea3c7885c2c2",  # university    — ans=0.80 gnd=0.50
+  "2ffd766bcf59-d565d4ddc1b7",  # world_dev_ind — em=1 gnd=0.60
+  # ── Regression anchors (stable passes, 5/5) ──────────────────────────────
+  "308738b8195d-02960c8c0d16",  # hockey        — em=1 gnd=1.00 5/5
+  "d14bbb0be92d-77fce6c85d4d",  # profl_bball   — em=1 gnd=1.00 5/5
+]
+
+# ─────────────────────────────────────────────────────────────────────────────
+# wave1_c1_filtered — 16-task subset of wave1_c1_all after removing:
+#   (a) "different failure mode" tasks (BMI formula, coaches QF label):
+#       d14bbb0be92d-7d51d5f6098d, d14bbb0be92d-0283d0ffdf31
+#   (b) em=0 AND zero tool calls in the clean no-policies baseline:
+#       1960f609e439, fe971e7f850a-4c26, fe971e7f850a-976b,
+#       35a1befb81d1, 6e317bcd6839, 34a533dfd727-2322,
+#       adba6c0ec8a8-83db, adba6c0ec8a8-7a65
+#
+# Used for compare.sh --runs 5 (no change #1, --no-policies) to identify
+# which tasks have *stable* groundedness failures across runs. Results will
+# define the new wave1_c1_n1 / n2 / n3 / all keys.
+# ─────────────────────────────────────────────────────────────────────────────
+wave1_c1_filtered = [
+  # em=1, gnd=0 — stable groundedness failures (direct change #1 targets)
+  "d14bbb0be92d-77fce6c85d4d",  # profl_bball  — birthdate caveat
+  "2ffd766bcf59-d565d4ddc1b7",  # world_dev_ind — endpoint discovery meta-commentary
+  "55b7e50368aa-a1ea6e0aee2e",  # mondial_geo   — country names not in tool output
+  "fe971e7f850a-0bd47606e297",  # soccer_2016   — 'Right-arm medium' cricket term
+  # ans=1, gnd=0 — correct answer but ungrounded synthesis
+  "d14bbb0be92d-b94c0c0446e9",  # profl_bball  — USA count not in tool output
+  "adba6c0ec8a8-ea3c7885c2c2",  # university   — multi-part synthesis
+  "adba6c0ec8a8-b04dba450471",  # university   — multi-part synthesis (885 tc)
+  # em=1/ans=1, gnd=1 — currently passing (regression anchors)
+  "840942187214-d5d07b87e19a",  # authors       — passes in clean baseline
+  "308738b8195d-02960c8c0d16",  # hockey        — passes
+  "31d9743578dc-3b59b2d5a9b3",  # movie_platform — passes
+  "a823e527d383-03f8c708e98a",  # beer_factory  — passes
+  "d14bbb0be92d-781ff55b91b7",  # profl_bball   — passes (ans=1, gnd=1)
+  # em=0, has tool calls — trajectory mismatch but worth monitoring
+  "2b28654158b1-e0bf826a9e36",  # college_comp  — 90 tool calls, narrates choices
+  "2b28654158b1-a59483784521",  # college_comp  — 17 tool calls
+  "3e2b8f7655a2-d5464931bd4a",  # trains        — 1 tool call
+  "34a533dfd727-792336e9811f",  # disney        — 2 tool calls
+]
+
+# ─────────────────────────────────────────────────────────────────────────────
+# Staged Change #1 (groundedness rider) A/B keys — added 2026-06-28.
+# Run order: s1 (fast single probe) → light (12 cheap tasks, settle the prompt)
+# → wave1_c1_filtered (full confirm, brings back movie_platform + 3 heavies).
+# Trajectory-measured tool-call weights drive the split: 3 heavy tasks
+# (~230–250 calls: 2ffd76 world_dev_ind, adba…ea3c + adba…b04d university)
+# and the ~38-call movie_platform task are held out of the light loop so the
+# prompt can be iterated quickly, paying the heavy cost only once at confirm.
+# ─────────────────────────────────────────────────────────────────────────────
+# Single-task type probes — one representative per distinct groundedness-failure
+# mechanism, so each pattern can be isolated before the grouped light stage.
+wave1_c1_s1 = ["840942187214-d5d07b87e19a"]  # Type 1: arithmetic-derived value (needs evidence chain)
+wave1_c1_s2 = ["fe971e7f850a-0bd47606e297"]  # Type 2: verbatim value + restated question framing (must strip)
+wave1_c1_s3 = ["d14bbb0be92d-b94c0c0446e9"]  # Type 3: count/aggregation-derived value (count over rows)
+wave1_c1_s4 = ["55b7e50368aa-a1ea6e0aee2e"]  # Type 4: refusal / caveat (answer-only suppression)
+
+# Minimal Fix #1 GENERALIZATION test: a DIFFERENT fabrication task than the
+# already-validated 55b7 (mondial_geo). computer_student is flaky-but-solvable
+# (1/4 PASS, 566 NameErrors across bundles) in a different domain, so Fix #1's
+# unknown-tool correction has room to show recovery. Plus a clean-path guard.
+fix1_min = [
+  "39a28b2592a2-a6d040ce4d19",  # computer_student: tool-name fabrication (Fix #1 target; exactmatch=0)
+  "840942187214-d5d07b87e19a",  # clean-path regression guard (the wave1 Type-1 task)
+]
+
+# Combined type-probe stage — all four mechanisms, one fast A/B, analyzed per task.
+wave1_c1_types = [
+  "840942187214-d5d07b87e19a",  # Type 1: arithmetic-derived
+  "fe971e7f850a-0bd47606e297",  # Type 2: verbatim + restated framing
+  "d14bbb0be92d-b94c0c0446e9",  # Type 3: count/aggregation
+  "55b7e50368aa-a1ea6e0aee2e",  # Type 4: refusal / caveat
+]
+
+wave1_c1_light = [
+  # em=1, gnd=0 — direct change #1 targets (light)
+  "d14bbb0be92d-77fce6c85d4d",  # profl_bball   — birthdate caveat (1 call)
+  "55b7e50368aa-a1ea6e0aee2e",  # mondial_geo   — country names not in tool output
+  "fe971e7f850a-0bd47606e297",  # soccer_2016   — 'Right-arm medium' verbatim value
+  # ans=1, gnd=0 — correct but ungrounded count
+  "d14bbb0be92d-b94c0c0446e9",  # profl_bball   — USA count not in tool output (14 calls)
+  # regression anchors (gnd=1, light)
+  "840942187214-d5d07b87e19a",  # authors       — arithmetic evidence-chain (1 call)
+  "308738b8195d-02960c8c0d16",  # hockey        — passes (1 call)
+  "a823e527d383-03f8c708e98a",  # beer_factory  — passes (2 calls)
+  "d14bbb0be92d-781ff55b91b7",  # profl_bball   — passes (4 calls)
+  # em=0, light tool calls — monitors
+  "2b28654158b1-e0bf826a9e36",  # college_comp  — (21 calls)
+  "2b28654158b1-a59483784521",  # college_comp  — (13 calls)
+  "3e2b8f7655a2-d5464931bd4a",  # trains        — (9 calls)
+  "34a533dfd727-792336e9811f",  # disney        — (2 calls)
+]
+
+# ─────────────────────────────────────────────────────────────────────────────
+# wave1_c1_4cases — the 4 "structurally unfixable" groundedness categories
+# identified after the filtered-baseline analysis. Used to test the
+# Evidence-chain / arithmetic-show-your-work prompt addition.
+#
+#   Case 1 — math derivation (judge scores "partial"):
+#     840942187214-d5d07b87e19a  authors ratio (tool: 0.5948 → answer: 0.681)
+#
+#   Case 2 — cross-tool synthesis / implicit join:
+#     adba6c0ec8a8-ea3c7885c2c2  university multi-part (275 tool calls)
+#     adba6c0ec8a8-b04dba450471  university multi-part (885 tool calls)
+#
+#   Case 3 — cross-field derivation (should be fixable, confirm here):
+#     2ffd766bcf59-d565d4ddc1b7  world_dev_ind endpoint discovery
+#
+#   Case 4 — literal-value mismatch / judge variance:
+#     55b7e50368aa-a1ea6e0aee2e  mondial_geo mountains (0 count + country join)
+#     fe971e7f850a-0bd47606e297  soccer bowling skill (verbatim tool value)
+# ─────────────────────────────────────────────────────────────────────────────
+wave1_c1_4cases = [
+  "840942187214-d5d07b87e19a",  # Case 1: math derivation
+  "adba6c0ec8a8-ea3c7885c2c2",  # Case 2: cross-tool synthesis
+  "adba6c0ec8a8-b04dba450471",  # Case 2: cross-tool synthesis
+  "2ffd766bcf59-d565d4ddc1b7",  # Case 3: field derivation (possibly fixable)
+  "55b7e50368aa-a1ea6e0aee2e",  # Case 4: literal mismatch
+  "fe971e7f850a-0bd47606e297",  # Case 4: literal mismatch
+]
+
+# The 4 stable gnd=0 failures (0/5 pass, gnd=0.00 every run in the 5-run compare).
+# Subset of wave1_c1_all; the focused set that motivated the Wave-1 fixes.
+wave1_c1_4stable = [
+  "fe971e7f850a-0bd47606e297",  # soccer_2016   — em=1 gnd=0 (bowling skill verbatim)
+  "d14bbb0be92d-b94c0c0446e9",  # profl_bball   — ans=1 gnd=0 (USA count not in doc)
+  "adba6c0ec8a8-b04dba450471",  # university    — ans=0.80 gnd=0 (multi-part synthesis)
+  "55b7e50368aa-a1ea6e0aee2e",  # mondial_geo   — gnd=0 (country+count join)
+]
+
+# Full groundedness slice = union of wave1_c1_4cases (6) + wave1_c1_4stable's
+# extra profl_bball case = 7 unique tasks. Used to validate a groundedness-judge
+# model swap (gpt-4.1 vs gpt-5.2) across the whole slice, not just 55b7.
+wave1_c1_gnd_all = [
+  "840942187214-d5d07b87e19a",  # Case 1: authors ratio (math derivation)
+  "adba6c0ec8a8-ea3c7885c2c2",  # Case 2: university multi-part (275 calls)
+  "adba6c0ec8a8-b04dba450471",  # Case 2: university multi-part (885 calls)
+  "2ffd766bcf59-d565d4ddc1b7",  # Case 3: world_dev_ind field derivation
+  "55b7e50368aa-a1ea6e0aee2e",  # Case 4: mondial_geo mountains (0 count + join)
+  "fe971e7f850a-0bd47606e297",  # Case 4: soccer bowling skill (verbatim value)
+  "d14bbb0be92d-b94c0c0446e9",  # 4stable: profl_bball (USA count not in doc)
+]
+
+# Debug: stalling tasks — passed in original bundle, now 0 tool calls
+debug_stall_1 = ["bc9218680ed5-787eda184fe2"]   # student_loan: "students who filed for bankruptcy and have payment due" (was 2tc, em=1, gnd=1)
+debug_stall_3 = ["bc9218680ed5-787eda184fe2", "35a1befb81d1-616dfb77883f", "1960f609e439-8c022719a1ca"]
+
+# ─────────────────────────────────────────────────────────────────────────────
+# Wave 1 / Change #4 — tool-arg coercion/validation — WONTFIX (2026-06-28)
+#
+# Originally: pre-flight coercion of malformed tool args (the "dict-as-string"
+# bug) to recover from registry validation errors. A 200-task M3 mining pass
+# (bundle 20260628_162414_default) found the target failure DOES NOT OCCUR on
+# the current corpus/model:
+#   • ZERO `is not of type` (wrong-type / dict-as-string) errors anywhere.
+#   • ZERO registry validation errors in agent EXECUTION (langfuse/trajectories).
+#   • All 86 `Input validation error` strings are gold-trajectory expectations
+#     surfaced by the scorer (`Missing expected tool_responses`), all of the
+#     `is a required property` (missing-required) kind — NOT errors the agent hit.
+# With no failure to fix and no Pass@1 lever to measure, the coercion code was
+# removed; only a zero-mutation detection WARNING survives in cuga-agent
+# (advanced_features.cuga_lite_warn_suspect_args, default-on) as regression
+# insurance. The wave1_c4_n1/n2/all slices are deleted — they were PROVISIONAL
+# placeholders that could never measure the fix.
+#
+# Adjacent (separate, NOT arg-coercion): 34 tasks whose ExactMatch references a
+# gold required-property probe (24 fail / 10 pass). That is a scoring/recovery
+# issue; coercion would suppress the probe and make ExactMatch worse. Track
+# separately if pursued.
+# ─────────────────────────────────────────────────────────────────────────────
+
 schema_bug_task1 = ["308738b8195d-5bd16a8893c5"]
 schema_bug_task2 = ["308738b8195d-3e3d6db9ab3d"]
 schema_bug_2 = ["308738b8195d-5bd16a8893c5", "308738b8195d-3e3d6db9ab3d"]
