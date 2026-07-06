@@ -83,6 +83,11 @@ class OakEvaluator:
         self.policies_enabled = policies_enabled
         self.agent: Optional[CugaAgent] = None
         self.results: List[Dict[str, Any]] = []
+        # Bound from __init__, not inside evaluate_all(): if evaluate_all() raises
+        # before task discovery, total_tasks must still be 0 (not None) so the
+        # partial-run check in main() can't be silently disabled by a future
+        # refactor that catches exceptions inside evaluate_all().
+        self.total_tasks: int = 0
         # Hardcoded user info (matching format from agent_state.py:879-882)
 
     async def setup(self):
@@ -180,6 +185,11 @@ class OakEvaluator:
             description="Oak Health Insurance benchmark evaluation",
         )
 
+        # Total intended for this run; compared against len(self.results) so a
+        # run that stops early (crash/interrupt) is detected as partial rather
+        # than silently reported as complete.
+        self.total_tasks = len(test_cases)
+
         # Evaluate each task
         self.results = []
         for i, task in enumerate(test_cases, 1):
@@ -248,30 +258,48 @@ async def main():
         difficulty_filter=args.difficulty, task_id=args.task, policies_enabled=not args.no_policies
     )
 
+    exit_code = 0
     try:
-        # Setup
         await evaluator.setup()
-
-        # Evaluate
         await evaluator.evaluate_all(args.data)
-
-        # Print summary
-        evaluator.print_summary()
-
-        # Save results
-        evaluator.save_results()
-
     except KeyboardInterrupt:
         logger.warning("\nEvaluation interrupted by user")
-        if evaluator.results:
-            evaluator.print_summary()
-            evaluator.save_results()
+        exit_code = 130
     except Exception as e:
         logger.error(f"Evaluation failed: {e}")
         import traceback
 
         traceback.print_exc()
-        sys.exit(1)
+        exit_code = 1
+    finally:
+        # Persist whatever completed — even on crash/interrupt — so partial
+        # results are recoverable instead of orphaned, and so the harness
+        # bundles this run's real (partial) data rather than falling back to a
+        # previous run's report.
+        results = getattr(evaluator, "results", None)
+        if results:
+            evaluator.print_summary()
+            try:
+                evaluator.save_results()
+            except Exception as e:
+                logger.error(f"Failed to save results: {e}")
+                # A clean run that cannot persist its report is not a success —
+                # don't let the process exit 0 with no durable result on disk.
+                if exit_code == 0:
+                    exit_code = 1
+        else:
+            logger.warning("No results to save")
+
+    # Fewer results than intended means the run stopped early. Report it as a
+    # failure so the harness does not present a partial run as a clean pass.
+    total = getattr(evaluator, "total_tasks", None)
+    completed = len(getattr(evaluator, "results", []) or [])
+    if exit_code == 0 and total is not None and completed < total:
+        logger.error(f"Partial run: only {completed}/{total} tasks completed — marking as failed")
+        exit_code = 2
+
+    if exit_code:
+        sys.exit(exit_code)
 
 
 if __name__ == "__main__":

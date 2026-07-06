@@ -4,11 +4,15 @@ No policy loading — tools come from CombinedToolProvider via setup_agent_with_
 Task success is determined by AppWorld's harness (world.evaluate()), not keyword checks.
 """
 
+import os
 import sys
 from datetime import datetime
 from pathlib import Path
 
-_eval_run_timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
+# Prefer EVAL_RUN_ID (set by eval.sh, unique per process even within the same
+# wall-clock second) so concurrent runs on the same host never produce
+# same-named/same-mtime reports that a sibling run's `find` could pick up.
+_eval_run_timestamp = os.environ.get("EVAL_RUN_ID") or datetime.now().strftime("%Y%m%d_%H%M%S")
 
 project_root = Path(__file__).parent.parent.parent
 sys.path.insert(0, str(project_root))
@@ -25,7 +29,6 @@ load_eval_config("appworld")
 import argparse
 import asyncio
 import json
-import os
 import uuid
 from typing import Any, Dict, List, Optional
 
@@ -350,6 +353,11 @@ class AppWorldSdkEvaluator:
         self.agent: Optional[CugaAgent] = None
         self.langfuse_handler: Optional[Any] = None
         self.results: List[Dict[str, Any]] = []
+        # Bound from __init__, not inside evaluate_all(): if evaluate_all() raises
+        # before task discovery (e.g. bad --dataset), total_tasks must still be 0
+        # (not None) so the partial-run check in main() can't be silently
+        # disabled by a future refactor that catches exceptions inside evaluate_all().
+        self.total_tasks: int = 0
         self.special_instructions: Optional[str] = """
 # INSTRUCTIONS
 
@@ -528,6 +536,10 @@ B. App-specific instructions:
             description="AppWorld SDK (CombinedToolProvider) evaluation",
         )
 
+        # Total intended for this run; compared against len(self.results) so a
+        # run that stops early (crash/interrupt) is detected as partial rather
+        # than silently reported as complete.
+        self.total_tasks = len(task_ids)
         self.results = []
         for i, tid in enumerate(task_ids, 1):
             logger.info(f"\n[{i}/{len(task_ids)}] Task {tid}")
@@ -635,22 +647,48 @@ async def main():
         from_dataset=args.from_dataset,
     )
 
+    exit_code = 0
     try:
         await evaluator.setup()
         await evaluator.evaluate_all()
-        evaluator.print_summary()
-        evaluator.save_results()
     except KeyboardInterrupt:
         logger.warning("\nEvaluation interrupted by user")
-        if evaluator.results:
-            evaluator.print_summary()
-            evaluator.save_results()
+        exit_code = 130
     except Exception as e:
         logger.error(f"Evaluation failed: {e}")
         import traceback
 
         traceback.print_exc()
-        sys.exit(1)
+        exit_code = 1
+    finally:
+        # Persist whatever completed — even on crash/interrupt — so partial
+        # results are recoverable instead of orphaned in the trajectory logs,
+        # and so the harness bundles this run's real (partial) data rather than
+        # falling back to a previous run's report.
+        results = getattr(evaluator, "results", None)
+        if results:
+            evaluator.print_summary()
+            try:
+                evaluator.save_results()
+            except Exception as e:
+                logger.error(f"Failed to save results: {e}")
+                # A clean run that cannot persist its report is not a success —
+                # don't let the process exit 0 with no durable result on disk.
+                if exit_code == 0:
+                    exit_code = 1
+        else:
+            logger.warning("No results to save")
+
+    # Fewer results than intended means the run stopped early. Report it as a
+    # failure so the harness does not present a partial run as a clean pass.
+    total = getattr(evaluator, "total_tasks", None)
+    completed = len(getattr(evaluator, "results", []) or [])
+    if exit_code == 0 and total is not None and completed < total:
+        logger.error(f"Partial run: only {completed}/{total} tasks completed — marking as failed")
+        exit_code = 2
+
+    if exit_code:
+        sys.exit(exit_code)
 
 
 if __name__ == "__main__":
