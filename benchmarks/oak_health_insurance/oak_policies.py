@@ -301,7 +301,7 @@ Find care providers and retrieve their associated benefit information for the re
 
 **Expected Outcome**: Benefit details for the procedure/service with identifiers for detailed lookup if needed
 
-### Step 4: Format Combined Response
+### Step 5: Format Combined Response
 1. Present providers with their information
 2. Present benefits separately with clear In-Network vs Out-of-Network details
 

@@ -100,21 +100,20 @@ class OakEvaluator:
 
     async def _load_oak_policies(self):
         """Load oak health insurance policies into the agent."""
-        try:
-            from benchmarks.oak_health_insurance.oak_policies import get_all_oak_policies
+        from benchmarks.oak_health_insurance.oak_policies import get_all_oak_policies
 
-            policies = get_all_oak_policies()
-            logger.info(f"Loading {len(policies)} oak policies...")
-            loaded = 0
-            for policy in policies:
-                try:
-                    await add_policy_via_agent(self.agent, policy)
-                    loaded += 1
-                except Exception as e:
-                    logger.warning(f"Skipping policy '{policy.id}': {e}")
-            logger.info(f"✅ Loaded {loaded}/{len(policies)} policies")
-        except Exception as e:
-            logger.warning(f"Could not load oak policies: {e}")
+        policies = get_all_oak_policies()
+        logger.info(f"Loading {len(policies)} oak policies...")
+        loaded = 0
+        for policy in policies:
+            try:
+                await add_policy_via_agent(self.agent, policy)
+                loaded += 1
+            except Exception as e:
+                logger.warning(f"Skipping policy '{policy.id}': {e}")
+        logger.info(f"✅ Loaded {loaded}/{len(policies)} policies")
+        if policies and loaded == 0:
+            logger.error("No oak policies could be loaded; check DYNACONF_ADVANCED_FEATURES__REGISTRY config")
 
     async def evaluate_task(self, task: Dict[str, Any], task_index: int) -> Dict[str, Any]:
         """Evaluate a single task."""

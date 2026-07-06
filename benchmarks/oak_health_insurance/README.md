@@ -123,7 +123,7 @@ The benchmark tracks:
 
 ## Policies
 
-Oak-specific playbooks and tool enrichments are defined in `oak_policies.py`. They are loaded automatically on `setup()` unless `--no-policy` is passed.
+Oak-specific playbooks and tool enrichments are defined in `oak_policies.py`. `eval_bench_sdk.py` loads them automatically at evaluation startup unless `--no-policy` is passed.
 
 Policies include:
 - Playbooks for claims, care providers, benefits, payments, family members, plan information
