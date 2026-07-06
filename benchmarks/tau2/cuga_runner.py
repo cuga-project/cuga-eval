@@ -74,6 +74,24 @@ async def run_cuga_loop(
         bridge.close()
 
 
+_shared_loop: Optional[asyncio.AbstractEventLoop] = None
+
+
+def _get_event_loop() -> asyncio.AbstractEventLoop:
+    """One persistent event loop reused across tasks.
+
+    asyncio.run() creates AND closes a fresh loop per call. When an async HTTP client
+    (litellm/cuga) created during one task outlives it and is garbage-collected during the
+    next, its cleanup runs on the previous (now-closed) loop -> "Event loop is closed".
+    A single long-lived loop for the whole process avoids that.
+    """
+    global _shared_loop
+    if _shared_loop is None or _shared_loop.is_closed():
+        _shared_loop = asyncio.new_event_loop()
+        asyncio.set_event_loop(_shared_loop)
+    return _shared_loop
+
+
 def _run_one_task(
     domain: str,
     task: Any,
@@ -133,8 +151,9 @@ def _run_one_task(
 
     t = threading.Thread(target=_tau2_thread, name="tau2-run", daemon=True)
     t.start()
+    loop = _get_event_loop()
     try:
-        asyncio.run(run_cuga_loop(bridge, thread_id=thread_id, max_turns=max_steps + 20))
+        loop.run_until_complete(run_cuga_loop(bridge, thread_id=thread_id, max_turns=max_steps + 20))
     finally:
         t.join(timeout=join_timeout)
         set_current_bridge(None)

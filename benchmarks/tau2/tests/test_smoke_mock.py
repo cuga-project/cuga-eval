@@ -38,7 +38,15 @@ def test_smoke_mock_one_task():
     tasks = get_tasks("mock", num_tasks=1)
     assert tasks, "no mock tasks found — is τ² data installed? (tau2 check-data)"
 
-    reward = _run_one_task("mock", tasks[0], user_sim_model, max_steps=30)
+    # pass the user-sim LLM's creds through (watsonx needs project_id; the gateway api_base/key)
+    llm_args_user = {}
+    if os.environ.get("WATSONX_PROJECT_ID"):
+        llm_args_user["project_id"] = os.environ["WATSONX_PROJECT_ID"]
+    elif os.environ.get("OPENAI_BASE_URL"):
+        llm_args_user["api_base"] = os.environ["OPENAI_BASE_URL"]
+        llm_args_user["api_key"] = os.environ.get("OPENAI_API_KEY")
+
+    reward = _run_one_task("mock", tasks[0], user_sim_model, llm_args_user=llm_args_user, max_steps=30)
 
     # The point of the smoke test: it completes without hanging and returns a real reward.
     assert reward is None or (0.0 <= reward <= 1.0), f"reward out of range: {reward}"
