@@ -12,6 +12,7 @@
 from __future__ import annotations
 
 import asyncio
+import gc
 import threading
 from typing import Any, Optional
 
@@ -100,7 +101,7 @@ def _run_one_task(
     llm_args_user: Optional[dict] = None,
     agent_model_placeholder: str = "gpt-4.1",
     max_steps: int = 100,
-    thread_id: str = "tau2-task",
+    thread_id: Optional[str] = None,
     join_timeout: float = 120.0,
 ) -> Optional[float]:
     """Run one tau2 task end-to-end through CUGA + the bridge; return the reward in [0,1].
@@ -109,6 +110,10 @@ def _run_one_task(
     responds (main thread). When tau2 finishes, the thread closes the bridge to unblock
     the CUGA loop.
     """
+    # Unique CUGA thread_id per task so its conversation memory never leaks between tasks.
+    if thread_id is None:
+        thread_id = f"tau2-{domain}-{task.id}"
+
     from tau2.data_model.simulation import TextRunConfig
     from tau2.registry import registry
     from tau2.runner.batch import run_single_task
@@ -157,6 +162,11 @@ def _run_one_task(
     finally:
         t.join(timeout=join_timeout)
         set_current_bridge(None)
+        # Proactively clean up this task's async resources (LLM HTTP clients, etc.) on the
+        # still-open shared loop, so they don't accumulate across a long multi-task run. GC
+        # may schedule async close callbacks; pump the loop once so they actually run.
+        gc.collect()
+        loop.run_until_complete(asyncio.sleep(0))
 
     if "error" in result:
         raise result["error"]
