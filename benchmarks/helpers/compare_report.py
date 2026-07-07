@@ -591,14 +591,27 @@ def _eval_group_breakdown(
     return out
 
 
+def _task_run_symbol(success, failure_reason) -> str:
+    """Render a single run's compact pass/fail cell for the Per-Task Details table."""
+    if success is None:
+        return "— "
+    if success:
+        return "✓ "
+    if failure_reason == FAILURE_REASON_CONTENT_FILTER:
+        return "✗c"
+    return "✗ "
+
+
 def _stats_for_task(task_runs):
     """Aggregate per-task across runs: ✓/✗ list, success counts, mean tokens/llm/time."""
     statuses = [r.get("success") for r in task_runs]
+    failure_reasons = [r.get("failure_reason") for r in task_runs]
     successes = sum(1 for s in statuses if s)
     total = len(task_runs)
     rate = successes / total if total else 0.0
     return {
         "statuses": statuses,
+        "failure_reasons": failure_reasons,
         "successes": successes,
         "total": total,
         "rate": rate,
@@ -682,6 +695,20 @@ def generate_report(config_results: dict[str, list[str]], markdown: bool = True)
     if fence_close():
         lines.append(fence_close())
     lines.append("")
+
+    total_content_filter = sum(
+        _content_filter_failure_count(r["tasks"]) for runs in model_data.values() for r in runs
+    )
+    if total_content_filter > 0:
+        note = (
+            f"{total_content_filter} task run(s) failed due to Azure content-filter false positives "
+            "(scored 0.0; not agent failures — marked ✗c in Per-Task Details)"
+        )
+        if markdown:
+            lines.append(f"- **Content filter failures**: {note}")
+        else:
+            lines.append(f"  Content filter    {note}")
+        lines.append("")
 
     # ---- 2a. Cost Summary: per-config totals and per-task averages for
     # tokens, LLM calls, and time. "Total" here is the per-run total averaged
@@ -870,7 +897,9 @@ def generate_report(config_results: dict[str, list[str]], markdown: bool = True)
         for task in all_tasks:
             task_runs = [r["tasks"].get(task, {}) for r in runs]
             stats = _stats_for_task(task_runs)
-            symbols = "  ".join(("✓ " if s else "✗ ") if s is not None else "— " for s in stats["statuses"])
+            symbols = "  ".join(
+                _task_run_symbol(s, fr) for s, fr in zip(stats["statuses"], stats["failure_reasons"])
+            )
             successes = stats["successes"]
             total = stats["total"]
             rate_pct = stats["rate"] * 100
@@ -979,6 +1008,10 @@ def generate_report(config_results: dict[str, list[str]], markdown: bool = True)
         "- **Cons** (Consistency): pass^k / maj@k. Of the tasks the agent solves most of the time, "
         "what fraction does it solve every time? 1.0 = perfectly reliable on its winnable tasks; "
         "lower = higher variance. `--` when no task passes a majority."
+    )
+    lines.append(
+        "- **✗c**: task run aborted by an Azure content-filter false positive (scored 0.0; not an "
+        "agent failure — see Content filter failures note under Summary)."
     )
     lines.append("")
 
