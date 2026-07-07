@@ -48,6 +48,18 @@ def test_failure_reason_from_exceptions():
     assert failure_reason_from_exceptions(excs) == FAILURE_REASON_CONTENT_FILTER
 
 
+def test_failure_reason_from_exceptions_falls_back_to_type_field():
+    """message doesn't mention content-filter, but type does — still classified."""
+    excs = [
+        {
+            "type": _AZURE_FILTER_ERROR,
+            "message": "Connection reset by peer",
+            "context": "run_agent_on_task_react",
+        }
+    ]
+    assert failure_reason_from_exceptions(excs) == FAILURE_REASON_CONTENT_FILTER
+
+
 def test_annotate_content_filter_failure_tags_result():
     result: dict = {}
     tagged = annotate_content_filter_failure(result, _AZURE_FILTER_ERROR, task_id="2e9b91e_1")
@@ -89,6 +101,6 @@ def test_eval_report_surfaces_content_filter_failures(tmp_path: Path):
     report = generate_eval_report(str(result_file))
 
     assert "Content filter failures" in report
-    assert "1" in report  # one content-filter task
+    assert "1 task(s) failed due to Azure content-filter false positives" in report
     assert "content_filter" in report
     assert "2e9b91e_1" in report

@@ -28,12 +28,19 @@ MODEL_DISPLAY_NAMES = {
 }
 
 
-def _task_result_mark(task: dict) -> str:
-    """Render pass/fail mark, annotating known non-agent failure reasons."""
+def _task_result_mark(task: dict, *, markdown: bool = True) -> str:
+    """Render pass/fail mark, annotating known non-agent failure reasons.
+
+    Markdown tables don't need fixed-width cells, so the content-filter
+    annotation spells out "content_filter" there. Plain-text tables use
+    fixed-width columns (see the ``mark:<1`` cells below), so this returns
+    the compact "✗c" there instead — the full word would blow out row
+    alignment for every column after it.
+    """
     if task.get("success"):
         return "✓"
     if task.get("failure_reason") == FAILURE_REASON_CONTENT_FILTER:
-        return "✗ content_filter"
+        return "✗ content_filter" if markdown else "✗c"
     return "✗"
 
 
@@ -1229,7 +1236,7 @@ def generate_eval_report(result_file: str, markdown: bool = True) -> str:
                     dom_disp = dom
                     current_key2 = key
                 ordn_disp = str(ordn) if ordn is not None else "—"
-                mark = _task_result_mark(t)
+                mark = _task_result_mark(t, markdown=False)
                 vakra_cols = ""
                 if has_vakra:
                     judge = t.get("judge_scores") or {}
@@ -1277,7 +1284,7 @@ def generate_eval_report(result_file: str, markdown: bool = True) -> str:
                 lbl = row["label"]
                 if len(lbl) > col_task_w:
                     lbl = lbl[: col_task_w - 1] + "…"
-                mark = _task_result_mark(t)
+                mark = _task_result_mark(t, markdown=False)
                 lines.append(
                     f"  {lbl:<{col_task_w}}  {mark:<1}  "
                     f"{_fmt(t['tokens']):>10}  "

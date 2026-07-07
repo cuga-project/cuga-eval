@@ -62,14 +62,7 @@ def log_content_filter_failure(
     task_id: Optional[str] = None,
 ) -> bool:
     """Emit a dedicated log line when *error_text* is a content-filter rejection."""
-    if not is_content_filter_error(error_text):
-        return False
-    label = f"task {task_id}" if task_id else "task"
-    logger.warning(
-        f"{label} aborted by Azure content filter (false positive likely) — "
-        "scored 0.0; tagged failure_reason=content_filter in report"
-    )
-    return True
+    return annotate_content_filter_failure({}, error_text, logger=logger, task_id=task_id)
 
 
 def failure_reason_from_exceptions(exceptions: list[Mapping[str, Any]]) -> Optional[str]:
