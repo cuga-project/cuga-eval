@@ -50,6 +50,7 @@ from utils.appworld_utils import (
     get_task_difficulty,
 )
 
+from benchmarks.helpers.content_filter import log_content_filter_failure
 from benchmarks.helpers.sdk_eval_helpers import (
     build_langfuse_invoke_config,
     is_langfuse_tracing_enabled,
@@ -484,6 +485,7 @@ async def run_agent_on_task(
 
             if task_result:
                 task_result.add_exception(e, "run_agent_on_task_react")
+                log_content_filter_failure(logger, str(e), task_id=world.task_id)
                 task_result.api_calls = len(tool_calls)
                 task_result.steps = len(tracker.steps)
                 task_result.duration = end_time - start_time if end_time else 0

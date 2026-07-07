@@ -325,6 +325,11 @@ async def invoke_and_score_appworld(
     if agent_steps is not None:
         result["steps"] = agent_steps
 
+    if err:
+        from benchmarks.helpers.content_filter import annotate_content_filter_failure
+
+        annotate_content_filter_failure(result, err, logger=logger, task_id=task_id)
+
     return result
 
 

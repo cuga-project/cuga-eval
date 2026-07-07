@@ -18,12 +18,44 @@ import sys
 import tomllib
 from pathlib import Path
 
+from benchmarks.helpers.content_filter import FAILURE_REASON_CONTENT_FILTER
+
 MODEL_DISPLAY_NAMES = {
     "gpt-oss": "GPT-OSS-120B",
     "gpt4o": "GPT-4o",
     "gpt4.1": "GPT-4.1",
     "opus4.5": "Claude Opus 4.5",
 }
+
+
+def _task_result_mark(task: dict) -> str:
+    """Render pass/fail mark, annotating known non-agent failure reasons."""
+    if task.get("success"):
+        return "✓"
+    if task.get("failure_reason") == FAILURE_REASON_CONTENT_FILTER:
+        return "✗ content_filter"
+    return "✗"
+
+
+def _content_filter_failure_count(tasks: dict) -> int:
+    return sum(
+        1
+        for t in tasks.values()
+        if not t.get("success") and t.get("failure_reason") == FAILURE_REASON_CONTENT_FILTER
+    )
+
+
+def _append_content_filter_summary(lines: list[str], tasks: dict, *, markdown: bool) -> None:
+    count = _content_filter_failure_count(tasks)
+    if count <= 0:
+        return
+    note = (
+        f"{count} task(s) failed due to Azure content-filter false positives (scored 0.0; not agent failures)"
+    )
+    if markdown:
+        lines.append(f"- **Content filter failures**: {note}")
+    else:
+        lines.append(f"  Content filter    {note}")
 
 
 def _format_config_label(config_key: str) -> str:
@@ -142,6 +174,7 @@ def _parse_sdk_results(data: dict) -> dict:
             # {}) for non-Vakra-scored results.
             "match_rate": r.get("match_rate"),
             "judge_scores": _last_turn_judge_scores(r.get("vakra") or {}),
+            "failure_reason": r.get("failure_reason"),
         }
 
     return {
@@ -182,6 +215,7 @@ def _parse_appworld_results(data: dict) -> dict:
             "steps": t.get("steps"),
             "difficulty": t.get("difficulty"),
             "uuid": tid,
+            "failure_reason": t.get("failure_reason"),
         }
 
     return {
@@ -1058,6 +1092,7 @@ def generate_eval_report(result_file: str, markdown: bool = True) -> str:
         lines.append(f"  Avg LLM Calls/Task {_fmt(cost['avg_llm_calls'])}")
         lines.append(f"  Total Duration     {_fmt(parsed.get('duration'), 's')}")
         lines.append(f"  Avg Duration/Task  {_fmt(cost['avg_duration'], 's')}")
+    _append_content_filter_summary(lines, parsed["tasks"], markdown=markdown)
     lines.append("")
 
     lines.append(h2("Per-Task Results"))
@@ -1109,7 +1144,7 @@ def generate_eval_report(result_file: str, markdown: bool = True) -> str:
                     dom_disp = dom
                     current_key = key
                 ordn_disp = str(ordn) if ordn is not None else "—"
-                status = "✓" if t["success"] else "✗"
+                status = _task_result_mark(t)
                 vakra_cols = ""
                 if has_vakra:
                     judge = t.get("judge_scores") or {}
@@ -1161,7 +1196,7 @@ def generate_eval_report(result_file: str, markdown: bool = True) -> str:
                     dom_disp = dom
                     current_key2 = key
                 ordn_disp = str(ordn) if ordn is not None else "—"
-                mark = "✓" if t["success"] else "✗"
+                mark = _task_result_mark(t)
                 vakra_cols = ""
                 if has_vakra:
                     judge = t.get("judge_scores") or {}
@@ -1188,7 +1223,7 @@ def generate_eval_report(result_file: str, markdown: bool = True) -> str:
             lines.append("|------|--------|--------|------|-----------|--------------|----------|-------|")
             for row in rows:
                 t = row["data"]
-                status = "✓" if t["success"] else "✗"
+                status = _task_result_mark(t)
                 lines.append(
                     f"| {row['label']} | {status} | {_fmt(t['tokens'])} "
                     f"| {_fmt(t.get('cost'), '$')} | {_fmt(t.get('llm_calls'))} "
@@ -1209,7 +1244,7 @@ def generate_eval_report(result_file: str, markdown: bool = True) -> str:
                 lbl = row["label"]
                 if len(lbl) > col_task_w:
                     lbl = lbl[: col_task_w - 1] + "…"
-                mark = "✓" if t["success"] else "✗"
+                mark = _task_result_mark(t)
                 lines.append(
                     f"  {lbl:<{col_task_w}}  {mark:<1}  "
                     f"{_fmt(t['tokens']):>10}  "
