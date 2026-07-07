@@ -548,7 +548,12 @@ prepare_experiment_workspace() {
     [[ "${NO_POLICIES:-false}" == "true" ]] && prep_args+=(--no-policies)
     [[ -n "${EVAL_KEY:-}" ]] && prep_args+=(--eval-key "$EVAL_KEY")
 
-    WORKSPACE_BUNDLE_DIR=$(uv run python -m benchmarks.helpers.experiment "${prep_args[@]}")
+    local out
+    if ! out=$(uv run python -m benchmarks.helpers.experiment "${prep_args[@]}"); then
+        echo -e "${RED:-}Error: $out${NC:-}" >&2
+        return 1
+    fi
+    WORKSPACE_BUNDLE_DIR="$out"
     echo -e "${GREEN:-}Experiment workspace:${NC:-} $WORKSPACE_BUNDLE_DIR"
     return 0
 }
@@ -770,7 +775,12 @@ prepare_compare_experiment_workspace() {
     [[ -n "${RESUME_EXPERIMENT:-}" ]] && prep_args+=(--resume-experiment "$RESUME_EXPERIMENT")
     [[ -n "${MODEL_PROFILE:-}" ]] && prep_args+=(--model-profile "$MODEL_PROFILE")
 
-    WORKSPACE_BUNDLE_DIR=$(uv run python -m benchmarks.helpers.experiment "${prep_args[@]}")
+    local out
+    if ! out=$(uv run python -m benchmarks.helpers.experiment "${prep_args[@]}"); then
+        echo -e "${RED:-}Error: $out${NC:-}" >&2
+        return 1
+    fi
+    WORKSPACE_BUNDLE_DIR="$out"
     echo -e "${GREEN:-}Compare workspace:${NC:-} $WORKSPACE_BUNDLE_DIR"
     return 0
 }

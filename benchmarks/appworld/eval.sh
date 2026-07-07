@@ -158,7 +158,7 @@ fi
 
 echo ""
 
-if experiment_workspace_requested; then
+if experiment_workspace_requested && [[ "${NO_BUNDLE:-false}" != "true" ]]; then
     if [[ "$USE_SDK" != "true" ]]; then
         echo -e "${YELLOW:-}Note: experiment workspace requires the SDK evaluator; enabling --sdk${NC:-}"
         USE_SDK=true

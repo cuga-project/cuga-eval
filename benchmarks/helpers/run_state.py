@@ -143,6 +143,7 @@ def mark_running(bundle_dir: Path, *, pid: int, total_tasks: Optional[int] = Non
         "started_at": _utc_now(),
         "updated_at": _utc_now(),
         "exit_code": None,
+        "completed_tasks": None,
     }
     if total_tasks is not None:
         payload["total_tasks"] = total_tasks

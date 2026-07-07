@@ -14,6 +14,8 @@ import subprocess
 from datetime import datetime, timezone
 from pathlib import Path
 
+from benchmarks.helpers.incremental_results import atomic_write_json
+
 BUNDLE_VERSION = "2"
 
 # Only these environment variables are captured (no secrets)
@@ -839,13 +841,16 @@ def create_workspace_bundle(
                 # that omits --model-profile) instead of clobbering it with None.
                 "model_profile": model_profile if model_profile is not None else run.get("model_profile"),
                 "policies_enabled": not args.get("no_policies", False),
-                "task_ids": args.get("task_ids"),
+                # Same fallback as model_profile: preserve the previously-recorded
+                # task_ids when this call (e.g. a --resume-experiment invocation
+                # without task filtering) doesn't supply any.
+                "task_ids": args.get("task_ids") if args.get("task_ids") is not None else run.get("task_ids"),
                 "eval_key": args.get("eval_key"),
             }
         )
         metadata["run"] = run
 
-    meta_path.write_text(json.dumps(metadata, indent=2, default=str) + "\n")
+    atomic_write_json(meta_path, metadata)
     return bundle_dir
 
 
@@ -960,7 +965,7 @@ def finalize_workspace_bundle(
     }
     metadata["status"] = "partial" if partial else "completed"
 
-    meta_path.write_text(json.dumps(metadata, indent=2, default=str) + "\n")
+    atomic_write_json(meta_path, metadata)
     return bundle_dir
 
 

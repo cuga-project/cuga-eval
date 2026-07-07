@@ -110,12 +110,20 @@ def _repair_bundle_dir(bundle_dir: Path, benchmark: str | None, no_langfuse: boo
     if not no_langfuse:
         cmd = [*common, "retry-langfuse", "--bundle-dir", str(bundle_dir), *bench_args]
         print("Running:", " ".join(cmd))
-        subprocess.run(cmd, cwd=PROJECT_ROOT, check=True)
+        try:
+            subprocess.run(cmd, cwd=PROJECT_ROOT, check=True)
+        except subprocess.CalledProcessError as e:
+            print(f"retry-langfuse failed (exit {e.returncode})", file=sys.stderr)
+            return 1
 
     if not no_report:
         cmd = [*common, "regenerate-report", "--bundle-dir", str(bundle_dir), *bench_args]
         print("Running:", " ".join(cmd))
-        subprocess.run(cmd, cwd=PROJECT_ROOT, check=True)
+        try:
+            subprocess.run(cmd, cwd=PROJECT_ROOT, check=True)
+        except subprocess.CalledProcessError as e:
+            print(f"regenerate-report failed (exit {e.returncode})", file=sys.stderr)
+            return 1
 
     print(f"Bundle repaired: {bundle_dir}")
     return 0

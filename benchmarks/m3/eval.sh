@@ -221,8 +221,10 @@ create_bundle() {
             fin_extra+=(--partial)
         fi
 
-        finalize_experiment_workspace "m3" "${fin_extra[@]}" || \
-            echo -e "${YELLOW:-}Experiment workspace finalization reported errors (best-effort).${NC:-}"
+        if ! finalize_experiment_workspace "m3" "${fin_extra[@]}"; then
+            echo -e "${YELLOW:-}Experiment workspace finalization reported errors.${NC:-}"
+            [ "${PARTIAL_FINALIZE:-false}" = "true" ] || return 1
+        fi
         return 0
     fi
 
