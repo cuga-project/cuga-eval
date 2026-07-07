@@ -161,6 +161,11 @@ while [[ $# -gt 0 ]]; do
     esac
 done
 
+# Apply --model-profile after load_env + arg parsing (mirrors scripts/eval.sh).
+if type finalize_model_config &>/dev/null; then
+    finalize_model_config || exit 1
+fi
+
 if [ -n "${AGENT:-}" ] && [ "$AGENT" != "cuga" ]; then
     echo -e "${RED:-}Error: oak_health_insurance only supports --agent cuga (got '$AGENT').${NC:-}"
     exit 2

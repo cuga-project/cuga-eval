@@ -241,6 +241,35 @@ result=$(
 )
 assert_eq "build_model_envs_json preserves pre-existing DYNACONF_*" "keepme" "$result"
 
+# ─── direct benchmark eval.sh --model-profile path (#101) ────────────────────
+# Direct invocation: load_env (override=false) then --model-profile must apply
+# via finalize_model_config — same as scripts/eval.sh already does.
+
+echo "direct eval.sh --model-profile (#101)"
+
+result=$(
+    source "$SCRIPT_DIR/../common.sh"
+    TMP=$(mktemp); trap 'rm -f "$TMP"' EXIT
+    printf 'MODEL_NAME=from-dotenv-not-profile\n' > "$TMP"
+    export MODEL_PROFILE=gpt4.1
+    export USE_DOTENV=false
+    _parse_env_file "$TMP" false > /dev/null 2>&1
+    echo "$MODEL_NAME"
+)
+assert_eq "without finalize_model_config: .env MODEL_NAME wins" "from-dotenv-not-profile" "$result"
+
+result=$(
+    source "$SCRIPT_DIR/../common.sh"
+    TMP=$(mktemp); trap 'rm -f "$TMP"' EXIT
+    printf 'MODEL_NAME=from-dotenv-not-profile\n' > "$TMP"
+    export MODEL_PROFILE=gpt4.1
+    export USE_DOTENV=false
+    _parse_env_file "$TMP" false > /dev/null 2>&1
+    finalize_model_config > /dev/null 2>&1
+    echo "$MODEL_NAME"
+)
+assert_eq "with finalize_model_config: profile overrides .env" "Azure/gpt-4.1" "$result"
+
 # ─── scripts/compare.sh MODEL_PROFILE propagation ────────────────────────────
 # Regression: MODEL_PROFILE was consumed by parse_common_args but never added to
 # DISPATCH_ARGS, so benchmark compare scripts silently fell back to their own

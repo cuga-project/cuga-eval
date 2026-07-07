@@ -146,6 +146,11 @@ while [[ $# -gt 0 ]]; do
     esac
 done
 
+# Apply --model-profile after load_env + arg parsing (mirrors scripts/eval.sh).
+if type finalize_model_config &>/dev/null; then
+    finalize_model_config || exit 1
+fi
+
 # Run evaluation
 echo -e "${YELLOW:-}Starting evaluation with agent ${AGENT:-cuga}...${NC:-}"
 

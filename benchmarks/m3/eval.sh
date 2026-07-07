@@ -264,6 +264,11 @@ cd "$PROJECT_ROOT"
 # Load environment
 source "$PROJECT_ROOT/benchmarks/helpers/load_env.sh" "m3"
 
+# Apply --model-profile after load_env + arg parsing (mirrors scripts/eval.sh).
+if type finalize_model_config &>/dev/null; then
+    finalize_model_config || exit 1
+fi
+
 # Single registry port for shell helpers and Python (eval_m3 / cuga-agent both
 # read DYNACONF_SERVER_PORTS__REGISTRY via settings.server_ports.registry).
 REGISTRY_PORT="${REGISTRY_PORT:-${DYNACONF_SERVER_PORTS__REGISTRY:-8001}}"

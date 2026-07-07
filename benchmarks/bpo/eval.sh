@@ -182,6 +182,11 @@ while [[ $# -gt 0 ]]; do
     esac
 done
 
+# Apply --model-profile after load_env + arg parsing (mirrors scripts/eval.sh).
+if type finalize_model_config &>/dev/null; then
+    finalize_model_config || exit 1
+fi
+
 # Validate --agent selection before any server/process side effects (fast-fail)
 if [ "${AGENT:-cuga}" = "codeact" ]; then
     echo -e "${RED:-}Error: --agent codeact is supported only by the appworld benchmark.${NC:-}"
