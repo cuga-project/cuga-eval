@@ -570,11 +570,12 @@ for config in "${CONFIGS[@]}"; do
     # (matched against this agent's filename pattern).
     after_files=$(_list_results_for_agent "$agent")
     recent_files=$(comm -13 <(echo "$before_files") <(echo "$after_files"))
-    CONFIG_RESULT_KEYS+=("$config")
+    bundle_config=$(resolve_config_key_for_bundle "$config")
+    CONFIG_RESULT_KEYS+=("$bundle_config")
     CONFIG_RESULT_VALS+=("$recent_files")
 
     # Store the per-run trajectory groups (sentinel-delimited) for this config.
-    CONFIG_TRAJ_KEYS+=("$config")
+    CONFIG_TRAJ_KEYS+=("$bundle_config")
     CONFIG_TRAJ_VALS+=("$config_traj_groups")
 
     # Store the per-run log groups (sentinel-delimited) for this config.

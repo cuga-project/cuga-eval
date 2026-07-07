@@ -9,6 +9,7 @@ Works for any benchmark — pass ``benchmark_dir`` to customise paths.
 import hashlib
 import json
 import os
+import re
 import shutil
 import subprocess
 from datetime import datetime, timezone
@@ -41,6 +42,21 @@ DYNACONF_PREFIXES = [
 # Resolve once: <project_root>/benchmarks/helpers -> <project_root>
 _HELPERS_DIR = Path(__file__).resolve().parent
 PROJECT_ROOT = _HELPERS_DIR.parent.parent
+
+
+def _sanitize_model_slug(model_name: str) -> str:
+    """Filesystem-safe label from a model name (e.g. google/gemma-4-31b → gemma-4-31b)."""
+    name = model_name.rsplit("/", 1)[-1].lower()
+    return re.sub(r"[^a-z0-9._-]", "_", name)[:64]
+
+
+def _bundle_profile_label(model_profile: str | None) -> str:
+    """Directory label for single-run bundles; honour --dotenv MODEL_NAME when set."""
+    use_dotenv = os.environ.get("USE_DOTENV", "").lower() in ("true", "1", "yes")
+    model_name = (os.environ.get("MODEL_NAME") or "").strip()
+    if use_dotenv and model_name:
+        return _sanitize_model_slug(model_name)
+    return model_profile or "default"
 
 
 def _load_benchmark_env(benchmark_name: str) -> None:
@@ -472,7 +488,7 @@ def assemble_bundle(
         bundle_root = benchmark_dir / "evaluation_bundles"
 
     timestamp = datetime.now(timezone.utc).strftime("%Y%m%d_%H%M%S")
-    profile_label = model_profile or "default"
+    profile_label = _bundle_profile_label(model_profile)
     bundle_dir = bundle_root / f"{timestamp}_{profile_label}"
     bundle_dir.mkdir(parents=True, exist_ok=True)
 

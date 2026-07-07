@@ -241,6 +241,43 @@ result=$(
 )
 assert_eq "build_model_envs_json preserves pre-existing DYNACONF_*" "keepme" "$result"
 
+# ─── --dotenv bundle / compare labels (#89) ──────────────────────────────────
+
+echo "dotenv bundle labels (#89)"
+
+result=$(
+    source "$SCRIPT_DIR/../common.sh"
+    export USE_DOTENV=false
+    resolve_model_label_for_bundle "gpt-oss"
+)
+assert_eq "without --dotenv: profile label unchanged" "gpt-oss" "$result"
+
+result=$(
+    source "$SCRIPT_DIR/../common.sh"
+    export USE_DOTENV=true
+    export MODEL_NAME="google/gemma-4-31b"
+    resolve_model_label_for_bundle "gpt-oss"
+)
+assert_eq "with --dotenv: MODEL_NAME slug used" "gemma-4-31b" "$result"
+
+result=$(
+    source "$SCRIPT_DIR/../common.sh"
+    export USE_DOTENV=true
+    export MODEL_NAME="google/gemma-4-31b"
+    resolve_config_key_for_bundle "gpt-oss:cuga:policies"
+)
+assert_eq "config key model segment resolved under --dotenv" "gemma-4-31b:cuga:policies" "$result"
+
+result=$(
+    source "$SCRIPT_DIR/../common.sh"
+    TMP=$(mktemp); trap 'rm -f "$TMP"' EXIT
+    printf 'MODEL_NAME=gemma-bundle\n' > "$TMP"
+    export USE_DOTENV=true
+    export DOTENV_FILE="$TMP"
+    build_model_envs_json "gpt-oss" 2>/dev/null
+)
+assert_contains "build_model_envs_json keys use MODEL_NAME slug under --dotenv" '"gemma-bundle":{' "$result"
+
 # ─── scripts/compare.sh MODEL_PROFILE propagation ────────────────────────────
 # Regression: MODEL_PROFILE was consumed by parse_common_args but never added to
 # DISPATCH_ARGS, so benchmark compare scripts silently fell back to their own
