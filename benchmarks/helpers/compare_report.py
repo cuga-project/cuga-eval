@@ -68,10 +68,8 @@ def _compare_grouping_axis(config_keys: list) -> str | None:
     for key in config_keys:
         model, agent, policy = _parse_config_key(key)
         models.add(model)
-        if agent:
-            agents.add(agent)
-        if policy:
-            policies.add(policy)
+        agents.add(agent or "(default)")
+        policies.add(policy or "(default)")
     varying: list[str] = []
     if len(models) > 1:
         varying.append("model")

@@ -669,6 +669,7 @@ def test_multi_axis_compare_report_groups_by_agent(tmp_path):
     assert "## Agent: cuga" in report
     assert "## Agent: react" in report
     assert report.count("## Summary") == 2
+    assert report.count("## Metrics") == 1
 
     cuga_idx = report.index("## Agent: cuga")
     react_idx = report.index("## Agent: react")
