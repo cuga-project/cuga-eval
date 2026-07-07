@@ -48,6 +48,79 @@ def _format_config_label(config_key: str) -> str:
     return f"{label} ({display_model})"
 
 
+_COMPARE_GROUP_AXIS_LABELS = {"agent": "Agent", "model": "Model", "policy": "Policy"}
+
+
+def _parse_config_key(config_key: str) -> tuple:
+    """Split a compare config key into (model, agent, policy)."""
+    parts = config_key.split(":")
+    model = parts[0]
+    agent = parts[1] if len(parts) > 1 and parts[1] else None
+    policy = parts[2] if len(parts) > 2 and parts[2] else None
+    return model, agent, policy
+
+
+def _compare_grouping_axis(config_keys: list) -> str | None:
+    """Return the axis to group by when multiple comparison dimensions vary."""
+    models: set[str] = set()
+    agents: set[str] = set()
+    policies: set[str] = set()
+    for key in config_keys:
+        model, agent, policy = _parse_config_key(key)
+        models.add(model)
+        if agent:
+            agents.add(agent)
+        if policy:
+            policies.add(policy)
+    varying: list[str] = []
+    if len(models) > 1:
+        varying.append("model")
+    if len(agents) > 1:
+        varying.append("agent")
+    if len(policies) > 1:
+        varying.append("policy")
+    if len(varying) <= 1:
+        return None
+    for axis in ("agent", "model", "policy"):
+        if axis in varying:
+            return axis
+    return None
+
+
+def _group_value_for_axis(config_key: str, axis: str) -> str:
+    model, agent, policy = _parse_config_key(config_key)
+    if axis == "model":
+        return model
+    if axis == "agent":
+        return agent or "(default)"
+    if axis == "policy":
+        return policy or "(default)"
+    raise ValueError(axis)
+
+
+def _group_model_data(model_data: dict, axis: str) -> dict:
+    from collections import defaultdict
+
+    grouped = defaultdict(dict)
+    for config_key, runs in model_data.items():
+        grouped[_group_value_for_axis(config_key, axis)][config_key] = runs
+    return dict(grouped)
+
+
+def _compare_metrics_glossary(h2) -> list:
+    lines = [h2("Metrics"), ""]
+    lines.append("- **pass@k**: at least 1 success across k runs (any-pass coverage).")
+    lines.append("- **pass^k**: all k runs successful (perfect reliability).")
+    lines.append("- **maj@k**: majority of runs passed (> k/2). Captures tasks solved more often than not.")
+    lines.append(
+        "- **Cons** (Consistency): pass^k / maj@k. Of the tasks the agent solves most of the time, "
+        "what fraction does it solve every time? 1.0 = perfectly reliable on its winnable tasks; "
+        "lower = higher variance. `--` when no task passes a majority."
+    )
+    lines.append("")
+    return lines
+
+
 def _fmt(val, fmt=","):
     """Format a numeric value, returning '--' if None (zero is shown as 0)."""
     if val is None:
@@ -580,43 +653,16 @@ def _stats_for_task(task_runs):
     }
 
 
-def generate_report(config_results: dict[str, list[str]], markdown: bool = True) -> str:
-    """Generate a multi-run comparison report with pass@k / pass^k, compact
-    per-task ✓/✗ rows, and aggregated tokens/LLM/time per task.
-
-    When ``markdown=True`` (default), section titles use markdown headers and
-    tabular sections are wrapped in fenced code blocks — that's what gets saved
-    to report.md. When ``markdown=False``, the same content is emitted as plain
-    text (no ``##`` / no ```` ``` ``` ````) so it's readable on a terminal in a
-    monospace font without rendering.
-    """
-    h1 = (lambda s: f"# {s}") if markdown else (lambda s: f"\n{s}\n{'=' * len(s)}")
-    h2 = (lambda s: f"## {s}") if markdown else (lambda s: f"\n{s}\n{'-' * len(s)}")
-    h3 = (lambda s: f"### {s}") if markdown else (lambda s: f"\n{s}")
-    fence_open = (lambda: "```text") if markdown else (lambda: "")
-    fence_close = (lambda: "```") if markdown else (lambda: "")
-    # ---- 1. Parse all result files into model_data {config_key: [run_dict, ...]}
-    model_data = {}
-    max_runs = 0
-    for config_key, file_paths in sorted(config_results.items()):
-        runs = []
-        for fp in file_paths:
-            try:
-                runs.append(parse_result_file(fp))
-            except Exception as e:
-                print(f"Warning: Failed to parse {fp}: {e}", file=sys.stderr)
-        if not runs:
-            continue
-        model_data[config_key] = runs
-        max_runs = max(max_runs, len(runs))
-
-    if not model_data:
-        return f"{h1('Evaluation Comparison Report')}\n\nNo valid result files found.\n"
-
-    lines = [h1("Evaluation Comparison Report"), ""]
-    lines.append(f"{max_runs} run(s) per configuration.")
-    lines.append("")
-
+def _render_compare_report_sections(
+    model_data: dict,
+    max_runs: int,
+    *,
+    h2,
+    h3,
+    fence_open,
+    fence_close,
+) -> list:
+    lines: list = []
     # ---- 2. Summary Table (with pass@k, pass^k, maj@k, consistency)
     lines.append(h2("Summary"))
     lines.append("")
@@ -935,18 +981,78 @@ def generate_report(config_results: dict[str, list[str]], markdown: bool = True)
             lines.append(fence_close())
         lines.append("")
 
-    # ---- 5. Metric glossary
-    lines.append(h2("Metrics"))
+    return lines
+
+
+def generate_report(config_results: dict[str, list[str]], markdown: bool = True) -> str:
+    """Generate a multi-run comparison report with pass@k / pass^k, compact
+    per-task ✓/✗ rows, and aggregated tokens/LLM/time per task.
+
+    When ``markdown=True`` (default), section titles use markdown headers and
+    tabular sections are wrapped in fenced code blocks — that's what gets saved
+    to report.md. When ``markdown=False``, the same content is emitted as plain
+    text (no ``##`` / no ```` ``` ``` ````) so it's readable on a terminal in a
+    monospace font without rendering.
+    """
+    h1 = (lambda s: f"# {s}") if markdown else (lambda s: f"\n{s}\n{'=' * len(s)}")
+    h2 = (lambda s: f"## {s}") if markdown else (lambda s: f"\n{s}\n{'-' * len(s)}")
+    h3 = (lambda s: f"### {s}") if markdown else (lambda s: f"\n{s}")
+    fence_open = (lambda: "```text") if markdown else (lambda: "")
+    fence_close = (lambda: "```") if markdown else (lambda: "")
+    # ---- 1. Parse all result files into model_data {config_key: [run_dict, ...]}
+    model_data = {}
+    max_runs = 0
+    for config_key, file_paths in sorted(config_results.items()):
+        runs = []
+        for fp in file_paths:
+            try:
+                runs.append(parse_result_file(fp))
+            except Exception as e:
+                print(f"Warning: Failed to parse {fp}: {e}", file=sys.stderr)
+        if not runs:
+            continue
+        model_data[config_key] = runs
+        max_runs = max(max_runs, len(runs))
+
+    if not model_data:
+        return f"{h1('Evaluation Comparison Report')}\n\nNo valid result files found.\n"
+
+    lines = [h1("Evaluation Comparison Report"), ""]
+    lines.append(f"{max_runs} run(s) per configuration.")
     lines.append("")
-    lines.append("- **pass@k**: at least 1 success across k runs (any-pass coverage).")
-    lines.append("- **pass^k**: all k runs successful (perfect reliability).")
-    lines.append("- **maj@k**: majority of runs passed (> k/2). Captures tasks solved more often than not.")
-    lines.append(
-        "- **Cons** (Consistency): pass^k / maj@k. Of the tasks the agent solves most of the time, "
-        "what fraction does it solve every time? 1.0 = perfectly reliable on its winnable tasks; "
-        "lower = higher variance. `--` when no task passes a majority."
-    )
-    lines.append("")
+
+    grouping_axis = _compare_grouping_axis(list(model_data.keys()))
+    if grouping_axis is None:
+        lines.extend(
+            _render_compare_report_sections(
+                model_data,
+                max_runs,
+                h2=h2,
+                h3=h3,
+                fence_open=fence_open,
+                fence_close=fence_close,
+            )
+        )
+    else:
+        grouped = _group_model_data(model_data, grouping_axis)
+        axis_label = _COMPARE_GROUP_AXIS_LABELS[grouping_axis]
+        for group_value in sorted(grouped.keys()):
+            subgroup = grouped[group_value]
+            subgroup_max_runs = max(len(runs) for runs in subgroup.values())
+            lines.append(h2(f"{axis_label}: {group_value}"))
+            lines.append("")
+            lines.extend(
+                _render_compare_report_sections(
+                    subgroup,
+                    subgroup_max_runs,
+                    h2=h2,
+                    h3=h3,
+                    fence_open=fence_open,
+                    fence_close=fence_close,
+                )
+            )
+
+    lines.extend(_compare_metrics_glossary(h2))
 
     return "\n".join(lines)
 

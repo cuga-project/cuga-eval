@@ -650,3 +650,53 @@ def test_load_appworld_categories_warns_when_config_missing(tmp_path, capsys):
     assert _load_appworld_categories(config_path=missing) == {}
     err = capsys.readouterr().err
     assert "AppWorld category config not found" in err
+
+
+def test_multi_axis_compare_report_groups_by_agent(tmp_path):
+    """Two agents × two models → labeled section per agent (issue #68)."""
+    run_a = _appworld_run(tmp_path, "a.json", {"T1": True, "T2": False})
+    run_b = _appworld_run(tmp_path, "b.json", {"T1": False, "T2": True})
+
+    report = generate_report(
+        {
+            "gpt-oss:cuga": [run_a],
+            "gpt4o:cuga": [run_b],
+            "gpt-oss:react": [run_b],
+            "gpt4o:react": [run_a],
+        }
+    )
+
+    assert "## Agent: cuga" in report
+    assert "## Agent: react" in report
+    assert report.count("## Summary") == 2
+
+    cuga_idx = report.index("## Agent: cuga")
+    react_idx = report.index("## Agent: react")
+    cuga_section = report[cuga_idx:react_idx]
+    react_section = report[react_idx:]
+
+    assert "GPT-OSS-120B" in cuga_section
+    assert "GPT-4o" in cuga_section
+    assert "react (" not in cuga_section
+
+    assert "react (GPT-OSS-120B)" in react_section or "react (GPT-4o)" in react_section
+    assert "cuga (" not in react_section
+
+
+def test_single_axis_compare_report_unchanged(tmp_path):
+    """Only models vary → flat single-table layout (no dimension grouping)."""
+    run1 = _appworld_run(tmp_path, "r1.json", {"A": True, "B": False})
+    run2 = _appworld_run(tmp_path, "r2.json", {"A": True, "B": True})
+
+    report = generate_report({"gpt-oss:cuga": [run1, run2], "gpt4o:cuga": [run1, run2]})
+
+    assert "## Agent:" not in report
+    assert "## Model:" not in report
+    assert "## Policy:" not in report
+    assert report.count("## Summary") == 1
+    assert report.count("## Cost Summary") == 1
+    assert report.count("## Per-Task Details") == 1
+    assert report.count("## Metrics") == 1
+    assert "pass@2" in report
+    assert "cuga (GPT-OSS-120B)" in report
+    assert "cuga (GPT-4o)" in report
