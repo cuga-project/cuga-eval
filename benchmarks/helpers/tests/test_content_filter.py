@@ -101,6 +101,6 @@ def test_eval_report_surfaces_content_filter_failures(tmp_path: Path):
     report = generate_eval_report(str(result_file))
 
     assert "Content filter failures" in report
-    assert "1 task(s) failed due to Azure content-filter false positives" in report
+    assert "1 task(s) failed because Azure's content filter rejected the request" in report
     assert "content_filter" in report
     assert "2e9b91e_1" in report

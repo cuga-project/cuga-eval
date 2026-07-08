@@ -33,15 +33,17 @@ def _task_result_mark(task: dict, *, markdown: bool = True) -> str:
 
     Markdown tables don't need fixed-width cells, so the content-filter
     annotation spells out "content_filter" there. Plain-text tables use
-    fixed-width columns (see the ``mark:<1`` cells below), so this returns
-    the compact "✗c" there instead — the full word would blow out row
-    alignment for every column after it.
+    fixed-width columns (see the ``mark:<2`` cells below), so every
+    non-markdown return value here is exactly 2 characters wide — "✗c" for a
+    content-filter failure, "✓ "/"✗ " otherwise — the full word would blow
+    out row alignment for every column after it, and a narrower ``✓``/``✗``
+    without the padding space would misalign against the 2-char "✗c" rows.
     """
     if task.get("success"):
-        return "✓"
+        return "✓" if markdown else "✓ "
     if task.get("failure_reason") == FAILURE_REASON_CONTENT_FILTER:
         return "✗ content_filter" if markdown else "✗c"
-    return "✗"
+    return "✗" if markdown else "✗ "
 
 
 def _content_filter_failure_count(tasks: dict) -> int:
@@ -57,7 +59,8 @@ def _append_content_filter_summary(lines: list[str], tasks: dict, *, markdown: b
     if count <= 0:
         return
     note = (
-        f"{count} task(s) failed due to Azure content-filter false positives (scored 0.0; not agent failures)"
+        f"{count} task(s) failed because Azure's content filter rejected the request "
+        "(scored 0.0; prompt vs. completion not distinguishable from the captured error text)"
     )
     if markdown:
         lines.append(f"- **Content filter failures**: {note}")
@@ -708,8 +711,9 @@ def generate_report(config_results: dict[str, list[str]], markdown: bool = True)
     )
     if total_content_filter > 0:
         note = (
-            f"{total_content_filter} task run(s) failed due to Azure content-filter false positives "
-            "(scored 0.0; not agent failures — marked ✗c in Per-Task Details)"
+            f"{total_content_filter} task run(s) failed because Azure's content filter rejected the "
+            "request (scored 0.0; prompt vs. completion not distinguishable from the captured error "
+            "text — marked ✗c in Per-Task Details)"
         )
         if markdown:
             lines.append(f"- **Content filter failures**: {note}")
@@ -1017,8 +1021,8 @@ def generate_report(config_results: dict[str, list[str]], markdown: bool = True)
         "lower = higher variance. `--` when no task passes a majority."
     )
     lines.append(
-        "- **✗c**: task run aborted by an Azure content-filter false positive (scored 0.0; not an "
-        "agent failure — see Content filter failures note under Summary)."
+        "- **✗c**: task run aborted by Azure's content filter (scored 0.0; prompt vs. completion not "
+        "distinguishable from the captured error text — see Content filter failures note under Summary)."
     )
     lines.append("")
 
@@ -1207,14 +1211,14 @@ def generate_eval_report(result_file: str, markdown: bool = True) -> str:
             if has_vakra:
                 header = (
                     f"  {col_task:<4}  {'Domain':<{col_dom_w}}  {'#':>2}  "
-                    f"{'R':<1}  {'Dialog':>6}  {'ExctM':>5}  {'Answer':>6}  {'Ground':>6}  "
+                    f"{'R':<2}  {'Dialog':>6}  {'ExctM':>5}  {'Answer':>6}  {'Ground':>6}  "
                     f"{'Tokens':>10}  {'Cost':>7}  {'LLM':>5}  "
                     f"{'Cache':>10}  {'Duration':>9}  {'Steps':>5}"
                 )
             else:
                 header = (
                     f"  {col_task:<4}  {'Domain':<{col_dom_w}}  {'#':>2}  "
-                    f"{'R':<1}  {'Tokens':>10}  {'Cost':>7}  {'LLM':>5}  "
+                    f"{'R':<2}  {'Tokens':>10}  {'Cost':>7}  {'LLM':>5}  "
                     f"{'Cache':>10}  {'Duration':>9}  {'Steps':>5}"
                 )
             lines.append(header)
@@ -1248,7 +1252,7 @@ def generate_eval_report(result_file: str, markdown: bool = True) -> str:
                     )
                 lines.append(
                     f"  {tid_disp:<4}  {dom_disp:<{col_dom_w}}  {ordn_disp:>2}  "
-                    f"{mark:<1}  {vakra_cols}"
+                    f"{mark:<2}  {vakra_cols}"
                     f"{_fmt(t['tokens']):>10}  "
                     f"{_fmt(t.get('cost'), '$'):>7}  "
                     f"{_fmt(t.get('llm_calls')):>5}  "
@@ -1273,7 +1277,7 @@ def generate_eval_report(result_file: str, markdown: bool = True) -> str:
         else:
             col_task_w = min(40, max(len("Task"), max((len(r["label"]) for r in rows), default=8)))
             header = (
-                f"  {'Task':<{col_task_w}}  {'R':<1}  {'Tokens':>10}  "
+                f"  {'Task':<{col_task_w}}  {'R':<2}  {'Tokens':>10}  "
                 f"{'Cost':>7}  {'LLM':>5}  {'Cache':>10}  "
                 f"{'Duration':>9}  {'Steps':>5}"
             )
@@ -1286,7 +1290,7 @@ def generate_eval_report(result_file: str, markdown: bool = True) -> str:
                     lbl = lbl[: col_task_w - 1] + "…"
                 mark = _task_result_mark(t, markdown=False)
                 lines.append(
-                    f"  {lbl:<{col_task_w}}  {mark:<1}  "
+                    f"  {lbl:<{col_task_w}}  {mark:<2}  "
                     f"{_fmt(t['tokens']):>10}  "
                     f"{_fmt(t.get('cost'), '$'):>7}  "
                     f"{_fmt(t.get('llm_calls')):>5}  "
