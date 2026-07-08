@@ -9,7 +9,7 @@ from dataclasses import asdict, dataclass, field
 from pathlib import Path
 from typing import Any, Dict, List, Optional
 
-from benchmarks.helpers.content_filter import classify_failure_reason, failure_reason_from_exceptions
+from benchmarks.helpers.content_filter import classify_exception, failure_reason_from_exceptions
 
 # Configure logging for the experiment manager
 logging.basicConfig(level=logging.INFO, format='%(asctime)s - %(name)s - %(levelname)s - %(message)s')
@@ -70,7 +70,7 @@ class TaskResult:
 
     def add_exception(self, exception: Exception, context: str = "") -> None:
         """Add an exception to the task result."""
-        reason = classify_failure_reason(str(exception))
+        reason = classify_exception(exception)
         if reason and not self.failure_reason:
             self.failure_reason = reason
         self.exceptions.append(

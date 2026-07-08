@@ -136,6 +136,7 @@ async def invoke_and_score_appworld(
     response = ""
     tool_calls: List[Any] = []
     err: Optional[str] = None
+    err_exc: Optional[BaseException] = None
     is_error = False
     invoked = False
     eval_dict: Dict[str, Any] = {}
@@ -144,7 +145,7 @@ async def invoke_and_score_appworld(
     invoke_result_holder: List[Any] = []
 
     async def run_invoke(invoke_config: Optional[dict] = None) -> None:
-        nonlocal response, tool_calls, err, is_error, invoked
+        nonlocal response, tool_calls, err, err_exc, is_error, invoked
         try:
             invoke_result = await agent.invoke(
                 [HumanMessage(content=intent)],
@@ -160,6 +161,7 @@ async def invoke_and_score_appworld(
             invoked = True
         except Exception as e:
             err = str(e)
+            err_exc = e
             is_error = True
             logger.error(f"Agent invoke failed: {e}")
 
@@ -328,7 +330,7 @@ async def invoke_and_score_appworld(
     if err:
         from benchmarks.helpers.content_filter import annotate_content_filter_failure
 
-        annotate_content_filter_failure(result, err, logger=logger, task_id=task_id)
+        annotate_content_filter_failure(result, err, exc=err_exc, logger=logger, task_id=task_id)
 
     return result
 

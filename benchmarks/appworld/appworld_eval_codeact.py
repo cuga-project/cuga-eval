@@ -482,7 +482,7 @@ async def run_agent_on_task(
                 logger.warning("Failed to close AppWorld cleanly after exception")
             end_time = time.time()
 
-            log_content_filter_failure(logger, str(e), task_id=world.task_id)
+            log_content_filter_failure(logger, str(e), exc=e, task_id=world.task_id)
             if task_result:
                 task_result.add_exception(e, "run_agent_on_task_codeact")
                 task_result.api_calls = len(tool_calls)
