@@ -36,6 +36,17 @@ from benchmarks.helpers.compare_report import (
 pytestmark = pytest.mark.regression
 
 
+def _heading_count(report: str, heading: str) -> int:
+    """Count *exact-level* occurrences of a markdown heading line.
+
+    Plain substring containment (``heading in report``) false-positives on
+    deeper headings: ``"## Summary"`` is a substring of ``"#### Summary"``
+    since markdown headers share the ``#`` prefix. Comparing whole lines
+    avoids that.
+    """
+    return sum(1 for line in report.splitlines() if line == heading)
+
+
 def test_m3_capability_group_keys_on_task_id_without_domain():
     """The capability rollup is capability-only: a task with m3_task_id but no
     domain must still group under m3_task_<id>, not be dropped."""
@@ -653,7 +664,13 @@ def test_load_appworld_categories_warns_when_config_missing(tmp_path, capsys):
 
 
 def test_multi_axis_compare_report_groups_by_agent(tmp_path):
-    """Two agents × two models → labeled section per agent (issue #68)."""
+    """Two agents × two models → nested Agent -> Model sections (issue #68).
+
+    Both axes vary, so the report nests two levels deep: "## Agent: <x>"
+    headings each contain a "### Model: <y>" heading per model, and the
+    actual content sections (Summary, Cost Summary, ...) are pushed to
+    "#### " so the outline reflects the two-level grouping instead of
+    looking flat (issue #68 review — header hierarchy)."""
     run_a = _appworld_run(tmp_path, "a.json", {"T1": True, "T2": False})
     run_b = _appworld_run(tmp_path, "b.json", {"T1": False, "T2": True})
 
@@ -668,18 +685,28 @@ def test_multi_axis_compare_report_groups_by_agent(tmp_path):
 
     assert "## Agent: cuga" in report
     assert "## Agent: react" in report
-    assert report.count("## Summary") == 2
+    # Content sections are nested two levels deep (agent, then model), so
+    # they render at #### rather than ## — one per (agent, model) combo.
+    assert _heading_count(report, "## Summary") == 0
+    assert _heading_count(report, "#### Summary") == 4
+    # The Metrics glossary sits outside all grouping, at the original level.
     assert report.count("## Metrics") == 1
+    # It's also the very last section, regardless of how deep the last
+    # group's content nested (issue #68 review — misplacement inside a
+    # group would still pass a bare count check but display badly).
+    assert report.rstrip().endswith(report[report.rindex("## Metrics") :].rstrip())
 
     cuga_idx = report.index("## Agent: cuga")
     react_idx = report.index("## Agent: react")
     cuga_section = report[cuga_idx:react_idx]
     react_section = report[react_idx:]
 
-    assert "GPT-OSS-120B" in cuga_section
-    assert "GPT-4o" in cuga_section
+    assert "### Model: gpt-oss" in cuga_section
+    assert "### Model: gpt4o" in cuga_section
     assert "react (" not in cuga_section
 
+    assert "### Model: gpt-oss" in react_section
+    assert "### Model: gpt4o" in react_section
     assert "react (GPT-OSS-120B)" in react_section or "react (GPT-4o)" in react_section
     assert "cuga (" not in react_section
 
@@ -701,3 +728,199 @@ def test_single_axis_compare_report_unchanged(tmp_path):
     assert "pass@2" in report
     assert "cuga (GPT-OSS-120B)" in report
     assert "cuga (GPT-4o)" in report
+
+
+def test_policy_axis_grouping_flat_when_single_axis_varies(tmp_path):
+    """1 agent x 1 model x 2 policies: only the policy axis varies, so the
+    report must stay flat (no "## Policy:" heading) — pins the "flat when a
+    single axis varies" contract (issue #68 review, test-coverage gap)."""
+    run1 = _appworld_run(tmp_path, "r1.json", {"A": True, "B": False})
+    run2 = _appworld_run(tmp_path, "r2.json", {"A": True, "B": True})
+
+    report = generate_report(
+        {
+            "gpt-oss:cuga:policies": [run1],
+            "gpt-oss:cuga:no-policies": [run2],
+        }
+    )
+
+    assert "## Agent:" not in report
+    assert "## Model:" not in report
+    assert "## Policy:" not in report
+    assert report.count("## Summary") == 1
+    assert report.count("## Metrics") == 1
+    assert "cuga — policies (GPT-OSS-120B)" in report
+    assert "cuga — no-policies (GPT-OSS-120B)" in report
+
+
+def test_model_and_policy_axis_grouping_when_agent_constant(tmp_path):
+    """1 agent x 2 models x 2 policies: agent is constant, so per the agent >
+    model > policy priority the report nests by model, then by policy inside
+    each model (issue #68 review, test-coverage gap — previously only the
+    single-axis-picks-agent path was tested)."""
+    run1 = _appworld_run(tmp_path, "r1.json", {"A": True, "B": False})
+    run2 = _appworld_run(tmp_path, "r2.json", {"A": True, "B": True})
+
+    report = generate_report(
+        {
+            "gpt-oss:cuga:policies": [run1],
+            "gpt-oss:cuga:no-policies": [run2],
+            "gpt4o:cuga:policies": [run2],
+            "gpt4o:cuga:no-policies": [run1],
+        }
+    )
+
+    # Agent never varies here, so it must not become a grouping level.
+    assert "## Agent:" not in report
+    assert "## Model: gpt-oss" in report
+    assert "## Model: gpt4o" in report
+    # Policy nests one level deeper than model.
+    assert "### Policy: policies" in report
+    assert "### Policy: no-policies" in report
+    # Content is pushed to the third nesting level (model, then policy).
+    assert _heading_count(report, "## Summary") == 0
+    assert _heading_count(report, "### Summary") == 0
+    assert _heading_count(report, "#### Summary") == 4
+    assert report.count("## Metrics") == 1
+
+    oss_idx = report.index("## Model: gpt-oss")
+    gpt4o_idx = report.index("## Model: gpt4o")
+    oss_section = report[oss_idx:gpt4o_idx]
+    assert "### Policy: policies" in oss_section
+    assert "### Policy: no-policies" in oss_section
+
+
+def test_three_axis_compare_report_nests_agent_model_policy(tmp_path):
+    """2 agents x 2 models x 2 policies (8 combos): all three axes vary, so
+    the report nests three levels deep — Agent -> Model -> Policy — with
+    content pushed correspondingly deeper (issue #68 review, test-coverage
+    gap: "assert which axis wins ... if nested grouping is added, assert
+    sub-headings"). Also pins the Metrics glossary as the report's final
+    section regardless of how deep the grouping goes."""
+    run1 = _appworld_run(tmp_path, "r1.json", {"A": True, "B": False})
+    run2 = _appworld_run(tmp_path, "r2.json", {"A": True, "B": True})
+
+    configs = {}
+    for agent in ("cuga", "react"):
+        for model in ("gpt-oss", "gpt4o"):
+            for policy in ("policies", "no-policies"):
+                configs[f"{model}:{agent}:{policy}"] = [run1 if policy == "policies" else run2]
+
+    report = generate_report(configs)
+
+    assert "## Agent: cuga" in report
+    assert "## Agent: react" in report
+    assert report.count("### Model: gpt-oss") == 2  # once per agent
+    assert report.count("### Model: gpt4o") == 2
+    assert report.count("#### Policy: policies") == 4  # once per (agent, model)
+    assert report.count("#### Policy: no-policies") == 4
+    # Content sections are pushed 3 levels deep (agent, model, policy).
+    assert _heading_count(report, "## Summary") == 0
+    assert _heading_count(report, "### Summary") == 0
+    assert _heading_count(report, "#### Summary") == 0
+    assert _heading_count(report, "##### Summary") == 8  # one per (agent, model, policy) combo
+
+    # The glossary is outside all grouping and is the report's last section.
+    assert report.count("## Metrics") == 1
+    metrics_idx = report.rindex("## Metrics")
+    assert report.rstrip().endswith(report[metrics_idx:].rstrip())
+
+
+def test_multi_axis_grouping_works_for_sdk_shape_results(tmp_path):
+    """Grouping isn't AppWorld-specific: an SDK-parsed run (M3-shape, via
+    ``_parse_sdk_results``) in a multi-axis comparison also gets grouped
+    (issue #68 review, test-coverage gap — only AppWorld-shape fixtures were
+    exercised previously)."""
+    run_a = _m3_run(
+        tmp_path,
+        "sdk_a.json",
+        [{"task_name": "t1", "success": True, "m3_task_id": 2, "domain": "hockey", "task_number": 1}],
+    )
+    run_b = _m3_run(
+        tmp_path,
+        "sdk_b.json",
+        [{"task_name": "t1", "success": False, "m3_task_id": 2, "domain": "hockey", "task_number": 1}],
+    )
+
+    report = generate_report(
+        {
+            "gpt-oss:cuga": [run_a],
+            "gpt4o:cuga": [run_b],
+            "gpt-oss:react": [run_b],
+            "gpt4o:react": [run_a],
+        }
+    )
+
+    assert "## Agent: cuga" in report
+    assert "## Agent: react" in report
+    assert "### Model: gpt-oss" in report
+    assert "### Model: gpt4o" in report
+    assert _heading_count(report, "#### Summary") == 4
+
+
+def test_vakra_scores_stay_attributed_within_grouped_sections(tmp_path):
+    """Per-task metadata (here: Vakra dialogue/judge scores) must survive the
+    parse-and-regroup path attributed to the right group, not leak across
+    groups or get dropped (issue #68 review, test-coverage gap).
+
+    Note: the review comment that prompted this asked for a test pinning
+    ``failure_reason`` (the PR #108 content-filter marker) surviving
+    regrouping specifically. PR #108 (branch fix/issue-60-content-filter-
+    reporting) is still open and hasn't merged into this branch, so
+    ``compare_report.py`` here has no ``failure_reason`` field at all yet —
+    there's nothing to pin without pulling in that unrelated, unmerged work.
+    Grouping (``_group_model_data``) only repartitions whole parsed run
+    dicts by config key; it never touches per-task fields, so this test
+    exercises the same risk (does per-task data survive+stay correctly
+    attributed through grouping) with a field that already exists today.
+    Once #108 lands, the same pattern applies directly to ``failure_reason``.
+    """
+    run1 = _m3_run(
+        tmp_path,
+        "vakra_cuga.json",
+        {
+            "uuid-A": {
+                "m3_task_id": 2,
+                "domain": "hockey",
+                "task_number": 1,
+                "success": True,
+                "match_rate": 1.0,
+                "judge_scores": {"exactmatch": 1.0},
+            }
+        },
+    )
+    run2 = _m3_run(
+        tmp_path,
+        "vakra_react.json",
+        {
+            "uuid-A": {
+                "m3_task_id": 2,
+                "domain": "hockey",
+                "task_number": 1,
+                "success": False,
+                "match_rate": 0.0,
+                "judge_scores": {"exactmatch": 0.0, "answer": 0.0, "groundedness": 1.0},
+            }
+        },
+    )
+
+    report = generate_report(
+        {
+            "gpt-oss:cuga": [run1],
+            "gpt4o:cuga": [run1],
+            "gpt-oss:react": [run2],
+            "gpt4o:react": [run2],
+        }
+    )
+
+    cuga_idx = report.index("## Agent: cuga")
+    react_idx = report.index("## Agent: react")
+    cuga_section = report[cuga_idx:react_idx]
+    react_section = report[react_idx:]
+
+    # cuga's runs all passed with dialogue=1.00/exactmatch=1.00; react's all
+    # failed with dialogue=0.00 and all three judges scored 0/0/1.
+    assert "Dialog" in cuga_section
+    assert "1.00" in cuga_section
+    assert "Dialog" in react_section
+    assert "0.00" in react_section

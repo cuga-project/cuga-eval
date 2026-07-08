@@ -26,6 +26,34 @@ MODEL_DISPLAY_NAMES = {
 }
 
 
+def _parse_config_key(config_key: str) -> tuple:
+    """Split a compare config key into (model, agent, policy).
+
+    Uses ``rsplit(":", 2)`` (not ``split(":")``) so a colon-bearing model id
+    doesn't get sliced apart: litellm/Bedrock model ids frequently embed a
+    colon (e.g. ``bedrock/anthropic.claude-3-sonnet-20240229-v1:0``), and a
+    plain left-to-right split would peel that off as a bogus "agent" segment
+    and push the real agent into "policy" (issue #68 review). Reserving the
+    last two splits for agent/policy keeps everything before them — colons
+    included — in the model.
+
+    This resolves the common 3-segment case (``model:agent:policy``, used by
+    every benchmark that compares policies). It does *not* fully disambiguate
+    a 2-segment key (``model:agent``, no policy — AppWorld/Oak's format)
+    whose model id itself contains a colon: with no policy segment to anchor
+    the split, ``rsplit(":", 2)`` still consumes both colons and misparses
+    the same way ``split(":")`` did. No model in the current registry
+    (``gpt-oss``, ``gpt4o``, ``gpt4.1``, ``opus4.5``) has a colon, so this
+    doesn't bite today; a colon-bearing model added to a 2-segment-only
+    comparison would need the caller to pass the segment count explicitly.
+    """
+    parts = config_key.rsplit(":", 2)
+    model = parts[0]
+    agent = parts[1] if len(parts) > 1 and parts[1] else None
+    policy = parts[2] if len(parts) > 2 and parts[2] else None
+    return model, agent, policy
+
+
 def _format_config_label(config_key: str) -> str:
     """Render a "model[:agent[:policy]]" key for the per-task subheading.
 
@@ -35,10 +63,7 @@ def _format_config_label(config_key: str) -> str:
     the key is just "model" with no agent, render as the model display name.
     Unknown models pass through verbatim.
     """
-    parts = config_key.split(":")
-    model_name = parts[0]
-    agent = parts[1] if len(parts) > 1 and parts[1] else None
-    policy = parts[2] if len(parts) > 2 and parts[2] else None
+    model_name, agent, policy = _parse_config_key(config_key)
     display_model = MODEL_DISPLAY_NAMES.get(model_name, model_name)
     if agent is None:
         return display_model
@@ -50,39 +75,22 @@ def _format_config_label(config_key: str) -> str:
 
 _COMPARE_GROUP_AXIS_LABELS = {"agent": "Agent", "model": "Model", "policy": "Policy"}
 
+# "cuga" is the actual runtime default agent — every benchmark's eval.sh falls
+# back to it via `${AGENT:-cuga}` (confirmed in appworld/bpo/m3/oak eval.sh),
+# so a config key missing the agent segment can be resolved to the concrete
+# value that ran, not a vague placeholder (issue #68 review).
+_DEFAULT_AGENT = "cuga"
 
-def _parse_config_key(config_key: str) -> tuple:
-    """Split a compare config key into (model, agent, policy)."""
-    parts = config_key.split(":")
-    model = parts[0]
-    agent = parts[1] if len(parts) > 1 and parts[1] else None
-    policy = parts[2] if len(parts) > 2 and parts[2] else None
-    return model, agent, policy
-
-
-def _compare_grouping_axis(config_keys: list) -> str | None:
-    """Return the axis to group by when multiple comparison dimensions vary."""
-    models: set[str] = set()
-    agents: set[str] = set()
-    policies: set[str] = set()
-    for key in config_keys:
-        model, agent, policy = _parse_config_key(key)
-        models.add(model)
-        agents.add(agent or "(default)")
-        policies.add(policy or "(default)")
-    varying: list[str] = []
-    if len(models) > 1:
-        varying.append("model")
-    if len(agents) > 1:
-        varying.append("agent")
-    if len(policies) > 1:
-        varying.append("policy")
-    if len(varying) <= 1:
-        return None
-    for axis in ("agent", "model", "policy"):
-        if axis in varying:
-            return axis
-    return None
+# Unlike agent, there's no single concrete fallback for a missing policy
+# segment: AppWorld/Oak never load policies at all (no such config dimension
+# — see eval_appworld_sdk.py's "No policy loading" comment), while BPO/M3's
+# compare.sh always stamps an explicit "policies" or "no-policies" tag when
+# policies are being compared, so a *missing* segment there wouldn't mean
+# "disabled" either. This module is deliberately benchmark-agnostic (see
+# module docstring) and a config key alone doesn't say which benchmark
+# produced it, so asserting a concrete default here would be a guess dressed
+# up as fact. Label it as "not part of this comparison" instead.
+_POLICY_NOT_COMPARED = "(not compared)"
 
 
 def _group_value_for_axis(config_key: str, axis: str) -> str:
@@ -90,10 +98,43 @@ def _group_value_for_axis(config_key: str, axis: str) -> str:
     if axis == "model":
         return model
     if axis == "agent":
-        return agent or "(default)"
+        return agent or _DEFAULT_AGENT
     if axis == "policy":
-        return policy or "(default)"
+        return policy or _POLICY_NOT_COMPARED
     raise ValueError(axis)
+
+
+def _compare_grouping_axes(config_keys: list) -> list[str]:
+    """Return the axes to nest by, in priority order (agent > model > policy),
+    restricted to axes that actually vary across ``config_keys``.
+
+    Returns [] when 0 or 1 axes vary — a single varying dimension reads fine
+    as a flat table and doesn't need a heading per value (the "flat when
+    single axis varies" contract). When 2+ axes vary, *every* varying axis
+    gets its own nesting level: grouping by just the highest-priority axis
+    (the old behavior) still interleaved the other varying dimensions inside
+    each group once more than one axis moved (issue #68 review — e.g. 2
+    agents x 2 models grouped by agent alone still mixes both models
+    together under each agent heading).
+    """
+    models: set[str] = set()
+    agents: set[str] = set()
+    policies: set[str] = set()
+    for key in config_keys:
+        model, agent, policy = _parse_config_key(key)
+        models.add(model)
+        agents.add(agent or _DEFAULT_AGENT)
+        policies.add(policy or _POLICY_NOT_COMPARED)
+    varying: set[str] = set()
+    if len(models) > 1:
+        varying.add("model")
+    if len(agents) > 1:
+        varying.add("agent")
+    if len(policies) > 1:
+        varying.add("policy")
+    if len(varying) <= 1:
+        return []
+    return [axis for axis in ("agent", "model", "policy") if axis in varying]
 
 
 def _group_model_data(model_data: dict, axis: str) -> dict:
@@ -651,6 +692,46 @@ def _stats_for_task(task_runs):
     }
 
 
+def _markdown_header(level: int):
+    """Markdown ATX header at ``level``, clamped to 1-6 (GFM's max depth)."""
+    lvl = max(1, min(level, 6))
+    prefix = "#" * lvl
+    return lambda s: f"{prefix} {s}"
+
+
+def _plain_header(level: int):
+    """Plain-text header at ``level``.
+
+    Levels 1/2 keep the original full-width underline styles ("=" / "-") so
+    the report title and top-level sections still read as headings in a
+    monospace terminal. Level 3+ (sub-sections — e.g. nested group headings
+    beyond the first axis, or a group's inner "Summary"/"Per-Task Details"
+    sections) are progressively indented and underlined with "─" instead of
+    "-", so they're visually distinguishable from a level-2 heading rather
+    than reading identically to one (issue #68 review).
+    """
+    if level <= 1:
+        return lambda s: f"\n{s}\n{'=' * len(s)}"
+    if level == 2:
+        return lambda s: f"\n{s}\n{'-' * len(s)}"
+    indent = "  " * (level - 2)
+
+    def _fmt(s: str) -> str:
+        return f"\n{indent}{s}\n{indent}{'─' * len(s)}"
+
+    return _fmt
+
+
+def _header_factory(markdown: bool):
+    """Return a ``level -> (str -> str)`` header renderer for the given
+    output mode. Centralizes header-level math so nested compare-report
+    grouping (agent/model/policy) can hand out increasing header depths
+    (## for the outermost group, ### for the next, and so on) without every
+    call site re-deriving "#" counts vs. plain-text underline/indent styles.
+    """
+    return _markdown_header if markdown else _plain_header
+
+
 def _render_compare_report_sections(
     model_data: dict,
     max_runs: int,
@@ -982,6 +1063,67 @@ def _render_compare_report_sections(
     return lines
 
 
+def _render_compare_axis_groups(
+    model_data: dict,
+    axes: list,
+    depth: int,
+    *,
+    header,
+    fence_open,
+    fence_close,
+) -> list:
+    """Recursively nest compare-report sections by grouping axis.
+
+    ``axes`` is the ordered list of dimensions left to nest by (already
+    filtered to the ones that actually vary, in agent > model > policy
+    priority — see ``_compare_grouping_axes``). ``depth`` is how many axis
+    levels have been consumed so far.
+
+    Each grouping level's heading renders at header depth ``depth + 2`` (##
+    for the first axis, ### for the second, #### for the third), so:
+      - 0 varying axes (flat report): base case fires immediately at
+        depth=0, sections render at level 2 (##) / 3 (###) — unchanged from
+        the pre-grouping layout.
+      - 1 varying axis: one level of "## <Axis>: <value>" headings, with the
+        sections *inside* each one bumped to level 3 (###) / 4 (####) so they
+        read as children of the group heading, not siblings of it (issue #68
+        review — this was the "flat-looking despite grouping" bug).
+      - 2+ varying axes: one heading level per axis, deepest first by
+        priority, with content pushed correspondingly deeper.
+    """
+    if not axes:
+        max_runs = max((len(runs) for runs in model_data.values()), default=0)
+        return _render_compare_report_sections(
+            model_data,
+            max_runs,
+            h2=header(depth + 2),
+            h3=header(depth + 3),
+            fence_open=fence_open,
+            fence_close=fence_close,
+        )
+
+    axis, *remaining = axes
+    grouped = _group_model_data(model_data, axis)
+    axis_label = _COMPARE_GROUP_AXIS_LABELS[axis]
+    group_header = header(depth + 2)
+
+    lines: list = []
+    for group_value in sorted(grouped.keys()):
+        lines.append(group_header(f"{axis_label}: {group_value}"))
+        lines.append("")
+        lines.extend(
+            _render_compare_axis_groups(
+                grouped[group_value],
+                remaining,
+                depth + 1,
+                header=header,
+                fence_open=fence_open,
+                fence_close=fence_close,
+            )
+        )
+    return lines
+
+
 def generate_report(config_results: dict[str, list[str]], markdown: bool = True) -> str:
     """Generate a multi-run comparison report with pass@k / pass^k, compact
     per-task ✓/✗ rows, and aggregated tokens/LLM/time per task.
@@ -991,10 +1133,14 @@ def generate_report(config_results: dict[str, list[str]], markdown: bool = True)
     to report.md. When ``markdown=False``, the same content is emitted as plain
     text (no ``##`` / no ```` ``` ``` ````) so it's readable on a terminal in a
     monospace font without rendering.
+
+    When multiple comparison axes (agent/model/policy) vary across
+    ``config_results``, sections are nested under a heading per varying axis
+    (see ``_render_compare_axis_groups``) instead of a single flat table, so
+    the report's header hierarchy actually reflects the grouping.
     """
-    h1 = (lambda s: f"# {s}") if markdown else (lambda s: f"\n{s}\n{'=' * len(s)}")
-    h2 = (lambda s: f"## {s}") if markdown else (lambda s: f"\n{s}\n{'-' * len(s)}")
-    h3 = (lambda s: f"### {s}") if markdown else (lambda s: f"\n{s}")
+    header = _header_factory(markdown)
+    h1 = header(1)
     fence_open = (lambda: "```text") if markdown else (lambda: "")
     fence_close = (lambda: "```") if markdown else (lambda: "")
     # ---- 1. Parse all result files into model_data {config_key: [run_dict, ...]}
@@ -1019,38 +1165,19 @@ def generate_report(config_results: dict[str, list[str]], markdown: bool = True)
     lines.append(f"{max_runs} run(s) per configuration.")
     lines.append("")
 
-    grouping_axis = _compare_grouping_axis(list(model_data.keys()))
-    if grouping_axis is None:
-        lines.extend(
-            _render_compare_report_sections(
-                model_data,
-                max_runs,
-                h2=h2,
-                h3=h3,
-                fence_open=fence_open,
-                fence_close=fence_close,
-            )
+    grouping_axes = _compare_grouping_axes(list(model_data.keys()))
+    lines.extend(
+        _render_compare_axis_groups(
+            model_data,
+            grouping_axes,
+            depth=0,
+            header=header,
+            fence_open=fence_open,
+            fence_close=fence_close,
         )
-    else:
-        grouped = _group_model_data(model_data, grouping_axis)
-        axis_label = _COMPARE_GROUP_AXIS_LABELS[grouping_axis]
-        for group_value in sorted(grouped.keys()):
-            subgroup = grouped[group_value]
-            subgroup_max_runs = max(len(runs) for runs in subgroup.values())
-            lines.append(h2(f"{axis_label}: {group_value}"))
-            lines.append("")
-            lines.extend(
-                _render_compare_report_sections(
-                    subgroup,
-                    subgroup_max_runs,
-                    h2=h2,
-                    h3=h3,
-                    fence_open=fence_open,
-                    fence_close=fence_close,
-                )
-            )
+    )
 
-    lines.extend(_compare_metrics_glossary(h2))
+    lines.extend(_compare_metrics_glossary(header(2)))
 
     return "\n".join(lines)
 
