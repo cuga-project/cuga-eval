@@ -343,7 +343,7 @@ fi
 REPORT_TMP=$(mktemp /tmp/bpo_report_XXXXXX)
 ANALYZE_ARGS+=(--output "$REPORT_TMP")
 
-echo "$JSON_INPUT" | uv run python "$COMPARE_SCRIPT" "${ANALYZE_ARGS[@]}"
+echo "$JSON_INPUT" | uv run --no-sync python "$COMPARE_SCRIPT" "${ANALYZE_ARGS[@]}"
 
 if [[ -n "$OUTPUT_FILE" ]]; then
     cp "$REPORT_TMP" "$OUTPUT_FILE"
@@ -402,7 +402,7 @@ if [[ "${NO_BUNDLE:-false}" != "true" ]]; then
     done
     TRAJ_JSON_INPUT+="}"
 
-    BUNDLE_CMD=(uv run python -m benchmarks.helpers.bundle assemble-compare
+    BUNDLE_CMD=(uv run --no-sync python -m benchmarks.helpers.bundle assemble-compare
         --benchmark bpo
         --config-results "$JSON_INPUT"
         --report "$REPORT_TMP"

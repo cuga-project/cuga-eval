@@ -210,7 +210,7 @@ if [ "${SKIP_SERVER_START:-false}" != "true" ]; then
     fi
 
     echo -e "${YELLOW:-}Starting FastAPI server on port $FASTAPI_PORT...${NC:-}"
-    uv run uvicorn benchmarks.bpo.main:app --port $FASTAPI_PORT > /tmp/bpo_fastapi.log 2>&1 &
+    uv run --no-sync uvicorn benchmarks.bpo.main:app --port $FASTAPI_PORT > /tmp/bpo_fastapi.log 2>&1 &
     FASTAPI_PID=$!
 
     if ! wait_for_server "http://127.0.0.1:$FASTAPI_PORT/health" "FastAPI server" 30; then
@@ -229,7 +229,7 @@ if [ "${SKIP_SERVER_START:-false}" != "true" ]; then
     fi
 
     echo -e "${YELLOW:-}Starting registry server on port $REGISTRY_PORT...${NC:-}"
-    MCP_SERVERS_FILE="$MCP_SERVERS_FILE" uv run registry > /tmp/bpo_registry.log 2>&1 &
+    MCP_SERVERS_FILE="$MCP_SERVERS_FILE" uv run --no-sync registry > /tmp/bpo_registry.log 2>&1 &
     REGISTRY_PID=$!
 
     if ! wait_for_server "http://127.0.0.1:$REGISTRY_PORT/" "registry server" 30; then
@@ -287,9 +287,9 @@ RUN_MARKER=$(mktemp "${TMPDIR:-/tmp}/bpo_run_marker.XXXXXX")
 set +e
 # Run with resolved --data args and any remaining passthrough arguments
 if [ "${AGENT:-cuga}" = "react" ]; then
-    uv run python -m benchmarks.bpo.eval_bench_sdk_react "${DATA_ARGS[@]}" "${PASSTHROUGH_ARGS[@]}"
+    uv run --no-sync python -m benchmarks.bpo.eval_bench_sdk_react "${DATA_ARGS[@]}" "${PASSTHROUGH_ARGS[@]}"
 else
-    uv run python -m benchmarks.bpo.eval_bench_sdk "${DATA_ARGS[@]}" "${PASSTHROUGH_ARGS[@]}"
+    uv run --no-sync python -m benchmarks.bpo.eval_bench_sdk "${DATA_ARGS[@]}" "${PASSTHROUGH_ARGS[@]}"
 fi
 EVAL_EXIT_CODE=$?
 set -e
@@ -360,7 +360,7 @@ if [ $EVAL_EXIT_CODE -eq 0 ]; then
         BUNDLE_ARGS+=(--log-files /tmp/bpo_fastapi.log /tmp/bpo_registry.log "$CONSOLE_LOG")
         # Download Langfuse traces if available
         BUNDLE_ARGS+=(--fetch-langfuse)
-        uv run python -m benchmarks.helpers.bundle "${BUNDLE_ARGS[@]}"
+        uv run --no-sync python -m benchmarks.helpers.bundle "${BUNDLE_ARGS[@]}"
         rm -f "$REPORT_TMP"
     fi
 else

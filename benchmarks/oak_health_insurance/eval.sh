@@ -115,7 +115,7 @@ if [ "${SKIP_SERVER_START:-false}" != "true" ]; then
 
     echo -e "${YELLOW:-}Starting FastAPI server on port $FASTAPI_PORT...${NC:-}"
     # Oak app uses relative imports (from models import ...), must run from its directory
-    (cd "$SCRIPT_DIR" && uv run uvicorn main:app --port $FASTAPI_PORT) > /tmp/oak_fastapi.log 2>&1 &
+    (cd "$SCRIPT_DIR" && uv run --no-sync uvicorn main:app --port $FASTAPI_PORT) > /tmp/oak_fastapi.log 2>&1 &
     FASTAPI_PID=$!
 
     if wait_for_server "http://127.0.0.1:$FASTAPI_PORT/" "FastAPI server" 30; then
@@ -186,7 +186,7 @@ RUN_MARKER=$(mktemp "${TMPDIR:-/tmp}/oak_run_marker.XXXXXX")
 # abort here — an abort would skip both the bundle and the failure banner below
 # (the else branch was previously dead code).
 set +e
-uv run python -m benchmarks.oak_health_insurance.eval_bench_sdk "${PASSTHROUGH_ARGS[@]}"
+uv run --no-sync python -m benchmarks.oak_health_insurance.eval_bench_sdk "${PASSTHROUGH_ARGS[@]}"
 EVAL_EXIT=$?
 set -e
 
