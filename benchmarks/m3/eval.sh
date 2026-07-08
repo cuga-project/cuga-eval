@@ -408,7 +408,7 @@ if [ "$M3_DATA" = "true" ]; then
         else
             echo -e "${YELLOW:-}Running --m3-data evaluation with react agent...${NC:-}"
         fi
-        uv run python -m benchmarks.m3.eval_m3_react \
+        uv run --no-sync python -m benchmarks.m3.eval_m3_react \
             --m3-data "$M3_DATA_PATH" \
             "${EVAL_M3_EXTRA[@]}" \
             "${PASSTHROUGH_ARGS[@]}"
@@ -418,7 +418,7 @@ if [ "$M3_DATA" = "true" ]; then
         else
             echo -e "${YELLOW:-}Running --m3-data evaluation with cuga agent...${NC:-}"
         fi
-        uv run python -m benchmarks.m3.eval_m3 \
+        uv run --no-sync python -m benchmarks.m3.eval_m3 \
             --from-config "$SCRIPT_DIR/config/m3_registry_m3_data.yaml" \
             --m3-data "$M3_DATA_PATH" \
             "${EVAL_M3_EXTRA[@]}" \
@@ -430,14 +430,14 @@ elif [ "$MULTITURN" = "true" ]; then
         echo -e "${RED:-}Error: M3 multi-turn evaluation is not available for the react agent${NC:-}"
         exit 1
     else
-        uv run python -m benchmarks.m3.eval_m3_multiturn --from-config "$SCRIPT_DIR/config/m3_registry.yaml" "${EVAL_M3_EXTRA[@]}" "${PASSTHROUGH_ARGS[@]}"
+        uv run --no-sync python -m benchmarks.m3.eval_m3_multiturn --from-config "$SCRIPT_DIR/config/m3_registry.yaml" "${EVAL_M3_EXTRA[@]}" "${PASSTHROUGH_ARGS[@]}"
     fi
 else
     echo -e "${YELLOW:-}Running single-turn evaluation with agent ${AGENT:-cuga}...${NC:-}"
     if [ "${AGENT:-cuga}" = "react" ]; then
-        uv run python -m benchmarks.m3.eval_m3_react --from-config "$SCRIPT_DIR/config/m3_registry.yaml" "${EVAL_M3_EXTRA[@]}" "${PASSTHROUGH_ARGS[@]}"
+        uv run --no-sync python -m benchmarks.m3.eval_m3_react --from-config "$SCRIPT_DIR/config/m3_registry.yaml" "${EVAL_M3_EXTRA[@]}" "${PASSTHROUGH_ARGS[@]}"
     else
-        uv run python -m benchmarks.m3.eval_m3 --from-config "$SCRIPT_DIR/config/m3_registry.yaml" "${EVAL_M3_EXTRA[@]}" "${PASSTHROUGH_ARGS[@]}"
+        uv run --no-sync python -m benchmarks.m3.eval_m3 --from-config "$SCRIPT_DIR/config/m3_registry.yaml" "${EVAL_M3_EXTRA[@]}" "${PASSTHROUGH_ARGS[@]}"
     fi
 fi
 
