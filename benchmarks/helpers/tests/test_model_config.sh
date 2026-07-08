@@ -305,6 +305,23 @@ result=$(
 )
 assert_not_contains "no --model-profile → --models absent from DISPATCH_ARGS" "--models" "$result"
 
+# ─── direct eval.sh scripts call finalize_model_config (#101 regression guard) ──
+# The tests above exercise finalize_model_config in isolation; they don't catch
+# someone deleting the call site from a benchmark eval.sh. Cheap grep-based
+# smoke test so that regression fails loudly instead of silently reintroducing
+# issue #101.
+
+echo "eval.sh finalize_model_config call sites (#101 regression guard)"
+
+for bench_eval in "$SCRIPT_DIR"/../../*/eval.sh; do
+    bench_name="$(basename "$(dirname "$bench_eval")")"
+    if grep -q "finalize_model_config" "$bench_eval"; then
+        echo "  PASS: $bench_name/eval.sh calls finalize_model_config"; PASS=$((PASS+1))
+    else
+        echo "  FAIL: $bench_name/eval.sh does not call finalize_model_config"; FAIL=$((FAIL+1))
+    fi
+done
+
 # ─── Summary ─────────────────────────────────────────────────────────────────
 
 echo ""
