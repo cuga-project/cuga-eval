@@ -579,7 +579,7 @@ for config in "${CONFIGS[@]}"; do
     CONFIG_TRAJ_VALS+=("$config_traj_groups")
 
     # Store the per-run log groups (sentinel-delimited) for this config.
-    CONFIG_LOG_KEYS+=("$config")
+    CONFIG_LOG_KEYS+=("$bundle_config")
     CONFIG_LOG_VALS+=("$config_log_groups")
 done
 

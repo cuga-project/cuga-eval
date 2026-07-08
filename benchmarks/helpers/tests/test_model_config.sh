@@ -278,6 +278,22 @@ result=$(
 )
 assert_contains "build_model_envs_json keys use MODEL_NAME slug under --dotenv" '"gemma-bundle":{' "$result"
 
+# ─── m3/compare.sh: CONFIG_LOG_KEYS must match CONFIG_RESULT_KEYS/TRAJ_KEYS ──
+# Regression: CONFIG_LOG_KEYS was keyed by the raw profile slug ($config)
+# while CONFIG_RESULT_KEYS/CONFIG_TRAJ_KEYS used the resolved bundle_config.
+# Under --dotenv this meant bundle.py grouped log files under a different
+# run folder than the matching results/trajectories, so console/registry
+# logs were silently orphaned from their run (PR #107 review).
+
+echo "m3 compare.sh log keys resolved like result/trajectory keys (#89)"
+
+m3_compare="$SCRIPT_DIR/../../m3/compare.sh"
+result=$(grep -c 'CONFIG_LOG_KEYS+=("\$bundle_config")' "$m3_compare")
+assert_eq "CONFIG_LOG_KEYS assigned from bundle_config" "1" "$result"
+
+result=$(grep -c 'CONFIG_LOG_KEYS+=("\$config")' "$m3_compare" || true)
+assert_eq "CONFIG_LOG_KEYS no longer assigned from raw \$config" "0" "$result"
+
 # ─── scripts/compare.sh MODEL_PROFILE propagation ────────────────────────────
 # Regression: MODEL_PROFILE was consumed by parse_common_args but never added to
 # DISPATCH_ARGS, so benchmark compare scripts silently fell back to their own
