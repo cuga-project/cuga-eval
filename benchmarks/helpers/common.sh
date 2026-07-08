@@ -317,8 +317,8 @@ sanitize_model_slug() {
     local name="${1:-}"
     name="${name##*/}"
     name=$(echo "$name" | tr '[:upper:]' '[:lower:]')
-    name=$(echo "$name" | sed 's/[^a-z0-9._-]/_/g')
-    echo "$name"
+    name="${name//[^a-z0-9._-]/_}"
+    echo "${name:0:64}"
 }
 
 # Label for bundle dirs / compare config keys: profile name, or actual MODEL_NAME under --dotenv.

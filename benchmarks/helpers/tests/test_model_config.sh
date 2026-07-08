@@ -278,6 +278,28 @@ result=$(
 )
 assert_contains "build_model_envs_json keys use MODEL_NAME slug under --dotenv" '"gemma-bundle":{' "$result"
 
+# sanitize_model_slug truncates to 64 chars, matching bundle.py's
+# _sanitize_model_slug([:64]) so bash-derived config keys and the
+# Python-derived bundle directory label never diverge on long model names.
+result=$(
+    source "$SCRIPT_DIR/../common.sh"
+    long_name="$(printf 'a%.0s' $(seq 1 80))"
+    sanitize_model_slug "$long_name"
+)
+assert_eq "sanitize_model_slug truncates to 64 chars" "$(printf 'a%.0s' $(seq 1 64))" "$result"
+
+# resolve_model_label_for_bundle only treats USE_DOTENV as enabled when it is
+# exactly "true" (matching apply_model_config's convention), so it must stay
+# aligned with bundle.py's _bundle_profile_label after that check was
+# tightened to the same "true"-only comparison.
+result=$(
+    source "$SCRIPT_DIR/../common.sh"
+    export USE_DOTENV=1
+    export MODEL_NAME="google/gemma-4-31b"
+    resolve_model_label_for_bundle "gpt-oss"
+)
+assert_eq "USE_DOTENV=1 (non-'true') keeps profile label" "gpt-oss" "$result"
+
 # ─── m3/compare.sh: CONFIG_LOG_KEYS must match CONFIG_RESULT_KEYS/TRAJ_KEYS ──
 # Regression: CONFIG_LOG_KEYS was keyed by the raw profile slug ($config)
 # while CONFIG_RESULT_KEYS/CONFIG_TRAJ_KEYS used the resolved bundle_config.

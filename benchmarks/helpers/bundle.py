@@ -52,7 +52,7 @@ def _sanitize_model_slug(model_name: str) -> str:
 
 def _bundle_profile_label(model_profile: str | None) -> str:
     """Directory label for single-run bundles; honour --dotenv MODEL_NAME when set."""
-    use_dotenv = os.environ.get("USE_DOTENV", "").lower() in ("true", "1", "yes")
+    use_dotenv = os.environ.get("USE_DOTENV", "").lower() == "true"
     model_name = (os.environ.get("MODEL_NAME") or "").strip()
     if use_dotenv and model_name:
         return _sanitize_model_slug(model_name)
