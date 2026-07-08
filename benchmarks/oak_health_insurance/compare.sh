@@ -206,13 +206,14 @@ for model in "${MODEL_LIST[@]}"; do
     recent_files=$(comm -13 <(echo "$before_files") <(echo "$after_files"))
     # Use model:agent label for consistency with m3/appworld/bpo. Oak only ever runs cuga
     # (single-agent path enforced above), so $AGENTS is the resolved single agent.
-    MODEL_RESULT_KEYS+=("${model}:${AGENTS}")
+    bundle_config=$(resolve_config_key_for_bundle "${model}:${AGENTS}")
+    MODEL_RESULT_KEYS+=("$bundle_config")
     MODEL_RESULT_VALS+=("$recent_files")
 
     # Collect only NEW trajectory folders produced by this model's runs
     after_trajs=$(find "$SCRIPT_DIR/logging/trajectory_data" -mindepth 1 -maxdepth 1 -type d 2>/dev/null | sort)
     recent_trajs=$(comm -13 <(echo "$before_trajs") <(echo "$after_trajs"))
-    MODEL_TRAJ_KEYS+=("${model}:${AGENTS}")
+    MODEL_TRAJ_KEYS+=("$bundle_config")
     MODEL_TRAJ_VALS+=("$recent_trajs")
 done
 

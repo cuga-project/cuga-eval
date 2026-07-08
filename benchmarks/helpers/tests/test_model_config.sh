@@ -241,6 +241,81 @@ result=$(
 )
 assert_eq "build_model_envs_json preserves pre-existing DYNACONF_*" "keepme" "$result"
 
+# ─── --dotenv bundle / compare labels (#89) ──────────────────────────────────
+
+echo "dotenv bundle labels (#89)"
+
+result=$(
+    source "$SCRIPT_DIR/../common.sh"
+    export USE_DOTENV=false
+    resolve_model_label_for_bundle "gpt-oss"
+)
+assert_eq "without --dotenv: profile label unchanged" "gpt-oss" "$result"
+
+result=$(
+    source "$SCRIPT_DIR/../common.sh"
+    export USE_DOTENV=true
+    export MODEL_NAME="google/gemma-4-31b"
+    resolve_model_label_for_bundle "gpt-oss"
+)
+assert_eq "with --dotenv: MODEL_NAME slug used" "gemma-4-31b" "$result"
+
+result=$(
+    source "$SCRIPT_DIR/../common.sh"
+    export USE_DOTENV=true
+    export MODEL_NAME="google/gemma-4-31b"
+    resolve_config_key_for_bundle "gpt-oss:cuga:policies"
+)
+assert_eq "config key model segment resolved under --dotenv" "gemma-4-31b:cuga:policies" "$result"
+
+result=$(
+    source "$SCRIPT_DIR/../common.sh"
+    TMP=$(mktemp); trap 'rm -f "$TMP"' EXIT
+    printf 'MODEL_NAME=gemma-bundle\n' > "$TMP"
+    export USE_DOTENV=true
+    export DOTENV_FILE="$TMP"
+    build_model_envs_json "gpt-oss" 2>/dev/null
+)
+assert_contains "build_model_envs_json keys use MODEL_NAME slug under --dotenv" '"gemma-bundle":{' "$result"
+
+# sanitize_model_slug truncates to 64 chars, matching bundle.py's
+# _sanitize_model_slug([:64]) so bash-derived config keys and the
+# Python-derived bundle directory label never diverge on long model names.
+result=$(
+    source "$SCRIPT_DIR/../common.sh"
+    long_name="$(printf 'a%.0s' $(seq 1 80))"
+    sanitize_model_slug "$long_name"
+)
+assert_eq "sanitize_model_slug truncates to 64 chars" "$(printf 'a%.0s' $(seq 1 64))" "$result"
+
+# resolve_model_label_for_bundle only treats USE_DOTENV as enabled when it is
+# exactly "true" (matching apply_model_config's convention), so it must stay
+# aligned with bundle.py's _bundle_profile_label after that check was
+# tightened to the same "true"-only comparison.
+result=$(
+    source "$SCRIPT_DIR/../common.sh"
+    export USE_DOTENV=1
+    export MODEL_NAME="google/gemma-4-31b"
+    resolve_model_label_for_bundle "gpt-oss"
+)
+assert_eq "USE_DOTENV=1 (non-'true') keeps profile label" "gpt-oss" "$result"
+
+# ─── m3/compare.sh: CONFIG_LOG_KEYS must match CONFIG_RESULT_KEYS/TRAJ_KEYS ──
+# Regression: CONFIG_LOG_KEYS was keyed by the raw profile slug ($config)
+# while CONFIG_RESULT_KEYS/CONFIG_TRAJ_KEYS used the resolved bundle_config.
+# Under --dotenv this meant bundle.py grouped log files under a different
+# run folder than the matching results/trajectories, so console/registry
+# logs were silently orphaned from their run (PR #107 review).
+
+echo "m3 compare.sh log keys resolved like result/trajectory keys (#89)"
+
+m3_compare="$SCRIPT_DIR/../../m3/compare.sh"
+result=$(grep -c 'CONFIG_LOG_KEYS+=("\$bundle_config")' "$m3_compare")
+assert_eq "CONFIG_LOG_KEYS assigned from bundle_config" "1" "$result"
+
+result=$(grep -c 'CONFIG_LOG_KEYS+=("\$config")' "$m3_compare" || true)
+assert_eq "CONFIG_LOG_KEYS no longer assigned from raw \$config" "0" "$result"
+
 # ─── scripts/compare.sh MODEL_PROFILE propagation ────────────────────────────
 # Regression: MODEL_PROFILE was consumed by parse_common_args but never added to
 # DISPATCH_ARGS, so benchmark compare scripts silently fell back to their own
