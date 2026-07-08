@@ -23,11 +23,16 @@ _CONTENT_FILTER_EXCEPTION_CLASSES = frozenset({"ContentPolicyViolationError"})
 # content-filter failure. The JSON-shape case is instead matched by the
 # stricter _CONTENT_FILTER_RESULT_RE regex below, which requires
 # "filtered ... true" nearby, not just the bare field name.
-_CONTENT_FILTER_MARKERS = (
-    "responsibleaipolicyviolation",
-    "content management policy",
-    "content filtering policies",
-)
+#
+# Also deliberately excludes the generic phrases "content management policy"
+# / "content filtering policies": those are Azure's current wording for an
+# *unrelated* informational sentence ("...read our content filtering
+# policies...") that can appear verbatim in other policy/rate-limit error
+# text (e.g. "content management policy service unavailable"), so they're too
+# broad to use as a bare substring check. "responsibleaipolicyviolation" is
+# Azure's actual innererror.code value for this rejection -- a much more
+# specific token that isn't generic policy language.
+_CONTENT_FILTER_MARKERS = ("responsibleaipolicyviolation",)
 
 # Label used for log messages when the JSON-shape regex marker fires.
 _CONTENT_FILTER_RESULT_MARKER = "content_filter_result:filtered=true"
