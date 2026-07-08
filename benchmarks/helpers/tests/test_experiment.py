@@ -28,8 +28,20 @@ def test_validate_experiment_name_rejects_timestamp_shape():
 
 @pytest.mark.sanity
 def test_validate_experiment_name_rejects_path_chars():
-    with pytest.raises(ExperimentError, match="invalid"):
+    with pytest.raises(ExperimentError, match="may only contain"):
         validate_experiment_name("foo/bar")
+
+
+@pytest.mark.sanity
+def test_validate_experiment_name_rejects_shell_metacharacters():
+    with pytest.raises(ExperimentError, match="may only contain"):
+        validate_experiment_name("foo; rm -rf /")
+
+
+@pytest.mark.sanity
+def test_validate_experiment_name_accepts_safe_chars():
+    # Should not raise for the allowed character class.
+    validate_experiment_name("my-exp.v2_final+1")
 
 
 @pytest.mark.sanity
@@ -110,6 +122,25 @@ def test_bare_resume_uses_pointer(tmp_path, monkeypatch):
     bundle_dir, is_resume = new_or_resume_bundle_dir(BENCH, resume=True)
     assert bundle_dir == bundle
     assert is_resume is True
+
+
+@pytest.mark.sanity
+def test_resolve_last_experiment_returns_none_when_target_missing(tmp_path, monkeypatch):
+    root = tmp_path / "bundles"
+    bundle = root / "alpha"
+    bundle.mkdir(parents=True)
+    monkeypatch.setattr(
+        "benchmarks.helpers.experiment.bundle_root",
+        lambda benchmark_name, compare=False: root,
+    )
+    write_last_experiment_pointer(BENCH, bundle)
+    # The pointed-to directory is removed after the pointer was written (e.g.
+    # the bundle was deleted out from under it) — resolve_last_experiment
+    # should report "no usable pointer" rather than a dangling path.
+    import shutil
+
+    shutil.rmtree(bundle)
+    assert resolve_last_experiment(BENCH) is None
 
 
 @pytest.mark.sanity

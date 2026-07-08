@@ -26,6 +26,15 @@ def test_sub_experiment_name_sanitizes_config():
 
 
 @pytest.mark.sanity
+def test_sub_experiment_name_collapses_double_underscore_in_config():
+    # A config containing "__" must not survive sanitization unchanged —
+    # otherwise "cmp__gpt4__opus__r1" can't be parsed back unambiguously.
+    name = sub_experiment_name("cmp", "gpt4__opus", 1)
+    assert "__" not in name.replace("cmp__", "", 1).replace("__r1", "", 1)
+    assert name == "cmp__gpt4_opus__r1"
+
+
+@pytest.mark.sanity
 def test_init_and_mark_completed(tmp_path: Path):
     init_compare_state(
         tmp_path,

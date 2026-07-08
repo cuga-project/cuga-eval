@@ -24,10 +24,14 @@ from __future__ import annotations
 
 import asyncio
 import json
+import logging
 import os
 import tempfile
+import time
 from pathlib import Path
 from typing import Any, Dict, List, Optional, Set, Tuple
+
+logger = logging.getLogger(__name__)
 
 PARTIAL_SUBDIR = "partial"
 
@@ -126,6 +130,22 @@ async def write_task_result_async(
     return await asyncio.to_thread(write_task_result, bundle_dir, task_id, result, domain=domain)
 
 
+def _quarantine_corrupt_partial(path: Path) -> None:
+    """Move an unreadable partial file out of ``*.json`` glob range.
+
+    Left in place, a corrupt file would never count toward
+    ``load_completed_task_ids`` and would re-trigger its task on every
+    ``--resume`` indefinitely, with no signal to the operator. Renaming it
+    (rather than deleting) keeps the evidence around for debugging while
+    letting the next resume start clean.
+    """
+    dest = path.with_name(f"{path.name}.corrupt.{int(time.time())}")
+    try:
+        os.replace(path, dest)
+    except OSError as e:
+        logger.warning("Failed to quarantine corrupt partial %s: %s", path, e)
+
+
 def _iter_partial_files(bundle_dir: Path):
     pdir = partial_dir(bundle_dir)
     if not pdir.is_dir():
@@ -133,9 +153,12 @@ def _iter_partial_files(bundle_dir: Path):
     for path in sorted(pdir.glob("*.json")):
         try:
             yield path, json.loads(path.read_text())
-        except (json.JSONDecodeError, OSError):
+        except (json.JSONDecodeError, OSError) as e:
             # A corrupt/half-written file (shouldn't happen given atomic writes,
-            # but be defensive) is simply ignored — the task will be re-run.
+            # but be defensive): warn so operators can spot it, then quarantine
+            # it so it stops silently re-triggering its task on every resume.
+            logger.warning("Skipping corrupt partial result %s: %s", path, e)
+            _quarantine_corrupt_partial(path)
             continue
 
 
@@ -144,6 +167,30 @@ def _result_task_key(data: Dict[str, Any]) -> Optional[str]:
     if key in (None, ""):
         key = data.get("task_id")
     return key if key not in (None, "") else None
+
+
+def _looks_completed(data: Dict[str, Any]) -> bool:
+    """Return True when a partial result represents a genuine completion.
+
+    ``error is None`` is necessary but not sufficient: a bug in a middleware
+    guard (or a broad ``except:`` swallowing a ``KeyboardInterrupt``) could
+    return early with ``{"error": None, "success": False, "response": None}``
+    — a task that never actually ran the agent. Treating that as "completed"
+    would silently skip it on every future ``--resume``. Require, in addition
+    to ``error is None``, that the result carries some sign of real work:
+    ``success is True``, a non-``None`` ``response``, or a non-empty
+    ``tool_calls`` list.
+    """
+    if data.get("error") is not None:
+        return False
+    if data.get("success") is True:
+        return True
+    if data.get("response") is not None:
+        return True
+    tool_calls = data.get("tool_calls")
+    if tool_calls not in (None, []):
+        return True
+    return False
 
 
 def load_completed_task_ids(bundle_dir: Path) -> Set[str]:
@@ -155,7 +202,7 @@ def load_completed_task_ids(bundle_dir: Path) -> Set[str]:
     """
     completed: Set[str] = set()
     for _path, data in _iter_partial_files(bundle_dir):
-        if data.get("error") is not None:
+        if not _looks_completed(data):
             continue
         key = _result_task_key(data)
         if key is not None:
@@ -172,7 +219,7 @@ def load_completed_domain_keys(bundle_dir: Path) -> Set[Tuple[str, str]]:
     """
     completed: Set[Tuple[str, str]] = set()
     for _path, data in _iter_partial_files(bundle_dir):
-        if data.get("error") is not None:
+        if not _looks_completed(data):
             continue
         key = _result_task_key(data)
         domain = data.get("domain")

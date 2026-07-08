@@ -110,6 +110,49 @@ def test_corrupt_partial_file_is_ignored(tmp_path):
 
 
 @pytest.mark.sanity
+def test_corrupt_partial_file_is_quarantined(tmp_path):
+    """A corrupt partial is renamed out of `*.json` range, not left in place.
+
+    Left as-is it would never count toward load_completed_task_ids and would
+    re-trigger its task on every --resume indefinitely.
+    """
+    ir.partial_dir(tmp_path).mkdir(parents=True)
+    corrupt_path = ir.partial_dir(tmp_path) / "corrupt.json"
+    corrupt_path.write_text("{not json")
+    ir.load_completed_task_ids(tmp_path)
+    assert not corrupt_path.exists()
+    quarantined = list(ir.partial_dir(tmp_path).glob("corrupt.json.corrupt.*"))
+    assert len(quarantined) == 1
+    # And it no longer shows up on subsequent scans (matches "*.json" glob no more).
+    assert ir.load_all_partial_results(tmp_path) == []
+
+
+@pytest.mark.sanity
+def test_early_return_result_not_treated_as_completed(tmp_path):
+    """error is None alone must not count as "completed".
+
+    A middleware guard bug (or a swallowed KeyboardInterrupt) could return
+    early with error=None, success=False, response=None — nothing that
+    signals real work happened. That must not be skipped on --resume.
+    """
+    ir.write_task_result(
+        tmp_path, "half-run", {"task_name": "half-run", "error": None, "success": False, "response": None}
+    )
+    assert ir.load_completed_task_ids(tmp_path) == set()
+
+
+@pytest.mark.sanity
+def test_failed_validation_with_response_still_completed(tmp_path):
+    """A task that ran and produced a response, but failed validation, is done."""
+    ir.write_task_result(
+        tmp_path,
+        "validated-fail",
+        {"task_name": "validated-fail", "error": None, "success": False, "response": "some answer"},
+    )
+    assert ir.load_completed_task_ids(tmp_path) == {"validated-fail"}
+
+
+@pytest.mark.sanity
 async def test_write_task_result_async(tmp_path):
-    await ir.write_task_result_async(tmp_path, "t", {"task_name": "t", "error": None})
+    await ir.write_task_result_async(tmp_path, "t", {"task_name": "t", "error": None, "success": True})
     assert ir.load_completed_task_ids(tmp_path) == {"t"}

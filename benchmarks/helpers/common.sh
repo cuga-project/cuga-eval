@@ -685,7 +685,13 @@ launch_background_eval() {
         filtered+=("$arg")
     done < <(_filter_lifecycle_args "$@")
 
-    nohup bash "$script_path" "${child_flags[@]}" "${filtered[@]}" >>"$log_file" 2>&1 &
+    # `exec` here collapses the `bash -c` shell into the eval.sh process via
+    # execve rather than a fork+wait, so the pid recorded below is the actual
+    # running script, not an intermediate shell that could exit out from under
+    # it. This does not, by itself, make `--stop` reach the deepest process
+    # (eval.sh still invokes `uv run python -m ...` as a plain child so it can
+    # run bundling after the evaluator exits) — see PR #105 review discussion.
+    nohup bash -c 'exec bash "$0" "$@"' "$script_path" "${child_flags[@]}" "${filtered[@]}" >>"$log_file" 2>&1 &
     local bg_pid=$!
     disown "$bg_pid" 2>/dev/null || true
 

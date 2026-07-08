@@ -29,7 +29,20 @@ def compare_state_path(compare_dir: Path) -> Path:
 
 
 def _sanitize_config(config: str) -> str:
-    return re.sub(r"[^A-Za-z0-9._+-]+", "_", str(config))
+    """Sanitize a config label for use as a sub-experiment path component.
+
+    Aligned with ``experiment.py::validate_experiment_name``'s allowed
+    character class (letters, digits, ``.``, ``_``, ``+``, ``-``). Unlike a
+    plain "replace disallowed runs with a single underscore" pass, this also
+    collapses any resulting run of underscores (including ones already
+    present in ``config``) down to one, so the sanitized output can never
+    contain ``__`` — the delimiter :func:`sub_experiment_name` uses to join
+    ``<compare>__<config>__r<run>``. Without that guarantee, a config like
+    ``"gpt4__opus"`` would sanitize unchanged and make the resulting
+    sub-experiment name ambiguous to parse back into its three parts.
+    """
+    safe = re.sub(r"[^A-Za-z0-9.+-]+", "_", str(config))
+    return re.sub(r"_+", "_", safe)
 
 
 def combo_key(config: str, run: int) -> str:
@@ -89,6 +102,15 @@ def mark_combo_run_started(
     *,
     sub_experiment: str,
 ) -> Path:
+    """Record a combo run's start in ``compare_state.json``.
+
+    Invariant (not currently enforced): like ``run_state.py::write_run_state``,
+    this is a read-modify-write over the whole state dict with no locking —
+    only the final ``atomic_write_json`` write is atomic. Safe today because
+    combo runs execute sequentially (one ``mark-started``/``mark-completed``
+    pair in flight at a time); if combos are ever parallelized, concurrent
+    calls here can race and drop each other's updates to ``combos``.
+    """
     state = read_compare_state(compare_dir)
     combos = state.setdefault("combos", {})
     combos[combo_key(config, run)] = {
@@ -108,6 +130,11 @@ def mark_combo_run_completed(
     *,
     exit_code: int,
 ) -> Path:
+    """Record a combo run's completion in ``compare_state.json``.
+
+    Same read-modify-write-with-no-locking invariant as
+    :func:`mark_combo_run_started` — see that docstring.
+    """
     state = read_compare_state(compare_dir)
     combos = state.setdefault("combos", {})
     key = combo_key(config, run)

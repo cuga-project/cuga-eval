@@ -22,6 +22,14 @@ from benchmarks.helpers.incremental_results import atomic_write_json
 # ``20260701_120000_compare_foo`` — reject those shapes as experiment names.
 _TIMESTAMP_NAME_RE = re.compile(r"^\d{8}_\d{6}($|_)")
 
+# Experiment names are used as (1) a filesystem path component, (2) a shell
+# argument in replay.py's reconstructed command, and (3) a substring of
+# compare_state.py's sub-experiment name (``<compare>__<config>__r<N>``,
+# which uses ``__`` as its own delimiter). Restrict to the same safe
+# character class as compare_state.py's ``_sanitize_config`` so the two
+# gatekeepers of the same identifier space agree.
+_VALID_NAME_RE = re.compile(r"^[A-Za-z0-9._+-]+$")
+
 _HELPERS_DIR = Path(__file__).resolve().parent
 PROJECT_ROOT = _HELPERS_DIR.parent.parent
 
@@ -49,8 +57,12 @@ def validate_experiment_name(name: str) -> None:
             f"Experiment name {name!r} looks like a legacy timestamp bundle name "
             "(use a human-readable name instead)"
         )
-    if name.startswith(".") or "/" in name or "\\" in name:
-        raise ExperimentError(f"Experiment name {name!r} contains invalid path characters")
+    if not _VALID_NAME_RE.match(name):
+        raise ExperimentError(
+            f"Experiment name {name!r} may only contain letters, digits, and . _ + - "
+            "(it is used as a path component, a shell argument, and a compare "
+            "sub-experiment substring)"
+        )
 
 
 def resolve_experiment_bundle_dir(
@@ -80,6 +92,13 @@ def write_last_experiment_pointer(
 
 
 def resolve_last_experiment(benchmark_name: str, *, compare: bool = False) -> Path | None:
+    """Return the bundle dir recorded by ``.last_experiment``, or ``None``.
+
+    Returns ``None`` both when there is no pointer at all *and* when the
+    pointer exists but targets a directory that no longer exists on disk —
+    callers should not need to re-check ``.is_dir()`` themselves to tell "no
+    recorded experiment" apart from "recorded experiment was deleted".
+    """
     pointer = last_experiment_pointer_path(benchmark_name, compare=compare)
     if not pointer.is_file():
         return None
@@ -95,12 +114,16 @@ def resolve_last_experiment(benchmark_name: str, *, compare: bool = False) -> Pa
             # None` would make that fallback unreachable).
             data = None
         if isinstance(data, dict) and data.get("bundle_dir"):
-            return Path(str(data["bundle_dir"]))
-        # Backward-compatible plain-text pointer (single line path).
-        text = raw.strip()
-        if text.startswith("{"):
+            path = Path(str(data["bundle_dir"]))
+        else:
+            # Backward-compatible plain-text pointer (single line path).
+            text = raw.strip()
+            if text.startswith("{"):
+                return None
+            path = Path(text) if text else None
+        if path is not None and not path.is_dir():
             return None
-        return Path(text) if text else None
+        return path
     except (OSError, TypeError):
         return None
 

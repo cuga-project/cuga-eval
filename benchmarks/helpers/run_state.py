@@ -55,7 +55,19 @@ def read_run_state(bundle_dir: Path) -> Optional[Dict[str, Any]]:
 
 
 def write_run_state(bundle_dir: Path, **fields: Any) -> Path:
-    """Merge ``fields`` into ``run_state.json`` atomically."""
+    """Merge ``fields`` into ``run_state.json`` atomically.
+
+    Invariant (not currently enforced): the read-modify-write cycle here is
+    *not* atomic — only the final ``atomic_write_json`` call is. Two writers
+    racing (e.g. the shell wrapper's ``mark-running`` right after ``nohup ...
+    &`` overlapping the child evaluator's own ``finally:`` ``mark-finished``
+    on a very short run) can each read stale state, and whichever writes last
+    wins, silently dropping the other's fields (``pid`` vs ``exit_code``).
+    This is safe today only because every call site is effectively a single
+    writer at a time; if a future change adds real concurrent writers, this
+    function needs a lock (``fcntl.flock`` on a sibling ``.lock`` file, or a
+    compare-and-swap) around the read+write critical section.
+    """
     from benchmarks.helpers.incremental_results import atomic_write_json
 
     bundle_dir = Path(bundle_dir)

@@ -8,6 +8,32 @@ import sys
 from pathlib import Path
 from typing import Any, Dict, List, Optional
 
+# Keys under metadata["run"] that cli_args_from_metadata knows how to turn
+# back into a flag. Anything else recorded there (e.g. "task_files", or a
+# field a future benchmark adds) is silently dropped by the reconstruction
+# unless _unmapped_fields surfaces it.
+_MAPPED_RUN_KEYS = {"agent", "model_profile", "policies_enabled", "task_ids", "eval_key"}
+
+
+def _unmapped_fields(metadata: Dict[str, Any]) -> List[str]:
+    """Return ``key=value`` strings for ``run`` fields this module can't reconstruct.
+
+    Best-effort reconstruction only covers ``_MAPPED_RUN_KEYS``; anything else
+    under ``metadata["run"]`` (for example the copied task-file basenames, or
+    a field a future benchmark's bundle adds) is dropped on the floor by
+    :func:`cli_args_from_metadata` today. Surface it instead of pretending the
+    replayed command is a complete reproduction.
+    """
+    run = metadata.get("run") if isinstance(metadata.get("run"), dict) else {}
+    unmapped: List[str] = []
+    for key, value in run.items():
+        if key in _MAPPED_RUN_KEYS:
+            continue
+        if value in (None, "", [], {}):
+            continue
+        unmapped.append(f"{key}={value!r}")
+    return unmapped
+
 
 def cli_args_from_metadata(metadata: Dict[str, Any]) -> List[str]:
     """Reconstruct an ``eval.sh`` argv from ``metadata.json`` fields.
@@ -65,8 +91,26 @@ def format_replay_command(
     script: str = "./eval.sh",
 ) -> str:
     bench = benchmark or str(metadata.get("benchmark") or "<benchmark>")
-    parts = [script] + cli_args_from_metadata(metadata)
-    return f"# Replay for {bench}\n" + " ".join(parts)
+    argv = cli_args_from_metadata(metadata)
+    lines = [f"# Replay for {bench}"]
+
+    experiment_name = metadata.get("experiment_name")
+    if experiment_name:
+        lines.append(
+            f"# NOTE: this resumes the existing bundle {experiment_name!r} in place "
+            "(--resume-experiment); pass --experiment <new-name> instead of "
+            "--resume-experiment to run a fresh reproduction."
+        )
+
+    unmapped = _unmapped_fields(metadata)
+    if unmapped:
+        lines.append(
+            "# NOTE: metadata has fields this reconstruction cannot map to a flag "
+            "(add manually if relevant): " + ", ".join(unmapped)
+        )
+
+    lines.append(" ".join([script] + argv))
+    return "\n".join(lines)
 
 
 def cli(argv: Optional[List[str]] = None) -> int:
@@ -101,9 +145,12 @@ def cli(argv: Optional[List[str]] = None) -> int:
         return 1
 
     argv_out = cli_args_from_metadata(metadata)
+    unmapped = _unmapped_fields(metadata)
     if args.format == "json":
-        print(json.dumps({"argv": argv_out}, indent=2))
+        print(json.dumps({"argv": argv_out, "unmapped_fields": unmapped}, indent=2))
     elif args.format == "argv":
+        if unmapped:
+            print(f"# unmapped fields (add manually if relevant): {', '.join(unmapped)}", file=sys.stderr)
         print(" ".join(argv_out), end="")
     else:
         bench = args.benchmark or metadata.get("benchmark")
