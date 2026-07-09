@@ -117,6 +117,34 @@ while [[ $# -gt 0 ]]; do
             MODEL_PROFILE="$2"
             shift 2
             ;;
+        --experiment)
+            EXPERIMENT="$2"
+            shift 2
+            ;;
+        --resume)
+            RESUME=true
+            shift
+            ;;
+        --resume-experiment)
+            RESUME_EXPERIMENT="$2"
+            shift 2
+            ;;
+        --background)
+            BACKGROUND=true
+            shift
+            ;;
+        --stop)
+            STOP=true
+            shift
+            ;;
+        --restart)
+            RESTART=true
+            shift
+            ;;
+        --status)
+            STATUS=true
+            shift
+            ;;
         --agent)
             AGENT="$2"
             shift 2
@@ -138,6 +166,9 @@ if [ "${AGENT:-cuga}" = "codeact" ]; then
     exit 2
 fi
 
+if handle_eval_lifecycle "m3" "$0" "${PASSTHROUGH_ARGS[@]}"; then
+    exit 0
+fi
 
 REGISTRY_PID=""
 
@@ -157,6 +188,46 @@ create_bundle() {
     BUNDLE_DONE=true
 
     echo ""
+    if [ -n "${WORKSPACE_BUNDLE_DIR:-}" ]; then
+        echo -e "${YELLOW:-}Finalizing experiment workspace...${NC:-}"
+
+        local task_file
+        if [ "$M3_DATA" = "true" ] && [ -n "$M3_DATA_PATH" ]; then
+            # Record the actual --m3-data source used for this run, not the
+            # hard-coded example corpus below (which this run didn't read from).
+            task_file="$M3_DATA_PATH"
+        elif [ "$MULTITURN" = "true" ]; then
+            task_file="$SCRIPT_DIR/data/olympics_multiturn.json"
+        else
+            task_file="$SCRIPT_DIR/data/hockey.json"
+        fi
+
+        local fin_extra=(--task-file "$task_file")
+        if [ "$NO_POLICIES" != "true" ]; then
+            fin_extra+=(--policies-dir "$POLICIES_DIR")
+        fi
+        local traj_dir
+        traj_dir=$(find_latest_trajectory "$SCRIPT_DIR/logging/trajectory_data")
+        if [ -n "$traj_dir" ]; then
+            fin_extra+=(--trajectory-dir "$traj_dir")
+        fi
+        local registry_log="$SCRIPT_DIR/registry_server.log"
+        if [ -f "$registry_log" ]; then
+            fin_extra+=(--log-file "$registry_log" --log-file "$CONSOLE_LOG")
+        else
+            fin_extra+=(--log-file /tmp/m3_registry.log --log-file "$CONSOLE_LOG")
+        fi
+        if [ "${PARTIAL_FINALIZE:-false}" = "true" ]; then
+            fin_extra+=(--partial)
+        fi
+
+        if ! finalize_experiment_workspace "m3" "${fin_extra[@]}"; then
+            echo -e "${YELLOW:-}Experiment workspace finalization reported errors.${NC:-}"
+            [ "${PARTIAL_FINALIZE:-false}" = "true" ] || return 1
+        fi
+        return 0
+    fi
+
     echo -e "${YELLOW:-}Creating reproducibility bundle...${NC:-}"
 
     # Find the most recent result file produced by *this* run (mtime newer
@@ -231,16 +302,28 @@ create_bundle() {
     # Download Langfuse traces if available
     bundle_args+=(--fetch-langfuse)
 
-    uv run --no-sync python -m benchmarks.helpers.bundle "${bundle_args[@]}" || \
+    local bundle_out
+    bundle_out=$(uv run --no-sync python -m benchmarks.helpers.bundle "${bundle_args[@]}" 2>&1 | tee /dev/stderr) || \
         echo -e "${YELLOW:-}Bundle creation reported errors (best-effort).${NC:-}"
 
     rm -f "$report_tmp"
+
+    local bundle_path
+    bundle_path=$(echo "$bundle_out" | sed -n 's/^Bundle created: //p' | tail -1)
+    if [ -n "$bundle_path" ]; then
+        write_legacy_experiment_pointer "m3" "$bundle_path"
+    fi
 }
 
 cleanup() {
     local exit_code=$?
+    finalize_run_state_on_exit "$exit_code"
     echo ""
     echo -e "${YELLOW:-}Cleaning up...${NC:-}"
+
+    if [ $exit_code -ne 0 ] && [ -n "${WORKSPACE_BUNDLE_DIR:-}" ]; then
+        PARTIAL_FINALIZE=true
+    fi
 
     # Best-effort bundle on interrupt/crash. Idempotent (no-op if already
     # created on the success path below). Wrapped in `|| true` so a bundle
@@ -396,6 +479,11 @@ if [ "$NO_POLICIES" != "true" ] && [ -d "$POLICIES_DIR" ]; then
     fi
 fi
 
+if prepare_experiment_workspace "m3"; then
+    PASSTHROUGH_ARGS+=(--bundle-dir "$WORKSPACE_BUNDLE_DIR")
+    mark_run_state_started
+fi
+
 # Select eval script
 #
 # The evaluator may exit non-zero (task failures, agent crashes, etc.). With
@@ -414,7 +502,7 @@ if [ "$M3_DATA" = "true" ]; then
         else
             echo -e "${YELLOW:-}Running --m3-data evaluation with react agent...${NC:-}"
         fi
-        uv run python -m benchmarks.m3.eval_m3_react \
+        uv run --no-sync python -m benchmarks.m3.eval_m3_react \
             --m3-data "$M3_DATA_PATH" \
             "${EVAL_M3_EXTRA[@]}" \
             "${PASSTHROUGH_ARGS[@]}"
@@ -424,7 +512,7 @@ if [ "$M3_DATA" = "true" ]; then
         else
             echo -e "${YELLOW:-}Running --m3-data evaluation with cuga agent...${NC:-}"
         fi
-        uv run python -m benchmarks.m3.eval_m3 \
+        uv run --no-sync python -m benchmarks.m3.eval_m3 \
             --from-config "$SCRIPT_DIR/config/m3_registry_m3_data.yaml" \
             --m3-data "$M3_DATA_PATH" \
             "${EVAL_M3_EXTRA[@]}" \
@@ -436,14 +524,14 @@ elif [ "$MULTITURN" = "true" ]; then
         echo -e "${RED:-}Error: M3 multi-turn evaluation is not available for the react agent${NC:-}"
         exit 1
     else
-        uv run python -m benchmarks.m3.eval_m3_multiturn --from-config "$SCRIPT_DIR/config/m3_registry.yaml" "${EVAL_M3_EXTRA[@]}" "${PASSTHROUGH_ARGS[@]}"
+        uv run --no-sync python -m benchmarks.m3.eval_m3_multiturn --from-config "$SCRIPT_DIR/config/m3_registry.yaml" "${EVAL_M3_EXTRA[@]}" "${PASSTHROUGH_ARGS[@]}"
     fi
 else
     echo -e "${YELLOW:-}Running single-turn evaluation with agent ${AGENT:-cuga}...${NC:-}"
     if [ "${AGENT:-cuga}" = "react" ]; then
-        uv run python -m benchmarks.m3.eval_m3_react --from-config "$SCRIPT_DIR/config/m3_registry.yaml" "${EVAL_M3_EXTRA[@]}" "${PASSTHROUGH_ARGS[@]}"
+        uv run --no-sync python -m benchmarks.m3.eval_m3_react --from-config "$SCRIPT_DIR/config/m3_registry.yaml" "${EVAL_M3_EXTRA[@]}" "${PASSTHROUGH_ARGS[@]}"
     else
-        uv run python -m benchmarks.m3.eval_m3 --from-config "$SCRIPT_DIR/config/m3_registry.yaml" "${EVAL_M3_EXTRA[@]}" "${PASSTHROUGH_ARGS[@]}"
+        uv run --no-sync python -m benchmarks.m3.eval_m3 --from-config "$SCRIPT_DIR/config/m3_registry.yaml" "${EVAL_M3_EXTRA[@]}" "${PASSTHROUGH_ARGS[@]}"
     fi
 fi
 

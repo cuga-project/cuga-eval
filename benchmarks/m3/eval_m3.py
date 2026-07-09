@@ -737,6 +737,8 @@ class M3Evaluator:
         m3_data_mode: bool = False,
         m3_task_id: Optional[int] = None,
         domain: Optional[str] = None,
+        bundle_dir: Optional[Path] = None,
+        resume_completed_ids: Optional[set] = None,
     ):
         """
         Initialize the evaluator.
@@ -760,9 +762,19 @@ class M3Evaluator:
         self.m3_data_mode = m3_data_mode
         self.m3_task_id = m3_task_id
         self.domain = domain
+        self.bundle_dir = bundle_dir
+        self.resume_completed_ids = resume_completed_ids or set()
         self.agent: Optional[CugaAgent] = None
         self.langfuse_enabled = None
         self.results: List[Dict[str, Any]] = []
+
+    def _resume_skip(self, identity: str) -> bool:
+        """True if `identity` (optionally scoped to self.domain) is already done."""
+        if not self.resume_completed_ids:
+            return False
+        if self.domain is not None and (identity, self.domain) in self.resume_completed_ids:
+            return True
+        return identity in self.resume_completed_ids
 
     # Removed setup() method - now using registry mode only
     # Agent is created in evaluate_single_task() using CombinedToolProvider
@@ -1019,6 +1031,10 @@ class M3Evaluator:
             # Evaluate each sample
             self.results = []
             for i, sample in enumerate(samples, 1):
+                identity = sample.get("sample_id", sample.get("uuid", f"sample_{i}"))
+                if self._resume_skip(identity):
+                    logger.info(f"\n[{i}/{len(samples)}] Skipping already-completed sample: {identity}")
+                    continue
                 logger.info(f"\n[{i}/{len(samples)}] Processing sample...")
                 result = await self.evaluate_multiturn_task(sample, sample_index=i)
                 self.results.append(result)
@@ -1071,6 +1087,10 @@ class M3Evaluator:
             # Evaluate each task
             self.results = []
             for i, task in enumerate(test_cases, 1):
+                identity = task.get("name", f"task_{i}")
+                if self._resume_skip(identity):
+                    logger.info(f"\n[{i}/{len(test_cases)}] Skipping already-completed task: {identity}")
+                    continue
                 logger.info(f"\n[{i}/{len(test_cases)}] Processing task...")
                 result = await self.evaluate_task(task, task_index=i)
                 self.results.append(result)
@@ -1362,6 +1382,19 @@ async def evaluate_single_task(
     # almost certainly stale (e.g. small_train names) for an unlabeled test
     # set. Replace it with whatever the loader actually has for this task_id
     # so we run against the test domains the user supplied via --m3-data.
+    bundle_dir = Path(args.bundle_dir) if getattr(args, "bundle_dir", None) else None
+    resume_completed_keys: set = set()
+    if bundle_dir is not None:
+        from benchmarks.helpers.incremental_results import load_completed_domain_keys
+
+        resume_completed_keys = load_completed_domain_keys(bundle_dir)
+    if getattr(args, "resume_task_ids", None):
+        # Manual override (bare task ids, not domain-scoped) — mirrors the
+        # bpo/oak/appworld convention of unioning this in. M3Evaluator._resume_skip
+        # already falls back to a bare-identity check, so a plain task id here
+        # skips it across every domain, not just the ones on disk.
+        resume_completed_keys |= set(args.resume_task_ids)
+
     no_gt_mode = bool(m3_data_loader and getattr(m3_data_loader, "allow_missing_output", False))
     if no_gt_mode and m3_data_loader is not None:
         loader_domains = m3_data_loader.available_domains(task_id)
@@ -1527,6 +1560,8 @@ async def evaluate_single_task(
             m3_data_mode=m3_data_loader is not None,
             m3_task_id=task_id,
             domain=domain,
+            bundle_dir=bundle_dir,
+            resume_completed_ids=resume_completed_keys,
         )
 
         try:
@@ -1652,6 +1687,24 @@ async def evaluate_single_task(
                         patch_tracker_scores(evaluator.results, tracker)
                     except Exception as e:
                         logger.warning(f"[{service_name}/{domain}] Vakra scoring failed (continuing): {e}")
+
+            # Persist per-result partials AFTER vakra scoring so the on-disk
+            # (and thus merged) result carries scores, enabling crash-safe resume.
+            # Best-effort: a write failure here must not abort this domain's
+            # evaluation (the enclosing except below would drop evaluator.results
+            # from task_results entirely, even though the domain itself succeeded).
+            if bundle_dir is not None and evaluator.results:
+                from benchmarks.helpers.incremental_results import write_task_result
+
+                for _r in evaluator.results:
+                    _rid = _r.get("task_name") or _r.get("sample_id") or "unknown"
+                    try:
+                        write_task_result(bundle_dir, _rid, _r, domain=domain)
+                    except Exception as persist_err:
+                        logger.warning(
+                            f"[{service_name}/{domain}] Failed to persist incremental result "
+                            f"for {_rid}: {persist_err}"
+                        )
 
             task_results.extend(evaluator.results)
             logger.info(f"✅ [{service_name}] Completed domain: {domain} ({len(evaluator.results)} results)")
@@ -2440,7 +2493,9 @@ async def evaluate_tasks_in_batches(task_evaluations: List[tuple], batch_size: i
     return all_results
 
 
-def _finalize_and_save_results(all_results: List[Dict[str, Any]], no_ground_truth: bool):
+def _finalize_and_save_results(
+    all_results: List[Dict[str, Any]], no_ground_truth: bool, bundle_dir: Optional[Path] = None
+):
     """Persist exactly one result file (plus ground-truth dump) for a run.
 
     Shared by the single-capability path and the multi-capability aggregation
@@ -2448,8 +2503,16 @@ def _finalize_and_save_results(all_results: List[Dict[str, Any]], no_ground_trut
     every task it evaluated. Previously each capability pass saved its own
     100-task file, which made compare_report count one logical run as several
     runs (one per capability) and made each "run" look like only 100 tasks.
+
+    When ``bundle_dir`` is set, the merged results are read back from the on-disk
+    partials (so skipped/resumed tasks are included) and written into the bundle.
     """
     output_dir = Path(__file__).parent / "results"
+    if bundle_dir is not None:
+        from benchmarks.helpers.incremental_results import load_all_partial_results
+
+        all_results = load_all_partial_results(bundle_dir)
+        output_dir = Path(bundle_dir) / "results"
 
     # In no-ground-truth mode there's no scoring — render the tool-call-count
     # summary instead and capture it to the summary file.
@@ -2523,6 +2586,14 @@ async def run_config_mode(args, container_runtime: str, defer_save: bool = False
     """
     logger.info(f"Loading config from: {args.from_config}")
     logger.info("✅ Entered run_config_mode()")
+
+    # Resolved once, up front, so it's available to both the multi-capability
+    # aggregation branch (which returns early, before the sequential/batched
+    # section below) and the sequential/batched section itself. Previously
+    # assigned only in the latter, which raised UnboundLocalError from the
+    # multi-capability branch's _finalize_and_save_results call whenever no
+    # explicit --capability/--task filter was given.
+    bundle_dir = Path(args.bundle_dir) if getattr(args, "bundle_dir", None) else None
 
     # Initialize M3 data loader early so any errors fail before registry startup
     m3_data_loader: Optional[M3DataLoader] = None
@@ -2602,7 +2673,7 @@ async def run_config_mode(args, container_runtime: str, defer_save: bool = False
                     f"🧮 Aggregated {len(combined_results)} results across "
                     f"{len(cap_ids)} capability pass(es) → writing one result file"
                 )
-                _finalize_and_save_results(combined_results, no_ground_truth)
+                _finalize_and_save_results(combined_results, no_ground_truth, bundle_dir=bundle_dir)
             else:
                 logger.warning("⚠️  No results produced across capability passes.")
             return combined_results
@@ -2943,7 +3014,7 @@ async def run_config_mode(args, container_runtime: str, defer_save: bool = False
             # separate 100-task file per capability.
             if defer_save:
                 return all_results
-            _finalize_and_save_results(all_results, no_ground_truth)
+            _finalize_and_save_results(all_results, no_ground_truth, bundle_dir=bundle_dir)
         else:
             logger.warning("⚠️  No results produced. Check the registry logs and task filters.")
 
@@ -2956,7 +3027,13 @@ async def run_config_mode(args, container_runtime: str, defer_save: bool = False
         # the right status. (Bug #91, #92.)
         logger.warning("⛔ Evaluation interrupted — saving any partial results before exit...")
         try:
-            if all_results:
+            if bundle_dir is not None:
+                from benchmarks.helpers.incremental_results import finalize_merged_results
+
+                prefix = "m3_config_no_gt" if no_ground_truth else "m3_config"
+                saved_path = finalize_merged_results(bundle_dir, prefix=prefix)
+                logger.warning(f"📁 Partial results merged from disk to: {saved_path}")
+            elif all_results:
                 output_dir = Path(__file__).parent / "results"
                 prefix = "m3_config_no_gt_partial" if no_ground_truth else "m3_config_partial"
                 saved_path = save_evaluation_results(all_results, output_dir, prefix=prefix)
@@ -2971,7 +3048,13 @@ async def run_config_mode(args, container_runtime: str, defer_save: bool = False
         # partial-save logic as the interrupt path, then re-raise. (Bug #92.)
         logger.error(f"❌ Evaluation aborted by unexpected error: {eval_err}")
         try:
-            if all_results:
+            if bundle_dir is not None:
+                from benchmarks.helpers.incremental_results import finalize_merged_results
+
+                prefix = "m3_config_no_gt" if no_ground_truth else "m3_config"
+                saved_path = finalize_merged_results(bundle_dir, prefix=prefix)
+                logger.warning(f"📁 Partial results merged from disk to: {saved_path}")
+            elif all_results:
                 output_dir = Path(__file__).parent / "results"
                 prefix = "m3_config_no_gt_partial" if no_ground_truth else "m3_config_partial"
                 saved_path = save_evaluation_results(all_results, output_dir, prefix=prefix)
@@ -3155,6 +3238,19 @@ Examples:
         "(default), policies are loaded per-domain from "
         "benchmarks/m3/policies/policies.json after the per-domain agent is "
         "constructed.",
+    )
+    parser.add_argument(
+        "--bundle-dir",
+        type=str,
+        default=None,
+        help="Bundle workspace directory for incremental, resumable results.",
+    )
+    parser.add_argument(
+        "--resume-task-ids",
+        type=str,
+        nargs="*",
+        default=None,
+        help="Task IDs to treat as already completed (skip). Usually computed by the shell layer.",
     )
 
     from benchmarks.helpers.logging_args import add_log_level_args, apply_log_level

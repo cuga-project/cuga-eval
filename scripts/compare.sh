@@ -97,6 +97,7 @@ check_langfuse_env
 
 # Export common variables
 export RUNS OUTPUT_FILE DRY_RUN NO_BUNDLE BUNDLE_ZIP MODEL_PROFILE VERBOSE AGENT AGENTS COMPARE_AGENTS USE_DOTENV
+export EXPERIMENT RESUME RESUME_EXPERIMENT STATUS
 
 # Banner: when comparing multiple agents, show the agent list instead of the singular AGENT.
 BANNER_AGENT_LABEL="$AGENT"
