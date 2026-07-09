@@ -315,7 +315,7 @@ echo "eval.sh finalize_model_config call sites (#101 regression guard)"
 
 for bench_eval in "$SCRIPT_DIR"/../../*/eval.sh; do
     bench_name="$(basename "$(dirname "$bench_eval")")"
-    if grep -q "finalize_model_config" "$bench_eval"; then
+    if grep -qE '^[[:space:]]*finalize_model_config[[:space:]]*(\||$)' "$bench_eval"; then
         echo "  PASS: $bench_name/eval.sh calls finalize_model_config"; PASS=$((PASS+1))
     else
         echo "  FAIL: $bench_name/eval.sh does not call finalize_model_config"; FAIL=$((FAIL+1))
