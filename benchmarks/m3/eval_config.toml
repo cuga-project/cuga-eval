@@ -495,3 +495,33 @@ schema_bug_10 = [
   "34a533dfd727-a50635130b38",
   "2ffd766bcf59-2a6fb2ae51bf",
 ]
+
+# ─────────────────────────────────────────────────────────────────────────────
+# cuga-agent #451 / cuga-eval #116 — planning-text stall (pattern A) and
+# ungrounded confident final (pattern B) probe keys.
+#
+# Pattern A: short NL finals like "We need to search professional_basketball
+# tools." with zero code. Pair with CUGA_LITE_NL_AUTO_CONTINUE=true (m3.env).
+# Pattern B: answer from priors / find_tools-only. Run with NL auto-continue on
+# so pattern A does not dominate (--runs 3 for consistency).
+# ─────────────────────────────────────────────────────────────────────────────
+
+# Pattern A — 1-task smoke (basketball planning stall from 20260709 bundle)
+issue451_a_n1 = ["d14bbb0be92d-9b44601b01e2"]
+
+# Pattern A — 3-task confirm (diverse domains: basketball, mondial_geo, disney)
+issue451_a_n3 = [
+  "d14bbb0be92d-9b44601b01e2",  # We need to search professional_basketball tools.
+  "55b7e50368aa-75340fb8d38c",  # We need to search mondial_geo for tools…
+  "34a533dfd727-9a80447e42a5",  # We need to find tools in disney app.
+]
+
+# Pattern B — 5-task consistency probe (known-fact-prone; often find_tools-only
+# then invented answer, occasionally pure 0-code knowledge)
+issue451_b_probe5 = [
+  "308738b8195d-91d22b875555",  # 2010 shutouts catching hand (Tim Thomas 0-code / find-only)
+  "308738b8195d-b11eeb38eded",  # 1996 shutouts catching hand (find-only vs tool)
+  "55b7e50368aa-3e01aa27adb5",  # tallest Himalaya (find-only Everest 8848m)
+  "adba6c0ec8a8-c70d9c072b32",  # universities in Harvard's nation (find-only 5437)
+  "d14bbb0be92d-da610a7c37f6",  # highest home loss rate (find-only Lakers/Clippers)
+]
