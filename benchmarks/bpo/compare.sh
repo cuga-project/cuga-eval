@@ -292,7 +292,7 @@ for config in "${CONFIGS[@]}"; do
         combo_eval_args=()
         if [[ -n "${COMPARE_EXPERIMENT:-}" ]]; then
             read -r -a combo_eval_args <<< "$(compare_combo_eval_flags "$COMPARE_EXPERIMENT" "$config" "$r")"
-            sub_exp=$(uv run python -m benchmarks.helpers.compare_state sub-name \
+            sub_exp=$(uv run --no-sync python -m benchmarks.helpers.compare_state sub-name \
                 --compare-experiment "$COMPARE_EXPERIMENT" --config "$config" --run "$r")
             compare_mark_combo_started "$config" "$r" "$sub_exp"
         fi
@@ -344,7 +344,7 @@ if [[ -n "${WORKSPACE_BUNDLE_DIR:-}" ]]; then
     # results/ scratch dir — the before/after diff above collects nothing for
     # ANY combo, executed or resumed-and-skipped. Source directly from
     # compare_state.json's recorded sub-bundles instead.
-    JSON_INPUT=$(cd "$PROJECT_ROOT" && uv run python -m benchmarks.helpers.compare_state \
+    JSON_INPUT=$(cd "$PROJECT_ROOT" && uv run --no-sync python -m benchmarks.helpers.compare_state \
         bundle-inputs --compare-dir "$WORKSPACE_BUNDLE_DIR" --field config-results)
 else
     # Build JSON input for compare_results.py
@@ -431,7 +431,7 @@ if [[ "${NO_BUNDLE:-false}" != "true" ]]; then
     fi
 
     if [[ -n "${WORKSPACE_BUNDLE_DIR:-}" ]]; then
-        TRAJ_JSON_INPUT=$(cd "$PROJECT_ROOT" && uv run python -m benchmarks.helpers.compare_state \
+        TRAJ_JSON_INPUT=$(cd "$PROJECT_ROOT" && uv run --no-sync python -m benchmarks.helpers.compare_state \
             bundle-inputs --compare-dir "$WORKSPACE_BUNDLE_DIR" --field trajectory-dirs)
     else
         # Build per-config trajectory dirs JSON: {"config": ["/path/run1", ...]}
@@ -480,7 +480,7 @@ if [[ "${NO_BUNDLE:-false}" != "true" ]]; then
         BUNDLE_CMD+=(--trajectory-dirs "$TRAJ_JSON_INPUT")
     fi
     if [[ -n "${WORKSPACE_BUNDLE_DIR:-}" ]]; then
-        LOG_JSON=$(cd "$PROJECT_ROOT" && uv run python -m benchmarks.helpers.compare_state \
+        LOG_JSON=$(cd "$PROJECT_ROOT" && uv run --no-sync python -m benchmarks.helpers.compare_state \
             bundle-inputs --compare-dir "$WORKSPACE_BUNDLE_DIR" --field log-files)
         [[ "$LOG_JSON" == "{}" ]] && LOG_JSON="{\"shared\":[\"/tmp/bpo_fastapi.log\",\"/tmp/bpo_registry.log\",\"/tmp/bpo_console.log\"]}"
     else

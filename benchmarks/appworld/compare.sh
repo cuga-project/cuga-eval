@@ -228,7 +228,7 @@ for config in "${CONFIGS[@]}"; do
         combo_eval_args=()
         if [[ -n "${COMPARE_EXPERIMENT:-}" ]]; then
             read -r -a combo_eval_args <<< "$(compare_combo_eval_flags "$COMPARE_EXPERIMENT" "$config" "$r")"
-            sub_exp=$(uv run python -m benchmarks.helpers.compare_state sub-name \
+            sub_exp=$(uv run --no-sync python -m benchmarks.helpers.compare_state sub-name \
                 --compare-experiment "$COMPARE_EXPERIMENT" --config "$config" --run "$r")
             compare_mark_combo_started "$config" "$r" "$sub_exp"
         fi
