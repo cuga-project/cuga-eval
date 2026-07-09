@@ -61,7 +61,6 @@ fi
 unset _EARLY_AGENT _i _next
 
 FASTAPI_PORT=8090
-REGISTRY_PORT=8001
 FASTAPI_PID=""
 REGISTRY_PID=""
 
@@ -124,6 +123,12 @@ cd "$PROJECT_ROOT"
 
 # Load environment
 source "$PROJECT_ROOT/benchmarks/helpers/load_env.sh" "oak_health_insurance"
+
+# Single registry port for shell helpers and Python (eval_bench / cuga-agent
+# both read DYNACONF_SERVER_PORTS__REGISTRY via settings.server_ports.registry).
+REGISTRY_PORT="${REGISTRY_PORT:-${DYNACONF_SERVER_PORTS__REGISTRY:-8001}}"
+export REGISTRY_PORT
+export DYNACONF_SERVER_PORTS__REGISTRY="$REGISTRY_PORT"
 
 # Apply --model-profile after load_env + arg parsing. common.sh is sourced
 # unconditionally above; hard-fail loudly if that ever stops being true
