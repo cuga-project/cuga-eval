@@ -322,13 +322,14 @@ for config in "${CONFIGS[@]}"; do
     # Collect only the NEW result files produced by this config's runs
     after_files=$(ls -1 "$RESULTS_DIR"/bpo_*.json 2>/dev/null | sort)
     recent_files=$(comm -13 <(echo "$before_files") <(echo "$after_files"))
-    CONFIG_RESULT_KEYS+=("$config")
+    bundle_config=$(resolve_config_key_for_bundle "$config")
+    CONFIG_RESULT_KEYS+=("$bundle_config")
     CONFIG_RESULT_VALS+=("$recent_files")
 
     # Collect only NEW trajectory folders produced by this config's runs
     after_trajs=$(find "$SCRIPT_DIR/logging/trajectory_data" -mindepth 1 -maxdepth 1 -type d 2>/dev/null | sort)
     recent_trajs=$(comm -13 <(echo "$before_trajs") <(echo "$after_trajs"))
-    CONFIG_TRAJ_KEYS+=("$config")
+    CONFIG_TRAJ_KEYS+=("$bundle_config")
     CONFIG_TRAJ_VALS+=("$recent_trajs")
 done
 
@@ -401,7 +402,7 @@ fi
 REPORT_TMP=$(mktemp /tmp/bpo_report_XXXXXX)
 ANALYZE_ARGS+=(--output "$REPORT_TMP")
 
-echo "$JSON_INPUT" | uv run python "$COMPARE_SCRIPT" "${ANALYZE_ARGS[@]}"
+echo "$JSON_INPUT" | uv run --no-sync python "$COMPARE_SCRIPT" "${ANALYZE_ARGS[@]}"
 
 if [[ -n "$OUTPUT_FILE" ]]; then
     cp "$REPORT_TMP" "$OUTPUT_FILE"
@@ -465,7 +466,7 @@ if [[ "${NO_BUNDLE:-false}" != "true" ]]; then
         TRAJ_JSON_INPUT+="}"
     fi
 
-    BUNDLE_CMD=(uv run python -m benchmarks.helpers.bundle assemble-compare
+    BUNDLE_CMD=(uv run --no-sync python -m benchmarks.helpers.bundle assemble-compare
         --benchmark bpo
         --config-results "$JSON_INPUT"
         --report "$REPORT_TMP"

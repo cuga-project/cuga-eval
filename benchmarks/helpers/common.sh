@@ -348,6 +348,39 @@ finalize_model_config() {
     apply_model_cli_overrides_if_set
 }
 
+# Filesystem-safe slug from a model name (e.g. "google/gemma-4-31b" → "gemma-4-31b").
+sanitize_model_slug() {
+    local name="${1:-}"
+    name="${name##*/}"
+    name=$(echo "$name" | tr '[:upper:]' '[:lower:]')
+    name="${name//[^a-z0-9._-]/_}"
+    echo "${name:0:64}"
+}
+
+# Label for bundle dirs / compare config keys: profile name, or actual MODEL_NAME under --dotenv.
+resolve_model_label_for_bundle() {
+    local profile="${1:-}"
+    if [[ "${USE_DOTENV:-false}" == "true" && -n "${MODEL_NAME:-}" ]]; then
+        sanitize_model_slug "$MODEL_NAME"
+    else
+        echo "$profile"
+    fi
+}
+
+# Replace the model segment of a "model[:agent[:policy]]" config key after apply_model_config.
+resolve_config_key_for_bundle() {
+    local config="$1"
+    local profile="${config%%:*}"
+    local rest="${config#*:}"
+    local label
+    label=$(resolve_model_label_for_bundle "$profile")
+    if [[ -n "$rest" && "$rest" != "$config" ]]; then
+        echo "${label}:${rest}"
+    else
+        echo "$label"
+    fi
+}
+
 # Build model-envs JSON for bundle CLI.
 # Usage: build_model_envs_json model1 model2 ...
 # Applies each model config (profile + .env overrides when USE_DOTENV=true) so
@@ -376,8 +409,11 @@ build_model_envs_json() {
         # Apply model config (profile + .env overrides when --dotenv) silently
         apply_model_config "$model" > /dev/null 2>&1
 
+        local label
+        label=$(resolve_model_label_for_bundle "$model")
+
         # Build per-model JSON object with model vars + DYNACONF overrides
-        json+="\"${model}\":{"
+        json+="\"${label}\":{"
         json+="\"AGENT_SETTING_CONFIG\":\"${AGENT_SETTING_CONFIG:-}\""
         json+=",\"MODEL_NAME\":\"${MODEL_NAME:-}\""
         if [ -n "${OPENAI_BASE_URL:-}" ]; then

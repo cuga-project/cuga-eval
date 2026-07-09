@@ -260,13 +260,14 @@ for config in "${CONFIGS[@]}"; do
     # Collect only NEW result files produced by this config's runs
     after_files=$(find "$SCRIPT_DIR/experiments/outputs" -name "*_final_report.json" -type f 2>/dev/null | sort)
     recent_files=$(comm -13 <(echo "$before_files") <(echo "$after_files"))
-    CONFIG_RESULT_KEYS+=("$config")
+    bundle_config=$(resolve_config_key_for_bundle "$config")
+    CONFIG_RESULT_KEYS+=("$bundle_config")
     CONFIG_RESULT_VALS+=("$recent_files")
 
     # Collect only NEW trajectory folders produced by this config's runs
     after_trajs=$(find "$SCRIPT_DIR/logging/trajectory_data" -mindepth 1 -maxdepth 1 -type d 2>/dev/null | sort)
     recent_trajs=$(comm -13 <(echo "$before_trajs") <(echo "$after_trajs"))
-    CONFIG_TRAJ_KEYS+=("$config")
+    CONFIG_TRAJ_KEYS+=("$bundle_config")
     CONFIG_TRAJ_VALS+=("$recent_trajs")
 done
 
