@@ -218,6 +218,12 @@ while [[ $# -gt 0 ]]; do
     esac
 done
 
+# Apply --model-profile after load_env + arg parsing. common.sh is sourced
+# unconditionally above; hard-fail loudly if that ever stops being true
+# instead of silently skipping model-profile application.
+declare -F finalize_model_config >/dev/null || { echo "Error: common.sh not sourced (finalize_model_config unavailable)" >&2; exit 1; }
+finalize_model_config || exit 1
+
 # Validate --agent selection before any server/process side effects (fast-fail)
 if [ "${AGENT:-cuga}" = "codeact" ]; then
     echo -e "${RED:-}Error: --agent codeact is supported only by the appworld benchmark.${NC:-}"

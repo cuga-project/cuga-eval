@@ -241,6 +241,36 @@ result=$(
 )
 assert_eq "build_model_envs_json preserves pre-existing DYNACONF_*" "keepme" "$result"
 
+
+# ─── direct benchmark eval.sh --model-profile path (#101) ────────────────────
+# Direct invocation: load_env (override=false) then --model-profile must apply
+# via finalize_model_config — same as scripts/eval.sh already does.
+
+echo "direct eval.sh --model-profile (#101)"
+
+result=$(
+    source "$SCRIPT_DIR/../common.sh"
+    TMP=$(mktemp); trap 'rm -f "$TMP"' EXIT
+    printf 'MODEL_NAME=from-dotenv-not-profile\n' > "$TMP"
+    export MODEL_PROFILE=gpt4.1
+    export USE_DOTENV=false
+    _parse_env_file "$TMP" false > /dev/null 2>&1
+    echo "$MODEL_NAME"
+)
+assert_eq "without finalize_model_config: .env MODEL_NAME wins" "from-dotenv-not-profile" "$result"
+
+result=$(
+    source "$SCRIPT_DIR/../common.sh"
+    TMP=$(mktemp); trap 'rm -f "$TMP"' EXIT
+    printf 'MODEL_NAME=from-dotenv-not-profile\n' > "$TMP"
+    export MODEL_PROFILE=gpt4.1
+    export USE_DOTENV=false
+    _parse_env_file "$TMP" false > /dev/null 2>&1
+    finalize_model_config > /dev/null 2>&1
+    echo "$MODEL_NAME"
+)
+assert_eq "with finalize_model_config: profile overrides .env" "Azure/gpt-4.1" "$result"
+
 # ─── --dotenv bundle / compare labels (#89) ──────────────────────────────────
 
 echo "dotenv bundle labels (#89)"
@@ -414,6 +444,23 @@ result=$(
         --dry-run --no-bundle 2>/dev/null
 )
 assert_contains "lifecycle flags exported to benchmark eval.sh" "BG=true ST=true" "$result"
+
+# ─── direct eval.sh scripts call finalize_model_config (#101 regression guard) ──
+# The tests above exercise finalize_model_config in isolation; they don't catch
+# someone deleting the call site from a benchmark eval.sh. Cheap grep-based
+# smoke test so that regression fails loudly instead of silently reintroducing
+# issue #101.
+
+echo "eval.sh finalize_model_config call sites (#101 regression guard)"
+
+for bench_eval in "$SCRIPT_DIR"/../../*/eval.sh; do
+    bench_name="$(basename "$(dirname "$bench_eval")")"
+    if grep -qE '^[[:space:]]*finalize_model_config[[:space:]]*(\||$)' "$bench_eval"; then
+        echo "  PASS: $bench_name/eval.sh calls finalize_model_config"; PASS=$((PASS+1))
+    else
+        echo "  FAIL: $bench_name/eval.sh does not call finalize_model_config"; FAIL=$((FAIL+1))
+    fi
+done
 
 # ─── Summary ─────────────────────────────────────────────────────────────────
 
