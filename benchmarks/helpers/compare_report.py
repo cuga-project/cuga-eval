@@ -18,6 +18,8 @@ import sys
 import tomllib
 from pathlib import Path
 
+from benchmarks.helpers.content_filter import FAILURE_REASON_CONTENT_FILTER
+
 MODEL_DISPLAY_NAMES = {
     "gpt-oss": "GPT-OSS-120B",
     "gpt4o": "GPT-4o",
@@ -52,6 +54,46 @@ def _parse_config_key(config_key: str) -> tuple:
     agent = parts[1] if len(parts) > 1 and parts[1] else None
     policy = parts[2] if len(parts) > 2 and parts[2] else None
     return model, agent, policy
+
+
+def _task_result_mark(task: dict, *, markdown: bool = True) -> str:
+    """Render pass/fail mark, annotating known non-agent failure reasons.
+
+    Markdown tables don't need fixed-width cells, so the content-filter
+    annotation spells out "content_filter" there. Plain-text tables use
+    fixed-width columns (see the ``mark:<2`` cells below), so every
+    non-markdown return value here is exactly 2 characters wide — "✗c" for a
+    content-filter failure, "✓ "/"✗ " otherwise — the full word would blow
+    out row alignment for every column after it, and a narrower ``✓``/``✗``
+    without the padding space would misalign against the 2-char "✗c" rows.
+    """
+    if task.get("success"):
+        return "✓" if markdown else "✓ "
+    if task.get("failure_reason") == FAILURE_REASON_CONTENT_FILTER:
+        return "✗ content_filter" if markdown else "✗c"
+    return "✗" if markdown else "✗ "
+
+
+def _content_filter_failure_count(tasks: dict) -> int:
+    return sum(
+        1
+        for t in tasks.values()
+        if not t.get("success") and t.get("failure_reason") == FAILURE_REASON_CONTENT_FILTER
+    )
+
+
+def _append_content_filter_summary(lines: list[str], tasks: dict, *, markdown: bool) -> None:
+    count = _content_filter_failure_count(tasks)
+    if count <= 0:
+        return
+    note = (
+        f"{count} task(s) failed because Azure's content filter rejected the request "
+        "(scored 0.0; prompt vs. completion not distinguishable from the captured error text)"
+    )
+    if markdown:
+        lines.append(f"- **Content filter failures**: {note}")
+    else:
+        lines.append(f"  Content filter    {note}")
 
 
 def _format_config_label(config_key: str) -> str:
@@ -254,6 +296,7 @@ def _parse_sdk_results(data: dict) -> dict:
             # {}) for non-Vakra-scored results.
             "match_rate": r.get("match_rate"),
             "judge_scores": _last_turn_judge_scores(r.get("vakra") or {}),
+            "failure_reason": r.get("failure_reason"),
         }
 
     return {
@@ -294,6 +337,7 @@ def _parse_appworld_results(data: dict) -> dict:
             "steps": t.get("steps"),
             "difficulty": t.get("difficulty"),
             "uuid": tid,
+            "failure_reason": t.get("failure_reason"),
         }
 
     return {
@@ -669,14 +713,27 @@ def _eval_group_breakdown(
     return out
 
 
+def _task_run_symbol(success, failure_reason) -> str:
+    """Render a single run's compact pass/fail cell for the Per-Task Details table."""
+    if success is None:
+        return "— "
+    if success:
+        return "✓ "
+    if failure_reason == FAILURE_REASON_CONTENT_FILTER:
+        return "✗c"
+    return "✗ "
+
+
 def _stats_for_task(task_runs):
     """Aggregate per-task across runs: ✓/✗ list, success counts, mean tokens/llm/time."""
     statuses = [r.get("success") for r in task_runs]
+    failure_reasons = [r.get("failure_reason") for r in task_runs]
     successes = sum(1 for s in statuses if s)
     total = len(task_runs)
     rate = successes / total if total else 0.0
     return {
         "statuses": statuses,
+        "failure_reasons": failure_reasons,
         "successes": successes,
         "total": total,
         "rate": rate,
@@ -773,6 +830,21 @@ def _render_compare_report_sections(
     if fence_close():
         lines.append(fence_close())
     lines.append("")
+
+    total_content_filter = sum(
+        _content_filter_failure_count(r["tasks"]) for runs in model_data.values() for r in runs
+    )
+    if total_content_filter > 0:
+        note = (
+            f"{total_content_filter} task run(s) failed because Azure's content filter rejected the "
+            "request (scored 0.0; prompt vs. completion not distinguishable from the captured error "
+            "text — marked ✗c in Per-Task Details)"
+        )
+        if fence_open():
+            lines.append(f"- **Content filter failures**: {note}")
+        else:
+            lines.append(f"  Content filter    {note}")
+        lines.append("")
 
     # ---- 2a. Cost Summary: per-config totals and per-task averages for
     # tokens, LLM calls, and time. "Total" here is the per-run total averaged
@@ -961,7 +1033,9 @@ def _render_compare_report_sections(
         for task in all_tasks:
             task_runs = [r["tasks"].get(task, {}) for r in runs]
             stats = _stats_for_task(task_runs)
-            symbols = "  ".join(("✓ " if s else "✗ ") if s is not None else "— " for s in stats["statuses"])
+            symbols = "  ".join(
+                _task_run_symbol(s, fr) for s, fr in zip(stats["statuses"], stats["failure_reasons"])
+            )
             successes = stats["successes"]
             total = stats["total"]
             rate_pct = stats["rate"] * 100
@@ -1178,6 +1252,11 @@ def generate_report(config_results: dict[str, list[str]], markdown: bool = True)
     )
 
     lines.extend(_compare_metrics_glossary(header(2)))
+    lines.append(
+        "- **✗c**: task run aborted by Azure's content filter (scored 0.0; prompt vs. completion not "
+        "distinguishable from the captured error text — see Content filter failures note under Summary)."
+    )
+    lines.append("")
 
     return "\n".join(lines)
 
@@ -1289,6 +1368,7 @@ def generate_eval_report(result_file: str, markdown: bool = True) -> str:
         lines.append(f"  Avg LLM Calls/Task {_fmt(cost['avg_llm_calls'])}")
         lines.append(f"  Total Duration     {_fmt(parsed.get('duration'), 's')}")
         lines.append(f"  Avg Duration/Task  {_fmt(cost['avg_duration'], 's')}")
+    _append_content_filter_summary(lines, parsed["tasks"], markdown=markdown)
     lines.append("")
 
     lines.append(h2("Per-Task Results"))
@@ -1340,7 +1420,7 @@ def generate_eval_report(result_file: str, markdown: bool = True) -> str:
                     dom_disp = dom
                     current_key = key
                 ordn_disp = str(ordn) if ordn is not None else "—"
-                status = "✓" if t["success"] else "✗"
+                status = _task_result_mark(t)
                 vakra_cols = ""
                 if has_vakra:
                     judge = t.get("judge_scores") or {}
@@ -1363,14 +1443,14 @@ def generate_eval_report(result_file: str, markdown: bool = True) -> str:
             if has_vakra:
                 header = (
                     f"  {col_task:<4}  {'Domain':<{col_dom_w}}  {'#':>2}  "
-                    f"{'R':<1}  {'Dialog':>6}  {'ExctM':>5}  {'Answer':>6}  {'Ground':>6}  "
+                    f"{'R':<2}  {'Dialog':>6}  {'ExctM':>5}  {'Answer':>6}  {'Ground':>6}  "
                     f"{'Tokens':>10}  {'Cost':>7}  {'LLM':>5}  "
                     f"{'Cache':>10}  {'Duration':>9}  {'Steps':>5}"
                 )
             else:
                 header = (
                     f"  {col_task:<4}  {'Domain':<{col_dom_w}}  {'#':>2}  "
-                    f"{'R':<1}  {'Tokens':>10}  {'Cost':>7}  {'LLM':>5}  "
+                    f"{'R':<2}  {'Tokens':>10}  {'Cost':>7}  {'LLM':>5}  "
                     f"{'Cache':>10}  {'Duration':>9}  {'Steps':>5}"
                 )
             lines.append(header)
@@ -1392,7 +1472,7 @@ def generate_eval_report(result_file: str, markdown: bool = True) -> str:
                     dom_disp = dom
                     current_key2 = key
                 ordn_disp = str(ordn) if ordn is not None else "—"
-                mark = "✓" if t["success"] else "✗"
+                mark = _task_result_mark(t, markdown=False)
                 vakra_cols = ""
                 if has_vakra:
                     judge = t.get("judge_scores") or {}
@@ -1404,7 +1484,7 @@ def generate_eval_report(result_file: str, markdown: bool = True) -> str:
                     )
                 lines.append(
                     f"  {tid_disp:<4}  {dom_disp:<{col_dom_w}}  {ordn_disp:>2}  "
-                    f"{mark:<1}  {vakra_cols}"
+                    f"{mark:<2}  {vakra_cols}"
                     f"{_fmt(t['tokens']):>10}  "
                     f"{_fmt(t.get('cost'), '$'):>7}  "
                     f"{_fmt(t.get('llm_calls')):>5}  "
@@ -1419,7 +1499,7 @@ def generate_eval_report(result_file: str, markdown: bool = True) -> str:
             lines.append("|------|--------|--------|------|-----------|--------------|----------|-------|")
             for row in rows:
                 t = row["data"]
-                status = "✓" if t["success"] else "✗"
+                status = _task_result_mark(t)
                 lines.append(
                     f"| {row['label']} | {status} | {_fmt(t['tokens'])} "
                     f"| {_fmt(t.get('cost'), '$')} | {_fmt(t.get('llm_calls'))} "
@@ -1429,7 +1509,7 @@ def generate_eval_report(result_file: str, markdown: bool = True) -> str:
         else:
             col_task_w = min(40, max(len("Task"), max((len(r["label"]) for r in rows), default=8)))
             header = (
-                f"  {'Task':<{col_task_w}}  {'R':<1}  {'Tokens':>10}  "
+                f"  {'Task':<{col_task_w}}  {'R':<2}  {'Tokens':>10}  "
                 f"{'Cost':>7}  {'LLM':>5}  {'Cache':>10}  "
                 f"{'Duration':>9}  {'Steps':>5}"
             )
@@ -1440,9 +1520,9 @@ def generate_eval_report(result_file: str, markdown: bool = True) -> str:
                 lbl = row["label"]
                 if len(lbl) > col_task_w:
                     lbl = lbl[: col_task_w - 1] + "…"
-                mark = "✓" if t["success"] else "✗"
+                mark = _task_result_mark(t, markdown=False)
                 lines.append(
-                    f"  {lbl:<{col_task_w}}  {mark:<1}  "
+                    f"  {lbl:<{col_task_w}}  {mark:<2}  "
                     f"{_fmt(t['tokens']):>10}  "
                     f"{_fmt(t.get('cost'), '$'):>7}  "
                     f"{_fmt(t.get('llm_calls')):>5}  "

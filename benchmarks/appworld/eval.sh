@@ -170,6 +170,12 @@ if prepare_experiment_workspace "appworld"; then
     mark_run_state_started
 fi
 
+# Apply --model-profile after load_env + arg parsing. common.sh is sourced
+# unconditionally above; hard-fail loudly if that ever stops being true
+# instead of silently skipping model-profile application.
+declare -F finalize_model_config >/dev/null || { echo "Error: common.sh not sourced (finalize_model_config unavailable)" >&2; exit 1; }
+finalize_model_config || exit 1
+
 # Run evaluation
 echo -e "${YELLOW:-}Starting evaluation with agent ${AGENT:-cuga}...${NC:-}"
 

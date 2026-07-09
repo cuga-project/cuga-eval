@@ -347,6 +347,12 @@ cd "$PROJECT_ROOT"
 # Load environment
 source "$PROJECT_ROOT/benchmarks/helpers/load_env.sh" "m3"
 
+# Apply --model-profile after load_env + arg parsing. common.sh is sourced
+# unconditionally above; hard-fail loudly if that ever stops being true
+# instead of silently skipping model-profile application.
+declare -F finalize_model_config >/dev/null || { echo "Error: common.sh not sourced (finalize_model_config unavailable)" >&2; exit 1; }
+finalize_model_config || exit 1
+
 # Single registry port for shell helpers and Python (eval_m3 / cuga-agent both
 # read DYNACONF_SERVER_PORTS__REGISTRY via settings.server_ports.registry).
 REGISTRY_PORT="${REGISTRY_PORT:-${DYNACONF_SERVER_PORTS__REGISTRY:-8001}}"

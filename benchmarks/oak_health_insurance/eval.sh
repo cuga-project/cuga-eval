@@ -125,6 +125,12 @@ cd "$PROJECT_ROOT"
 # Load environment
 source "$PROJECT_ROOT/benchmarks/helpers/load_env.sh" "oak_health_insurance"
 
+# Apply --model-profile after load_env + arg parsing. common.sh is sourced
+# unconditionally above; hard-fail loudly if that ever stops being true
+# instead of silently skipping model-profile application.
+declare -F finalize_model_config >/dev/null || { echo "Error: common.sh not sourced (finalize_model_config unavailable)" >&2; exit 1; }
+finalize_model_config || exit 1
+
 # Capture console output to a log file for reproducibility bundles
 CONSOLE_LOG="/tmp/oak_console.log"
 exec > >(tee "$CONSOLE_LOG") 2>&1

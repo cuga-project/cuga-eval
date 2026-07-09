@@ -23,6 +23,7 @@ from typing import Any, Callable, Dict, List, Optional, TypedDict
 
 from loguru import logger
 
+from benchmarks.helpers.content_filter import annotate_content_filter_failure
 from benchmarks.helpers.incremental_results import write_task_result_async
 
 
@@ -1313,6 +1314,7 @@ async def evaluate_task_with_langfuse(
             "tool_calls": [],
             "error": str(e),
         }
+        annotate_content_filter_failure(error_result, str(e), exc=e, logger=logger, task_id=task_name)
 
         if tracker_callback:
             tracker_callback(error_result, {"match_rate": 0.0, "all_found": False}, intent)
@@ -1716,6 +1718,8 @@ async def evaluate_multiturn_task_with_langfuse(
 
         if task_metadata:
             error_result.update(task_metadata)
+
+        annotate_content_filter_failure(error_result, str(e), exc=e, logger=logger, task_id=task_name)
 
         if tracker_callback:
             tracker_callback(
