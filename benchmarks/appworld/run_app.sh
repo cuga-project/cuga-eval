@@ -16,4 +16,4 @@ source "$HELPERS_DIR/load_env.sh" "appworld"
 echo ""
 echo "Starting AppWorld..."
 cd "$PROJECT_ROOT"
-uv run cuga start appworld
+uv run --no-sync cuga start appworld

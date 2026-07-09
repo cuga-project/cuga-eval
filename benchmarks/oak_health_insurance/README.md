@@ -88,6 +88,25 @@ cd ../..
 
 Results are stored in `benchmarks/oak_health_insurance/logging/` and `trajectory_data/`
 
+### All-in-one script (recommended)
+
+`eval.sh` handles server lifecycle automatically:
+
+```bash
+./benchmarks/oak_health_insurance/eval.sh
+./benchmarks/oak_health_insurance/eval.sh --task approved_claims
+
+# Named resumable experiment
+./benchmarks/oak_health_insurance/eval.sh --experiment oak-run --task approved_claims
+./benchmarks/oak_health_insurance/eval.sh --resume-experiment oak-run
+
+# Multi-run comparison with resume
+./benchmarks/oak_health_insurance/compare.sh --experiment cmp --models gpt-oss,gpt4o --runs 3
+./benchmarks/oak_health_insurance/compare.sh --resume-experiment cmp --status
+```
+
+See the [main README](../../README.md#named-experiments-resume-and-background-runs) for `--background`, `--stop`, bundle repair, and replay.
+
 ---
 
 ## 📝 Evaluation Process
