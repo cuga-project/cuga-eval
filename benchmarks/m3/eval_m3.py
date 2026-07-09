@@ -387,7 +387,10 @@ def _emit_cleanly(func, *args, **kwargs) -> None:
             pass
 
 
-M3_SUMMARY_FILE = "/tmp/m3_summary.txt"  # noqa: S108  # nosec B108 — fixed dev-tool output path; not security-sensitive
+# eval.sh exports a run-scoped path so concurrent runs on one host don't
+# overwrite each other's summary (issue #115); the fixed default only applies
+# when eval_m3 is invoked directly.
+M3_SUMMARY_FILE = os.getenv("M3_SUMMARY_FILE", "/tmp/m3_summary.txt")  # noqa: S108  # nosec B108 — dev-tool output path; not security-sensitive
 
 
 def print_m3_data_summary(results: List[Dict[str, Any]]) -> None:

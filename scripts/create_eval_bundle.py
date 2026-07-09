@@ -22,6 +22,7 @@ Examples::
 from __future__ import annotations
 
 import argparse
+import os
 import subprocess
 import sys
 import tempfile
@@ -63,11 +64,16 @@ def _default_log_files(benchmark: str) -> list[Path]:
         path = bench_dir / name
         if path.is_file() and path.stat().st_size > 0:
             logs.append(path)
-    # Same fixed paths as benchmarks/m3/eval.sh (not user-controlled).
-    for fallback in (
-        Path("/tmp/m3_registry.log"),  # noqa: S108  # nosec B108
-        Path("/tmp/m3_console.log"),  # noqa: S108  # nosec B108
-    ):
+    # Same run-scoped dir convention as benchmarks/m3/eval.sh (issue #115),
+    # with the legacy fixed /tmp paths kept for logs left by pre-#115 runs.
+    fallbacks: list[Path] = []
+    run_tmp_dir = os.getenv("M3_RUN_TMP_DIR")
+    if run_tmp_dir:
+        fallbacks.append(Path(run_tmp_dir) / "m3_registry.log")
+        fallbacks.append(Path(run_tmp_dir) / "m3_console.log")
+    fallbacks.append(Path("/tmp/m3_registry.log"))  # noqa: S108  # nosec B108
+    fallbacks.append(Path("/tmp/m3_console.log"))  # noqa: S108  # nosec B108
+    for fallback in fallbacks:
         if fallback.is_file() and fallback.stat().st_size > 0:
             logs.append(fallback)
     return logs
