@@ -69,6 +69,8 @@ class OakEvaluator:
         difficulty_filter: Optional[str] = None,
         task_id: Optional[Union[str, List[str]]] = None,
         policies_enabled: bool = True,
+        bundle_dir: Optional[Path] = None,
+        resume_completed_ids: Optional[set] = None,
     ):
         """
         Initialize the evaluator.
@@ -77,10 +79,15 @@ class OakEvaluator:
             difficulty_filter: Filter by difficulty ("easy", "medium", "hard", or None for all)
             task_id: Filter by specific task ID(s) (if provided, only these tasks will be evaluated)
             policies_enabled: Whether to load policies (default: True)
+            bundle_dir: When set, results persist incrementally under the bundle and the
+                        final merge reads from disk, enabling crash-safe resume.
+            resume_completed_ids: Task names already completed successfully; these are skipped.
         """
         self.difficulty_filter = difficulty_filter
         self.task_ids = [task_id] if isinstance(task_id, str) else task_id
         self.policies_enabled = policies_enabled
+        self.bundle_dir = bundle_dir
+        self.resume_completed_ids = resume_completed_ids or set()
         self.agent: Optional[CugaAgent] = None
         self.results: List[Dict[str, Any]] = []
         # Bound from __init__, not inside evaluate_all(): if evaluate_all() raises
@@ -140,6 +147,7 @@ class OakEvaluator:
             user_context=user_context,
             tracker_callback=tracker_callback,
             track_tool_calls=True,
+            bundle_dir=self.bundle_dir,
         )
 
     async def evaluate_all(self, oak_data_path: str = "oak_data.json"):
@@ -192,11 +200,29 @@ class OakEvaluator:
 
         # Evaluate each task
         self.results = []
+        results_index: Dict[str, int] = {}  # task_name -> index (resume dedupe)
+        if self.bundle_dir is not None:
+            from benchmarks.helpers.incremental_results import load_all_partial_results
+
+            for r in load_all_partial_results(self.bundle_dir):
+                key = r.get("task_name")
+                if key is not None:
+                    results_index[key] = len(self.results)
+                self.results.append(r)
+
         for i, task in enumerate(test_cases, 1):
+            task_name = task.get("name", "unknown")
+            if task_name in self.resume_completed_ids:
+                logger.info(f"\n[{i}/{len(test_cases)}] Skipping already-completed task: {task_name}")
+                continue
             logger.info(f"\n[{i}/{len(test_cases)}] Processing task...")
             # Pass task index to generate unique thread_id and ensure fresh state
             result = await self.evaluate_task(task, task_index=i)
-            self.results.append(result)
+            if task_name in results_index:
+                self.results[results_index[task_name]] = result
+            else:
+                results_index[task_name] = len(self.results)
+                self.results.append(result)
 
             # Small delay to avoid rate limiting between tasks
             if i < len(test_cases):  # Don't sleep after last task
@@ -210,6 +236,10 @@ class OakEvaluator:
 
     def save_results(self, output_dir: Optional[str] = None):
         """Save evaluation results to JSON files."""
+        if self.bundle_dir is not None:
+            from benchmarks.helpers.incremental_results import finalize_merged_results
+
+            return finalize_merged_results(self.bundle_dir, prefix="oak_health")
         if output_dir is None:
             output_dir = Path(__file__).parent / "results"
         return save_evaluation_results(self.results, output_dir, prefix="oak_health")
@@ -245,6 +275,19 @@ async def main():
         action="store_true",
         help="Disable CUGA policies (playbooks, tool guides). Useful for baselining.",
     )
+    parser.add_argument(
+        "--bundle-dir",
+        type=str,
+        default=None,
+        help="Bundle workspace directory for incremental, resumable results.",
+    )
+    parser.add_argument(
+        "--resume-task-ids",
+        type=str,
+        nargs="*",
+        default=None,
+        help="Task names to treat as already completed (skip). Usually computed by the shell layer.",
+    )
 
     from benchmarks.helpers.logging_args import add_log_level_args, apply_log_level
 
@@ -253,9 +296,23 @@ async def main():
     args = parser.parse_args()
     apply_log_level(args)
 
+    # Resolve bundle workspace + resume skip-set (success-only + explicit overrides)
+    bundle_dir = Path(args.bundle_dir) if args.bundle_dir else None
+    resume_completed_ids: set = set()
+    if bundle_dir is not None:
+        from benchmarks.helpers.incremental_results import load_completed_task_ids
+
+        resume_completed_ids |= load_completed_task_ids(bundle_dir)
+    if args.resume_task_ids:
+        resume_completed_ids |= set(args.resume_task_ids)
+
     # Create evaluator
     evaluator = OakEvaluator(
-        difficulty_filter=args.difficulty, task_id=args.task, policies_enabled=not args.no_policies
+        difficulty_filter=args.difficulty,
+        task_id=args.task,
+        policies_enabled=not args.no_policies,
+        bundle_dir=bundle_dir,
+        resume_completed_ids=resume_completed_ids,
     )
 
     exit_code = 0
