@@ -2579,6 +2579,64 @@ def _finalize_and_save_results(
     return saved_path
 
 
+# --- Interrupt diagnostics -------------------------------------------------
+# Recurring, unattended "Evaluation interrupted" events have shown up in
+# several bundles (2026-06-24, 2026-07-04, 2026-07-05, 2026-07-09) — always
+# within seconds of a call_model log line, always landing in the
+# `except (KeyboardInterrupt, asyncio.CancelledError)` branch below, with no
+# human present (some ran at 2-3am). That branch can't tell a real Ctrl-C /
+# external `kill -INT` apart from a bare asyncio.CancelledError raised
+# somewhere inside the process (e.g. inside the LLM/gateway client), so add:
+#   1. a SIGINT observer that timestamps *real* signal delivery without
+#      changing behavior (it falls through to the default handler), and
+#   2. a periodic stall watchdog that dumps every live task's stack, so a
+#      silent hang (no exception at all) still leaves a trace of where
+#      execution is blocked.
+_sigint_observed_at: float | None = None
+
+
+def _install_sigint_observer() -> None:
+    """Timestamp+log real SIGINT delivery; defer to the default handler for
+    the actual behavior so Ctrl-C handling (#91, #92) is unchanged."""
+    import signal
+
+    def _on_sigint(signum, frame):
+        global _sigint_observed_at
+        import time
+
+        _sigint_observed_at = time.time()
+        logger.warning(
+            f"🔔 SIGINT received by the OS signal handler (frame "
+            f"{frame.f_code.co_filename}:{frame.f_lineno}) — a real Ctrl-C or external "
+            "`kill -INT`/`kill -2` was delivered to this process."
+        )
+        signal.default_int_handler(signum, frame)
+
+    signal.signal(signal.SIGINT, _on_sigint)
+
+
+async def _stall_watchdog(interval_seconds: float = 180.0) -> None:
+    """Periodically dump every other live asyncio task's stack.
+
+    A hang with no timeout and no exception (e.g. a stuck LLM/gateway HTTP
+    call) otherwise leaves no trace beyond "logging went quiet" — this gives
+    a live snapshot of exactly where execution is blocked when it happens.
+    """
+    import io
+
+    while True:
+        await asyncio.sleep(interval_seconds)
+        tasks = [t for t in asyncio.all_tasks() if t is not asyncio.current_task()]
+        logger.warning(
+            f"⏱️  Stall watchdog: {len(tasks)} other task(s) still alive after {interval_seconds:.0f}s"
+        )
+        for t in tasks:
+            buf = io.StringIO()
+            t.print_stack(limit=10, file=buf)
+            stack_text = buf.getvalue().strip() or "  <no stack available — not yet started or already done>"
+            logger.warning(f"    task={t.get_name()!r} coro={t.get_coro()!r}\n{stack_text}")
+
+
 async def run_config_mode(args, container_runtime: str, defer_save: bool = False):
     """Run evaluation in config mode with task-level parallelism and optional batching.
 
@@ -2718,6 +2776,8 @@ async def run_config_mode(args, container_runtime: str, defer_save: bool = False
     # sequential mode results are appended as tasks complete; in batched
     # mode evaluate_tasks_in_batches replaces the list with its return.
     all_results: List[Dict[str, Any]] = []
+
+    stall_watchdog_task = asyncio.create_task(_stall_watchdog())
 
     try:
         # Start registry if enabled. In sequential mode we *don't* start a
@@ -3023,12 +3083,32 @@ async def run_config_mode(args, container_runtime: str, defer_save: bool = False
 
         return all_results
 
-    except (KeyboardInterrupt, asyncio.CancelledError):
+    except (KeyboardInterrupt, asyncio.CancelledError) as interrupt_err:
         # User hit Ctrl-C or the task group was cancelled. Save whatever
         # tasks we managed to complete so the shell-side `create_bundle`
         # has something to bundle, then re-raise so the script exits with
         # the right status. (Bug #91, #92.)
-        logger.warning("⛔ Evaluation interrupted — saving any partial results before exit...")
+        #
+        # Diagnostics: distinguish a real OS-delivered SIGINT (observed by
+        # _install_sigint_observer) from a bare CancelledError raised inside
+        # the process with no signal involved — the latter has shown up
+        # repeatedly and unattended (see the comment above _stall_watchdog).
+        import traceback
+
+        if _sigint_observed_at is not None:
+            logger.warning(
+                f"⛔ Evaluation interrupted by a real SIGINT (observed at "
+                f"{_sigint_observed_at}) — saving any partial results before exit..."
+            )
+        else:
+            tb_text = "".join(
+                traceback.format_exception(type(interrupt_err), interrupt_err, interrupt_err.__traceback__)
+            )
+            logger.warning(
+                f"⛔ Evaluation interrupted by {type(interrupt_err).__name__} with NO SIGINT observed "
+                "by the OS handler — this cancellation originated inside the process (e.g. an "
+                f"LLM/gateway client library), not a Ctrl-C. Full traceback:\n{tb_text}"
+            )
         try:
             if bundle_dir is not None:
                 from benchmarks.helpers.incremental_results import finalize_merged_results
@@ -3067,6 +3147,12 @@ async def run_config_mode(args, container_runtime: str, defer_save: bool = False
         raise
 
     finally:
+        stall_watchdog_task.cancel()
+        try:
+            await stall_watchdog_task
+        except asyncio.CancelledError:
+            pass
+
         # Stop registry if it was started
         if registry_process is not None:
             await stop_registry_server(registry_process)
@@ -3090,6 +3176,8 @@ async def main():
     """Main evaluation function."""
     import argparse
     import shutil
+
+    _install_sigint_observer()
 
     # Auto-detect container runtime (docker or podman) — always resolve to full path
     def detect_container_runtime():
