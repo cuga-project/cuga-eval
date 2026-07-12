@@ -112,6 +112,33 @@ def _file_sha256(path: Path) -> str:
     return h.hexdigest()
 
 
+def _copy_task_source(tf: Path, tasks_dir: Path) -> None:
+    """Copy a task source into ``tasks_dir``, preserving its name.
+
+    ``tf`` is usually a single file (a ``.json``/``.zip`` corpus), but
+    ``--m3-data <dir>`` accepts a directory of input/output files too --
+    copy the whole tree in that case rather than treating it as a file.
+    """
+    tasks_dir.mkdir(parents=True, exist_ok=True)
+    dest = tasks_dir / tf.name
+    if tf.is_dir():
+        shutil.copytree(tf, dest, dirs_exist_ok=True)
+    else:
+        shutil.copy2(tf, dest)
+
+
+def _task_source_hash(tf: Path) -> str:
+    """sha256 of a task source. A directory hashes the sorted contents of every file within."""
+    if not tf.is_dir():
+        return f"sha256:{_file_sha256(tf)}"
+    h = hashlib.sha256()
+    for p in sorted(tf.rglob("*")):
+        if p.is_file():
+            h.update(p.relative_to(tf).as_posix().encode())
+            h.update(p.read_bytes())
+    return f"sha256:{h.hexdigest()}"
+
+
 # ---------------------------------------------------------------------------
 # Metadata collectors
 # ---------------------------------------------------------------------------
@@ -542,8 +569,8 @@ def assemble_bundle(
     for tf in task_files:
         tf = Path(tf)
         if tf.exists():
-            shutil.copy2(tf, tasks_dir / tf.name)
-            task_file_hashes[tf.name] = f"sha256:{_file_sha256(tf)}"
+            _copy_task_source(tf, tasks_dir)
+            task_file_hashes[tf.name] = _task_source_hash(tf)
 
     # Policies (only if the benchmark has them)
     _copy_policies(bundle_dir, policies_dir)
@@ -681,11 +708,10 @@ def assemble_compare_bundle(
     # Tasks
     if task_files:
         tasks_dir = bundle_dir / "tasks"
-        tasks_dir.mkdir(exist_ok=True)
         for tf in task_files:
             tf = Path(tf)
             if tf.exists():
-                shutil.copy2(tf, tasks_dir / tf.name)
+                _copy_task_source(tf, tasks_dir)
 
     # Policies
     _copy_policies(bundle_dir, policies_dir)
@@ -764,7 +790,7 @@ def assemble_compare_bundle(
         for tf in task_files:
             tf = Path(tf)
             if tf.exists():
-                task_file_hashes[tf.name] = f"sha256:{_file_sha256(tf)}"
+                task_file_hashes[tf.name] = _task_source_hash(tf)
 
     # Build per-model runtime config from model_envs if available
     models_config = {}
@@ -904,9 +930,8 @@ def finalize_workspace_bundle(
         tf = Path(tf)
         if tf.exists():
             tasks_dir = bundle_dir / "tasks"
-            tasks_dir.mkdir(exist_ok=True)
-            shutil.copy2(tf, tasks_dir / tf.name)
-            task_file_hashes[tf.name] = f"sha256:{_file_sha256(tf)}"
+            _copy_task_source(tf, tasks_dir)
+            task_file_hashes[tf.name] = _task_source_hash(tf)
 
     _copy_policies(bundle_dir, policies_dir)
     _copy_trajectories(bundle_dir, trajectory_dir)

@@ -82,6 +82,61 @@ def test_finalize_workspace_bundle_partial_status(tmp_path):
 
 
 # --------------------------------------------------------------------------
+# task_files: --m3-data accepts a directory of input/output files, not just
+# a single .json/.zip corpus (issue: finalize crashed with IsADirectoryError
+# when shutil.copy2 was handed a directory)
+# --------------------------------------------------------------------------
+
+
+def _make_m3_data_dir(root):
+    data_dir = root / "capability_2_dashboard_apis"
+    (data_dir / "input").mkdir(parents=True)
+    (data_dir / "output").mkdir(parents=True)
+    (data_dir / "input" / "task1.json").write_text('{"task": 1}')
+    (data_dir / "output" / "task1.json").write_text('{"result": 1}')
+    return data_dir
+
+
+@pytest.mark.sanity
+def test_finalize_workspace_bundle_copies_directory_task_source(tmp_path):
+    bd = tmp_path / "exp"
+    bundle.create_workspace_bundle(bd, "m3", experiment_name="exp")
+    _write_merged_results(bd, [{"task_name": "t1", "success": True}])
+    data_dir = _make_m3_data_dir(tmp_path)
+
+    bundle.finalize_workspace_bundle(bd, "m3", task_files=[data_dir], fetch_langfuse=False)
+
+    copied = bd / "tasks" / data_dir.name
+    assert (copied / "input" / "task1.json").read_text() == '{"task": 1}'
+    assert (copied / "output" / "task1.json").read_text() == '{"result": 1}'
+    meta = json.loads((bd / "metadata.json").read_text())
+    assert meta["status"] == "completed"
+
+
+@pytest.mark.sanity
+def test_task_source_hash_stable_for_directory(tmp_path):
+    data_dir = _make_m3_data_dir(tmp_path)
+    h1 = bundle._task_source_hash(data_dir)
+    h2 = bundle._task_source_hash(data_dir)
+    assert h1 == h2
+    assert h1.startswith("sha256:")
+
+    (data_dir / "input" / "task1.json").write_text('{"task": 2}')
+    assert bundle._task_source_hash(data_dir) != h1
+
+
+@pytest.mark.sanity
+def test_copy_task_source_still_handles_plain_file(tmp_path):
+    tf = tmp_path / "hockey.json"
+    tf.write_text('{"tasks": []}')
+    tasks_dir = tmp_path / "out" / "tasks"
+
+    bundle._copy_task_source(tf, tasks_dir)
+
+    assert (tasks_dir / "hockey.json").read_text() == '{"tasks": []}'
+
+
+# --------------------------------------------------------------------------
 # Langfuse retry / skip-existing
 # --------------------------------------------------------------------------
 
