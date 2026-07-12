@@ -1695,6 +1695,16 @@ async def evaluate_single_task(
             # capability_name is resolved from the numeric task_id so the wrapper
             # connects to the matching capability container instead of always
             # defaulting to capability_bi_apis.
+            # Scope Vakra prediction/groundtruth files under the workspace bundle
+            # (when one exists) instead of the shared benchmarks/m3/results/
+            # directory. Two concurrent runs for different experiments/capabilities
+            # can hit the same domain name and clobber each other's
+            # _vakra/prediction/<domain>.json under the shared path, and stale
+            # files from old runs never get cleared there. Same fallback pattern
+            # as _finalize_and_save_results above.
+            vakra_output_dir = (
+                Path(bundle_dir) / "results" if bundle_dir is not None else Path(__file__).parent / "results"
+            )
             if evaluator.results:
                 if no_gt_mode:
                     # No ground truth → skip scoring entirely, just dump
@@ -1702,7 +1712,7 @@ async def evaluate_single_task(
                     try:
                         write_predictions_no_gt(
                             evaluator.results,
-                            output_dir=Path(__file__).parent / "results",
+                            output_dir=vakra_output_dir,
                             domain=domain,
                         )
                     except Exception as e:
@@ -1717,7 +1727,7 @@ async def evaluate_single_task(
                     try:
                         await vakra_score_results_async(
                             evaluator.results,
-                            output_dir=Path(__file__).parent / "results",
+                            output_dir=vakra_output_dir,
                             capability_name=cap_name,
                             domain=domain_name,
                         )
