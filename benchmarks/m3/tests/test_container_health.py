@@ -15,6 +15,7 @@ from benchmarks.m3.container_health import (
     check_container_health,
     health_check_or_abort,
     is_environment_shaped_error,
+    is_environment_shaped_result,
     record_streak_or_abort,
     render_environment_failure_banner,
     resume_hint_for,
@@ -52,6 +53,91 @@ def test_does_not_classify_validation_error_as_environment_shaped():
 def test_none_and_empty_error_text_is_not_environment_shaped():
     assert not is_environment_shaped_error(None)
     assert not is_environment_shaped_error("")
+
+
+def test_classifies_connection_closed_as_environment_shaped():
+    assert is_environment_shaped_error("Error calling MCP server tool: Connection closed")
+
+
+# --- is_environment_shaped_result --------------------------------------------
+#
+# Regression coverage for the case a live run surfaced: the registry/agent
+# layer is still reachable (find_tools still works), but the MCP transport to
+# the dead container itself is closed. The call doesn't raise — it returns
+# "Connection closed" as its own value — the agent retries a few times, then
+# gives up and produces a normal-looking "I couldn't retrieve the data"
+# final answer. result["error"] stays unset the whole time.
+
+
+def test_result_with_only_top_level_error_is_environment_shaped():
+    assert is_environment_shaped_result({"error": "Connection refused"})
+
+
+def test_result_with_no_error_and_no_tool_calls_is_not_environment_shaped():
+    assert not is_environment_shaped_result({"error": None, "tool_calls": []})
+
+
+def test_result_with_successful_tool_calls_is_not_environment_shaped():
+    result = {
+        "error": None,
+        "tool_calls": [{"name": "hockey_get_players", "result": {"count": 7}}],
+    }
+    assert not is_environment_shaped_result(result)
+
+
+def test_multiturn_result_with_connection_closed_tool_call_result_is_environment_shaped():
+    # error is unset (no exception was raised) — only the tool call's own
+    # *return value* carries the connection-closed text, exactly like the
+    # live failure this test guards against.
+    result = {
+        "error": None,
+        "all_responses": [
+            {
+                "turn": 1,
+                "tool_calls": [
+                    {
+                        "name": "hockey_get_players_by_position_no_shoot_catch",
+                        "result": "Error calling MCP server tool: Connection closed",
+                    }
+                ],
+            }
+        ],
+    }
+    assert is_environment_shaped_result(result)
+
+
+def test_single_turn_result_with_connection_closed_tool_call_result_is_environment_shaped():
+    result = {
+        "error": None,
+        "tool_calls": [
+            {"name": "hockey_get_players", "result": "Error calling MCP server tool: Connection closed"}
+        ],
+    }
+    assert is_environment_shaped_result(result)
+
+
+def test_result_with_validation_error_tool_call_result_is_not_environment_shaped():
+    # The c4 case, at the tool-call level this time: a live server's own
+    # validation error, returned as data — must not be misclassified.
+    result = {
+        "error": None,
+        "tool_calls": [
+            {
+                "name": "disney_get_count_movies_by_director",
+                "result": "Error calling MCP server tool: Input validation error: 'director' is a required property",
+            }
+        ],
+    }
+    assert not is_environment_shaped_result(result)
+
+
+def test_tool_call_as_object_with_result_attribute_is_environment_shaped():
+    class FakeToolCall:
+        result = "Error calling MCP server tool: Connection closed"
+        error = None
+
+    result = {"error": None, "tool_calls": [FakeToolCall()]}
+    assert is_environment_shaped_result(result)
 
 
 # --- check_container_health --------------------------------------------

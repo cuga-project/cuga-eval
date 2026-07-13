@@ -11,7 +11,7 @@ from __future__ import annotations
 
 import subprocess
 from pathlib import Path
-from typing import Dict, List, Optional, Tuple
+from typing import Any, Dict, List, Optional, Tuple
 
 
 class EnvironmentFailureError(RuntimeError):
@@ -28,6 +28,9 @@ _ENV_FAILURE_MARKERS = (
     "Broken pipe",
     "BrokenPipeError",
     "ConnectionResetError",
+    "Connection closed",
+    "connection closed",
+    "ClosedResourceError",
     "No such container",
     "is not running",
 )
@@ -38,6 +41,50 @@ def is_environment_shaped_error(error_text: Optional[str]) -> bool:
     if not error_text:
         return False
     return any(marker in error_text for marker in _ENV_FAILURE_MARKERS)
+
+
+def _tool_call_value(tc: Any, key: str) -> Any:
+    """Read `key` ("result" or "error") off a tool-call record — a dict or an object."""
+    if isinstance(tc, dict):
+        return tc.get(key)
+    return getattr(tc, key, None)
+
+
+def _tool_calls_are_environment_shaped(tool_calls: Optional[List[Any]]) -> bool:
+    """True if any call in `tool_calls` came back with a connection-shaped value.
+
+    A dead-container failure doesn't always surface as a raised exception —
+    when the registry/agent layer is still reachable but the MCP transport to
+    the container itself is closed, the call returns the failure as its own
+    *result* (e.g. "Connection closed"), and the agent may retry or produce a
+    graceful "I couldn't get the data" answer without ever raising. That means
+    `result["error"]` alone misses it; this looks at the actual per-call
+    return values instead.
+    """
+    for tc in tool_calls or []:
+        for key in ("result", "error"):
+            value = _tool_call_value(tc, key)
+            if value is not None and is_environment_shaped_error(str(value)):
+                return True
+    return False
+
+
+def is_environment_shaped_result(result: Dict[str, Any]) -> bool:
+    """True if a task/sample result shows signs of a dead/wedged environment.
+
+    Checks both the top-level `error` field (set when an exception was
+    raised and caught) and every tool call's own return value (set when the
+    call "succeeded" as far as the agent is concerned — no exception — but
+    the value it got back was itself connection-shaped). Covers multi-turn
+    results (`all_responses[*]["tool_calls"]`) and single-turn results
+    (`tool_calls` at the top level).
+    """
+    if is_environment_shaped_error(result.get("error")):
+        return True
+    for turn in result.get("all_responses") or []:
+        if _tool_calls_are_environment_shaped(turn.get("tool_calls")):
+            return True
+    return _tool_calls_are_environment_shaped(result.get("tool_calls"))
 
 
 def check_container_health(container: str, container_runtime: str, timeout: float = 5.0) -> Tuple[bool, str]:
@@ -82,20 +129,22 @@ def check_container_health(container: str, container_runtime: str, timeout: floa
 
 
 class EnvironmentFailureStreakTracker:
-    """Counts consecutive domains whose every result is environment-shaped."""
+    """Counts consecutive domains (or samples) whose every result is environment-shaped."""
 
     def __init__(self, threshold: int):
         self.threshold = threshold
         self._streak = 0
 
     def record(self, domain_results: List[Dict]) -> bool:
-        """Feed one domain's results. Returns True once the streak hits threshold.
+        """Feed one domain's (or sample's) results. Returns True once the streak hits threshold.
 
         An empty result list does NOT count toward the streak (and resets
         it) — there's nothing to classify, so it can't be evidence of an
-        environment failure.
+        environment failure. Each result is classified by
+        `is_environment_shaped_result`, which checks both a raised-exception
+        `error` field and connection-shaped tool-call return values.
         """
-        if domain_results and all(is_environment_shaped_error(r.get("error")) for r in domain_results):
+        if domain_results and all(is_environment_shaped_result(r) for r in domain_results):
             self._streak += 1
         else:
             self._streak = 0
