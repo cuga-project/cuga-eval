@@ -16,6 +16,23 @@ ROOT = Path(__file__).resolve().parents[3]
 EVAL_M3_PY = ROOT / "benchmarks" / "m3" / "eval_m3.py"
 
 
+def test_environment_failure_error_is_a_runtime_error():
+    # start_registry_server's registry-warmup-timeout abort relies on this:
+    # it reuses the existing `except RuntimeError: raise` passthrough
+    # (originally added for a stale-registry mismatch) rather than needing a
+    # separate `except EnvironmentFailureError` clause. If this stopped being
+    # true, that reuse would silently break and the timeout abort could be
+    # swallowed by the function's generic `except Exception` handler.
+    assert issubclass(EnvironmentFailureError, RuntimeError)
+
+
+def test_registry_warmup_timeout_aborts_instead_of_proceeding():
+    content = EVAL_M3_PY.read_text()
+    assert "Proceeding anyway" not in content
+    assert "raise EnvironmentFailureError(reason)" in content
+    assert "registry warmup timed out after" in content
+
+
 def test_run_main_returns_0_on_success():
     from benchmarks.m3.eval_m3 import _run_main
 

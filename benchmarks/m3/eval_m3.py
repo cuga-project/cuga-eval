@@ -2113,10 +2113,26 @@ async def start_registry_server(
                         await asyncio.sleep(poll_interval)
 
                     if not all_ready:
-                        logger.warning(
-                            f"⚠️  Registry warmup timeout after {max_warmup_time}s. "
-                            "Some MCP servers may not be fully ready. Proceeding anyway..."
+                        # Zero applications registered in the FULL warmup window
+                        # (not "some missing" — all_ready only ever becomes True
+                        # once len(apps) > 0, so this means literally none did).
+                        # That's not "still starting up", it's the docker
+                        # environment being broken (dead/unreachable container,
+                        # or a wedged app inside a container that otherwise
+                        # looks "running"). Previously this just warned and
+                        # proceeded, letting the run grind through every task
+                        # against a registry with nothing behind it.
+                        reason = (
+                            f"registry warmup timed out after {max_warmup_time}s with 0 MCP "
+                            f"server(s) registered (expected: {expected_apps or 'unspecified'})"
                         )
+                        print(
+                            render_environment_failure_banner(
+                                reason, "fix the docker environment, then resume this run"
+                            )
+                        )
+                        await stop_registry_server(process)
+                        raise EnvironmentFailureError(reason)
 
                     break
                 else:
