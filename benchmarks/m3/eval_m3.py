@@ -94,6 +94,9 @@ from benchmarks.helpers.sdk_eval_helpers import (
     clear_all_policies,
     is_langfuse_tracing_enabled,
 )
+from benchmarks.m3.container_health import (
+    EnvironmentFailureError,
+)
 from benchmarks.m3.eval_config_loader import filter_samples_by_eval_key, load_eval_key_ids
 from benchmarks.m3.m3_data_loader import M3DataLoader, diff_tool_calls
 
@@ -3280,5 +3283,19 @@ Examples:
 # Removed run_direct_mode() function - now using registry mode only
 
 
+def _run_main() -> int:
+    """Run main(); translate EnvironmentFailureError into exit code 3.
+
+    Exit codes: 0 success, 1 generic error (existing sys.exit(1) guards
+    above), 2 CLI arg errors (eval.sh), 3 M3 docker environment failure.
+    """
+    try:
+        asyncio.run(main())
+        return 0
+    except EnvironmentFailureError as env_err:
+        logger.error(f"Exiting with code 3 due to environment failure: {env_err}")
+        return 3
+
+
 if __name__ == "__main__":
-    asyncio.run(main())
+    sys.exit(_run_main())
