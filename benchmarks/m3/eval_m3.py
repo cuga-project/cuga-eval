@@ -2583,6 +2583,30 @@ def _finalize_and_save_results(
     return saved_path
 
 
+def _env_float(name: str, default: float) -> float:
+    """Parse a float env var, falling back to `default` (with a warning) if unset or malformed."""
+    raw = os.environ.get(name)
+    if raw is None:
+        return default
+    try:
+        return float(raw)
+    except ValueError:
+        logger.warning(f"{name}={raw!r} is not a valid number; using default {default}")
+        return default
+
+
+def _env_int(name: str, default: int) -> int:
+    """Parse an int env var, falling back to `default` (with a warning) if unset or malformed."""
+    raw = os.environ.get(name)
+    if raw is None:
+        return default
+    try:
+        return int(raw)
+    except ValueError:
+        logger.warning(f"{name}={raw!r} is not a valid integer; using default {default}")
+        return default
+
+
 async def run_config_mode(args, container_runtime: str, defer_save: bool = False):
     """Run evaluation in config mode with task-level parallelism and optional batching.
 
@@ -2951,10 +2975,8 @@ async def run_config_mode(args, container_runtime: str, defer_save: bool = False
             # container) instead of silently grinding through it. See
             # benchmarks/m3/container_health.py.
             env_health_check_enabled = os.environ.get("M3_ENV_HEALTH_CHECK", "true").lower() != "false"
-            env_health_timeout = float(os.environ.get("M3_ENV_HEALTH_TIMEOUT", "5"))
-            env_fail_streak = EnvironmentFailureStreakTracker(
-                threshold=int(os.environ.get("M3_ENV_FAIL_STREAK", "3"))
-            )
+            env_health_timeout = _env_float("M3_ENV_HEALTH_TIMEOUT", 5.0)
+            env_fail_streak = EnvironmentFailureStreakTracker(threshold=_env_int("M3_ENV_FAIL_STREAK", 3))
             env_resume_hint = resume_hint_for(bundle_dir)
 
             # In sequential mode we ignore the pre-built coroutines and

@@ -59,3 +59,47 @@ def test_environment_failure_error_is_not_swallowed_by_the_generic_handler():
         "generic `except Exception` clause, or Python will match the generic "
         "clause first and swallow the abort"
     )
+
+
+def test_env_int_valid_string():
+    from benchmarks.m3.eval_m3 import _env_int
+
+    assert _env_int("TEST_INT_VAR", 10) == 10  # unset returns default
+
+
+def test_env_int_parses_valid_int_string(monkeypatch):
+    from benchmarks.m3.eval_m3 import _env_int
+
+    monkeypatch.setenv("TEST_INT_VAR", "42")
+    assert _env_int("TEST_INT_VAR", 10) == 42
+
+
+def test_env_int_returns_default_on_malformed(monkeypatch):
+    from benchmarks.m3.eval_m3 import _env_int
+
+    monkeypatch.setenv("TEST_INT_VAR", "three")
+    # Key test: malformed value should return default, not raise
+    result = _env_int("TEST_INT_VAR", 10)
+    assert result == 10
+
+
+def test_env_float_returns_default_when_unset():
+    from benchmarks.m3.eval_m3 import _env_float
+
+    assert _env_float("TEST_FLOAT_VAR", 5.0) == 5.0
+
+
+def test_env_float_parses_valid_float_string(monkeypatch):
+    from benchmarks.m3.eval_m3 import _env_float
+
+    monkeypatch.setenv("TEST_FLOAT_VAR", "3.14")
+    assert _env_float("TEST_FLOAT_VAR", 5.0) == 3.14
+
+
+def test_env_float_returns_default_on_malformed(monkeypatch):
+    from benchmarks.m3.eval_m3 import _env_float
+
+    monkeypatch.setenv("TEST_FLOAT_VAR", "abc")
+    # Key test: malformed value should return default, not raise
+    result = _env_float("TEST_FLOAT_VAR", 5.0)
+    assert result == 5.0
