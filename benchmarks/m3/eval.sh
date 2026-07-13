@@ -544,6 +544,13 @@ if [ $EVAL_EXIT -eq 0 ]; then
     # Create reproducibility bundle (idempotent — cleanup trap also calls
     # this on interrupt/crash, see #91, #92).
     create_bundle
+elif [ $EVAL_EXIT -eq 3 ]; then
+    echo -e "${RED:-}✗ M3 evaluation aborted: docker environment failure detected (exit code: 3)${NC:-}"
+    if [ -n "${WORKSPACE_BUNDLE_DIR:-}" ]; then
+        echo -e "${YELLOW:-}Once the docker containers are healthy again, rerun this same command${NC:-}"
+        echo -e "${YELLOW:-}with --resume-experiment $(basename "$WORKSPACE_BUNDLE_DIR") appended to pick up where it stopped.${NC:-}"
+    fi
+    # cleanup trap will call create_bundle to salvage what we have.
 else
     echo -e "${RED:-}✗ M3 evaluation failed (exit code: $EVAL_EXIT)${NC:-}"
     # cleanup trap will call create_bundle to salvage what we have.
