@@ -103,3 +103,77 @@ def test_env_float_returns_default_on_malformed(monkeypatch):
     # Key test: malformed value should return default, not raise
     result = _env_float("TEST_FLOAT_VAR", 5.0)
     assert result == 5.0
+
+
+async def test_m3_evaluator_aborts_after_consecutive_environment_shaped_sample_failures(monkeypatch):
+    from benchmarks.m3.container_health import EnvironmentFailureError
+    from benchmarks.m3.eval_m3 import M3Evaluator
+
+    monkeypatch.setenv("M3_ENV_FAIL_STREAK", "3")
+    evaluator = M3Evaluator(m3_data_mode=True, domain="hockey", bundle_dir=None)
+
+    async def fake_evaluate_multiturn_task(sample, sample_index):
+        return {
+            "sample_id": sample["sample_id"],
+            "error": "Error calling MCP server tool: Connection refused",
+        }
+
+    monkeypatch.setattr(evaluator, "evaluate_multiturn_task", fake_evaluate_multiturn_task)
+
+    samples = [{"sample_id": f"s{i}"} for i in range(1, 6)]  # 5 samples total
+
+    with pytest.raises(EnvironmentFailureError):
+        await evaluator.evaluate_all(preloaded_data=samples)
+
+    # Must abort after exactly 3 consecutive failures, NOT grind through all 5 —
+    # this is the whole point of the fix.
+    assert len(evaluator.results) == 3
+
+
+async def test_m3_evaluator_does_not_abort_on_mixed_sample_results(monkeypatch):
+    from benchmarks.m3.eval_m3 import M3Evaluator
+
+    monkeypatch.setenv("M3_ENV_FAIL_STREAK", "3")
+    evaluator = M3Evaluator(m3_data_mode=True, domain="hockey", bundle_dir=None)
+
+    call_count = 0
+
+    async def fake_evaluate_multiturn_task(sample, sample_index):
+        nonlocal call_count
+        call_count += 1
+        # Every other sample "succeeds" (no error), so the streak keeps resetting.
+        if call_count % 2 == 0:
+            return {
+                "sample_id": sample["sample_id"],
+                "error": "Error calling MCP server tool: Connection refused",
+            }
+        return {"sample_id": sample["sample_id"], "error": None}
+
+    monkeypatch.setattr(evaluator, "evaluate_multiturn_task", fake_evaluate_multiturn_task)
+
+    samples = [{"sample_id": f"s{i}"} for i in range(1, 6)]  # 5 samples
+
+    await evaluator.evaluate_all(preloaded_data=samples)  # must NOT raise
+
+    assert len(evaluator.results) == 5
+
+
+def test_evaluate_single_task_domain_exception_is_not_swallowed():
+    content = EVAL_M3_PY.read_text()
+    generic_except_idx = content.index("Failed to evaluate domain")
+    # There are two `except EnvironmentFailureError:` clauses in this file.
+    # `evaluate_single_task` (containing the generic handler anchored above)
+    # is defined *earlier* in the file than `run_config_mode`, so the clause
+    # that must precede THIS specific generic handler is the FIRST
+    # occurrence of "except EnvironmentFailureError:" in the file — not the
+    # second. The second occurrence belongs to the separate, pre-existing
+    # clause in run_config_mode (already covered by
+    # test_environment_failure_error_is_not_swallowed_by_the_generic_handler
+    # above, anchored on run_config_mode's own generic handler) and appears
+    # later in the file, so it's irrelevant to this assertion.
+    env_except_idx = content.index("except EnvironmentFailureError:")
+    assert env_except_idx < generic_except_idx, (
+        "the EnvironmentFailureError passthrough clause in evaluate_single_task "
+        "must come before its generic `except Exception` clause, or Python will "
+        "match the generic clause first and swallow the per-domain abort"
+    )

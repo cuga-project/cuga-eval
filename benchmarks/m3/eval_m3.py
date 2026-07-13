@@ -99,6 +99,7 @@ from benchmarks.m3.container_health import (
     EnvironmentFailureStreakTracker,
     health_check_or_abort,
     record_streak_or_abort,
+    render_environment_failure_banner,
     resume_hint_for,
 )
 from benchmarks.m3.eval_config_loader import filter_samples_by_eval_key, load_eval_key_ids
@@ -774,6 +775,13 @@ class M3Evaluator:
         self.agent: Optional[CugaAgent] = None
         self.langfuse_enabled = None
         self.results: List[Dict[str, Any]] = []
+        # Per-domain sample-level environment-failure streak. Fresh per
+        # M3Evaluator instance, so it naturally resets each domain — this is
+        # what catches a container dying mid-domain, independent of how many
+        # domains or samples are configured (a single domain can hold 100+
+        # samples and run for hours; per-domain-only detection would
+        # otherwise grind through all of them before noticing).
+        self._env_fail_streak = EnvironmentFailureStreakTracker(threshold=_env_int("M3_ENV_FAIL_STREAK", 3))
 
     def _resume_skip(self, identity: str) -> bool:
         """True if `identity` (optionally scoped to self.domain) is already done."""
@@ -1045,6 +1053,14 @@ class M3Evaluator:
                 logger.info(f"\n[{i}/{len(samples)}] Processing sample...")
                 result = await self.evaluate_multiturn_task(sample, sample_index=i)
                 self.results.append(result)
+
+                if self._env_fail_streak.record([result]):
+                    reason = (
+                        f"{self._env_fail_streak.threshold} consecutive samples in domain "
+                        f"'{self.domain}' failed with environment-shaped errors (last: {identity})"
+                    )
+                    print(render_environment_failure_banner(reason, resume_hint_for(self.bundle_dir)))
+                    raise EnvironmentFailureError(reason)
 
                 # Small delay to avoid rate limiting between samples
                 if i < len(samples):
@@ -1730,6 +1746,12 @@ async def evaluate_single_task(
                         "(check API_KEY and Vakra failure warnings above)."
                     )
 
+        except EnvironmentFailureError:
+            # Must not be swallowed here — this is what actually aborts the
+            # run when a docker container dies mid-domain (a single domain
+            # can hold 100+ samples and run for hours; per-domain-only
+            # detection would otherwise grind through all of them).
+            raise
         except Exception as e:
             logger.error(f"❌ [{service_name}] Failed to evaluate domain '{domain}': {e}")
             import traceback
