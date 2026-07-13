@@ -96,6 +96,10 @@ from benchmarks.helpers.sdk_eval_helpers import (
 )
 from benchmarks.m3.container_health import (
     EnvironmentFailureError,
+    EnvironmentFailureStreakTracker,
+    health_check_or_abort,
+    record_streak_or_abort,
+    resume_hint_for,
 )
 from benchmarks.m3.eval_config_loader import filter_samples_by_eval_key, load_eval_key_ids
 from benchmarks.m3.m3_data_loader import M3DataLoader, diff_tool_calls
@@ -2943,6 +2947,16 @@ async def run_config_mode(args, container_runtime: str, defer_save: bool = False
             )
             logger.info(f"{'=' * 80}\n")
 
+            # Detect a broken docker environment (dead/wedged capability
+            # container) instead of silently grinding through it. See
+            # benchmarks/m3/container_health.py.
+            env_health_check_enabled = os.environ.get("M3_ENV_HEALTH_CHECK", "true").lower() != "false"
+            env_health_timeout = float(os.environ.get("M3_ENV_HEALTH_TIMEOUT", "5"))
+            env_fail_streak = EnvironmentFailureStreakTracker(
+                threshold=int(os.environ.get("M3_ENV_FAIL_STREAK", "3"))
+            )
+            env_resume_hint = resume_hint_for(bundle_dir)
+
             # In sequential mode we ignore the pre-built coroutines and
             # iterate `services` directly, because each service needs its
             # own one-service registry started *before* evaluate_single_task
@@ -2957,6 +2971,11 @@ async def run_config_mode(args, container_runtime: str, defer_save: bool = False
                 container = metadata.get("container")
                 domains = metadata.get("domains", [])
                 task_multiturn = metadata.get("multiturn", None)
+
+                if env_health_check_enabled and container:
+                    health_check_or_abort(
+                        container, container_runtime, env_resume_hint, timeout=env_health_timeout
+                    )
 
                 mini_yaml = None
                 svc_registry = None
@@ -2986,6 +3005,13 @@ async def run_config_mode(args, container_runtime: str, defer_save: bool = False
                     if isinstance(task_results, list):
                         all_results.extend(task_results)
                         logger.info(f"✅ Task {service_name}: {len(task_results)} results")
+                        record_streak_or_abort(
+                            env_fail_streak, service_name, container, task_results, env_resume_hint
+                        )
+                except EnvironmentFailureError:
+                    # Must not be swallowed by the generic handler below —
+                    # this is what actually aborts the run.
+                    raise
                 except Exception as e:
                     import traceback
 
