@@ -3,15 +3,21 @@ health detection (dead/wedged capability containers). See
 docs/superpowers/specs/2026-07-13-m3-docker-env-health-check-design.md.
 """
 
+from pathlib import Path
 from subprocess import CompletedProcess, TimeoutExpired
 from unittest.mock import patch
 
 import pytest
 
 from benchmarks.m3.container_health import (
+    EnvironmentFailureError,
     EnvironmentFailureStreakTracker,
     check_container_health,
+    health_check_or_abort,
     is_environment_shaped_error,
+    record_streak_or_abort,
+    render_environment_failure_banner,
+    resume_hint_for,
 )
 
 pytestmark = pytest.mark.sanity
@@ -119,3 +125,68 @@ def test_streak_tracker_mixed_results_do_not_count():
     tracker = EnvironmentFailureStreakTracker(threshold=1)
     mixed = [{"error": "Connection refused"}, {"error": None}]
     assert tracker.record(mixed) is False
+
+
+# --- resume_hint_for / render_environment_failure_banner --------------------------------------------
+
+
+def test_resume_hint_with_bundle_dir():
+    hint = resume_hint_for(Path("/home/user/experiments/20260713_120000_default"))
+    assert hint == "--resume-experiment 20260713_120000_default"
+
+
+def test_resume_hint_without_bundle_dir():
+    hint = resume_hint_for(None)
+    assert "--resume" in hint
+
+
+def test_banner_contains_reason_and_resume_hint():
+    banner = render_environment_failure_banner("container X unhealthy", "--resume-experiment abc")
+    assert "container X unhealthy" in banner
+    assert "--resume-experiment abc" in banner
+    assert "ENVIRONMENT FAILURE" in banner
+
+
+# --- health_check_or_abort / record_streak_or_abort --------------------------------------------
+
+
+def test_health_check_or_abort_raises_when_unhealthy(capsys):
+    with patch(
+        "benchmarks.m3.container_health.check_container_health",
+        return_value=(False, "container not running"),
+    ):
+        with pytest.raises(EnvironmentFailureError):
+            health_check_or_abort("capability_2_dashboard_apis", "docker", "--resume-experiment abc")
+    assert "ENVIRONMENT FAILURE" in capsys.readouterr().out
+
+
+def test_health_check_or_abort_does_not_raise_when_healthy():
+    with patch(
+        "benchmarks.m3.container_health.check_container_health",
+        return_value=(True, ""),
+    ):
+        health_check_or_abort("capability_2_dashboard_apis", "docker", "--resume-experiment abc")
+
+
+def test_record_streak_or_abort_raises_once_threshold_hit(capsys):
+    tracker = EnvironmentFailureStreakTracker(threshold=1)
+    with pytest.raises(EnvironmentFailureError):
+        record_streak_or_abort(
+            tracker,
+            "hockey",
+            "capability_2_dashboard_apis",
+            [{"error": "Connection refused"}],
+            "--resume-experiment abc",
+        )
+    assert "ENVIRONMENT FAILURE" in capsys.readouterr().out
+
+
+def test_record_streak_or_abort_does_not_raise_below_threshold():
+    tracker = EnvironmentFailureStreakTracker(threshold=3)
+    record_streak_or_abort(
+        tracker,
+        "hockey",
+        "capability_2_dashboard_apis",
+        [{"error": "Connection refused"}],
+        "--resume-experiment abc",
+    )

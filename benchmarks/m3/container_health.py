@@ -10,6 +10,7 @@ docs/superpowers/specs/2026-07-13-m3-docker-env-health-check-design.md.
 from __future__ import annotations
 
 import subprocess
+from pathlib import Path
 from typing import Dict, List, Optional, Tuple
 
 
@@ -102,3 +103,54 @@ class EnvironmentFailureStreakTracker:
 
     def reset(self) -> None:
         self._streak = 0
+
+
+def resume_hint_for(bundle_dir: Optional[Path]) -> str:
+    """Build the CLI hint printed in the abort banner."""
+    if bundle_dir is not None:
+        return f"--resume-experiment {Path(bundle_dir).name}"
+    return "--resume (or --resume-experiment <id>) once the containers are back up"
+
+
+def render_environment_failure_banner(reason: str, resume_hint: str) -> str:
+    border = "#" * 72
+    return "\n".join(
+        [
+            "",
+            border,
+            "#  M3 ENVIRONMENT FAILURE DETECTED — ABORTING RUN",
+            f"#  {reason}",
+            "#  Fix the docker environment, then resume with:",
+            f"#    {resume_hint}",
+            border,
+            "",
+        ]
+    )
+
+
+def health_check_or_abort(
+    container: str, container_runtime: str, resume_hint: str, timeout: float = 5.0
+) -> None:
+    """Raise EnvironmentFailureError (after printing a banner) if unhealthy."""
+    healthy, reason = check_container_health(container, container_runtime, timeout=timeout)
+    if not healthy:
+        message = f"container '{container}' unhealthy: {reason}"
+        print(render_environment_failure_banner(message, resume_hint))
+        raise EnvironmentFailureError(message)
+
+
+def record_streak_or_abort(
+    streak: EnvironmentFailureStreakTracker,
+    service_name: str,
+    container: str,
+    task_results: List[Dict],
+    resume_hint: str,
+) -> None:
+    """Feed one domain's results into `streak`; abort if it just tripped."""
+    if streak.record(task_results):
+        message = (
+            f"{streak.threshold} consecutive domains failed with environment-shaped "
+            f"errors (last: {service_name}/{container})"
+        )
+        print(render_environment_failure_banner(message, resume_hint))
+        raise EnvironmentFailureError(message)
