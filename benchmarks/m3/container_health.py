@@ -10,7 +10,7 @@ docs/superpowers/specs/2026-07-13-m3-docker-env-health-check-design.md.
 from __future__ import annotations
 
 import subprocess
-from typing import Optional, Tuple
+from typing import Dict, List, Optional, Tuple
 
 
 class EnvironmentFailureError(RuntimeError):
@@ -78,3 +78,27 @@ def check_container_health(container: str, container_runtime: str, timeout: floa
         return False, f"docker exec failed: {detail}"
 
     return True, ""
+
+
+class EnvironmentFailureStreakTracker:
+    """Counts consecutive domains whose every result is environment-shaped."""
+
+    def __init__(self, threshold: int):
+        self.threshold = threshold
+        self._streak = 0
+
+    def record(self, domain_results: List[Dict]) -> bool:
+        """Feed one domain's results. Returns True once the streak hits threshold.
+
+        An empty result list does NOT count toward the streak (and resets
+        it) — there's nothing to classify, so it can't be evidence of an
+        environment failure.
+        """
+        if domain_results and all(is_environment_shaped_error(r.get("error")) for r in domain_results):
+            self._streak += 1
+        else:
+            self._streak = 0
+        return self._streak >= self.threshold
+
+    def reset(self) -> None:
+        self._streak = 0

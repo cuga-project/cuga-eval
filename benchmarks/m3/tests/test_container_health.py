@@ -9,6 +9,7 @@ from unittest.mock import patch
 import pytest
 
 from benchmarks.m3.container_health import (
+    EnvironmentFailureStreakTracker,
     check_container_health,
     is_environment_shaped_error,
 )
@@ -84,3 +85,37 @@ def test_check_container_health_inspect_times_out():
         healthy, reason = check_container_health("capability_2_dashboard_apis", "docker", timeout=5.0)
     assert healthy is False
     assert "timed out" in reason
+
+
+# --- EnvironmentFailureStreakTracker --------------------------------------------
+
+
+def test_streak_tracker_trips_at_threshold():
+    tracker = EnvironmentFailureStreakTracker(threshold=3)
+    env_err = [{"error": "Connection refused"}]
+    assert tracker.record(env_err) is False
+    assert tracker.record(env_err) is False
+    assert tracker.record(env_err) is True
+
+
+def test_streak_tracker_resets_on_healthy_domain():
+    tracker = EnvironmentFailureStreakTracker(threshold=3)
+    env_err = [{"error": "Connection refused"}]
+    healthy = [{"error": None}]
+    tracker.record(env_err)
+    tracker.record(env_err)
+    tracker.record(healthy)  # resets the streak
+    assert tracker.record(env_err) is False
+    assert tracker.record(env_err) is False
+    assert tracker.record(env_err) is True
+
+
+def test_streak_tracker_empty_results_does_not_count_as_environment_shaped():
+    tracker = EnvironmentFailureStreakTracker(threshold=1)
+    assert tracker.record([]) is False
+
+
+def test_streak_tracker_mixed_results_do_not_count():
+    tracker = EnvironmentFailureStreakTracker(threshold=1)
+    mixed = [{"error": "Connection refused"}, {"error": None}]
+    assert tracker.record(mixed) is False
