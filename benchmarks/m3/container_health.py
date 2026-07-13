@@ -9,7 +9,8 @@ docs/superpowers/specs/2026-07-13-m3-docker-env-health-check-design.md.
 
 from __future__ import annotations
 
-from typing import Optional
+import subprocess
+from typing import Optional, Tuple
 
 
 class EnvironmentFailureError(RuntimeError):
@@ -36,3 +37,44 @@ def is_environment_shaped_error(error_text: Optional[str]) -> bool:
     if not error_text:
         return False
     return any(marker in error_text for marker in _ENV_FAILURE_MARKERS)
+
+
+def check_container_health(container: str, container_runtime: str, timeout: float = 5.0) -> Tuple[bool, str]:
+    """Check whether `container` is running and its exec path responds.
+
+    Two cheap subprocess checks: `inspect` catches the container being
+    stopped/removed/never-existed; `exec ... true` catches a container
+    that's "running" per docker but whose exec path is wedged (daemon
+    overloaded, defunct process) — a case `inspect` alone would miss.
+
+    Returns (healthy, reason). reason is "" when healthy.
+    """
+    try:
+        inspect = subprocess.run(  # noqa: S603 — fixed args, container name is config-controlled
+            [container_runtime, "inspect", "-f", "{{.State.Running}}", container],
+            capture_output=True,
+            text=True,
+            timeout=timeout,
+        )
+    except subprocess.TimeoutExpired:
+        return False, f"docker inspect timed out after {timeout}s"
+
+    if inspect.returncode != 0 or inspect.stdout.strip() != "true":
+        detail = inspect.stderr.strip() or inspect.stdout.strip() or f"exit code {inspect.returncode}"
+        return False, f"container not running: {detail}"
+
+    try:
+        exec_check = subprocess.run(  # noqa: S603
+            [container_runtime, "exec", container, "true"],
+            capture_output=True,
+            text=True,
+            timeout=timeout,
+        )
+    except subprocess.TimeoutExpired:
+        return False, f"docker exec timed out after {timeout}s"
+
+    if exec_check.returncode != 0:
+        detail = exec_check.stderr.strip() or f"exit code {exec_check.returncode}"
+        return False, f"docker exec failed: {detail}"
+
+    return True, ""
