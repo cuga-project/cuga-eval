@@ -26,6 +26,18 @@ if [ -f "$PROJECT_ROOT/scripts/model_profiles.sh" ]; then
     source "$PROJECT_ROOT/scripts/model_profiles.sh"
 fi
 
+# Oak comparison is cuga-only. Reject any other --agent value with an
+# oak-specific message before orchestrating any runs.
+_prev=""
+for arg in "$@"; do
+    if [ "$_prev" == "--agent" ] && [ "$arg" != "cuga" ]; then
+        echo "Error: oak_health_insurance only supports --agent cuga (got '$arg')." >&2
+        exit 2
+    fi
+    _prev="$arg"
+done
+unset _prev
+
 # Defaults
 RUNS="${RUNS:-1}"
 DRY_RUN="${DRY_RUN:-false}"

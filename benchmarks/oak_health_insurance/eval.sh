@@ -22,12 +22,12 @@ fi
 # Early --help before any server startup
 for arg in "$@"; do
     if [[ "$arg" == "--help" || "$arg" == "-h" ]]; then
-        echo "Usage: ./eval.sh [--task TASK] [--difficulty LEVEL] [--no-bundle] [--bundle-zip] [--model-profile NAME]"
+        echo "Usage: ./eval.sh [--task TASK] [--difficulty LEVEL] [--no-policies] [--no-bundle] [--bundle-zip] [--model-profile NAME]"
         echo ""
         echo "Options:"
         echo "  --task TASK              Run a specific task by ID/name (e.g., 'approved_claims')"
         echo "  --difficulty LEVEL       Filter by difficulty level (easy, medium, hard)"
-        echo "  --no-policy              Skip loading oak policies"
+        echo "  --no-policies            Skip loading oak policies"
         echo "  --no-bundle              Skip reproducibility bundle creation"
         echo "  --bundle-zip             Create zip archive of bundle"
         echo "  --model-profile <name>   Model profile (for bundle metadata)"
@@ -39,6 +39,18 @@ for arg in "$@"; do
         exit 0
     fi
 done
+
+# Oak evaluation is cuga-only. Reject any other --agent value with an
+# oak-specific message, before starting any servers.
+_prev=""
+for arg in "$@"; do
+    if [ "$_prev" == "--agent" ] && [ "$arg" != "cuga" ]; then
+        echo "Error: oak_health_insurance only supports --agent cuga (got '$arg')." >&2
+        exit 2
+    fi
+    _prev="$arg"
+done
+unset _prev
 
 FASTAPI_PORT=8090
 REGISTRY_PORT=8001

@@ -99,21 +99,36 @@ class OakEvaluator:
             await self._load_oak_policies()
 
     async def _load_oak_policies(self):
-        """Load oak health insurance policies into the agent."""
+        """Load oak health insurance policies into the agent.
+
+        Failures propagate: a run that loads no policies must fail loudly rather
+        than be recorded as a normal, policy-enabled result.
+        """
         from benchmarks.oak_health_insurance.oak_policies import get_all_oak_policies
 
         policies = get_all_oak_policies()
+
+        # A tool guide only attaches when one of its target_tools matches an
+        # actual runtime tool name exactly. Verify every guide intersects the
+        # loaded tools and abort otherwise, so a stale target name can't silently
+        # detach a guide while the run still reports success.
+        tool_names = {tool.name for tool in await self.agent.tool_provider.get_all_tools()}
+        unattached = [
+            (policy.id, targets)
+            for policy in policies
+            if (targets := getattr(policy, "target_tools", None)) and not set(targets) & tool_names
+        ]
+        if unattached:
+            detail = "; ".join(f"{pid} -> {targets}" for pid, targets in unattached)
+            raise RuntimeError(
+                f"{len(unattached)} tool guide(s) reference tools that do not exist at "
+                f"runtime and would never attach: {detail}. Available tools: {sorted(tool_names)}"
+            )
+
         logger.info(f"Loading {len(policies)} oak policies...")
-        loaded = 0
         for policy in policies:
-            try:
-                await add_policy_via_agent(self.agent, policy)
-                loaded += 1
-            except Exception as e:
-                logger.warning(f"Skipping policy '{policy.id}': {e}")
-        logger.info(f"✅ Loaded {loaded}/{len(policies)} policies")
-        if policies and loaded == 0:
-            logger.error("No oak policies could be loaded; check DYNACONF_ADVANCED_FEATURES__REGISTRY config")
+            await add_policy_via_agent(self.agent, policy)
+        logger.info(f"✅ Loaded {len(policies)} policies")
 
     async def evaluate_task(self, task: Dict[str, Any], task_index: int) -> Dict[str, Any]:
         """Evaluate a single task."""
@@ -230,7 +245,7 @@ async def main():
         help="Run specific tasks by ID/name (e.g., 'care_providers_mri'). Accepts multiple. Overrides --difficulty filter.",
     )
     parser.add_argument(
-        "--no-policy",
+        "--no-policies",
         action="store_true",
         default=False,
         help="Skip loading oak policies",
@@ -245,7 +260,7 @@ async def main():
     evaluator = OakEvaluator(
         difficulty_filter=args.difficulty,
         task_id=args.task,
-        load_policies=not args.no_policy,
+        load_policies=not args.no_policies,
     )
 
     exit_code = 0

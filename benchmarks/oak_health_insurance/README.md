@@ -64,7 +64,7 @@ Usage: ./eval.sh [OPTIONS]
 Options:
   --task TASK              Run a specific task by ID/name
   --difficulty LEVEL       Filter by difficulty (easy, medium, hard)
-  --no-policy              Skip loading oak policies
+  --no-policies            Skip loading oak policies
   --no-bundle              Skip reproducibility bundle creation
   --bundle-zip             Create zip archive of bundle
   --model-profile <name>   Model profile (for bundle metadata)
@@ -75,7 +75,7 @@ Examples:
 ./eval.sh                           # Default evaluation, all tasks
 ./eval.sh --task approved_claims    # Single task
 ./eval.sh --difficulty easy         # Filter by difficulty
-./eval.sh --no-policy               # Skip policy loading
+./eval.sh --no-policies             # Skip policy loading
 ```
 
 Result files are saved in `results/oak_health_TIMESTAMP.json`.
@@ -123,7 +123,7 @@ The benchmark tracks:
 
 ## Policies
 
-Oak-specific playbooks and tool enrichments are defined in `oak_policies.py`. `eval_bench_sdk.py` loads them automatically at evaluation startup unless `--no-policy` is passed.
+Oak-specific playbooks and tool enrichments are defined in `oak_policies.py`. `eval_bench_sdk.py` loads them automatically at evaluation startup unless `--no-policies` is passed.
 
 Policies include:
 - Playbooks for claims, care providers, benefits, payments, family members, plan information

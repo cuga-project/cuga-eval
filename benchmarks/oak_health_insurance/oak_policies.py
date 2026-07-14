@@ -781,7 +781,7 @@ def create_coverage_period_enrichment() -> ToolGuide:
         triggers=[
             AlwaysTrigger(type="always"),
         ],
-        target_tools=["oak_health_insurance_get_coverage_period"],
+        target_tools=["oak_health_insurance_get_coverage_period_get_coverage_period_post"],
         guide_content="""
 ## Data Values & Patterns
 
@@ -856,7 +856,7 @@ def create_search_benefits_enrichment() -> ToolGuide:
         triggers=[
             AlwaysTrigger(type="always"),
         ],
-        target_tools=["oak_health_insurance_search_benefits"],
+        target_tools=["oak_health_insurance_search_benefits_search_benefits_post"],
         guide_content="""
 ## Supported Inquiry Keywords
 
@@ -921,7 +921,7 @@ def create_find_care_specialty_enrichment() -> ToolGuide:
         triggers=[
             AlwaysTrigger(type="always"),
         ],
-        target_tools=["oak_health_insurance_find_care_specialty"],
+        target_tools=["oak_health_insurance_find_care_specialty_find_care_specialty_post"],
         guide_content="""
 ## CRITICAL: Use find_care_suggestions First - DO NOT Skip This Step!
 
@@ -991,7 +991,7 @@ def create_find_care_specialty_enrichment() -> ToolGuide:
 
 **Correct calling convention:**
 ```python
-await oak_health_insurance_find_care_specialty(
+await oak_health_insurance_find_care_specialty_find_care_specialty_post(
     contract_uid="CONTRACT-UID-JOHN-1001",
     brand_code="ACME",
     specialty_category_codes=["75"],
@@ -1057,7 +1057,7 @@ def create_find_care_suggestions_enrichment() -> ToolGuide:
         triggers=[
             AlwaysTrigger(type="always"),
         ],
-        target_tools=["oak_health_insurance_find_care_suggestions"],
+        target_tools=["oak_health_insurance_find_care_suggestions_find_care_suggestions_post"],
         guide_content="""
 ## Search Intent Types
 
@@ -1098,7 +1098,7 @@ def create_find_care_suggestions_enrichment() -> ToolGuide:
 
 **Correct calling convention:**
 ```python
-await oak_health_insurance_find_care_suggestions(
+await oak_health_insurance_find_care_suggestions_find_care_suggestions_post(
     search_text="mri",
     brand_code="ACME",
     stateCode="NY",
@@ -1139,7 +1139,7 @@ def create_get_benefit_details_enrichment() -> ToolGuide:
         triggers=[
             AlwaysTrigger(type="always"),
         ],
-        target_tools=["oak_health_insurance_get_benefit_details"],
+        target_tools=["oak_health_insurance_get_benefit_details_get_benefit_details_post"],
         guide_content="""
 ## Important Data Patterns
 
@@ -1202,7 +1202,7 @@ def create_get_plan_information_enrichment() -> ToolGuide:
         triggers=[
             AlwaysTrigger(type="always"),
         ],
-        target_tools=["oak_health_insurance_get_plan_information"],
+        target_tools=["oak_health_insurance_get_plan_information_get_plan_information_post"],
         guide_content="""
 ## IMPORTANT: Get coverage_key from get_coverage_period First
 
@@ -1274,9 +1274,9 @@ def create_payment_tools_enrichment() -> ToolGuide:
             AlwaysTrigger(type="always"),
         ],
         target_tools=[
-            "oak_health_insurance_get_member_billing",
-            "oak_health_insurance_create_payment_intent",
-            "oak_health_insurance_confirm_payment_intent",
+            "oak_health_insurance_get_member_billing_get_member_billing_post",
+            "oak_health_insurance_create_payment_intent_create_payment_intent_post",
+            "oak_health_insurance_confirm_payment_intent_confirm_payment_intent_post",
         ],
         guide_content="""
 ## Billing Status Values
@@ -1348,7 +1348,7 @@ def create_get_member_claims_enrichment() -> ToolGuide:
         triggers=[
             AlwaysTrigger(type="always"),
         ],
-        target_tools=["oak_health_insurance_get_member_claims"],
+        target_tools=["oak_health_insurance_get_member_claims_get_member_claims_post"],
         guide_content="""
 ## Claim Status Codes
 
@@ -1405,7 +1405,7 @@ def create_get_claim_details_enrichment() -> ToolGuide:
         triggers=[
             AlwaysTrigger(type="always"),
         ],
-        target_tools=["oak_health_insurance_get_claim_details"],
+        target_tools=["oak_health_insurance_get_claim_details_get_claim_details_post"],
         guide_content="""
 ## Claim Details Data
 
@@ -1451,7 +1451,7 @@ def create_get_claim_eob_pdf_enrichment() -> ToolGuide:
         triggers=[
             AlwaysTrigger(type="always"),
         ],
-        target_tools=["oak_health_insurance_get_claim_eob_pdf"],
+        target_tools=["oak_health_insurance_get_claim_eob_pdf_get_claim_eob_pdf_post"],
         guide_content="""
 ## EOB PDF Data
 
@@ -1490,7 +1490,7 @@ def create_get_benefit_accumulators_enrichment() -> ToolGuide:
         triggers=[
             AlwaysTrigger(type="always"),
         ],
-        target_tools=["oak_health_insurance_get_benefit_accumulators"],
+        target_tools=["oak_health_insurance_get_benefit_accumulators_get_benefit_accumulators_post"],
         guide_content="""
 ## Accumulator Types & Levels
 
@@ -1539,7 +1539,7 @@ def create_get_member_profile_enrichment() -> ToolGuide:
         triggers=[
             AlwaysTrigger(type="always"),
         ],
-        target_tools=["oak_health_insurance_get_member_profile"],
+        target_tools=["oak_health_insurance_get_member_profile_get_member_profile_post"],
         guide_content="""
 ## Member Profile Data
 
@@ -1586,7 +1586,7 @@ def create_set_member_preferences_enrichment() -> ToolGuide:
         triggers=[
             AlwaysTrigger(type="always"),
         ],
-        target_tools=["oak_health_insurance_set_member_preferences"],
+        target_tools=["oak_health_insurance_set_member_preferences_set_member_preferences_post"],
         guide_content="""
 ## Required Parameters
 
@@ -1632,7 +1632,7 @@ def create_get_medical_information_enrichment() -> ToolGuide:
         triggers=[
             AlwaysTrigger(type="always"),
         ],
-        target_tools=["oak_health_insurance_get_medical_information"],
+        target_tools=["oak_health_insurance_get_medical_information_get_medical_information_post"],
         guide_content="""
 ## Medical Information Topics
 
