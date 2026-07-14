@@ -23,6 +23,9 @@ from typing import Any, Callable, Dict, List, Optional, TypedDict
 
 from loguru import logger
 
+from benchmarks.helpers.content_filter import annotate_content_filter_failure
+from benchmarks.helpers.incremental_results import write_task_result_async
+
 
 class MetricsConfig(TypedDict, total=False):
     """Configuration for enhanced evaluation metrics.
@@ -815,6 +818,8 @@ async def evaluate_task_with_langfuse(
     tracker_callback: Optional[Callable[[Dict[str, Any], Dict[str, Any], str], None]] = None,
     track_tool_calls: bool = True,
     metrics_config: Optional[MetricsConfig] = None,
+    bundle_dir: Optional[Path] = None,
+    bundle_domain: Optional[str] = None,
 ) -> Dict[str, Any]:
     """Evaluate a single task with optional Langfuse tracing and enhanced metrics.
 
@@ -828,6 +833,12 @@ async def evaluate_task_with_langfuse(
         track_tool_calls: Whether to track tool calls (default: True)
         metrics_config: Optional configuration for enhanced metrics (similarity, LLM judge, final score).
                        When None, only keyword matching is performed (backwards compatible).
+        bundle_dir: When set, the task result (success or failure) is written
+                    incrementally to <bundle_dir>/results/partial/ so an
+                    interrupted run can be resumed. When None, behavior is
+                    identical to the legacy path (no incremental persistence).
+        bundle_domain: Optional domain component for the partial filename
+                    (m3 config-mode only, where one task spans several domains).
 
     Returns:
         Evaluation result dictionary with:
@@ -1270,6 +1281,17 @@ async def evaluate_task_with_langfuse(
         if tracker_callback:
             tracker_callback(result, keyword_check, intent)
 
+        if bundle_dir is not None:
+            # Best-effort: a persistence failure here (disk full, permissions,
+            # too many open files under concurrent batches) must not propagate
+            # into the enclosing except-block below, which would misreport this
+            # successful task as failed and overwrite its partial file with a
+            # fabricated error result.
+            try:
+                await write_task_result_async(bundle_dir, task_name, result, domain=bundle_domain)
+            except Exception as persist_err:
+                logger.warning(f"Failed to persist incremental result for {task_name}: {persist_err}")
+
         return result
 
     except Exception as e:
@@ -1292,9 +1314,16 @@ async def evaluate_task_with_langfuse(
             "tool_calls": [],
             "error": str(e),
         }
+        annotate_content_filter_failure(error_result, str(e), exc=e, logger=logger, task_id=task_name)
 
         if tracker_callback:
             tracker_callback(error_result, {"match_rate": 0.0, "all_found": False}, intent)
+
+        if bundle_dir is not None:
+            try:
+                await write_task_result_async(bundle_dir, task_name, error_result, domain=bundle_domain)
+            except Exception as persist_err:
+                logger.warning(f"Failed to persist incremental error result for {task_name}: {persist_err}")
 
         return error_result
 
@@ -1690,6 +1719,8 @@ async def evaluate_multiturn_task_with_langfuse(
         if task_metadata:
             error_result.update(task_metadata)
 
+        annotate_content_filter_failure(error_result, str(e), exc=e, logger=logger, task_id=task_name)
+
         if tracker_callback:
             tracker_callback(
                 error_result,
@@ -1963,6 +1994,8 @@ async def evaluate_task_with_langfuse_react(
     tracker_callback: Optional[Callable[[Dict[str, Any], Dict[str, Any], str], None]] = None,
     track_tool_calls: bool = True,
     metrics_config: Optional[MetricsConfig] = None,
+    bundle_dir: Optional[Path] = None,
+    bundle_domain: Optional[str] = None,
 ) -> Dict[str, Any]:
     """ReAct single-turn eval; Langfuse callbacks are passed per LLM call, not via ``config``."""
     return await evaluate_task_with_langfuse(
@@ -1974,6 +2007,8 @@ async def evaluate_task_with_langfuse_react(
         tracker_callback=tracker_callback,
         track_tool_calls=track_tool_calls,
         metrics_config=metrics_config,
+        bundle_dir=bundle_dir,
+        bundle_domain=bundle_domain,
     )
 
 

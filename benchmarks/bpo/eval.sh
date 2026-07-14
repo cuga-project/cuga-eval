@@ -46,6 +46,7 @@ MCP_SERVERS_FILE="${MCP_SERVERS_FILE:-benchmarks/bpo/mcp_servers/bpo.yaml}"
 # When SKIP_SERVER_CLEANUP=true (set by compare.sh), servers are left running.
 cleanup() {
     local exit_code=$?
+    finalize_run_state_on_exit "$exit_code"
     echo ""
     echo -e "${YELLOW:-}Cleaning up...${NC:-}"
 
@@ -147,6 +148,34 @@ while [[ $# -gt 0 ]]; do
             MODEL_PROFILE="$2"
             shift 2
             ;;
+        --experiment)
+            EXPERIMENT="$2"
+            shift 2
+            ;;
+        --resume)
+            RESUME=true
+            shift
+            ;;
+        --resume-experiment)
+            RESUME_EXPERIMENT="$2"
+            shift 2
+            ;;
+        --background)
+            BACKGROUND=true
+            shift
+            ;;
+        --stop)
+            STOP=true
+            shift
+            ;;
+        --restart)
+            RESTART=true
+            shift
+            ;;
+        --status)
+            STATUS=true
+            shift
+            ;;
         --agent)
             AGENT="$2"
             shift 2
@@ -164,6 +193,13 @@ while [[ $# -gt 0 ]]; do
             echo "  --no-bundle                Skip reproducibility bundle creation"
             echo "  --bundle-zip               Create zip archive of bundle"
             echo "  --model-profile <name>     Model profile (for bundle metadata)"
+            echo "  --experiment <name>        Named experiment workspace (resumable)"
+            echo "  --resume                   Resume the last experiment"
+            echo "  --resume-experiment <name> Resume a named experiment"
+            echo "  --background              Run in the background"
+            echo "  --status                  Show experiment run status"
+            echo "  --stop                    Stop a background run"
+            echo "  --restart                 Stop then resume in the background"
             echo "  --agent <name>             Agent to run (cuga, react; default: cuga)"
             echo "  --no-policies              Disable CUGA policies (for baselining)"
             echo "  --verbose, -v              Enable DEBUG-level output"
@@ -182,6 +218,12 @@ while [[ $# -gt 0 ]]; do
     esac
 done
 
+# Apply --model-profile after load_env + arg parsing. common.sh is sourced
+# unconditionally above; hard-fail loudly if that ever stops being true
+# instead of silently skipping model-profile application.
+declare -F finalize_model_config >/dev/null || { echo "Error: common.sh not sourced (finalize_model_config unavailable)" >&2; exit 1; }
+finalize_model_config || exit 1
+
 # Validate --agent selection before any server/process side effects (fast-fail)
 if [ "${AGENT:-cuga}" = "codeact" ]; then
     echo -e "${RED:-}Error: --agent codeact is supported only by the appworld benchmark.${NC:-}"
@@ -199,6 +241,23 @@ fi
 echo -e "${GREEN:-}✓${NC:-} Task files: ${DATA_ARGS[*]}"
 echo ""
 
+# Lifecycle short-circuits (--status / --stop / --background / --restart).
+if handle_eval_lifecycle "bpo" "$0" "${PASSTHROUGH_ARGS[@]}"; then
+    exit 0
+fi
+
+# Optional experiment workspace (named/resume modes only).
+NO_POLICIES=false
+for arg in "${PASSTHROUGH_ARGS[@]}"; do
+    if [[ "$arg" == "--no-policies" ]]; then
+        NO_POLICIES=true
+    fi
+done
+if prepare_experiment_workspace "bpo"; then
+    PASSTHROUGH_ARGS+=(--bundle-dir "$WORKSPACE_BUNDLE_DIR")
+    mark_run_state_started
+fi
+
 # Start servers unless SKIP_SERVER_START is set
 if [ "${SKIP_SERVER_START:-false}" != "true" ]; then
 
@@ -210,7 +269,7 @@ if [ "${SKIP_SERVER_START:-false}" != "true" ]; then
     fi
 
     echo -e "${YELLOW:-}Starting FastAPI server on port $FASTAPI_PORT...${NC:-}"
-    uv run uvicorn benchmarks.bpo.main:app --port $FASTAPI_PORT > /tmp/bpo_fastapi.log 2>&1 &
+    uv run --no-sync uvicorn benchmarks.bpo.main:app --port $FASTAPI_PORT > /tmp/bpo_fastapi.log 2>&1 &
     FASTAPI_PID=$!
 
     if ! wait_for_server "http://127.0.0.1:$FASTAPI_PORT/health" "FastAPI server" 30; then
@@ -229,7 +288,7 @@ if [ "${SKIP_SERVER_START:-false}" != "true" ]; then
     fi
 
     echo -e "${YELLOW:-}Starting registry server on port $REGISTRY_PORT...${NC:-}"
-    MCP_SERVERS_FILE="$MCP_SERVERS_FILE" uv run registry > /tmp/bpo_registry.log 2>&1 &
+    MCP_SERVERS_FILE="$MCP_SERVERS_FILE" uv run --no-sync registry > /tmp/bpo_registry.log 2>&1 &
     REGISTRY_PID=$!
 
     if ! wait_for_server "http://127.0.0.1:$REGISTRY_PORT/" "registry server" 30; then
@@ -287,9 +346,9 @@ RUN_MARKER=$(mktemp "${TMPDIR:-/tmp}/bpo_run_marker.XXXXXX")
 set +e
 # Run with resolved --data args and any remaining passthrough arguments
 if [ "${AGENT:-cuga}" = "react" ]; then
-    uv run python -m benchmarks.bpo.eval_bench_sdk_react "${DATA_ARGS[@]}" "${PASSTHROUGH_ARGS[@]}"
+    uv run --no-sync python -m benchmarks.bpo.eval_bench_sdk_react "${DATA_ARGS[@]}" "${PASSTHROUGH_ARGS[@]}"
 else
-    uv run python -m benchmarks.bpo.eval_bench_sdk "${DATA_ARGS[@]}" "${PASSTHROUGH_ARGS[@]}"
+    uv run --no-sync python -m benchmarks.bpo.eval_bench_sdk "${DATA_ARGS[@]}" "${PASSTHROUGH_ARGS[@]}"
 fi
 EVAL_EXIT_CODE=$?
 set -e
@@ -327,41 +386,59 @@ if [ $EVAL_EXIT_CODE -eq 0 ]; then
     # Create reproducibility bundle unless skipped
     if [ "${NO_BUNDLE:-false}" != "true" ]; then
         echo ""
-        echo -e "${YELLOW:-}Creating reproducibility bundle...${NC:-}"
-
-        # Generate eval report
-        REPORT_TMP=$(mktemp /tmp/bpo_eval_report_XXXXXX)
-        uv run --no-sync python -m benchmarks.helpers.compare_report eval \
-            --result-file "$LATEST_RESULT" --output "$REPORT_TMP"
-
-        BUNDLE_ARGS=(assemble --benchmark bpo
-            --result-files "$LATEST_RESULT"
-            --task-files "${DATA_ARGS[@]:1}"
-            --policies-dir "$SCRIPT_DIR/policies"
-            --report "$REPORT_TMP")
-        if [ -n "$MODEL_PROFILE" ]; then
-            BUNDLE_ARGS+=(--model-profile "$MODEL_PROFILE")
-        fi
-        for arg in "${PASSTHROUGH_ARGS[@]}"; do
-            if [[ "$arg" == "--no-policies" ]]; then
-                BUNDLE_ARGS+=(--no-policies)
-                break
+        if [ -n "${WORKSPACE_BUNDLE_DIR:-}" ]; then
+            echo -e "${YELLOW:-}Finalizing experiment workspace...${NC:-}"
+            FIN_EXTRA=(--policies-dir "$SCRIPT_DIR/policies")
+            for tf in "${DATA_ARGS[@]:1}"; do
+                FIN_EXTRA+=(--task-file "$tf")
+            done
+            TRAJ_DIR=$(find_latest_trajectory "$SCRIPT_DIR/logging/trajectory_data")
+            if [ -n "$TRAJ_DIR" ]; then
+                FIN_EXTRA+=(--trajectory-dir "$TRAJ_DIR")
             fi
-        done
-        if [ "${BUNDLE_ZIP:-false}" = "true" ]; then
-            BUNDLE_ARGS+=(--zip)
+            FIN_EXTRA+=(--log-file /tmp/bpo_fastapi.log --log-file /tmp/bpo_registry.log --log-file "$CONSOLE_LOG")
+            finalize_experiment_workspace "bpo" "${FIN_EXTRA[@]}"
+        else
+            echo -e "${YELLOW:-}Creating reproducibility bundle...${NC:-}"
+
+            # Generate eval report
+            REPORT_TMP=$(mktemp /tmp/bpo_eval_report_XXXXXX)
+            uv run --no-sync python -m benchmarks.helpers.compare_report eval \
+                --result-file "$LATEST_RESULT" --output "$REPORT_TMP"
+
+            BUNDLE_ARGS=(assemble --benchmark bpo
+                --result-files "$LATEST_RESULT"
+                --task-files "${DATA_ARGS[@]:1}"
+                --policies-dir "$SCRIPT_DIR/policies"
+                --report "$REPORT_TMP")
+            if [ -n "$MODEL_PROFILE" ]; then
+                BUNDLE_ARGS+=(--model-profile "$MODEL_PROFILE")
+            fi
+            for arg in "${PASSTHROUGH_ARGS[@]}"; do
+                if [[ "$arg" == "--no-policies" ]]; then
+                    BUNDLE_ARGS+=(--no-policies)
+                    break
+                fi
+            done
+            if [ "${BUNDLE_ZIP:-false}" = "true" ]; then
+                BUNDLE_ARGS+=(--zip)
+            fi
+            # Include cuga trajectories
+            TRAJ_DIR=$(find_latest_trajectory "$SCRIPT_DIR/logging/trajectory_data")
+            if [ -n "$TRAJ_DIR" ]; then
+                BUNDLE_ARGS+=(--trajectory-dir "$TRAJ_DIR")
+            fi
+            # Include server and console logs
+            BUNDLE_ARGS+=(--log-files /tmp/bpo_fastapi.log /tmp/bpo_registry.log "$CONSOLE_LOG")
+            # Download Langfuse traces if available
+            BUNDLE_ARGS+=(--fetch-langfuse)
+            BUNDLE_OUT=$(uv run --no-sync python -m benchmarks.helpers.bundle "${BUNDLE_ARGS[@]}" 2>&1 | tee /dev/stderr)
+            BUNDLE_PATH=$(echo "$BUNDLE_OUT" | sed -n 's/^Bundle created: //p' | tail -1)
+            if [ -n "$BUNDLE_PATH" ]; then
+                write_legacy_experiment_pointer "bpo" "$BUNDLE_PATH"
+            fi
+            rm -f "$REPORT_TMP"
         fi
-        # Include cuga trajectories
-        TRAJ_DIR=$(find_latest_trajectory "$SCRIPT_DIR/logging/trajectory_data")
-        if [ -n "$TRAJ_DIR" ]; then
-            BUNDLE_ARGS+=(--trajectory-dir "$TRAJ_DIR")
-        fi
-        # Include server and console logs
-        BUNDLE_ARGS+=(--log-files /tmp/bpo_fastapi.log /tmp/bpo_registry.log "$CONSOLE_LOG")
-        # Download Langfuse traces if available
-        BUNDLE_ARGS+=(--fetch-langfuse)
-        uv run python -m benchmarks.helpers.bundle "${BUNDLE_ARGS[@]}"
-        rm -f "$REPORT_TMP"
     fi
 else
     echo -e "${RED:-}╔════════════════════════════════════════════════════════════╗${NC:-}"

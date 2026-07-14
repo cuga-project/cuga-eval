@@ -98,6 +98,33 @@ The M3 benchmark evaluates multi-hop question answering capabilities across mult
 
 ## 🚀 Quick Start
 
+### Named experiments, resume & background
+
+M3 config-mode runs can span hundreds of domains — use named experiments to survive crashes and long runtimes. Resume skips successfully completed `(task, domain)` pairs; failed domains are re-attempted.
+
+```bash
+# Full small_train run as a named workspace
+caffeinate -i bash benchmarks/m3/eval.sh \
+  --experiment m3-full \
+  --m3-data benchmarks/m3/data/small_train.zip
+
+# Resume after interrupt
+bash benchmarks/m3/eval.sh --resume-experiment m3-full \
+  --m3-data benchmarks/m3/data/small_train.zip
+
+# Background + status (good for overnight runs)
+bash benchmarks/m3/eval.sh --experiment m3-full --background \
+  --m3-data benchmarks/m3/data/small_train.zip
+bash benchmarks/m3/eval.sh --status
+
+# Resumable agent comparison
+bash benchmarks/m3/compare.sh --experiment cmp --compare-agents --runs 5 \
+  --m3-data benchmarks/m3/data/small_train.zip
+bash benchmarks/m3/compare.sh --resume-experiment cmp --status
+```
+
+Partial results land in `evaluation_bundles/<name>/results/partial/` as `<task>__<domain>.json`. See the [main README](../../README.md#named-experiments-resume-and-background-runs) for `--stop`, bundle repair, and replay.
+
 ### Quick Test
 ```bash
 bash benchmarks/m3/eval.sh --task hockey_395_0

@@ -241,6 +241,111 @@ result=$(
 )
 assert_eq "build_model_envs_json preserves pre-existing DYNACONF_*" "keepme" "$result"
 
+
+# ─── direct benchmark eval.sh --model-profile path (#101) ────────────────────
+# Direct invocation: load_env (override=false) then --model-profile must apply
+# via finalize_model_config — same as scripts/eval.sh already does.
+
+echo "direct eval.sh --model-profile (#101)"
+
+result=$(
+    source "$SCRIPT_DIR/../common.sh"
+    TMP=$(mktemp); trap 'rm -f "$TMP"' EXIT
+    printf 'MODEL_NAME=from-dotenv-not-profile\n' > "$TMP"
+    export MODEL_PROFILE=gpt4.1
+    export USE_DOTENV=false
+    _parse_env_file "$TMP" false > /dev/null 2>&1
+    echo "$MODEL_NAME"
+)
+assert_eq "without finalize_model_config: .env MODEL_NAME wins" "from-dotenv-not-profile" "$result"
+
+result=$(
+    source "$SCRIPT_DIR/../common.sh"
+    TMP=$(mktemp); trap 'rm -f "$TMP"' EXIT
+    printf 'MODEL_NAME=from-dotenv-not-profile\n' > "$TMP"
+    export MODEL_PROFILE=gpt4.1
+    export USE_DOTENV=false
+    _parse_env_file "$TMP" false > /dev/null 2>&1
+    finalize_model_config > /dev/null 2>&1
+    echo "$MODEL_NAME"
+)
+assert_eq "with finalize_model_config: profile overrides .env" "Azure/gpt-4.1" "$result"
+
+# ─── --dotenv bundle / compare labels (#89) ──────────────────────────────────
+
+echo "dotenv bundle labels (#89)"
+
+result=$(
+    source "$SCRIPT_DIR/../common.sh"
+    export USE_DOTENV=false
+    resolve_model_label_for_bundle "gpt-oss"
+)
+assert_eq "without --dotenv: profile label unchanged" "gpt-oss" "$result"
+
+result=$(
+    source "$SCRIPT_DIR/../common.sh"
+    export USE_DOTENV=true
+    export MODEL_NAME="google/gemma-4-31b"
+    resolve_model_label_for_bundle "gpt-oss"
+)
+assert_eq "with --dotenv: MODEL_NAME slug used" "gemma-4-31b" "$result"
+
+result=$(
+    source "$SCRIPT_DIR/../common.sh"
+    export USE_DOTENV=true
+    export MODEL_NAME="google/gemma-4-31b"
+    resolve_config_key_for_bundle "gpt-oss:cuga:policies"
+)
+assert_eq "config key model segment resolved under --dotenv" "gemma-4-31b:cuga:policies" "$result"
+
+result=$(
+    source "$SCRIPT_DIR/../common.sh"
+    TMP=$(mktemp); trap 'rm -f "$TMP"' EXIT
+    printf 'MODEL_NAME=gemma-bundle\n' > "$TMP"
+    export USE_DOTENV=true
+    export DOTENV_FILE="$TMP"
+    build_model_envs_json "gpt-oss" 2>/dev/null
+)
+assert_contains "build_model_envs_json keys use MODEL_NAME slug under --dotenv" '"gemma-bundle":{' "$result"
+
+# sanitize_model_slug truncates to 64 chars, matching bundle.py's
+# _sanitize_model_slug([:64]) so bash-derived config keys and the
+# Python-derived bundle directory label never diverge on long model names.
+result=$(
+    source "$SCRIPT_DIR/../common.sh"
+    long_name="$(printf 'a%.0s' $(seq 1 80))"
+    sanitize_model_slug "$long_name"
+)
+assert_eq "sanitize_model_slug truncates to 64 chars" "$(printf 'a%.0s' $(seq 1 64))" "$result"
+
+# resolve_model_label_for_bundle only treats USE_DOTENV as enabled when it is
+# exactly "true" (matching apply_model_config's convention), so it must stay
+# aligned with bundle.py's _bundle_profile_label after that check was
+# tightened to the same "true"-only comparison.
+result=$(
+    source "$SCRIPT_DIR/../common.sh"
+    export USE_DOTENV=1
+    export MODEL_NAME="google/gemma-4-31b"
+    resolve_model_label_for_bundle "gpt-oss"
+)
+assert_eq "USE_DOTENV=1 (non-'true') keeps profile label" "gpt-oss" "$result"
+
+# ─── m3/compare.sh: CONFIG_LOG_KEYS must match CONFIG_RESULT_KEYS/TRAJ_KEYS ──
+# Regression: CONFIG_LOG_KEYS was keyed by the raw profile slug ($config)
+# while CONFIG_RESULT_KEYS/CONFIG_TRAJ_KEYS used the resolved bundle_config.
+# Under --dotenv this meant bundle.py grouped log files under a different
+# run folder than the matching results/trajectories, so console/registry
+# logs were silently orphaned from their run (PR #107 review).
+
+echo "m3 compare.sh log keys resolved like result/trajectory keys (#89)"
+
+m3_compare="$SCRIPT_DIR/../../m3/compare.sh"
+result=$(grep -c 'CONFIG_LOG_KEYS+=("\$bundle_config")' "$m3_compare")
+assert_eq "CONFIG_LOG_KEYS assigned from bundle_config" "1" "$result"
+
+result=$(grep -c 'CONFIG_LOG_KEYS+=("\$config")' "$m3_compare" || true)
+assert_eq "CONFIG_LOG_KEYS no longer assigned from raw \$config" "0" "$result"
+
 # ─── scripts/compare.sh MODEL_PROFILE propagation ────────────────────────────
 # Regression: MODEL_PROFILE was consumed by parse_common_args but never added to
 # DISPATCH_ARGS, so benchmark compare scripts silently fell back to their own
@@ -275,6 +380,87 @@ result=$(
         --dry-run --runs 1 --no-bundle 2>/dev/null
 )
 assert_not_contains "no --model-profile → --models absent from DISPATCH_ARGS" "--models" "$result"
+
+# ─── scripts/eval.sh experiment flag propagation ─────────────────────────────
+# Experiment flags are consumed by parse_common_args and must not leak into
+# FORWARDED_ARGS (same pattern as --model-profile).
+
+echo "eval.sh experiment flag propagation"
+
+result=$(
+    TMPBENCH=$(mktemp -d "$SCRIPT_DIR/../../../benchmarks/_test_XXXXXX")
+    trap 'rm -rf "$TMPBENCH"' EXIT
+    BENCH_NAME=$(basename "$TMPBENCH")
+    printf '%s\n' '#!/bin/bash' 'echo "$@"' > "$TMPBENCH/eval.sh"
+    chmod +x "$TMPBENCH/eval.sh"
+    bash "$SCRIPT_DIR/../../../scripts/eval.sh" \
+        --benchmark "$BENCH_NAME" \
+        --experiment my-run \
+        --dry-run --no-bundle 2>/dev/null
+)
+assert_not_contains "--experiment stripped from FORWARDED_ARGS" "--experiment" "$result"
+assert_not_contains "--experiment name stripped from FORWARDED_ARGS" "my-run" "$result"
+
+result=$(
+    TMPBENCH=$(mktemp -d "$SCRIPT_DIR/../../../benchmarks/_test_XXXXXX")
+    trap 'rm -rf "$TMPBENCH"' EXIT
+    BENCH_NAME=$(basename "$TMPBENCH")
+    printf '%s\n' '#!/bin/bash' 'echo "EXP=${EXPERIMENT:-unset}"; echo "$@"' > "$TMPBENCH/eval.sh"
+    chmod +x "$TMPBENCH/eval.sh"
+    bash "$SCRIPT_DIR/../../../scripts/eval.sh" \
+        --benchmark "$BENCH_NAME" \
+        --experiment flag-test \
+        --dry-run --no-bundle 2>/dev/null
+)
+assert_contains "EXPERIMENT exported to benchmark eval.sh" "EXP=flag-test" "$result"
+
+# ─── scripts/eval.sh lifecycle flag propagation ─────────────────────────────
+
+echo "eval.sh lifecycle flag propagation"
+
+result=$(
+    TMPBENCH=$(mktemp -d "$SCRIPT_DIR/../../../benchmarks/_test_XXXXXX")
+    trap 'rm -rf "$TMPBENCH"' EXIT
+    BENCH_NAME=$(basename "$TMPBENCH")
+    printf '%s\n' '#!/bin/bash' 'echo "$@"' > "$TMPBENCH/eval.sh"
+    chmod +x "$TMPBENCH/eval.sh"
+    bash "$SCRIPT_DIR/../../../scripts/eval.sh" \
+        --benchmark "$BENCH_NAME" \
+        --background --status --stop --restart \
+        --dry-run --no-bundle 2>/dev/null
+)
+assert_not_contains "--background stripped from FORWARDED_ARGS" "--background" "$result"
+assert_not_contains "--status stripped from FORWARDED_ARGS" "--status" "$result"
+
+result=$(
+    TMPBENCH=$(mktemp -d "$SCRIPT_DIR/../../../benchmarks/_test_XXXXXX")
+    trap 'rm -rf "$TMPBENCH"' EXIT
+    BENCH_NAME=$(basename "$TMPBENCH")
+    printf '%s\n' '#!/bin/bash' 'echo "BG=${BACKGROUND:-false} ST=${STATUS:-false}"' > "$TMPBENCH/eval.sh"
+    chmod +x "$TMPBENCH/eval.sh"
+    bash "$SCRIPT_DIR/../../../scripts/eval.sh" \
+        --benchmark "$BENCH_NAME" \
+        --background --status \
+        --dry-run --no-bundle 2>/dev/null
+)
+assert_contains "lifecycle flags exported to benchmark eval.sh" "BG=true ST=true" "$result"
+
+# ─── direct eval.sh scripts call finalize_model_config (#101 regression guard) ──
+# The tests above exercise finalize_model_config in isolation; they don't catch
+# someone deleting the call site from a benchmark eval.sh. Cheap grep-based
+# smoke test so that regression fails loudly instead of silently reintroducing
+# issue #101.
+
+echo "eval.sh finalize_model_config call sites (#101 regression guard)"
+
+for bench_eval in "$SCRIPT_DIR"/../../*/eval.sh; do
+    bench_name="$(basename "$(dirname "$bench_eval")")"
+    if grep -qE '^[[:space:]]*finalize_model_config[[:space:]]*(\||$)' "$bench_eval"; then
+        echo "  PASS: $bench_name/eval.sh calls finalize_model_config"; PASS=$((PASS+1))
+    else
+        echo "  FAIL: $bench_name/eval.sh does not call finalize_model_config"; FAIL=$((FAIL+1))
+    fi
+done
 
 # ─── Summary ─────────────────────────────────────────────────────────────────
 

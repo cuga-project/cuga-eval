@@ -26,7 +26,7 @@ DOCLING_IGNORE = "CVE-2026-47214"
 
 
 def _pip_audit_command(text: str) -> str:
-    match = re.search(r"uv run pip-audit[^\n]*", text)
+    match = re.search(r"uv run(?: --\S+)* pip-audit[^\n]*", text)
     assert match, "expected a `uv run pip-audit` invocation"
     return match.group(0)
 

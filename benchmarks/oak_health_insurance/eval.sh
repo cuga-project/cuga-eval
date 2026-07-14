@@ -65,8 +65,38 @@ REGISTRY_PORT=8001
 FASTAPI_PID=""
 REGISTRY_PID=""
 
+# Parse flags before server startup so lifecycle commands short-circuit cleanly.
+PASSTHROUGH_ARGS=()
+while [[ $# -gt 0 ]]; do
+    case "$1" in
+        --no-bundle)   NO_BUNDLE=true;    shift ;;
+        --bundle-zip)  BUNDLE_ZIP=true;   shift ;;
+        --model-profile) MODEL_PROFILE="$2"; shift 2 ;;
+        --experiment)  EXPERIMENT="$2"; shift 2 ;;
+        --resume)      RESUME=true; shift ;;
+        --resume-experiment) RESUME_EXPERIMENT="$2"; shift 2 ;;
+        --background)  BACKGROUND=true; shift ;;
+        --stop)        STOP=true; shift ;;
+        --restart)     RESTART=true; shift ;;
+        --status)      STATUS=true; shift ;;
+        --agent)       AGENT="$2"; shift 2 ;;
+        --verbose|-v|--quiet|-q)  PASSTHROUGH_ARGS+=("$1"); shift ;;
+        *)             PASSTHROUGH_ARGS+=("$1"); shift ;;
+    esac
+done
+
+if [ -n "${AGENT:-}" ] && [ "$AGENT" != "cuga" ]; then
+    echo -e "${RED:-}Error: oak_health_insurance only supports --agent cuga (got '$AGENT').${NC:-}"
+    exit 2
+fi
+
+if handle_eval_lifecycle "oak_health_insurance" "$0" "${PASSTHROUGH_ARGS[@]}"; then
+    exit 0
+fi
+
 cleanup() {
     local exit_code=$?
+    finalize_run_state_on_exit "$exit_code"
     echo ""
     echo -e "${YELLOW:-}Cleaning up...${NC:-}"
     if [ "${SKIP_SERVER_CLEANUP:-false}" != "true" ]; then
@@ -95,6 +125,12 @@ cd "$PROJECT_ROOT"
 # Load environment
 source "$PROJECT_ROOT/benchmarks/helpers/load_env.sh" "oak_health_insurance"
 
+# Apply --model-profile after load_env + arg parsing. common.sh is sourced
+# unconditionally above; hard-fail loudly if that ever stops being true
+# instead of silently skipping model-profile application.
+declare -F finalize_model_config >/dev/null || { echo "Error: common.sh not sourced (finalize_model_config unavailable)" >&2; exit 1; }
+finalize_model_config || exit 1
+
 # Capture console output to a log file for reproducibility bundles
 CONSOLE_LOG="/tmp/oak_console.log"
 exec > >(tee "$CONSOLE_LOG") 2>&1
@@ -115,7 +151,7 @@ if [ "${SKIP_SERVER_START:-false}" != "true" ]; then
 
     echo -e "${YELLOW:-}Starting FastAPI server on port $FASTAPI_PORT...${NC:-}"
     # Oak app uses relative imports (from models import ...), must run from its directory
-    (cd "$SCRIPT_DIR" && uv run uvicorn main:app --port $FASTAPI_PORT) > /tmp/oak_fastapi.log 2>&1 &
+    (cd "$SCRIPT_DIR" && uv run --no-sync uvicorn main:app --port $FASTAPI_PORT) > /tmp/oak_fastapi.log 2>&1 &
     FASTAPI_PID=$!
 
     if wait_for_server "http://127.0.0.1:$FASTAPI_PORT/" "FastAPI server" 30; then
@@ -148,22 +184,9 @@ fi
 
 echo ""
 
-# Parse bundle / model-profile flags; forward everything else to Python
-PASSTHROUGH_ARGS=()
-while [[ $# -gt 0 ]]; do
-    case "$1" in
-        --no-bundle)   NO_BUNDLE=true;    shift ;;
-        --bundle-zip)  BUNDLE_ZIP=true;   shift ;;
-        --model-profile) MODEL_PROFILE="$2"; shift 2 ;;
-        --agent)       AGENT="$2"; shift 2 ;;
-        --verbose|-v|--quiet|-q)  PASSTHROUGH_ARGS+=("$1"); shift ;;
-        *)             PASSTHROUGH_ARGS+=("$1"); shift ;;
-    esac
-done
-
-if [ -n "${AGENT:-}" ] && [ "$AGENT" != "cuga" ]; then
-    echo -e "${RED:-}Error: oak_health_insurance only supports --agent cuga (got '$AGENT').${NC:-}"
-    exit 2
+if prepare_experiment_workspace "oak_health_insurance"; then
+    PASSTHROUGH_ARGS+=(--bundle-dir "$WORKSPACE_BUNDLE_DIR")
+    mark_run_state_started
 fi
 
 # Run evaluation
@@ -186,7 +209,7 @@ RUN_MARKER=$(mktemp "${TMPDIR:-/tmp}/oak_run_marker.XXXXXX")
 # abort here — an abort would skip both the bundle and the failure banner below
 # (the else branch was previously dead code).
 set +e
-uv run python -m benchmarks.oak_health_insurance.eval_bench_sdk "${PASSTHROUGH_ARGS[@]}"
+uv run --no-sync python -m benchmarks.oak_health_insurance.eval_bench_sdk "${PASSTHROUGH_ARGS[@]}"
 EVAL_EXIT=$?
 set -e
 
@@ -220,34 +243,49 @@ if [ $EVAL_EXIT -eq 0 ]; then
     # Create reproducibility bundle unless skipped
     if [ "${NO_BUNDLE:-false}" != "true" ]; then
         echo ""
-        echo -e "${YELLOW:-}Creating reproducibility bundle...${NC:-}"
+        if [ -n "${WORKSPACE_BUNDLE_DIR:-}" ]; then
+            echo -e "${YELLOW:-}Finalizing experiment workspace...${NC:-}"
+            FIN_EXTRA=(--task-file "$SCRIPT_DIR/oak_health_test_suite_v1.json")
+            TRAJ_DIR=$(find_latest_trajectory "$SCRIPT_DIR/logging/trajectory_data")
+            if [ -n "$TRAJ_DIR" ]; then
+                FIN_EXTRA+=(--trajectory-dir "$TRAJ_DIR")
+            fi
+            FIN_EXTRA+=(--log-file /tmp/oak_fastapi.log --log-file /tmp/oak_registry.log --log-file "$CONSOLE_LOG")
+            finalize_experiment_workspace "oak_health_insurance" "${FIN_EXTRA[@]}"
+        else
+            echo -e "${YELLOW:-}Creating reproducibility bundle...${NC:-}"
 
-        # Generate eval report
-        REPORT_TMP=$(mktemp /tmp/oak_eval_report_XXXXXX)
-        uv run --no-sync python -m benchmarks.helpers.compare_report eval \
-            --result-file "$LATEST_RESULT" --output "$REPORT_TMP"
+            # Generate eval report
+            REPORT_TMP=$(mktemp /tmp/oak_eval_report_XXXXXX)
+            uv run --no-sync python -m benchmarks.helpers.compare_report eval \
+                --result-file "$LATEST_RESULT" --output "$REPORT_TMP"
 
-        BUNDLE_ARGS=(assemble --benchmark oak_health_insurance
-            --result-files "$LATEST_RESULT"
-            --task-files "$SCRIPT_DIR/oak_health_test_suite_v1.json"
-            --report "$REPORT_TMP")
-        if [ -n "$MODEL_PROFILE" ]; then
-            BUNDLE_ARGS+=(--model-profile "$MODEL_PROFILE")
+            BUNDLE_ARGS=(assemble --benchmark oak_health_insurance
+                --result-files "$LATEST_RESULT"
+                --task-files "$SCRIPT_DIR/oak_health_test_suite_v1.json"
+                --report "$REPORT_TMP")
+            if [ -n "$MODEL_PROFILE" ]; then
+                BUNDLE_ARGS+=(--model-profile "$MODEL_PROFILE")
+            fi
+            if [ "${BUNDLE_ZIP:-false}" = "true" ]; then
+                BUNDLE_ARGS+=(--zip)
+            fi
+            # Include cuga trajectories
+            TRAJ_DIR=$(find_latest_trajectory "$SCRIPT_DIR/logging/trajectory_data")
+            if [ -n "$TRAJ_DIR" ]; then
+                BUNDLE_ARGS+=(--trajectory-dir "$TRAJ_DIR")
+            fi
+            # Include server and console logs
+            BUNDLE_ARGS+=(--log-files /tmp/oak_fastapi.log /tmp/oak_registry.log "$CONSOLE_LOG")
+            # Download Langfuse traces if available
+            BUNDLE_ARGS+=(--fetch-langfuse)
+            BUNDLE_OUT=$(uv run --no-sync python -m benchmarks.helpers.bundle "${BUNDLE_ARGS[@]}" 2>&1 | tee /dev/stderr)
+            BUNDLE_PATH=$(echo "$BUNDLE_OUT" | sed -n 's/^Bundle created: //p' | tail -1)
+            if [ -n "$BUNDLE_PATH" ]; then
+                write_legacy_experiment_pointer "oak_health_insurance" "$BUNDLE_PATH"
+            fi
+            rm -f "$REPORT_TMP"
         fi
-        if [ "${BUNDLE_ZIP:-false}" = "true" ]; then
-            BUNDLE_ARGS+=(--zip)
-        fi
-        # Include cuga trajectories
-        TRAJ_DIR=$(find_latest_trajectory "$SCRIPT_DIR/logging/trajectory_data")
-        if [ -n "$TRAJ_DIR" ]; then
-            BUNDLE_ARGS+=(--trajectory-dir "$TRAJ_DIR")
-        fi
-        # Include server and console logs
-        BUNDLE_ARGS+=(--log-files /tmp/oak_fastapi.log /tmp/oak_registry.log "$CONSOLE_LOG")
-        # Download Langfuse traces if available
-        BUNDLE_ARGS+=(--fetch-langfuse)
-        uv run --no-sync python -m benchmarks.helpers.bundle "${BUNDLE_ARGS[@]}"
-        rm -f "$REPORT_TMP"
     fi
 else
     echo -e "${RED:-}✗ Oak Health Insurance evaluation failed (exit code: $EVAL_EXIT)${NC:-}"
