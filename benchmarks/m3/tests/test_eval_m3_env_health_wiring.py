@@ -70,7 +70,10 @@ def test_streak_check_runs_after_task_results_are_collected():
 def test_environment_failure_error_is_not_swallowed_by_the_generic_handler():
     content = EVAL_M3_PY.read_text()
     generic_except_idx = content.index('logger.error(f"❌ Task {service_name} failed: {e}")')
-    env_except_idx = content.index("except EnvironmentFailureError:")
+    # Anchor on the SECOND occurrence — the one belonging to run_config_mode —
+    # not evaluate_single_task's earlier clause (covered by the other test below).
+    first_occurrence = content.index("except EnvironmentFailureError:")
+    env_except_idx = content.index("except EnvironmentFailureError:", first_occurrence + 1)
     assert env_except_idx < generic_except_idx, (
         "the EnvironmentFailureError passthrough clause must come before the "
         "generic `except Exception` clause, or Python will match the generic "

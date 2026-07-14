@@ -106,6 +106,8 @@ def check_container_health(container: str, container_runtime: str, timeout: floa
         )
     except subprocess.TimeoutExpired:
         return False, f"docker inspect timed out after {timeout}s"
+    except OSError as e:
+        return False, f"failed to invoke '{container_runtime}': {e}"
 
     if inspect.returncode != 0 or inspect.stdout.strip() != "true":
         detail = inspect.stderr.strip() or inspect.stdout.strip() or f"exit code {inspect.returncode}"
@@ -120,6 +122,8 @@ def check_container_health(container: str, container_runtime: str, timeout: floa
         )
     except subprocess.TimeoutExpired:
         return False, f"docker exec timed out after {timeout}s"
+    except OSError as e:
+        return False, f"failed to invoke '{container_runtime}': {e}"
 
     if exec_check.returncode != 0:
         detail = exec_check.stderr.strip() or f"exit code {exec_check.returncode}"
@@ -132,6 +136,8 @@ class EnvironmentFailureStreakTracker:
     """Counts consecutive domains (or samples) whose every result is environment-shaped."""
 
     def __init__(self, threshold: int):
+        if threshold < 1:
+            raise ValueError(f"EnvironmentFailureStreakTracker threshold must be >= 1, got {threshold}")
         self.threshold = threshold
         self._streak = 0
 
