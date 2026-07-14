@@ -26,6 +26,12 @@ if [ -f "$PROJECT_ROOT/scripts/model_profiles.sh" ]; then
     source "$PROJECT_ROOT/scripts/model_profiles.sh"
 fi
 
+# Align cleanup port with eval.sh / cuga-agent (DYNACONF_SERVER_PORTS__REGISTRY).
+source "$PROJECT_ROOT/benchmarks/helpers/load_env.sh" "oak_health_insurance"
+REGISTRY_PORT="${REGISTRY_PORT:-${DYNACONF_SERVER_PORTS__REGISTRY:-8001}}"
+export REGISTRY_PORT
+export DYNACONF_SERVER_PORTS__REGISTRY="$REGISTRY_PORT"
+
 # Defaults
 RUNS="${RUNS:-1}"
 DRY_RUN="${DRY_RUN:-false}"
@@ -181,7 +187,7 @@ fi
 
 compare_cleanup() {
     echo -e "${YELLOW:-}Stopping servers...${NC:-}"
-    kill_port_processes 8090 8001
+    kill_port_processes 8090 "$REGISTRY_PORT"
 }
 trap compare_cleanup EXIT INT TERM
 

@@ -25,6 +25,15 @@ if [ -f "$PROJECT_ROOT/scripts/model_profiles.sh" ]; then
     source "$PROJECT_ROOT/scripts/model_profiles.sh"
 fi
 
+# Align cleanup ports with eval.sh / cuga-agent (DYNACONF_SERVER_PORTS__*).
+source "$PROJECT_ROOT/benchmarks/helpers/load_env.sh" "appworld"
+REGISTRY_PORT="${REGISTRY_PORT:-${DYNACONF_SERVER_PORTS__REGISTRY:-8001}}"
+export REGISTRY_PORT
+export DYNACONF_SERVER_PORTS__REGISTRY="$REGISTRY_PORT"
+APPWORLD_ENV_PORT="${APPWORLD_ENV_PORT:-${DYNACONF_SERVER_PORTS__ENVIRONMENT_URL:-8000}}"
+export APPWORLD_ENV_PORT
+export DYNACONF_SERVER_PORTS__ENVIRONMENT_URL="$APPWORLD_ENV_PORT"
+
 # Defaults
 RUNS="${RUNS:-1}"
 DRY_RUN="${DRY_RUN:-false}"
@@ -179,7 +188,7 @@ fi
 
 compare_cleanup() {
     echo -e "${YELLOW:-}Stopping servers...${NC:-}"
-    kill_port_processes 8000 8001
+    kill_port_processes "$APPWORLD_ENV_PORT" "$REGISTRY_PORT"
 }
 trap compare_cleanup EXIT INT TERM
 
