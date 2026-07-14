@@ -68,6 +68,20 @@ tracker = ActivityTracker()
 var_manager = VariablesManager()
 
 
+def _get_registry_base_url() -> str:
+    registry_port = os.getenv("DYNACONF_SERVER_PORTS__REGISTRY")
+    if registry_port:
+        return f"http://localhost:{registry_port}"
+
+    server_ports = getattr(settings, "server_ports", None)
+    for attr_name in ("registry", "registry_url", "registry_port"):
+        port = getattr(server_ports, attr_name, None) if server_ports else None
+        if port:
+            return f"http://localhost:{port}"
+
+    return "http://localhost:8001"
+
+
 def _task_ids_for_run(
     task_id: Optional[str],
     dataset_name: str,
@@ -136,6 +150,7 @@ async def invoke_and_score_appworld(
     response = ""
     tool_calls: List[Any] = []
     err: Optional[str] = None
+    err_exc: Optional[BaseException] = None
     is_error = False
     invoked = False
     eval_dict: Dict[str, Any] = {}
@@ -144,7 +159,7 @@ async def invoke_and_score_appworld(
     invoke_result_holder: List[Any] = []
 
     async def run_invoke(invoke_config: Optional[dict] = None) -> None:
-        nonlocal response, tool_calls, err, is_error, invoked
+        nonlocal response, tool_calls, err, err_exc, is_error, invoked
         try:
             invoke_result = await agent.invoke(
                 [HumanMessage(content=intent)],
@@ -160,6 +175,7 @@ async def invoke_and_score_appworld(
             invoked = True
         except Exception as e:
             err = str(e)
+            err_exc = e
             is_error = True
             logger.error(f"Agent invoke failed: {e}")
 
@@ -325,6 +341,11 @@ async def invoke_and_score_appworld(
     if agent_steps is not None:
         result["steps"] = agent_steps
 
+    if err:
+        from benchmarks.helpers.content_filter import annotate_content_filter_failure
+
+        annotate_content_filter_failure(result, err, exc=err_exc, logger=logger, task_id=task_id)
+
     return result
 
 
@@ -339,12 +360,16 @@ class AppWorldSdkEvaluator:
         apis_url: Optional[str] = None,
         eval_key: Optional[str] = None,
         from_dataset: bool = False,
+        bundle_dir: Optional[Path] = None,
+        resume_completed_ids: Optional[set] = None,
     ):
         self.dataset_name = dataset_name
         self.task_id = task_id
         self.specific_task_levels = specific_task_levels
         self.eval_key = eval_key
         self.from_dataset = from_dataset
+        self.bundle_dir = bundle_dir
+        self.resume_completed_ids = resume_completed_ids or set()
         self.experiment_name = experiment_name or os.getenv(
             "APPWORLD_SDK_EXPERIMENT_NAME", "appworld_sdk_evaluation"
         )
@@ -426,7 +451,7 @@ B. App-specific instructions:
         agent_runner = AgentRunner(browser_enabled=False)
 
         try:
-            requests.get("http://localhost:8001/api/reset", timeout=10)
+            requests.get(f"{_get_registry_base_url()}/api/reset", timeout=10)
             await agent_runner.initialize_appworld_env()
 
             with AppWorld(
@@ -541,10 +566,33 @@ B. App-specific instructions:
         # than silently reported as complete.
         self.total_tasks = len(task_ids)
         self.results = []
+        results_index: Dict[str, int] = {}  # task_name -> index (resume dedupe)
+        if self.bundle_dir is not None:
+            from benchmarks.helpers.incremental_results import load_all_partial_results
+
+            for r in load_all_partial_results(self.bundle_dir):
+                key = r.get("task_name")
+                if key is not None:
+                    results_index[key] = len(self.results)
+                self.results.append(r)
+
         for i, tid in enumerate(task_ids, 1):
+            if tid in self.resume_completed_ids:
+                logger.info(f"\n[{i}/{len(task_ids)}] Skipping already-completed task {tid}")
+                continue
             logger.info(f"\n[{i}/{len(task_ids)}] Task {tid}")
             result = await self.evaluate_task(tid, task_index=i)
-            self.results.append(result)
+            # AppWorld builds its own result dict (it doesn't route through
+            # evaluate_task_with_langfuse), so persist incrementally here.
+            if self.bundle_dir is not None:
+                from benchmarks.helpers.incremental_results import write_task_result_async
+
+                await write_task_result_async(self.bundle_dir, tid, result)
+            if tid in results_index:
+                self.results[results_index[tid]] = result
+            else:
+                results_index[tid] = len(self.results)
+                self.results.append(result)
             if i < len(task_ids):
                 await asyncio.sleep(0.5)
 
@@ -554,6 +602,12 @@ B. App-specific instructions:
         print_evaluation_summary(self.results)
 
     def save_results(self, output_dir: Optional[str] = None):
+        if self.bundle_dir is not None:
+            from benchmarks.helpers.incremental_results import finalize_merged_results
+
+            return finalize_merged_results(
+                self.bundle_dir, prefix="appworld_sdk", run_timestamp=_eval_run_timestamp
+            )
         if output_dir is None:
             # Use experiments/outputs to match appworld_eval.py structure
             output_dir = Path(__file__).parent / "experiments" / "outputs"
@@ -618,6 +672,19 @@ async def main():
         default=None,
         help="Experiment name (default: eval group key, env, or appworld_sdk_evaluation)",
     )
+    parser.add_argument(
+        "--bundle-dir",
+        type=str,
+        default=None,
+        help="Bundle workspace directory for incremental, resumable results.",
+    )
+    parser.add_argument(
+        "--resume-task-ids",
+        type=str,
+        nargs="*",
+        default=None,
+        help="Task IDs to treat as already completed (skip). Usually computed by the shell layer.",
+    )
 
     from benchmarks.helpers.logging_args import add_log_level_args, apply_log_level
 
@@ -636,6 +703,15 @@ async def main():
     if experiment_name is None:
         experiment_name = "appworld_sdk_evaluation"
 
+    bundle_dir = Path(args.bundle_dir) if args.bundle_dir else None
+    resume_completed_ids: set = set()
+    if bundle_dir is not None:
+        from benchmarks.helpers.incremental_results import load_completed_task_ids
+
+        resume_completed_ids |= load_completed_task_ids(bundle_dir)
+    if args.resume_task_ids:
+        resume_completed_ids |= set(args.resume_task_ids)
+
     evaluator = AppWorldSdkEvaluator(
         dataset_name=args.dataset,
         task_id=args.task_id,
@@ -645,6 +721,8 @@ async def main():
         apis_url=args.apis_url,
         eval_key=args.eval_key,
         from_dataset=args.from_dataset,
+        bundle_dir=bundle_dir,
+        resume_completed_ids=resume_completed_ids,
     )
 
     exit_code = 0

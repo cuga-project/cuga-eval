@@ -49,7 +49,96 @@ cd benchmarks/oak_health_insurance
 ### Quick start — compare runs across models
 
 ```bash
-./compare.sh --runs 3 --models gpt-oss,gpt4o
+cd benchmarks/oak_health_insurance
+./run_registry.sh
+```
+
+### Step 3: Run Evaluation
+
+In a third terminal:
+```bash
+cd benchmarks/oak_health_insurance
+uv run eval_bench_sdk.py
+```
+
+**Run specific task range:**
+```bash
+uv run eval_bench_sdk.py -r 0-4
+```
+
+### Step 4: View Results
+
+Open the visualization dashboard:
+```bash
+cd ../..
+./scripts/viz.sh oak_health_insurance
+```
+
+Results are stored in `benchmarks/oak_health_insurance/logging/` and `trajectory_data/`
+
+### All-in-one script (recommended)
+
+`eval.sh` handles server lifecycle automatically:
+
+```bash
+./benchmarks/oak_health_insurance/eval.sh
+./benchmarks/oak_health_insurance/eval.sh --task approved_claims
+
+# Named resumable experiment
+./benchmarks/oak_health_insurance/eval.sh --experiment oak-run --task approved_claims
+./benchmarks/oak_health_insurance/eval.sh --resume-experiment oak-run
+
+# Multi-run comparison with resume
+./benchmarks/oak_health_insurance/compare.sh --experiment cmp --models gpt-oss,gpt4o --runs 3
+./benchmarks/oak_health_insurance/compare.sh --resume-experiment cmp --status
+```
+
+See the [main README](../../README.md#named-experiments-resume-and-background-runs) for `--background`, `--stop`, bundle repair, and replay.
+
+---
+
+## 📝 Evaluation Process
+
+The evaluation script (`eval_bench_sdk.py`) performs the following steps:
+
+1. **Load Policies** - Applies policies from `oak_policies.py`
+2. **Load Tools** - Retrieves available tools from the registry
+3. **Evaluate Tasks** - Processes each task in the test suite
+4. **Keyword Checking** - Validates responses contain expected keywords
+5. **Generate Report** - Creates results with difficulty-based filtering
+
+---
+
+## 🔧 Advanced Configuration
+
+### CUGA Agent Settings
+
+For optimal performance, configure CUGA agent settings in `config/oak_helath_insurance.env`:
+
+**Mode Settings:**
+```env
+DYNACONF_ADVANCED_FEATURES__CUGA_MODE = "accurate"
+DYNACONF_ADVANCED_FEATURES__LITE_MODE = false
+```
+**Accurate Mode Settings:**
+```toml
+DYNACONF_FEATURES__FORCED_APPS = ["oak_health_insurance"]
+DYNACONF_FEATURES__LOCAL_SANDBOX = true
+```
+
+### User Context (Optional)
+
+To provide context about the Oak Health Insurance app, edit the task decomposition instructions:
+
+**File:** `../cuga-agent/src/cuga/configurations/instructions/default/task_decomposition.md`
+
+**Add:**
+```markdown
+## Oak Health Insurance App:
+
+- The tools are from Oak Health Insurance app for both the user and his family.
+- The user is already connected to the app. Their member_id is 121231234 and location is stateCode:NY, zipCode:11211.
+- For each sub task you create, you **must** explicitly include the member_id information and location.
 ```
 
 ---

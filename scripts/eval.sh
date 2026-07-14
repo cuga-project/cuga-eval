@@ -35,6 +35,13 @@ for arg in "${FORWARDED_ARGS[@]}"; do
         echo "  --verbose, -v             Enable verbose output"
         echo "  --no-bundle               Skip reproducibility bundle creation"
         echo "  --bundle-zip              Create zip archive of bundle"
+        echo "  --experiment <name>       Named experiment workspace (resumable)"
+        echo "  --resume                  Resume the last experiment (.last_experiment)"
+        echo "  --resume-experiment <name> Resume a named experiment"
+        echo "  --background              Run in the background (requires experiment workspace)"
+        echo "  --status                  Show run status for an experiment"
+        echo "  --stop                    Stop a background run"
+        echo "  --restart                 Stop then resume in the background"
         echo "  --help, -h                Show this help"
         echo ""
         list_benchmarks
@@ -94,6 +101,7 @@ check_langfuse_env
 
 # Export common variables for the benchmark script
 export NO_BUNDLE BUNDLE_ZIP MODEL_PROFILE VERBOSE AGENT USE_DOTENV
+export EXPERIMENT RESUME RESUME_EXPERIMENT BACKGROUND STOP RESTART STATUS
 
 echo -e "${BLUE}╔════════════════════════════════════════════════════════════╗${NC}"
 echo -e "${BLUE}║  Evaluation: ${BENCHMARK} [${AGENT}]$(printf '%*s' $((34 - ${#BENCHMARK} - ${#AGENT})) '')║${NC}"

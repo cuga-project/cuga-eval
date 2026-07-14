@@ -51,6 +51,7 @@ from utils.appworld_utils import (
     get_task_difficulty,
 )
 
+from benchmarks.helpers.content_filter import log_content_filter_failure
 from benchmarks.helpers.sdk_eval_helpers import (
     build_langfuse_invoke_config,
     is_langfuse_tracing_enabled,
@@ -481,6 +482,7 @@ async def run_agent_on_task(
                 logger.warning("Failed to close AppWorld cleanly after exception")
             end_time = time.time()
 
+            log_content_filter_failure(logger, str(e), exc=e, task_id=world.task_id)
             if task_result:
                 task_result.add_exception(e, "run_agent_on_task_codeact")
                 task_result.api_calls = len(tool_calls)

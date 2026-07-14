@@ -149,8 +149,36 @@ Runs `eval.sh` multiple times and collects results into an evaluation bundle.
 | `--dry-run` | Preview commands without executing | `--dry-run` |
 | `--no-bundle` | Skip evaluation bundle creation | `--no-bundle` |
 | `--bundle-zip` | Create a zip archive of the evaluation bundle | `--bundle-zip` |
+| `--experiment <name>` | Named resumable workspace (`evaluation_bundles/<name>/`) | `--experiment my-appworld` |
+| `--resume-experiment <name>` | Resume a named experiment | `--resume-experiment my-appworld` |
+| `--resume` | Resume the last experiment (`.last_experiment`) | `--resume` |
+| `--background` | Run in background (requires experiment flags) | `--background` |
+| `--status` | Show run/compare progress without starting servers | `--status` |
+| `--stop` | Stop a background run | `--stop` |
 
 All other flags (e.g. `--sdk`, `--eval-key`, `--task`, `--model-profile`) are forwarded to each `eval.sh` invocation.
+
+#### Named experiments and compare resume
+
+```bash
+# Long eval — name it, interrupt, resume (failed tasks retried; successes skipped)
+./benchmarks/appworld/eval.sh --sdk --experiment aw-run --eval-key test_challenge_easy
+./benchmarks/appworld/eval.sh --resume-experiment aw-run
+
+# Background + status
+./benchmarks/appworld/eval.sh --sdk --experiment aw-run --eval-key test_challenge_easy --background
+./benchmarks/appworld/eval.sh --status
+
+# Resumable multi-run comparison
+./benchmarks/appworld/compare.sh --sdk --experiment cmp --eval-key test_challenge_easy --runs 5
+./benchmarks/appworld/compare.sh --resume-experiment cmp
+
+# Replay / repair a bundle
+uv run python -m benchmarks.helpers.bundle replay \
+  --bundle-dir benchmarks/appworld/evaluation_bundles/aw-run
+```
+
+Experiment flags auto-enable `--sdk`. See the [main README](../../README.md#named-experiments-resume-and-background-runs).
 
 ### `eval.sh` Parameters
 
@@ -164,6 +192,12 @@ All other flags (e.g. `--sdk`, `--eval-key`, `--task`, `--model-profile`) are fo
 | `--specific-task-levels N` | Filter tasks by difficulty level (1, 2, 3) | `--specific-task-levels 1` |
 | `--no-bundle` | Skip evaluation bundle creation | `--no-bundle` |
 | `--bundle-zip` | Create a zip archive of the evaluation bundle | `--bundle-zip` |
+| `--experiment <name>` | Named resumable workspace | `--experiment my-appworld` |
+| `--resume-experiment <name>` | Resume a named experiment | `--resume-experiment my-appworld` |
+| `--resume` | Resume last experiment | `--resume` |
+| `--background` | Background run (requires experiment flags) | `--background` |
+| `--status` | Show progress without starting servers | `--status` |
+| `--stop` | Stop background run | `--stop` |
 
 ---
 
