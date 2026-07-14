@@ -43,9 +43,11 @@ test-stability:
 # --ignore-vuln CVE-2026-47214: docling is pinned to <2.92 until langchain-docling
 #   supports the newer "slim" docling layout. See issue #45.
 # --ignore-vuln CVE-2025-3000: torch CPU-only wheel has no published fix.
+# --ignore-vuln PYSEC-2026-3447: setuptools fix (83.0.0) is blocked by torch's
+#   own "setuptools<82" pin; nothing we can bump on our side.
 security:
     uv run --frozen bandit -c pyproject.toml -r benchmarks scripts -ll
-    uv run --frozen pip-audit --skip-editable --ignore-vuln CVE-2026-47214 --ignore-vuln CVE-2025-3000
+    uv run --frozen pip-audit --skip-editable --ignore-vuln CVE-2026-47214 --ignore-vuln CVE-2025-3000 --ignore-vuln PYSEC-2026-3447
 
 # Composite gate matching what CI runs.
 ci: lint test-regression security
