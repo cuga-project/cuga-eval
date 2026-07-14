@@ -31,9 +31,9 @@ if [ -f "$PROJECT_ROOT/benchmarks/helpers/common.sh" ]; then
     source "$PROJECT_ROOT/benchmarks/helpers/common.sh"
 fi
 
-# Server ports
+# Server ports (REGISTRY_PORT resolved after load_env.sh below; FASTAPI_PORT is
+# internal-only, not yet configurable — see issue #113).
 FASTAPI_PORT=8095
-REGISTRY_PORT=8001
 
 # PIDs for cleanup
 FASTAPI_PID=""
@@ -104,6 +104,12 @@ cd "$PROJECT_ROOT"
 # Load environment configuration
 echo -e "${YELLOW:-}Loading configuration...${NC:-}"
 source "$SCRIPT_DIR/../helpers/load_env.sh" "bpo"
+
+# Single registry port for shell helpers and Python (eval_bench_sdk / cuga-agent
+# both read DYNACONF_SERVER_PORTS__REGISTRY via settings.server_ports.registry).
+REGISTRY_PORT="${REGISTRY_PORT:-${DYNACONF_SERVER_PORTS__REGISTRY:-8001}}"
+export REGISTRY_PORT
+export DYNACONF_SERVER_PORTS__REGISTRY="$REGISTRY_PORT"
 
 # Capture console output to a log file for reproducibility bundles
 CONSOLE_LOG="/tmp/bpo_console.log"
