@@ -212,11 +212,18 @@ create_bundle() {
             fin_extra+=(--trajectory-dir "$traj_dir")
         fi
         local registry_log="$SCRIPT_DIR/registry_server.log"
+        local logs=()
         if [ -f "$registry_log" ]; then
-            fin_extra+=(--log-file "$registry_log" --log-file "$CONSOLE_LOG")
-        else
-            fin_extra+=(--log-file "$REGISTRY_LOG" --log-file "$CONSOLE_LOG")
+            logs+=("$registry_log")
+        elif [ -n "${REGISTRY_LOG:-}" ]; then
+            logs+=("$REGISTRY_LOG")
         fi
+        if [ -n "${CONSOLE_LOG:-}" ]; then
+            logs+=("$CONSOLE_LOG")
+        fi
+        for log in "${logs[@]}"; do
+            fin_extra+=(--log-file "$log")
+        done
         if [ "${PARTIAL_FINALIZE:-false}" = "true" ]; then
             fin_extra+=(--partial)
         fi
@@ -247,7 +254,7 @@ create_bundle() {
 
     if [ -z "$latest_result" ]; then
         echo -e "${YELLOW:-}No result file from this run was found — skipping bundle.${NC:-}"
-        echo -e "${YELLOW:-}(Console log is still at $CONSOLE_LOG.)${NC:-}"
+        echo -e "${YELLOW:-}(Console log is still at ${CONSOLE_LOG:-<not set>}.)${NC:-}"
         return 0
     fi
 
@@ -294,10 +301,17 @@ create_bundle() {
     fi
     # Include server and console logs (whichever exists)
     local registry_log="$SCRIPT_DIR/registry_server.log"
+    local logs=()
     if [ -f "$registry_log" ]; then
-        bundle_args+=(--log-files "$registry_log" "$CONSOLE_LOG")
-    else
-        bundle_args+=(--log-files "$REGISTRY_LOG" "$CONSOLE_LOG")
+        logs+=("$registry_log")
+    elif [ -n "${REGISTRY_LOG:-}" ]; then
+        logs+=("$REGISTRY_LOG")
+    fi
+    if [ -n "${CONSOLE_LOG:-}" ]; then
+        logs+=("$CONSOLE_LOG")
+    fi
+    if [ ${#logs[@]} -gt 0 ]; then
+        bundle_args+=(--log-files "${logs[@]}")
     fi
     # Download Langfuse traces if available
     bundle_args+=(--fetch-langfuse)

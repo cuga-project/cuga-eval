@@ -135,7 +135,9 @@ def _task_source_hash(tf: Path) -> str:
     for p in sorted(tf.rglob("*")):
         if p.is_file():
             h.update(p.relative_to(tf).as_posix().encode())
-            h.update(p.read_bytes())
+            with open(p, "rb") as f:
+                for chunk in iter(lambda: f.read(8192), b""):
+                    h.update(chunk)
     return f"sha256:{h.hexdigest()}"
 
 
