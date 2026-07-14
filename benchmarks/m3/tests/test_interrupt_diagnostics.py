@@ -43,17 +43,26 @@ def test_sigint_observer_timestamps_signal_and_preserves_default_behavior():
     """Installing the observer must not break Ctrl-C: SIGINT still raises
     KeyboardInterrupt (so #91/#92 partial-save behavior is unchanged), and
     it must record that a *real* signal was observed."""
-    eval_m3._install_sigint_observer()
-    messages, handler_id = _capture_warnings()
-
+    # Isolate from pytest's own SIGINT handler: if _install_sigint_observer
+    # is ever changed to delegate to whatever handler was previously
+    # installed (rather than calling signal.default_int_handler directly),
+    # delegating to pytest's own handler here would flag the test session
+    # to abort instead of just raising KeyboardInterrupt in this test.
+    original_pytest_handler = signal.signal(signal.SIGINT, signal.default_int_handler)
     try:
-        with pytest.raises(KeyboardInterrupt):
-            os.kill(os.getpid(), signal.SIGINT)
-    finally:
-        logger.remove(handler_id)
+        eval_m3._install_sigint_observer()
+        messages, handler_id = _capture_warnings()
 
-    assert eval_m3._sigint_observed_at is not None
-    assert any("SIGINT received by the OS signal handler" in m for m in messages)
+        try:
+            with pytest.raises(KeyboardInterrupt):
+                os.kill(os.getpid(), signal.SIGINT)
+        finally:
+            logger.remove(handler_id)
+
+        assert eval_m3._sigint_observed_at is not None
+        assert any("SIGINT received by the OS signal handler" in m for m in messages)
+    finally:
+        signal.signal(signal.SIGINT, original_pytest_handler)
 
 
 def test_sigint_not_observed_when_never_delivered():
