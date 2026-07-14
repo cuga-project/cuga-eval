@@ -48,7 +48,6 @@ done
 
 APPWORLD_PID=""
 REGISTRY_PID=""
-REGISTRY_PORT=8001
 
 # Parse bundle / model-profile / sdk flags before any server startup so
 # --status / --stop / --background can short-circuit without side effects.
@@ -113,6 +112,16 @@ cd "$PROJECT_ROOT"
 # Load environment
 source "$PROJECT_ROOT/benchmarks/helpers/load_env.sh" "appworld"
 
+# Single registry/environment ports for shell helpers and Python (appworld_eval
+# / cuga-agent both read these via settings.server_ports.{registry,environment_url}).
+# Override with REGISTRY_PORT / APPWORLD_ENV_PORT or the DYNACONF_ vars directly.
+REGISTRY_PORT="${REGISTRY_PORT:-${DYNACONF_SERVER_PORTS__REGISTRY:-8001}}"
+export REGISTRY_PORT
+export DYNACONF_SERVER_PORTS__REGISTRY="$REGISTRY_PORT"
+APPWORLD_ENV_PORT="${APPWORLD_ENV_PORT:-${DYNACONF_SERVER_PORTS__ENVIRONMENT_URL:-8000}}"
+export APPWORLD_ENV_PORT
+export DYNACONF_SERVER_PORTS__ENVIRONMENT_URL="$APPWORLD_ENV_PORT"
+
 # Capture console output to a log file for reproducibility bundles
 CONSOLE_LOG="/tmp/appworld_console.log"
 exec > >(tee "$CONSOLE_LOG") 2>&1
@@ -129,7 +138,7 @@ if [ "${SKIP_SERVER_START:-false}" != "true" ]; then
     uv run --no-sync cuga start appworld > /tmp/appworld.log 2>&1 &
     APPWORLD_PID=$!
 
-    if wait_for_server "http://127.0.0.1:8000/" "AppWorld" 90; then
+    if wait_for_server "http://127.0.0.1:$APPWORLD_ENV_PORT/" "AppWorld" 90; then
         echo -e "${GREEN:-}✓${NC:-} AppWorld started (PID: $APPWORLD_PID)"
     else
         echo -e "${RED:-}Error: AppWorld failed to start${NC:-}"
