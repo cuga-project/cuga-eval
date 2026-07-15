@@ -862,6 +862,18 @@ async def evaluate_task_with_langfuse(
     expected_output = task.get("expected_output", {})
     expected_keywords = expected_output.get("keywords", [])
 
+    if history_messages and isinstance(agent, GenericReactAgent):
+        # GenericReactAgent.invoke() only ever reads messages[-1] - it builds
+        # one templated prompt via _build_initial_messages(), not a message-
+        # list conversation like CugaAgent. Silently accepting history_messages
+        # here would drop every primed turn without any sign anything went
+        # wrong. Fail loudly instead of guessing; wire this up properly if/when
+        # dialogue priming needs to support the React agent.
+        raise NotImplementedError(
+            "history_messages (dialogue priming) is not supported for GenericReactAgent - "
+            "its invoke() only reads the last message, so prior turns would be silently dropped."
+        )
+
     # The agent only ever answers the last message in this list; any prior
     # history_messages are pure context (primed, not re-solved).
     messages_to_send: List[BaseMessage] = list(history_messages or []) + [HumanMessage(content=intent)]

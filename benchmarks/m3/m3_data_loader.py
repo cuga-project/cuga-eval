@@ -218,7 +218,9 @@ class M3DataLoader:
                 if not isinstance(gt_list, list):
                     gt_list = gold.get("output")
             if isinstance(gt_list, list):
-                gt_by_turn = {gt.get("turn_id", i): gt for i, gt in enumerate(gt_list)}
+                gt_by_turn = {
+                    gt.get("turn_id", i): gt for i, gt in enumerate(gt_list) if isinstance(gt, dict)
+                }
                 for i, _turn in enumerate(turns):
                     gt = gt_by_turn.get(_turn.get("turn_id", i))
                     if not gt:
