@@ -92,7 +92,12 @@ def test_m3_data_loader_loads_bundled_default_matching_registry() -> None:
         (config,) = svc.values()
         expected[config["metadata"]["task_id"]] = set(config["metadata"]["domains"])
 
-    for task_id, domains in expected.items():
+    # Only check capabilities small_train.zip actually covers (2, 3). The
+    # registry may declare other capabilities (e.g. m3_task_4, for
+    # capability_4_multiturn_policy_sampled.zip) that this bundled default
+    # was never meant to include.
+    for task_id in loader.available_capabilities():
+        domains = expected.get(task_id, set())
         assert set(loader.available_domains(task_id)) == domains, f"capability {task_id}"
 
 
