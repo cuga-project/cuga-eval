@@ -226,7 +226,7 @@ def _extract_tool_calls_from_tracker() -> List[Dict[str, Any]]:
 from cuga.backend.cuga_graph.nodes.cuga_lite.providers.combined import CombinedToolProvider
 from cuga.backend.cuga_graph.policy.models import PolicyType
 from cuga.sdk import CugaAgent
-from langchain_core.messages import HumanMessage
+from langchain_core.messages import BaseMessage, HumanMessage
 
 from .react_agent import GenericReactAgent, setup_react_agent_with_tools
 
@@ -832,6 +832,7 @@ async def evaluate_task_with_langfuse(
     metrics_config: Optional[MetricsConfig] = None,
     bundle_dir: Optional[Path] = None,
     bundle_domain: Optional[str] = None,
+    history_messages: Optional[List[BaseMessage]] = None,
 ) -> Dict[str, Any]:
     """Evaluate a single task with optional Langfuse tracing and enhanced metrics.
 
@@ -851,6 +852,15 @@ async def evaluate_task_with_langfuse(
                     identical to the legacy path (no incremental persistence).
         bundle_domain: Optional domain component for the partial filename
                     (m3 config-mode only, where one task spans several domains).
+        history_messages: Optional prior conversation turns (alternating
+                    HumanMessage/AIMessage) to prime the thread with before
+                    ``task["intent"]`` is sent as the live turn. Passed as a
+                    single message list to agent.invoke() - the agent only
+                    ever actually answers the last message; everything
+                    before it is context, not re-solved. Used to emulate a
+                    follow-up question in an already-in-progress
+                    conversation. None (default) preserves the existing
+                    single-message behavior exactly.
 
     Returns:
         Evaluation result dictionary with:
@@ -864,12 +874,18 @@ async def evaluate_task_with_langfuse(
     expected_output = task.get("expected_output", {})
     expected_keywords = expected_output.get("keywords", [])
 
+    # The agent only ever answers the last message in this list; any prior
+    # history_messages are pure context (primed, not re-solved).
+    messages_to_send: List[BaseMessage] = list(history_messages or []) + [HumanMessage(content=intent)]
+
     thread_id = f"eval_{task_name}_{task_index}_{uuid.uuid4().hex[:8]}"
 
     logger.info(f"\n{'=' * 80}")
     logger.info(f"Evaluating: {task_name} ({difficulty})")
     logger.info(f"Thread ID: {thread_id}")
     logger.info(f"Intent: {intent}")
+    if history_messages:
+        logger.info(f"Primed with {len(history_messages)} prior conversation message(s)")
     logger.info(f"Expected keywords: {expected_keywords}")
     logger.info(f"{'=' * 80}")
 
@@ -896,7 +912,7 @@ async def evaluate_task_with_langfuse(
                 lf_config = build_langfuse_invoke_config(predefined_trace_id, thread_id)
                 invoke_result = await _invoke_agent_for_eval(
                     agent,
-                    [HumanMessage(content=intent)],
+                    messages_to_send,
                     thread_id=thread_id,
                     user_context=user_context or "",
                     track_tool_calls=track_tool_calls,
@@ -955,7 +971,7 @@ async def evaluate_task_with_langfuse(
                 logger.warning(f"Failed to start Langfuse trace: {e}")
                 invoke_result = await _invoke_agent_for_eval(
                     agent,
-                    [HumanMessage(content=intent)],
+                    messages_to_send,
                     thread_id=thread_id,
                     user_context=user_context or "",
                     track_tool_calls=track_tool_calls,
@@ -965,7 +981,7 @@ async def evaluate_task_with_langfuse(
                 keyword_check_result = check_keywords(response, expected_keywords)
         else:
             invoke_result = await agent.invoke(
-                [HumanMessage(content=intent)],
+                messages_to_send,
                 thread_id=thread_id,
                 user_context=user_context or "",
                 track_tool_calls=track_tool_calls,
