@@ -30,6 +30,7 @@ ALLOWED_ENV_VARS = [
     "MEMORY_ENABLED",
     "LANGFUSE_HOST",
     "BPO_LOG_API_CALLS",
+    "M3_VAKRA_LIVE_MCP",
 ]
 
 # Dynaconf overrides that affect CUGA behaviour
@@ -39,6 +40,8 @@ DYNACONF_PREFIXES = [
     "DYNACONF_FEATURES__",
     "DYNACONF_AGENT__",
     "DYNACONF_STORAGE__",
+    "DYNACONF_CONTEXT_SUMMARIZATION__",
+    "DYNACONF_EVOLVE__",
 ]
 
 # Resolve once: <project_root>/benchmarks/helpers -> <project_root>
