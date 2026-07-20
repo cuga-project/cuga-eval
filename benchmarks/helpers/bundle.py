@@ -703,11 +703,15 @@ def assemble_compare_bundle(
             shutil.copy2(fp, run_dir / fp.name)
 
     # Tasks
+    task_file_hashes = {}
     if task_files:
         tasks_dir = bundle_dir / "tasks"
         tasks_dir.mkdir(exist_ok=True)
         for tf in task_files:
-            _record_task_file(Path(tf), tasks_dir)
+            tf = Path(tf)
+            entry = _record_task_file(tf, tasks_dir)
+            if entry is not None:
+                task_file_hashes[tf.name] = entry
 
     # Policies
     _copy_policies(bundle_dir, policies_dir)
@@ -779,15 +783,6 @@ def assemble_compare_bundle(
     # Report
     if report_content:
         (bundle_dir / "report.md").write_text(report_content)
-
-    # Compute task file hashes (same as single-run bundles)
-    task_file_hashes = {}
-    if task_files:
-        for tf in task_files:
-            tf = Path(tf)
-            entry = _record_task_file(tf, None)
-            if entry is not None:
-                task_file_hashes[tf.name] = entry
 
     # Build per-model runtime config from model_envs if available
     models_config = {}
