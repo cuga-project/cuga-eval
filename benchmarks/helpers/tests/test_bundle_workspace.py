@@ -72,6 +72,31 @@ def test_finalize_workspace_bundle_flips_status_and_reports(tmp_path):
 
 
 @pytest.mark.sanity
+def test_finalize_workspace_bundle_directory_task_file(tmp_path):
+    # --m3-data runs pass a dataset *directory* as the task source (issue seen
+    # on every rwPG-* run: IsADirectoryError killed finalization). Directories
+    # must be recorded as a pointer + "dir:" hash, not copied.
+    bd = tmp_path / "exp"
+    bundle.create_workspace_bundle(bd, "m3", experiment_name="exp")
+    _write_merged_results(bd, [{"task_name": "t1", "success": True}])
+    data_dir = tmp_path / "capability_3_multihop_reasoning"
+    (data_dir / "input").mkdir(parents=True)
+    (data_dir / "input" / "chicago_crime.json").write_text("[]")
+    regular = tmp_path / "hockey.json"
+    regular.write_text("[]")
+    bundle.finalize_workspace_bundle(bd, "m3", task_files=[data_dir, regular], fetch_langfuse=False)
+    meta = json.loads((bd / "metadata.json").read_text())
+    assert meta["status"] == "completed"
+    hashes = meta["ground_truth"]["task_file_hashes"]
+    assert hashes["capability_3_multihop_reasoning"].startswith("dir:")
+    assert hashes["hockey.json"].startswith("sha256:")
+    pointer = bd / "tasks" / "capability_3_multihop_reasoning.source"
+    assert pointer.exists()
+    assert str(data_dir.resolve()) in pointer.read_text()
+    assert (bd / "tasks" / "hockey.json").exists()
+
+
+@pytest.mark.sanity
 def test_finalize_workspace_bundle_partial_status(tmp_path):
     bd = tmp_path / "exp"
     bundle.create_workspace_bundle(bd, "m3")
