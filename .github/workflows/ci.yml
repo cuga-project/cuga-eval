@@ -100,8 +100,4 @@ jobs:
         # CVE-2026-47214 (docling 2.91.0, fixed in 2.94.0) is ignored because docling is
         # pinned to <2.92 until langchain-docling supports the newer "slim" docling layout.
         # See https://github.com/cuga-project/cuga-eval/issues/45.
-        # CVE-2025-3000 (torch) has no published fix; torch is a CPU-only non-PyPI wheel
-        # and cannot be patched via a version bump.
-        # PYSEC-2026-3447 (setuptools, fixed in 83.0.0) is ignored because torch pins
-        # setuptools<82, so the fix is unreachable until torch relaxes that pin.
-        run: uv run pip-audit --skip-editable --ignore-vuln CVE-2026-47214 --ignore-vuln CVE-2025-3000 --ignore-vuln PYSEC-2026-3447
+        run: uv run pip-audit --skip-editable --ignore-vuln CVE-2026-47214
