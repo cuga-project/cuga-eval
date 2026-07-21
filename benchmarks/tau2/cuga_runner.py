@@ -17,6 +17,138 @@ import threading
 from typing import Any, Optional
 
 
+def _patch_tau2_nl_assertion_model(model: str, llm_args_user: Optional[dict]) -> None:
+    """Point τ²'s NL-assertion scoring LLM at a reachable model.
+
+    τ² hardcodes `DEFAULT_LLM_NL_ASSERTIONS = "gpt-4.1-2025-04-14"` in tau2/config.py with no
+    CLI/env override. Its evaluator judges NL assertions with that model AT SCORING TIME — so a
+    task that has NL assertions (e.g. every retail task) dies with `reward=None` when the gateway
+    can't serve that exact model id. Nothing to do with the agent/bridge; it's τ²'s own scorer.
+
+    We repoint it at the same model + creds we already use for the user simulator (guaranteed
+    reachable). The evaluator did `from tau2.config import DEFAULT_LLM_NL_ASSERTIONS`, which binds
+    the name into ITS module — so we must patch that module's namespace too, not just tau2.config.
+    Best-effort: if τ²'s internals move, we log and continue (scoring just reverts to the default).
+    """
+    args = {"temperature": 0.0, **(llm_args_user or {})}
+    try:
+        import tau2.config as tau2_config
+
+        tau2_config.DEFAULT_LLM_NL_ASSERTIONS = model
+        tau2_config.DEFAULT_LLM_NL_ASSERTIONS_ARGS = args
+
+        from tau2.evaluator import evaluator_nl_assertions as nl_eval
+
+        nl_eval.DEFAULT_LLM_NL_ASSERTIONS = model
+        nl_eval.DEFAULT_LLM_NL_ASSERTIONS_ARGS = args
+    except Exception as e:  # noqa: BLE001 — never fail the run over this patch
+        print(f"    (could not repoint τ² NL-assertion model: {e!r})")
+
+
+def _maybe_setup_langfuse(domain: str, task: Any, thread_id: str) -> tuple[Optional[dict], Optional[str], Any]:
+    """Create one Langfuse trace for this task, if tracing is enabled and keys are present.
+
+    Returns (lf_config, trace_id, langfuse_client). All None when tracing is off or the
+    Langfuse client can't be built (missing keys) — the task then runs untraced. Never
+    raises: observability must not break an eval run.
+    """
+    try:
+        from benchmarks.helpers.sdk_eval_helpers import (
+            build_langfuse_invoke_config,
+            should_trace_langfuse_task,
+        )
+
+        if not should_trace_langfuse_task():
+            return None, None, None
+        from langfuse import get_client
+
+        langfuse = get_client()
+        trace_id = langfuse.create_trace_id(seed=f"tau2_{domain}_{task.id}")
+        lf_config = build_langfuse_invoke_config(trace_id, thread_id)
+        if not lf_config:  # handler couldn't be built
+            return None, None, None
+        print(f"    📊 Langfuse trace: tau2_{domain}_{task.id} (ID: {trace_id})")
+        return lf_config, trace_id, langfuse
+    except Exception as e:  # noqa: BLE001 — tracing is best-effort
+        print(f"    (langfuse tracing off: {e!r})")
+        return None, None, None
+
+
+def _reward_info_summary(reward_info: Any) -> Optional[dict]:
+    """Extract τ²'s per-check breakdown so a non-1.0 reward is explainable.
+
+    τ² scores by running a set of checks (DB state, required actions, NL assertions,
+    communication) and combining them per `reward_basis`. `reward_breakdown` +  the
+    individual `*_check` fields say exactly which check failed — that's the "why" the
+    plain reward number can't give. Best-effort: returns None if the model can't dump.
+    """
+    try:
+        d = reward_info.model_dump(mode="json")
+    except Exception:  # noqa: BLE001 — never fail a task over diagnostics
+        return None
+    keep = (
+        "reward",
+        "reward_basis",
+        "reward_breakdown",
+        "db_check",
+        "env_assertions",
+        "action_checks",
+        "nl_assertions",
+        "communicate_checks",
+        "info",
+    )
+    return {k: d[k] for k in keep if d.get(k) is not None}
+
+
+def _messages_summary(sim: Any) -> Optional[list]:
+    """Compact transcript of τ²'s conversation (role + content + tool call/result).
+
+    τ²'s SimulationRun.messages is the authoritative dialogue: the user simulator's turns,
+    CUGA's replies, and the tool calls + results in between. We keep the essentials so a
+    reviewer can read the whole exchange from the results file. Best-effort; None on failure.
+    """
+    msgs = getattr(sim, "messages", None)
+    if not msgs:
+        return None
+    out: list = []
+    for m in msgs:
+        try:
+            d = m.model_dump(mode="json")
+        except Exception:  # noqa: BLE001, S112 — skip an un-dumpable message; transcript is best-effort
+            continue
+        entry = {"role": d.get("role")}
+        if d.get("content") is not None:
+            entry["content"] = d["content"]
+        for k in ("tool_calls", "tool_call_id", "name", "requestor", "cost"):
+            if d.get(k) is not None:
+                entry[k] = d[k]
+        out.append(entry)
+    return out
+
+
+def _maybe_score_and_flush(
+    trace_id: Optional[str], langfuse: Any, domain: str, task: Any, reward: Optional[float]
+) -> None:
+    """Attach the τ² reward as a numeric score on the task's trace, then flush. Best-effort."""
+    if trace_id is None or langfuse is None:
+        return
+    try:
+        from benchmarks.helpers.sdk_eval_helpers import flush_langfuse, langfuse_score_on_trace
+
+        if reward is not None:
+            langfuse_score_on_trace(
+                langfuse,
+                trace_id,
+                name="reward",
+                value=reward,
+                data_type="NUMERIC",
+                comment=f"τ² {domain} env-state reward (task {task.id})",
+            )
+        flush_langfuse()
+    except Exception as e:  # noqa: BLE001 — never fail a task on scoring/flush
+        print(f"    (langfuse scoring skipped: {e!r})")
+
+
 def build_cuga_agent(decoy_tools: list, special_instructions: Optional[str] = None) -> Any:
     """Hand the decoy tools to a CugaAgent.
 
@@ -30,7 +162,11 @@ def build_cuga_agent(decoy_tools: list, special_instructions: Optional[str] = No
 
 
 async def run_cuga_loop(
-    bridge: Any, thread_id: str = "tau2-task", max_turns: int = 200, agent: Any = None
+    bridge: Any,
+    thread_id: str = "tau2-task",
+    max_turns: int = 200,
+    agent: Any = None,
+    lf_config: Optional[dict] = None,
 ) -> None:
     """Drive CUGA on the main thread's event loop against the bridge.
 
@@ -42,6 +178,10 @@ async def run_cuga_loop(
 
     `agent` lets a test inject a fake CugaAgent (no LLM); production leaves it None so we
     build the real agent from the bridge's decoys.
+
+    `lf_config` is the per-task Langfuse invoke config (from build_langfuse_invoke_config).
+    Passing the SAME config to every turn's invoke() nests all turns under one trace. None
+    (no keys / tracing off) means invoke() runs untraced.
     """
     loop = asyncio.get_running_loop()
     bridge.bind_loop(loop)
@@ -59,7 +199,10 @@ async def run_cuga_loop(
             return
 
         for _ in range(max_turns):
-            result = await agent.invoke(prompt, thread_id=thread_id, track_tool_calls=True)
+            invoke_kwargs: dict = {"thread_id": thread_id, "track_tool_calls": True}
+            if lf_config:  # attach the trace-scoped Langfuse handler for this turn
+                invoke_kwargs["config"] = lf_config
+            result = await agent.invoke(prompt, **invoke_kwargs)
             answer = getattr(result, "answer", None)
             if not answer:  # nothing to say (or an error) — let tau2 end the task
                 break
@@ -103,12 +246,17 @@ def _run_one_task(
     max_steps: int = 100,
     thread_id: Optional[str] = None,
     join_timeout: float = 120.0,
+    out: Optional[dict] = None,
 ) -> Optional[float]:
     """Run one tau2 task end-to-end through CUGA + the bridge; return the reward in [0,1].
 
     tau2's run_single_task drives the conversation (background thread); run_cuga_loop
     responds (main thread). When tau2 finishes, the thread closes the bridge to unblock
     the CUGA loop.
+
+    `out`, if given, is populated with side outputs the caller needs in the results JSON —
+    currently `out["trace_id"]` (the Langfuse trace id, or None). Kept as an out-param so
+    the return value stays the plain reward.
     """
     # Unique CUGA thread_id per task so its conversation memory never leaks between tasks.
     if thread_id is None:
@@ -120,6 +268,10 @@ def _run_one_task(
 
     from benchmarks.tau2.tau2_bridge import ConversationBridge
     from benchmarks.tau2.tau2_proxy import make_cuga_factory, set_current_bridge
+
+    # Repoint τ²'s hardcoded NL-assertion scoring model (gpt-4.1-2025-04-14) at the reachable
+    # user-sim model, so tasks with NL assertions (all retail) can be scored instead of erroring.
+    _patch_tau2_nl_assertion_model(user_sim_model, llm_args_user)
 
     # 1. Build a throwaway env just to read the tool schemas + policy for the decoys.
     #    (tau2 builds its own scored env inside run_single_task.)
@@ -144,6 +296,13 @@ def _run_one_task(
         max_steps=max_steps,
     )
 
+    # 4. Optional Langfuse: one trace per task; CUGA's LLM calls nest under it, and the
+    #    τ² env-state reward is pushed as a score after the run. Best-effort — if tracing
+    #    is off or keys are missing, this stays None and the task runs untraced.
+    lf_config, trace_id, langfuse = _maybe_setup_langfuse(domain, task, thread_id)
+    if out is not None:
+        out["trace_id"] = trace_id  # so the entrypoint can record it for --fetch-langfuse
+
     result: dict = {}
 
     def _tau2_thread() -> None:
@@ -158,7 +317,9 @@ def _run_one_task(
     t.start()
     loop = _get_event_loop()
     try:
-        loop.run_until_complete(run_cuga_loop(bridge, thread_id=thread_id, max_turns=max_steps + 20))
+        loop.run_until_complete(
+            run_cuga_loop(bridge, thread_id=thread_id, max_turns=max_steps + 20, lf_config=lf_config)
+        )
     finally:
         t.join(timeout=join_timeout)
         set_current_bridge(None)
@@ -168,7 +329,20 @@ def _run_one_task(
         gc.collect()
         loop.run_until_complete(asyncio.sleep(0))
 
+    sim = result.get("sim")
+    reward = None
+    if sim and sim.reward_info:
+        reward = sim.reward_info.reward
+        if out is not None:
+            # τ²'s per-check breakdown — the authoritative "why" behind the score.
+            out["reward_info"] = _reward_info_summary(sim.reward_info)
+            # The full customer ↔ CUGA ↔ tool dialogue, as τ² saw it (the transcript that
+            # Langfuse/trajectory don't capture on τ²'s side).
+            out["messages"] = _messages_summary(sim)
+
+    # Push the τ² env-state reward onto the task's trace, then flush (short-lived process).
+    _maybe_score_and_flush(trace_id, langfuse, domain, task, reward)
+
     if "error" in result:
         raise result["error"]
-    sim = result.get("sim")
-    return sim.reward_info.reward if (sim and sim.reward_info) else None
+    return reward

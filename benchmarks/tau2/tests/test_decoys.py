@@ -86,6 +86,32 @@ async def test_domain_decoy_forwards_through_bridge_and_returns_result():
 
 
 @pytest.mark.asyncio
+async def test_domain_decoy_accepts_positional_args():
+    """CUGA's code executor calls tools positionally — e.g. get_customer("C1") — not just
+    by keyword. The decoy must map positional args onto the schema fields by order.
+    (Regression: previously `_forward(**kwargs)` raised TypeError on positional calls,
+    which failed real airline/retail tool calls mid-run.)"""
+    bridge = ConversationBridge()
+    bridge.bind_loop(asyncio.get_running_loop())
+    [decoy] = make_decoy_tools(_fake_tools(), bridge, include_message_decoy=False)
+
+    seen = {}
+
+    def orchestrator():
+        seen["action"] = bridge.wait_for_action()
+        bridge.complete_pending({"customer_id": "C1"})
+
+    t = threading.Thread(target=orchestrator, daemon=True)
+    t.start()
+
+    result = await decoy.coroutine("C1")  # positional, as CUGA's generated code calls it
+    t.join(timeout=5)
+
+    assert seen["action"].arguments == {"customer_id": "C1"}  # mapped to the field name
+    assert result == {"customer_id": "C1"}
+
+
+@pytest.mark.asyncio
 async def test_message_decoy_forwards_text_and_returns_user_reply():
     bridge = ConversationBridge()
     bridge.bind_loop(asyncio.get_running_loop())

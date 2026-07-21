@@ -35,8 +35,26 @@ from typing import Any, Optional
 SUBSETS = ["mock", "airline", "retail", "telecom"]
 
 
-def _result_dict(domain: str, task: Any, reward: Optional[float], duration_s: float, error=None) -> dict:
-    """Per-task result in the shape compare_report / bundles expect (§11.5)."""
+def _result_dict(
+    domain: str,
+    task: Any,
+    reward: Optional[float],
+    duration_s: float,
+    error=None,
+    trace_id: Optional[str] = None,
+    agent_model: Optional[str] = None,
+    user_sim_model: Optional[str] = None,
+    reward_info: Optional[dict] = None,
+    messages: Optional[list] = None,
+) -> dict:
+    """Per-task result in the shape compare_report / bundles expect (§11.5).
+
+    `trace_id` is the Langfuse trace id — the bundle's --fetch-langfuse reads it from here
+    to download each task's trace. `agent_model` + `user_sim_model` record BOTH LLMs: τ²
+    scores are not comparable across user-sim choices, so both must live in the results.
+    `reward_info` is τ²'s per-check breakdown (db/action/nl/communicate checks) — the "why"
+    behind a non-1.0 reward, so failures are explainable straight from the results file.
+    """
     success = reward is not None and reward >= 0.999
     return {
         "task_name": task.id,
@@ -46,6 +64,11 @@ def _result_dict(domain: str, task: Any, reward: Optional[float], duration_s: fl
         "score": reward,
         "reward": reward,
         "full_execution_time": round(duration_s, 3),
+        "trace_id": trace_id,
+        "agent_model": agent_model,
+        "user_sim_model": user_sim_model,
+        "reward_info": reward_info,
+        "messages": messages,
         "error": str(error) if error else None,
     }
 
@@ -63,6 +86,8 @@ def _user_sim_llm_args() -> dict:
 
 
 def _parse_args(argv=None) -> argparse.Namespace:
+    from benchmarks.helpers.logging_args import add_log_level_args, apply_log_level
+
     ap = argparse.ArgumentParser(description="Evaluate CUGA on tau2-bench.")
     ap.add_argument("--subset", default="mock", choices=SUBSETS)
     ap.add_argument("--task", nargs="*", dest="task_ids", default=None, help="specific task id(s)")
@@ -73,10 +98,16 @@ def _parse_args(argv=None) -> argparse.Namespace:
         default=os.getenv("TAU2_USER_SIM_MODEL"),
         help="LiteLLM model string for τ²'s customer LLM (or set TAU2_USER_SIM_MODEL)",
     )
-    ap.add_argument("--max-steps", type=int, default=30)
+    # τ² counts every message (agent↔user, agent↔env) as a step. CUGA's exploratory
+    # tool-call bursts consume steps fast, so the τ² default of 30 truncates real tasks
+    # mid-action (retail measured 0→3/10 going 30→50). 50 clears the observed ceiling.
+    ap.add_argument("--max-steps", type=int, default=50)
     ap.add_argument("--max-workers", type=int, default=1)
     ap.add_argument("--run-id", default=None)
-    return ap.parse_args(argv)
+    add_log_level_args(ap)  # --verbose / --quiet, same as the other entrypoints
+    args = ap.parse_args(argv)
+    apply_log_level(args)
+    return args
 
 
 def run(args: argparse.Namespace) -> list[dict]:
@@ -88,11 +119,13 @@ def run(args: argparse.Namespace) -> list[dict]:
     from cuga.backend.activity_tracker.tracker import ActivityTracker
     from tau2.runner.helpers import get_tasks
 
-    from benchmarks.helpers.sdk_eval_helpers import print_evaluation_summary, save_evaluation_results
+    from benchmarks.helpers.sdk_eval_helpers import save_evaluation_results
     from benchmarks.tau2.cuga_runner import _run_one_task
 
     run_ts = args.run_id or datetime.now().strftime("%Y%m%d_%H%M%S")
     llm_args_user = _user_sim_llm_args()
+    # CUGA's own LLM (recorded alongside the user-sim model — see _result_dict/§11.5).
+    agent_model = os.getenv("MODEL_NAME") or "unknown"
 
     tasks = get_tasks(args.subset, task_ids=args.task_ids, num_tasks=args.num_tasks)
     if not tasks:
@@ -106,6 +139,8 @@ def run(args: argparse.Namespace) -> list[dict]:
     )
 
     results: list[dict] = []
+    output_dir = Path(cuga_logging_dir) / "results"
+    saved: Optional[Path] = None
     for i, task in enumerate(tasks, 1):
         # task.description is a τ² Description object, not a str — stringify for the tracker.
         intent = str(task.description) if task.description else task.id
@@ -114,15 +149,34 @@ def run(args: argparse.Namespace) -> list[dict]:
         t0 = time.monotonic()
         reward: Optional[float] = None
         error = None
+        extra: dict = {}
         try:
             reward = _run_one_task(
-                args.subset, task, args.user_sim_model, llm_args_user=llm_args_user, max_steps=args.max_steps
+                args.subset,
+                task,
+                args.user_sim_model,
+                llm_args_user=llm_args_user,
+                max_steps=args.max_steps,
+                out=extra,
             )
         except Exception as e:  # noqa: BLE001 — record the failure, keep going
             error = e
             print(f"    FAILED: {e!r}")
         dur = time.monotonic() - t0
-        results.append(_result_dict(args.subset, task, reward, dur, error))
+        results.append(
+            _result_dict(
+                args.subset,
+                task,
+                reward,
+                dur,
+                error,
+                trace_id=extra.get("trace_id"),
+                agent_model=agent_model,
+                user_sim_model=args.user_sim_model,
+                reward_info=extra.get("reward_info"),
+                messages=extra.get("messages"),
+            )
+        )
         tracker.finish_task(
             task_id=task.id,
             site=f"tau2/{args.subset}",
@@ -135,13 +189,23 @@ def run(args: argparse.Namespace) -> list[dict]:
             tracker.collect_score(reward)
         print(f"    reward={reward}  ({dur:.1f}s)")
 
-    output_dir = Path(cuga_logging_dir) / "results"
-    saved = save_evaluation_results(results, output_dir, prefix="tau2", run_timestamp=run_ts)
-    try:
-        print_evaluation_summary(results)
-    except Exception as e:  # noqa: BLE001 — summary is cosmetic; never fail the run on it
-        print(f"(summary skipped: {e!r})")
-    print(f"\nSaved results -> {saved}")
+        # Persist after EVERY task (same file, fixed run_ts). A long run (retail 114,
+        # telecom 2285) then never loses completed results to a crash/kill, and progress
+        # is inspectable while the run is still going. The helper rewrites the whole file,
+        # so it always reflects every task done so far. A transient write error must not
+        # kill the run, so we swallow it and try again next task.
+        try:
+            saved = save_evaluation_results(results, output_dir, prefix="tau2", run_timestamp=run_ts)
+        except Exception as e:  # noqa: BLE001
+            print(f"    (incremental save skipped: {e!r})")
+
+    if saved is None:  # every incremental save failed — try once more so we don't lose the run
+        saved = save_evaluation_results(results, output_dir, prefix="tau2", run_timestamp=run_ts)
+    # tau2-shaped summary. (The shared print_evaluation_summary is bpo-specific — it hard-reads
+    # `match_rate`, which tau2 results don't have; compare_report prints the full report at bundle.)
+    passed = sum(1 for r in results if r["success"])
+    print(f"\nPass@1: {passed}/{len(results)}  (agent: {agent_model}, user-sim: {args.user_sim_model})")
+    print(f"Saved results -> {saved}")
     return results
 
 

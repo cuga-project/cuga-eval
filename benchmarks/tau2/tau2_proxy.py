@@ -19,11 +19,12 @@ API verified against tau2 @ pin 5ebebbe:
 
 from __future__ import annotations
 
+import json
 from typing import Any, Optional
 from uuid import uuid4
 
 from tau2.agent.base_agent import HalfDuplexAgent
-from tau2.data_model.message import AssistantMessage, MultiToolMessage, ToolCall
+from tau2.data_model.message import AssistantMessage, MultiToolMessage, ToolCall, ToolMessage
 
 from benchmarks.tau2.tau2_bridge import (
     ConversationBridge,
@@ -43,6 +44,39 @@ def _incoming_content(message: Any) -> Optional[str]:
     if isinstance(message, MultiToolMessage):
         return "\n".join((m.content or "") for m in message.tool_messages)
     return getattr(message, "content", None)
+
+
+def _maybe_json(text: Optional[str]) -> Any:
+    """Parse a τ² tool result string back into structured data when it's JSON.
+
+    τ² serializes every tool's return into ToolMessage.content as a JSON string. If we hand
+    that raw string to CUGA, its generated code does result["field"] / result.get(...) on a
+    str and dies ('str' object has no attribute 'get'; string indices must be integers) —
+    this is what sank the whole retail domain. Parsing it back to a dict/list lets CUGA index
+    the result as intended. Non-JSON content (plain-text tool messages) passes through as-is.
+    """
+    if not isinstance(text, str):
+        return text
+    s = text.strip()
+    if not s or s[0] not in "[{":  # cheap guard: only attempt on JSON-looking payloads
+        return text
+    try:
+        return json.loads(s)
+    except (ValueError, TypeError):
+        return text
+
+
+def _incoming_result(message: Any) -> Any:
+    """The value to resolve CUGA's awaiting Future with.
+
+    Tool outputs (ToolMessage/MultiToolMessage) are parsed to structured data so CUGA can
+    index them; a customer reply (UserMessage) stays a plain string.
+    """
+    if isinstance(message, MultiToolMessage):
+        return [_maybe_json(m.content) for m in message.tool_messages]
+    if isinstance(message, ToolMessage):
+        return _maybe_json(getattr(message, "content", None))
+    return _incoming_content(message)
 
 
 class CugaProxyAgent(HalfDuplexAgent):
@@ -69,8 +103,9 @@ class CugaProxyAgent(HalfDuplexAgent):
             state["started"] = True
         elif message is not None:
             # The RESULT of CUGA's last action (a tool result OR a customer reply):
-            # resolve the Future the awaiting decoy holds.
-            self.bridge.complete_pending(_incoming_content(message))
+            # resolve the Future the awaiting decoy holds. Tool results are parsed to
+            # structured data so CUGA can index them; customer replies stay text.
+            self.bridge.complete_pending(_incoming_result(message))
         action = self.bridge.wait_for_action()  # block for CUGA's next move
         return self._to_message(action), state
 

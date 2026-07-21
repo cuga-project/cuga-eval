@@ -93,6 +93,34 @@ def test_subsequent_message_completes_pending_not_deliver():
     assert msg.content == "Done, re-enabled your data"
 
 
+def test_tool_result_json_is_parsed_to_structured_data():
+    """A ToolMessage whose content is a JSON string must reach CUGA as a dict/list, not a
+    str — otherwise CUGA's result["field"] / result.get(...) dies ('str' has no attribute
+    'get'). Regression for the retail 0/10 domain failure."""
+    proxy, bridge = _proxy(FinalAnswer("ok"))
+    state = proxy.get_init_state()
+    state["started"] = True
+
+    tool_result = ToolMessage(
+        id="t1", role="tool", content='{"user_id": "U1", "orders": [{"id": "O1"}]}', requestor="assistant"
+    )
+    proxy.generate_next_message(tool_result, state)
+
+    assert bridge.completed == {"user_id": "U1", "orders": [{"id": "O1"}]}  # parsed, indexable
+
+
+def test_plain_text_tool_result_stays_a_string():
+    """Non-JSON tool output passes through unchanged (no false parsing)."""
+    proxy, bridge = _proxy(FinalAnswer("ok"))
+    state = proxy.get_init_state()
+    state["started"] = True
+
+    proxy.generate_next_message(
+        ToolMessage(id="t1", role="tool", content="Order cancelled.", requestor="assistant"), state
+    )
+    assert bridge.completed == "Order cancelled."
+
+
 def test_none_action_is_the_done_sentinel_and_is_stop():
     proxy, _ = _proxy(None)  # bridge closed -> wait_for_action returns None
     state = proxy.get_init_state()

@@ -206,8 +206,15 @@ def _make_domain_decoy(t: Any, bridge: "ConversationBridge") -> StructuredTool:
     forwards the call through the bridge instead of executing it. A per-tool
     factory so each closure captures its own tool name (no loop-var late binding)."""
     name = t.name
+    # τ²'s pydantic params model, in declaration order — used to map positional calls.
+    field_names = list(t.params.model_fields.keys())
 
-    async def _forward(**kwargs: Any) -> Any:
+    async def _forward(*args: Any, **kwargs: Any) -> Any:
+        # CUGA's code executor calls tools positionally (e.g. get_user_details("u_1")),
+        # not just by keyword. Map any positional args onto the schema's fields by order
+        # so both call styles work; explicit kwargs win on overlap.
+        if args:
+            kwargs = {**dict(zip(field_names, args)), **kwargs}
         return await bridge.register_action(ToolAction(name=name, arguments=kwargs))
 
     return StructuredTool(
