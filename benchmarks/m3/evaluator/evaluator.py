@@ -175,6 +175,7 @@ async def evaluate_domain(
     policy: CapabilityPolicy,
     mcp_config: Optional[MCPConnectionConfig],
     capability_name: str,
+    policy_judge_path: Optional[str] = None,
 ) -> Tuple[Dict[str, Any], List[float]]:
     """
     Evaluate a single domain (async version).
@@ -215,6 +216,7 @@ async def evaluate_domain(
     turn_cfg = TurnScorerConfig(
         capability=capability_name,
         domain=domain,
+        policy_judge_path=policy_judge_path,
     )
     turn_scorer = TurnScorer(
         cfg=turn_cfg,
@@ -428,6 +430,7 @@ def evaluate_capability(
     registry: Dict[str, CapabilityPolicy],
     mcp_config: Optional[MCPConnectionConfig] = None,
     selected_domains: Optional[set[str]] = None,
+    policy_judge_path: Optional[str] = None,
 ) -> Dict[str, Any]:
     if capability_name not in registry:
         raise ValueError(
@@ -492,6 +495,7 @@ def evaluate_capability(
                 policy=policy,
                 mcp_config=mcp_config,
                 capability_name=capability_name,
+                policy_judge_path=policy_judge_path,
             )
         )
 
@@ -547,6 +551,11 @@ def main() -> None:
         help="Optional list of domain names to evaluate (without .json extension). "
         "If omitted, all domains are evaluated.",
     )
+    ap.add_argument(
+        "--policy-judge-path",
+        default=None,
+        help="Optional path to a PolicyJudge Python file. If omitted, policy judging is disabled.",
+    )
     args = ap.parse_args()
 
     capability_name = args.capability_name
@@ -589,6 +598,7 @@ def main() -> None:
         registry=registry,
         mcp_config=mcp_config,
         selected_domains=selected_domains,
+        policy_judge_path=args.policy_judge_path,
     )
 
     print(f"Wrote: {out_path}")
