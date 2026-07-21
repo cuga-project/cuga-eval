@@ -26,6 +26,18 @@ if [ -f "$PROJECT_ROOT/scripts/model_profiles.sh" ]; then
     source "$PROJECT_ROOT/scripts/model_profiles.sh"
 fi
 
+# Oak comparison is cuga-only. Reject any other --agent value with an
+# oak-specific message before orchestrating any runs.
+_prev=""
+for arg in "$@"; do
+    if [ "$_prev" == "--agent" ] && [ "$arg" != "cuga" ]; then
+        echo "Error: oak_health_insurance only supports --agent cuga (got '$arg')." >&2
+        exit 2
+    fi
+    _prev="$arg"
+done
+unset _prev
+
 # Align cleanup port with eval.sh / cuga-agent (DYNACONF_SERVER_PORTS__REGISTRY).
 source "$PROJECT_ROOT/benchmarks/helpers/load_env.sh" "oak_health_insurance"
 REGISTRY_PORT="${REGISTRY_PORT:-${DYNACONF_SERVER_PORTS__REGISTRY:-8001}}"
@@ -37,12 +49,12 @@ RUNS="${RUNS:-1}"
 DRY_RUN="${DRY_RUN:-false}"
 OUTPUT_FILE="${OUTPUT_FILE:-}"
 MODELS="${MODELS:-gpt-oss}"
-AGENT="${AGENT:-cuga}"
-AGENTS="${AGENTS:-}"
-COMPARE_AGENTS="${COMPARE_AGENTS:-false}"
 NO_BUNDLE="${NO_BUNDLE:-false}"
 BUNDLE_ZIP="${BUNDLE_ZIP:-false}"
 USE_DOTENV="${USE_DOTENV:-false}"
+# Oak is cuga-only (non-cuga --agent is rejected above); the agent label is
+# fixed so bundle keys stay consistent with m3/appworld/bpo (model:agent).
+AGENTS="cuga"
 FORWARDED_ARGS=()
 
 # Parse arguments
@@ -62,18 +74,6 @@ while [[ $idx -lt ${#ARGS[@]} ]]; do
         --models)
             MODELS="${ARGS[$((idx+1))]}"
             idx=$((idx+2))
-            ;;
-        --agent)
-            AGENT="${ARGS[$((idx+1))]}"
-            idx=$((idx+2))
-            ;;
-        --agents)
-            AGENTS="${ARGS[$((idx+1))]}"
-            idx=$((idx+2))
-            ;;
-        --compare-agents)
-            COMPARE_AGENTS=true
-            idx=$((idx+1))
             ;;
         --no-bundle)
             NO_BUNDLE=true
@@ -114,21 +114,13 @@ while [[ $idx -lt ${#ARGS[@]} ]]; do
     esac
 done
 
-# Oak's eval.sh has no --agent flag (only cuga is wired up), so reject any
-# attempt to compare agents. Surface the limitation early instead of producing
-# duplicate cuga runs labeled as different agents.
-if [[ "$COMPARE_AGENTS" == "true" || "$AGENTS" == *,* ]]; then
-    echo -e "${RED:-}Error: oak does not support agent comparison.${NC:-}" >&2
-    echo "       benchmarks/oak_health_insurance/eval.sh has no --agent flag." >&2
-    echo "       Drop --compare-agents / --agents to run a single-agent comparison." >&2
-    exit 1
-fi
-# Single-agent path: relabel runs as "model:cuga" for downstream consistency.
-if [[ -z "$AGENTS" ]]; then
-    AGENTS="$AGENT"
-fi
-
 IFS=',' read -ra MODEL_LIST <<< "$MODELS"
+
+# Build list of configurations: one per model (cuga agent only).
+CONFIGS=()
+for model in "${MODEL_LIST[@]}"; do
+    CONFIGS+=("${model}:cuga")
+done
 
 # --dotenv forces a single model from .env; reject multi-model comparisons.
 if type require_single_model_for_dotenv &>/dev/null; then
@@ -139,7 +131,6 @@ echo -e "${BLUE:-}╔═══════════════════�
 echo -e "${BLUE:-}║  Oak Health Insurance: Multi-Run Comparison                ║${NC:-}"
 echo -e "${BLUE:-}╚════════════════════════════════════════════════════════════╝${NC:-}"
 echo ""
-echo -e "  Agent:           ${CYAN:-}${AGENTS}${NC:-}"
 echo -e "  Models:          ${CYAN:-}${MODELS}${NC:-}"
 echo -e "  Runs per model:  ${CYAN:-}${RUNS}${NC:-}"
 echo ""
@@ -153,7 +144,7 @@ if [[ "$DRY_RUN" == "true" ]]; then
     echo -e "${YELLOW:-}DRY RUN — showing planned commands:${NC:-}"
     for model in "${MODEL_LIST[@]}"; do
         for ((r=1; r<=RUNS; r++)); do
-            echo "  [${model}:${AGENTS} run ${r}/${RUNS}] ./eval.sh ${FORWARDED_ARGS[*]}"
+            echo "  [${model}:cuga run ${r}/${RUNS}] ./eval.sh ${FORWARDED_ARGS[*]}"
         done
     done
     exit 0
@@ -170,7 +161,7 @@ failed=0
 total_runs=0
 
 # ETA bookkeeping (fmt_eta / fmt_duration live in benchmarks/helpers/common.sh).
-TOTAL_PLANNED=$(( ${#MODEL_LIST[@]} * RUNS ))
+TOTAL_PLANNED=$(( ${#CONFIGS[@]} * RUNS ))
 runs_done=0
 runs_elapsed_total=0
 compare_t0=$(date +%s)
@@ -191,15 +182,17 @@ compare_cleanup() {
 }
 trap compare_cleanup EXIT INT TERM
 
-# Collect result files and trajectories grouped by model (bash 3 compat)
-MODEL_RESULT_KEYS=()
-MODEL_RESULT_VALS=()
-MODEL_TRAJ_KEYS=()
-MODEL_TRAJ_VALS=()
+# Collect result files and trajectories grouped by config (bash 3 compat)
+CONFIG_RESULT_KEYS=()
+CONFIG_RESULT_VALS=()
+CONFIG_TRAJ_KEYS=()
+CONFIG_TRAJ_VALS=()
 
-for model in "${MODEL_LIST[@]}"; do
+for config in "${CONFIGS[@]}"; do
+    IFS=':' read -r model agent <<< "$config"
+
     echo -e "${BLUE:-}══════════════════════════════════════════════════════════════${NC:-}"
-    echo -e "${CYAN:-}Model: ${model}${NC:-}"
+    echo -e "${CYAN:-}Configuration: ${config}${NC:-}"
     echo -e "${BLUE:-}══════════════════════════════════════════════════════════════${NC:-}"
 
     if type apply_model_config &>/dev/null; then
@@ -210,7 +203,7 @@ for model in "${MODEL_LIST[@]}"; do
         fi
     fi
 
-    # Snapshot existing result files and trajectory folders before this model's runs
+    # Snapshot existing result files and trajectory folders before this config's runs
     before_files=$(ls -1 "$RESULTS_DIR"/oak_health_*.json 2>/dev/null | sort)
     before_trajs=$(find "$SCRIPT_DIR/logging/trajectory_data" -mindepth 1 -maxdepth 1 -type d 2>/dev/null | sort)
 
@@ -225,7 +218,7 @@ for model in "${MODEL_LIST[@]}"; do
         fi
 
         total_runs=$((total_runs+1))
-        echo -e "${CYAN:-}[${model}]${NC:-} Run ${GREEN:-}${r}/${RUNS}${NC:-} (overall ${total_runs}/${TOTAL_PLANNED})"
+        echo -e "${CYAN:-}[${config}]${NC:-} Run ${GREEN:-}${r}/${RUNS}${NC:-} (overall ${total_runs}/${TOTAL_PLANNED})"
         if (( runs_done > 0 )); then
             echo -e "  ${YELLOW:-}$(fmt_eta $runs_elapsed_total $runs_done $(( TOTAL_PLANNED - runs_done )))${NC:-}"
         fi
@@ -262,7 +255,7 @@ for model in "${MODEL_LIST[@]}"; do
         echo ""
     done
 
-    # Collect only NEW result files produced by this model's runs
+    # Collect only NEW result files produced by this config's runs
     after_files=$(ls -1 "$RESULTS_DIR"/oak_health_*.json 2>/dev/null | sort)
     recent_files=$(comm -13 <(echo "$before_files") <(echo "$after_files"))
     # Use model:agent label for consistency with m3/appworld/bpo. Oak only ever runs cuga
@@ -271,7 +264,7 @@ for model in "${MODEL_LIST[@]}"; do
     MODEL_RESULT_KEYS+=("$bundle_config")
     MODEL_RESULT_VALS+=("$recent_files")
 
-    # Collect only NEW trajectory folders produced by this model's runs
+    # Collect only NEW trajectory folders produced by this config's runs
     after_trajs=$(find "$SCRIPT_DIR/logging/trajectory_data" -mindepth 1 -maxdepth 1 -type d 2>/dev/null | sort)
     recent_trajs=$(comm -13 <(echo "$before_trajs") <(echo "$after_trajs"))
     MODEL_TRAJ_KEYS+=("$bundle_config")

@@ -1,11 +1,10 @@
 """Evaluation loop for Oak Health Insurance tasks.
 
 This script:
-1. Loads policies from oak_policies.py
-2. Loads tools from the registry
-3. Evaluates each task in oak_data.json
-4. Checks keywords in responses
-5. Reports results with filtering by difficulty
+1. Loads tools from the registry
+2. Evaluates each task in oak_health_test_suite_v1.json
+3. Checks keywords in responses and tracks tool-call metrics
+4. Reports results with filtering by difficulty
 """
 
 # CRITICAL: Load environment variables FIRST, before ANY other imports
@@ -15,8 +14,6 @@ from pathlib import Path
 # Add project root to path to import config_loader from separate directory
 project_root = Path(__file__).resolve().parent.parent.parent
 sys.path.insert(0, str(project_root))
-# Add oak directory to path for local imports (oak_policies, models, etc.)
-sys.path.insert(0, str(Path(__file__).resolve().parent))
 
 # WORKAROUND: CugaAgent auto-loads policies from CWD/.cuga directory.
 # This is a design limitation - CugaAgent should accept explicit policy_dir parameter.
@@ -41,12 +38,11 @@ from cuga.backend.activity_tracker.tracker import ActivityTracker
 from cuga.backend.cuga_graph.state.agent_state import VariablesManager
 
 # Import cuga modules (these will read env vars, which are now set)
-from cuga.sdk import CugaAgent
 from loguru import logger
-from oak_policies import get_all_oak_policies
 
 # Import helpers after cuga modules (helpers import cuga modules too)
 from benchmarks.helpers import (
+    MetricsConfig,
     add_policy_via_agent,
     clear_all_policies,
     create_activity_tracker_callback,
@@ -59,6 +55,8 @@ from benchmarks.helpers import (
 
 tracker = ActivityTracker()
 var_manager = VariablesManager()
+
+_METRICS_CONFIG: MetricsConfig = {"enable_api_metrics": True}
 
 
 class OakEvaluator:
@@ -88,43 +86,59 @@ class OakEvaluator:
         self.policies_enabled = policies_enabled
         self.bundle_dir = bundle_dir
         self.resume_completed_ids = resume_completed_ids or set()
-        self.agent: Optional[CugaAgent] = None
+        self.agent = None
+        self.langfuse_handler = None
         self.results: List[Dict[str, Any]] = []
         # Bound from __init__, not inside evaluate_all(): if evaluate_all() raises
         # before task discovery, total_tasks must still be 0 (not None) so the
         # partial-run check in main() can't be silently disabled by a future
         # refactor that catches exceptions inside evaluate_all().
         self.total_tasks: int = 0
-        # Hardcoded user info (matching format from agent_state.py:879-882)
 
     async def setup(self):
-        """Set up the agent with tools and policies."""
+        """Set up the agent with tools and optional policies."""
         self.agent, self.langfuse_handler = await setup_agent_with_tools()
-
         logger.info("Resetting policy database...")
         await clear_all_policies(self.agent)
+        logger.info("CugaAgent ready")
 
         if self.policies_enabled:
-            policies = get_all_oak_policies()
-            logger.info(f"Loading {len(policies)} policies from oak_policies.py...")
+            await self._load_oak_policies()
 
-            for policy in policies:
-                await add_policy_via_agent(self.agent, policy)
+    async def _load_oak_policies(self):
+        """Load oak health insurance policies into the agent.
 
-            logger.info(f"✅ Loaded {len(policies)} policies")
-        else:
-            logger.info("Policies disabled (--no-policies)")
+        Failures propagate: a run that loads no policies must fail loudly rather
+        than be recorded as a normal, policy-enabled result.
+        """
+        from benchmarks.oak_health_insurance.oak_policies import get_all_oak_policies
+
+        policies = get_all_oak_policies()
+
+        # A tool guide only attaches when one of its target_tools matches an
+        # actual runtime tool name exactly. Verify every guide intersects the
+        # loaded tools and abort otherwise, so a stale target name can't silently
+        # detach a guide while the run still reports success.
+        tool_names = {tool.name for tool in await self.agent.tool_provider.get_all_tools()}
+        unattached = [
+            (policy.id, targets)
+            for policy in policies
+            if (targets := getattr(policy, "target_tools", None)) and not set(targets) & tool_names
+        ]
+        if unattached:
+            detail = "; ".join(f"{pid} -> {targets}" for pid, targets in unattached)
+            raise RuntimeError(
+                f"{len(unattached)} tool guide(s) reference tools that do not exist at "
+                f"runtime and would never attach: {detail}. Available tools: {sorted(tool_names)}"
+            )
+
+        logger.info(f"Loading {len(policies)} oak policies...")
+        for policy in policies:
+            await add_policy_via_agent(self.agent, policy)
+        logger.info(f"✅ Loaded {len(policies)} policies")
 
     async def evaluate_task(self, task: Dict[str, Any], task_index: int) -> Dict[str, Any]:
-        """Evaluate a single task.
-
-        Args:
-            task: Task dictionary from oak_data.json
-            task_index: Index of the task (for unique thread_id generation)
-
-        Returns:
-            Evaluation result dictionary
-        """
+        """Evaluate a single task."""
         task_name = task.get("name", "unknown")
         intent = task.get("intent", "")
 
@@ -133,7 +147,7 @@ class OakEvaluator:
 
         user_context = """
         Member ID (string): 121231234
-        Location: latitude(str):40.7128, longitude(str):-74.0060
+        Location: stateCode:NY, zipCode:11211
         Current Date: 2025-12-31
         """
 
@@ -147,17 +161,12 @@ class OakEvaluator:
             user_context=user_context,
             tracker_callback=tracker_callback,
             track_tool_calls=True,
+            metrics_config=_METRICS_CONFIG,
             bundle_dir=self.bundle_dir,
         )
 
-    async def evaluate_all(self, oak_data_path: str = "oak_data.json"):
-        """
-        Evaluate all tasks from oak_data.json.
-
-        Args:
-            oak_data_path: Path to oak_data.json file
-        """
-        # Load test data
+    async def evaluate_all(self, oak_data_path: str = "oak_health_test_suite_v1.json"):
+        """Evaluate all tasks from the test suite JSON."""
         with open(oak_data_path, "r") as f:
             data = json.load(f)
 
@@ -175,7 +184,6 @@ class OakEvaluator:
                 logger.error(f"Task(s) {self.task_ids} not found in test data")
                 return
             logger.info(f"Filtered to {len(test_cases)} task(s): {self.task_ids}")
-        # Filter by difficulty if specified
         elif self.difficulty_filter:
             test_cases = [
                 tc for tc in test_cases if tc.get("difficulty", "").lower() == self.difficulty_filter.lower()
@@ -184,7 +192,6 @@ class OakEvaluator:
         else:
             logger.info(f"Evaluating all {len(test_cases)} tasks")
 
-        # Start experiment tracking
         experiment_name = os.getenv("OAK_EXPERIMENT_NAME", "oak_health_evaluation")
         task_ids = [tc.get("name", f"task_{i}") for i, tc in enumerate(test_cases, 1)]
         tracker.start_experiment(
@@ -198,7 +205,6 @@ class OakEvaluator:
         # than silently reported as complete.
         self.total_tasks = len(test_cases)
 
-        # Evaluate each task
         self.results = []
         results_index: Dict[str, int] = {}  # task_name -> index (resume dedupe)
         if self.bundle_dir is not None:
@@ -216,7 +222,6 @@ class OakEvaluator:
                 logger.info(f"\n[{i}/{len(test_cases)}] Skipping already-completed task: {task_name}")
                 continue
             logger.info(f"\n[{i}/{len(test_cases)}] Processing task...")
-            # Pass task index to generate unique thread_id and ensure fresh state
             result = await self.evaluate_task(task, task_index=i)
             if task_name in results_index:
                 self.results[results_index[task_name]] = result
@@ -224,8 +229,7 @@ class OakEvaluator:
                 results_index[task_name] = len(self.results)
                 self.results.append(result)
 
-            # Small delay to avoid rate limiting between tasks
-            if i < len(test_cases):  # Don't sleep after last task
+            if i < len(test_cases):
                 await asyncio.sleep(0.5)
 
         flush_langfuse(self.langfuse_handler)
@@ -261,7 +265,7 @@ async def main():
         "--data",
         type=str,
         default=os.path.join(os.path.dirname(__file__), "oak_health_test_suite_v1.json"),
-        help="Path to oak_data.json (default: oak_data.json)",
+        help="Path to test suite JSON (default: oak_health_test_suite_v1.json)",
     )
     parser.add_argument(
         "--task",
@@ -273,7 +277,8 @@ async def main():
     parser.add_argument(
         "--no-policies",
         action="store_true",
-        help="Disable CUGA policies (playbooks, tool guides). Useful for baselining.",
+        default=False,
+        help="Skip loading oak policies",
     )
     parser.add_argument(
         "--bundle-dir",
