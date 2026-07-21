@@ -1169,3 +1169,34 @@ cap4_multi_turn_with_policy_s1 = ["6e317bcd6839-678ae5e673c2"]
 
 # multi-turn, no policy (address): regression anchor / no-policy baseline.
 cap4_multi_turn_without_policy_s1 = ["d80c9bf910f1-63eeb2c7d9a5"]
+
+# cuga-agent #451 / cuga-eval #116 — planning-text stall (pattern A) and
+# ungrounded confident final (pattern B) probe keys.
+#
+# Pattern A: short NL finals like "We need to search professional_basketball
+# tools." with zero code. Pair with CUGA_LITE_NL_AUTO_CONTINUE=true (m3.env).
+# Pattern B: answer from priors / find_tools-only. Run with NL auto-continue on
+# so pattern A does not dominate (--runs 3 for consistency).
+# ─────────────────────────────────────────────────────────────────────────────
+
+# ─────────────────────────────────────────────────────────────────────────────
+# Pattern A — 1-task smoke (basketball planning stall from 20260709 bundle)
+issue451_a_n1 = ["d14bbb0be92d-9b44601b01e2"]
+
+# Pattern A — 3-task confirm (diverse domains: basketball, mondial_geo, disney)
+issue451_a_n3 = [
+  "d14bbb0be92d-9b44601b01e2",  # We need to search professional_basketball tools.
+  "55b7e50368aa-75340fb8d38c",  # We need to search mondial_geo for tools…
+  "34a533dfd727-9a80447e42a5",  # We need to find tools in disney app.
+]
+
+# Pattern B — 0-tool finals from m3_task_2 NL-auto-continue / --no-policies
+# baseline (bundle 20260710_034419_default). Replace prior find-tools-only
+# candidates that did not reproduce under option A.
+issue451_b_probe4 = [
+  "308738b8195d-9296bdde9ace",  # hockey: invented "only endpoint…" (0 tools; NL auto fired)
+  "55b7e50368aa-3e01aa27adb5",  # Himalaya → Everest 8848m from priors (0 tools; NL auto fired)
+  "55b7e50368aa-814c9d0d18dc",  # Baltic Sea: gave up "no tool…" (0 tools)
+  "fe971e7f850a-976bb90380b3",  # soccer wager: gave up "no endpoint…" (0 tools)
+]
+# ─────────────────────────────────────────────────────────────────────────────
