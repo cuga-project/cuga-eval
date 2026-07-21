@@ -1,4 +1,3 @@
-
 # Auto-evalution prompt from "CRAG: Comprehensive RAG Benchmark" is used for correctness prompt.
 # https://github.com/facebookresearch/CRAG/blob/main/prompts/templates.py
 CorrectnessPrompt = """Assume you are a human expert in grading predictions given by a model. You are given a question and a model prediction. Judge if the prediction matches the ground truth answer by following these steps:
@@ -32,7 +31,7 @@ Here is the model prediction starting with <prediction> and end with </predictio
 """
 
 
-GroundednessPrompt ="""
+GroundednessPrompt = """
 The following tasks each contains document and a response. The response is supposed to rely on the document for its source of information, optionally using common sense knowledge and common sense inference, but it may fail this, and instead contain substantial claims that are not grounded in the document or common sense knowledge.
 
 Your task is to assess whether the response is entirely grounded in the document, grounded in the document plus common sense knowledge and reasoning, or ungrounded. To make this determination, perform the following steps:
@@ -40,7 +39,7 @@ Your task is to assess whether the response is entirely grounded in the document
    - Ignore non-substantial claims, such as greetings or self-descriptions such as "I'm a helpful assistant",
    - Try to formulate each claim in a stand-alone form with all pronouns and other references resolved;
 2. Assess the grounding of each of these claims:
-   - If it is essentially a rephrasing of information from the document, or can be derived from such information by trivial common-sense reasoning, it is grounded,  This is so even if it contradicts other parts of the document.  
+   - If it is essentially a rephrasing of information from the document, or can be derived from such information by trivial common-sense reasoning, it is grounded,  This is so even if it contradicts other parts of the document.
    - If it relies on, in additional to information from the document, additional non-trivial common sense knowledge or common sense reasoning, it is partially grounded,
    - If a claim is about the provided document, or about the agent's state of knowledge, with the effect of not being able to answer the user inquiry, it is grounded if and only if the required information is indeed lacking in the document.
    - If a claim cannot be derived directly from the document or indirectly with help of common sense knowledge and reasoning, it is ungrounded;
@@ -58,11 +57,11 @@ Your final conclusion should be written in two lines:
   - "no" is for ungrounded,
   - "unsure" is for the situations where the document, conversation or response contain ambiguities such that different interpretations lead to different conclusions about groundedness;
 - The second line contains an explanation of your answer as short as possible.
-  
+
 Here is the document starting with <doc> and end with </doc>
-<doc> 
+<doc>
 {doc}
-</doc> 
+</doc>
 
 Here is the response starting with <response> and end with </response>.
 <response>

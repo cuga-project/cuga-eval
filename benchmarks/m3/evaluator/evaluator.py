@@ -5,15 +5,15 @@ import asyncio
 import json
 from dataclasses import dataclass
 from pathlib import Path
-from typing import Any, Dict, Optional, Tuple, List
-from tqdm import tqdm
+from typing import Any, Dict, List, Optional, Tuple
 
-from judge import CorrectnessJudge, GroundednessJudge, ExactMatchJudge
 from benchmark.mcp_client import (
     MCPConnectionConfig,
-    load_mcp_config,
     create_client_and_connect,
+    load_mcp_config,
 )
+from constant import PRED_OUTPUT_KEY, PRED_OUTPUT_SEQUENCE_KEY
+from judge import CorrectnessJudge, ExactMatchJudge, GroundednessJudge
 from mcp_tools import (
     execute_tools_batch,
     extract_toolcalls_for_mcp,
@@ -25,11 +25,11 @@ from scorer import (
     TurnScorer,
     TurnScorerConfig,
 )
-from constant import PRED_OUTPUT_KEY, PRED_OUTPUT_SEQUENCE_KEY
+from tqdm import tqdm
+from utils import pair_dialogues_by_uuid, read_domain_file
 from constant import N_TOOL_CALLS_PER_TURN
-from utils import read_domain_file, pair_dialogues_by_uuid
 
-CAPABILITY_MCP_TOOL_MAP={
+CAPABILITY_MCP_TOOL_MAP = {
     "capability_bi_apis": 1,
     "capability_dashboard_apis": 2,
     "capability_multihop_reasoning": 3,
@@ -43,8 +43,7 @@ CAPABILITY_MCP_TOOL_MAP={
 
 @dataclass(frozen=True)
 class CapabilityPolicy:
-
-    dialogue_aggregate: str = "mean"        # "mean" | "sum" | "min"
+    dialogue_aggregate: str = "mean"  # "mean" | "sum" | "min"
 
     # --- MCP execution ---
     execute_mcp_tools: bool = True
@@ -55,35 +54,32 @@ class CapabilityPolicy:
     exactmatch_judge: Any = ExactMatchJudge(config={})
 
 
-
 def build_default_capability_registry() -> Dict[str, CapabilityPolicy]:
     return {
         "capability_bi_apis": CapabilityPolicy(
             execute_mcp_tools=True,
             correctness_judge=CorrectnessJudge(config={}),
             groundedness_judge=GroundednessJudge(config={}),
-            exactmatch_judge=ExactMatchJudge(config={})
+            exactmatch_judge=ExactMatchJudge(config={}),
         ),
-
         "capability_dashboard_apis": CapabilityPolicy(
             execute_mcp_tools=True,
             correctness_judge=CorrectnessJudge(config={}),
             groundedness_judge=GroundednessJudge(config={}),
-            exactmatch_judge=ExactMatchJudge(config={})            
+            exactmatch_judge=ExactMatchJudge(config={}),
         ),
-
         "capability_multihop_reasoning": CapabilityPolicy(
             execute_mcp_tools=True,
             correctness_judge=CorrectnessJudge(config={}),
             groundedness_judge=GroundednessJudge(config={}),
-            exactmatch_judge=ExactMatchJudge(config={})            
+            exactmatch_judge=ExactMatchJudge(config={}),
         ),
         "capability_multiturn": CapabilityPolicy(
             execute_mcp_tools=True,
             correctness_judge=CorrectnessJudge(config={}),
             groundedness_judge=GroundednessJudge(config={}),
-            exactmatch_judge=ExactMatchJudge(config={})            
-        ),        
+            exactmatch_judge=ExactMatchJudge(config={}),
+        ),
     }
 
 
@@ -145,6 +141,33 @@ def _update_dialogue_toolcall_for_get_data(
 # -----------------------------
 
 
+def _make_missing_dialogue_entry(
+    uuid: str,
+    capability_name: str,
+    domain: str,
+    policy: CapabilityPolicy,
+) -> Dict[str, Any]:
+    return {
+        "uuid": uuid,
+        "score": 0.0,
+        "metadata": {
+            "capability": capability_name,
+            "domain": domain,
+            "policy": {
+                "dialogue_aggregate": policy.dialogue_aggregate,
+                "execute_mcp_tools": policy.execute_mcp_tools,
+            },
+            "error": "missing_prediction",
+        },
+        "details": {
+            "dialogue_score": 0.0,
+            "num_turns": 0,
+            "per_turn": [],
+            "aggregate": policy.dialogue_aggregate,
+        },
+    }
+
+
 async def evaluate_domain(
     domain: str,
     gt_path: Path,
@@ -164,9 +187,12 @@ async def evaluate_domain(
     pred_list = read_domain_file(pred_path) if pred_path.exists() else []
 
     # Pair dialogues
-    paired, missing_pred, extra_pred = pair_dialogues_by_uuid(gt_list, pred_list)    
+    paired, missing_pred, extra_pred = pair_dialogues_by_uuid(gt_list, pred_list)
 
     if len(pred_list) == 0:
+        zero_dialogues = [
+            _make_missing_dialogue_entry(uuid, capability_name, domain, policy) for uuid in missing_pred
+        ]
         domain_out: Dict[str, Any] = {
             "domain": domain,
             "n_groundtruth": len(gt_list),
@@ -174,16 +200,16 @@ async def evaluate_domain(
             "n_paired": len(paired),
             "missing_prediction_uuids": missing_pred,
             "extra_prediction_uuids": extra_pred,
-            "dialogues": [],
-            "summary":{
-                    "num_samples": len(gt_list),
-                    "num_correct": 0.0,
-                    "mean_dialogue_score": 0.0,
-                    "min_dialogue_score":  0.0,
-                    "max_dialogue_score": 0.0,
-                        }
-            }
-        return domain_out, []
+            "dialogues": zero_dialogues,
+            "summary": {
+                "num_samples": len(gt_list),
+                "num_correct": 0.0,
+                "mean_dialogue_score": 0.0,
+                "min_dialogue_score": 0.0,
+                "max_dialogue_score": 0.0,
+            },
+        }
+        return domain_out, [0.0] * len(zero_dialogues)
 
     # Build scorers per domain
     turn_cfg = TurnScorerConfig(
@@ -194,7 +220,7 @@ async def evaluate_domain(
         cfg=turn_cfg,
         correctness_judge=policy.correctness_judge,
         groundedness_judge=policy.groundedness_judge,
-        exactmatch_judge=policy.exactmatch_judge
+        exactmatch_judge=policy.exactmatch_judge,
     )
     dialogue_scorer = DialogueScorer(
         turn_scorer=turn_scorer,
@@ -230,8 +256,12 @@ async def evaluate_domain(
             # and prepend get_data (pred), then sync dialogue tool_call sequences
             if capability_name == "capability_bi_apis":
                 uuids = [str(gt.get("uuid")) for gt, _ in paired]
-                batch_tools_gt = _prepend_get_data_to_batch(batch_tools_gt, uuids, skip_initialize_active_data=True)
-                batch_tools_pred = _prepend_get_data_to_batch(batch_tools_pred, uuids, skip_initialize_active_data=False)
+                batch_tools_gt = _prepend_get_data_to_batch(
+                    batch_tools_gt, uuids, skip_initialize_active_data=True
+                )
+                batch_tools_pred = _prepend_get_data_to_batch(
+                    batch_tools_pred, uuids, skip_initialize_active_data=False
+                )
                 for (gt_raw, pr_raw), uuid in zip(paired, uuids):
                     _update_dialogue_toolcall_for_get_data(gt_raw, uuid, skip_initialize_active_data=True)
                     _update_dialogue_toolcall_for_get_data(pr_raw, uuid, skip_initialize_active_data=False)
@@ -251,19 +281,49 @@ async def evaluate_domain(
                 uuid = str(gt_raw.get("uuid"))
 
                 # Inject fresh responses so groundedness judge uses tool outputs
-                inject_mcp_responses(pr_raw, mcp_batch_responses_pred[idx], type="pred", capability_name=capability_name)
+                inject_mcp_responses(
+                    pr_raw, mcp_batch_responses_pred[idx], type="pred", capability_name=capability_name
+                )
                 if capability_name != "capability_bi_apis" and mcp_batch_responses_gt is not None:
-                    inject_mcp_responses(gt_raw, mcp_batch_responses_gt[idx], type="gt",capability_name=capability_name)
+                    inject_mcp_responses(
+                        gt_raw, mcp_batch_responses_gt[idx], type="gt", capability_name=capability_name
+                    )
 
                 # Score and store details
                 dialogue_score, dialogue_details = dialogue_scorer.score(
-                    gt_dialogue=gt_raw,
-                    pred_dialogue=pr_raw,
-                    pred_key=PRED_OUTPUT_KEY
+                    gt_dialogue=gt_raw, pred_dialogue=pr_raw, pred_key=PRED_OUTPUT_KEY
                 )
                 dialogue_scores.append(float(dialogue_score))
 
-                domain_out["dialogues"].append({
+                domain_out["dialogues"].append(
+                    {
+                        "uuid": uuid,
+                        "score": float(dialogue_score),
+                        "metadata": {
+                            "capability": capability_name,
+                            "domain": domain,
+                            "policy": {
+                                "dialogue_aggregate": policy.dialogue_aggregate,
+                                "execute_mcp_tools": policy.execute_mcp_tools,
+                            },
+                        },
+                        "details": dialogue_details,
+                    }
+                )
+    else:
+        # No MCP tools - just score based on predictions as-is
+        for idx, (gt_raw, pr_raw) in enumerate(
+            tqdm(paired, desc=f"[{capability_name}][{domain}]", leave=False)
+        ):
+            uuid = str(gt_raw.get("uuid"))
+
+            dialogue_score, dialogue_details = dialogue_scorer.score(
+                gt_dialogue=gt_raw, pred_dialogue=pr_raw, pred_key=PRED_OUTPUT_KEY
+            )
+            dialogue_scores.append(float(dialogue_score))
+
+            domain_out["dialogues"].append(
+                {
                     "uuid": uuid,
                     "score": float(dialogue_score),
                     "metadata": {
@@ -275,46 +335,28 @@ async def evaluate_domain(
                         },
                     },
                     "details": dialogue_details,
-                })
-    else:
-        # No MCP tools - just score based on predictions as-is
-        for idx, (gt_raw, pr_raw) in enumerate(
-            tqdm(paired, desc=f"[{capability_name}][{domain}]", leave=False)
-        ):
-            uuid = str(gt_raw.get("uuid"))
-
-            dialogue_score, dialogue_details = dialogue_scorer.score(
-                gt_dialogue=gt_raw,
-                pred_dialogue=pr_raw,
-                pred_key=PRED_OUTPUT_KEY
+                }
             )
-            dialogue_scores.append(float(dialogue_score))
 
-            domain_out["dialogues"].append({
-                "uuid": uuid,
-                "score": float(dialogue_score),
-                "metadata": {
-                    "capability": capability_name,
-                    "domain": domain,
-                    "policy": {
-                        "dialogue_aggregate": policy.dialogue_aggregate,
-                        "execute_mcp_tools": policy.execute_mcp_tools,
-                    },
-                },
-                "details": dialogue_details,
-            })
+    # Penalize missing predictions as zero-scored dialogues so per-domain and
+    # top-level summaries share a denominator of len(gt_list).
+    for uuid in missing_pred:
+        domain_out["dialogues"].append(_make_missing_dialogue_entry(uuid, capability_name, domain, policy))
+        dialogue_scores.append(0.0)
 
     # Domain summary
     domain_scores = [d["score"] for d in domain_out["dialogues"]]
+    num_samples = len(gt_list)
     domain_out["summary"] = {
-        "num_samples": len(gt_list),
+        "num_samples": num_samples,
         "num_correct": sum(domain_scores),
-        "mean_dialogue_score": (sum(domain_scores) / len(domain_scores)) if domain_scores else 0.0,
+        "mean_dialogue_score": (sum(domain_scores) / num_samples) if num_samples else 0.0,
         "min_dialogue_score": min(domain_scores) if domain_scores else 0.0,
         "max_dialogue_score": max(domain_scores) if domain_scores else 0.0,
     }
 
     return domain_out, dialogue_scores
+
 
 def _load_existing_results(out_path: Path) -> Optional[Dict[str, Any]]:
     """
@@ -349,24 +391,14 @@ def _write_intermediate_results(
     This allows recovery of partial results if evaluation is interrupted.
     """
     # Calculate totals from completed domains
-    total_paired = sum(
-        d["n_paired"] for d in results["domains"].values()
-    )
-    total_missing = sum(
-        len(d["missing_prediction_uuids"])
-        for d in results["domains"].values()
-    )
-    total_extra = sum(
-        len(d["extra_prediction_uuids"])
-        for d in results["domains"].values()
-    )
+    total_paired = sum(d["n_paired"] for d in results["domains"].values())
+    total_missing = sum(len(d["missing_prediction_uuids"]) for d in results["domains"].values())
+    total_extra = sum(len(d["extra_prediction_uuids"]) for d in results["domains"].values())
 
-    total_samples = sum(
-        d["summary"]["num_samples"] for d in results["domains"].values()
-    )
+    total_samples = sum(d["summary"]["num_samples"] for d in results["domains"].values())
 
     # Update summary with current progress
-    num_correct=(sum(all_dialogue_scores) if all_dialogue_scores else 0.0)
+    num_correct = sum(all_dialogue_scores) if all_dialogue_scores else 0.0
     results["summary"] = {
         "n_domains": len(results["domains"]),
         "n_paired_dialogues": total_paired,
@@ -374,16 +406,9 @@ def _write_intermediate_results(
         "n_extra_predictions": total_extra,
         "n_samples": total_samples,
         "n_correct": num_correct,
-        "mean_dialogue_score": (num_correct/total_samples
-            if all_dialogue_scores
-            else 0.0
-        ),
-        "min_dialogue_score": (
-            min(all_dialogue_scores) if all_dialogue_scores else 0.0
-        ),
-        "max_dialogue_score": (
-            max(all_dialogue_scores) if all_dialogue_scores else 0.0
-        ),
+        "mean_dialogue_score": (num_correct / total_samples if total_samples else 0.0),
+        "min_dialogue_score": (min(all_dialogue_scores) if all_dialogue_scores else 0.0),
+        "max_dialogue_score": (max(all_dialogue_scores) if all_dialogue_scores else 0.0),
     }
 
     # Write to disk
@@ -419,9 +444,7 @@ def evaluate_capability(
 
         missing = selected_domains - {p.stem for p in all_gt_files}
         if missing:
-            raise ValueError(
-                f"Requested domains not found in groundtruth_dir: {sorted(missing)}"
-            )
+            raise ValueError(f"Requested domains not found in groundtruth_dir: {sorted(missing)}")
     else:
         gt_files = all_gt_files
 
@@ -481,7 +504,7 @@ def evaluate_capability(
 
     # Final write (summary already updated by last intermediate write)
     # This is technically redundant but ensures the final state is written
-    results=_write_intermediate_results(results, all_dialogue_scores, out_path)
+    results = _write_intermediate_results(results, all_dialogue_scores, out_path)
 
     print("=========================================================================")
     print("==================================[RESULTS]==============================")
@@ -503,23 +526,26 @@ def evaluate_capability(
 # CLI
 # -----------------------------
 
+
 def main() -> None:
     ap = argparse.ArgumentParser()
     ap.add_argument("--capability_name", required=True, help="Capability name (must exist in registry)")
     ap.add_argument("--gt_root", required=True, help="Path to capability_name/groundtruth/")
     ap.add_argument("--pred_root", required=True, help="Path to capability_name/prediction/")
-    ap.add_argument("--output", default=None, help="Output results.json path (default: <capability_root>/results.json)")
+    ap.add_argument(
+        "--output", default=None, help="Output results.json path (default: <capability_root>/results.json)"
+    )
     ap.add_argument(
         "--mcp-config",
         default="benchmark/mcp_connection_config.yaml",
-        help="Path to MCP connection config YAML file (default: benchmark/mcp_connection_config.yaml)"
+        help="Path to MCP connection config YAML file (default: benchmark/mcp_connection_config.yaml)",
     )
     ap.add_argument(
         "--domains",
         nargs="+",
         default=None,
         help="Optional list of domain names to evaluate (without .json extension). "
-             "If omitted, all domains are evaluated."
+        "If omitted, all domains are evaluated.",
     )
     args = ap.parse_args()
 

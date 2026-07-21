@@ -4,12 +4,12 @@ import dataclasses
 import json
 from dataclasses import dataclass
 from pathlib import Path
-from typing import Any, Dict, Iterable, List, Literal, Mapping, Optional, Sequence, Tuple
-
+from typing import Any, Dict, List, Literal, Mapping, Optional, Sequence, Tuple
 
 # -----------------------------
 # General helpers
 # -----------------------------
+
 
 def _ensure_list(x: Any) -> List[Any]:
     return x if isinstance(x, list) else ([] if x is None else [x])
@@ -37,6 +37,7 @@ def pair_dialogues_by_uuid(
         if u in pr_map:
             paired.append((gt_map[u], pr_map[u]))
     return paired, missing_pred, extra_pred
+
 
 # -----------------------------
 # Data model
@@ -104,6 +105,7 @@ class Example:
 @dataclass(frozen=True)
 class PairedExample:
     """Ground truth + prediction matched by example ID."""
+
     gt: Example
     pred: Example
 
@@ -111,6 +113,7 @@ class PairedExample:
 # -----------------------------
 # Metrics / results
 # -----------------------------
+
 
 @dataclass
 class ScalarMetric:
@@ -157,12 +160,13 @@ class EvalReport:
 # LLM Judge for correctness and groundedness
 # -----------------------------
 
+
 @dataclass(frozen=True)
 class JudgeInput:
     capability: str
     domain: str
     query: str
-    additional_instructions: str    
+    additional_instructions: str
     gt_answer: str
     pred_answer: str
     gt_tool_calls: Sequence[ToolCall]
@@ -170,9 +174,9 @@ class JudgeInput:
     gt_tool_responses: List[str]
     pred_tool_responses: List[str]
 
+
 @dataclass(frozen=True)
 class JudgeOutput:
     # score should be normalized either 1 or 0
     score: float
     explanation: Optional[str] = None
-
