@@ -27,6 +27,7 @@ from scorer import (
 )
 from tqdm import tqdm
 from utils import pair_dialogues_by_uuid, read_domain_file
+from constant import N_TOOL_CALLS_PER_TURN
 
 CAPABILITY_MCP_TOOL_MAP = {
     "capability_bi_apis": 1,
@@ -102,10 +103,9 @@ def _prepend_get_data_to_batch(
             result.append(dialogue_tools)
             continue
         first_turn = list(dialogue_tools[0])
-        if (
-            skip_initialize_active_data
-            and first_turn
-            and first_turn[0].get("name") == "initialize_active_data"
+        if skip_initialize_active_data and first_turn and (
+            first_turn[0].get("name") == "initialize_active_data"
+            or first_turn[0].get("name") == "get_data"
         ):
             first_turn = first_turn[1:]
         first_turn = [{"name": "get_data", "arguments": {"tool_universe_id": uuid}}] + first_turn
@@ -175,6 +175,7 @@ async def evaluate_domain(
     policy: CapabilityPolicy,
     mcp_config: Optional[MCPConnectionConfig],
     capability_name: str,
+    policy_judge_path: Optional[str] = None,
 ) -> Tuple[Dict[str, Any], List[float]]:
     """
     Evaluate a single domain (async version).
@@ -215,6 +216,7 @@ async def evaluate_domain(
     turn_cfg = TurnScorerConfig(
         capability=capability_name,
         domain=domain,
+        policy_judge_path=policy_judge_path,
     )
     turn_scorer = TurnScorer(
         cfg=turn_cfg,
@@ -249,7 +251,7 @@ async def evaluate_domain(
             schema_map = {tool.name: tool.inputSchema for tool in tools_result.tools}
 
             # Batch execute tools
-            batch_tools_pred = [extract_toolcalls_for_mcp(pr) for _, pr in paired]
+            batch_tools_pred = [extract_toolcalls_for_mcp(pr, limit_last_n=N_TOOL_CALLS_PER_TURN) for _, pr in paired]
             batch_tools_gt = [extract_toolcalls_for_mcp(gt) for gt, _ in paired]
 
             # capability_bi_apis: replace initialize_active_data with get_data (GT),
@@ -267,7 +269,12 @@ async def evaluate_domain(
                     _update_dialogue_toolcall_for_get_data(pr_raw, uuid, skip_initialize_active_data=False)
 
             mcp_batch_responses_pred = await execute_tools_batch(session, batch_tools_pred, schema_map)
-            mcp_batch_responses_gt = await execute_tools_batch(session, batch_tools_gt, schema_map)
+            mcp_batch_responses_gt = await execute_tools_batch(
+                session,
+                batch_tools_gt,
+                schema_map,
+                is_gt=capability_name == "capability_bi_apis",
+            )
 
             # Score each paired dialogue
             for idx, (gt_raw, pr_raw) in enumerate(
@@ -279,9 +286,10 @@ async def evaluate_domain(
                 inject_mcp_responses(
                     pr_raw, mcp_batch_responses_pred[idx], type="pred", capability_name=capability_name
                 )
-                inject_mcp_responses(
-                    gt_raw, mcp_batch_responses_gt[idx], type="gt", capability_name=capability_name
-                )
+                if capability_name != "capability_bi_apis" and mcp_batch_responses_gt is not None:
+                    inject_mcp_responses(
+                        gt_raw, mcp_batch_responses_gt[idx], type="gt", capability_name=capability_name
+                    )
 
                 # Score and store details
                 dialogue_score, dialogue_details = dialogue_scorer.score(
@@ -422,6 +430,7 @@ def evaluate_capability(
     registry: Dict[str, CapabilityPolicy],
     mcp_config: Optional[MCPConnectionConfig] = None,
     selected_domains: Optional[set[str]] = None,
+    policy_judge_path: Optional[str] = None,
 ) -> Dict[str, Any]:
     if capability_name not in registry:
         raise ValueError(
@@ -486,6 +495,7 @@ def evaluate_capability(
                 policy=policy,
                 mcp_config=mcp_config,
                 capability_name=capability_name,
+                policy_judge_path=policy_judge_path,
             )
         )
 
@@ -541,6 +551,11 @@ def main() -> None:
         help="Optional list of domain names to evaluate (without .json extension). "
         "If omitted, all domains are evaluated.",
     )
+    ap.add_argument(
+        "--policy-judge-path",
+        default=None,
+        help="Optional path to a PolicyJudge Python file. If omitted, policy judging is disabled.",
+    )
     args = ap.parse_args()
 
     capability_name = args.capability_name
@@ -583,6 +598,7 @@ def main() -> None:
         registry=registry,
         mcp_config=mcp_config,
         selected_domains=selected_domains,
+        policy_judge_path=args.policy_judge_path,
     )
 
     print(f"Wrote: {out_path}")
