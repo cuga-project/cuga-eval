@@ -100,7 +100,7 @@ from benchmarks.m3.m3_data_loader import M3DataLoader, diff_tool_calls
 # Injected into CugaLite's system prompt via SDK special_instructions (eval-only).
 # Many M3 MCP tools lack a documented output/response schema (response_doc is empty).
 # Without guidance the model assumes dict-shaped results and calls .get() on lists/strings.
-M3_SPECIAL_INSTRUCTIONS = """
+M3_TOOL_OUTPUT_INSTRUCTIONS = """
 ## Undocumented tool outputs (M3 eval)
 
 When a tool in **Current Available Tools** has no **Response Schema** / output documentation:
@@ -120,6 +120,81 @@ When a tool in **Current Available Tools** has no **Response Schema** / output d
 
 Reporting shape in step 1 is for choosing correct access in step 2 — the goal is **crash-free Python**, not type narration for its own sake.
 """.strip()
+
+
+# Wave-1 Change #1: the evidence-chain / groundedness rider. Split out from the
+# tool-output section so it can be A/B-toggled via M3_GROUNDEDNESS_PROMPT
+# (default on). The tool-output section above stays constant across both arms.
+M3_GROUNDEDNESS_INSTRUCTIONS = """
+## Final answers for M3 groundedness
+
+For M3 final answers, make every factual claim traceable to the tool response text. Add no claim the tool output does not literally support.
+
+1. Answer only the user's question, using the data you retrieved. Never refuse, and never claim that a tool, API, or dataset "cannot", "does not provide", "is unable to", or "lacks" something — those are ungrounded claims about capabilities. Do not mention missing endpoints, dataset limitations, tool-search attempts, retries, uncertainty, or "for context" information. If you obtained the values needed, state the answer.
+
+2. State values exactly as the tool returned them. Round only if the question explicitly asks for it; otherwise give the value as returned.
+
+3. If the answer comes directly from a tool response, repeat the exact returned value and, when natural, the exact returned field/key name. Prefer:
+   - `The answer is <value>.`
+   - `<field_name>: <value>.`
+   Avoid extra explanation.
+
+4. If the answer requires combining multiple tool responses, include a one-line evidence chain before the final answer:
+   - `Evidence: <raw value/key from response 1>; <raw value/key from response 2>. Answer: <combined result>.`
+   Keep the chain literal and short. Do not add facts that were not present in tool outputs.
+
+5. If the answer requires arithmetic, compute it directly from the exact tool-returned values and show the formula using those values. Use only the source values the question asks you to combine; do not introduce a complement, total, difference, or any other quantity the question did not ask for. The final answer is the result of the formula — never an intermediate value:
+   - `Evidence: numerator = 17, denominator = 25. Calculation: 17 / 25 = 0.68. Answer: 0.68.`
+   Use only values/field names that appear in the tool output. Do not describe the calculation in prose beyond the formula.
+
+6. If a tool returns an ID and another tool resolves that ID to a name, preserve both:
+   - `Evidence: id = 112; country = United States. Answer: United States.`
+   This makes the join explicit.
+
+7. For single-value answers, prefer one sentence. For multi-hop answers, use at most two sentences: one `Evidence:` sentence and one `Answer:` sentence.
+""".strip()
+
+
+# Wave-1 Change #1b: the "selector / derivation-encapsulation" trim sub-rule.
+# Targets tasks where a single tool selected/ranked the answer entity by criteria
+# the agent did NOT separately retrieve (the gold tool encapsulates the
+# derivation), so the underlying premises never enter the evidence. Restating
+# those criteria as fact is therefore ungrounded and fails the whole answer.
+# Gated separately via M3_GROUNDEDNESS_TRIM (default off) so it can be A/B'd as
+# an extra rule on top of the rider. Appended as rule 8 when enabled.
+M3_GROUNDEDNESS_TRIM_RULE = """
+8. Do not restate the question's selection criteria as asserted facts. If a tool selected or ranked an entity by criteria whose underlying values you did not separately retrieve (e.g. a single tool returned the answer entity directly), name the entity and answer the question — do not assert *why* it was selected. Prefer `United States: 0 mountains.` over `The United States, which has the highest GDP and the lowest agriculture proportion, has 0 mountains.` The selection criteria live in the question, not in any tool output; repeating them as fact adds an ungrounded claim that fails the whole answer.
+""".strip()
+
+
+def _groundedness_prompt_enabled() -> bool:
+    """Wave-1 Change #1 A/B toggle. Default on; set M3_GROUNDEDNESS_PROMPT to
+    off / 0 / false / no to drop the evidence-chain rider (the baseline arm)."""
+    return os.getenv("M3_GROUNDEDNESS_PROMPT", "on").strip().lower() not in ("0", "off", "false", "no")
+
+
+def _trim_selection_enabled() -> bool:
+    """Wave-1 Change #1b sub-toggle (rule 8, selector/derivation-encapsulation
+    trim). Default OFF — opt in with M3_GROUNDEDNESS_TRIM=on/1/true/yes. Only
+    takes effect when the groundedness rider itself is enabled."""
+    return os.getenv("M3_GROUNDEDNESS_TRIM", "off").strip().lower() in ("1", "on", "true", "yes")
+
+
+def _build_m3_special_instructions() -> str:
+    """Compose the eval-only system rider. The tool-output (crash-free) section
+    is always present; the Change #1 groundedness rider is gated for A/B, and the
+    Change #1b trim rule is a further opt-in sub-rule on top of the rider.
+
+    Called fresh at each agent creation (not cached at import time) so that
+    in-process env var changes — a pytest fixture, a subprocess-free A/B
+    toggle, an interactive flip — take effect immediately instead of reading
+    a value baked in when this module was first imported."""
+    parts = [M3_TOOL_OUTPUT_INSTRUCTIONS]
+    if _groundedness_prompt_enabled():
+        parts.append(M3_GROUNDEDNESS_INSTRUCTIONS)
+        if _trim_selection_enabled():
+            parts.append(M3_GROUNDEDNESS_TRIM_RULE)
+    return "\n\n".join(parts)
 
 
 async def _load_m3_policies(agent: CugaAgent, policies_enabled: bool = True) -> None:
@@ -662,6 +737,8 @@ class M3Evaluator:
         m3_data_mode: bool = False,
         m3_task_id: Optional[int] = None,
         domain: Optional[str] = None,
+        bundle_dir: Optional[Path] = None,
+        resume_completed_ids: Optional[set] = None,
     ):
         """
         Initialize the evaluator.
@@ -685,9 +762,19 @@ class M3Evaluator:
         self.m3_data_mode = m3_data_mode
         self.m3_task_id = m3_task_id
         self.domain = domain
+        self.bundle_dir = bundle_dir
+        self.resume_completed_ids = resume_completed_ids or set()
         self.agent: Optional[CugaAgent] = None
         self.langfuse_enabled = None
         self.results: List[Dict[str, Any]] = []
+
+    def _resume_skip(self, identity: str) -> bool:
+        """True if `identity` (optionally scoped to self.domain) is already done."""
+        if not self.resume_completed_ids:
+            return False
+        if self.domain is not None and (identity, self.domain) in self.resume_completed_ids:
+            return True
+        return identity in self.resume_completed_ids
 
     # Removed setup() method - now using registry mode only
     # Agent is created in evaluate_single_task() using CombinedToolProvider
@@ -944,6 +1031,10 @@ class M3Evaluator:
             # Evaluate each sample
             self.results = []
             for i, sample in enumerate(samples, 1):
+                identity = sample.get("sample_id", sample.get("uuid", f"sample_{i}"))
+                if self._resume_skip(identity):
+                    logger.info(f"\n[{i}/{len(samples)}] Skipping already-completed sample: {identity}")
+                    continue
                 logger.info(f"\n[{i}/{len(samples)}] Processing sample...")
                 result = await self.evaluate_multiturn_task(sample, sample_index=i)
                 self.results.append(result)
@@ -996,6 +1087,10 @@ class M3Evaluator:
             # Evaluate each task
             self.results = []
             for i, task in enumerate(test_cases, 1):
+                identity = task.get("name", f"task_{i}")
+                if self._resume_skip(identity):
+                    logger.info(f"\n[{i}/{len(test_cases)}] Skipping already-completed task: {identity}")
+                    continue
                 logger.info(f"\n[{i}/{len(test_cases)}] Processing task...")
                 result = await self.evaluate_task(task, task_index=i)
                 self.results.append(result)
@@ -1287,6 +1382,19 @@ async def evaluate_single_task(
     # almost certainly stale (e.g. small_train names) for an unlabeled test
     # set. Replace it with whatever the loader actually has for this task_id
     # so we run against the test domains the user supplied via --m3-data.
+    bundle_dir = Path(args.bundle_dir) if getattr(args, "bundle_dir", None) else None
+    resume_completed_keys: set = set()
+    if bundle_dir is not None:
+        from benchmarks.helpers.incremental_results import load_completed_domain_keys
+
+        resume_completed_keys = load_completed_domain_keys(bundle_dir)
+    if getattr(args, "resume_task_ids", None):
+        # Manual override (bare task ids, not domain-scoped) — mirrors the
+        # bpo/oak/appworld convention of unioning this in. M3Evaluator._resume_skip
+        # already falls back to a bare-identity check, so a plain task id here
+        # skips it across every domain, not just the ones on disk.
+        resume_completed_keys |= set(args.resume_task_ids)
+
     no_gt_mode = bool(m3_data_loader and getattr(m3_data_loader, "allow_missing_output", False))
     if no_gt_mode and m3_data_loader is not None:
         loader_domains = m3_data_loader.available_domains(task_id)
@@ -1452,6 +1560,8 @@ async def evaluate_single_task(
             m3_data_mode=m3_data_loader is not None,
             m3_task_id=task_id,
             domain=domain,
+            bundle_dir=bundle_dir,
+            resume_completed_ids=resume_completed_keys,
         )
 
         try:
@@ -1490,7 +1600,7 @@ async def evaluate_single_task(
 
             evaluator.agent = CugaAgent(
                 tool_provider=filtered_provider,  # Only sees this domain's tools
-                special_instructions=M3_SPECIAL_INSTRUCTIONS,
+                special_instructions=_build_m3_special_instructions(),
                 # Policies are loaded explicitly by _load_m3_policies below per
                 # eval run. Disable .cuga auto-load and filesystem sync to keep
                 # the per-domain agent's policy set deterministic — otherwise
@@ -1578,6 +1688,24 @@ async def evaluate_single_task(
                     except Exception as e:
                         logger.warning(f"[{service_name}/{domain}] Vakra scoring failed (continuing): {e}")
 
+            # Persist per-result partials AFTER vakra scoring so the on-disk
+            # (and thus merged) result carries scores, enabling crash-safe resume.
+            # Best-effort: a write failure here must not abort this domain's
+            # evaluation (the enclosing except below would drop evaluator.results
+            # from task_results entirely, even though the domain itself succeeded).
+            if bundle_dir is not None and evaluator.results:
+                from benchmarks.helpers.incremental_results import write_task_result
+
+                for _r in evaluator.results:
+                    _rid = _r.get("task_name") or _r.get("sample_id") or "unknown"
+                    try:
+                        write_task_result(bundle_dir, _rid, _r, domain=domain)
+                    except Exception as persist_err:
+                        logger.warning(
+                            f"[{service_name}/{domain}] Failed to persist incremental result "
+                            f"for {_rid}: {persist_err}"
+                        )
+
             task_results.extend(evaluator.results)
             logger.info(f"✅ [{service_name}] Completed domain: {domain} ({len(evaluator.results)} results)")
 
@@ -1662,11 +1790,55 @@ def _kill_port_listeners(port: int) -> None:
         logger.debug(f"Could not enumerate/kill listeners on port {port}: {e}")
 
 
-async def start_registry_server(config_path: str) -> subprocess.Popen:
+def _pkill_registry_on_port(port: int) -> None:
+    """SIGKILL uvicorn registry workers bound to `port`, scoped by port.
+
+    Plain ``pkill -f "uvicorn.*api_registry_server"`` has no port filter and
+    kills *every* matching uvicorn on the machine — fine for the current
+    sequential single-eval usage, but it will nuke a sibling job's registry
+    (a parallel eval-key run, a CI shard sharing the host, a dev running
+    something else) the moment two of these overlap. The uvicorn command
+    line always ends in ``--port <port>`` (see the Popen args below), so
+    anchor the pattern there to keep the kill scoped to our own process.
+    """
+    import subprocess
+
+    pattern = f"uvicorn.*api_registry_server.*--port {port}$"
+    subprocess.run(["pkill", "-9", "-f", pattern], capture_output=True)  # noqa: S603,S607 — fixed args, int port, no untrusted input
+
+
+async def _force_free_registry_port(port: int, attempts: int = 12) -> bool:
+    """Actively kill every registry listener/process until `port` is verifiably free.
+
+    Sequential mode reuses one port across domains. A previous domain's uvicorn
+    occasionally survives teardown and keeps answering on the port, so the next
+    domain's tool calls hit a *stale* registry serving the wrong app (observed as
+    ``Application '<domain>' not found in registry. Available apps: ['<prev>']`` →
+    404). Passive waiting is not enough; we loop kill-then-verify so we never
+    proceed while a stray listener still owns the socket.
+    """
+    for _ in range(attempts):
+        if not _port_in_use(port):
+            return True
+        _kill_port_listeners(port)
+        # Belt-and-suspenders: also nuke by process signature in case lsof misses
+        # a uvicorn worker that briefly lost the bind but is still alive.
+        _pkill_registry_on_port(port)
+        await asyncio.sleep(1.0)
+    return not _port_in_use(port)
+
+
+async def start_registry_server(
+    config_path: str, expected_apps: Optional[List[str]] = None
+) -> subprocess.Popen:
     """Start the registry server with the specified config.
 
     Args:
         config_path: Path to the registry config file
+        expected_apps: App/domain name(s) this registry must serve. When given,
+            the live ``/applications`` is verified to contain them after warmup;
+            a mismatch means a stale registry is answering and we abort rather
+            than run tasks against the wrong app.
 
     Returns:
         Process object for the registry server
@@ -1681,26 +1853,16 @@ async def start_registry_server(config_path: str) -> subprocess.Popen:
     try:
         if _port_in_use(registry_port):
             # Port is busy — most often a registry from the PREVIOUS service in
-            # a sequential run that hasn't released the socket yet. Proactively
-            # kill any stray listener and wait for the port to free up before
-            # giving up.
+            # a sequential run that hasn't released the socket yet. Aggressively
+            # kill-then-verify (loop) so we never bind on top of, or alongside,
+            # a stale registry that would keep answering with the old app.
             logger.warning(
-                f"⚠️  Port {registry_port} is in use — attempting to free it "
+                f"⚠️  Port {registry_port} is in use — force-freeing it "
                 f"(likely the previous service's registry shutting down)..."
             )
-            _kill_port_listeners(registry_port)
-            if not await _wait_for_port_free(registry_port, timeout=20.0):
-                logger.error(f"❌ Port {registry_port} is still in use after waiting!")
-                logger.error("Another registry server or process is using this port.")
-                logger.error("")
-                logger.error("To fix this, run one of these commands:")
-                logger.error(f"  1. Kill processes on port {registry_port}:")
+            if not await _force_free_registry_port(registry_port):
+                logger.error(f"❌ Port {registry_port} is still in use after force-free!")
                 logger.error(f"     lsof -ti :{registry_port} | xargs kill")
-                logger.error("")
-                logger.error("  2. Or find and kill specific process:")
-                logger.error(f"     lsof -i :{registry_port}")
-                logger.error("     kill <PID>")
-                logger.error("")
                 raise RuntimeError(
                     f"Port {registry_port} is already in use. Please kill the existing process first."
                 )
@@ -1713,10 +1875,20 @@ async def start_registry_server(config_path: str) -> subprocess.Popen:
     # Kill any existing registry servers to avoid conflicts
     logger.info("🧹 Cleaning up any existing registry servers...")
     try:
-        # More specific pattern to avoid killing this script
+        # These two legacy launch patterns (uv-run-registry entrypoint, and the
+        # fastapi-cli path it goes through) set their port via env var, not a
+        # CLI arg, so unlike the uvicorn pattern below they can't be scoped by
+        # port here — this is a genuinely machine-wide kill. Log loudly rather
+        # than silently sweeping: a concurrent job's registry landing on either
+        # pattern is disruptive and worth surfacing in the logs.
+        logger.warning(
+            "⚠️  Sweeping ALL 'uv run registry' / 'fastapi.*registry' processes on this "
+            "machine (port-unscoped legacy patterns) — will disrupt any concurrent eval run."
+        )
         subprocess.run(["pkill", "-9", "-f", "uv run registry"], capture_output=True)  # noqa: S607 — relies on PATH for shell tools
         subprocess.run(["pkill", "-9", "-f", "fastapi.*registry"], capture_output=True)  # noqa: S607 — same
-        subprocess.run(["pkill", "-9", "-f", "uvicorn.*api_registry_server"], capture_output=True)  # noqa: S607 — same
+        # More specific pattern to avoid killing this script
+        _pkill_registry_on_port(registry_port)
         await asyncio.sleep(1)  # Give time for processes to die
     except Exception as e:
         logger.debug(f"Error during cleanup (this is OK): {e}")
@@ -1798,10 +1970,52 @@ async def start_registry_server(config_path: str) -> subprocess.Popen:
                 response = await client.get(f"http://localhost:{registry_port}/applications", timeout=5.0)
                 if response.status_code == 200:
                     apps = response.json()
+                    live_apps = [app.get("name", "unknown") for app in apps]
                     logger.info(
                         f"✅ Registry started successfully with {len(apps)} applications (attempt {attempt + 1}/{max_retries})"
                     )
-                    logger.info(f"📋 Registered applications: {[app.get('name', 'unknown') for app in apps]}")
+                    logger.info(f"📋 Registered applications: {live_apps}")
+
+                    # Identity check: make sure the registry answering on this port
+                    # is the one we just started, not a stale survivor from the
+                    # previous domain. Two stale signatures, both aborted:
+                    #   1. Completely disjoint — a non-empty app list sharing
+                    #      nothing with what we expect (e.g. serving
+                    #      ['mondial_geo'] while we want professional_basketball).
+                    #   2. Expected-plus-extra — live_apps contains every app we
+                    #      expect but ALSO apps we didn't ask for (e.g. a
+                    #      survivor from the previous domain lingering alongside
+                    #      the fresh one). Since each registry here is built from
+                    #      a single-service mini yaml (`_write_single_service_yaml`),
+                    #      it should never legitimately serve more apps than that
+                    #      one service declares — extra apps beyond expected_apps
+                    #      mean stale global state (open sockets, per-app caches,
+                    #      the previous run's env) is still resident even though
+                    #      our app also happens to answer.
+                    # Partial/naming overlaps within expected_apps are tolerated
+                    # (case 1 only fires when there's zero overlap) so legitimate
+                    # domain↔app-name differences don't trigger false aborts.
+                    if expected_apps and live_apps:
+                        expected_set = set(expected_apps)
+                        live_set = set(live_apps)
+                        disjoint = not (expected_set & live_set)
+                        extra_apps = live_set - expected_set
+                        if disjoint or extra_apps:
+                            reason = (
+                                "completely disjoint from expected"
+                                if disjoint
+                                else f"serves unexpected extra app(s) {sorted(extra_apps)} alongside the expected one(s)"
+                            )
+                            logger.error(
+                                f"❌ Registry identity mismatch: expected one of {expected_apps} but "
+                                f"port {registry_port} serves {live_apps} ({reason}). "
+                                "A stale registry is squatting the port."
+                            )
+                            await stop_registry_server(process)
+                            raise RuntimeError(
+                                f"Registry on port {registry_port} serves {live_apps}, "
+                                f"expected {expected_apps}; aborting to avoid stale-registry results."
+                            )
 
                     # Poll registry health to ensure all MCP servers are ready
                     # MCP servers with large tool sets (e.g. 206 hockey tools) need time to
@@ -1878,6 +2092,9 @@ async def start_registry_server(config_path: str) -> subprocess.Popen:
                     break
                 else:
                     logger.debug(f"Registry responded with status {response.status_code}, retrying...")
+        except RuntimeError:
+            # Identity mismatch (stale registry) is fatal — do not retry/swallow.
+            raise
         except Exception as e:
             if attempt < max_retries - 1:
                 logger.debug(
@@ -1937,15 +2154,19 @@ async def stop_registry_server(process: subprocess.Popen):
         logger.error(f"❌ Error stopping registry: {e}")
 
     # `process.wait()` only reaps the `uv` wrapper; the uvicorn worker holding
-    # the port can linger briefly. Wait for the OS to release the registry port
-    # so the next sequential service can bind it without racing (the error that
-    # previously surfaced as "Port N is already in use" on the next domain).
+    # the port can linger (or survive killpg if it escaped the group). Do NOT
+    # return until the port is verifiably free and no api_registry_server is
+    # left alive — otherwise the next sequential domain races a stale registry
+    # that keeps answering tool calls with the previous domain's app (→ 404).
     try:
         registry_port = get_registry_port()
-        if not await _wait_for_port_free(registry_port, timeout=15.0):
-            logger.warning(f"⚠️  Port {registry_port} still occupied after stop — killing stray listeners")
-            _kill_port_listeners(registry_port)
-            await _wait_for_port_free(registry_port, timeout=10.0)
+        if not await _force_free_registry_port(registry_port):
+            logger.error(
+                f"❌ Port {registry_port} still occupied after teardown — "
+                "next domain may hit a stale registry"
+            )
+        else:
+            logger.info(f"✅ Registry port {registry_port} released and verified free")
     except Exception as e:  # noqa: BLE001 — best-effort port-release wait
         logger.debug(f"Port-release wait after stop failed (continuing): {e}")
 
@@ -2167,6 +2388,21 @@ def expand_registry_config(
     return temp_path
 
 
+def _domain_entry_name(d: Any) -> str:
+    """Extract a plain string app/domain name from a `domains` metadata entry.
+
+    Entries may be bare strings or dict-backed (``{"name": ...}``) configs.
+    Returns "" for anything that isn't a real string name — in particular an
+    explicit ``{"name": None}`` — rather than ``str(None)`` == "None", which
+    would otherwise survive the empty-string filter and pollute the
+    identity-check's expected-apps set.
+    """
+    if isinstance(d, str):
+        return d
+    name = d.get("name") if isinstance(d, dict) else None
+    return name if isinstance(name, str) else ""
+
+
 def _write_single_service_yaml(service_dict: Dict[str, Any]) -> str:
     """Write a minimal registry yaml containing only the given service.
 
@@ -2257,7 +2493,9 @@ async def evaluate_tasks_in_batches(task_evaluations: List[tuple], batch_size: i
     return all_results
 
 
-def _finalize_and_save_results(all_results: List[Dict[str, Any]], no_ground_truth: bool):
+def _finalize_and_save_results(
+    all_results: List[Dict[str, Any]], no_ground_truth: bool, bundle_dir: Optional[Path] = None
+):
     """Persist exactly one result file (plus ground-truth dump) for a run.
 
     Shared by the single-capability path and the multi-capability aggregation
@@ -2265,8 +2503,16 @@ def _finalize_and_save_results(all_results: List[Dict[str, Any]], no_ground_trut
     every task it evaluated. Previously each capability pass saved its own
     100-task file, which made compare_report count one logical run as several
     runs (one per capability) and made each "run" look like only 100 tasks.
+
+    When ``bundle_dir`` is set, the merged results are read back from the on-disk
+    partials (so skipped/resumed tasks are included) and written into the bundle.
     """
     output_dir = Path(__file__).parent / "results"
+    if bundle_dir is not None:
+        from benchmarks.helpers.incremental_results import load_all_partial_results
+
+        all_results = load_all_partial_results(bundle_dir)
+        output_dir = Path(bundle_dir) / "results"
 
     # In no-ground-truth mode there's no scoring — render the tool-call-count
     # summary instead and capture it to the summary file.
@@ -2340,6 +2586,14 @@ async def run_config_mode(args, container_runtime: str, defer_save: bool = False
     """
     logger.info(f"Loading config from: {args.from_config}")
     logger.info("✅ Entered run_config_mode()")
+
+    # Resolved once, up front, so it's available to both the multi-capability
+    # aggregation branch (which returns early, before the sequential/batched
+    # section below) and the sequential/batched section itself. Previously
+    # assigned only in the latter, which raised UnboundLocalError from the
+    # multi-capability branch's _finalize_and_save_results call whenever no
+    # explicit --capability/--task filter was given.
+    bundle_dir = Path(args.bundle_dir) if getattr(args, "bundle_dir", None) else None
 
     # Initialize M3 data loader early so any errors fail before registry startup
     m3_data_loader: Optional[M3DataLoader] = None
@@ -2419,7 +2673,7 @@ async def run_config_mode(args, container_runtime: str, defer_save: bool = False
                     f"🧮 Aggregated {len(combined_results)} results across "
                     f"{len(cap_ids)} capability pass(es) → writing one result file"
                 )
-                _finalize_and_save_results(combined_results, no_ground_truth)
+                _finalize_and_save_results(combined_results, no_ground_truth, bundle_dir=bundle_dir)
             else:
                 logger.warning("⚠️  No results produced across capability passes.")
             return combined_results
@@ -2707,7 +2961,13 @@ async def run_config_mode(args, container_runtime: str, defer_save: bool = False
                     if registry_enabled:
                         mini_yaml = _write_single_service_yaml(service_dict)
                         logger.info(f"🔧 [{service_name}] Starting one-service registry from {mini_yaml}")
-                        svc_registry = await start_registry_server(mini_yaml)
+                        # Normalise domains to plain hashable strings: entries may be
+                        # bare strings or dict-backed ({"name": ...}) configs, and
+                        # start_registry_server does set(expected_apps) for the
+                        # identity check, which would raise on unhashable dicts.
+                        # Keep original case so the intersection with live_apps holds.
+                        expected_apps = [a for a in (_domain_entry_name(d) for d in domains) if a]
+                        svc_registry = await start_registry_server(mini_yaml, expected_apps=expected_apps)
                         os.environ["MCP_SERVERS_FILE"] = str(Path(mini_yaml).resolve())
 
                     task_results = await evaluate_single_task(
@@ -2754,7 +3014,7 @@ async def run_config_mode(args, container_runtime: str, defer_save: bool = False
             # separate 100-task file per capability.
             if defer_save:
                 return all_results
-            _finalize_and_save_results(all_results, no_ground_truth)
+            _finalize_and_save_results(all_results, no_ground_truth, bundle_dir=bundle_dir)
         else:
             logger.warning("⚠️  No results produced. Check the registry logs and task filters.")
 
@@ -2767,7 +3027,13 @@ async def run_config_mode(args, container_runtime: str, defer_save: bool = False
         # the right status. (Bug #91, #92.)
         logger.warning("⛔ Evaluation interrupted — saving any partial results before exit...")
         try:
-            if all_results:
+            if bundle_dir is not None:
+                from benchmarks.helpers.incremental_results import finalize_merged_results
+
+                prefix = "m3_config_no_gt" if no_ground_truth else "m3_config"
+                saved_path = finalize_merged_results(bundle_dir, prefix=prefix)
+                logger.warning(f"📁 Partial results merged from disk to: {saved_path}")
+            elif all_results:
                 output_dir = Path(__file__).parent / "results"
                 prefix = "m3_config_no_gt_partial" if no_ground_truth else "m3_config_partial"
                 saved_path = save_evaluation_results(all_results, output_dir, prefix=prefix)
@@ -2782,7 +3048,13 @@ async def run_config_mode(args, container_runtime: str, defer_save: bool = False
         # partial-save logic as the interrupt path, then re-raise. (Bug #92.)
         logger.error(f"❌ Evaluation aborted by unexpected error: {eval_err}")
         try:
-            if all_results:
+            if bundle_dir is not None:
+                from benchmarks.helpers.incremental_results import finalize_merged_results
+
+                prefix = "m3_config_no_gt" if no_ground_truth else "m3_config"
+                saved_path = finalize_merged_results(bundle_dir, prefix=prefix)
+                logger.warning(f"📁 Partial results merged from disk to: {saved_path}")
+            elif all_results:
                 output_dir = Path(__file__).parent / "results"
                 prefix = "m3_config_no_gt_partial" if no_ground_truth else "m3_config_partial"
                 saved_path = save_evaluation_results(all_results, output_dir, prefix=prefix)
@@ -2966,6 +3238,19 @@ Examples:
         "(default), policies are loaded per-domain from "
         "benchmarks/m3/policies/policies.json after the per-domain agent is "
         "constructed.",
+    )
+    parser.add_argument(
+        "--bundle-dir",
+        type=str,
+        default=None,
+        help="Bundle workspace directory for incremental, resumable results.",
+    )
+    parser.add_argument(
+        "--resume-task-ids",
+        type=str,
+        nargs="*",
+        default=None,
+        help="Task IDs to treat as already completed (skip). Usually computed by the shell layer.",
     )
 
     from benchmarks.helpers.logging_args import add_log_level_args, apply_log_level

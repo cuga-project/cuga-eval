@@ -31,9 +31,9 @@ if [ -f "$PROJECT_ROOT/benchmarks/helpers/common.sh" ]; then
     source "$PROJECT_ROOT/benchmarks/helpers/common.sh"
 fi
 
-# Server ports
+# Server ports (REGISTRY_PORT resolved after load_env.sh below; FASTAPI_PORT is
+# internal-only, not yet configurable — see issue #113).
 FASTAPI_PORT=8095
-REGISTRY_PORT=8001
 
 # PIDs for cleanup
 FASTAPI_PID=""
@@ -46,6 +46,7 @@ MCP_SERVERS_FILE="${MCP_SERVERS_FILE:-benchmarks/bpo/mcp_servers/bpo.yaml}"
 # When SKIP_SERVER_CLEANUP=true (set by compare.sh), servers are left running.
 cleanup() {
     local exit_code=$?
+    finalize_run_state_on_exit "$exit_code"
     echo ""
     echo -e "${YELLOW:-}Cleaning up...${NC:-}"
 
@@ -80,6 +81,11 @@ cleanup() {
         echo -e "${RED:-}Cleanup complete (script exited with code $exit_code).${NC:-}"
     fi
 
+    # RUN_MARKER (if created) is only used up to the LATEST_RESULT lookup right
+    # after the evaluator exits; clean it up here instead of a dedicated trap so
+    # it can't leak on SIGKILL/early-abort without clobbering this EXIT trap.
+    [ -n "${RUN_MARKER:-}" ] && rm -f "$RUN_MARKER"
+
     exit $exit_code
 }
 
@@ -98,6 +104,12 @@ cd "$PROJECT_ROOT"
 # Load environment configuration
 echo -e "${YELLOW:-}Loading configuration...${NC:-}"
 source "$SCRIPT_DIR/../helpers/load_env.sh" "bpo"
+
+# Single registry port for shell helpers and Python (eval_bench_sdk / cuga-agent
+# both read DYNACONF_SERVER_PORTS__REGISTRY via settings.server_ports.registry).
+REGISTRY_PORT="${REGISTRY_PORT:-${DYNACONF_SERVER_PORTS__REGISTRY:-8001}}"
+export REGISTRY_PORT
+export DYNACONF_SERVER_PORTS__REGISTRY="$REGISTRY_PORT"
 
 # Capture console output to a log file for reproducibility bundles
 CONSOLE_LOG="/tmp/bpo_console.log"
@@ -142,6 +154,34 @@ while [[ $# -gt 0 ]]; do
             MODEL_PROFILE="$2"
             shift 2
             ;;
+        --experiment)
+            EXPERIMENT="$2"
+            shift 2
+            ;;
+        --resume)
+            RESUME=true
+            shift
+            ;;
+        --resume-experiment)
+            RESUME_EXPERIMENT="$2"
+            shift 2
+            ;;
+        --background)
+            BACKGROUND=true
+            shift
+            ;;
+        --stop)
+            STOP=true
+            shift
+            ;;
+        --restart)
+            RESTART=true
+            shift
+            ;;
+        --status)
+            STATUS=true
+            shift
+            ;;
         --agent)
             AGENT="$2"
             shift 2
@@ -159,6 +199,13 @@ while [[ $# -gt 0 ]]; do
             echo "  --no-bundle                Skip reproducibility bundle creation"
             echo "  --bundle-zip               Create zip archive of bundle"
             echo "  --model-profile <name>     Model profile (for bundle metadata)"
+            echo "  --experiment <name>        Named experiment workspace (resumable)"
+            echo "  --resume                   Resume the last experiment"
+            echo "  --resume-experiment <name> Resume a named experiment"
+            echo "  --background              Run in the background"
+            echo "  --status                  Show experiment run status"
+            echo "  --stop                    Stop a background run"
+            echo "  --restart                 Stop then resume in the background"
             echo "  --agent <name>             Agent to run (cuga, react; default: cuga)"
             echo "  --no-policies              Disable CUGA policies (for baselining)"
             echo "  --verbose, -v              Enable DEBUG-level output"
@@ -177,6 +224,12 @@ while [[ $# -gt 0 ]]; do
     esac
 done
 
+# Apply --model-profile after load_env + arg parsing. common.sh is sourced
+# unconditionally above; hard-fail loudly if that ever stops being true
+# instead of silently skipping model-profile application.
+declare -F finalize_model_config >/dev/null || { echo "Error: common.sh not sourced (finalize_model_config unavailable)" >&2; exit 1; }
+finalize_model_config || exit 1
+
 # Validate --agent selection before any server/process side effects (fast-fail)
 if [ "${AGENT:-cuga}" = "codeact" ]; then
     echo -e "${RED:-}Error: --agent codeact is supported only by the appworld benchmark.${NC:-}"
@@ -194,6 +247,23 @@ fi
 echo -e "${GREEN:-}✓${NC:-} Task files: ${DATA_ARGS[*]}"
 echo ""
 
+# Lifecycle short-circuits (--status / --stop / --background / --restart).
+if handle_eval_lifecycle "bpo" "$0" "${PASSTHROUGH_ARGS[@]}"; then
+    exit 0
+fi
+
+# Optional experiment workspace (named/resume modes only).
+NO_POLICIES=false
+for arg in "${PASSTHROUGH_ARGS[@]}"; do
+    if [[ "$arg" == "--no-policies" ]]; then
+        NO_POLICIES=true
+    fi
+done
+if prepare_experiment_workspace "bpo"; then
+    PASSTHROUGH_ARGS+=(--bundle-dir "$WORKSPACE_BUNDLE_DIR")
+    mark_run_state_started
+fi
+
 # Start servers unless SKIP_SERVER_START is set
 if [ "${SKIP_SERVER_START:-false}" != "true" ]; then
 
@@ -205,7 +275,7 @@ if [ "${SKIP_SERVER_START:-false}" != "true" ]; then
     fi
 
     echo -e "${YELLOW:-}Starting FastAPI server on port $FASTAPI_PORT...${NC:-}"
-    uv run uvicorn benchmarks.bpo.main:app --port $FASTAPI_PORT > /tmp/bpo_fastapi.log 2>&1 &
+    uv run --no-sync uvicorn benchmarks.bpo.main:app --port $FASTAPI_PORT > /tmp/bpo_fastapi.log 2>&1 &
     FASTAPI_PID=$!
 
     if ! wait_for_server "http://127.0.0.1:$FASTAPI_PORT/health" "FastAPI server" 30; then
@@ -224,7 +294,7 @@ if [ "${SKIP_SERVER_START:-false}" != "true" ]; then
     fi
 
     echo -e "${YELLOW:-}Starting registry server on port $REGISTRY_PORT...${NC:-}"
-    MCP_SERVERS_FILE="$MCP_SERVERS_FILE" uv run registry > /tmp/bpo_registry.log 2>&1 &
+    MCP_SERVERS_FILE="$MCP_SERVERS_FILE" uv run --no-sync registry > /tmp/bpo_registry.log 2>&1 &
     REGISTRY_PID=$!
 
     if ! wait_for_server "http://127.0.0.1:$REGISTRY_PORT/" "registry server" 30; then
@@ -263,14 +333,46 @@ fi
 echo -e "${YELLOW:-}Starting evaluation...${NC:-}"
 echo ""
 
+# Unique per-process ID (timestamp + PID) so concurrent runs on this host never
+# collide, even if started in the same wall-clock second. Exported so the SDK
+# evaluator embeds it in its result filename (see save_evaluation_results).
+RUN_ID="$(date +%Y%m%d_%H%M%S)_$$"
+export EVAL_RUN_ID="$RUN_ID"
+
+# Marker whose mtime marks the start of THIS run, used only as a fallback if
+# for some reason the result file doesn't carry EVAL_RUN_ID. NOTE: mtime-newer
+# alone is not run-scoped — it can still pick up a concurrent sibling run's
+# report, not just a stale one. POSIX -newer is portable to BSD/macOS (unlike
+# -newermt). Mirrors the AppWorld harness.
+RUN_MARKER=$(mktemp "${TMPDIR:-/tmp}/bpo_run_marker.XXXXXX")
+
+# Capture the evaluator's exit code instead of letting `set -e` + the ERR trap
+# abort here — an abort would skip both the bundle and the failure banner below
+# (the else branch was previously dead code).
+set +e
 # Run with resolved --data args and any remaining passthrough arguments
 if [ "${AGENT:-cuga}" = "react" ]; then
-    uv run python -m benchmarks.bpo.eval_bench_sdk_react "${DATA_ARGS[@]}" "${PASSTHROUGH_ARGS[@]}"
+    uv run --no-sync python -m benchmarks.bpo.eval_bench_sdk_react "${DATA_ARGS[@]}" "${PASSTHROUGH_ARGS[@]}"
 else
-    uv run python -m benchmarks.bpo.eval_bench_sdk "${DATA_ARGS[@]}" "${PASSTHROUGH_ARGS[@]}"
+    uv run --no-sync python -m benchmarks.bpo.eval_bench_sdk "${DATA_ARGS[@]}" "${PASSTHROUGH_ARGS[@]}"
 fi
-
 EVAL_EXIT_CODE=$?
+set -e
+
+# Select only a result file produced by this run. Prefer an exact match on our
+# unique RUN_ID (true run-scoping, safe under concurrent runs); fall back to
+# mtime-newer-than-marker otherwise. (stderr is not redirected to /dev/null
+# here — a missing/unreadable results dir should surface as a real error, not
+# silently look like "no fresh result".)
+LATEST_RESULT=""
+if [ -d "$SCRIPT_DIR/results" ]; then
+    LATEST_RESULT=$(find "$SCRIPT_DIR/results" -name "bpo_${RUN_ID}.json" -type f | sort | tail -1)
+    if [ -z "$LATEST_RESULT" ]; then
+        LATEST_RESULT=$(find "$SCRIPT_DIR/results" -name 'bpo_*.json' -type f -newer "$RUN_MARKER" | sort | tail -1)
+    fi
+else
+    echo -e "${RED:-}✗ $SCRIPT_DIR/results does not exist — the evaluator never got as far as writing a report.${NC:-}" >&2
+fi
 
 echo ""
 if [ $EVAL_EXIT_CODE -eq 0 ]; then
@@ -278,13 +380,33 @@ if [ $EVAL_EXIT_CODE -eq 0 ]; then
     echo -e "${GREEN:-}║  Evaluation completed successfully                         ║${NC:-}"
     echo -e "${GREEN:-}╚════════════════════════════════════════════════════════════╝${NC:-}"
 
+    # A clean exit MUST come with a fresh result from this run. Refuse to bundle
+    # otherwise: the old `ls -t | head -1` fallback silently bundled a previous
+    # run's report as if it were this run's results.
+    if [ -z "$LATEST_RESULT" ]; then
+        echo -e "${RED:-}✗ Evaluator exited 0 but wrote no fresh result file — refusing to bundle stale results.${NC:-}"
+        echo -e "${RED:-}  The evaluator was likely terminated before saving; check the console log above.${NC:-}"
+        exit 1
+    fi
+
     # Create reproducibility bundle unless skipped
     if [ "${NO_BUNDLE:-false}" != "true" ]; then
         echo ""
-        echo -e "${YELLOW:-}Creating reproducibility bundle...${NC:-}"
+        if [ -n "${WORKSPACE_BUNDLE_DIR:-}" ]; then
+            echo -e "${YELLOW:-}Finalizing experiment workspace...${NC:-}"
+            FIN_EXTRA=(--policies-dir "$SCRIPT_DIR/policies")
+            for tf in "${DATA_ARGS[@]:1}"; do
+                FIN_EXTRA+=(--task-file "$tf")
+            done
+            TRAJ_DIR=$(find_latest_trajectory "$SCRIPT_DIR/logging/trajectory_data")
+            if [ -n "$TRAJ_DIR" ]; then
+                FIN_EXTRA+=(--trajectory-dir "$TRAJ_DIR")
+            fi
+            FIN_EXTRA+=(--log-file /tmp/bpo_fastapi.log --log-file /tmp/bpo_registry.log --log-file "$CONSOLE_LOG")
+            finalize_experiment_workspace "bpo" "${FIN_EXTRA[@]}"
+        else
+            echo -e "${YELLOW:-}Creating reproducibility bundle...${NC:-}"
 
-        LATEST_RESULT=$(ls -t "$SCRIPT_DIR/results"/bpo_*.json 2>/dev/null | head -1)
-        if [ -n "$LATEST_RESULT" ]; then
             # Generate eval report
             REPORT_TMP=$(mktemp /tmp/bpo_eval_report_XXXXXX)
             uv run --no-sync python -m benchmarks.helpers.compare_report eval \
@@ -316,7 +438,11 @@ if [ $EVAL_EXIT_CODE -eq 0 ]; then
             BUNDLE_ARGS+=(--log-files /tmp/bpo_fastapi.log /tmp/bpo_registry.log "$CONSOLE_LOG")
             # Download Langfuse traces if available
             BUNDLE_ARGS+=(--fetch-langfuse)
-            uv run python -m benchmarks.helpers.bundle "${BUNDLE_ARGS[@]}"
+            BUNDLE_OUT=$(uv run --no-sync python -m benchmarks.helpers.bundle "${BUNDLE_ARGS[@]}" 2>&1 | tee /dev/stderr)
+            BUNDLE_PATH=$(echo "$BUNDLE_OUT" | sed -n 's/^Bundle created: //p' | tail -1)
+            if [ -n "$BUNDLE_PATH" ]; then
+                write_legacy_experiment_pointer "bpo" "$BUNDLE_PATH"
+            fi
             rm -f "$REPORT_TMP"
         fi
     fi

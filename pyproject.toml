@@ -14,6 +14,7 @@ dependencies = [
     "griffelib",
     "sentence-transformers",
     "langfuse>=3",
+    "cuga-oak-health",
     # docling 2.92.0 split into a slim package and removed `docling.chunking`,
     # but langchain-docling 2.0.0 (a transitive of cuga) still imports it.
     # Pin to 2.91.x until langchain-docling catches up with the slim layout.
@@ -41,6 +42,7 @@ required-environments = [
 
 [tool.uv.sources]
 cuga = { path = "../cuga-agent", editable = true }
+cuga-oak-health = { git = "https://github.com/cuga-project/oak-bench", subdirectory = "oak_health" }
 # `appworld` is intentionally NOT listed here. The appworld benchmark is opt-in:
 # users run `./setup_appworld.sh`, which clones the upstream repo into
 # `benchmarks/appworld/appworld` and then `uv add --editable ... --group appworld`,
@@ -87,6 +89,7 @@ testpaths = [
     "benchmarks/appworld/tests",
     "benchmarks/tau2/tests",
     "benchmarks/helpers/tests",
+    "benchmarks/oak_health_insurance/tests",
 ]
 # Put the repo root on sys.path so tests like
 # `from benchmarks.appworld.utils.appworld_data_collection import ...`

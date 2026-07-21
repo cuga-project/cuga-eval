@@ -18,12 +18,82 @@ import sys
 import tomllib
 from pathlib import Path
 
+from benchmarks.helpers.content_filter import FAILURE_REASON_CONTENT_FILTER
+
 MODEL_DISPLAY_NAMES = {
     "gpt-oss": "GPT-OSS-120B",
     "gpt4o": "GPT-4o",
     "gpt4.1": "GPT-4.1",
     "opus4.5": "Claude Opus 4.5",
 }
+
+
+def _parse_config_key(config_key: str) -> tuple:
+    """Split a compare config key into (model, agent, policy).
+
+    Uses ``rsplit(":", 2)`` (not ``split(":")``) so a colon-bearing model id
+    doesn't get sliced apart: litellm/Bedrock model ids frequently embed a
+    colon (e.g. ``bedrock/anthropic.claude-3-sonnet-20240229-v1:0``), and a
+    plain left-to-right split would peel that off as a bogus "agent" segment
+    and push the real agent into "policy" (issue #68 review). Reserving the
+    last two splits for agent/policy keeps everything before them — colons
+    included — in the model.
+
+    This resolves the common 3-segment case (``model:agent:policy``, used by
+    every benchmark that compares policies). It does *not* fully disambiguate
+    a 2-segment key (``model:agent``, no policy — AppWorld/Oak's format)
+    whose model id itself contains a colon: with no policy segment to anchor
+    the split, ``rsplit(":", 2)`` still consumes both colons and misparses
+    the same way ``split(":")`` did. No model in the current registry
+    (``gpt-oss``, ``gpt4o``, ``gpt4.1``, ``opus4.5``) has a colon, so this
+    doesn't bite today; a colon-bearing model added to a 2-segment-only
+    comparison would need the caller to pass the segment count explicitly.
+    """
+    parts = config_key.rsplit(":", 2)
+    model = parts[0]
+    agent = parts[1] if len(parts) > 1 and parts[1] else None
+    policy = parts[2] if len(parts) > 2 and parts[2] else None
+    return model, agent, policy
+
+
+def _task_result_mark(task: dict, *, markdown: bool = True) -> str:
+    """Render pass/fail mark, annotating known non-agent failure reasons.
+
+    Markdown tables don't need fixed-width cells, so the content-filter
+    annotation spells out "content_filter" there. Plain-text tables use
+    fixed-width columns (see the ``mark:<2`` cells below), so every
+    non-markdown return value here is exactly 2 characters wide — "✗c" for a
+    content-filter failure, "✓ "/"✗ " otherwise — the full word would blow
+    out row alignment for every column after it, and a narrower ``✓``/``✗``
+    without the padding space would misalign against the 2-char "✗c" rows.
+    """
+    if task.get("success"):
+        return "✓" if markdown else "✓ "
+    if task.get("failure_reason") == FAILURE_REASON_CONTENT_FILTER:
+        return "✗ content_filter" if markdown else "✗c"
+    return "✗" if markdown else "✗ "
+
+
+def _content_filter_failure_count(tasks: dict) -> int:
+    return sum(
+        1
+        for t in tasks.values()
+        if not t.get("success") and t.get("failure_reason") == FAILURE_REASON_CONTENT_FILTER
+    )
+
+
+def _append_content_filter_summary(lines: list[str], tasks: dict, *, markdown: bool) -> None:
+    count = _content_filter_failure_count(tasks)
+    if count <= 0:
+        return
+    note = (
+        f"{count} task(s) failed because Azure's content filter rejected the request "
+        "(scored 0.0; prompt vs. completion not distinguishable from the captured error text)"
+    )
+    if markdown:
+        lines.append(f"- **Content filter failures**: {note}")
+    else:
+        lines.append(f"  Content filter    {note}")
 
 
 def _format_config_label(config_key: str) -> str:
@@ -35,10 +105,7 @@ def _format_config_label(config_key: str) -> str:
     the key is just "model" with no agent, render as the model display name.
     Unknown models pass through verbatim.
     """
-    parts = config_key.split(":")
-    model_name = parts[0]
-    agent = parts[1] if len(parts) > 1 and parts[1] else None
-    policy = parts[2] if len(parts) > 2 and parts[2] else None
+    model_name, agent, policy = _parse_config_key(config_key)
     display_model = MODEL_DISPLAY_NAMES.get(model_name, model_name)
     if agent is None:
         return display_model
@@ -46,6 +113,93 @@ def _format_config_label(config_key: str) -> str:
     if policy is not None:
         label += f" — {policy}"
     return f"{label} ({display_model})"
+
+
+_COMPARE_GROUP_AXIS_LABELS = {"agent": "Agent", "model": "Model", "policy": "Policy"}
+
+# "cuga" is the actual runtime default agent — every benchmark's eval.sh falls
+# back to it via `${AGENT:-cuga}` (confirmed in appworld/bpo/m3/oak eval.sh),
+# so a config key missing the agent segment can be resolved to the concrete
+# value that ran, not a vague placeholder (issue #68 review).
+_DEFAULT_AGENT = "cuga"
+
+# Unlike agent, there's no single concrete fallback for a missing policy
+# segment: AppWorld/Oak never load policies at all (no such config dimension
+# — see eval_appworld_sdk.py's "No policy loading" comment), while BPO/M3's
+# compare.sh always stamps an explicit "policies" or "no-policies" tag when
+# policies are being compared, so a *missing* segment there wouldn't mean
+# "disabled" either. This module is deliberately benchmark-agnostic (see
+# module docstring) and a config key alone doesn't say which benchmark
+# produced it, so asserting a concrete default here would be a guess dressed
+# up as fact. Label it as "not part of this comparison" instead.
+_POLICY_NOT_COMPARED = "(not compared)"
+
+
+def _group_value_for_axis(config_key: str, axis: str) -> str:
+    model, agent, policy = _parse_config_key(config_key)
+    if axis == "model":
+        return model
+    if axis == "agent":
+        return agent or _DEFAULT_AGENT
+    if axis == "policy":
+        return policy or _POLICY_NOT_COMPARED
+    raise ValueError(axis)
+
+
+def _compare_grouping_axes(config_keys: list) -> list[str]:
+    """Return the axes to nest by, in priority order (agent > model > policy),
+    restricted to axes that actually vary across ``config_keys``.
+
+    Returns [] when 0 or 1 axes vary — a single varying dimension reads fine
+    as a flat table and doesn't need a heading per value (the "flat when
+    single axis varies" contract). When 2+ axes vary, *every* varying axis
+    gets its own nesting level: grouping by just the highest-priority axis
+    (the old behavior) still interleaved the other varying dimensions inside
+    each group once more than one axis moved (issue #68 review — e.g. 2
+    agents x 2 models grouped by agent alone still mixes both models
+    together under each agent heading).
+    """
+    models: set[str] = set()
+    agents: set[str] = set()
+    policies: set[str] = set()
+    for key in config_keys:
+        model, agent, policy = _parse_config_key(key)
+        models.add(model)
+        agents.add(agent or _DEFAULT_AGENT)
+        policies.add(policy or _POLICY_NOT_COMPARED)
+    varying: set[str] = set()
+    if len(models) > 1:
+        varying.add("model")
+    if len(agents) > 1:
+        varying.add("agent")
+    if len(policies) > 1:
+        varying.add("policy")
+    if len(varying) <= 1:
+        return []
+    return [axis for axis in ("agent", "model", "policy") if axis in varying]
+
+
+def _group_model_data(model_data: dict, axis: str) -> dict:
+    from collections import defaultdict
+
+    grouped = defaultdict(dict)
+    for config_key, runs in model_data.items():
+        grouped[_group_value_for_axis(config_key, axis)][config_key] = runs
+    return dict(grouped)
+
+
+def _compare_metrics_glossary(h2) -> list:
+    lines = [h2("Metrics"), ""]
+    lines.append("- **pass@k**: at least 1 success across k runs (any-pass coverage).")
+    lines.append("- **pass^k**: all k runs successful (perfect reliability).")
+    lines.append("- **maj@k**: majority of runs passed (> k/2). Captures tasks solved more often than not.")
+    lines.append(
+        "- **Cons** (Consistency): pass^k / maj@k. Of the tasks the agent solves most of the time, "
+        "what fraction does it solve every time? 1.0 = perfectly reliable on its winnable tasks; "
+        "lower = higher variance. `--` when no task passes a majority."
+    )
+    lines.append("")
+    return lines
 
 
 def _fmt(val, fmt=","):
@@ -142,6 +296,7 @@ def _parse_sdk_results(data: dict) -> dict:
             # {}) for non-Vakra-scored results.
             "match_rate": r.get("match_rate"),
             "judge_scores": _last_turn_judge_scores(r.get("vakra") or {}),
+            "failure_reason": r.get("failure_reason"),
         }
 
     return {
@@ -182,6 +337,7 @@ def _parse_appworld_results(data: dict) -> dict:
             "steps": t.get("steps"),
             "difficulty": t.get("difficulty"),
             "uuid": tid,
+            "failure_reason": t.get("failure_reason"),
         }
 
     return {
@@ -294,6 +450,26 @@ def _m3_capability_domain_group(t: dict) -> str | None:
     if tid is None or not dom:
         return None
     return f"m3_task_{tid}/{dom}"
+
+
+def _m3_capability_group(t: dict) -> str | None:
+    """Group key: M3 capability only, "m3_task_<id>", or None when absent.
+
+    A coarser rollup than `_m3_capability_domain_group` — one row per
+    capability instead of per (capability, domain).
+    """
+    tid = t.get("m3_task_id")
+    if tid is None:
+        return None
+    return f"m3_task_{tid}"
+
+
+def _m3_capability_sort_key(g: str):
+    """Sort m3_task_<id> capability labels by numeric id (m3_task_2 < m3_task_10)."""
+    try:
+        return (0, int(g.rsplit("_", 1)[-1]))
+    except (ValueError, TypeError):
+        return (1, g)
 
 
 def _load_appworld_categories(config_path: Path | None = None) -> dict[str, str]:
@@ -450,12 +626,16 @@ def _per_group_section(
 
 
 def _eval_group_breakdown(
-    tasks: dict, fence_open, fence_close, h2, *, title, col_label, group_fn, sort_key=None
+    tasks: dict, fence_open, fence_close, h2, *, title, col_label, group_fn, sort_key=None, markdown=False
 ) -> list[str]:
     """Per-group cost/pass breakdown for a single eval report.
 
     No pass@k / pass^k / maj@k here — those are compare-only metrics (a
     single eval run has k=1). Returns [] when no task is assigned to a group.
+
+    When ``markdown`` is set the section is rendered as a GitHub-flavored
+    markdown table (matching the Per-Task Results table) instead of a
+    fixed-width monospace block; otherwise the legacy fenced text table is used.
     """
     groups: dict[str, dict] = {}
     for name, t in tasks.items():
@@ -467,13 +647,52 @@ def _eval_group_breakdown(
         return []
 
     sorted_groups = sorted(groups, key=sort_key) if sort_key else sorted(groups)
-    grp_w = max(len(col_label), max(len(g) for g in sorted_groups))
-    out: list[str] = [h2(title), ""]
-    if fence_open():
-        out.append(fence_open())
+
     # Totals AND per-task averages: raw totals across groups of different sizes
     # aren't directly comparable, so the avg-per-task columns let you compare
     # cost across groups (issue #51 review).
+    cols = (
+        col_label,
+        "Tasks",
+        "Pass@1",
+        "Tokens",
+        "Tok/Task",
+        "LLM Calls",
+        "LLM/Task",
+        "Duration",
+        "Dur/Task",
+    )
+
+    def _row_cells(grp: str) -> tuple:
+        grp_tasks = groups[grp]
+        n = len(grp_tasks)
+        passed = sum(1 for t in grp_tasks.values() if t.get("success"))
+        rate = (passed / n * 100) if n else 0.0
+        agg = _aggregate_costs(grp_tasks)
+        return (
+            grp,
+            str(n),
+            f"{rate:.1f}%",
+            _fmt(agg["total_tokens"]),
+            _fmt(agg["avg_tokens"]),
+            _fmt(agg["total_llm_calls"]),
+            _fmt(agg["avg_llm_calls"]),
+            _fmt(agg["total_duration"], "s"),
+            _fmt(agg["avg_duration"], "s"),
+        )
+
+    out: list[str] = [h2(title), ""]
+    if markdown:
+        out.append("| " + " | ".join(cols) + " |")
+        out.append("|" + "|".join("---" for _ in cols) + "|")
+        for grp in sorted_groups:
+            out.append("| " + " | ".join(_row_cells(grp)) + " |")
+        out.append("")
+        return out
+
+    grp_w = max(len(col_label), max(len(g) for g in sorted_groups))
+    if fence_open():
+        out.append(fence_open())
     header = (
         f"{col_label:<{grp_w}}  {'Tasks':>5}  {'Pass@1':>8}  "
         f"{'Tokens':>10}  {'Tok/Task':>10}  {'LLM Calls':>9}  {'LLM/Task':>9}  "
@@ -482,16 +701,11 @@ def _eval_group_breakdown(
     out.append(header)
     out.append("─" * len(header))
     for grp in sorted_groups:
-        grp_tasks = groups[grp]
-        n = len(grp_tasks)
-        passed = sum(1 for t in grp_tasks.values() if t.get("success"))
-        rate = (passed / n * 100) if n else 0.0
-        agg = _aggregate_costs(grp_tasks)
+        cells = _row_cells(grp)
         out.append(
-            f"{grp:<{grp_w}}  {n:>5}  {rate:>7.1f}%  "
-            f"{_fmt(agg['total_tokens']):>10}  {_fmt(agg['avg_tokens']):>10}  "
-            f"{_fmt(agg['total_llm_calls']):>9}  {_fmt(agg['avg_llm_calls']):>9}  "
-            f"{_fmt(agg['total_duration'], 's'):>9}  {_fmt(agg['avg_duration'], 's'):>9}"
+            f"{cells[0]:<{grp_w}}  {cells[1]:>5}  {cells[2]:>8}  "
+            f"{cells[3]:>10}  {cells[4]:>10}  {cells[5]:>9}  {cells[6]:>9}  "
+            f"{cells[7]:>9}  {cells[8]:>9}"
         )
     if fence_close():
         out.append(fence_close())
@@ -499,14 +713,27 @@ def _eval_group_breakdown(
     return out
 
 
+def _task_run_symbol(success, failure_reason) -> str:
+    """Render a single run's compact pass/fail cell for the Per-Task Details table."""
+    if success is None:
+        return "— "
+    if success:
+        return "✓ "
+    if failure_reason == FAILURE_REASON_CONTENT_FILTER:
+        return "✗c"
+    return "✗ "
+
+
 def _stats_for_task(task_runs):
     """Aggregate per-task across runs: ✓/✗ list, success counts, mean tokens/llm/time."""
     statuses = [r.get("success") for r in task_runs]
+    failure_reasons = [r.get("failure_reason") for r in task_runs]
     successes = sum(1 for s in statuses if s)
     total = len(task_runs)
     rate = successes / total if total else 0.0
     return {
         "statuses": statuses,
+        "failure_reasons": failure_reasons,
         "successes": successes,
         "total": total,
         "rate": rate,
@@ -522,43 +749,56 @@ def _stats_for_task(task_runs):
     }
 
 
-def generate_report(config_results: dict[str, list[str]], markdown: bool = True) -> str:
-    """Generate a multi-run comparison report with pass@k / pass^k, compact
-    per-task ✓/✗ rows, and aggregated tokens/LLM/time per task.
+def _markdown_header(level: int):
+    """Markdown ATX header at ``level``, clamped to 1-6 (GFM's max depth)."""
+    lvl = max(1, min(level, 6))
+    prefix = "#" * lvl
+    return lambda s: f"{prefix} {s}"
 
-    When ``markdown=True`` (default), section titles use markdown headers and
-    tabular sections are wrapped in fenced code blocks — that's what gets saved
-    to report.md. When ``markdown=False``, the same content is emitted as plain
-    text (no ``##`` / no ```` ``` ``` ````) so it's readable on a terminal in a
-    monospace font without rendering.
+
+def _plain_header(level: int):
+    """Plain-text header at ``level``.
+
+    Levels 1/2 keep the original full-width underline styles ("=" / "-") so
+    the report title and top-level sections still read as headings in a
+    monospace terminal. Level 3+ (sub-sections — e.g. nested group headings
+    beyond the first axis, or a group's inner "Summary"/"Per-Task Details"
+    sections) are progressively indented and underlined with "─" instead of
+    "-", so they're visually distinguishable from a level-2 heading rather
+    than reading identically to one (issue #68 review).
     """
-    h1 = (lambda s: f"# {s}") if markdown else (lambda s: f"\n{s}\n{'=' * len(s)}")
-    h2 = (lambda s: f"## {s}") if markdown else (lambda s: f"\n{s}\n{'-' * len(s)}")
-    h3 = (lambda s: f"### {s}") if markdown else (lambda s: f"\n{s}")
-    fence_open = (lambda: "```text") if markdown else (lambda: "")
-    fence_close = (lambda: "```") if markdown else (lambda: "")
-    # ---- 1. Parse all result files into model_data {config_key: [run_dict, ...]}
-    model_data = {}
-    max_runs = 0
-    for config_key, file_paths in sorted(config_results.items()):
-        runs = []
-        for fp in file_paths:
-            try:
-                runs.append(parse_result_file(fp))
-            except Exception as e:
-                print(f"Warning: Failed to parse {fp}: {e}", file=sys.stderr)
-        if not runs:
-            continue
-        model_data[config_key] = runs
-        max_runs = max(max_runs, len(runs))
+    if level <= 1:
+        return lambda s: f"\n{s}\n{'=' * len(s)}"
+    if level == 2:
+        return lambda s: f"\n{s}\n{'-' * len(s)}"
+    indent = "  " * (level - 2)
 
-    if not model_data:
-        return f"{h1('Evaluation Comparison Report')}\n\nNo valid result files found.\n"
+    def _fmt(s: str) -> str:
+        return f"\n{indent}{s}\n{indent}{'─' * len(s)}"
 
-    lines = [h1("Evaluation Comparison Report"), ""]
-    lines.append(f"{max_runs} run(s) per configuration.")
-    lines.append("")
+    return _fmt
 
+
+def _header_factory(markdown: bool):
+    """Return a ``level -> (str -> str)`` header renderer for the given
+    output mode. Centralizes header-level math so nested compare-report
+    grouping (agent/model/policy) can hand out increasing header depths
+    (## for the outermost group, ### for the next, and so on) without every
+    call site re-deriving "#" counts vs. plain-text underline/indent styles.
+    """
+    return _markdown_header if markdown else _plain_header
+
+
+def _render_compare_report_sections(
+    model_data: dict,
+    max_runs: int,
+    *,
+    h2,
+    h3,
+    fence_open,
+    fence_close,
+) -> list:
+    lines: list = []
     # ---- 2. Summary Table (with pass@k, pass^k, maj@k, consistency)
     lines.append(h2("Summary"))
     lines.append("")
@@ -590,6 +830,21 @@ def generate_report(config_results: dict[str, list[str]], markdown: bool = True)
     if fence_close():
         lines.append(fence_close())
     lines.append("")
+
+    total_content_filter = sum(
+        _content_filter_failure_count(r["tasks"]) for runs in model_data.values() for r in runs
+    )
+    if total_content_filter > 0:
+        note = (
+            f"{total_content_filter} task run(s) failed because Azure's content filter rejected the "
+            "request (scored 0.0; prompt vs. completion not distinguishable from the captured error "
+            "text — marked ✗c in Per-Task Details)"
+        )
+        if fence_open():
+            lines.append(f"- **Content filter failures**: {note}")
+        else:
+            lines.append(f"  Content filter    {note}")
+        lines.append("")
 
     # ---- 2a. Cost Summary: per-config totals and per-task averages for
     # tokens, LLM calls, and time. "Total" here is the per-run total averaged
@@ -778,7 +1033,9 @@ def generate_report(config_results: dict[str, list[str]], markdown: bool = True)
         for task in all_tasks:
             task_runs = [r["tasks"].get(task, {}) for r in runs]
             stats = _stats_for_task(task_runs)
-            symbols = "  ".join(("✓ " if s else "✗ ") if s is not None else "— " for s in stats["statuses"])
+            symbols = "  ".join(
+                _task_run_symbol(s, fr) for s, fr in zip(stats["statuses"], stats["failure_reasons"])
+            )
             successes = stats["successes"]
             total = stats["total"]
             rate_pct = stats["rate"] * 100
@@ -877,16 +1134,127 @@ def generate_report(config_results: dict[str, list[str]], markdown: bool = True)
             lines.append(fence_close())
         lines.append("")
 
-    # ---- 5. Metric glossary
-    lines.append(h2("Metrics"))
+    return lines
+
+
+def _render_compare_axis_groups(
+    model_data: dict,
+    axes: list,
+    depth: int,
+    *,
+    header,
+    fence_open,
+    fence_close,
+) -> list:
+    """Recursively nest compare-report sections by grouping axis.
+
+    ``axes`` is the ordered list of dimensions left to nest by (already
+    filtered to the ones that actually vary, in agent > model > policy
+    priority — see ``_compare_grouping_axes``). ``depth`` is how many axis
+    levels have been consumed so far.
+
+    Each grouping level's heading renders at header depth ``depth + 2`` (##
+    for the first axis, ### for the second, #### for the third), so:
+      - 0 varying axes (flat report): base case fires immediately at
+        depth=0, sections render at level 2 (##) / 3 (###) — unchanged from
+        the pre-grouping layout.
+      - 1 varying axis: one level of "## <Axis>: <value>" headings, with the
+        sections *inside* each one bumped to level 3 (###) / 4 (####) so they
+        read as children of the group heading, not siblings of it (issue #68
+        review — this was the "flat-looking despite grouping" bug).
+      - 2+ varying axes: one heading level per axis, deepest first by
+        priority, with content pushed correspondingly deeper.
+    """
+    if not axes:
+        max_runs = max((len(runs) for runs in model_data.values()), default=0)
+        return _render_compare_report_sections(
+            model_data,
+            max_runs,
+            h2=header(depth + 2),
+            h3=header(depth + 3),
+            fence_open=fence_open,
+            fence_close=fence_close,
+        )
+
+    axis, *remaining = axes
+    grouped = _group_model_data(model_data, axis)
+    axis_label = _COMPARE_GROUP_AXIS_LABELS[axis]
+    group_header = header(depth + 2)
+
+    lines: list = []
+    for group_value in sorted(grouped.keys()):
+        lines.append(group_header(f"{axis_label}: {group_value}"))
+        lines.append("")
+        lines.extend(
+            _render_compare_axis_groups(
+                grouped[group_value],
+                remaining,
+                depth + 1,
+                header=header,
+                fence_open=fence_open,
+                fence_close=fence_close,
+            )
+        )
+    return lines
+
+
+def generate_report(config_results: dict[str, list[str]], markdown: bool = True) -> str:
+    """Generate a multi-run comparison report with pass@k / pass^k, compact
+    per-task ✓/✗ rows, and aggregated tokens/LLM/time per task.
+
+    When ``markdown=True`` (default), section titles use markdown headers and
+    tabular sections are wrapped in fenced code blocks — that's what gets saved
+    to report.md. When ``markdown=False``, the same content is emitted as plain
+    text (no ``##`` / no ```` ``` ``` ````) so it's readable on a terminal in a
+    monospace font without rendering.
+
+    When multiple comparison axes (agent/model/policy) vary across
+    ``config_results``, sections are nested under a heading per varying axis
+    (see ``_render_compare_axis_groups``) instead of a single flat table, so
+    the report's header hierarchy actually reflects the grouping.
+    """
+    header = _header_factory(markdown)
+    h1 = header(1)
+    fence_open = (lambda: "```text") if markdown else (lambda: "")
+    fence_close = (lambda: "```") if markdown else (lambda: "")
+    # ---- 1. Parse all result files into model_data {config_key: [run_dict, ...]}
+    model_data = {}
+    max_runs = 0
+    for config_key, file_paths in sorted(config_results.items()):
+        runs = []
+        for fp in file_paths:
+            try:
+                runs.append(parse_result_file(fp))
+            except Exception as e:
+                print(f"Warning: Failed to parse {fp}: {e}", file=sys.stderr)
+        if not runs:
+            continue
+        model_data[config_key] = runs
+        max_runs = max(max_runs, len(runs))
+
+    if not model_data:
+        return f"{h1('Evaluation Comparison Report')}\n\nNo valid result files found.\n"
+
+    lines = [h1("Evaluation Comparison Report"), ""]
+    lines.append(f"{max_runs} run(s) per configuration.")
     lines.append("")
-    lines.append("- **pass@k**: at least 1 success across k runs (any-pass coverage).")
-    lines.append("- **pass^k**: all k runs successful (perfect reliability).")
-    lines.append("- **maj@k**: majority of runs passed (> k/2). Captures tasks solved more often than not.")
+
+    grouping_axes = _compare_grouping_axes(list(model_data.keys()))
+    lines.extend(
+        _render_compare_axis_groups(
+            model_data,
+            grouping_axes,
+            depth=0,
+            header=header,
+            fence_open=fence_open,
+            fence_close=fence_close,
+        )
+    )
+
+    lines.extend(_compare_metrics_glossary(header(2)))
     lines.append(
-        "- **Cons** (Consistency): pass^k / maj@k. Of the tasks the agent solves most of the time, "
-        "what fraction does it solve every time? 1.0 = perfectly reliable on its winnable tasks; "
-        "lower = higher variance. `--` when no task passes a majority."
+        "- **✗c**: task run aborted by Azure's content filter (scored 0.0; prompt vs. completion not "
+        "distinguishable from the captured error text — see Content filter failures note under Summary)."
     )
     lines.append("")
 
@@ -1000,6 +1368,7 @@ def generate_eval_report(result_file: str, markdown: bool = True) -> str:
         lines.append(f"  Avg LLM Calls/Task {_fmt(cost['avg_llm_calls'])}")
         lines.append(f"  Total Duration     {_fmt(parsed.get('duration'), 's')}")
         lines.append(f"  Avg Duration/Task  {_fmt(cost['avg_duration'], 's')}")
+    _append_content_filter_summary(lines, parsed["tasks"], markdown=markdown)
     lines.append("")
 
     lines.append(h2("Per-Task Results"))
@@ -1051,7 +1420,7 @@ def generate_eval_report(result_file: str, markdown: bool = True) -> str:
                     dom_disp = dom
                     current_key = key
                 ordn_disp = str(ordn) if ordn is not None else "—"
-                status = "✓" if t["success"] else "✗"
+                status = _task_result_mark(t)
                 vakra_cols = ""
                 if has_vakra:
                     judge = t.get("judge_scores") or {}
@@ -1074,14 +1443,14 @@ def generate_eval_report(result_file: str, markdown: bool = True) -> str:
             if has_vakra:
                 header = (
                     f"  {col_task:<4}  {'Domain':<{col_dom_w}}  {'#':>2}  "
-                    f"{'R':<1}  {'Dialog':>6}  {'ExctM':>5}  {'Answer':>6}  {'Ground':>6}  "
+                    f"{'R':<2}  {'Dialog':>6}  {'ExctM':>5}  {'Answer':>6}  {'Ground':>6}  "
                     f"{'Tokens':>10}  {'Cost':>7}  {'LLM':>5}  "
                     f"{'Cache':>10}  {'Duration':>9}  {'Steps':>5}"
                 )
             else:
                 header = (
                     f"  {col_task:<4}  {'Domain':<{col_dom_w}}  {'#':>2}  "
-                    f"{'R':<1}  {'Tokens':>10}  {'Cost':>7}  {'LLM':>5}  "
+                    f"{'R':<2}  {'Tokens':>10}  {'Cost':>7}  {'LLM':>5}  "
                     f"{'Cache':>10}  {'Duration':>9}  {'Steps':>5}"
                 )
             lines.append(header)
@@ -1103,7 +1472,7 @@ def generate_eval_report(result_file: str, markdown: bool = True) -> str:
                     dom_disp = dom
                     current_key2 = key
                 ordn_disp = str(ordn) if ordn is not None else "—"
-                mark = "✓" if t["success"] else "✗"
+                mark = _task_result_mark(t, markdown=False)
                 vakra_cols = ""
                 if has_vakra:
                     judge = t.get("judge_scores") or {}
@@ -1115,7 +1484,7 @@ def generate_eval_report(result_file: str, markdown: bool = True) -> str:
                     )
                 lines.append(
                     f"  {tid_disp:<4}  {dom_disp:<{col_dom_w}}  {ordn_disp:>2}  "
-                    f"{mark:<1}  {vakra_cols}"
+                    f"{mark:<2}  {vakra_cols}"
                     f"{_fmt(t['tokens']):>10}  "
                     f"{_fmt(t.get('cost'), '$'):>7}  "
                     f"{_fmt(t.get('llm_calls')):>5}  "
@@ -1130,7 +1499,7 @@ def generate_eval_report(result_file: str, markdown: bool = True) -> str:
             lines.append("|------|--------|--------|------|-----------|--------------|----------|-------|")
             for row in rows:
                 t = row["data"]
-                status = "✓" if t["success"] else "✗"
+                status = _task_result_mark(t)
                 lines.append(
                     f"| {row['label']} | {status} | {_fmt(t['tokens'])} "
                     f"| {_fmt(t.get('cost'), '$')} | {_fmt(t.get('llm_calls'))} "
@@ -1140,7 +1509,7 @@ def generate_eval_report(result_file: str, markdown: bool = True) -> str:
         else:
             col_task_w = min(40, max(len("Task"), max((len(r["label"]) for r in rows), default=8)))
             header = (
-                f"  {'Task':<{col_task_w}}  {'R':<1}  {'Tokens':>10}  "
+                f"  {'Task':<{col_task_w}}  {'R':<2}  {'Tokens':>10}  "
                 f"{'Cost':>7}  {'LLM':>5}  {'Cache':>10}  "
                 f"{'Duration':>9}  {'Steps':>5}"
             )
@@ -1151,9 +1520,9 @@ def generate_eval_report(result_file: str, markdown: bool = True) -> str:
                 lbl = row["label"]
                 if len(lbl) > col_task_w:
                     lbl = lbl[: col_task_w - 1] + "…"
-                mark = "✓" if t["success"] else "✗"
+                mark = _task_result_mark(t, markdown=False)
                 lines.append(
-                    f"  {lbl:<{col_task_w}}  {mark:<1}  "
+                    f"  {lbl:<{col_task_w}}  {mark:<2}  "
                     f"{_fmt(t['tokens']):>10}  "
                     f"{_fmt(t.get('cost'), '$'):>7}  "
                     f"{_fmt(t.get('llm_calls')):>5}  "
@@ -1166,9 +1535,23 @@ def generate_eval_report(result_file: str, markdown: bool = True) -> str:
 
     # ---- Per-group breakdowns (only when this report's tasks carry the
     # relevant metadata, so unrelated reports stay unchanged):
-    #   - capability/domain (M3)
+    #   - capability rollup (M3)        — coarse, one row per capability
+    #   - capability/domain (M3)        — fine, one row per (capability, domain)
     #   - difficulty (AppWorld)
     #   - normal/challenge test set (AppWorld, via eval_config.toml)
+    lines.extend(
+        _eval_group_breakdown(
+            parsed["tasks"],
+            fence_open,
+            fence_close,
+            h2,
+            title="Capability Breakdown",
+            col_label="Capability",
+            group_fn=_m3_capability_group,
+            sort_key=_m3_capability_sort_key,
+            markdown=markdown,
+        )
+    )
     lines.extend(
         _eval_group_breakdown(
             parsed["tasks"],
@@ -1178,6 +1561,7 @@ def generate_eval_report(result_file: str, markdown: bool = True) -> str:
             title="Capability/Domain Breakdown",
             col_label="Capability/Domain",
             group_fn=_m3_capability_domain_group,
+            markdown=markdown,
         )
     )
     lines.extend(
@@ -1190,6 +1574,7 @@ def generate_eval_report(result_file: str, markdown: bool = True) -> str:
             col_label="Diff",
             group_fn=_difficulty_group,
             sort_key=_difficulty_sort_key,
+            markdown=markdown,
         )
     )
     lines.extend(
@@ -1201,6 +1586,7 @@ def generate_eval_report(result_file: str, markdown: bool = True) -> str:
             title="Test-Set Breakdown (AppWorld)",
             col_label="Test Set",
             group_fn=_appworld_test_set_group(_load_appworld_categories()),
+            markdown=markdown,
         )
     )
 

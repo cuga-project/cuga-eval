@@ -69,18 +69,34 @@ var_manager = VariablesManager()
 class BPOEvaluator:
     """Evaluator for BPO Benchmark tasks."""
 
-    def __init__(self, task_ids: Optional[List[str]] = None, policies_enabled: bool = True):
+    def __init__(
+        self,
+        task_ids: Optional[List[str]] = None,
+        policies_enabled: bool = True,
+        bundle_dir: Optional[Path] = None,
+        resume_completed_ids: Optional[set] = None,
+    ):
         """
         Initialize the evaluator.
 
         Args:
             task_ids: Filter by specific task IDs/names (if provided, only these tasks will be evaluated)
             policies_enabled: Whether to load policies from policies/policies.json (default: True)
+            bundle_dir: When set, results persist incrementally under the bundle and the
+                        final merge reads from disk, enabling crash-safe resume.
+            resume_completed_ids: Task names already completed successfully; these are skipped.
         """
         self.task_ids = task_ids
         self.policies_enabled = policies_enabled
+        self.bundle_dir = bundle_dir
+        self.resume_completed_ids = resume_completed_ids or set()
         self.agent: Optional[CugaAgent] = None
         self.results: List[Dict[str, Any]] = []
+        # Bound from __init__, not inside evaluate_all(): if evaluate_all() raises
+        # before task discovery, total_tasks must still be 0 (not None) so the
+        # partial-run check in main() can't be silently disabled by a future
+        # refactor that catches exceptions inside evaluate_all().
+        self.total_tasks: int = 0
 
     async def setup(self):
         """Set up the agent with tools and optionally load policies."""
@@ -165,6 +181,7 @@ class BPOEvaluator:
             tracker_callback=tracker_callback,
             track_tool_calls=True,
             metrics_config=metrics_config,
+            bundle_dir=self.bundle_dir,
         )
 
     async def evaluate_all(self, data_paths=None):
@@ -217,13 +234,39 @@ class BPOEvaluator:
             description="BPO benchmark evaluation",
         )
 
+        # Total intended for this run; compared against len(self.results) so a
+        # run that stops early (crash/interrupt) is detected as partial rather
+        # than silently reported as complete.
+        self.total_tasks = len(test_cases)
+
         # Evaluate each task
         self.results = []
+        results_index: Dict[str, int] = {}  # task_name -> index (resume dedupe)
+        if self.bundle_dir is not None:
+            from benchmarks.helpers.incremental_results import load_all_partial_results
+
+            for r in load_all_partial_results(self.bundle_dir):
+                key = r.get("task_name")
+                if key is not None:
+                    results_index[key] = len(self.results)
+                self.results.append(r)
+
         for i, task in enumerate(test_cases, 1):
+            # Must match evaluate_task's fallback (task_{task_index}) exactly —
+            # a mismatched default here means a nameless task's persisted
+            # partial file is never recognized as already-completed on resume.
+            task_name = task.get("name", f"task_{i}")
+            if task_name in self.resume_completed_ids:
+                logger.info(f"\n[{i}/{len(test_cases)}] Skipping already-completed task: {task_name}")
+                continue
             logger.info(f"\n[{i}/{len(test_cases)}] Processing task...")
             # Pass task index to generate unique thread_id and ensure fresh state
             result = await self.evaluate_task(task, task_index=i)
-            self.results.append(result)
+            if task_name in results_index:
+                self.results[results_index[task_name]] = result
+            else:
+                results_index[task_name] = len(self.results)
+                self.results.append(result)
 
             # Small delay to avoid rate limiting between tasks
             if i < len(test_cases):  # Don't sleep after last task
@@ -237,6 +280,10 @@ class BPOEvaluator:
 
     def save_results(self, output_dir: Optional[str] = None):
         """Save evaluation results to JSON files."""
+        if self.bundle_dir is not None:
+            from benchmarks.helpers.incremental_results import finalize_merged_results
+
+            return finalize_merged_results(self.bundle_dir, prefix="bpo")
         if output_dir is None:
             output_dir = Path(__file__).parent / "results"
         return save_evaluation_results(self.results, output_dir, prefix="bpo")
@@ -270,6 +317,19 @@ async def main():
         action="store_true",
         help="Disable CUGA policies (playbooks, tool guides). Useful for baselining.",
     )
+    parser.add_argument(
+        "--bundle-dir",
+        type=str,
+        default=None,
+        help="Bundle workspace directory for incremental, resumable results.",
+    )
+    parser.add_argument(
+        "--resume-task-ids",
+        type=str,
+        nargs="*",
+        default=None,
+        help="Task names to treat as already completed (skip). Usually computed by the shell layer.",
+    )
 
     from benchmarks.helpers.logging_args import add_log_level_args, apply_log_level
 
@@ -278,36 +338,66 @@ async def main():
     args = parser.parse_args()
     apply_log_level(args)
 
+    # Resolve bundle workspace + resume skip-set (success-only + explicit overrides)
+    bundle_dir = Path(args.bundle_dir) if args.bundle_dir else None
+    resume_completed_ids: set = set()
+    if bundle_dir is not None:
+        from benchmarks.helpers.incremental_results import load_completed_task_ids
+
+        resume_completed_ids |= load_completed_task_ids(bundle_dir)
+    if args.resume_task_ids:
+        resume_completed_ids |= set(args.resume_task_ids)
+
     # Create evaluator
     evaluator = BPOEvaluator(
         task_ids=args.task,
         policies_enabled=not args.no_policies,
+        bundle_dir=bundle_dir,
+        resume_completed_ids=resume_completed_ids,
     )
 
+    exit_code = 0
     try:
-        # Setup
         await evaluator.setup()
-
-        # Evaluate
         await evaluator.evaluate_all(args.data)
-
-        # Print summary
-        evaluator.print_summary()
-
-        # Save results
-        evaluator.save_results()
-
     except KeyboardInterrupt:
         logger.warning("\nEvaluation interrupted by user")
-        if evaluator.results:
-            evaluator.print_summary()
-            evaluator.save_results()
+        exit_code = 130
     except Exception as e:
         logger.error(f"Evaluation failed: {e}")
         import traceback
 
         traceback.print_exc()
-        sys.exit(1)
+        exit_code = 1
+    finally:
+        # Persist whatever completed — even on crash/interrupt — so partial
+        # results are recoverable instead of orphaned, and so the harness
+        # bundles this run's real (partial) data rather than falling back to a
+        # previous run's report.
+        results = getattr(evaluator, "results", None)
+        if results:
+            evaluator.print_summary()
+            try:
+                evaluator.save_results()
+            except Exception as e:
+                logger.error(f"Failed to save results: {e}")
+                # A clean run that cannot persist its report is not a success —
+                # don't let the process exit 0 with no durable result on disk.
+                if exit_code == 0:
+                    exit_code = 1
+        else:
+            logger.warning("No results to save")
+
+    # Fewer results than intended means the run stopped early. Report it as a
+    # failure so the harness does not present a partial run as a clean pass.
+    total = getattr(evaluator, "total_tasks", None)
+    completed = len(getattr(evaluator, "results", []) or [])
+    if exit_code == 0 and total is not None and completed < total:
+        logger.error(f"Partial run: only {completed}/{total} tasks completed — marking as failed")
+        exit_code = 2
+
+    if exit_code:
+        sys.exit(exit_code)
 
 
 if __name__ == "__main__":
