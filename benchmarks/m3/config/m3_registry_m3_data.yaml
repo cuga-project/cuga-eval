@@ -9,6 +9,7 @@
 # Capabilities:
 #   task_id=2 → container `capability_2_dashboard_apis`
 #   task_id=3 → container `capability_3_multihop_reasoning`
+#   task_id=4 → container `capability_4_multiturn`
 #
 # Usage:
 #   ./benchmarks/m3/eval.sh --m3-data                        # bundled data/small_train.zip (default)
@@ -79,4 +80,63 @@ services:
           - "soccer_2016"
           - "trains"
           - "university"
+          - "world_development_indicators"
+
+  - m3_task_4:
+      transport: "stdio"
+      type: "mcp"
+      description: "M3 Task 4 environment"
+
+      command: "${CONTAINER_RUNTIME}"
+      args:
+        - "exec"
+        - "-i"
+        - "-e"
+        - "MCP_DOMAIN={domain}"
+        - "-e"
+        - "CAPABILITY_ID=4"
+        - "capability_4_multiturn"
+        - "python3"
+        - "/app/mcp_dispatch.py"
+
+      metadata:
+        task_id: 4
+        container: "capability_4_multiturn"
+        # Domains covered by capability_4_multiturn_policy_sampled.zip (36 total).
+        domains:
+          - "address"
+          - "airline"
+          - "app_store"
+          - "authors"
+          - "beer_factory"
+          - "bike_share_1"
+          - "book_publishing_company"
+          - "books"
+          - "cars"
+          - "codebase_comments"
+          - "coinmarketcap"
+          - "college_completion"
+          - "computer_student"
+          - "cookbook"
+          - "disney"
+          - "european_football_1"
+          - "food_inspection"
+          - "genes"
+          - "hockey"
+          - "ice_hockey_draft"
+          - "image_and_language"
+          - "law_episode"
+          - "menu"
+          - "mondial_geo"
+          - "music_tracker"
+          - "olympics"
+          - "professional_basketball"
+          - "restaurant"
+          - "sales_in_weather"
+          - "shakespeare"
+          - "soccer_2016"
+          - "student_loan"
+          - "talkingdata"
+          - "university"
+          - "world"
           - "world_development_indicators"

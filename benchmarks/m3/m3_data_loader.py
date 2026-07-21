@@ -208,8 +208,19 @@ class M3DataLoader:
             gold_per_turn: List[List[Dict[str, Any]]] = []
             answer_per_turn: List[Any] = []
             tool_response_per_turn: List[List[Any]] = []
-            if gold and isinstance(gold.get("ground_truth"), list):
-                gt_by_turn = {gt.get("turn_id", i): gt for i, gt in enumerate(gold["ground_truth"])}
+            # Different VAKRA exports use different key names for the same
+            # shape: small_train.zip uses "ground_truth" (list) / per-turn
+            # "gold_sequence"; capability_4_multiturn_policy_sampled.zip uses
+            # "output" (list) / per-turn "sequence". Accept either.
+            gt_list = None
+            if gold:
+                gt_list = gold.get("ground_truth")
+                if not isinstance(gt_list, list):
+                    gt_list = gold.get("output")
+            if isinstance(gt_list, list):
+                gt_by_turn = {
+                    gt.get("turn_id", i): gt for i, gt in enumerate(gt_list) if isinstance(gt, dict)
+                }
                 for i, _turn in enumerate(turns):
                     gt = gt_by_turn.get(_turn.get("turn_id", i))
                     if not gt:
@@ -217,7 +228,7 @@ class M3DataLoader:
                         answer_per_turn.append(None)
                         tool_response_per_turn.append([])
                         continue
-                    gs = gt.get("gold_sequence") or {}
+                    gs = gt.get("gold_sequence") or gt.get("sequence") or {}
                     # gold_sequence["tool_call"] is a list of per-call groups.
                     # Each group is itself a list of tool_call dicts. Flatten.
                     calls_nested = gs.get("tool_call") or []

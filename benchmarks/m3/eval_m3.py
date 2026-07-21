@@ -52,6 +52,7 @@ import subprocess
 from typing import Any, Dict, List, Optional, Union
 
 import yaml
+from langchain_core.messages import AIMessage, BaseMessage, HumanMessage
 from loguru import logger
 
 logger.add(sys.stderr, level="INFO")
@@ -839,6 +840,7 @@ class M3Evaluator:
         domain = sample.get("domain", "unknown")
         dialogue = sample.get("dialogue", {})
         turns = dialogue.get("turns", [])
+        num_turns = len(turns)
 
         initial_intent = turns[0].get("query", "") if turns else ""
         tracker.reset(intent=initial_intent, task_id=sample_id)
@@ -859,18 +861,88 @@ class M3Evaluator:
         if "uuid" in sample:
             task_metadata["uuid"] = sample["uuid"]
 
-        result = await evaluate_multiturn_task_with_langfuse(
-            agent=self.agent,
-            turns=turns,
-            task_name=sample_id,
-            task_index=sample_index,
-            langfuse_handler=self.langfuse_enabled,
-            user_context=None,
-            tracker_callback=tracker_callback,
-            track_tool_calls=True,
-            expected_keywords=expected_keywords,
-            task_metadata=task_metadata,
-        )
+        # VAKRA per-sample policy text (M3DataLoader's "additional_instructions").
+        # Task-specific: read fresh from this sample every call, passed straight
+        # through as this invocation's user_context and nowhere else stored -
+        # never accumulated onto the agent or reused for a later task. Distinct
+        # from the agent-level M3_* special_instructions rider built once per
+        # domain; threaded through as user_context -> CugaAgent's `pi`, which
+        # graph_adapter.py appends as a "## User Context" block on the first
+        # human message of the thread (see shared_nodes.py) — additive to the
+        # standing special_instructions, not a replacement.
+        policy_text = sample.get("additional_instructions") or None
+
+        if num_turns >= 2:
+            # Dialogue-priming: VAKRA's dialogue.turns holds every turn except
+            # the last one already answered (each has a gold "answer" the
+            # sample's own author/solver gave). We emulate that conversation
+            # having already happened - prior turns become synthetic
+            # HumanMessage/AIMessage history - and only live-invoke the agent
+            # on the final, unanswered turn. This is what makes the final turn
+            # a genuine follow-up question instead of a fresh one asked cold.
+            prior_turns = turns[:-1]
+            live_turn = turns[-1]
+            history_messages: List[BaseMessage] = []
+            for prior_turn in prior_turns:
+                history_messages.append(HumanMessage(content=prior_turn.get("query", "")))
+                # VAKRA's answer is structured data (lists/dicts), not prose -
+                # stringify it into plausible prior-agent-response text so it's
+                # valid AIMessage content.
+                history_messages.append(AIMessage(content=_stringify_gt_answer(prior_turn.get("answer"))))
+            live_query = live_turn.get("query", "")
+
+            # cuga-agent's own "## User Context" injection (shared_nodes.py)
+            # only fires on a thread's very first message
+            # (len(effective_messages) == 1); a primed thread never satisfies
+            # that, so the policy would silently never reach the model. Embed
+            # it ourselves, in the same format, directly on the live turn -
+            # user_context is still passed through below too, purely so it's
+            # recorded on the result for reporting/tracing.
+            live_intent = live_query
+            if policy_text:
+                live_intent = f"{live_query}\n\n## User Context\n{policy_text}"
+
+            single_result = await evaluate_task_with_langfuse(
+                agent=self.agent,
+                task={
+                    "name": sample_id,
+                    "intent": live_intent,
+                    "difficulty": sample.get("difficulty", "unknown"),
+                },
+                task_index=sample_index,
+                langfuse_handler=self.langfuse_enabled,
+                user_context=policy_text,
+                tracker_callback=tracker_callback,
+                track_tool_calls=True,
+                history_messages=history_messages,
+            )
+            # Start from the full single-turn result (preserves tokens, cost,
+            # LLM-call counts, trace_id, etc. for reporting) and layer on the
+            # multiturn-shaped fields _annotate_tool_call_diffs and the
+            # downstream Vakra scoring expect.
+            result = dict(single_result)
+            result["final_response"] = single_result.get("response")
+            result["all_responses"] = [
+                {
+                    "turn": num_turns,
+                    "query": live_query,
+                    "response": single_result.get("response"),
+                    "tool_calls": single_result.get("tool_calls") or [],
+                }
+            ]
+        else:
+            result = await evaluate_multiturn_task_with_langfuse(
+                agent=self.agent,
+                turns=turns,
+                task_name=sample_id,
+                task_index=sample_index,
+                langfuse_handler=self.langfuse_enabled,
+                user_context=policy_text,
+                tracker_callback=tracker_callback,
+                track_tool_calls=True,
+                expected_keywords=expected_keywords,
+                task_metadata=task_metadata,
+            )
 
         result["sample_id"] = sample_id
         if "uuid" in sample:
@@ -880,21 +952,25 @@ class M3Evaluator:
             result["task_number"] = sample["task_number"]
 
         # Surface the GT bits Vakra needs so _to_vakra_pair can build a real
-        # ground-truth dialogue (single-turn samples; multi-turn would need
-        # per-turn arrays threaded through). Names here mirror the test_case
-        # shape used by the react path so _to_vakra_pair handles both uniformly.
+        # ground-truth dialogue. gold_sequence/answer_per_turn/tool_response_per_turn
+        # are per-turn arrays covering every turn including the live one - index
+        # -1 is the live (last) turn for a primed dialogue, and equivalent to
+        # index 0 for a single-turn sample (both are the only/last entry).
         gold_seq = (expected_output or {}).get("gold_sequence") or []
         answers = (expected_output or {}).get("answer_per_turn") or []
         tool_resps = (expected_output or {}).get("tool_response_per_turn") or []
         result["expected_output"] = {
-            "response": _stringify_gt_answer(answers[0]) if answers else "",
-            "tool_calls": gold_seq[0] if gold_seq else [],
-            "tool_responses": tool_resps[0] if tool_resps else [],
+            "response": _stringify_gt_answer(answers[-1]) if answers else "",
+            "tool_calls": gold_seq[-1] if gold_seq else [],
+            "tool_responses": tool_resps[-1] if tool_resps else [],
         }
 
         gold_per_turn = (expected_output or {}).get("gold_sequence")
         if self.m3_data_mode and gold_per_turn is not None:
-            self._annotate_tool_call_diffs(result, gold_per_turn)
+            # Only the live (last) turn was actually invoked; primed turns have
+            # no real tool calls to diff against their gold ones (last):1 in
+            # both cases keeps this a no-op for single-turn samples.
+            self._annotate_tool_call_diffs(result, gold_per_turn[-1:])
 
         return result
 
