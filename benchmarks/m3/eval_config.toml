@@ -1323,3 +1323,12 @@ issue451_b_probe4 = [
   "fe971e7f850a-976bb90380b3",  # soccer wager: gave up "no endpoint…" (0 tools)
 ]
 # ─────────────────────────────────────────────────────────────────────────────
+
+# 1-task smoke to verify the address domain reaches the grader at all.
+# The 20260721 cap4-300 run left every address sample unscored (null, not 0):
+# no address.json was ever staged into results/_vakra/groundtruth/, and
+# evaluator.py discovers domains via gt_dir.glob("*.json"), so the domain was
+# skipped silently. This sample is the ungrounded-refusal trace from that run
+# (agent claimed no tool returns per-state counts; a sibling run answered it
+# with address_get_states_by_cbsa_type_and_count).
+address_score_smoke = ["d80c9bf910f1-0ef4534b84e2"]
