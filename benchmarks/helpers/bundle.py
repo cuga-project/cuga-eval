@@ -115,25 +115,33 @@ def _file_sha256(path: Path) -> str:
     return h.hexdigest()
 
 
-def _record_task_file(tf: Path, tasks_dir: Path | None) -> str | None:
-    """Copy a task file into ``tasks_dir`` (if given) and return its hash entry.
+def _copy_task_source(tf: Path, tasks_dir: Path) -> None:
+    """Copy a task source into ``tasks_dir``, preserving its name.
 
-    ``--m3-data`` runs pass a dataset *directory* as the task source. Copying a
-    whole corpus into every bundle is wasteful, so for directories we write a
-    ``<name>.source`` pointer file instead and record a ``dir:`` marker in place
-    of a content hash. Returns None when ``tf`` does not exist.
+    ``tf`` is usually a single file (a ``.json``/``.zip`` corpus), but
+    ``--m3-data <dir>`` accepts a directory of input/output files too --
+    copy the whole tree in that case rather than treating it as a file.
     """
-    if not tf.exists():
-        return None
+    tasks_dir.mkdir(parents=True, exist_ok=True)
+    dest = tasks_dir / tf.name
     if tf.is_dir():
-        if tasks_dir is not None:
-            tasks_dir.mkdir(exist_ok=True)
-            (tasks_dir / f"{tf.name}.source").write_text(f"{tf.resolve()}\n")
-        return f"dir:{tf.resolve()}"
-    if tasks_dir is not None:
-        tasks_dir.mkdir(exist_ok=True)
-        shutil.copy2(tf, tasks_dir / tf.name)
-    return f"sha256:{_file_sha256(tf)}"
+        shutil.copytree(tf, dest, dirs_exist_ok=True)
+    else:
+        shutil.copy2(tf, dest)
+
+
+def _task_source_hash(tf: Path) -> str:
+    """sha256 of a task source. A directory hashes the sorted contents of every file within."""
+    if not tf.is_dir():
+        return f"sha256:{_file_sha256(tf)}"
+    h = hashlib.sha256()
+    for p in sorted(tf.rglob("*")):
+        if p.is_file():
+            h.update(p.relative_to(tf).as_posix().encode())
+            with open(p, "rb") as f:
+                for chunk in iter(lambda: f.read(8192), b""):
+                    h.update(chunk)
+    return f"sha256:{h.hexdigest()}"
 
 
 # ---------------------------------------------------------------------------
@@ -565,9 +573,9 @@ def assemble_bundle(
     task_file_hashes = {}
     for tf in task_files:
         tf = Path(tf)
-        entry = _record_task_file(tf, tasks_dir)
-        if entry is not None:
-            task_file_hashes[tf.name] = entry
+        if tf.exists():
+            _copy_task_source(tf, tasks_dir)
+            task_file_hashes[tf.name] = _task_source_hash(tf)
 
     # Policies (only if the benchmark has them)
     _copy_policies(bundle_dir, policies_dir)
@@ -703,15 +711,12 @@ def assemble_compare_bundle(
             shutil.copy2(fp, run_dir / fp.name)
 
     # Tasks
-    task_file_hashes = {}
     if task_files:
         tasks_dir = bundle_dir / "tasks"
-        tasks_dir.mkdir(exist_ok=True)
         for tf in task_files:
             tf = Path(tf)
-            entry = _record_task_file(tf, tasks_dir)
-            if entry is not None:
-                task_file_hashes[tf.name] = entry
+            if tf.exists():
+                _copy_task_source(tf, tasks_dir)
 
     # Policies
     _copy_policies(bundle_dir, policies_dir)
@@ -783,6 +788,14 @@ def assemble_compare_bundle(
     # Report
     if report_content:
         (bundle_dir / "report.md").write_text(report_content)
+
+    # Compute task file hashes (same as single-run bundles)
+    task_file_hashes = {}
+    if task_files:
+        for tf in task_files:
+            tf = Path(tf)
+            if tf.exists():
+                task_file_hashes[tf.name] = _task_source_hash(tf)
 
     # Build per-model runtime config from model_envs if available
     models_config = {}
@@ -920,9 +933,10 @@ def finalize_workspace_bundle(
     task_file_hashes: dict = {}
     for tf in task_files or []:
         tf = Path(tf)
-        entry = _record_task_file(tf, bundle_dir / "tasks")
-        if entry is not None:
-            task_file_hashes[tf.name] = entry
+        if tf.exists():
+            tasks_dir = bundle_dir / "tasks"
+            _copy_task_source(tf, tasks_dir)
+            task_file_hashes[tf.name] = _task_source_hash(tf)
 
     _copy_policies(bundle_dir, policies_dir)
     _copy_trajectories(bundle_dir, trajectory_dir)

@@ -212,11 +212,18 @@ create_bundle() {
             fin_extra+=(--trajectory-dir "$traj_dir")
         fi
         local registry_log="$SCRIPT_DIR/registry_server.log"
+        local logs=()
         if [ -f "$registry_log" ]; then
-            fin_extra+=(--log-file "$registry_log" --log-file "$CONSOLE_LOG")
-        else
-            fin_extra+=(--log-file /tmp/m3_registry.log --log-file "$CONSOLE_LOG")
+            logs+=("$registry_log")
+        elif [ -n "${REGISTRY_LOG:-}" ]; then
+            logs+=("$REGISTRY_LOG")
         fi
+        if [ -n "${CONSOLE_LOG:-}" ]; then
+            logs+=("$CONSOLE_LOG")
+        fi
+        for log in "${logs[@]}"; do
+            fin_extra+=(--log-file "$log")
+        done
         if [ "${PARTIAL_FINALIZE:-false}" = "true" ]; then
             fin_extra+=(--partial)
         fi
@@ -247,7 +254,7 @@ create_bundle() {
 
     if [ -z "$latest_result" ]; then
         echo -e "${YELLOW:-}No result file from this run was found — skipping bundle.${NC:-}"
-        echo -e "${YELLOW:-}(Console log is still at $CONSOLE_LOG.)${NC:-}"
+        echo -e "${YELLOW:-}(Console log is still at ${CONSOLE_LOG:-<not set>}.)${NC:-}"
         return 0
     fi
 
@@ -294,10 +301,17 @@ create_bundle() {
     fi
     # Include server and console logs (whichever exists)
     local registry_log="$SCRIPT_DIR/registry_server.log"
+    local logs=()
     if [ -f "$registry_log" ]; then
-        bundle_args+=(--log-files "$registry_log" "$CONSOLE_LOG")
-    else
-        bundle_args+=(--log-files /tmp/m3_registry.log "$CONSOLE_LOG")
+        logs+=("$registry_log")
+    elif [ -n "${REGISTRY_LOG:-}" ]; then
+        logs+=("$REGISTRY_LOG")
+    fi
+    if [ -n "${CONSOLE_LOG:-}" ]; then
+        logs+=("$CONSOLE_LOG")
+    fi
+    if [ ${#logs[@]} -gt 0 ]; then
+        bundle_args+=(--log-files "${logs[@]}")
     fi
     # Download Langfuse traces if available
     bundle_args+=(--fetch-langfuse)
@@ -385,14 +399,28 @@ export CUGA_GIT_INFO_JSON
 # the summary never printed.
 export PYTHONUNBUFFERED=1
 
+# Run-scoped directory for artifacts that used to live at fixed /tmp paths
+# (issue #115): console log, FINAL SUMMARY hand-off file, outer registry log.
+# A pre-set M3_RUN_TMP_DIR wins (compare.sh exports one so it knows where to
+# stage logs from after each run); otherwise each run gets a private mktemp
+# dir, so concurrent runs on one host can't interleave or clobber each
+# other's artifacts.
+M3_RUN_TMP_DIR="${M3_RUN_TMP_DIR:-$(mktemp -d "${TMPDIR:-/tmp}/m3_run_XXXXXX")}"
+export M3_RUN_TMP_DIR
+# eval_m3.py writes its FINAL SUMMARY here (reads M3_SUMMARY_FILE from env).
+M3_SUMMARY_FILE="${M3_SUMMARY_FILE:-$M3_RUN_TMP_DIR/m3_summary.txt}"
+export M3_SUMMARY_FILE
+REGISTRY_LOG="$M3_RUN_TMP_DIR/m3_registry.log"
+
 # Capture console output to a log file for reproducibility bundles
-CONSOLE_LOG="/tmp/m3_console.log"
+CONSOLE_LOG="$M3_RUN_TMP_DIR/m3_console.log"
 exec > >(tee "$CONSOLE_LOG") 2>&1
 
 # Clear stale FINAL SUMMARY from a previous run — only the path that writes
-# /tmp/m3_summary.txt (cuga --m3-data) should leave content for the tail block
-# below to echo. Without this clear, a react run picks up a cuga run's summary.
-rm -f /tmp/m3_summary.txt
+# $M3_SUMMARY_FILE (cuga --m3-data) should leave content for the tail block
+# below to echo. Without this clear, a react run picks up a cuga run's summary
+# (compare.sh reuses one M3_RUN_TMP_DIR across its sequential runs).
+rm -f "$M3_SUMMARY_FILE"
 
 echo -e "${BLUE:-}╔════════════════════════════════════════════════════════════╗${NC:-}"
 echo -e "${BLUE:-}║  M3 Benchmark Evaluation                                   ║${NC:-}"
@@ -422,14 +450,14 @@ fi
 
 if [ "${SKIP_SERVER_START:-true}" = "false" ]; then
     echo -e "${YELLOW:-}Starting registry server on port $REGISTRY_PORT...${NC:-}"
-    bash "$SCRIPT_DIR/run_registry.sh" > /tmp/m3_registry.log 2>&1 &
+    bash "$SCRIPT_DIR/run_registry.sh" > "$REGISTRY_LOG" 2>&1 &
     REGISTRY_PID=$!
 
     if wait_for_server "http://127.0.0.1:$REGISTRY_PORT/" "registry server" 60; then
         echo -e "${GREEN:-}✓${NC:-} Registry server started (PID: $REGISTRY_PID)"
     else
         echo -e "${RED:-}Error: Registry server failed to start${NC:-}"
-        cat /tmp/m3_registry.log | tail -20
+        tail -20 "$REGISTRY_LOG"
         exit 1
     fi
 fi
@@ -551,10 +579,10 @@ fi
 
 # Re-echo the --m3-data summary as the very last thing on screen, so it's
 # visible without scrolling past the bundle-creation noise.
-if [ "$M3_DATA" = "true" ] && [ -s /tmp/m3_summary.txt ]; then
+if [ "$M3_DATA" = "true" ] && [ -s "$M3_SUMMARY_FILE" ]; then
     echo ""
     echo -e "${GREEN:-}============================== FINAL SUMMARY ==============================${NC:-}"
-    cat /tmp/m3_summary.txt
+    cat "$M3_SUMMARY_FILE"
     echo -e "${GREEN:-}===========================================================================${NC:-}"
 fi
 
