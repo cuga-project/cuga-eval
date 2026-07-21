@@ -22,43 +22,23 @@ fi
 # Early --help before any server startup
 for arg in "$@"; do
     if [[ "$arg" == "--help" || "$arg" == "-h" ]]; then
-        echo "Usage: ./eval.sh [--task TASK] [--difficulty LEVEL] [--no-bundle] [--bundle-zip] [--model-profile NAME]"
+        echo "Usage: ./eval.sh [--task TASK] [--difficulty LEVEL] [--no-policies] [--no-bundle] [--bundle-zip] [--model-profile NAME]"
         echo ""
         echo "Options:"
         echo "  --task TASK              Run a specific task by ID/name (e.g., 'approved_claims')"
         echo "  --difficulty LEVEL       Filter by difficulty level (easy, medium, hard)"
+        echo "  --no-policies            Skip loading oak policies"
         echo "  --no-bundle              Skip reproducibility bundle creation"
         echo "  --bundle-zip             Create zip archive of bundle"
         echo "  --model-profile <name>   Model profile (for bundle metadata)"
-        echo "  --no-policies            Disable CUGA policies (for baselining)"
         echo ""
         echo "Examples:"
-        echo "  ./eval.sh                        # Default evaluation"
+        echo "  ./eval.sh                         # Default evaluation"
         echo "  ./eval.sh --task approved_claims  # Single task"
         echo "  ./eval.sh --difficulty easy       # Filter by difficulty"
         exit 0
     fi
 done
-
-# Early --agent validation before any server/process side effects (fast-fail).
-# Oak only supports the CUGA agent. The full --agent parse happens later below;
-# this pre-scan only extracts the value early enough to reject invalid ones
-# before we start killing ports and spawning servers.
-_EARLY_AGENT=""
-_i=1
-for arg in "$@"; do
-    if [[ "$arg" == "--agent" ]]; then
-        _next=$((_i + 1))
-        _EARLY_AGENT="${!_next:-}"
-        break
-    fi
-    _i=$((_i + 1))
-done
-if [ -n "$_EARLY_AGENT" ] && [ "$_EARLY_AGENT" != "cuga" ]; then
-    echo -e "${RED:-}Error: oak_health_insurance only supports --agent cuga (got '$_EARLY_AGENT').${NC:-}"
-    exit 2
-fi
-unset _EARLY_AGENT _i _next
 
 FASTAPI_PORT=8090
 FASTAPI_PID=""
