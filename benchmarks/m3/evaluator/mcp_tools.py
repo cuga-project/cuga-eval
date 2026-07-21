@@ -1,18 +1,17 @@
 from __future__ import annotations
 
-import os
-import json
 import asyncio
+import json
+import os
 import warnings
 from abc import ABC, abstractmethod
 from contextlib import asynccontextmanager
 from dataclasses import dataclass
 from typing import Any, AsyncIterator, Dict, List, Optional, Sequence
 
+from constant import PRED_OUTPUT_KEY, PRED_OUTPUT_SEQUENCE_KEY
 from mcp import ClientSession, StdioServerParameters
 from mcp.client.stdio import stdio_client
-
-from constant import PRED_OUTPUT_KEY, PRED_OUTPUT_SEQUENCE_KEY
 from utils import _ensure_list
 
 ToolSpec = Dict[str, Any]
@@ -21,6 +20,7 @@ ToolSpec = Dict[str, Any]
 # -----------------------------
 # Prediction dialogue helpers
 # -----------------------------
+
 
 def extract_toolcalls_for_mcp(
     pred_dialogue: Dict[str, Any],
@@ -50,18 +50,18 @@ def extract_toolcalls_for_mcp(
             if not isinstance(raw_tc, dict):
                 continue
             if isinstance(raw_tc, dict) and "name" in raw_tc:
-                turn_tools.append(
-                    {"name": raw_tc["name"], "arguments": raw_tc.get("arguments", {})})
+                turn_tools.append({"name": raw_tc["name"], "arguments": raw_tc.get("arguments", {})})
         if limit_last_n is not None:
             turn_tools = turn_tools[-limit_last_n:]
         dialogue_tools.append(turn_tools)
     return dialogue_tools
 
+
 def inject_mcp_responses(
     pred_entry: Dict[str, Any],
     mcp_dialogue_responses: List[List[Any]],
-    type: str, # "pred" / "gt"
-    capability_name:str,
+    type: str,  # "pred" / "gt"
+    capability_name: str,
 ) -> None:
     """
     Inject tool responses into each turn's sequence.tool_response.
@@ -72,7 +72,6 @@ def inject_mcp_responses(
       - they should be the same length (1:1 aligned) for downstream scoring
     """
     turns = _ensure_list(pred_entry.get(PRED_OUTPUT_KEY, []))
-    query_tool_present=False    
 
     for i, turn in enumerate(turns):
         if not isinstance(turn, dict):
@@ -91,30 +90,37 @@ def inject_mcp_responses(
         if type == "pred" and len(tool_calls) > len(turn_resps):
             tool_calls = tool_calls[-len(turn_resps):] if turn_resps else []
 
+        query_tool_present = False
         if "multiturn" in capability_name:
             for tool in tool_calls:
                 if "query_" in tool["name"]:
-                    query_tool_present=True
+                    query_tool_present = True
                     break
 
         # If tool_call exists, enforce 1:1 length alignment
         if tool_calls:
             n = len(tool_calls)
-            if (query_tool_present):
-                truncated_responses=turn_resps[:n]
+            if query_tool_present:
+                truncated_responses = turn_resps[:n]
                 if type == "gt":
                     for idx, tool in enumerate(tool_calls):
                         if "query_" not in tool["name"]:
                             seq["tool_response"][idx] = truncated_responses[idx]
                         else:
-                            seq["tool_response"][idx] = [item["text"] for item in seq["tool_response"][idx]] # Only text in chunks is retained
-                elif type=="pred":
+                            seq["tool_response"][idx] = [
+                                item["text"] for item in seq["tool_response"][idx]
+                            ]  # Only text in chunks is retained
+                elif type == "pred":
                     for idx, tool in enumerate(tool_calls):
                         if "query_" in tool["name"]:
                             try:
-                                truncated_responses[idx] = [item["text"] for item in json.loads(truncated_responses[idx])["results"]] # Only text in chunks is retained
+                                truncated_responses[idx] = [
+                                    item["text"] for item in json.loads(truncated_responses[idx])["results"]
+                                ]  # Only text in chunks is retained
                             except Exception as e:
-                                truncated_responses[idx] = [f"Error processing response: {str(e)}"]
+                                truncated_responses[idx] = [
+                                    f"Error processing response: {str(e)}"
+                                ]
                     seq["tool_response"] = truncated_responses
             else:
                 if len(turn_resps) >= n:
@@ -130,11 +136,13 @@ def inject_mcp_responses(
 
         # If you require strict alignment only when tool_calls exist:
         if tool_calls:
-            assert len(seq["tool_call"]) == len(seq["tool_response"])
+            assert len(seq["tool_call"]) == len(seq["tool_response"])  # noqa: S101 — runtime invariant on tool/response alignment
+
 
 # -----------------------------
 # Schema coercion helpers
 # -----------------------------
+
 
 def _coerce_value_to_schema(value: Any, schema: Optional[Dict[str, Any]]) -> Any:
     """
@@ -216,7 +224,9 @@ def _coerce_args_to_schema(args: Dict[str, Any], input_schema: Optional[Dict[str
     if not input_schema or not isinstance(input_schema, dict):
         return args
 
-    properties = input_schema.get("properties", {}) if isinstance(input_schema.get("properties", {}), dict) else {}
+    properties = (
+        input_schema.get("properties", {}) if isinstance(input_schema.get("properties", {}), dict) else {}
+    )
 
     coerced: Dict[str, Any] = {}
     for k, v in args.items():
@@ -229,6 +239,7 @@ def _coerce_args_to_schema(args: Dict[str, Any], input_schema: Optional[Dict[str
 # -----------------------------
 # Batch tool execution
 # -----------------------------
+
 
 async def execute_tools_batch(
     session: ClientSession,
@@ -263,7 +274,7 @@ async def execute_tools_batch(
                 tool_name = tool["name"]
                 raw_args = tool.get("arguments", {}) or {}
                 if is_gt:
-                    if (("input_value" in raw_args.keys()) or "data_label" in raw_args.keys()) and len(turn_responses)>0:
+                    if (("input_value" in raw_args.keys()) or "data_label" in raw_args.keys()) and len(turn_responses) > 0:
                         if "handle" in turn_responses[-1]:
                             previous_response = json.loads(turn_responses[-1])
                             if "input_value" in raw_args.keys():
@@ -354,19 +365,23 @@ class MCPToolClientBase(ABC):
                 await session.initialize()
                 yield session
 
-    async def call_mcp_tools(self, session: ClientSession, tools: Sequence[ToolSpec], schema_map: Optional[Dict[str, Any]]) -> List[Any]:
+    async def call_mcp_tools(
+        self, session: ClientSession, tools: Sequence[ToolSpec], schema_map: Optional[Dict[str, Any]]
+    ) -> List[Any]:
         """
         Calls MCP tools using an already-connected and initialized ClientSession.
         """
         raise NotImplementedError
 
-    async def run_tools(self, tools: Optional[Sequence[ToolSpec]] = None, schema_map: Optional[Dict[str, Any]] = None) -> List[Any]:
+    async def run_tools(
+        self, tools: Optional[Sequence[ToolSpec]] = None, schema_map: Optional[Dict[str, Any]] = None
+    ) -> List[Any]:
         """
         Connect to MCP server and call the provided tools.
         """
         async with self.connect_to_mcp_server() as session:
             return await self.call_mcp_tools(session, tools, schema_map)
-        
+
     async def list_loaded_tools(self) -> List[Dict[str, Any]]:
         """
         Connects to the MCP server and returns the list of tools that the server reports as loaded.
@@ -386,12 +401,16 @@ class MCPToolClientBase(ABC):
             for t in tool_list:
                 # t may be dict or object
                 name = t.get("name") if isinstance(t, dict) else getattr(t, "name", None)
-                input_schema = t.get("inputSchema") if isinstance(t, dict) else getattr(t, "inputSchema", None)
+                input_schema = (
+                    t.get("inputSchema") if isinstance(t, dict) else getattr(t, "inputSchema", None)
+                )
                 if isinstance(name, str) and isinstance(input_schema, dict):
                     schema_map[name] = input_schema
             return tool_list, schema_map
 
-    def _coerce_args_to_schema(self, args: Dict[str, Any], input_schema: Optional[Dict[str, Any]]) -> Dict[str, Any]:
+    def _coerce_args_to_schema(
+        self, args: Dict[str, Any], input_schema: Optional[Dict[str, Any]]
+    ) -> Dict[str, Any]:
         """Delegate to module-level _coerce_args_to_schema."""
         return _coerce_args_to_schema(args, input_schema)
 
@@ -436,7 +455,7 @@ class FastAPIMCPToolClient(MCPToolClientBase):
                 args=exec_args,
                 env=None,
             )
-        elif self.config.run_type =="local":
+        elif self.config.run_type == "local":
             return StdioServerParameters(
                 command="python",
                 args=[self.local_server_script],
@@ -445,8 +464,10 @@ class FastAPIMCPToolClient(MCPToolClientBase):
                     "MCP_DOMAIN": self.config.domain,
                 },
             )
-    
-    async def call_mcp_tools(self, session: ClientSession, tools: Sequence[ToolSpec], schema_map: Optional[Dict[str, Any]]) -> List[Any]:
+
+    async def call_mcp_tools(
+        self, session: ClientSession, tools: Sequence[ToolSpec], schema_map: Optional[Dict[str, Any]]
+    ) -> List[Any]:
         """
         Calls MCP tools using an already-connected and initialized ClientSession.
         """
@@ -465,7 +486,9 @@ class FastAPIMCPToolClient(MCPToolClientBase):
                         raw_args = json.loads(raw_args)
 
                     if not isinstance(raw_args, dict):
-                        raise TypeError(f"Tool arguments must be a dict (or JSON string), got {type(raw_args)} for {name}")
+                        raise TypeError(
+                            f"Tool arguments must be a dict (or JSON string), got {type(raw_args)} for {name}"
+                        )
 
                     # 2) Coerce args according to schema if available
                     input_schema = schema_map.get(name)
@@ -481,6 +504,7 @@ class FastAPIMCPToolClient(MCPToolClientBase):
             results.append(dialogue_response)
 
         return results
+
 
 class PythonMCPToolClient(MCPToolClientBase):
     """
@@ -567,6 +591,7 @@ class BPOMCPToolClient(MCPToolClientBase):
             },
         )
 
+
 def test(tools: List[ToolSpec]) -> List[Any]:
     async def _run():
         client = FastAPIMCPToolClient(
@@ -575,6 +600,7 @@ def test(tools: List[ToolSpec]) -> List[Any]:
         return await client.run_tools(tools)
 
     return asyncio.run(_run())
+
 
 if __name__ == "__main__":
     # This example gives a super huge output.

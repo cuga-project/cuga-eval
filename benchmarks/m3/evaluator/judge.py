@@ -1,14 +1,14 @@
 from __future__ import annotations
 
-import re
-import os
 import json
-from copy import deepcopy
-from prompt import GroundednessPrompt, CorrectnessPrompt
-from utils import JudgeInput, JudgeOutput
-from constant import N_TOOL_CALLS_PER_TURN
+import os
+import re
+from typing import Any, List, Optional
+
 from langchain_openai import ChatOpenAI
-from typing import Any, Dict, Optional, Tuple
+from prompt import CorrectnessPrompt, GroundednessPrompt
+from constant import N_TOOL_CALLS_PER_TURN
+from utils import JudgeInput, JudgeOutput
 
 _LABEL_RE = re.compile(r"\b(yes|partial|no|unsure)\b", re.IGNORECASE)
 _CONCLUSION_RE = re.compile(r"<conclusion>\s*(.*?)\s*</conclusion>", re.IGNORECASE | re.DOTALL)
@@ -18,14 +18,21 @@ _SCORE_MAP = {"yes": 1.0, "partial": 0.0, "no": 0.0, "unsure": 0.0}
 class JudgeOutputParseError(ValueError):
     pass
 
+
 class JudgeValidationError(ValueError):
     """Raised when a judge returns an unexpected/invalid score."""
+
     pass
 
-class ChatGroq(ChatOpenAI):
-    """Groq-backed OpenAI-compatible chat model."""
+
+class ChatModel(ChatOpenAI):
+    """
+    openai/gpt-oss-120b chat model is being used as LLM-as-a-judge using langchain-openai.
+    Groq-backed OpenAI-compatible chat model.
+    """
 
     def __init__(self, config: dict):
+        # Set model with model or model_name
         model_name = config.get("model_name", "openai/gpt-oss-120b")
         end_point = config.get("end_point", "https://api.groq.com/openai")
 
@@ -35,62 +42,108 @@ class ChatGroq(ChatOpenAI):
 
         params = config.get("params", {})
 
-        groq_config = {}
-        groq_config.setdefault("model", model_name)
-        groq_config.setdefault("api_key", api_key)
-        groq_config.setdefault("base_url", end_point.rstrip("/") + "/v1")
-        groq_config.setdefault("temperature", 0)
-        groq_config.update(params)
+        # Set default values for overriding fields
+        config = {}
+        config.setdefault("model", model_name)
+        config.setdefault("api_key", api_key)
+        config.setdefault("base_url", end_point.rstrip("/") + "/v1")
+        config.setdefault("temperature", 0)
 
-        super().__init__(**groq_config)
+        config.update(params)
+
+        super().__init__(**config)
+
 
 class ChatRits(ChatOpenAI):
     """RITS chat model integration using langchain-openai."""
 
-    def __init__(self, config):
-        # Set model with model or model_name
-        model_name=config.get("model_name", "openai/gpt-oss-120b")
-        end_point=config.get("end_point","https://inference-3scale-apicast-production.apps.rits.fmaas.res.ibm.com/gpt-oss-120b")
+    def __init__(self, config: dict):
+        model_name = config.get("model_name", "openai/gpt-oss-120b")
+        end_point = config.get(
+            "end_point",
+            "https://inference-3scale-apicast-production.apps.rits.fmaas.res.ibm.com/gpt-oss-120b",
+        )
         rits_api_key = os.getenv("RITS_API_KEY")
-        if rits_api_key is None:
-            raise ValueError("rits_api_key is required")
+        if rits_api_key is None or rits_api_key == "":
+            raise ValueError("RITS_API_KEY is required")
+
         params = config.get("params", {})
-        # Set default values for overriding fields
         rits_config = {}
         rits_config.setdefault("model_name", model_name)
         rits_config.setdefault("api_key", "/")
         rits_config.setdefault("default_headers", {"RITS_API_KEY": rits_api_key})
-        rits_config.setdefault("base_url", end_point + "/v1")
+        rits_config.setdefault("base_url", end_point.rstrip("/") + "/v1")
         rits_config.update(params)
+
         super().__init__(**rits_config)
+
+
+class LiteLLMChatModel(ChatOpenAI):
+    """
+    Azure/gpt-4.1 served through the IBM LiteLLM proxy, used as LLM-as-a-judge.
+
+    Default judge backend (see ``_build_judge_llm``). The Groq ``ChatModel`` above
+    is retained and still selectable via ``JUDGE_BACKEND=groq`` (or gpt-oss).
+    Reads the same proxy env the agent's gpt4.1 profile uses: ``OPENAI_BASE_URL``
+    + ``OPENAI_API_KEY``. Override the model with ``JUDGE_MODEL_NAME``.
+    """
+
+    def __init__(self, config: dict):
+        model_name = config.get("model_name") or os.getenv("JUDGE_MODEL_NAME", "Azure/gpt-4.1")
+        base_url = (
+            config.get("end_point")
+            or os.getenv("JUDGE_BASE_URL")
+            or os.getenv("OPENAI_BASE_URL", "https://ete-litellm.bx.cloud9.ibm.com")
+        )
+        api_key = os.getenv("JUDGE_API_KEY") or os.getenv("OPENAI_API_KEY")
+        if api_key is None or api_key == "":
+            raise ValueError("OPENAI_API_KEY (or JUDGE_API_KEY) is required for the LiteLLM judge")
+
+        params = config.get("params", {})
+
+        # The LiteLLM proxy serves the OpenAI routes at the root, so use base_url
+        # as-is (no "/v1" suffix) — matching the agent's gpt4.1 profile.
+        cfg = {
+            "model": model_name,
+            "api_key": api_key,
+            "base_url": base_url.rstrip("/"),
+            "temperature": 0,
+        }
+        cfg.update(params)
+
+        super().__init__(**cfg)
+
+
+def _build_judge_llm(config: dict) -> ChatOpenAI:
+    """Select the judge backend. Default ``litellm`` -> Azure/gpt-4.1 via the
+    LiteLLM proxy; set ``JUDGE_BACKEND=groq`` (or gpt-oss) for the legacy
+    Groq-backed gpt-oss-120b judge, or ``JUDGE_BACKEND=rits`` for RITS.
+    An explicit ``config["backend"]`` wins."""
+    backend = (config.get("backend") or os.getenv("JUDGE_BACKEND", "litellm")).strip().lower()
+    if backend in ("groq", "gpt-oss", "gpt_oss", "oss"):
+        return ChatModel(config)
+    if backend == "rits":
+        return ChatRits(config)
+    if backend in ("litellm", "azure", ""):
+        return LiteLLMChatModel(config)
+    raise ValueError(
+        f"Unknown judge backend {backend!r}. Set JUDGE_BACKEND (or config['backend']) to one of: "
+        "'litellm'/'azure' (default, Azure/gpt-4.1 via the LiteLLM proxy) or "
+        "'groq'/'gpt-oss' (legacy Groq gpt-oss-120b) or 'rits'."
+    )
+
 
 class LLMJudge:
     """
     Interface you implement with your provider (OpenAI, vLLM, etc).
     Must be deterministic as much as possible (temperature=0).
     """
-    def __init__(self,
-                config: dict = {}):
-        self.model_config=config
-        self.llm=self._build_llm(self.model_config)
 
-    def _build_llm(self, config: dict) -> ChatOpenAI:
-        backend = (
-            config.get("backend")
-            or config.get("provider")
-            or os.getenv("JUDGE_BACKEND")
-        )
-        if backend is None:
-            backend = "rits" # Use RITS as default judge backend if not specified
+    def __init__(self, config: dict = {}):
+        self.model_config = config
+        self.llm = _build_judge_llm(self.model_config)
 
-        backend = backend.lower()
-        if backend == "rits":
-            return ChatRits(config)
-        if backend == "groq":
-            return ChatGroq(config)
-        raise ValueError(f"Unsupported judge backend: {backend!r}. Expected 'groq' or 'rits'.")
-
-    def invoke(self, prompt:str) -> str:
+    def invoke(self, prompt: str) -> str:
         res = self.llm.invoke(prompt).content
         return res
 
@@ -103,26 +156,35 @@ class GroundednessJudge(LLMJudge):
     Check if the predicted answer is grounded in the answers in the turn.
     """
 
+    def __init__(self, config: dict = {}):
+        # Allow overriding ONLY the groundedness judge model, independent of the
+        # shared JUDGE_MODEL_NAME used by the correctness judge. Falls back to the
+        # standard default in LiteLLMChatModel when unset.
+        override = os.getenv("GROUNDEDNESS_JUDGE_MODEL_NAME")
+        if override and not config.get("model_name"):
+            config = {**config, "model_name": override}
+        super().__init__(config)
+
     _ws = re.compile(r"\s+")
 
     def _norm(self, s: str) -> str:
         return self._ws.sub(" ", s.strip().lower())
 
     def judge(self, inp: JudgeInput) -> JudgeOutput:
-        tr=" ".join([self._norm(str(t)) for t in inp.pred_tool_responses[-N_TOOL_CALLS_PER_TURN:]]) # Concatenate the "tool_responses". Only top 20 tool_responses considered.
-        tr=f"QUERY: {inp.query} {tr}" # Add Query to the responses 
+        tr = " ".join(
+            [self._norm(str(t)) for t in inp.pred_tool_responses[-N_TOOL_CALLS_PER_TURN:]]
+        )  # Concatenate the "tool_responses". Only top 20 tool_responses considered.
+        tr = f"QUERY: {inp.query} {tr}"  # Add Query to the responses
         pr = self._norm(inp.pred_answer)
 
-        prompt=GroundednessPrompt.format(
-            doc=tr,
-            response=pr)
+        prompt = GroundednessPrompt.format(doc=tr, response=pr)
         try:
-            result=self.invoke(prompt)            
-            result_parsed= self._parse_response(result)
+            result = self.invoke(prompt)
+            result_parsed = self._parse_response(result)
             return JudgeOutput(score=result_parsed["score"], explanation=result_parsed["explanation"])
         except Exception as e:
             return JudgeOutput(score=0.0, explanation=f"Judge Error {e}.")
-    
+
     def _find_label_and_line(self, text: str) -> tuple[Optional[str], Optional[int]]:
         lines = [ln.strip() for ln in text.split("\n") if ln.strip()]
         for i, ln in enumerate(lines[:10]):  # scan first few meaningful lines
@@ -133,7 +195,7 @@ class GroundednessJudge(LLMJudge):
         m = _LABEL_RE.search(text)
         return (m.group(1).lower(), None) if m else (None, None)
 
-    def _parse_response(self, raw: str)-> dict:
+    def _parse_response(self, raw: str) -> dict:
         """
         Parse the judge output into:
         {"explanation": str, "score": int}
@@ -151,7 +213,7 @@ class GroundednessJudge(LLMJudge):
         text = raw.strip()
         if not text:
             raise JudgeOutputParseError("empty output")
-        
+
         # Prefer <conclusion>...</conclusion> content if present
         m = _CONCLUSION_RE.search(text)
         if m:
@@ -163,7 +225,7 @@ class GroundednessJudge(LLMJudge):
 
         if label is None:
             raise JudgeOutputParseError("No label found (expected: yes/partial/no/unsure)")
-        
+
         explanation = self._extract_explanation(text, label, line_idx).strip()
 
         return {"explanation": explanation.strip(), "score": _SCORE_MAP[label]}
@@ -190,18 +252,20 @@ class GroundednessJudge(LLMJudge):
         m = _LABEL_RE.search(text)
         if not m:
             return ""
-        tail = text[m.end():].lstrip(" \t:;-–—\n").strip()
+        tail = text[m.end() :].lstrip(" \t:;-–—\n").strip()
         return tail.split("\n", 1)[0].strip() if tail else ""
-    
+
+
 class CorrectnessJudge(LLMJudge):
     """
     Score the predicted answer as opposed to ground truth answer and query.
     """
+
     _ws = re.compile(r"\s+")
 
     def _norm(self, s: str) -> str:
         return self._ws.sub(" ", s.strip().lower())
-    
+
     def _parse_response(self, raw: str) -> dict:
         """
         Parse the judge output into:
@@ -280,7 +344,7 @@ class CorrectnessJudge(LLMJudge):
 
         return {"explanation": explanation.strip(), "score": score_int}
 
-    def _find_first_json_object(text: str) -> Optional[str]:
+    def _find_first_json_object(self, text: str) -> Optional[str]:
         """
         Returns the substring of the first top-level JSON object found in `text`,
         or None if none is found.
@@ -319,21 +383,19 @@ class CorrectnessJudge(LLMJudge):
         return None
 
     def judge(self, inp: JudgeInput) -> JudgeOutput:
-        query=self._norm(inp.query)
+        query = self._norm(inp.query)
         gt = self._norm(inp.gt_answer)
         pr = self._norm(inp.pred_answer)
         if not gt and not pr:
             return JudgeOutput(score=1.0, explanation="Both empty.")
-        prompt=CorrectnessPrompt.format(
-            question=query,
-            answer=gt,
-            prediction=pr)
+        prompt = CorrectnessPrompt.format(question=query, answer=gt, prediction=pr)
         try:
-            result=self.invoke(prompt)            
-            result_parsed= self._parse_response(result)
+            result = self.invoke(prompt)
+            result_parsed = self._parse_response(result)
             return JudgeOutput(score=result_parsed["score"], explanation=result_parsed["explanation"])
-        except Exception as e:
+        except Exception:
             return JudgeOutput(score=0.0, explanation="Judge Error {e}.")
+
 
 class ExactMatchJudge(LLMJudge):
     """
@@ -365,16 +427,12 @@ class ExactMatchJudge(LLMJudge):
         missing = [e for e in expected_cmp if e not in actual_cmp]
 
         if not missing:
-            return JudgeOutput(
-                score=1.0,
-                explanation="All expected tool_responses are present in actual."
-            )
+            return JudgeOutput(score=1.0, explanation="All expected tool_responses are present in actual.")
         else:
             return JudgeOutput(
                 score=0.0,
                 explanation=(
-                    "Missing expected tool_responses.\n"
-                    f"Missing: {missing}\n"
+                    f"Missing expected tool_responses.\nMissing: {missing}\n"
                     # f"Expected ({len(expected_cmp)}): {expected_cmp}\n"
                     # f"Actual   ({len(actual_cmp)}): {actual_cmp}"
                 ),
