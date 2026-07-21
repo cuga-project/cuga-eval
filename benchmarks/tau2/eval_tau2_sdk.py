@@ -28,6 +28,7 @@ if not cuga_logging_dir:
 # cuga / tau2 imports live BELOW, inside run() — keep them lazy so importing this module
 # stays cheap and the config-first contract holds.
 import argparse
+import shutil
 import time
 from datetime import datetime
 from typing import Any, Optional
@@ -119,7 +120,11 @@ def run(args: argparse.Namespace) -> list[dict]:
     from cuga.backend.activity_tracker.tracker import ActivityTracker
     from tau2.runner.helpers import get_tasks
 
-    from benchmarks.helpers.sdk_eval_helpers import save_evaluation_results
+    from benchmarks.helpers.incremental_results import (
+        finalize_merged_results,
+        partial_dir,
+        write_task_result,
+    )
     from benchmarks.tau2.cuga_runner import _run_one_task
 
     run_ts = args.run_id or datetime.now().strftime("%Y%m%d_%H%M%S")
@@ -138,33 +143,41 @@ def run(args: argparse.Namespace) -> list[dict]:
         description=f"tau2 {args.subset} evaluation",
     )
 
+    # Incremental, crash-safe persistence via the shared helper (same mechanism the other
+    # benchmarks use): each task is written atomically under results/partial/, then all
+    # partials are merged into the canonical results/tau2_*.json — at the end OR on a
+    # crash/interrupt via `finally`. Start from a clean partial dir so a previous run's
+    # partials aren't merged into this run's results.
+    bundle_dir = Path(cuga_logging_dir)
+    pdir = partial_dir(bundle_dir)
+    if pdir.exists():
+        shutil.rmtree(pdir, ignore_errors=True)
+
     results: list[dict] = []
-    output_dir = Path(cuga_logging_dir) / "results"
-    saved: Optional[Path] = None
-    for i, task in enumerate(tasks, 1):
-        # task.description is a τ² Description object, not a str — stringify for the tracker.
-        intent = str(task.description) if task.description else task.id
-        print(f"[{i}/{len(tasks)}] {task.id} — running...")
-        tracker.reset(intent=intent, task_id=task.id)
-        t0 = time.monotonic()
-        reward: Optional[float] = None
-        error = None
-        extra: dict = {}
-        try:
-            reward = _run_one_task(
-                args.subset,
-                task,
-                args.user_sim_model,
-                llm_args_user=llm_args_user,
-                max_steps=args.max_steps,
-                out=extra,
-            )
-        except Exception as e:  # noqa: BLE001 — record the failure, keep going
-            error = e
-            print(f"    FAILED: {e!r}")
-        dur = time.monotonic() - t0
-        results.append(
-            _result_dict(
+    try:
+        for i, task in enumerate(tasks, 1):
+            # task.description is a τ² Description object, not a str — stringify for the tracker.
+            intent = str(task.description) if task.description else task.id
+            print(f"[{i}/{len(tasks)}] {task.id} — running...")
+            tracker.reset(intent=intent, task_id=task.id)
+            t0 = time.monotonic()
+            reward: Optional[float] = None
+            error = None
+            extra: dict = {}
+            try:
+                reward = _run_one_task(
+                    args.subset,
+                    task,
+                    args.user_sim_model,
+                    llm_args_user=llm_args_user,
+                    max_steps=args.max_steps,
+                    out=extra,
+                )
+            except Exception as e:  # noqa: BLE001 — record the failure, keep going
+                error = e
+                print(f"    FAILED: {e!r}")
+            dur = time.monotonic() - t0
+            rd = _result_dict(
                 args.subset,
                 task,
                 reward,
@@ -176,31 +189,23 @@ def run(args: argparse.Namespace) -> list[dict]:
                 reward_info=extra.get("reward_info"),
                 messages=extra.get("messages"),
             )
-        )
-        tracker.finish_task(
-            task_id=task.id,
-            site=f"tau2/{args.subset}",
-            intent=intent,
-            score=reward if reward is not None else 0.0,
-            exception=bool(error),
-            duration=int(dur),
-        )
-        if reward is not None:
-            tracker.collect_score(reward)
-        print(f"    reward={reward}  ({dur:.1f}s)")
-
-        # Persist after EVERY task (same file, fixed run_ts). A long run (retail 114,
-        # telecom 2285) then never loses completed results to a crash/kill, and progress
-        # is inspectable while the run is still going. The helper rewrites the whole file,
-        # so it always reflects every task done so far. A transient write error must not
-        # kill the run, so we swallow it and try again next task.
-        try:
-            saved = save_evaluation_results(results, output_dir, prefix="tau2", run_timestamp=run_ts)
-        except Exception as e:  # noqa: BLE001
-            print(f"    (incremental save skipped: {e!r})")
-
-    if saved is None:  # every incremental save failed — try once more so we don't lose the run
-        saved = save_evaluation_results(results, output_dir, prefix="tau2", run_timestamp=run_ts)
+            results.append(rd)
+            write_task_result(bundle_dir, task.id, rd, domain=args.subset)  # atomic per-task
+            tracker.finish_task(
+                task_id=task.id,
+                site=f"tau2/{args.subset}",
+                intent=intent,
+                score=reward if reward is not None else 0.0,
+                exception=bool(error),
+                duration=int(dur),
+            )
+            if reward is not None:
+                tracker.collect_score(reward)
+            print(f"    reward={reward}  ({dur:.1f}s)")
+    finally:
+        # Merge whatever partials exist into the canonical results file — on normal
+        # completion AND on crash/interrupt (strictly stronger than an in-memory save).
+        saved = finalize_merged_results(bundle_dir, prefix="tau2", run_timestamp=run_ts)
     # tau2-shaped summary. (The shared print_evaluation_summary is bpo-specific — it hard-reads
     # `match_rate`, which tau2 results don't have; compare_report prints the full report at bundle.)
     passed = sum(1 for r in results if r["success"])

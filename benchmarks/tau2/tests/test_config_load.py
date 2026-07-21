@@ -32,8 +32,8 @@ def test_safety_pins_loaded():
 
     # SAFETY PIN 1: e2b off so the in-process bridge works.
     assert os.environ.get("DYNACONF_ADVANCED_FEATURES__E2B_SANDBOX") == "false"
-    # SAFETY PIN 2: REGISTRY is NOT overridden by tau2.env — it inherits false
-    # from config/global.env.
+    # SAFETY PIN 2: tau2.env explicitly sets REGISTRY=false (tau2 uses decoy tools, not
+    # the MCP registry). global.env stopped defaulting it to false in #126.
     assert os.environ.get("DYNACONF_ADVANCED_FEATURES__REGISTRY") == "false"
 
 

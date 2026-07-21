@@ -130,6 +130,13 @@ if [ -n "${AGENT:-}" ] && [ "$AGENT" != "cuga" ]; then
     exit 2
 fi
 
+# Apply --model-profile after load_env + arg parsing so the profile actually takes
+# effect (sets AGENT_SETTING_CONFIG / MODEL_NAME / OPENAI_* for the run). common.sh is
+# sourced unconditionally above; hard-fail loudly if that ever stops being true rather
+# than silently skipping model-profile application.
+declare -F finalize_model_config >/dev/null || { echo "Error: common.sh not sourced (finalize_model_config unavailable)" >&2; exit 1; }
+finalize_model_config || exit 1
+
 # Run evaluation. --max-workers 1 is mandatory: one bridge / "current bridge"
 # per process (the entrypoint also enforces it).
 echo -e "${YELLOW:-}Starting evaluation...${NC:-}"
