@@ -781,7 +781,15 @@ class M3Evaluator:
         # domains or samples are configured (a single domain can hold 100+
         # samples and run for hours; per-domain-only detection would
         # otherwise grind through all of them before noticing).
-        self._env_fail_streak = EnvironmentFailureStreakTracker(threshold=_env_int("M3_ENV_FAIL_STREAK", 3))
+        #
+        # Deliberately a separate knob from the domain-level tracker in
+        # run_config_mode (M3_ENV_FAIL_DOMAIN_STREAK): "N bad samples in a
+        # row" and "N bad domains in a row" are very different sensitivities,
+        # and sharing one env var made the two easy to misconfigure or
+        # reason about incorrectly.
+        self._env_fail_streak = EnvironmentFailureStreakTracker(
+            threshold=_env_int("M3_ENV_FAIL_SAMPLE_STREAK", 3)
+        )
 
     def _resume_skip(self, identity: str) -> bool:
         """True if `identity` (optionally scoped to self.domain) is already done."""
@@ -1117,6 +1125,14 @@ class M3Evaluator:
                 logger.info(f"\n[{i}/{len(test_cases)}] Processing task...")
                 result = await self.evaluate_task(task, task_index=i)
                 self.results.append(result)
+
+                if self._env_fail_streak.record([result]):
+                    reason = (
+                        f"{self._env_fail_streak.threshold} consecutive tasks in domain "
+                        f"'{self.domain}' failed with environment-shaped errors (last: {identity})"
+                    )
+                    print(render_environment_failure_banner(reason, resume_hint_for(self.bundle_dir)))
+                    raise EnvironmentFailureError(reason)
 
                 # Small delay to avoid rate limiting between tasks
                 if i < len(test_cases):
@@ -2506,9 +2522,22 @@ async def evaluate_tasks_in_batches(task_evaluations: List[tuple], batch_size: i
         # Run tasks in this batch in parallel
         batch_results = await asyncio.gather(*[coro for _, coro in batch], return_exceptions=True)
 
-        # Process results
+        # Process results. An EnvironmentFailureError is NOT just another
+        # per-task failure: gather(return_exceptions=True) would otherwise
+        # let it fall into the generic branch below, get logged as
+        # "❌ Task X failed", and be silently downgraded to an ordinary task
+        # failure — exactly the environment-noise-scored-as-failure outcome
+        # this whole module exists to prevent, and worse, in a way that
+        # drops any results already extended below for this batch without
+        # ever aborting the run. Collect it, still extend every other task's
+        # results in this batch, then abort with the same banner + exit-3
+        # behavior sequential mode gets.
+        env_failure: Optional[EnvironmentFailureError] = None
         for (service_name, _), task_results in zip(batch, batch_results):
-            if isinstance(task_results, Exception):
+            if isinstance(task_results, EnvironmentFailureError):
+                logger.error(f"❌ Task {service_name} hit an environment failure: {task_results}")
+                env_failure = env_failure or task_results
+            elif isinstance(task_results, Exception):
                 logger.error(f"❌ Task {service_name} failed: {task_results}")
                 import traceback
 
@@ -2516,6 +2545,15 @@ async def evaluate_tasks_in_batches(task_evaluations: List[tuple], batch_size: i
             elif isinstance(task_results, list):
                 all_results.extend(task_results)
                 logger.info(f"✅ Task {service_name}: {len(task_results)} results")
+
+        if env_failure is not None:
+            bundle_dir = Path(args.bundle_dir) if getattr(args, "bundle_dir", None) else None
+            print(render_environment_failure_banner(str(env_failure), resume_hint_for(bundle_dir)))
+            # Attach whatever this batch collected so a caller that wants to
+            # keep the work already done (rather than rely solely on
+            # bundle_dir's incremental per-domain persistence) still can.
+            env_failure.partial_results = list(all_results)
+            raise env_failure
 
         # Cleanup between batches (except for last batch)
         if batch_num < num_batches - 1:
@@ -3014,7 +3052,12 @@ async def run_config_mode(args, container_runtime: str, defer_save: bool = False
             # benchmarks/m3/container_health.py.
             env_health_check_enabled = os.environ.get("M3_ENV_HEALTH_CHECK", "true").lower() != "false"
             env_health_timeout = _env_float("M3_ENV_HEALTH_TIMEOUT", 5.0)
-            env_fail_streak = EnvironmentFailureStreakTracker(threshold=_env_int("M3_ENV_FAIL_STREAK", 3))
+            # Domain-level streak — deliberately a separate knob from the
+            # sample-level tracker in M3Evaluator.__init__
+            # (M3_ENV_FAIL_SAMPLE_STREAK); see the comment there.
+            env_fail_streak = EnvironmentFailureStreakTracker(
+                threshold=_env_int("M3_ENV_FAIL_DOMAIN_STREAK", 3)
+            )
             env_resume_hint = resume_hint_for(bundle_dir)
 
             # In sequential mode we ignore the pre-built coroutines and

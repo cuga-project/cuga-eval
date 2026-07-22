@@ -163,6 +163,16 @@ def test_check_container_health_not_running():
     assert "not running" in reason
 
 
+def test_check_container_health_exec_check_does_not_require_true_binary():
+    # A distroless/minimal capability image may not ship a `true` executable;
+    # `sh -c :` only assumes a POSIX shell, which every Linux base image has.
+    with patch("benchmarks.m3.container_health.subprocess.run") as run:
+        run.side_effect = [_completed(0, stdout="true\n"), _completed(0)]
+        check_container_health("capability_2_dashboard_apis", "docker")
+    exec_call_args = run.call_args_list[1].args[0]
+    assert exec_call_args == ["docker", "exec", "capability_2_dashboard_apis", "sh", "-c", ":"]
+
+
 def test_check_container_health_exec_fails():
     with patch("benchmarks.m3.container_health.subprocess.run") as run:
         run.side_effect = [_completed(0, stdout="true\n"), _completed(1, stderr="OCI runtime exec failed")]

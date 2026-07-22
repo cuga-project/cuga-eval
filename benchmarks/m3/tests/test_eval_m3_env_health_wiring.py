@@ -3,6 +3,7 @@ exit-code-3 wrapper and the sequential-loop call-site ordering. See
 docs/superpowers/specs/2026-07-13-m3-docker-env-health-check-design.md.
 """
 
+import json
 from pathlib import Path
 from unittest.mock import AsyncMock, patch
 
@@ -129,7 +130,7 @@ async def test_m3_evaluator_aborts_after_consecutive_environment_shaped_sample_f
     from benchmarks.m3.container_health import EnvironmentFailureError
     from benchmarks.m3.eval_m3 import M3Evaluator
 
-    monkeypatch.setenv("M3_ENV_FAIL_STREAK", "3")
+    monkeypatch.setenv("M3_ENV_FAIL_SAMPLE_STREAK", "3")
     evaluator = M3Evaluator(m3_data_mode=True, domain="hockey", bundle_dir=None)
 
     async def fake_evaluate_multiturn_task(sample, sample_index):
@@ -153,7 +154,7 @@ async def test_m3_evaluator_aborts_after_consecutive_environment_shaped_sample_f
 async def test_m3_evaluator_does_not_abort_on_mixed_sample_results(monkeypatch):
     from benchmarks.m3.eval_m3 import M3Evaluator
 
-    monkeypatch.setenv("M3_ENV_FAIL_STREAK", "3")
+    monkeypatch.setenv("M3_ENV_FAIL_SAMPLE_STREAK", "3")
     evaluator = M3Evaluator(m3_data_mode=True, domain="hockey", bundle_dir=None)
 
     call_count = 0
@@ -176,6 +177,114 @@ async def test_m3_evaluator_does_not_abort_on_mixed_sample_results(monkeypatch):
     await evaluator.evaluate_all(preloaded_data=samples)  # must NOT raise
 
     assert len(evaluator.results) == 5
+
+
+async def test_m3_evaluator_aborts_after_consecutive_environment_shaped_single_turn_failures(
+    monkeypatch, tmp_path
+):
+    # Mirrors test_m3_evaluator_aborts_after_consecutive_environment_shaped_sample_failures
+    # above, but for the single-turn (evaluate_task) loop — CodeRabbit flagged
+    # that loop as missing the streak check entirely; this guards the fix.
+    from benchmarks.m3.eval_m3 import M3Evaluator
+
+    monkeypatch.setenv("M3_ENV_FAIL_SAMPLE_STREAK", "3")
+    data_path = tmp_path / "single_turn.json"
+    data_path.write_text(
+        json.dumps([{"test_cases": [{"name": f"t{i}"} for i in range(1, 6)]}])  # 5 tasks
+    )
+
+    evaluator = M3Evaluator(multiturn=False, m3_data_mode=True, domain="hockey", bundle_dir=None)
+
+    async def fake_evaluate_task(task, task_index):
+        return {
+            "task_name": task["name"],
+            "error": "Error calling MCP server tool: Connection refused",
+        }
+
+    monkeypatch.setattr(evaluator, "evaluate_task", fake_evaluate_task)
+
+    with pytest.raises(EnvironmentFailureError):
+        await evaluator.evaluate_all(data_path=str(data_path))
+
+    # Must abort after exactly 3 consecutive failures, NOT grind through all 5.
+    assert len(evaluator.results) == 3
+
+
+async def test_evaluate_tasks_in_batches_env_failure_preserves_other_results_in_batch():
+    # Regression test for the batched-mode bug: an EnvironmentFailureError
+    # raised by one task's coroutine must not be downgraded to an ordinary
+    # "❌ Task failed" log line by gather(return_exceptions=True) — it must
+    # abort the whole batched run, while still keeping the other tasks'
+    # results collected in the same batch (rather than losing them because
+    # the failing coroutine raised instead of returning).
+    from benchmarks.m3.eval_m3 import evaluate_tasks_in_batches
+
+    async def ok_task():
+        return [{"task_name": "ok", "error": None}]
+
+    async def bad_task():
+        raise EnvironmentFailureError("container dead")
+
+    task_evaluations = [("ok_service", ok_task()), ("bad_service", bad_task())]
+
+    class FakeArgs:
+        bundle_dir = None
+
+    with pytest.raises(EnvironmentFailureError) as exc_info:
+        await evaluate_tasks_in_batches(task_evaluations, batch_size=2, args=FakeArgs())
+
+    assert exc_info.value.partial_results == [{"task_name": "ok", "error": None}]
+
+
+async def test_evaluate_tasks_in_batches_stops_at_env_failure_does_not_run_later_batches():
+    # The bug this guards against: without special-casing EnvironmentFailureError,
+    # evaluate_tasks_in_batches would log the failure and move on to the next
+    # batch, burning through the rest of the run against a dead environment.
+    from benchmarks.m3.eval_m3 import evaluate_tasks_in_batches
+
+    later_batch_ran = False
+
+    async def bad_task():
+        raise EnvironmentFailureError("container dead")
+
+    async def later_task():
+        nonlocal later_batch_ran
+        later_batch_ran = True
+        return [{"task_name": "later"}]
+
+    later_coro = later_task()
+    task_evaluations = [("bad_service", bad_task()), ("later_service", later_coro)]
+
+    class FakeArgs:
+        bundle_dir = None
+
+    with pytest.raises(EnvironmentFailureError):
+        await evaluate_tasks_in_batches(task_evaluations, batch_size=1, args=FakeArgs())
+
+    # later_coro is never awaited — that's the point (batch 2 never ran) —
+    # so close it explicitly rather than let gc emit a "never awaited" warning.
+    later_coro.close()
+    assert later_batch_ran is False
+
+
+async def test_evaluate_tasks_in_batches_generic_exception_does_not_abort_the_run():
+    # Unchanged pre-existing behavior: a normal (non-environment) task
+    # exception is still just logged, and the batch run continues.
+    from benchmarks.m3.eval_m3 import evaluate_tasks_in_batches
+
+    async def bad_task():
+        raise ValueError("some ordinary task bug")
+
+    async def ok_task():
+        return [{"task_name": "ok"}]
+
+    task_evaluations = [("bad_service", bad_task()), ("ok_service", ok_task())]
+
+    class FakeArgs:
+        bundle_dir = None
+
+    results = await evaluate_tasks_in_batches(task_evaluations, batch_size=1, args=FakeArgs())
+    assert results == [{"task_name": "ok"}]
 
 
 def test_evaluate_single_task_domain_exception_is_not_swallowed():

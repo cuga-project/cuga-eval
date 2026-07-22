@@ -2,8 +2,14 @@
 and abort the eval run cleanly instead of grinding through it, contaminating
 results with environment noise scored as ordinary task failures.
 
-Used only by the sequential (default) path of benchmarks/m3/eval_m3.py's
-run_config_mode(). See
+The pre-flight container check (`health_check_or_abort`) and the domain-level
+streak (`record_streak_or_abort`) are only wired into the sequential (default)
+path of benchmarks/m3/eval_m3.py's run_config_mode(). The sample-level streak
+(`EnvironmentFailureStreakTracker` inside `M3Evaluator`) and the result
+classifiers (`is_environment_shaped_result` and friends) run in both the
+sequential and batched paths — in batched mode, a tripped sample-level streak
+raises out of the task's coroutine, and `evaluate_tasks_in_batches` aborts the
+whole run instead of downgrading it to an ordinary per-task failure. See
 docs/superpowers/specs/2026-07-13-m3-docker-env-health-check-design.md.
 """
 
@@ -23,6 +29,13 @@ class EnvironmentFailureError(RuntimeError):
 # is deliberately excluded: a legitimately slow SQL query over a live,
 # healthy container can raise a client-side timeout too, and that's a real
 # (if slow) task outcome, not an environment failure.
+#
+# Matching is intentionally a plain unanchored substring check, including
+# against tool-call *return data* (not just raised exceptions) — so a marker
+# phrase appearing in agent output or dataset content could in principle
+# false-positive. That risk is accepted: the phrasings are specific, and the
+# consecutive-streak requirement (EnvironmentFailureStreakTracker) means a
+# single accidental match is harmless — it never trips an abort on its own.
 _ENV_FAILURE_MARKERS = (
     "Connection refused",
     "Broken pipe",
@@ -91,9 +104,13 @@ def check_container_health(container: str, container_runtime: str, timeout: floa
     """Check whether `container` is running and its exec path responds.
 
     Two cheap subprocess checks: `inspect` catches the container being
-    stopped/removed/never-existed; `exec ... true` catches a container
+    stopped/removed/never-existed; `exec ... sh -c :` catches a container
     that's "running" per docker but whose exec path is wedged (daemon
-    overloaded, defunct process) — a case `inspect` alone would miss.
+    overloaded, defunct process) — a case `inspect` alone would miss. `sh -c
+    :` (the shell no-op builtin) is used rather than the `true` binary
+    because a minimal/distroless capability image may not ship a `true`
+    executable at all — every POSIX shell built into any Linux base image
+    provides `:`, so this doesn't assume more of the image than `sh` itself.
 
     Returns (healthy, reason). reason is "" when healthy.
     """
@@ -115,7 +132,7 @@ def check_container_health(container: str, container_runtime: str, timeout: floa
 
     try:
         exec_check = subprocess.run(  # noqa: S603
-            [container_runtime, "exec", container, "true"],
+            [container_runtime, "exec", container, "sh", "-c", ":"],
             capture_output=True,
             text=True,
             timeout=timeout,
