@@ -788,7 +788,7 @@ class M3Evaluator:
         # and sharing one env var made the two easy to misconfigure or
         # reason about incorrectly.
         self._env_fail_streak = EnvironmentFailureStreakTracker(
-            threshold=_env_int("M3_ENV_FAIL_SAMPLE_STREAK", 3)
+            threshold=_env_int("M3_ENV_FAIL_SAMPLE_STREAK", 3, min_value=1)
         )
 
     def _resume_skip(self, identity: str) -> bool:
@@ -2671,16 +2671,21 @@ def _env_float(name: str, default: float) -> float:
         return default
 
 
-def _env_int(name: str, default: int) -> int:
-    """Parse an int env var, falling back to `default` (with a warning) if unset or malformed."""
+def _env_int(name: str, default: int, min_value: Optional[int] = None) -> int:
+    """Parse an int env var, falling back to `default` (with a warning) if unset,
+    malformed, or below `min_value`."""
     raw = os.environ.get(name)
     if raw is None:
         return default
     try:
-        return int(raw)
+        value = int(raw)
     except ValueError:
         logger.warning(f"{name}={raw!r} is not a valid integer; using default {default}")
         return default
+    if min_value is not None and value < min_value:
+        logger.warning(f"{name}={raw!r} is below the minimum of {min_value}; using default {default}")
+        return default
+    return value
 
 
 async def run_config_mode(args, container_runtime: str, defer_save: bool = False):
@@ -3056,7 +3061,7 @@ async def run_config_mode(args, container_runtime: str, defer_save: bool = False
             # sample-level tracker in M3Evaluator.__init__
             # (M3_ENV_FAIL_SAMPLE_STREAK); see the comment there.
             env_fail_streak = EnvironmentFailureStreakTracker(
-                threshold=_env_int("M3_ENV_FAIL_DOMAIN_STREAK", 3)
+                threshold=_env_int("M3_ENV_FAIL_DOMAIN_STREAK", 3, min_value=1)
             )
             env_resume_hint = resume_hint_for(bundle_dir)
 

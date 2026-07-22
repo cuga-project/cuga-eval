@@ -104,6 +104,48 @@ def test_env_int_returns_default_on_malformed(monkeypatch):
     assert result == 10
 
 
+def test_env_int_returns_default_when_below_min_value(monkeypatch):
+    from benchmarks.m3.eval_m3 import _env_int
+
+    # Regression test: EnvironmentFailureStreakTracker(threshold=0) raises
+    # ValueError, so a misconfigured M3_ENV_FAIL_SAMPLE_STREAK=0 must fall
+    # back to the default (with a warning), not crash the eval run.
+    monkeypatch.setenv("TEST_INT_VAR", "0")
+    assert _env_int("TEST_INT_VAR", 3, min_value=1) == 3
+
+
+def test_env_int_returns_default_when_negative_and_below_min_value(monkeypatch):
+    from benchmarks.m3.eval_m3 import _env_int
+
+    monkeypatch.setenv("TEST_INT_VAR", "-1")
+    assert _env_int("TEST_INT_VAR", 3, min_value=1) == 3
+
+
+def test_env_int_accepts_value_at_min_value(monkeypatch):
+    from benchmarks.m3.eval_m3 import _env_int
+
+    monkeypatch.setenv("TEST_INT_VAR", "1")
+    assert _env_int("TEST_INT_VAR", 3, min_value=1) == 1
+
+
+def test_env_int_without_min_value_still_allows_zero(monkeypatch):
+    from benchmarks.m3.eval_m3 import _env_int
+
+    # No min_value passed -> unchanged pre-existing behavior for other callers.
+    monkeypatch.setenv("TEST_INT_VAR", "0")
+    assert _env_int("TEST_INT_VAR", 10) == 0
+
+
+def test_m3_env_fail_streak_env_vars_never_reach_tracker_below_threshold_one(monkeypatch):
+    # End-to-end: setting either streak env var to 0 must not crash
+    # M3Evaluator/run_config_mode construction with an unhandled ValueError.
+    from benchmarks.m3.eval_m3 import M3Evaluator
+
+    monkeypatch.setenv("M3_ENV_FAIL_SAMPLE_STREAK", "0")
+    evaluator = M3Evaluator(m3_data_mode=True, domain="hockey", bundle_dir=None)
+    assert evaluator._env_fail_streak.threshold == 3
+
+
 def test_env_float_returns_default_when_unset():
     from benchmarks.m3.eval_m3 import _env_float
 
