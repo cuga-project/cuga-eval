@@ -97,6 +97,46 @@ def test_finalize_workspace_bundle_directory_task_file(tmp_path):
 
 
 @pytest.mark.sanity
+def test_record_task_file_regular_file(tmp_path):
+    tasks_dir = tmp_path / "tasks"
+    tf = tmp_path / "hockey.json"
+    tf.write_text("[]")
+    entry = bundle._record_task_file(tf, tasks_dir)
+    assert entry == f"sha256:{bundle._file_sha256(tf)}"
+    assert (tasks_dir / "hockey.json").exists()
+
+
+@pytest.mark.sanity
+def test_record_task_file_directory(tmp_path):
+    tasks_dir = tmp_path / "tasks"
+    data_dir = tmp_path / "capability_3_multihop_reasoning"
+    data_dir.mkdir()
+    entry = bundle._record_task_file(data_dir, tasks_dir)
+    assert entry == f"dir:{data_dir.resolve()}"
+    pointer = tasks_dir / "capability_3_multihop_reasoning.source"
+    assert pointer.exists()
+    assert pointer.read_text() == f"{data_dir.resolve()}\n"
+
+
+@pytest.mark.sanity
+def test_record_task_file_nonexistent_returns_none(tmp_path):
+    tasks_dir = tmp_path / "tasks"
+    missing = tmp_path / "does_not_exist.json"
+    assert bundle._record_task_file(missing, tasks_dir) is None
+    assert not tasks_dir.exists()
+
+
+@pytest.mark.sanity
+def test_record_task_file_no_tasks_dir_skips_write(tmp_path):
+    tf = tmp_path / "hockey.json"
+    tf.write_text("[]")
+    entry = bundle._record_task_file(tf, None)
+    assert entry == f"sha256:{bundle._file_sha256(tf)}"
+    # No tasks_dir given: nothing written to disk beyond the source file itself.
+    assert list(tmp_path.iterdir()) == [tf]
+
+
+@pytest.mark.sanity
 def test_finalize_workspace_bundle_partial_status(tmp_path):
     bd = tmp_path / "exp"
     bundle.create_workspace_bundle(bd, "m3")
