@@ -53,7 +53,7 @@ def test_run_main_returns_3_on_environment_failure():
 def test_health_check_runs_before_registry_restart():
     content = EVAL_M3_PY.read_text()
     health_idx = content.index("health_check_or_abort(")
-    registry_idx = content.index("svc_registry = await start_registry_server(mini_yaml")
+    registry_idx = content.index("svc_registry = await start_registry_server(\n")
     assert health_idx < registry_idx, (
         "health_check_or_abort must run before the per-domain registry restart "
         "so a dead container is caught before wasting a restart on it"
