@@ -224,6 +224,7 @@ def _extract_tool_calls_from_tracker() -> List[Dict[str, Any]]:
 
 
 from cuga.backend.cuga_graph.nodes.cuga_lite.providers.combined import CombinedToolProvider
+from cuga.backend.cuga_graph.nodes.cuga_lite.tracking.policy_guard import RetrieverPolicyGuard
 from cuga.backend.cuga_graph.policy.models import PolicyType
 from cuga.sdk import CugaAgent
 from langchain_core.messages import BaseMessage, HumanMessage
@@ -821,6 +822,7 @@ async def evaluate_task_with_langfuse(
     bundle_dir: Optional[Path] = None,
     bundle_domain: Optional[str] = None,
     history_messages: Optional[List[BaseMessage]] = None,
+    policy_text: Optional[str] = None,
 ) -> Dict[str, Any]:
     """Evaluate a single task with optional Langfuse tracing and enhanced metrics.
 
@@ -849,6 +851,13 @@ async def evaluate_task_with_langfuse(
                     follow-up question in an already-in-progress
                     conversation. None (default) preserves the existing
                     single-message behavior exactly.
+        policy_text: Optional raw retriever-usage policy text for this task
+                    (VAKRA's additional_instructions). Registered with
+                    RetrieverPolicyGuard under this call's thread_id so the
+                    CugaLite sandbox can block tool calls that violate it -
+                    see cuga-eval docs/m3-cap4-policy-investigation-20260723/
+                    README.md section 6.3. None (default) registers nothing,
+                    so no enforcement applies.
 
     Returns:
         Evaluation result dictionary with:
@@ -879,6 +888,7 @@ async def evaluate_task_with_langfuse(
     messages_to_send: List[BaseMessage] = list(history_messages or []) + [HumanMessage(content=intent)]
 
     thread_id = f"eval_{task_name}_{task_index}_{uuid.uuid4().hex[:8]}"
+    RetrieverPolicyGuard.register(thread_id, policy_text)
 
     logger.info(f"\n{'=' * 80}")
     logger.info(f"Evaluating: {task_name} ({difficulty})")
@@ -1320,6 +1330,7 @@ async def evaluate_task_with_langfuse(
             except Exception as persist_err:
                 logger.warning(f"Failed to persist incremental result for {task_name}: {persist_err}")
 
+        RetrieverPolicyGuard.unregister(thread_id)
         return result
 
     except Exception as e:
@@ -1353,6 +1364,7 @@ async def evaluate_task_with_langfuse(
             except Exception as persist_err:
                 logger.warning(f"Failed to persist incremental error result for {task_name}: {persist_err}")
 
+        RetrieverPolicyGuard.unregister(thread_id)
         return error_result
 
 
@@ -1368,6 +1380,7 @@ async def evaluate_multiturn_task_with_langfuse(
     expected_keywords: Optional[List[str]] = None,
     task_metadata: Optional[Dict[str, Any]] = None,
     turn_delay: float = 0.2,
+    policy_text: Optional[str] = None,
 ) -> Dict[str, Any]:
     """Evaluate a multi-turn task with optional Langfuse tracing.
 
@@ -1383,12 +1396,17 @@ async def evaluate_multiturn_task_with_langfuse(
         expected_keywords: Optional list of keywords to check in final response
         task_metadata: Optional metadata dict (domain, difficulty, etc.) to include in results
         turn_delay: Delay in seconds between turns (default: 0.2)
+        policy_text: Optional raw retriever-usage policy text for this task,
+                    registered with RetrieverPolicyGuard under this call's
+                    thread_id - see evaluate_task_with_langfuse's docstring
+                    for the same parameter.
 
     Returns:
         Evaluation result dictionary
     """
     num_turns = len(turns)
     thread_id = f"multiturn_{task_name}_{task_index}_{uuid.uuid4().hex[:8]}"
+    RetrieverPolicyGuard.register(thread_id, policy_text)
 
     logger.info(f"\n{'=' * 80}")
     logger.info(f"Evaluating multi-turn task: {task_name}")
@@ -1714,6 +1732,7 @@ async def evaluate_multiturn_task_with_langfuse(
         if tracker_callback:
             tracker_callback(result, keyword_check_result, initial_intent)
 
+        RetrieverPolicyGuard.unregister(thread_id)
         return result
 
     except Exception as e:
@@ -1763,6 +1782,7 @@ async def evaluate_multiturn_task_with_langfuse(
                 intent,
             )
 
+        RetrieverPolicyGuard.unregister(thread_id)
         return error_result
 
 
