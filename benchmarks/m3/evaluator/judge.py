@@ -5,15 +5,16 @@ import os
 import re
 from typing import Any, List, Optional
 
+from constant import N_TOOL_CALLS_PER_TURN
 from langchain_openai import ChatOpenAI
 from prompt import CorrectnessPrompt, GroundednessPrompt
-from constant import N_TOOL_CALLS_PER_TURN
 from utils import JudgeInput, JudgeOutput
 
 _LABEL_RE = re.compile(r"\b(yes|partial|no|unsure)\b", re.IGNORECASE)
 _CONCLUSION_RE = re.compile(r"<conclusion>\s*(.*?)\s*</conclusion>", re.IGNORECASE | re.DOTALL)
 
 _SCORE_MAP = {"yes": 1.0, "partial": 0.0, "no": 0.0, "unsure": 0.0}
+
 
 class JudgeOutputParseError(ValueError):
     pass
@@ -171,11 +172,33 @@ class GroundednessJudge(LLMJudge):
         return self._ws.sub(" ", s.strip().lower())
 
     def judge(self, inp: JudgeInput) -> JudgeOutput:
+        # Individual tool responses can be arbitrarily large (e.g. a broad
+        # free-text retriever query returning many documents); the last 20 of
+        # them concatenated uncapped has been observed to produce a prompt
+        # north of 1M tokens, exceeding even a 1M+-token judge context window
+        # (cuga-eval#143 / vakra#25). The bare except below then silently
+        # turns that infra-level BadRequestError into a hard groundedness
+        # FAIL, indistinguishable from a genuine ungrounded verdict. Cap
+        # defensively in characters (not tokens) so this doesn't depend on a
+        # tokenizer being available here, and stays correct across whichever
+        # judge model JUDGE_MODEL_NAME/GROUNDEDNESS_JUDGE_MODEL_NAME resolves
+        # to. Read fresh per call (not cached at class/import time) so an
+        # in-process env var change — a pytest fixture, an A/B toggle — takes
+        # effect immediately, matching this repo's convention elsewhere.
+        max_input_chars = int(os.getenv("M3_GROUNDEDNESS_JUDGE_MAX_CHARS", "100000"))
+
         tr = " ".join(
             [self._norm(str(t)) for t in inp.pred_tool_responses[-N_TOOL_CALLS_PER_TURN:]]
         )  # Concatenate the "tool_responses". Only top 20 tool_responses considered.
+        if len(tr) > max_input_chars:
+            # Keep the tail: most recent tool responses are most relevant to
+            # the final answer, and the truncation above already prioritizes
+            # recency by taking the *last* N_TOOL_CALLS_PER_TURN responses.
+            tr = tr[-max_input_chars:]
         tr = f"QUERY: {inp.query} {tr}"  # Add Query to the responses
         pr = self._norm(inp.pred_answer)
+        if len(pr) > max_input_chars:
+            pr = pr[:max_input_chars]
 
         prompt = GroundednessPrompt.format(doc=tr, response=pr)
         try:
@@ -393,8 +416,11 @@ class CorrectnessJudge(LLMJudge):
             result = self.invoke(prompt)
             result_parsed = self._parse_response(result)
             return JudgeOutput(score=result_parsed["score"], explanation=result_parsed["explanation"])
-        except Exception:
-            return JudgeOutput(score=0.0, explanation="Judge Error {e}.")
+        except Exception as e:
+            # Was `except Exception: ... "Judge Error {e}."` — no `as e` bound
+            # and no f-string, so the actual exception was always discarded;
+            # every infra/API failure here looked identical and undebuggable.
+            return JudgeOutput(score=0.0, explanation=f"Judge Error {e}.")
 
 
 class ExactMatchJudge(LLMJudge):
