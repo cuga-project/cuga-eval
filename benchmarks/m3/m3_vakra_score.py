@@ -465,6 +465,7 @@ async def score_results_async(
     output_dir: Path,
     capability_name: str = CAPABILITY_DEFAULT,
     domain: str = "hockey",
+    policy_judge_path: Optional[str] = None,
 ) -> Optional[Dict[str, Any]]:
     """Async variant of :func:`score_results`. Use this when called from inside
     an asyncio event loop (i.e. from any ``async def`` function in eval_m3.py).
@@ -476,6 +477,11 @@ async def score_results_async(
     - ``auto``  — try live-MCP; on connection failure fall back to offline
                   scoring (uses the tool responses the agent recorded).
     - ``off``   — never connect; always score offline.
+
+    ``policy_judge_path``: forwarded to ``TurnScorerConfig.policy_judge_path``
+    (see ``evaluator/scorer.py``). The internal ``policy_judge.py`` module is
+    not distributed with this repo; leave unset to skip policy-adherence
+    scoring entirely.
     """
     prepared = _prepare_inputs(results, output_dir, domain)
     if prepared is None:
@@ -545,6 +551,7 @@ async def score_results_async(
                 policy=policy,
                 mcp_config=mcp_config,
                 capability_name=capability_name,
+                policy_judge_path=policy_judge_path,
             )
             used_mode = "live-mcp"
         except Exception as e:  # noqa: BLE001 — broad fallback on any MCP/exec failure
@@ -569,6 +576,7 @@ async def score_results_async(
             policy=policy,
             mcp_config=None,
             capability_name=capability_name,
+            policy_judge_path=policy_judge_path,
         )
 
     summary = _annotate_and_summarize(results, domain, domain_out, work, gt_dir, pred_dir, capability_name)
@@ -591,6 +599,7 @@ def score_results(
     output_dir: Path,
     capability_name: str = CAPABILITY_DEFAULT,
     domain: str = "hockey",
+    policy_judge_path: Optional[str] = None,
 ) -> Optional[Dict[str, Any]]:
     """Sync entry point. Call only from non-async code; for async callers use
     :func:`score_results_async`. Raises ``RuntimeError`` if invoked while an
@@ -613,6 +622,7 @@ def score_results(
             output_dir=output_dir,
             capability_name=capability_name,
             domain=domain,
+            policy_judge_path=policy_judge_path,
         )
     )
 
