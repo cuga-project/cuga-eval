@@ -1324,11 +1324,148 @@ issue451_b_probe4 = [
 ]
 # ─────────────────────────────────────────────────────────────────────────────
 
-# 1-task smoke to verify the address domain reaches the grader at all.
-# The 20260721 cap4-300 run left every address sample unscored (null, not 0):
-# no address.json was ever staged into results/_vakra/groundtruth/, and
-# evaluator.py discovers domains via gt_dir.glob("*.json"), so the domain was
-# skipped silently. This sample is the ungrounded-refusal trace from that run
-# (agent claimed no tool returns per-state counts; a sibling run answered it
-# with address_get_states_by_cbsa_type_and_count).
-address_score_smoke = ["d80c9bf910f1-0ef4534b84e2"]
+# ─────────────────────────────────────────────────────────────────────────────
+# ToolGuide policy probes — cap4-300 tasks where PolicyAdherenceJudge
+# (benchmarks/m3/evaluator/policy_judge.py, run offline against the real
+# 20260722_131115 predictions) confirms the agent violated its
+# additional_instructions tool-usage constraint (called a document-retriever
+# tool when told not to, or a non-retriever tool when told to use only
+# retrievers) AND the dialogue scored a real failure (72/150 policy tasks;
+# 112/150 have a detectable violation, but 40 of those still passed overall,
+# so they're excluded here). Picked to be "slightly different" from each
+# other, not random, so each probe exercises a different corner of the
+# ToolGuide replacement:
+#   - both policy directions (only-use vs. do-not-use retrievers) — the
+#     "do-not-use" direction is rare: only 1/72 failing violations is that
+#     direction, so it had to be hand-picked rather than sampled
+#   - both instruction phrasings (the generic literal string vs. the
+#     longer per-domain-group template)
+#   - both langgraph outcomes (still fails vs. passes), so the probes cover
+#     "genuinely hard even with correct tool use" as well as "closable gap"
+cap4_toolguide_probe1 = ["d14bbb0be92d-d09ad3135cea"]
+# professional_basketball; "do not use document retrievers" (domain-group
+# phrasing); agent called query_professional_basketball 10x anyway.
+# langgraph also fails this one — not a free win, tests the harder case.
+
+cap4_toolguide_probe2 = ["5661cd917583-5bf11ec43a9d"]
+# book_publishing_company; "Use document retrievers... Do not use any other
+# type of tool." (generic phrasing); agent called
+# get_employee_details_by_hire_years instead. langgraph also fails.
+
+cap4_toolguide_probe3 = ["39a28b2592a2-16ff8f01c848"]
+# computer_student; "only using document retrievers" (domain-group phrasing);
+# agent alternated get_professors_and_course_levels / query_computer_student
+# repeatedly. langgraph passes this one — a real, closable gap.
+
+cap4_toolguide_probe_n3 = [
+  "d14bbb0be92d-d09ad3135cea",  # professional_basketball, do-not-use direction, lg also fails
+  "5661cd917583-5bf11ec43a9d",  # book_publishing_company, only-use + generic phrasing, lg also fails
+  "39a28b2592a2-16ff8f01c848",  # computer_student, only-use + domain-group phrasing, lg passes
+]
+# ─────────────────────────────────────────────────────────────────────────────
+
+# ─────────────────────────────────────────────────────────────────────────────
+# Groundedness/OutputFormatter probes — cap4-300 tasks where the agent's
+# tool selection was already fine (exactmatch not the problem) but the final
+# answer's *content* asserts more than the tool response actually supports.
+# 55/72 policy-violation-and-failure tasks fail this way (vs. only 1/72 on
+# exactmatch — see cap4_toolguide_probe1's own investigation), and this same
+# pattern dominates the wider cuga-fails/langgraph-passes cohort too, so it's
+# the bigger lever than tool-usage policy. Picked (not sampled) to cover three
+# distinct failure shapes seen in the judge explanations, since a single
+# citation-only formatter (like the deleted P-OF-1) won't address all of them:
+#   - unverified categorical/attribute claim: tool result has no such field,
+#     agent asserts the attribute anyway
+#   - false completeness claim: tool result was a partial/paginated list,
+#     agent claims it as exhaustive
+#   - outright fabrication: content answered from prior/parametric knowledge,
+#     nowhere in the tool's actual response
+cap4_groundedness_probe1 = ["1f58b1e965af-03bc27917845"]
+# cars; "Please list ... origin country is the USA" — tool result is just a
+# list of car names with no country field; agent asserts USA-origin anyway.
+# Unverified categorical claim. langgraph also fails this one.
+
+cap4_groundedness_probe2 = ["e71440999ce8-55e2e833b829"]
+# law_episode; "List the names of all the cast members" — tool response
+# omitted "ice-t" and "bd wong"; agent's answer claims completeness anyway.
+# False completeness claim. langgraph passes — a closable gap.
+
+cap4_groundedness_probe3 = ["ac8f8d8803cd-4b9ab86c88bb"]
+# shakespeare; "titles and genres of the one-act works" — judge: "titles and
+# genres ... nowhere mentioned in the document." Outright fabrication.
+# langgraph passes — a closable gap.
+
+cap4_groundedness_probe_n3 = [
+  "1f58b1e965af-03bc27917845",  # cars, unverified categorical claim, lg also fails
+  "e71440999ce8-55e2e833b829",  # law_episode, false completeness claim, lg passes
+  "ac8f8d8803cd-4b9ab86c88bb",  # shakespeare, outright fabrication, lg passes
+]
+# ─────────────────────────────────────────────────────────────────────────────
+
+# ─────────────────────────────────────────────────────────────────────────────
+# Runaway/step-limit probes — cap4-300 tasks that hit "Maximum step limit (35)
+# reached" (36/300 total). cuga-agent#493 (merged, active in this checkout
+# since 2026-07-20 — before this very bundle was run) fixes ONE specific
+# shape: a single code block loops over a big collection and gets killed by
+# the 90s sandbox timeout, discarding all state and causing a blind retry.
+# Checking 8 of the 36 step-limit tasks found #493's own marker text
+# ("Execution timed out after", "Partial stdout", "Do NOT rerun") appears
+# ZERO times in this run's console log — meaning the sandbox timeout itself
+# essentially never fires here. #493 is structurally unable to help a
+# failure that never produces the timeout event it's gated on. Picked to
+# cover the three distinct repetition shapes actually observed, none of
+# which route through #493's fix:
+#   - classic per-item loop, but fast enough to dodge the 90s timeout (true
+#     exact-duplicate calls: same tool + same args repeated across separate
+#     steps, not caught by any existing mechanism)
+#   - free-text retriever called repeatedly with rephrased (non-identical)
+#     queries — no exact duplicates, so a dedup/cache approach can't catch it
+#   - one specific analytical tool called repeatedly with different
+#     parameter guesses — often *legitimate* systematic search (this is the
+#     same shape that succeeds in cap4_toolguide_probe1 sometimes), so this
+#     is the one probe where "fix" isn't obviously safe to attempt
+cap4_runaway_probe1 = ["e71440999ce8-99b792c44651"]
+# law_episode; "Use document retrievers... Do not use any other type of
+# tool." (policy-bearing); 807 total tool calls, only 200 distinct argument
+# sets to get_roles_by_person_name — the same ~200-name cast list looped
+# roughly 4x with real exact-duplicate calls (e.g. "Julia Roberts" called at
+# position 1 and again at position 4). Classic per-item-loop shape, just one
+# that apparently completes fast enough this run to never trip the 90s
+# sandbox timeout #493 is gated on.
+
+cap4_runaway_probe2 = ["d14bbb0be92d-ae240cc7a80e"]
+# professional_basketball (policy-bearing, "do not use document
+# retrievers" — a different sample than cap4_toolguide_probe1's); 16 calls,
+# all query_professional_basketball with varying free-text queries. No exact
+# duplicates to dedup against — this is the retriever-rephrasing shape, not
+# the per-item-loop shape.
+
+cap4_runaway_probe3 = ["55b7e50368aa-01b9e0ab72a2"]
+# mondial_geo; no policy. 5 calls, all one specific analytical tool with
+# different parameter guesses each time. Often legitimate systematic search
+# (same shape that succeeds elsewhere) — included specifically because it's
+# the case where "fixing repetition" risks penalizing a would-be-converging
+# search, same failure mode cuga-agent#493's own A/B data already showed for
+# its (off-by-default) max_tool_calls_per_block budget.
+
+cap4_runaway_probe4 = ["1960f609e439-3a1b0a9c3535"]
+# codebase_comments; no policy. 17 calls: 13x find_tools + 4x
+# sum_solution_counts. Mixed-exploration shape — heavy find_tools use
+# suggests tool-discovery difficulty rather than a call-repetition loop;
+# included as the 4th distinct pattern observed, milder than the other three
+# and the one least likely to be helped by a repeat-call note at all (there's
+# no repeated *tool*, just repeated *search*).
+
+cap4_runaway_probe_n3 = [
+  "e71440999ce8-99b792c44651",  # law_episode, exact-duplicate per-item loop (no timeout fired)
+  "d14bbb0be92d-ae240cc7a80e",  # professional_basketball, retriever-rephrasing loop
+  "55b7e50368aa-01b9e0ab72a2",  # mondial_geo, parameter-guessing loop (possibly-legitimate search)
+]
+
+cap4_runaway_probe_n4 = [
+  "e71440999ce8-99b792c44651",  # law_episode, exact-duplicate per-item loop (no timeout fired)
+  "d14bbb0be92d-ae240cc7a80e",  # professional_basketball, retriever-rephrasing loop
+  "55b7e50368aa-01b9e0ab72a2",  # mondial_geo, parameter-guessing loop (possibly-legitimate search)
+  "1960f609e439-3a1b0a9c3535",  # codebase_comments, mixed find_tools-heavy exploration
+]
+# ─────────────────────────────────────────────────────────────────────────────
