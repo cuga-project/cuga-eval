@@ -6,6 +6,7 @@ Creates self-contained directories with metadata, results, tasks, and
 Works for any benchmark — pass ``benchmark_dir`` to customise paths.
 """
 
+import asyncio
 import hashlib
 import json
 import os
@@ -357,30 +358,13 @@ def _retry_after_seconds(err, default: float) -> float:
     return default
 
 
-def _download_langfuse_traces(
-    bundle_dir: Path,
-    result_files: list[str | Path],
-    dest_subdir: str = "langfuse_traces",
-    skip_existing: bool = True,
-) -> bool:
-    """Download Langfuse trace data for all trace IDs found in result files.
+def _collect_trace_ids_from_result_files(result_files: list[str | Path]) -> list[tuple[str, str]]:
+    """Extract (task_name, trace_id) pairs from on-disk result JSON files.
 
-    Reads each result JSON, extracts ``trace_id`` fields from individual
-    task results, and fetches the full trace from the Langfuse API.  Only
-    runs when ``LANGFUSE_PUBLIC_KEY`` and ``LANGFUSE_SECRET_KEY`` are set.
+    Understands both SDK-style (``{"results": [{"trace_id": ..., "task_name": ...}]}``)
+    and Appworld-style (``{"task_results": {"task_id": {"trace_id": ...}}}``) schemas.
     """
-    public_key = os.environ.get("LANGFUSE_PUBLIC_KEY")
-    secret_key = os.environ.get("LANGFUSE_SECRET_KEY")
-    if not public_key or not secret_key:
-        print("Langfuse trace download skipped: LANGFUSE_PUBLIC_KEY / LANGFUSE_SECRET_KEY not set.")
-        return False
-
-    host = os.environ.get("LANGFUSE_HOST") or os.environ.get(
-        "LANGFUSE_BASE_URL", "https://cloud.langfuse.com"
-    )
-
-    # Collect trace IDs from result files
-    trace_ids: list[tuple[str, str]] = []  # (task_name, trace_id)
+    trace_ids: list[tuple[str, str]] = []
     for rf in result_files:
         rf = Path(rf)
         if not rf.exists():
@@ -403,6 +387,44 @@ def _download_langfuse_traces(
             for task_id, tr in task_results.items():
                 if isinstance(tr, dict) and tr.get("trace_id"):
                     trace_ids.append((str(task_id), tr["trace_id"]))
+
+    return trace_ids
+
+
+def _collect_trace_ids_from_results(results: list[dict]) -> list[tuple[str, str]]:
+    """Extract (task_name, trace_id) pairs directly from an in-memory results
+    list (the same SDK-style shape each per-task result dict already has —
+    ``task_name``/``sample_id`` plus ``trace_id``), without a file round-trip.
+    """
+    trace_ids: list[tuple[str, str]] = []
+    for r in results:
+        tid = r.get("trace_id")
+        if tid:
+            task_name = r.get("task_name") or r.get("sample_id") or r.get("task_id", "unknown")
+            trace_ids.append((str(task_name), tid))
+    return trace_ids
+
+
+def _download_trace_ids(
+    bundle_dir: Path,
+    trace_ids: list[tuple[str, str]],
+    dest_subdir: str = "langfuse_traces",
+    skip_existing: bool = True,
+) -> bool:
+    """Fetch each (task_name, trace_id) pair from the Langfuse API into
+    ``bundle_dir / dest_subdir``. Only runs when ``LANGFUSE_PUBLIC_KEY`` and
+    ``LANGFUSE_SECRET_KEY`` are set. Synchronous/blocking — callers that want
+    this off the event loop should run it via ``asyncio.to_thread``.
+    """
+    public_key = os.environ.get("LANGFUSE_PUBLIC_KEY")
+    secret_key = os.environ.get("LANGFUSE_SECRET_KEY")
+    if not public_key or not secret_key:
+        print("Langfuse trace download skipped: LANGFUSE_PUBLIC_KEY / LANGFUSE_SECRET_KEY not set.")
+        return False
+
+    host = os.environ.get("LANGFUSE_HOST") or os.environ.get(
+        "LANGFUSE_BASE_URL", "https://cloud.langfuse.com"
+    )
 
     if not trace_ids:
         return False
@@ -484,6 +506,68 @@ def _download_langfuse_traces(
             time.sleep(inter_request_pause)
 
     return downloaded
+
+
+def _download_langfuse_traces(
+    bundle_dir: Path,
+    result_files: list[str | Path],
+    dest_subdir: str = "langfuse_traces",
+    skip_existing: bool = True,
+) -> bool:
+    """Download Langfuse trace data for all trace IDs found in result files.
+
+    Reads each result JSON, extracts ``trace_id`` fields from individual
+    task results, and fetches the full trace from the Langfuse API. Only
+    runs when ``LANGFUSE_PUBLIC_KEY`` and ``LANGFUSE_SECRET_KEY`` are set.
+    """
+    trace_ids = _collect_trace_ids_from_result_files(result_files)
+    return _download_trace_ids(bundle_dir, trace_ids, dest_subdir=dest_subdir, skip_existing=skip_existing)
+
+
+# Background Langfuse downloads scheduled *during* a run (not deferred to
+# finalize): a crash or Ctrl-C mid-run should still leave whatever traces had
+# already completed on disk, matching the existing incremental partial-results
+# model. asyncio is single-threaded, so a plain module-level list is safe to
+# append to/drain from any coroutine without additional locking.
+_pending_langfuse_downloads: list[asyncio.Task] = []
+
+
+def schedule_langfuse_download_for_results(
+    bundle_dir: Path,
+    results: list[dict],
+    dest_subdir: str = "langfuse_traces",
+) -> None:
+    """Kick off a non-blocking background download of the Langfuse traces for
+    ``results`` (e.g. one just-completed domain's results). Returns
+    immediately; the caller's event loop keeps moving on to the next task/
+    domain while the download runs on a worker thread. Call
+    :func:`await_pending_langfuse_downloads` before the process exits so any
+    still-in-flight downloads aren't silently dropped.
+    """
+    trace_ids = _collect_trace_ids_from_results(results)
+    if not trace_ids:
+        return
+
+    task = asyncio.create_task(
+        asyncio.to_thread(_download_trace_ids, bundle_dir, trace_ids, dest_subdir, True)
+    )
+    _pending_langfuse_downloads.append(task)
+
+
+async def await_pending_langfuse_downloads() -> None:
+    """Wait for every background download scheduled via
+    :func:`schedule_langfuse_download_for_results` to finish. Safe to call
+    more than once (drains the list, so a second call is a no-op). Intended
+    for a run's ``finally`` block so process exit — normal completion,
+    Ctrl-C, or an unexpected exception — never truncates an in-flight fetch.
+    """
+    if not _pending_langfuse_downloads:
+        return
+    pending, _pending_langfuse_downloads[:] = list(_pending_langfuse_downloads), []
+    results = await asyncio.gather(*pending, return_exceptions=True)
+    for r in results:
+        if isinstance(r, Exception):
+            print(f"  Warning: background Langfuse download failed: {r}")
 
 
 def _write_per_model_config(bundle_dir: Path, model_envs: dict, benchmark_dir: Path | None = None) -> dict:
