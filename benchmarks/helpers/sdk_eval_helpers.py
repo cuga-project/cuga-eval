@@ -244,6 +244,30 @@ _INVOKE_MAX_ATTEMPTS = 3
 _INVOKE_RETRY_DELAY_S = 4.0
 
 
+def _retry_thread_id(thread_id: str, attempt: int) -> str:
+    """Per-attempt LangGraph thread_id for _invoke_agent_for_eval's retry loop.
+
+    Attempt 1 uses the caller's own thread_id unchanged - the common,
+    no-retry-needed case is untouched. Attempts 2+ get a distinct derived id.
+
+    CugaAgent.invoke() is a stateful, LangGraph-checkpointed call keyed by
+    thread_id. Retrying in place on the SAME thread_id after a connection
+    failure does not cleanly redo the same request - if the failure happens
+    after the request was already appended to the checkpointed thread state
+    (observed: the failure is an openai.APIConnectionError from the response
+    side, not message construction), the next attempt resumes from state
+    that already includes the failed attempt's messages and adds another
+    round on top. Live-run evidence of exactly this compounding: one task's
+    message/token count grew 12->15->... and 545K->1.08M->1.62M+ tokens
+    across 3 retries, purely from retrying on the same thread_id - see
+    docs/m3-cap4-policy-investigation-20260723/README.md. Giving each retry
+    a fresh thread_id avoids resuming stale checkpoint state entirely.
+    """
+    if attempt <= 1:
+        return thread_id
+    return f"{thread_id}_retry{attempt}"
+
+
 async def _invoke_agent_for_eval(
     agent: Any,
     messages: list[HumanMessage],
@@ -257,37 +281,53 @@ async def _invoke_agent_for_eval(
 
     Retries a transient failure (connection drop, timeout, etc.) a few times
     with a short delay before giving up - see _INVOKE_MAX_ATTEMPTS above.
+    Each retry attempt gets its own fresh LangGraph thread_id (_retry_thread_id)
+    to avoid resuming stale checkpoint state from the failed attempt; the
+    original thread_id's RetrieverPolicyGuard policy (if any) is aliased onto
+    each retry thread_id so retries still enforce this task's policy, and the
+    aliases are cleaned up once the call resolves.
     """
-    if isinstance(agent, GenericReactAgent):
-        kwargs: dict[str, Any] = {
-            "messages": messages,
-            "thread_id": thread_id,
-            "user_context": user_context,
-            "track_tool_calls": track_tool_calls,
-        }
-        if lf_config:
-            kwargs["invoke_callbacks"] = lf_config.get("callbacks")
-    else:
-        kwargs = {
-            "message": messages,
-            "thread_id": thread_id,
-            "user_context": user_context or "",
-            "track_tool_calls": track_tool_calls,
-        }
-        if lf_config:
-            kwargs["config"] = lf_config
+    retry_thread_ids: list[str] = []
+    try:
+        for attempt in range(1, _INVOKE_MAX_ATTEMPTS + 1):
+            attempt_thread_id = _retry_thread_id(thread_id, attempt)
+            if attempt_thread_id != thread_id:
+                RetrieverPolicyGuard.alias(thread_id, attempt_thread_id)
+                retry_thread_ids.append(attempt_thread_id)
 
-    for attempt in range(1, _INVOKE_MAX_ATTEMPTS + 1):
-        try:
-            return await agent.invoke(**kwargs)
-        except Exception as e:
-            if attempt >= _INVOKE_MAX_ATTEMPTS:
-                raise
-            logger.warning(
-                f"[{thread_id}] Agent invoke attempt {attempt}/{_INVOKE_MAX_ATTEMPTS} failed "
-                f"({type(e).__name__}: {e}); retrying in {_INVOKE_RETRY_DELAY_S}s"
-            )
-            await asyncio.sleep(_INVOKE_RETRY_DELAY_S)
+            if isinstance(agent, GenericReactAgent):
+                kwargs: dict[str, Any] = {
+                    "messages": messages,
+                    "thread_id": attempt_thread_id,
+                    "user_context": user_context,
+                    "track_tool_calls": track_tool_calls,
+                }
+                if lf_config:
+                    kwargs["invoke_callbacks"] = lf_config.get("callbacks")
+            else:
+                kwargs = {
+                    "message": messages,
+                    "thread_id": attempt_thread_id,
+                    "user_context": user_context or "",
+                    "track_tool_calls": track_tool_calls,
+                }
+                if lf_config:
+                    kwargs["config"] = lf_config
+
+            try:
+                return await agent.invoke(**kwargs)
+            except Exception as e:
+                if attempt >= _INVOKE_MAX_ATTEMPTS:
+                    raise
+                logger.warning(
+                    f"[{thread_id}] Agent invoke attempt {attempt}/{_INVOKE_MAX_ATTEMPTS} failed "
+                    f"({type(e).__name__}: {e}); retrying in {_INVOKE_RETRY_DELAY_S}s "
+                    f"on a fresh thread_id"
+                )
+                await asyncio.sleep(_INVOKE_RETRY_DELAY_S)
+    finally:
+        for retry_thread_id in retry_thread_ids:
+            RetrieverPolicyGuard.unregister(retry_thread_id)
 
 
 def _react_steps_from_invoke_result(invoke_result: Any) -> Optional[int]:
