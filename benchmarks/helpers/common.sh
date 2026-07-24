@@ -727,7 +727,22 @@ launch_background_eval() {
     # it. This does not, by itself, make `--stop` reach the deepest process
     # (eval.sh still invokes `uv run python -m ...` as a plain child so it can
     # run bundling after the evaluator exits) — see PR #105 review discussion.
-    nohup bash -c 'exec bash "$0" "$@"' "$script_path" "${child_flags[@]}" "${filtered[@]}" >>"$log_file" 2>&1 &
+    #
+    # `env -u EXPERIMENT -u RESUME -u RESUME_EXPERIMENT -u BACKGROUND ...`
+    # strips the lifecycle vars this same eval.sh already `export`ed above
+    # (line ~103) before this function ran. Without this, the nohup'd child
+    # inherits e.g. EXPERIMENT="foo" from the environment regardless of what
+    # CLI args child_flags/filtered actually pass it - since
+    # `EXPERIMENT="${EXPERIMENT:-}"` only substitutes when EXPERIMENT is
+    # unset, an inherited non-empty value survives untouched, so the child's
+    # own arg-parsed RESUME_EXPERIMENT (from child_flags) ends up set
+    # *alongside* the stale inherited EXPERIMENT/BACKGROUND, tripping the
+    # child's own "use only one of --experiment/--resume/--resume-experiment"
+    # validation and (for BACKGROUND) attempting a second recursive
+    # background-launch. The child must re-derive all lifecycle state purely
+    # from child_flags/filtered, not from inherited environment.
+    env -u EXPERIMENT -u RESUME -u RESUME_EXPERIMENT -u BACKGROUND -u STOP -u RESTART -u STATUS \
+        nohup bash -c 'exec bash "$0" "$@"' "$script_path" "${child_flags[@]}" "${filtered[@]}" >>"$log_file" 2>&1 &
     local bg_pid=$!
     disown "$bg_pid" 2>/dev/null || true
 
