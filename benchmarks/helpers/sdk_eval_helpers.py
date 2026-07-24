@@ -231,6 +231,18 @@ from langchain_core.messages import BaseMessage, HumanMessage
 
 from .react_agent import GenericReactAgent, setup_react_agent_with_tools
 
+# A brief network interruption (e.g. a VPN reconnect) mid-invoke previously
+# meant losing both the task's answer attempt and its Langfuse telemetry in
+# one shot: the surrounding try/except in evaluate_task_with_langfuse /
+# evaluate_multiturn_task_with_langfuse treats ANY exception from this call
+# as "Langfuse failed" and falls back to a second, fully untraced invocation
+# - discarding tokens/cost/duration tracking for that task even when the
+# retry itself succeeds. Retrying the actual network call here, before it
+# ever reaches that fallback, gives a short-lived blip a chance to clear
+# while keeping tracing intact.
+_INVOKE_MAX_ATTEMPTS = 3
+_INVOKE_RETRY_DELAY_S = 4.0
+
 
 async def _invoke_agent_for_eval(
     agent: Any,
@@ -241,7 +253,11 @@ async def _invoke_agent_for_eval(
     track_tool_calls: bool = True,
     lf_config: Optional[dict[str, Any]] = None,
 ) -> Any:
-    """Invoke CugaAgent (LangGraph config) or GenericReactAgent (per-LLM callbacks)."""
+    """Invoke CugaAgent (LangGraph config) or GenericReactAgent (per-LLM callbacks).
+
+    Retries a transient failure (connection drop, timeout, etc.) a few times
+    with a short delay before giving up - see _INVOKE_MAX_ATTEMPTS above.
+    """
     if isinstance(agent, GenericReactAgent):
         kwargs: dict[str, Any] = {
             "messages": messages,
@@ -251,17 +267,27 @@ async def _invoke_agent_for_eval(
         }
         if lf_config:
             kwargs["invoke_callbacks"] = lf_config.get("callbacks")
-        return await agent.invoke(**kwargs)
+    else:
+        kwargs = {
+            "message": messages,
+            "thread_id": thread_id,
+            "user_context": user_context or "",
+            "track_tool_calls": track_tool_calls,
+        }
+        if lf_config:
+            kwargs["config"] = lf_config
 
-    kwargs = {
-        "message": messages,
-        "thread_id": thread_id,
-        "user_context": user_context or "",
-        "track_tool_calls": track_tool_calls,
-    }
-    if lf_config:
-        kwargs["config"] = lf_config
-    return await agent.invoke(**kwargs)
+    for attempt in range(1, _INVOKE_MAX_ATTEMPTS + 1):
+        try:
+            return await agent.invoke(**kwargs)
+        except Exception as e:
+            if attempt >= _INVOKE_MAX_ATTEMPTS:
+                raise
+            logger.warning(
+                f"[{thread_id}] Agent invoke attempt {attempt}/{_INVOKE_MAX_ATTEMPTS} failed "
+                f"({type(e).__name__}: {e}); retrying in {_INVOKE_RETRY_DELAY_S}s"
+            )
+            await asyncio.sleep(_INVOKE_RETRY_DELAY_S)
 
 
 def _react_steps_from_invoke_result(invoke_result: Any) -> Optional[int]:
