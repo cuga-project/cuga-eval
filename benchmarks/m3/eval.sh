@@ -166,7 +166,33 @@ if [ "${AGENT:-cuga}" = "codeact" ]; then
     exit 2
 fi
 
-if handle_eval_lifecycle "m3" "$0" "${PASSTHROUGH_ARGS[@]}"; then
+# handle_eval_lifecycle re-invokes this script from scratch for
+# --background/--resume-experiment (launch_background_eval builds the
+# child's argv purely from what's passed here). Flags consumed above into
+# local vars (M3_DATA_PATH, EVAL_KEY, NO_GROUND_TRUTH, MULTITURN,
+# NO_POLICIES) never landed in PASSTHROUGH_ARGS, so a backgrounded child
+# re-parsing from scratch silently lost them - e.g. --m3-data fell back to
+# the default CONFIG MODE registry (m3_registry.yaml, no m3_task_4 service)
+# instead of the m3-data-specific config/loader. Re-inject them so the
+# child reproduces this invocation's behavior.
+LIFECYCLE_REEXEC_ARGS=("${PASSTHROUGH_ARGS[@]}")
+if [ "$M3_DATA" = "true" ]; then
+    LIFECYCLE_REEXEC_ARGS+=(--m3-data "$M3_DATA_PATH")
+fi
+if [ -n "$EVAL_KEY" ]; then
+    LIFECYCLE_REEXEC_ARGS+=(--eval-key "$EVAL_KEY")
+fi
+if [ "$NO_GROUND_TRUTH" = "true" ]; then
+    LIFECYCLE_REEXEC_ARGS+=(--no-ground-truth)
+fi
+if [ "$MULTITURN" = "true" ]; then
+    LIFECYCLE_REEXEC_ARGS+=(--multiturn)
+fi
+if [ "$NO_POLICIES" = "true" ]; then
+    LIFECYCLE_REEXEC_ARGS+=(--no-policies)
+fi
+
+if handle_eval_lifecycle "m3" "$0" "${LIFECYCLE_REEXEC_ARGS[@]}"; then
     exit 0
 fi
 
