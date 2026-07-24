@@ -176,6 +176,133 @@ M3_GROUNDEDNESS_TRIM_RULE = """
 """.strip()
 
 
+# Change #2: the claim-verification rule, targeting three groundedness-failure
+# patterns mined from cap4-300's real judge explanations (55/72 policy-related
+# failures fail here, not on tool selection — see cap4_groundedness_probe1..3
+# in eval_config.toml): (a) asserting an attribute/category a tool response
+# never actually returned, (b) claiming a returned list is exhaustive when
+# nothing confirms it isn't paginated/truncated, (c) supplying a name/value
+# from prior knowledge that no tool response for this task actually contained.
+# Gated separately via M3_GROUNDEDNESS_CLAIM_CHECK (default off, same opt-in
+# pattern as the Change #1b trim rule) so it can be A/B'd independently.
+M3_GROUNDEDNESS_CLAIM_RULE = """
+9. Do not assert any attribute, category, or property of a returned item unless that exact attribute is present as a field in the tool response for that item. If the result has no country/origin/date/category field, do not claim the item belongs to a country, era, or category — even if the question asked about one — just because the question implied that category. State only what the returned fields actually say.
+
+10. Do not describe a returned list as complete, exhaustive, or "all" of anything unless nothing about the tool response or its parameters (a result-count limit, a top-N/n_results argument, a page token) indicates the result could be partial. When in doubt, describe the list as "the items returned by <tool>" rather than "all the items."
+
+11. Never state a name, value, or fact that did not appear in any tool response for this task, even if it is common knowledge or you are confident it is correct. If no tool returned it, it is not part of the grounded answer — say you could not find it rather than supplying it from memory.
+""".strip()
+
+
+# Change #2b: omit-don't-hedge sub-rule. Direct response to a live-tested
+# failure: on cap4_groundedness_probe1 (cars, 1f58b1e965af-03bc27917845),
+# Change #2 alone visibly influenced the model's output (it started echoing
+# rule 9's own language back, e.g. "Tesla Model X (not confirmed by the
+# retrieved data — the tool response did not include this field)") but still
+# scored 0/3 across an isolated 3-run compare (2026-07-23) — the groundedness
+# judge does not credit hedged/caveated claims, only their absence. The model
+# was treating "state it with a caveat" as satisfying rule 9-11; this rule
+# makes explicit that the required response to an unconfirmable claim is
+# omission, not annotation. Checked against the full cap4-300 mined dataset:
+# this attribute-inference pattern (rule 9's country/origin shape
+# specifically) also hit mondial_geo (3x) and world (1x), not just cars, so
+# this fix is not narrowly cars-specific. Only meaningful on top of Change #2
+# (references "rules 9-11"), so gated as a nested sub-toggle under
+# _claim_verification_enabled(), not a sibling of it. Default off via
+# M3_GROUNDEDNESS_OMIT_UNCONFIRMED so it can be A/B'd independently of #2's
+# base claim-verification behavior.
+M3_GROUNDEDNESS_OMIT_RULE = """
+14. If a claim in your draft answer cannot be stated as fully supported by a tool response under rules 9-11, do not include that claim in your final answer with a caveat, hedge, or parenthetical qualifier (e.g. do NOT write "Tesla Model X (not confirmed by the retrieved data)"). Instead, remove that item or claim from your answer entirely, as if it were never a candidate. A shorter answer containing only fully-supported items is correct; a longer one padded with caveated or hedged unsupported items is not — hedging does not make an unsupported claim acceptable, omission does.
+""".strip()
+
+
+def _omit_unconfirmed_enabled() -> bool:
+    """Change #2b sub-toggle (rule 14, omit-don't-hedge). Default OFF - opt
+    in with M3_GROUNDEDNESS_OMIT_UNCONFIRMED=on/1/true/yes. Only takes
+    effect when Change #2 (claim-verification) is also enabled - this rule
+    references rules 9-11 directly and is meaningless without them."""
+    return os.getenv("M3_GROUNDEDNESS_OMIT_UNCONFIRMED", "off").strip().lower() in ("1", "on", "true", "yes")
+
+
+# Change #3: extractive-construction rule. Annotating an ungrounded claim
+# after the fact (Change #2 / the OutputFormatter policy) does not help —
+# the groundedness judge scores whether a claim is supported, not whether
+# it's hedged. This rule instead tries to prevent the fabrication at
+# construction time: for list/attribute-style answers, build the answer
+# value in code from the tool's actual returned data and print it, then
+# require the final NL answer to just restate what was printed, rather than
+# letting a separate, unconstrained generation re-compose prose from memory
+# of the tool call. Gated separately via M3_GROUNDEDNESS_EXTRACTIVE (default
+# off) so it can be A/B'd independently of Changes #1/#1b/#2.
+M3_GROUNDEDNESS_EXTRACTIVE_RULE = """
+12. When your final answer reports a list of names, titles, categories, or other multi-item attributes, build that list in your LAST code execution step as a Python variable assembled only from values actually present in a tool's returned data (e.g. `titles = [r["title"] for r in rows]`), then `print()` it. Your final natural-language answer must then simply restate exactly what was printed — do not add, infer, or supply any item, attribute, or category that was not itself present in the printed tool-derived data.
+
+13. If the tool response has no field for the specific attribute the question asks about (e.g. it returns counts but not titles, or IDs but not names), say so explicitly — "the retrieved data does not include <attribute>" — rather than supplying plausible-sounding values for that attribute from general knowledge. A partial, honestly-scoped answer is correct; a complete-looking but partly invented one is not.
+""".strip()
+
+
+# find_tools query-phrasing rider. Motivated by a specific repeated failure
+# (professional_basketball's d14bbb0be92d-d09ad3135cea: "nickname of the NBA
+# player ... Western Conference ... season 2006 ... two blocks") where
+# find_tools sometimes failed to surface the one correct tool
+# (get_player_nicknames_by_blocks_conference_season) across several
+# similarly-worded query attempts. The winning attempt (a PASS run) phrased
+# its find_tools query naming all three filter constraints at once
+# ("player stats season 2006 blocks conference western"); losing attempts
+# used looser, single-word queries ("blocks", "season", "players"). NOTE:
+# checked whether this generalizes via a domain tool-count vs. pass-rate
+# correlation across the full cap4-300 dataset (300 tasks, 35 domains) -
+# r=-0.010 task-level / r=0.059 domain-level, i.e. no correlation; large
+# catalogs are not systematically harder for find_tools. This rider is
+# therefore NOT gated on catalog size - it's a general query-phrasing
+# instruction, tested here against one task known to be sensitive to it.
+# Gated via M3_FIND_TOOLS_QUERY_RIDER (default off, opt-in, same convention
+# as Change #2/#3) so it can be A/B'd independently.
+M3_FIND_TOOLS_QUERY_RULE = """
+## Phrasing find_tools queries
+
+When calling `find_tools`, name every specific filter or parameter the task needs, not just a general topic word. If the task requires N distinct constraints (e.g. a count, a category, and a time period), your query should mention all N, not just one or two.
+
+If a `find_tools` call returns few or no matches, do not conclude the tool doesn't exist. Try again with a different, more specific query that names the constraints more explicitly, before giving up on that domain's catalog.
+""".strip()
+
+
+def _find_tools_query_rider_enabled() -> bool:
+    """find_tools query-phrasing rider toggle. Default OFF - opt in with
+    M3_FIND_TOOLS_QUERY_RIDER=on/1/true/yes. Independent of the groundedness
+    rider family; always appended when enabled, not nested under it."""
+    return os.getenv("M3_FIND_TOOLS_QUERY_RIDER", "off").strip().lower() in ("1", "on", "true", "yes")
+
+
+# Parameter-variation rider. Complementary to M3_FIND_TOOLS_QUERY_RULE above,
+# targeting a different failure stage: even once the correct tool is found,
+# a filter-style parameter with no discoverable valid-value list (no schema
+# enum, no listing/enumeration endpoint in the domain's catalog - confirmed
+# for professional_basketball_get_player_nicknames_by_blocks_conference_season's
+# `conference` param, plain `str` with no enum) gets guessed one spelling at
+# a time, one call per code block, burning step budget. The one observed PASS
+# on d14bbb0be92d-d09ad3135cea used the opposite approach: a small brute-force
+# grid over plausible spelling/casing variants x plausible season values,
+# tried together in a single code block, which found the correct value
+# ("West", not "west"/"Western"/"western") on that pass. Gated via
+# M3_PARAMETER_VARIATION_RIDER (default off) so it can be A/B'd independently
+# of the find_tools query-phrasing rider - the two target different stages
+# (finding the tool vs. calling it correctly) and either could be enabled
+# without the other.
+M3_PARAMETER_VARIATION_RULE = """
+## Retrying filter parameters that return empty results
+
+If a tool call with a string-typed filter parameter (e.g. a category, region, or status) returns an empty result, do not conclude no data matches and do not guess one alternative spelling per code block. Instead, in a SINGLE code block, try a small set of plausible variations together — different casing, abbreviations, and full/short forms (e.g. `["west", "West", "Western", "Western Conference", "W"]`) — combined with any other uncertain parameter values, and check all combinations before reporting no result. Only conclude the data doesn't exist after this batch of plausible variations has been tried.
+""".strip()
+
+
+def _parameter_variation_rider_enabled() -> bool:
+    """Parameter-variation retry rider toggle. Default OFF - opt in with
+    M3_PARAMETER_VARIATION_RIDER=on/1/true/yes. Independent of the
+    find_tools query-phrasing rider and the groundedness rider family."""
+    return os.getenv("M3_PARAMETER_VARIATION_RIDER", "off").strip().lower() in ("1", "on", "true", "yes")
+
+
 def _groundedness_prompt_enabled() -> bool:
     """Wave-1 Change #1 A/B toggle. Default on; set M3_GROUNDEDNESS_PROMPT to
     off / 0 / false / no to drop the evidence-chain rider (the baseline arm)."""
@@ -189,20 +316,49 @@ def _trim_selection_enabled() -> bool:
     return os.getenv("M3_GROUNDEDNESS_TRIM", "off").strip().lower() in ("1", "on", "true", "yes")
 
 
+def _claim_verification_enabled() -> bool:
+    """Change #2 sub-toggle (rules 9-11, claim-verification: unsupported
+    attributes, false completeness, fabrication). Default OFF — opt in with
+    M3_GROUNDEDNESS_CLAIM_CHECK=on/1/true/yes. Only takes effect when the
+    groundedness rider itself is enabled."""
+    return os.getenv("M3_GROUNDEDNESS_CLAIM_CHECK", "off").strip().lower() in ("1", "on", "true", "yes")
+
+
+def _extractive_construction_enabled() -> bool:
+    """Change #3 sub-toggle (rules 12-13, extractive construction: build
+    list/attribute answers in code from tool data, print, then restate
+    verbatim). Default OFF — opt in with M3_GROUNDEDNESS_EXTRACTIVE=on/1/
+    true/yes. Only takes effect when the groundedness rider itself is
+    enabled."""
+    return os.getenv("M3_GROUNDEDNESS_EXTRACTIVE", "off").strip().lower() in ("1", "on", "true", "yes")
+
+
 def _build_m3_special_instructions() -> str:
     """Compose the eval-only system rider. The tool-output (crash-free) section
     is always present; the Change #1 groundedness rider is gated for A/B, and the
-    Change #1b trim rule is a further opt-in sub-rule on top of the rider.
+    Change #1b trim rule, Change #2 claim-verification rule, and Change #3
+    extractive-construction rule are further independent opt-in sub-rules on
+    top of the rider.
 
     Called fresh at each agent creation (not cached at import time) so that
     in-process env var changes — a pytest fixture, a subprocess-free A/B
     toggle, an interactive flip — take effect immediately instead of reading
     a value baked in when this module was first imported."""
     parts = [M3_TOOL_OUTPUT_INSTRUCTIONS]
+    if _find_tools_query_rider_enabled():
+        parts.append(M3_FIND_TOOLS_QUERY_RULE)
+    if _parameter_variation_rider_enabled():
+        parts.append(M3_PARAMETER_VARIATION_RULE)
     if _groundedness_prompt_enabled():
         parts.append(M3_GROUNDEDNESS_INSTRUCTIONS)
         if _trim_selection_enabled():
             parts.append(M3_GROUNDEDNESS_TRIM_RULE)
+        if _claim_verification_enabled():
+            parts.append(M3_GROUNDEDNESS_CLAIM_RULE)
+            if _omit_unconfirmed_enabled():
+                parts.append(M3_GROUNDEDNESS_OMIT_RULE)
+        if _extractive_construction_enabled():
+            parts.append(M3_GROUNDEDNESS_EXTRACTIVE_RULE)
     return "\n\n".join(parts)
 
 
@@ -751,6 +907,7 @@ class M3Evaluator:
         domain: Optional[str] = None,
         bundle_dir: Optional[Path] = None,
         resume_completed_ids: Optional[set] = None,
+        policies_enabled: bool = True,
     ):
         """
         Initialize the evaluator.
@@ -765,6 +922,10 @@ class M3Evaluator:
             m3_task_id: Registry task_id (e.g. 2 or 3), used to strip registry prefixes
                 from actual tool-call names when computing diffs
             domain: Domain name (e.g. "hockey"), used alongside m3_task_id for prefix stripping
+            policies_enabled: False when the run was started with --no-policies.
+                Gates both the per-domain policies.json corpus (_load_m3_policies,
+                called by evaluate_single_task) and the per-task ToolGuide built
+                from each sample's additional_instructions (evaluate_multiturn_task).
         """
         self.difficulty_filter = difficulty_filter
         self.task_ids = [task_id] if isinstance(task_id, str) else task_id
@@ -776,6 +937,7 @@ class M3Evaluator:
         self.domain = domain
         self.bundle_dir = bundle_dir
         self.resume_completed_ids = resume_completed_ids or set()
+        self.policies_enabled = policies_enabled
         self.agent: Optional[CugaAgent] = None
         self.langfuse_enabled = None
         self.results: List[Dict[str, Any]] = []
@@ -862,87 +1024,108 @@ class M3Evaluator:
             task_metadata["uuid"] = sample["uuid"]
 
         # VAKRA per-sample policy text (M3DataLoader's "additional_instructions").
-        # Task-specific: read fresh from this sample every call, passed straight
-        # through as this invocation's user_context and nowhere else stored -
-        # never accumulated onto the agent or reused for a later task. Distinct
-        # from the agent-level M3_* special_instructions rider built once per
-        # domain; threaded through as user_context -> CugaAgent's `pi`, which
-        # graph_adapter.py appends as a "## User Context" block on the first
-        # human message of the thread (see shared_nodes.py) — additive to the
-        # standing special_instructions, not a replacement.
+        # Task-specific: read fresh from this sample every call. Every instance
+        # of this text in the dataset is a tool-usage restriction ("use only
+        # document retrievers" / "do not use document retrievers") — verified
+        # across all 150 policy-bearing samples, no other policy shape exists —
+        # so it's delivered as a per-task ToolGuide (add_tool_guide, added
+        # right before this sample's invocation and deleted right after,
+        # win or lose) rather than free text folded into the prompt/history.
+        # ToolGuide's default trigger with no keywords is an AlwaysTrigger, so
+        # it applies unconditionally for exactly this one task's lifetime —
+        # never accumulated onto the agent or leaked into a later sample.
         policy_text = sample.get("additional_instructions") or None
+        policy_id: Optional[str] = None
+        if policy_text and self.policies_enabled:
+            try:
+                policy_id = await self.agent.policies.add_tool_guide(
+                    name=f"cap4_policy_{sample_id}",
+                    content=policy_text,
+                    target_tools=["*"],
+                    target_apps=[domain],
+                )
+                if policy_id is None:
+                    logger.warning(
+                        f"[{sample_id}] additional_instructions present but no ToolGuide was "
+                        "added (policy system disabled — check DYNACONF_POLICY__ENABLED); this "
+                        "task runs with no tool-usage constraint delivered to the agent."
+                    )
+            except Exception as e:
+                logger.warning(f"[{sample_id}] Failed to add per-task ToolGuide policy: {e}")
+                policy_id = None
 
-        if num_turns >= 2:
-            # Dialogue-priming: VAKRA's dialogue.turns holds every turn except
-            # the last one already answered (each has a gold "answer" the
-            # sample's own author/solver gave). We emulate that conversation
-            # having already happened - prior turns become synthetic
-            # HumanMessage/AIMessage history - and only live-invoke the agent
-            # on the final, unanswered turn. This is what makes the final turn
-            # a genuine follow-up question instead of a fresh one asked cold.
-            prior_turns = turns[:-1]
-            live_turn = turns[-1]
-            history_messages: List[BaseMessage] = []
-            for prior_turn in prior_turns:
-                history_messages.append(HumanMessage(content=prior_turn.get("query", "")))
-                # VAKRA's answer is structured data (lists/dicts), not prose -
-                # stringify it into plausible prior-agent-response text so it's
-                # valid AIMessage content.
-                history_messages.append(AIMessage(content=_stringify_gt_answer(prior_turn.get("answer"))))
-            live_query = live_turn.get("query", "")
+        try:
+            if num_turns >= 2:
+                # Dialogue-priming: VAKRA's dialogue.turns holds every turn except
+                # the last one already answered (each has a gold "answer" the
+                # sample's own author/solver gave). We emulate that conversation
+                # having already happened - prior turns become synthetic
+                # HumanMessage/AIMessage history - and only live-invoke the agent
+                # on the final, unanswered turn. This is what makes the final turn
+                # a genuine follow-up question instead of a fresh one asked cold.
+                prior_turns = turns[:-1]
+                live_turn = turns[-1]
+                history_messages: List[BaseMessage] = []
+                for prior_turn in prior_turns:
+                    history_messages.append(HumanMessage(content=prior_turn.get("query", "")))
+                    # VAKRA's answer is structured data (lists/dicts), not prose -
+                    # stringify it into plausible prior-agent-response text so it's
+                    # valid AIMessage content.
+                    history_messages.append(AIMessage(content=_stringify_gt_answer(prior_turn.get("answer"))))
+                live_query = live_turn.get("query", "")
+                live_intent = live_query
 
-            # cuga-agent's own "## User Context" injection (shared_nodes.py)
-            # only fires on a thread's very first message
-            # (len(effective_messages) == 1); a primed thread never satisfies
-            # that, so the policy would silently never reach the model. Embed
-            # it ourselves, in the same format, directly on the live turn -
-            # user_context is still passed through below too, purely so it's
-            # recorded on the result for reporting/tracing.
-            live_intent = live_query
-            if policy_text:
-                live_intent = f"{live_query}\n\n## User Context\n{policy_text}"
-
-            single_result = await evaluate_task_with_langfuse(
-                agent=self.agent,
-                task={
-                    "name": sample_id,
-                    "intent": live_intent,
-                    "difficulty": sample.get("difficulty", "unknown"),
-                },
-                task_index=sample_index,
-                langfuse_handler=self.langfuse_enabled,
-                user_context=policy_text,
-                tracker_callback=tracker_callback,
-                track_tool_calls=True,
-                history_messages=history_messages,
-            )
-            # Start from the full single-turn result (preserves tokens, cost,
-            # LLM-call counts, trace_id, etc. for reporting) and layer on the
-            # multiturn-shaped fields _annotate_tool_call_diffs and the
-            # downstream Vakra scoring expect.
-            result = dict(single_result)
-            result["final_response"] = single_result.get("response")
-            result["all_responses"] = [
-                {
-                    "turn": num_turns,
-                    "query": live_query,
-                    "response": single_result.get("response"),
-                    "tool_calls": single_result.get("tool_calls") or [],
-                }
-            ]
-        else:
-            result = await evaluate_multiturn_task_with_langfuse(
-                agent=self.agent,
-                turns=turns,
-                task_name=sample_id,
-                task_index=sample_index,
-                langfuse_handler=self.langfuse_enabled,
-                user_context=policy_text,
-                tracker_callback=tracker_callback,
-                track_tool_calls=True,
-                expected_keywords=expected_keywords,
-                task_metadata=task_metadata,
-            )
+                single_result = await evaluate_task_with_langfuse(
+                    agent=self.agent,
+                    task={
+                        "name": sample_id,
+                        "intent": live_intent,
+                        "difficulty": sample.get("difficulty", "unknown"),
+                    },
+                    task_index=sample_index,
+                    langfuse_handler=self.langfuse_enabled,
+                    user_context=None,
+                    tracker_callback=tracker_callback,
+                    track_tool_calls=True,
+                    history_messages=history_messages,
+                    policy_text=policy_text,
+                )
+                # Start from the full single-turn result (preserves tokens, cost,
+                # LLM-call counts, trace_id, etc. for reporting) and layer on the
+                # multiturn-shaped fields _annotate_tool_call_diffs and the
+                # downstream Vakra scoring expect.
+                result = dict(single_result)
+                result["final_response"] = single_result.get("response")
+                result["all_responses"] = [
+                    {
+                        "turn": num_turns,
+                        "query": live_query,
+                        "response": single_result.get("response"),
+                        "tool_calls": single_result.get("tool_calls") or [],
+                    }
+                ]
+            else:
+                result = await evaluate_multiturn_task_with_langfuse(
+                    agent=self.agent,
+                    turns=turns,
+                    task_name=sample_id,
+                    task_index=sample_index,
+                    langfuse_handler=self.langfuse_enabled,
+                    user_context=None,
+                    tracker_callback=tracker_callback,
+                    track_tool_calls=True,
+                    expected_keywords=expected_keywords,
+                    task_metadata=task_metadata,
+                    policy_text=policy_text,
+                )
+        finally:
+            if policy_id is not None:
+                try:
+                    await self.agent.policies.delete(policy_id)
+                except Exception as e:
+                    logger.warning(
+                        f"[{sample_id}] Failed to delete per-task ToolGuide policy {policy_id}: {e}"
+                    )
 
         result["sample_id"] = sample_id
         if "uuid" in sample:
@@ -1659,6 +1842,7 @@ async def evaluate_single_task(
             test_case_filters = args.test_case_filter
             logger.info(f"Filtering to specific test cases: {test_case_filters}")
 
+        policies_enabled = not getattr(args, "no_policies", False)
         evaluator = M3Evaluator(
             task_id=test_case_filters,  # Pass test case filters to evaluator
             multiturn=domain_multiturn,
@@ -1668,6 +1852,7 @@ async def evaluate_single_task(
             domain=domain,
             bundle_dir=bundle_dir,
             resume_completed_ids=resume_completed_keys,
+            policies_enabled=policies_enabled,
         )
 
         try:
@@ -1720,7 +1905,7 @@ async def evaluate_single_task(
             # Load CUGA policies for this per-domain agent (mirrors benchmarks/bpo
             # eval_bench_sdk.py). The source of truth is benchmarks/m3/policies/*.md;
             # eval.sh compiles them to policies.json before invoking us.
-            await _load_m3_policies(evaluator.agent, policies_enabled=not getattr(args, "no_policies", False))
+            await _load_m3_policies(evaluator.agent, policies_enabled=policies_enabled)
 
             # DEBUG: Verify agent can see tools (check filtered provider)
             try:
@@ -1797,6 +1982,7 @@ async def evaluate_single_task(
                             output_dir=vakra_output_dir,
                             capability_name=cap_name,
                             domain=domain_name,
+                            policy_judge_path=getattr(args, "policy_judge_path", None),
                         )
                         # Push Vakra-corrected scores back into the tracker so
                         # trajectories/results.json matches report.md (issue #71).
@@ -1821,6 +2007,18 @@ async def evaluate_single_task(
                             f"[{service_name}/{domain}] Failed to persist incremental result "
                             f"for {_rid}: {persist_err}"
                         )
+
+                # Fetch this domain's Langfuse traces now, in the background,
+                # rather than waiting for finalize at the very end of the run:
+                # a crash/Ctrl-C mid-run would otherwise leave zero traces
+                # fetched even though results/partial/ already has this
+                # domain's results on disk. Non-blocking (runs on a worker
+                # thread) — awaited once, for everything scheduled so far,
+                # in run_config_mode's `finally` block.
+                if is_langfuse_tracing_enabled():
+                    from benchmarks.helpers.bundle import schedule_langfuse_download_for_results
+
+                    schedule_langfuse_download_for_results(bundle_dir, evaluator.results)
 
             task_results.extend(evaluator.results)
             logger.info(f"✅ [{service_name}] Completed domain: {domain} ({len(evaluator.results)} results)")
@@ -1855,16 +2053,42 @@ async def evaluate_single_task(
     return task_results
 
 
-def get_registry_port() -> int:
+def get_registry_port(override: Optional[int] = None) -> int:
     """Registry port shared by the MCP server and cuga-agent HTTP client.
 
     Reads ``settings.server_ports.registry`` (override via
     ``DYNACONF_SERVER_PORTS__REGISTRY``), the same source
     ``get_registry_base_url()`` uses when the agent calls the registry.
+
+    Pass ``override`` (e.g. from ``--registry-port``, or a per-worker free
+    port picked by :func:`find_free_port`) to bypass that shared setting —
+    every call site in this module accepts an explicit port for exactly this
+    reason, so concurrent per-domain registries don't have to fight over one
+    process-wide value.
     """
+    if override is not None:
+        return int(override)
+
     from cuga.config import settings
 
     return int(settings.server_ports.registry)
+
+
+def find_free_port() -> int:
+    """Ask the OS for an unused TCP port on localhost and return it.
+
+    There's an inherent TOCTOU race (something else could grab the port
+    between this call returning and the registry actually binding it) — the
+    same race every "find a free port" helper has. Callers that start a
+    registry on the returned port already retry/force-free on bind failure
+    (see ``_force_free_registry_port``), so a lost race just looks like the
+    ordinary "port was already in use" path.
+    """
+    import socket
+
+    with socket.socket(socket.AF_INET, socket.SOCK_STREAM) as sock:
+        sock.bind(("127.0.0.1", 0))
+        return sock.getsockname()[1]
 
 
 def _port_in_use(port: int) -> bool:
@@ -1951,7 +2175,7 @@ async def _force_free_registry_port(port: int, attempts: int = 12) -> bool:
 
 
 async def start_registry_server(
-    config_path: str, expected_apps: Optional[List[str]] = None
+    config_path: str, expected_apps: Optional[List[str]] = None, port: Optional[int] = None
 ) -> subprocess.Popen:
     """Start the registry server with the specified config.
 
@@ -1961,6 +2185,12 @@ async def start_registry_server(
             the live ``/applications`` is verified to contain them after warmup;
             a mismatch means a stale registry is answering and we abort rather
             than run tasks against the wrong app.
+        port: Explicit registry port (e.g. from ``--registry-port``, or a
+            per-worker free port). Defaults to the shared
+            ``settings.server_ports.registry`` value when unset — today's
+            single-registry-at-a-time callers are unaffected; a future
+            concurrent-worker caller can pass a distinct free port per call
+            so multiple registries don't collide on one port.
 
     Returns:
         Process object for the registry server
@@ -1968,7 +2198,7 @@ async def start_registry_server(
     import os
     import subprocess
 
-    registry_port = get_registry_port()
+    registry_port = get_registry_port(port)
 
     # Check if the registry port is already in use
     logger.info(f"🔍 Checking if port {registry_port} is available...")
@@ -2245,8 +2475,13 @@ async def start_registry_server(
     return process
 
 
-async def stop_registry_server(process: subprocess.Popen):
+async def stop_registry_server(process: subprocess.Popen, port: Optional[int] = None):
     """Stop the registry server and every descendant.
+
+    ``port`` should match whatever port the corresponding
+    ``start_registry_server(..., port=...)`` call used, so the post-stop
+    port-free verification below checks the right port. Defaults to the
+    shared settings-derived port, matching today's single-registry callers.
 
     We started the server with start_new_session=True, so `process.pid` is
     the session leader / process-group id. Signalling the group with
@@ -2297,7 +2532,7 @@ async def stop_registry_server(process: subprocess.Popen):
     # left alive — otherwise the next sequential domain races a stale registry
     # that keeps answering tool calls with the previous domain's app (→ 404).
     try:
-        registry_port = get_registry_port()
+        registry_port = get_registry_port(port)
         if not await _force_free_registry_port(registry_port):
             logger.error(
                 f"❌ Port {registry_port} still occupied after teardown — "
@@ -2944,7 +3179,9 @@ async def run_config_mode(args, container_runtime: str, defer_save: bool = False
         # below so only that domain's MCP server is running at a time.
         if registry_enabled and not sequential_mode:
             logger.info("🔧 Registry mode enabled - starting shared registry server for parallel run...")
-            registry_process = await start_registry_server(expanded_config_path)
+            registry_process = await start_registry_server(
+                expanded_config_path, port=getattr(args, "registry_port", None)
+            )
 
             # IMPORTANT: Update MCP_SERVERS_FILE in current process to point to expanded config
             # This ensures CombinedToolProvider reads the same config as the registry server
@@ -3202,7 +3439,9 @@ async def run_config_mode(args, container_runtime: str, defer_save: bool = False
                         # identity check, which would raise on unhashable dicts.
                         # Keep original case so the intersection with live_apps holds.
                         expected_apps = [a for a in (_domain_entry_name(d) for d in domains) if a]
-                        svc_registry = await start_registry_server(mini_yaml, expected_apps=expected_apps)
+                        svc_registry = await start_registry_server(
+                            mini_yaml, expected_apps=expected_apps, port=getattr(args, "registry_port", None)
+                        )
                         os.environ["MCP_SERVERS_FILE"] = str(Path(mini_yaml).resolve())
 
                     task_results = await evaluate_single_task(
@@ -3232,7 +3471,7 @@ async def run_config_mode(args, container_runtime: str, defer_save: bool = False
                     traceback.print_exception(type(e), e, e.__traceback__)
                 finally:
                     if svc_registry is not None:
-                        await stop_registry_server(svc_registry)
+                        await stop_registry_server(svc_registry, port=getattr(args, "registry_port", None))
                     if mini_yaml:
                         try:
                             os.unlink(mini_yaml)
@@ -3326,6 +3565,15 @@ async def run_config_mode(args, container_runtime: str, defer_save: bool = False
         raise
 
     finally:
+        # Flush any Langfuse downloads scheduled during the run before the
+        # process actually exits (normal completion, Ctrl-C, or an
+        # unexpected exception all funnel through this `finally`) — otherwise
+        # a download still in flight when the process exits would be lost.
+        if bundle_dir is not None:
+            from benchmarks.helpers.bundle import await_pending_langfuse_downloads
+
+            await await_pending_langfuse_downloads()
+
         stall_watchdog_task.cancel()
         try:
             await stall_watchdog_task
@@ -3334,7 +3582,7 @@ async def run_config_mode(args, container_runtime: str, defer_save: bool = False
 
         # Stop registry if it was started
         if registry_process is not None:
-            await stop_registry_server(registry_process)
+            await stop_registry_server(registry_process, port=getattr(args, "registry_port", None))
 
         # Cleanup temporary config file if created
         if temp_config_created:
@@ -3457,6 +3705,22 @@ Examples:
         "For full parallelism pass a value >= total number of tasks.",
     )
     parser.add_argument(
+        "--registry-port",
+        dest="registry_port",
+        type=int,
+        default=None,
+        metavar="PORT",
+        help="Explicit port for the registry server, overriding "
+        "settings.server_ports.registry (DYNACONF_SERVER_PORTS__REGISTRY). "
+        "Threaded through start_registry_server/stop_registry_server/"
+        "get_registry_port; unset by default, in which case today's shared "
+        "settings-derived port is used exactly as before. Intended for a "
+        "future concurrent-worker mode where each worker needs its own free "
+        "port (see find_free_port()) — passing a fixed value today just "
+        "moves the single registry sequential/parallel mode already starts "
+        "onto a different port.",
+    )
+    parser.add_argument(
         "--domains-per-container",
         type=int,
         default=10,
@@ -3480,6 +3744,20 @@ Examples:
         "per domain. When set, samples are loaded by merging input/output "
         "pairs. Pass/fail is scored by tool-call count match against "
         "gold_sequence; keyword matching is bypassed.",
+    )
+    parser.add_argument(
+        "--policy-judge-path",
+        dest="policy_judge_path",
+        type=str,
+        default=None,
+        metavar="PATH",
+        help="Path to an internal PolicyAdherenceJudge module (e.g. "
+        "benchmarks/m3/evaluator/policy_judge.py), matching the same-named "
+        "parameter in evaluator.py/scorer.py. Not distributed with this repo; "
+        "unset by default, in which case policy-adherence scoring is skipped "
+        "entirely (Vakra scoring proceeds as before). Only takes effect for "
+        "multiturn capabilities (TurnScorerConfig gates on "
+        "'multiturn' in capability).",
     )
     parser.add_argument(
         "--eval-key",
