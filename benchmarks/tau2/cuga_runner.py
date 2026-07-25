@@ -316,10 +316,17 @@ def _run_one_task(
     t = threading.Thread(target=_tau2_thread, name="tau2-run", daemon=True)
     t.start()
     loop = _get_event_loop()
+    cuga_error: Optional[BaseException] = None
     try:
         loop.run_until_complete(
             run_cuga_loop(bridge, thread_id=thread_id, max_turns=max_steps + 20, lf_config=lf_config)
         )
+    except (Exception, asyncio.CancelledError) as e:  # noqa: BLE001 — see the raise decision below
+        # CUGA's loop is commonly cancelled when τ² ends the conversation mid-tool-call
+        # (max_steps reached, or the customer said STOP/TRANSFER): closing the bridge cancels
+        # the awaited tool Future -> NodeCancelledError. That's benign — τ² has already scored
+        # the task. Hold the error; decide whether it matters after the τ² thread joins.
+        cuga_error = e
     finally:
         t.join(timeout=join_timeout)
         set_current_bridge(None)
@@ -330,6 +337,13 @@ def _run_one_task(
         loop.run_until_complete(asyncio.sleep(0))
 
     sim = result.get("sim")
+    # If CUGA's loop raised but τ² still produced a scored result, the raise was just the
+    # end-of-conversation cancellation — fall through and use τ²'s reward (fixes tasks that
+    # hit max_steps mid-tool-call getting recorded as None instead of their real score). Only
+    # surface CUGA's error when τ² produced neither a score nor its own error to report.
+    if cuga_error is not None and sim is None and "error" not in result:
+        raise cuga_error
+
     reward = None
     if sim and sim.reward_info:
         reward = sim.reward_info.reward
