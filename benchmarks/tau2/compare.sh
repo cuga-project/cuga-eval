@@ -8,13 +8,13 @@
 #
 # Usage:
 #   ./compare.sh --runs 3                                 # 3 runs, default model
-#   ./compare.sh --models gpt-oss,gpt4o --runs 2          # compare 2 models
+#   ./compare.sh --models gpt4.1,opus4.5 --runs 2        # compare 2 models
 #   ./compare.sh --runs 3 --subset airline --num-tasks 5  # forward τ² flags
 #   ./compare.sh --dry-run                                # preview commands
 #
 # Options:
 #   --runs <N>         runs per configuration (default: 1)
-#   --models <list>    comma-separated model profiles (default: gpt-oss)
+#   --models <list>    comma-separated model profiles (default: gpt4.1)
 #   --agents <list>    comma-separated agents (default: cuga)
 #   --output <file>    save comparison report to file
 #   --no-bundle        skip reproducibility bundle creation
@@ -43,7 +43,7 @@ fi
 RUNS="${RUNS:-1}"
 DRY_RUN="${DRY_RUN:-false}"
 OUTPUT_FILE="${OUTPUT_FILE:-}"
-MODELS="${MODELS:-gpt-oss}"
+MODELS="${MODELS:-gpt4.1}"
 AGENTS="${AGENTS:-cuga}"
 NO_BUNDLE="${NO_BUNDLE:-false}"
 BUNDLE_ZIP="${BUNDLE_ZIP:-false}"
