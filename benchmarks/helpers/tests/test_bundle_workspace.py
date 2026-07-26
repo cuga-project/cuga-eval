@@ -72,6 +72,72 @@ def test_finalize_workspace_bundle_flips_status_and_reports(tmp_path):
 
 
 @pytest.mark.sanity
+def test_finalize_workspace_bundle_directory_task_file(tmp_path):
+    # --m3-data runs pass a dataset *directory* as the task source (issue seen
+    # on every rwPG-* run: IsADirectoryError killed finalization). Directories
+    # must be recorded as a pointer + "dir:" hash, not copied.
+    bd = tmp_path / "exp"
+    bundle.create_workspace_bundle(bd, "m3", experiment_name="exp")
+    _write_merged_results(bd, [{"task_name": "t1", "success": True}])
+    data_dir = tmp_path / "capability_3_multihop_reasoning"
+    (data_dir / "input").mkdir(parents=True)
+    (data_dir / "input" / "chicago_crime.json").write_text("[]")
+    regular = tmp_path / "hockey.json"
+    regular.write_text("[]")
+    bundle.finalize_workspace_bundle(bd, "m3", task_files=[data_dir, regular], fetch_langfuse=False)
+    meta = json.loads((bd / "metadata.json").read_text())
+    assert meta["status"] == "completed"
+    hashes = meta["ground_truth"]["task_file_hashes"]
+    assert hashes["capability_3_multihop_reasoning"].startswith("dir:")
+    assert hashes["hockey.json"].startswith("sha256:")
+    pointer = bd / "tasks" / "capability_3_multihop_reasoning.source"
+    assert pointer.exists()
+    assert str(data_dir.resolve()) in pointer.read_text()
+    assert (bd / "tasks" / "hockey.json").exists()
+
+
+@pytest.mark.sanity
+def test_record_task_file_regular_file(tmp_path):
+    tasks_dir = tmp_path / "tasks"
+    tf = tmp_path / "hockey.json"
+    tf.write_text("[]")
+    entry = bundle._record_task_file(tf, tasks_dir)
+    # Known digest of the literal content "[]", independent of _file_sha256.
+    assert entry == "sha256:4f53cda18c2baa0c0354bb5f9a3ecbe5ed12ab4d8e11ba873c2f11161202b945"
+    assert (tasks_dir / "hockey.json").read_text() == "[]"
+
+
+@pytest.mark.sanity
+def test_record_task_file_directory(tmp_path):
+    tasks_dir = tmp_path / "tasks"
+    data_dir = tmp_path / "capability_3_multihop_reasoning"
+    data_dir.mkdir()
+    entry = bundle._record_task_file(data_dir, tasks_dir)
+    assert entry == f"dir:{data_dir.resolve()}"
+    pointer = tasks_dir / "capability_3_multihop_reasoning.source"
+    assert pointer.exists()
+    assert pointer.read_text() == f"{data_dir.resolve()}\n"
+
+
+@pytest.mark.sanity
+def test_record_task_file_nonexistent_returns_none(tmp_path):
+    tasks_dir = tmp_path / "tasks"
+    missing = tmp_path / "does_not_exist.json"
+    assert bundle._record_task_file(missing, tasks_dir) is None
+    assert not tasks_dir.exists()
+
+
+@pytest.mark.sanity
+def test_record_task_file_no_tasks_dir_skips_write(tmp_path):
+    tf = tmp_path / "hockey.json"
+    tf.write_text("[]")
+    entry = bundle._record_task_file(tf, None)
+    assert entry == "sha256:4f53cda18c2baa0c0354bb5f9a3ecbe5ed12ab4d8e11ba873c2f11161202b945"
+    # No tasks_dir given: nothing written to disk beyond the source file itself.
+    assert list(tmp_path.iterdir()) == [tf]
+
+
+@pytest.mark.sanity
 def test_finalize_workspace_bundle_partial_status(tmp_path):
     bd = tmp_path / "exp"
     bundle.create_workspace_bundle(bd, "m3")
