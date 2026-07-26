@@ -690,6 +690,106 @@ def _normalize_refusal_in_result(result: dict, sample_id: str = "?") -> None:
         logger.info(f"[{sample_id}] [refusal-norm] give-up answer blanked")
 
 
+def _support_check_enabled() -> bool:
+    """M3_SUPPORT_CHECK (default off). Technique #4 from the cuga_vakra_agent
+    comparison (2026-07-26): a confident answer whose load-bearing tokens
+    (numbers + proper-noun entities) mostly don't appear in this task's own
+    successful tool results is fabrication - blank it rather than score it.
+    Unlike the original (cuga_vakra_agent/adapter/cuga_v2_agent.py
+    _post_answer_hook), this is NOT gated on a "retriever_only" policy
+    scope - that scope is effectively unreachable in our system (see
+    technique #1's investigation: 2026-07-26, our capability_4_multiturn
+    container has zero retriever tools in most domains), so gating on it
+    would make this dead code here too. Applied generally instead, same
+    lesson as technique #3: blank the answer (not a canonical sentence) so
+    it hits scorer.py's real deterministic unanswerable bypass
+    (pred_answer in ["", " "]) rather than depending on judge leniency."""
+    return os.getenv("M3_SUPPORT_CHECK", "0") == "1"
+
+
+_SUPPORT_CHECK_STOPWORDS = {
+    "The",
+    "This",
+    "That",
+    "These",
+    "Those",
+    "Here",
+    "There",
+    "Based",
+    "According",
+    "Answer",
+    "Note",
+    "However",
+    "Additionally",
+    "Overall",
+}
+
+_SUPPORT_CHECK_NUM_RE = re.compile(r"\d[\d,.]*\d|\d")
+_SUPPORT_CHECK_ENTITY_RE = re.compile(r"\b[A-Z][a-zA-Z'’\-]+(?:\s+[A-Z][a-zA-Z'’\-]+)*")
+
+
+def _collect_tool_evidence(result: dict) -> str:
+    """Concatenate every successful tool-call result in this task into one
+    lowercased evidence blob to check claim tokens against."""
+    chunks: List[str] = []
+
+    def _add(tool_calls):
+        if not isinstance(tool_calls, list):
+            return
+        for tc in tool_calls:
+            if not isinstance(tc, dict):
+                continue
+            res = tc.get("result")
+            text = res if isinstance(res, str) else json.dumps(res, default=str)
+            if not text.lower().startswith(("error", '"error')):
+                chunks.append(text)
+
+    _add(result.get("tool_calls"))
+    for turn in result.get("all_responses") or []:
+        if isinstance(turn, dict):
+            _add(turn.get("tool_calls"))
+    return " ".join(chunks).lower().replace(",", "")
+
+
+def _extract_claim_tokens(answer: str) -> set:
+    nums = _SUPPORT_CHECK_NUM_RE.findall(answer)
+    ents = _SUPPORT_CHECK_ENTITY_RE.findall(answer)
+    tokens = {t.strip(".,;:") for t in nums + ents}
+    return {t for t in tokens if len(t) > 2 and t not in _SUPPORT_CHECK_STOPWORDS}
+
+
+def _is_unsupported_claim(answer: str, evidence: str) -> bool:
+    tokens = _extract_claim_tokens(answer)
+    if not tokens:
+        return False
+    supported = sum(1 for t in tokens if t.lower().replace(",", "") in evidence)
+    return (supported / len(tokens)) < 0.5
+
+
+def _apply_support_check(result: dict, sample_id: str = "?") -> None:
+    """Mutate `result` in place: blank an answer whose claim tokens mostly
+    lack support in this task's own tool results."""
+    evidence = _collect_tool_evidence(result)
+    blanked = False
+    for key in ("response", "answer", "final_response"):
+        val = result.get(key)
+        if isinstance(val, str) and val.strip() and not _is_giveup(val):
+            if _is_unsupported_claim(val, evidence):
+                result[key] = ""
+                blanked = True
+    all_responses = result.get("all_responses")
+    if isinstance(all_responses, list) and all_responses:
+        last = all_responses[-1]
+        if isinstance(last, dict):
+            val = last.get("response")
+            if isinstance(val, str) and val.strip() and not _is_giveup(val):
+                if _is_unsupported_claim(val, evidence):
+                    last["response"] = ""
+                    blanked = True
+    if blanked:
+        logger.info(f"[{sample_id}] [support-check] unsupported claim blanked")
+
+
 var_manager = VariablesManager()
 
 
@@ -1319,6 +1419,11 @@ class M3Evaluator:
                     logger.warning(
                         f"[{sample_id}] Failed to delete per-task ToolGuide policy {policy_id}: {e}"
                     )
+
+        # Technique #4 (M3_SUPPORT_CHECK, default off): blank answers whose
+        # claim tokens aren't supported by this task's own tool results.
+        if _support_check_enabled():
+            _apply_support_check(result, sample_id)
 
         # Technique #3 (M3_REFUSAL_NORM, default off): blank give-up answers
         # before they reach Vakra scoring.
