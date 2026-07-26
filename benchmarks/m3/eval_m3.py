@@ -518,8 +518,8 @@ def _policy_tool_scoping_enabled() -> bool:
     cuga_vakra_agent comparison (2026-07-26): deterministically prune
     forbidden tools from the list CUGA sees, instead of only reactively
     blocking a call after the agent attempts it (RetrieverPolicyGuard).
-    See docs/m3-cap4-policy-investigation-20260723/README.md and this
-    session's transcript for the analysis behind it."""
+    See docs/m3-cap4-policy-investigation-20260723/README.md for the
+    analysis behind it."""
     return os.getenv("M3_POLICY_TOOL_SCOPING", "0") == "1"
 
 
