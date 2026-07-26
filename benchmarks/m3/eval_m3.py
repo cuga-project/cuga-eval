@@ -47,6 +47,7 @@ if not cuga_logging_dir:
 # Now safe to import other modules
 import asyncio
 import json
+import re
 import shutil
 import subprocess
 from typing import Any, Dict, List, Optional, Union
@@ -510,6 +511,183 @@ class FilteredToolProvider:
             f"FilteredToolProvider: get_all_tools() returning {len(tools)} tools for '{self.app_name}'"
         )
         return tools
+
+
+def _policy_tool_scoping_enabled() -> bool:
+    """M3_POLICY_TOOL_SCOPING (default off). Technique #1 from the
+    cuga_vakra_agent comparison (2026-07-26): deterministically prune
+    forbidden tools from the list CUGA sees, instead of only reactively
+    blocking a call after the agent attempts it (RetrieverPolicyGuard).
+    See docs/m3-cap4-policy-investigation-20260723/README.md and this
+    session's transcript for the analysis behind it."""
+    return os.getenv("M3_POLICY_TOOL_SCOPING", "0") == "1"
+
+
+_POLICY_COND_RULE_RE = re.compile(
+    r"if a user.s query pertains to (.+?), which is/are about (.+?)[,.]",
+    re.IGNORECASE | re.DOTALL,
+)
+
+
+def _policy_is_retriever_tool(name: str) -> bool:
+    # Registry-exposed names are domain-prefixed (e.g.
+    # "professional_basketball_query_professional_basketball"), so this must
+    # be a substring match, not startswith.
+    return "query_" in name.lower() or "retriev" in name.lower()
+
+
+async def _classify_policy_topic_match(model: Any, query: str, topic: str, desc: str) -> bool:
+    """One cheap LLM call: does `query` actually pertain to a conditional
+    policy's stated topic? Ported from cuga_vakra_agent/adapter/cuga_v2_agent.py
+    (_classify_topic_match). Assumes a match on any classification failure
+    (fail open -> same behavior as not having this feature)."""
+    try:
+        response = await model.ainvoke(
+            f"Topic area: {topic}\nIt covers: {desc}\n\nQuestion: {query}\n\n"
+            f"Does the question pertain to this topic area? Reply exactly YES or NO."
+        )
+        content = response.content
+        if isinstance(content, list):
+            content = "".join(b.get("text", "") for b in content if isinstance(b, dict))
+        return str(content).strip().upper().startswith("Y")
+    except Exception as e:  # noqa: BLE001
+        logger.warning(f"[policy-scope] topic classify failed ({e}); assuming match")
+        return True
+
+
+async def resolve_policy_tool_scope(model: Any, policy_text: str, query: str) -> str:
+    """Deterministically resolve a cap4 policy's tool-usage scope: 'all',
+    'retriever_only', or 'no_retriever'. Ported from cuga_vakra_agent's
+    CugaV2Agent._resolve_scope. Absolute rules ("do not use document
+    retrievers" / "only use document retrievers") prune unconditionally;
+    conditional rules ("if a user's query pertains to X...") first classify
+    whether this specific query is on-topic before scoping anything."""
+    text = (policy_text or "").lower()
+    if "document retriever" not in text:
+        return "all"
+    m = _POLICY_COND_RULE_RE.search(policy_text or "")
+    if m:
+        topic, desc = m.group(1).strip(), m.group(2).strip()
+        if not await _classify_policy_topic_match(model, query, topic, desc):
+            return "all"
+        return "no_retriever" if "do not use document retrievers" in text else "retriever_only"
+    if text.startswith("do not use document retriever"):
+        return "no_retriever"
+    if "do not use any other" in text or "only" in text:
+        return "retriever_only"
+    return "all"
+
+
+class PolicyScopedToolProvider:
+    """Wraps another tool provider, deterministically pruning tools per-task
+    based on a bound scope ('all' / 'retriever_only' / 'no_retriever').
+
+    CUGA's prepare_tools_and_apps graph node re-fetches tools from the
+    provider fresh on every .invoke() (confirmed by reading
+    cuga-agent/.../adapter/prepare_node.py), so set_scope() before each
+    task's invoke is enough to take effect per-task without rebuilding the
+    CugaAgent instance the domain-level evaluator reuses across all its
+    tasks. One instance is constructed per domain (see evaluate_single_task),
+    and domain tasks are processed sequentially within that instance, so a
+    plain instance attribute (not a per-thread/contextvar map) is safe here.
+    """
+
+    def __init__(self, base_provider):
+        self.base_provider = base_provider
+        self._scope = "all"
+
+    def set_scope(self, scope: str) -> None:
+        self._scope = scope
+
+    async def initialize(self):
+        if hasattr(self.base_provider, "initialize"):
+            await self.base_provider.initialize()
+
+    async def get_apps(self):
+        return await self.base_provider.get_apps()
+
+    def _filter(self, tools):
+        if self._scope == "all":
+            return tools
+        want_retriever = self._scope == "retriever_only"
+        filtered = [t for t in tools if _policy_is_retriever_tool(t.name) == want_retriever]
+        logger.info(f"[policy-scope] scope={self._scope} -> {len(filtered)}/{len(tools)} tools")
+        return filtered
+
+    async def get_tools(self, app_name: str):
+        tools = await self.base_provider.get_tools(app_name)
+        return self._filter(tools)
+
+    async def get_all_tools(self):
+        tools = await self.base_provider.get_all_tools()
+        return self._filter(tools)
+
+
+def _refusal_normalization_enabled() -> bool:
+    """M3_REFUSAL_NORM (default off). Technique #3 from the cuga_vakra_agent
+    comparison (2026-07-26), rebuilt 2026-07-26 around the scorer's actual
+    lever: benchmarks/m3/evaluator/scorer.py's unanswerable special case
+    checks `input.pred_answer in ["", " "]` (or zero pred tool calls) against
+    a ground-truth answer containing "i can not answer" - it does NOT check
+    the prediction for any specific canonical string. Blanking a give-up
+    answer satisfies that condition outright, regardless of how many tool
+    calls were made; writing a canonical sentence does not. Neutral on tasks
+    with a real answer (a give-up already scores 0 there); only changes
+    shape on tasks whose GT *is* a refusal."""
+    return os.getenv("M3_REFUSAL_NORM", "0") == "1"
+
+
+_GIVEUP_MARKERS = (
+    "i can not answer",
+    "i cannot answer",
+    "unable to locate",
+    "unable to find",
+    "i'm unable",
+    "i am unable",
+    "no tool",
+    "no available tool",
+    "no suitable tool",
+    "don't have any tool",
+    "do not have any tool",
+    "don't have access",
+    "cannot find a tool",
+    "can't find a tool",
+    "execution cancelled",
+    "requires your approval",
+    "no accessible tool",
+    "step limit",
+    "maximum step",
+)
+
+
+def _is_giveup(text: str) -> bool:
+    # gpt-oss outputs typographic punctuation (curly apostrophes etc.); the
+    # marker list uses straight ASCII, so normalize before matching or
+    # real matches like "I’m unable" silently miss "i'm unable".
+    low = (text or "").lower().replace("’", "'").replace("‘", "'")
+    return any(m in low for m in _GIVEUP_MARKERS)
+
+
+def _normalize_refusal_in_result(result: dict, sample_id: str = "?") -> None:
+    """Mutate `result` in place: any give-up-shaped answer text becomes
+    blank. Covers every field downstream scoring (_to_vakra_pair) or
+    reporting might read the final answer from."""
+    blanked = False
+    for key in ("response", "answer", "final_response"):
+        val = result.get(key)
+        if isinstance(val, str) and _is_giveup(val):
+            result[key] = ""
+            blanked = True
+    all_responses = result.get("all_responses")
+    if isinstance(all_responses, list) and all_responses:
+        last = all_responses[-1]
+        if isinstance(last, dict):
+            val = last.get("response")
+            if isinstance(val, str) and _is_giveup(val):
+                last["response"] = ""
+                blanked = True
+    if blanked:
+        logger.info(f"[{sample_id}] [refusal-norm] give-up answer blanked")
 
 
 var_manager = VariablesManager()
@@ -1054,6 +1232,21 @@ class M3Evaluator:
                 logger.warning(f"[{sample_id}] Failed to add per-task ToolGuide policy: {e}")
                 policy_id = None
 
+        # Technique #1 (M3_POLICY_TOOL_SCOPING, default off): resolve and bind
+        # this task's deterministic tool scope on top of (not instead of) the
+        # ToolGuide description-enrichment above and RetrieverPolicyGuard's
+        # reactive runtime block. Reset to "all" every task (not just when a
+        # policy is present) since the wrapper's scope is a plain instance
+        # attribute reused across this domain's sequential task loop.
+        scope_provider = getattr(self, "_policy_scope_provider", None)
+        if scope_provider is not None:
+            scope = "all"
+            if policy_text:
+                live_query = turns[-1].get("query", "") if turns else ""
+                scope = await resolve_policy_tool_scope(self.agent._model, policy_text, live_query)
+                logger.info(f"[{sample_id}] [policy-scope] resolved scope={scope}")
+            scope_provider.set_scope(scope)
+
         try:
             if num_turns >= 2:
                 # Dialogue-priming: VAKRA's dialogue.turns holds every turn except
@@ -1126,6 +1319,11 @@ class M3Evaluator:
                     logger.warning(
                         f"[{sample_id}] Failed to delete per-task ToolGuide policy {policy_id}: {e}"
                     )
+
+        # Technique #3 (M3_REFUSAL_NORM, default off): blank give-up answers
+        # before they reach Vakra scoring.
+        if _refusal_normalization_enabled():
+            _normalize_refusal_in_result(result, sample_id)
 
         result["sample_id"] = sample_id
         if "uuid" in sample:
@@ -1874,6 +2072,16 @@ async def evaluate_single_task(
                 app_name=registry_app_name,  # Filter to only this domain's tools
             )
             await filtered_provider.initialize()
+
+            # Technique #1 (M3_POLICY_TOOL_SCOPING, default off): wrap with a
+            # provider that deterministically prunes forbidden tools per-task,
+            # set via evaluator._policy_scope_provider.set_scope() below in
+            # evaluate_multiturn_task. One wrapper per domain; domain tasks run
+            # sequentially, so a plain instance attribute is a safe scope store.
+            evaluator._policy_scope_provider = None
+            if _policy_tool_scoping_enabled():
+                filtered_provider = PolicyScopedToolProvider(filtered_provider)
+                evaluator._policy_scope_provider = filtered_provider
 
             # DEBUG: Check what the filtered provider exposes
             logger.info(f"📋 [DATA LEAKAGE CHECK] Filtered provider for domain '{domain}':")

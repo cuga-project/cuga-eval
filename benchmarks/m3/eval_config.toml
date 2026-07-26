@@ -1469,3 +1469,93 @@ cap4_runaway_probe_n4 = [
   "1960f609e439-3a1b0a9c3535",  # codebase_comments, mixed find_tools-heavy exploration
 ]
 # ─────────────────────────────────────────────────────────────────────────────
+
+# ─────────────────────────────────────────────────────────────────────────────
+# cuga_vakra_agent technique candidates (2026-07-26).
+#
+# Candidate tasks for A/B-testing 4 techniques borrowed from an external
+# custom CUGA harness (../cuga_vakra_agent), selected from cap4_300_full_riders
+# failures where each technique's mechanism plausibly applies:
+#
+#   t1 (policy tool-scoping):    failing policy tasks, 2 are step-limit
+#                                 runaways with a policy present (agent kept
+#                                 fighting the reactive block instead of
+#                                 giving up cleanly).
+#   t2 (MiniLM tool pre-filter): failing tasks where the agent claimed no
+#                                 tool covers the need, but a matching tool
+#                                 was confirmed present in the domain's own
+#                                 catalog (verified against the raw run log).
+#   t3 (refusal normalization):  failing tasks where gt_steps==0 (gold is
+#                                 genuinely unanswerable) - the exactmatch/
+#                                 groundedness judge grants full credit for a
+#                                 canonical refusal on these.
+#   t4 (support-check):          same gt_steps==0 pool, specifically where
+#                                 groundedness_score==0 (agent stated a
+#                                 confident-but-hedged answer not supported by
+#                                 retrieved evidence, instead of refusing).
+#
+# t3/t4 share one task (world/Cyprus) intentionally - both techniques are
+# independently applicable to it.
+# ─────────────────────────────────────────────────────────────────────────────
+
+cap4_vakra_t1_task1 = ["d14bbb0be92d-d09ad3135cea"]  # professional_basketball, step-limit runaway + policy ("Melo" nickname task)
+cap4_vakra_t1_task2 = ["08a8a30623c3-b7b905683b99"]  # app_store, step-limit runaway + policy
+cap4_vakra_t1_task3 = ["d14bbb0be92d-a2f1c2123f89"]  # professional_basketball, retriever-tool-failure/policy confusion (non-runaway)
+cap4_vakra_t1_group = [
+  "d14bbb0be92d-d09ad3135cea",
+  "08a8a30623c3-b7b905683b99",
+  "d14bbb0be92d-a2f1c2123f89",
+]
+
+cap4_vakra_t2_task1 = ["1b288c5c6dc9-ed7ab64793f9"]  # airline, claimed no elapsed-time tool exists; get_actual_elapsed_time_by_description etc. do
+cap4_vakra_t2_task2 = ["3683085b75b9-483e833dc81e"]  # food_inspection, claimed no city+risk violation tool exists; get_count_violations_by_city_and_risk does
+cap4_vakra_t2_task3 = ["35a1befb81d1-c3669f82fcdd"]  # talkingdata, claimed no device-model+age tool exists; get_device_count_by_model_and_age does
+cap4_vakra_t2_group = [
+  "1b288c5c6dc9-ed7ab64793f9",
+  "3683085b75b9-483e833dc81e",
+  "35a1befb81d1-c3669f82fcdd",
+]
+
+# t3 candidates corrected 2026-07-26: the original picks below (hockey/
+# olympics/world) turned out to be "confident answer + inline hedge"
+# failures, not refusal-shaped ones - _is_giveup()'s marker list never
+# matches them, so refusal-normalization has no lever there. Re-mined
+# directly against results/partial/*.json for genuinely marker-matching,
+# non-canonical, score=0 failures (16 found corpuswide); picked 3 clean,
+# single-sentence give-ups in domains not already used elsewhere.
+cap4_vakra_t3_task1 = ["34a533dfd727-f4a68606ea81"]  # disney, "unable to locate any Disney API endpoint..." (no policy)
+cap4_vakra_t3_task2 = ["ee275d64dafc-9c5805f01039"]  # restaurant, "unable to locate any document-retriever tools..." (policy: retriever-only)
+cap4_vakra_t3_task3 = ["1f58b1e965af-e28216989077"]  # cars, "unable to find any tool..." (no policy)
+cap4_vakra_t3_group = [
+  "34a533dfd727-f4a68606ea81",
+  "ee275d64dafc-9c5805f01039",
+  "1f58b1e965af-e28216989077",
+]
+
+# t4 candidates: the original t3 picks (hockey/olympics/world) - confident
+# answer + inline "(not found in the retrieved tool data)" hedge, exactly
+# what a support-check groundedness guard targets.
+cap4_vakra_t4_task1 = ["308738b8195d-34e4c507c777"]  # hockey, gt_steps=0 + groundedness=0, hedge-while-answering
+cap4_vakra_t4_task2 = ["5caddc4c49de-1426f1f6aa46"]  # olympics, gt_steps=0 + groundedness=0, hedge-while-answering
+cap4_vakra_t4_task3 = ["486ea46224d1-2ab24217a08e"]  # world, gt_steps=0 + groundedness=0, hedge-while-answering
+cap4_vakra_t4_group = [
+  "308738b8195d-34e4c507c777",
+  "5caddc4c49de-1426f1f6aa46",
+  "486ea46224d1-2ab24217a08e",
+]
+
+# All 12 unique candidate tasks combined.
+cap4_vakra_all_candidates = [
+  "d14bbb0be92d-d09ad3135cea",
+  "08a8a30623c3-b7b905683b99",
+  "d14bbb0be92d-a2f1c2123f89",
+  "1b288c5c6dc9-ed7ab64793f9",
+  "3683085b75b9-483e833dc81e",
+  "35a1befb81d1-c3669f82fcdd",
+  "34a533dfd727-f4a68606ea81",
+  "ee275d64dafc-9c5805f01039",
+  "1f58b1e965af-e28216989077",
+  "308738b8195d-34e4c507c777",
+  "5caddc4c49de-1426f1f6aa46",
+  "486ea46224d1-2ab24217a08e",
+]
