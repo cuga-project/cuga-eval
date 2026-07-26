@@ -790,6 +790,139 @@ def _apply_support_check(result: dict, sample_id: str = "?") -> None:
         logger.info(f"[{sample_id}] [support-check] unsupported claim blanked")
 
 
+def _tool_shortlist_enabled() -> bool:
+    """M3_TOOL_SHORTLIST (default off). Technique #2 from the
+    cuga_vakra_agent comparison (2026-07-26): a MiniLM semantic pre-filter
+    over the domain's tool catalog, so the agent reasons over a small,
+    query-relevant subset instead of the full (up to 200+ tool) catalog.
+    Ported from cuga_vakra_agent/adapter/tool_shortlister.py. Unlike that
+    port, this only narrows the candidate list the *provider* returns -
+    it does not also thread a `shortlisting_tool_threshold` override
+    through the invoke config, so CUGA's own find_tools wall may still run
+    on top of the already-shortlisted subset. That's redundant but
+    harmless, and avoids widening this change into the shared
+    evaluate_task_with_langfuse/evaluate_multiturn_task_with_langfuse
+    helpers other benchmarks also use."""
+    return os.getenv("M3_TOOL_SHORTLIST", "0") == "1"
+
+
+_TOOL_SHORTLIST_TOP_K = int(os.getenv("M3_TOOL_SHORTLIST_TOP_K", "40"))
+
+
+class ToolShortlister:
+    """Retrieve the most relevant tools for a query via semantic similarity.
+    Ported near-verbatim from cuga_vakra_agent/adapter/tool_shortlister.py.
+    """
+
+    def __init__(self, top_k: int = _TOOL_SHORTLIST_TOP_K, model_name: str = "all-MiniLM-L6-v2"):
+        self.top_k = top_k
+        self._model = None  # lazy: avoid loading the model when the flag is off
+        self._model_name = model_name
+        self._tool_embeddings = None
+        self._tools = None
+
+    def _get_model(self):
+        if self._model is None:
+            from sentence_transformers import SentenceTransformer  # noqa: PLC0415
+
+            self._model = SentenceTransformer(self._model_name)
+        return self._model
+
+    @staticmethod
+    def _tool_text(tool: Any) -> str:
+        name = getattr(tool, "name", "")
+        description = getattr(tool, "description", "")
+        return f"{name}: {description}"
+
+    @staticmethod
+    def _tool_name(tool: Any) -> str:
+        return getattr(tool, "name", "")
+
+    def encode_tools(self, tools: list) -> None:
+        """Pre-compute embeddings for a tool catalog. Call once per domain."""
+        self._tools = list(tools)
+        texts = [self._tool_text(t) for t in self._tools]
+        self._tool_embeddings = self._get_model().encode(texts, convert_to_numpy=True)
+
+    def shortlist(self, query: str, tools: list) -> list:
+        """Return the top_k tools most similar to `query`. Retriever tools
+        (name containing "query_") are always kept, matching technique #1's
+        _policy_is_retriever_tool substring convention for this registry's
+        domain-prefixed tool names."""
+        import numpy as np  # noqa: PLC0415
+
+        if len(tools) <= self.top_k:
+            return tools
+
+        pinned = [t for t in tools if _policy_is_retriever_tool(self._tool_name(t))]
+        candidates = [t for t in tools if not _policy_is_retriever_tool(self._tool_name(t))]
+        remaining_slots = self.top_k - len(pinned)
+        if remaining_slots <= 0 or not candidates:
+            return pinned
+        if remaining_slots >= len(candidates):
+            return pinned + candidates
+
+        if self._tool_embeddings is not None and self._tools is not None and len(self._tools) == len(tools):
+            candidate_indices = [
+                i for i, t in enumerate(tools) if not _policy_is_retriever_tool(self._tool_name(t))
+            ]
+            tool_embs = self._tool_embeddings[candidate_indices]
+        else:
+            texts = [self._tool_text(t) for t in candidates]
+            tool_embs = self._get_model().encode(texts, convert_to_numpy=True)
+
+        query_emb = self._get_model().encode([query], convert_to_numpy=True)
+        tool_norms = np.linalg.norm(tool_embs, axis=1, keepdims=True)
+        query_norm = np.linalg.norm(query_emb, axis=1, keepdims=True)
+        tool_embs_normed = tool_embs / np.where(tool_norms == 0, 1, tool_norms)
+        query_emb_normed = query_emb / np.where(query_norm == 0, 1, query_norm)
+        similarities = (tool_embs_normed @ query_emb_normed.T).squeeze()
+        top_indices = np.argsort(similarities)[::-1][:remaining_slots]
+        return pinned + [candidates[i] for i in top_indices]
+
+
+class SemanticShortlistToolProvider:
+    """Wraps another tool provider, narrowing what it returns to the
+    ToolShortlister's top-k most query-relevant tools. Mirrors
+    PolicyScopedToolProvider's shape: one instance per domain, a plain
+    `set_query()` call before each task's invoke (CUGA re-fetches tools
+    fresh every call, see PolicyScopedToolProvider's docstring), domain
+    tasks processed sequentially so a plain instance attribute is safe.
+    """
+
+    def __init__(self, base_provider):
+        self.base_provider = base_provider
+        self._shortlister = ToolShortlister()
+        self._query = ""
+        self._encoded = False
+
+    def set_query(self, query: str) -> None:
+        self._query = query or ""
+
+    async def initialize(self):
+        if hasattr(self.base_provider, "initialize"):
+            await self.base_provider.initialize()
+
+    async def get_apps(self):
+        return await self.base_provider.get_apps()
+
+    def _shortlist(self, tools):
+        if not self._encoded:
+            self._shortlister.encode_tools(tools)
+            self._encoded = True
+        shortlisted = self._shortlister.shortlist(self._query, tools)
+        logger.info(f"[tool-shortlist] {len(shortlisted)}/{len(tools)} tools kept for query")
+        return shortlisted
+
+    async def get_tools(self, app_name: str):
+        tools = await self.base_provider.get_tools(app_name)
+        return self._shortlist(tools)
+
+    async def get_all_tools(self):
+        tools = await self.base_provider.get_all_tools()
+        return self._shortlist(tools)
+
+
 var_manager = VariablesManager()
 
 
@@ -1346,6 +1479,13 @@ class M3Evaluator:
                 scope = await resolve_policy_tool_scope(self.agent._model, policy_text, live_query)
                 logger.info(f"[{sample_id}] [policy-scope] resolved scope={scope}")
             scope_provider.set_scope(scope)
+
+        # Technique #2 (M3_TOOL_SHORTLIST, default off): re-rank/narrow the
+        # tool catalog to this task's live query before invoking.
+        shortlist_provider = getattr(self, "_shortlist_provider", None)
+        if shortlist_provider is not None:
+            live_query_for_shortlist = turns[-1].get("query", "") if turns else ""
+            shortlist_provider.set_query(live_query_for_shortlist)
 
         try:
             if num_turns >= 2:
@@ -2187,6 +2327,18 @@ async def evaluate_single_task(
             if _policy_tool_scoping_enabled():
                 filtered_provider = PolicyScopedToolProvider(filtered_provider)
                 evaluator._policy_scope_provider = filtered_provider
+
+            # Technique #2 (M3_TOOL_SHORTLIST, default off): wrap with a
+            # provider that narrows the catalog to the top-k most
+            # query-relevant tools, set via
+            # evaluator._shortlist_provider.set_query() below in
+            # evaluate_multiturn_task. Wrapped outside the policy-scope
+            # provider (if both are enabled) so shortlisting ranks whatever
+            # policy scoping already allowed, not the other way around.
+            evaluator._shortlist_provider = None
+            if _tool_shortlist_enabled():
+                filtered_provider = SemanticShortlistToolProvider(filtered_provider)
+                evaluator._shortlist_provider = filtered_provider
 
             # DEBUG: Check what the filtered provider exposes
             logger.info(f"📋 [DATA LEAKAGE CHECK] Filtered provider for domain '{domain}':")
