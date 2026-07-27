@@ -304,6 +304,36 @@ def _parameter_variation_rider_enabled() -> bool:
     return os.getenv("M3_PARAMETER_VARIATION_RIDER", "off").strip().lower() in ("1", "on", "true", "yes")
 
 
+# Answer-discipline rider, adapted from cuga_vakra_agent's ANSWER_DISCIPLINE
+# (2026-07-26 comparison). Its stock "at most ONE tool call per code block"
+# rule directly contradicts M3_PARAMETER_VARIATION_RULE above (which exists
+# specifically because the one observed PASS on d14bbb0be92d-d09ad3135cea
+# used a BATCHED multi-variant call, not one-call-per-block) - so rather than
+# ship two riders that fight each other if both are enabled, this rider
+# states the discipline rules with an explicit carve-out for that case,
+# folding the parameter-variation guidance in directly. Enabling this rider
+# and M3_PARAMETER_VARIATION_RIDER together is redundant (same guidance
+# stated twice) but not contradictory.
+M3_ANSWER_DISCIPLINE_RULE = """
+## Tool-use discipline
+
+1. Before writing code, check whether ONE tool directly answers the question (matching name/purpose). Prefer that single call over composing several general tools.
+2. Make at most ONE tool call per code block, EXCEPT for the case in rule 3 below.
+3. Exception - empty result from a string-typed filter parameter with no discoverable valid-value list (no schema enum, no listing/enumeration endpoint): do not guess one spelling per code block. Instead, in a SINGLE code block, try a small set of plausible variations together - different casing, abbreviations, and full/short forms (e.g. `["west", "West", "Western", "Western Conference", "W"]`) - combined with any other uncertain parameter values, and check all combinations before concluding no data matches.
+4. As soon as you have the information needed to answer, STOP - give the final answer with no additional tool calls.
+5. Call a document retriever (query_*) at most 2 times per task - retriever results are large; two retrievals are enough to know whether the documents cover the question.
+""".strip()
+
+
+def _answer_discipline_rider_enabled() -> bool:
+    """Answer-discipline rider toggle. Default OFF - opt in with
+    M3_ANSWER_DISCIPLINE_RIDER=on/1/true/yes. Independent of the other
+    riders; see M3_ANSWER_DISCIPLINE_RULE's comment for why its empty-filter
+    exception folds in M3_PARAMETER_VARIATION_RULE's guidance directly
+    rather than relying on that separate rider also being enabled."""
+    return os.getenv("M3_ANSWER_DISCIPLINE_RIDER", "off").strip().lower() in ("1", "on", "true", "yes")
+
+
 def _groundedness_prompt_enabled() -> bool:
     """Wave-1 Change #1 A/B toggle. Default on; set M3_GROUNDEDNESS_PROMPT to
     off / 0 / false / no to drop the evidence-chain rider (the baseline arm)."""
@@ -348,7 +378,13 @@ def _build_m3_special_instructions() -> str:
     parts = [M3_TOOL_OUTPUT_INSTRUCTIONS]
     if _find_tools_query_rider_enabled():
         parts.append(M3_FIND_TOOLS_QUERY_RULE)
-    if _parameter_variation_rider_enabled():
+    if _answer_discipline_rider_enabled():
+        # M3_ANSWER_DISCIPLINE_RULE folds M3_PARAMETER_VARIATION_RULE's
+        # guidance in directly (see its comment) - skip the separate rider
+        # even if also enabled, so the two never duplicate the same
+        # instruction in one prompt.
+        parts.append(M3_ANSWER_DISCIPLINE_RULE)
+    elif _parameter_variation_rider_enabled():
         parts.append(M3_PARAMETER_VARIATION_RULE)
     if _groundedness_prompt_enabled():
         parts.append(M3_GROUNDEDNESS_INSTRUCTIONS)

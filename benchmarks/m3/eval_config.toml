@@ -1471,6 +1471,55 @@ cap4_runaway_probe_n4 = [
 # ─────────────────────────────────────────────────────────────────────────────
 
 # ─────────────────────────────────────────────────────────────────────────────
+# Combined answer-discipline / step-cap test set (2026-07-26): reuses the two
+# probe sets above rather than mining a fresh one, per
+# docs/m3-cap4-policy-investigation-20260723/README.md §14.4. toolguide_n3
+# covers policy-driven tool-avoidance stalls (includes the "Melo" task,
+# d14bbb0be92d-d09ad3135cea, the same one M3_PARAMETER_VARIATION_RULE was
+# validated against); runaway_n4 covers all four repetition shapes from the
+# original runaway investigation. No uuid overlap between the two sets (7
+# unique tasks total). Target for M3_ANSWER_DISCIPLINE_RIDER + step-cap +
+# stall-retry testing.
+cap4_ans_discipline_probe_n7 = [
+  "d14bbb0be92d-d09ad3135cea",  # professional_basketball, do-not-use direction, lg also fails
+  "5661cd917583-5bf11ec43a9d",  # book_publishing_company, only-use + generic phrasing, lg also fails
+  "39a28b2592a2-16ff8f01c848",  # computer_student, only-use + domain-group phrasing, lg passes
+  "e71440999ce8-99b792c44651",  # law_episode, exact-duplicate per-item loop (no timeout fired)
+  "d14bbb0be92d-ae240cc7a80e",  # professional_basketball, retriever-rephrasing loop
+  "55b7e50368aa-01b9e0ab72a2",  # mondial_geo, parameter-guessing loop (possibly-legitimate search)
+  "1960f609e439-3a1b0a9c3535",  # codebase_comments, mixed find_tools-heavy exploration
+]
+# ─────────────────────────────────────────────────────────────────────────────
+
+# ─────────────────────────────────────────────────────────────────────────────
+# Long-tail step-count set (2026-07-26): the 15 tasks that PASSED in the
+# original cap4_300_full_riders baseline but needed >16 tool calls to do it
+# (see docs/m3-cap4-policy-investigation-20260723/README.md §14.1/§14.2).
+# This is the exact same set cuga_vakra_agent's real, independently-verified
+# run (cap=16 + minilm top_k=40, their FULL_GUARDS config) scored 12/15
+# (80%) on, and the 3 real failures there exactly matched an offline
+# top_k=40 tool-loss simulation - so this set is the direct apples-to-apples
+# comparison point for step-cap + rescue-mechanism work.
+cap4_longtail_step16_n15 = [
+  "d80c9bf910f1-9fc63dcbd401",  # address, 40 calls
+  "3608e5ae1d0e-6218ab411fce",  # image_and_language, 40 calls
+  "486ea46224d1-9ada99972fd2",  # world, 32 calls
+  "308738b8195d-c8b19d32a58b",  # hockey, 28 calls
+  "308738b8195d-3b057c34eddf",  # hockey, 26 calls
+  "1f58b1e965af-f563ce962fd3",  # cars, 26 calls
+  "6e317bcd6839-591e779209a5",  # books, 26 calls
+  "55b7e50368aa-cdbe6eec1450",  # mondial_geo, 24 calls (competitor's real run failed this one; predicted by offline top_k=40 sim)
+  "d0d7be63ebc2-c044be462453",  # ice_hockey_draft, 22 calls (competitor's real run failed this one; predicted by offline top_k=40 sim)
+  "6e317bcd6839-5ab374c76ffe",  # books, 20 calls
+  "d14bbb0be92d-1a147a658d14",  # professional_basketball, 20 calls
+  "ec134bf7bda5-df565b1ce768",  # cookbook, 20 calls
+  "3683085b75b9-bc8c05f6855b",  # food_inspection, 18 calls (competitor's real run failed this one; predicted by offline top_k=40 sim)
+  "fe971e7f850a-db2cf9c34392",  # soccer_2016, 18 calls
+  "55b7e50368aa-c8f35b48ac4c",  # mondial_geo, 18 calls
+]
+# ─────────────────────────────────────────────────────────────────────────────
+
+# ─────────────────────────────────────────────────────────────────────────────
 # cuga_vakra_agent technique candidates (2026-07-26).
 #
 # Candidate tasks for A/B-testing 4 techniques borrowed from an external
