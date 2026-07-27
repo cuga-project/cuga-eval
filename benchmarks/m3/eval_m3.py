@@ -774,14 +774,27 @@ def _support_check_enabled() -> bool:
     comparison (2026-07-26): a confident answer whose load-bearing tokens
     (numbers + proper-noun entities) mostly don't appear in this task's own
     successful tool results is fabrication - blank it rather than score it.
-    Unlike the original (cuga_vakra_agent/adapter/cuga_v2_agent.py
-    _post_answer_hook), this is NOT gated on a "retriever_only" policy
-    scope - that scope is effectively unreachable in our system (see
-    technique #1's investigation: 2026-07-26, our capability_4_multiturn
-    container has zero retriever tools in most domains), so gating on it
-    would make this dead code here too. Applied generally instead, same
-    lesson as technique #3: blank the answer (not a canonical sentence) so
-    it hits scorer.py's real deterministic unanswerable bypass
+
+    Re-gated 2026-07-27 to match the original design (cuga_vakra_agent/
+    adapter/cuga_v2_agent.py _post_answer_hook only runs this when
+    self._last_scope == "retriever_only") after a real VM-run regression
+    audit: 3 currently-passing tasks (all with GT="I can not answer.")
+    flipped to confident, ungrounded fabrications under
+    M3_POLICY_TOOL_SCOPING's retriever_only scope specifically (e.g.
+    inventing specific county names "supported" only by a retriever
+    response that never mentions them) - exactly the shape this check
+    targets. The original blanket-application design (this docstring
+    until 2026-07-27) was based on retriever_only being unreachable
+    locally at the time; that's no longer true once a working retriever
+    backend exists. The general-population version was measured at a 52%
+    false-positive rate against 142 currently-passing baseline tasks and
+    is NOT safe to run unconditionally - narrowing to exactly the
+    condition this was designed for keeps the safety property intact
+    (see docs/m3-cap4-policy-investigation-20260723/README.md §13, §15).
+    Only ever fires when M3_POLICY_TOOL_SCOPING is also enabled and a
+    task's resolved scope is retriever_only - harmless no-op otherwise.
+    Blanks the answer (not a canonical sentence), same lesson as
+    technique #3: hits scorer.py's real deterministic unanswerable bypass
     (pred_answer in ["", " "]) rather than depending on judge leniency."""
     return os.getenv("M3_SUPPORT_CHECK", "0") == "1"
 
@@ -1657,7 +1670,10 @@ class M3Evaluator:
 
         # Technique #4 (M3_SUPPORT_CHECK, default off): blank answers whose
         # claim tokens aren't supported by this task's own tool results.
-        if _support_check_enabled():
+        # Re-gated 2026-07-27 to only fire on retriever_only-scoped tasks
+        # (see _support_check_enabled's docstring) - the general-population
+        # version has a confirmed 52% false-positive rate.
+        if _support_check_enabled() and scope == "retriever_only":
             _apply_support_check(result, sample_id)
 
         # Technique #3 (M3_REFUSAL_NORM, default off): blank give-up answers

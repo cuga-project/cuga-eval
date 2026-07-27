@@ -1621,3 +1621,17 @@ cap4_retriever_only_regression_n2 = [
   "1b288c5c6dc9-3cfb9361e826",  # airline, "No tail numbers ... are available in the airline data source."
   "1b288c5c6dc9-8ebb9b32a1d7",  # airline, "The airline application only provides ... No structured endpoint ... exists."
 ]
+
+# 2026-07-27: 3 more real regressions found on the same VM run, on address
+# this time. Unlike the 2 above, these are NOT refusal-phrasing gaps - 2 of
+# 3 are outright fabrications (confident, specific, invented county names
+# not present anywhere in the real retrieved data), the shape M3_SUPPORT_CHECK
+# was built for. Combined with the 2 above for a 5-task regression test set
+# for the re-gated (retriever_only-only) M3_SUPPORT_CHECK.
+cap4_retriever_only_regression_n5 = [
+  "1b288c5c6dc9-3cfb9361e826",  # airline, refusal-phrasing gap
+  "1b288c5c6dc9-8ebb9b32a1d7",  # airline, refusal-phrasing gap
+  "d80c9bf910f1-0ef4534b84e2",  # address, hedge-with-conclusion (judge called it ambiguous)
+  "d80c9bf910f1-9fc63dcbd401",  # address, fabrication - invented "Lake County, Utah County"
+  "d80c9bf910f1-fbb2521dcbd6",  # address, fabrication - invented 10+ county name list
+]
