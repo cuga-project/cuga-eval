@@ -334,6 +334,35 @@ def _answer_discipline_rider_enabled() -> bool:
     return os.getenv("M3_ANSWER_DISCIPLINE_RIDER", "off").strip().lower() in ("1", "on", "true", "yes")
 
 
+# Retriever-only-scope refusal rule (2026-07-27), a direct response to a real
+# VM-run regression: M3_POLICY_TOOL_SCOPING's retriever_only scope causes the
+# agent to produce a wider variety of refusal phrasings than usual, including
+# ones that narrate its own tool restriction ("the application only provides
+# X, no structured endpoint exists") - which the groundedness judge then
+# penalizes as an ungrounded claim about the tool/data source, even when
+# blanking it would have passed cleanly (GT was "I can not answer." in both
+# observed cases). This attacks the problem at generation time instead of
+# leaving it entirely to _GIVEUP_MARKERS' post-hoc, inherently incomplete
+# substring matching. Only makes sense (and only ever gets appended) when
+# M3_POLICY_TOOL_SCOPING is also enabled and a task's scope actually resolves
+# to retriever_only - harmless no-op otherwise, kept as its own flag anyway
+# for independent A/B testing, consistent with every other rider in this file.
+M3_RETRIEVER_ONLY_REFUSAL_RULE = """
+## When restricted to a document retriever only
+
+Your policy for this task restricts you to using only the document retriever tool. If the retriever's results do not contain the information needed to answer, reply with EXACTLY:
+I can not answer.
+Do not explain why. Do not describe what tools are or are not available, and do not mention the retriever, the application, or any tool by name in your final answer.
+""".strip()
+
+
+def _retriever_only_refusal_rider_enabled() -> bool:
+    """Retriever-only refusal rider toggle. Default OFF - opt in with
+    M3_RETRIEVER_ONLY_REFUSAL_RIDER=on/1/true/yes. See
+    M3_RETRIEVER_ONLY_REFUSAL_RULE's comment for why this exists."""
+    return os.getenv("M3_RETRIEVER_ONLY_REFUSAL_RIDER", "off").strip().lower() in ("1", "on", "true", "yes")
+
+
 def _groundedness_prompt_enabled() -> bool:
     """Wave-1 Change #1 A/B toggle. Default on; set M3_GROUNDEDNESS_PROMPT to
     off / 0 / false / no to drop the evidence-chain rider (the baseline arm)."""
@@ -693,6 +722,20 @@ _GIVEUP_MARKERS = (
     "no accessible tool",
     "step limit",
     "maximum step",
+    # Added 2026-07-27 after a real VM-run regression: retriever_only-scoped
+    # tasks produce a wider variety of refusal phrasings than the ported
+    # marker list covers, since the agent sometimes narrates its own tool
+    # restriction as part of the refusal. Two concrete cases observed:
+    # "No tail numbers ... are available in the airline data source." and
+    # "The airline application only provides the free-form retriever ...
+    # No structured endpoint ... exists." Neither matched any prior marker,
+    # so refusal-norm never blanked them - the raw text then failed the
+    # groundedness judge (dinged as an ungrounded claim about the tool/data
+    # source) even though GT was "I can not answer." for both.
+    "not available in the",
+    "only provides",
+    "no structured endpoint",
+    "does not contain any information about",
 )
 
 
@@ -1482,12 +1525,43 @@ class M3Evaluator:
         # it applies unconditionally for exactly this one task's lifetime —
         # never accumulated onto the agent or leaked into a later sample.
         policy_text = sample.get("additional_instructions") or None
+
+        # Technique #1 (M3_POLICY_TOOL_SCOPING, default off): resolve this
+        # task's deterministic tool scope BEFORE the ToolGuide below is
+        # built, so a retriever_only resolution can fold
+        # M3_RETRIEVER_ONLY_REFUSAL_RULE into the ToolGuide content (see that
+        # rule's comment). Reset to "all" every task (not just when a policy
+        # is present) since the scope-provider wrapper's scope is a plain
+        # instance attribute reused across this domain's sequential task loop.
+        scope_provider = getattr(self, "_policy_scope_provider", None)
+        scope = "all"
+        if scope_provider is not None:
+            if policy_text:
+                live_query = turns[-1].get("query", "") if turns else ""
+                scope = await resolve_policy_tool_scope(self.agent._model, policy_text, live_query)
+                logger.info(f"[{sample_id}] [policy-scope] resolved scope={scope}")
+            scope_provider.set_scope(scope)
+
+        # VAKRA per-sample policy text (M3DataLoader's "additional_instructions").
+        # Task-specific: read fresh from this sample every call. Every instance
+        # of this text in the dataset is a tool-usage restriction ("use only
+        # document retrievers" / "do not use document retrievers") — verified
+        # across all 150 policy-bearing samples, no other policy shape exists —
+        # so it's delivered as a per-task ToolGuide (add_tool_guide, added
+        # right before this sample's invocation and deleted right after,
+        # win or lose) rather than free text folded into the prompt/history.
+        # ToolGuide's default trigger with no keywords is an AlwaysTrigger, so
+        # it applies unconditionally for exactly this one task's lifetime —
+        # never accumulated onto the agent or leaked into a later sample.
         policy_id: Optional[str] = None
         if policy_text and self.policies_enabled:
+            tool_guide_content = policy_text
+            if scope == "retriever_only" and _retriever_only_refusal_rider_enabled():
+                tool_guide_content = policy_text + "\n\n" + M3_RETRIEVER_ONLY_REFUSAL_RULE
             try:
                 policy_id = await self.agent.policies.add_tool_guide(
                     name=f"cap4_policy_{sample_id}",
-                    content=policy_text,
+                    content=tool_guide_content,
                     target_tools=["*"],
                     target_apps=[domain],
                 )
@@ -1500,21 +1574,6 @@ class M3Evaluator:
             except Exception as e:
                 logger.warning(f"[{sample_id}] Failed to add per-task ToolGuide policy: {e}")
                 policy_id = None
-
-        # Technique #1 (M3_POLICY_TOOL_SCOPING, default off): resolve and bind
-        # this task's deterministic tool scope on top of (not instead of) the
-        # ToolGuide description-enrichment above and RetrieverPolicyGuard's
-        # reactive runtime block. Reset to "all" every task (not just when a
-        # policy is present) since the wrapper's scope is a plain instance
-        # attribute reused across this domain's sequential task loop.
-        scope_provider = getattr(self, "_policy_scope_provider", None)
-        if scope_provider is not None:
-            scope = "all"
-            if policy_text:
-                live_query = turns[-1].get("query", "") if turns else ""
-                scope = await resolve_policy_tool_scope(self.agent._model, policy_text, live_query)
-                logger.info(f"[{sample_id}] [policy-scope] resolved scope={scope}")
-            scope_provider.set_scope(scope)
 
         # Technique #2 (M3_TOOL_SHORTLIST, default off): re-rank/narrow the
         # tool catalog to this task's live query before invoking.

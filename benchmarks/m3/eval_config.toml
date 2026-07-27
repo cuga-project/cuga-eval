@@ -1608,3 +1608,16 @@ cap4_vakra_all_candidates = [
   "5caddc4c49de-1426f1f6aa46",
   "486ea46224d1-2ab24217a08e",
 ]
+
+# 2026-07-27: the two real regressions found on the VM's cap4_300_ans_discipline
+# run - both flipped from a reliable baseline PASS (and competitor PASS) to a
+# FAIL under M3_POLICY_TOOL_SCOPING's retriever_only scope, both with
+# GT="I can not answer.". Root cause: the agent's refusal phrasing didn't
+# match any _GIVEUP_MARKERS entry, so it never got blanked, and the raw text
+# failed groundedness (see docs/m3-cap4-policy-investigation-20260723/
+# README.md for the full diagnosis). Test set for the fix (expanded markers +
+# M3_RETRIEVER_ONLY_REFUSAL_RIDER).
+cap4_retriever_only_regression_n2 = [
+  "1b288c5c6dc9-3cfb9361e826",  # airline, "No tail numbers ... are available in the airline data source."
+  "1b288c5c6dc9-8ebb9b32a1d7",  # airline, "The airline application only provides ... No structured endpoint ... exists."
+]
