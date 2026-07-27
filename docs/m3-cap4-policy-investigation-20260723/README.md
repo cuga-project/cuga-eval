@@ -1,6 +1,6 @@
 # M3 capability_4 investigation — full record
 
-**Status:** living document, last updated 2026-07-26. Original deadline for cap4 results was 2026-07-24 (the initial 300-task run, §0-§8, completed on schedule); the document continued past that as a genuinely ongoing investigation — see §9 onward for everything since.
+**Status:** living document, last updated 2026-07-27. Original deadline for cap4 results was 2026-07-24 (the initial 300-task run, §0-§8, completed on schedule); the document continued past that as a genuinely ongoing investigation — see §9 onward for everything since, §15 for the most recent addition (a real regression found on a live VM run, diagnosed and fixed same-day).
 **Repos involved:** `cuga-eval` (this repo, branch `integration/m3-eval`), `cuga-agent` (sibling repo, same branch), and as of §9, `cuga_vakra_agent` (external comparison harness, read-only) and `vendor/vakra` (vendored benchmark, read-only except one container restart, §9.4).
 **Purpose of this doc:** a complete record of what was investigated, decided, built, and tested — written specifically so prototype/uncommitted/stashed code can be told apart from real, ready-to-commit fixes before anything gets swept into a PR. Individual threads below are candidates for separate GitHub issues later; this doc is the source material for writing those, not a replacement for them.
 
@@ -429,3 +429,48 @@ cap4_runaway_probe_n4 = [
 - Stall-detection + retry-with-shortlist: designed (§14.1-14.2 above), not yet built. Detection signal: literal `"Maximum step limit"` in the response text (already proven reliable — appears verbatim in every real stall this session).
 - `M3_ANSWER_DISCIPLINE_RULE`: written, deduplicated against the older rider, not tested at all yet.
 - Next planned test: run `cap4_toolguide_probe_n3` + `cap4_runaway_probe_n4` (§14.4) with all 4 existing techniques + `M3_ANSWER_DISCIPLINE_RIDER` + cap=16 (+ stall-retry once built), to see how close we land to the competitor's real 12/15 (80%) on the analogous long-tail set (§14.2).
+
+---
+
+## 15. Full 300-task VM run (2026-07-27) — real regression found and fixed same-day
+
+User launched a real full-corpus run on a separate VM (`cap4_300_ans_discipline`: `M3_POLICY_TOOL_SCOPING` + `M3_REFUSAL_NORM` + `M3_ANSWER_DISCIPLINE_RIDER`, no shortlist/support-check), to free up the laptop. Several operational issues came up and were resolved along the way (kept brief since this is process, not a technique finding):
+
+- VM's `.venv` had root-owned files with no `sudo` access — worked around via `UV_PROJECT_ENVIRONMENT` pointed at a fresh, user-owned venv location, rather than fighting permissions.
+- `--status`/`--stop` need `--resume-experiment <name>`, not `--experiment <name>`, once the experiment directory already exists — `--experiment` always assumes "create new" and errors ("already exists... use --resume-experiment") otherwise. Real bug in the first cut of the monitoring script, not a VM environment issue.
+- Built `scripts/monitor_cap4_run.sh` (not committed — briefly committed by mistake, reverted per explicit instruction, lives in `.scratch/` only): watches container health (both the main REST API and the retriever backend independently — the retriever has repeatedly died under load this session while the main API stays up), and — critically — checks whether `background.log` has gone stale (no new lines in 8 minutes) rather than just whether the process's PID is still alive, since `--status` alone can't distinguish a genuinely hung process from a healthy one. On a detected hang or crash it does a clean `--stop` → container restart → `--resume-experiment`.
+- An early "0 tasks completed" scare turned out to be expected, not broken: scoring is per-domain-batch (only fires once *all* of a domain's samples finish), so a domain with more samples (`address`, 22 tasks; `airline`, 20) will show zero scored results for a long time while a smaller domain (`app_store`, 13) finishes and scores first. Confirmed via `agent finished (pre-scoring)` vs `fully scored` counts per domain-prefix — both were climbing normally, nothing stuck.
+
+### 15.1 The real finding: a live regression on `airline`
+
+Direct baseline comparison once `airline` (20/20 tasks) finished scoring on the VM:
+
+| | baseline | current (VM run) |
+|---|---|---|
+| airline (20 tasks) | 9/20 | 7/20 |
+
+Net **-2, zero new wins, 2 confirmed regressions**: `1b288c5c6dc9-3cfb9361e826` and `1b288c5c6dc9-8ebb9b32a1d7` both flipped from a reliable baseline PASS (and `cuga_vakra_agent`'s real verified run also PASS on both — see §10.1) to a FAIL. Both have `gt_answer = "I can not answer."`, so the scorer's deterministic bypass should have caught them regardless of which tools were available — something else broke it.
+
+Root cause, confirmed directly from the VM's own log (`score=0.00 ... exactmatch=1.0 groundedness=0.0`, i.e. the *shape* of the answer was right, the judge objected to its *content*):
+
+- `1b288c5c6dc9-3cfb9361e826`: `pred="Evidence: unique_tail_numbers = []; Answer: No tail numbers for flights on August 17 2018 are available in the airline data source."` — functionally a refusal, but "No tail numbers... are available in the X" doesn't match any `_GIVEUP_MARKERS` entry (nothing close to "no tool").
+- `1b288c5c6dc9-8ebb9b32a1d7`: `pred="The airline application only provides the free-form retriever airline_query_airline. No structured endpoint for listing flights or cancellations exists, and the retriever's results do not contain..."` — the agent explicitly narrates its own tool restriction (a direct side effect of `retriever_only` scoping making the agent aware it's missing its normal tools), which the groundedness judge penalizes as an ungrounded claim about "the airline application," not about the retrieved data.
+
+Neither got blanked by `M3_REFUSAL_NORM` (marker list too narrow), so the raw text reached the judge and failed groundedness on content it shouldn't have needed to state at all.
+
+### 15.2 Fix, implemented and verified same-day (commit `0024a60`)
+
+Two complementary changes, both default-off, tested together against both regressed tasks locally (`cap4_retriever_only_regression_n2` eval-key) before committing:
+
+1. **Expanded `_GIVEUP_MARKERS`** with the concrete phrasings observed: `"not available in the"`, `"only provides"`, `"no structured endpoint"`, `"does not contain any information about"`. Reactive backstop — the fourth time this session a real phrasing has slipped past the marker list (curly apostrophes, "step limit", now these).
+2. **`M3_RETRIEVER_ONLY_REFUSAL_RULE` / `M3_RETRIEVER_ONLY_REFUSAL_RIDER`** (default off): when a task's policy-scope resolves to `retriever_only`, fold an explicit "reply with exactly `I can not answer.`, no explanation, no tool-availability narration" rule into that task's ToolGuide content — attacks the problem at generation time rather than leaving it entirely to post-hoc detection. Required reordering scope resolution to happen *before* the ToolGuide is built (previously resolved after), so the rule can be conditionally folded in.
+
+Verified: both regressed tasks re-run locally with `M3_POLICY_TOOL_SCOPING` + `M3_REFUSAL_NORM` + `M3_RETRIEVER_ONLY_REFUSAL_RIDER` → **2/2, groundedness=1.0 on both** (not just the deterministic bypass squeaking by), answers cleanly blanked to `""`. Not yet run against the full corpus or the VM run in progress — that run was left untouched, this fix is for the next config.
+
+### 15.3 Cross-agent comparison data collected this run (useful reference, not new methodology)
+
+While debugging, pulled 4-way baseline/current/competitor/langgraph comparisons for completed domain batches:
+
+- `app_store` (13 tasks): baseline 5, current (VM) 6, competitor 4, langgraph 6 — net +1 for current, zero regressions, tied with langgraph for best.
+- `airline` (20 tasks): baseline 9, current (VM) 7 — net -2, the regression covered in §15.1-15.2.
+- `address` (22 tasks): current (VM) 8/22 at last check, baseline comparison not yet pulled.
