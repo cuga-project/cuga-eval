@@ -1708,3 +1708,81 @@ cap4_accum_probe = [
   "4bbb5c2b3439-3cda620a0094",  # sales_in_weather, HAS additional_instructions (runs 1st)
   "4bbb5c2b3439-f6cdc85940cf",  # sales_in_weather, no policy               (runs 2nd)
 ]
+
+# Policy-dense companion set (2026-07-28), replacing cap4_conc_batch for the
+# ToolGuide-isolation half of the concurrency A/B.
+#
+# cap4_conc_batch had only ONE policy-bearing task among its seven, so under
+# concurrency every enactment applied exactly one guide and the leak never
+# fired — leaving nothing for M3_POLICY_ISOLATION to remove and making the
+# `batch_fixed` arm unable to measure anything.
+#
+# Here the measured task is still cars/Subaru Dl, which carries NO policy of
+# its own — it is the victim, and any guide it is handed is by definition
+# foreign. The three companion domains contribute three policy-bearing tasks
+# each, so nine guides are in flight while it runs. Domains chosen for being
+# policy-dense but small, keeping a rep to ~10 tasks.
+cap4_conc_batch_policy = [
+  "1f58b1e965af-d86dc7049333",  # cars, no policy — the measured task
+  "e71440999ce8-34fe40a5251c",  # law_episode, policy
+  "e71440999ce8-55e2e833b829",  # law_episode, policy
+  "e71440999ce8-28397da8d5d2",  # law_episode, policy
+  "fe971e7f850a-b7373b11f643",  # soccer_2016, policy
+  "fe971e7f850a-ae91a19803dd",  # soccer_2016, policy
+  "fe971e7f850a-a8644203f130",  # soccer_2016, policy
+  "486ea46224d1-9ada99972fd2",  # world, policy
+  "486ea46224d1-2ab24217a08e",  # world, policy
+  "486ea46224d1-57830730a399",  # world, policy
+]
+
+# Tool-discovery experiment set (2026-07-28). Eight address-domain tasks, all
+# multi-turn, all FAILING in the cap4_300_full_riders baseline.
+#
+# Hypothesis under test: our multi-turn collapse is a find_tools discovery loop.
+# On cap4-300 we average 31 tool calls on 2-turn dialogues against a ground
+# truth expecting 1, and hit the 35-step cap 44 times; cuga_vakra_agent averages
+# 2.3 and hits it zero times in 300 tasks. Their adapter pre-selects tools with
+# a MiniLM shortlister and then sets shortlisting_tool_threshold above the tool
+# count — their comment: "We have already picked the tools, so disable CUGA's
+# internal find_tools wall". Ours runs discovery on every task
+# (m3.env: DYNACONF_ADVANCED_FEATURES__SHORTLISTING_TOOL_THRESHOLD=1).
+#
+# One domain so a rep needs one registry start. All eight already fail, so any
+# pass is a genuine flip rather than noise around an already-passing task.
+cap4_discovery_multiturn = [
+  "d80c9bf910f1-9d098c700ffd",  # address, 2 turns
+  "d80c9bf910f1-63eeb2c7d9a5",  # address, 2 turns
+  "d80c9bf910f1-67ea04faa0a4",  # address, 2 turns
+  "d80c9bf910f1-801741e036ec",  # address, 2 turns
+  "d80c9bf910f1-7bac6b165131",  # address, 2 turns
+  "d80c9bf910f1-1ecabe4d722d",  # address, 2 turns
+  "d80c9bf910f1-57459c25fc38",  # address, 3 turns
+  "d80c9bf910f1-1652cea58cd1",  # address, 3 turns
+]
+
+# Tool-discovery experiment, large-catalog variant (2026-07-28). All 9 failing
+# multi-turn mondial_geo tasks.
+#
+# mondial_geo is the largest catalog in the corpus at 288 tools — twice address
+# (144) — which makes it the honest stress test for disabling find_tools:
+#
+#   discovery_on   288 > threshold -> the prompt contains find_tools ONLY, so
+#                  every tool use costs a search round trip first
+#   discovery_off  all 288 tool schemas go into the prompt directly. If exposing
+#                  the catalog is what breaks, it breaks hardest here.
+#   shortlist_off  MiniLM narrows 288 -> 40 first, then discovery off. Controls
+#                  for context size: if discovery_off regresses on prompt bloat
+#                  but this arm holds, the mechanism is context, not discovery.
+#
+# All 9 already fail in the cap4_300_full_riders baseline, so any pass is a flip.
+cap4_discovery_bigcatalog = [
+  "55b7e50368aa-01b9e0ab72a2",  # mondial_geo, 2 turns
+  "55b7e50368aa-0791110ccf34",  # mondial_geo, 2 turns
+  "55b7e50368aa-1040751e66e7",  # mondial_geo, 2 turns
+  "55b7e50368aa-3b72dc594260",  # mondial_geo, 3 turns
+  "55b7e50368aa-68215be337f8",  # mondial_geo, 2 turns
+  "55b7e50368aa-969158be235c",  # mondial_geo, 2 turns
+  "55b7e50368aa-a84b648f9ade",  # mondial_geo, 2 turns
+  "55b7e50368aa-bc198a78a0e8",  # mondial_geo, 2 turns
+  "55b7e50368aa-d20ffe57f4c5",  # mondial_geo, 2 turns
+]
