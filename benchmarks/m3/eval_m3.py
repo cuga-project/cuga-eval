@@ -96,6 +96,7 @@ from benchmarks.helpers.sdk_eval_helpers import (
     clear_all_policies,
     is_langfuse_tracing_enabled,
 )
+from benchmarks.helpers.tracker_isolation import isolated_task, unbound_write_count
 from benchmarks.m3.container_health import (
     EnvironmentFailureError,
     EnvironmentFailureStreakTracker,
@@ -1476,22 +1477,43 @@ class M3Evaluator:
         task_name = task.get("name", "unknown")
         intent = task.get("intent", "")
 
-        tracker.reset(intent=intent, task_id=task_name)
-        var_manager.reset()
+        # ActivityTracker is a process-wide singleton with no per-task isolation
+        # (cuga-agent#552), so under --batch-size > 1 the reset() below would
+        # otherwise wipe a concurrently-running sibling's state and the tool-call
+        # extraction would read the interleaved union of both. Binding a
+        # per-task bucket keeps concurrency and makes every tracker read
+        # task-correct; see benchmarks/helpers/tracker_isolation.py.
+        with isolated_task(label=task_name):
+            tracker.reset(intent=intent, task_id=task_name)
+            var_manager.reset()
 
-        tracker_callback = create_activity_tracker_callback(tracker, var_manager)
+            tracker_callback = create_activity_tracker_callback(tracker, var_manager)
 
-        return await evaluate_task_with_langfuse(
-            agent=self.agent,
-            task=task,
-            task_index=task_index,
-            langfuse_handler=self.langfuse_enabled,
-            user_context=None,
-            tracker_callback=tracker_callback,
-            track_tool_calls=True,
-        )
+            return await evaluate_task_with_langfuse(
+                agent=self.agent,
+                task=task,
+                task_index=task_index,
+                langfuse_handler=self.langfuse_enabled,
+                user_context=None,
+                tracker_callback=tracker_callback,
+                track_tool_calls=True,
+            )
 
     async def evaluate_multiturn_task(self, sample: Dict[str, Any], sample_index: int) -> Dict[str, Any]:
+        """Evaluate a single multi-turn task under a per-task tracker binding.
+
+        The binding must cover the whole sample, not just the agent invocation:
+        ``tracker.reset()`` at the start and the tool-call extraction and
+        ``finish_task()`` trajectory dump at the end all read the same singleton,
+        and under --batch-size > 1 they would otherwise interleave with
+        concurrently-running siblings (cuga-agent#552).
+        """
+        with isolated_task(label=sample.get("sample_id", "unknown")):
+            return await self._evaluate_multiturn_task_inner(sample, sample_index)
+
+    async def _evaluate_multiturn_task_inner(
+        self, sample: Dict[str, Any], sample_index: int
+    ) -> Dict[str, Any]:
         """Evaluate a single multi-turn task.
 
         Args:
@@ -3438,6 +3460,19 @@ async def evaluate_tasks_in_batches(task_evaluations: List[tuple], batch_size: i
     logger.info(f"\n{'=' * 80}")
     logger.info(f"✅ ALL BATCHES COMPLETE: Processed {total_tasks} tasks in {num_batches} batches")
     logger.info(f"{'=' * 80}\n")
+
+    # Any tracker write that happened with no task bound was attributed to
+    # nobody, which means some collect_step() escaped the ContextVar - the one
+    # way this can happen is a thread boundary (loop.run_in_executor does not
+    # propagate context). Zero is the expected value; a non-zero count means the
+    # per-task steps/counts below are incomplete, not merely reordered.
+    escaped = unbound_write_count()
+    if escaped:
+        logger.warning(
+            f"⚠️  [tracker-isolation] {escaped} tracker write(s) occurred outside any task "
+            "binding and were dropped from per-task state. Step counts and trajectories "
+            "may be incomplete for some tasks."
+        )
 
     return all_results
 

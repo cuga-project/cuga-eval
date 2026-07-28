@@ -1635,3 +1635,24 @@ cap4_retriever_only_regression_n5 = [
   "d80c9bf910f1-9fc63dcbd401",  # address, fabrication - invented "Lake County, Utah County"
   "d80c9bf910f1-fbb2521dcbd6",  # address, fabrication - invented 10+ county name list
 ]
+
+# 2026-07-27: smoke set for the per-task ActivityTracker isolation fix
+# (cuga-agent#552, benchmarks/helpers/tracker_isolation.py). Five tasks in
+# five different domains, so at --batch-size 5 the harness runs five domain
+# wrappers concurrently and each contributes exactly one in-flight task -
+# the maximum-contention shape for the shared singleton.
+#
+# Every task here is single-turn and passed in BOTH the cap4_300_full_riders
+# baseline and the cap4_300_ans_discipline_v2 run, so a FAIL is signal rather
+# than noise. Domains were chosen for maximally distinct tool namespaces:
+# cross-task contamination shows up as a task's tool_calls naming another
+# domain's tools, which is exactly how the bug was first spotted (a hockey
+# task whose extracted calls included food_inspection ones - both are in
+# this set deliberately).
+cap4_tracker_isolation_smoke5 = [
+  "308738b8195d-3b057c34eddf",  # hockey, "Who are the players who were not in the Hall of Fame list."
+  "3683085b75b9-0e6f62cfca06",  # food_inspection, restaurants that met all requirements
+  "d80c9bf910f1-374840be1e1e",  # address, alias of cities with 0 population in 2010
+  "1f58b1e965af-d86dc7049333",  # cars, horsepower and model year of Subaru Dl
+  "06e387dae8db-4cc22a2e4193",  # coinmarketcap, coins that have three tags
+]
