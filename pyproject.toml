@@ -126,6 +126,11 @@ line-length = 110
 target-version = "py312"
 extend-exclude = [
     "benchmarks/appworld/appworld",
+    # Synced copy of the upstream VAKRA evaluator. We deliberately keep its
+    # diff against upstream minimal (see "Minimize M3 evaluator sync diff"),
+    # so `just format` must not reflow it -- import sorting and line rewrapping
+    # here are pure churn that make the next sync harder to review.
+    "benchmarks/m3/evaluator",
     "vendor",
     "uv.lock",
     ".venv",
