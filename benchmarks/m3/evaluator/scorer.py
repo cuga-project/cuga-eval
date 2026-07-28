@@ -345,7 +345,7 @@ class DialogueScorer:
                 gt_turn.get(GT_OUTPUT_SEQUENCE_KEY, {}).get("tool_response", [])
             )
 
-            pred_turn = pred_by_id.get(turn_id, None)
+            pred_turn = pred_by_id.get(turn_id, pred_turns[-1]) # fallback to last predicted turn if turn_id not found
             if pred_turn is None:
                 per_turn.append(
                     {
