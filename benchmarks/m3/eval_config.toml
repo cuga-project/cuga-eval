@@ -1656,3 +1656,55 @@ cap4_tracker_isolation_smoke5 = [
   "1f58b1e965af-d86dc7049333",  # cars, horsepower and model year of Subaru Dl
   "06e387dae8db-4cc22a2e4193",  # coinmarketcap, coins that have three tags
 ]
+
+# Single-task rider-ablation target (2026-07-28). cars / "What is the horsepower
+# and model year of the car named Subaru Dl?".
+#
+# Chosen because it isolates the riders from everything else: it passes in
+# cap4_300_full_riders (2 steps, 4 LLM calls, direct
+# cars_get_horsepower_model_year_by_car_name) and in tracker_isolation_smoke5b
+# (2 steps, 3 LLM calls) - both of which ran with NO riders active - and fails
+# in cap4_300_tracker_iso (10 steps, 28 LLM calls, hallucinated tool names,
+# empty answer) where M3_REFUSAL_NORM / M3_SUPPORT_CHECK / M3_POLICY_TOOL_SCOPING
+# were all live. Same agent version (cuga 0.2.20) in all three.
+cap4_rider_ablation_cars = [
+  "1f58b1e965af-d86dc7049333",  # cars, horsepower and model year of Subaru Dl
+]
+
+# Concurrency A/B (2026-07-28). Same target task as cap4_rider_ablation_cars,
+# measured solo vs. inside a 4-domain concurrent batch, riders off in both arms
+# so concurrency is the only variable.
+#
+# Motivation: the rider ablation showed the target failing 1/3 even with a
+# provably inert flag (M3_POLICY_TOOL_SCOPING can't fire - this task has no
+# additional_instructions), so run-to-run variance, not rider choice, is what
+# needs measuring. Arm A reuses cap4_rider_ablation_cars.
+#
+# Companion domains are the three smallest (2 tasks each) so a batch rep stays
+# short while still putting three sibling domain wrappers on the event loop
+# alongside cars for the whole of the target's execution.
+cap4_conc_batch = [
+  "1f58b1e965af-d86dc7049333",  # cars, horsepower and model year of Subaru Dl  <- the measured task
+  "1960f609e439-3a1b0a9c3535",  # codebase_comments
+  "1960f609e439-d29f0d39204a",  # codebase_comments
+  "912d5f84749d-d3848b97d467",  # genes
+  "912d5f84749d-48d7da7ce74b",  # genes
+  "34a533dfd727-28be3afbb6a9",  # disney
+  "34a533dfd727-f4a68606ea81",  # disney
+]
+
+# Policy-accumulation probe (2026-07-28). Answers "does the ToolGuide policy
+# bleed need concurrency, or is clear_all_policies() simply not clearing?"
+#
+# Two adjacent tasks from ONE domain, in corpus order: a policy-bearing task
+# followed by a policy-free one. Tasks inside a domain run sequentially in
+# evaluate_all(), so this exercises zero concurrency even under --batch-size 1.
+#
+#   if the 2nd task is handed cap4_policy_4bbb5c2b3439-3cda620a0094 -> the store
+#     is accumulating across tasks and the bug is NOT concurrency-related
+#   if it sees no policy at all -> clearing works serially and the bleed is a
+#     genuine race between concurrent domain wrappers
+cap4_accum_probe = [
+  "4bbb5c2b3439-3cda620a0094",  # sales_in_weather, HAS additional_instructions (runs 1st)
+  "4bbb5c2b3439-f6cdc85940cf",  # sales_in_weather, no policy               (runs 2nd)
+]
