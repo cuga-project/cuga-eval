@@ -137,15 +137,24 @@ def test_eval_sh_wraps_evaluator_selection_with_err_trap_guard() -> None:
     the evaluator-selection block, in the right order."""
     content = EVAL_SH.read_text()
 
-    block_start_idx = content.index('if [ "$M3_DATA" = "true" ]; then')
+    # Anchor on the guard, then find the evaluator-selection block that follows
+    # it. `if [ "$M3_DATA" = "true" ]; then` also appears earlier in the script
+    # (argument parsing), so searching for it from position 0 finds an unrelated
+    # branch and makes this check silently measure the wrong block.
     guard_on_idx = content.index("trap '' ERR")
     set_minus_e_idx = content.index("set +e", guard_on_idx)
+    block_start_idx = content.index('if [ "$M3_DATA" = "true" ]; then', set_minus_e_idx)
     eval_exit_idx = content.index("EVAL_EXIT=$?", block_start_idx)
     set_plus_e_idx = content.index("set -e", eval_exit_idx)
     guard_off_idx = content.index("trap cleanup ERR", set_plus_e_idx)
 
-    assert guard_on_idx < set_minus_e_idx < block_start_idx, (
-        "expected `trap '' ERR` then `set +e` immediately before the evaluator-selection block"
+    # "Immediately before" is the actual invariant: any real command between the
+    # guard and the block would run unguarded, which is the issue #55 bug again.
+    between = content[set_minus_e_idx + len("set +e") : block_start_idx]
+    unguarded = [ln for ln in between.splitlines() if ln.strip() and not ln.lstrip().startswith("#")]
+    assert not unguarded, (
+        "expected `trap '' ERR` then `set +e` immediately before the evaluator-selection "
+        f"block, but these commands sit in between and would run unguarded: {unguarded}"
     )
     assert block_start_idx < eval_exit_idx < set_plus_e_idx < guard_off_idx, (
         "expected EVAL_EXIT=$? to be captured before `set -e` / "
