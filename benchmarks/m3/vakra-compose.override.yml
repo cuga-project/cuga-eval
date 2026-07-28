@@ -1,0 +1,53 @@
+# Local overrides for the vendored VAKRA compose stack.
+#
+# `vendor/vakra` is a separate upstream repo we do not commit to, so anything we
+# need to change about how those containers run lives here instead and is layered
+# on at `docker compose` time:
+#
+#   docker compose -p benchmark \
+#     -f vendor/vakra/docker-compose.yml \
+#     -f benchmarks/m3/vakra-compose.override.yml \
+#     up -d --force-recreate capability_4_multiturn
+#
+# The project name (-p benchmark) must match how the containers were originally
+# created, otherwise compose makes a second, parallel set.
+#
+# --- why mem_limit is raised -------------------------------------------------
+#
+# The retriever FastAPI on :8001 was being OOM-killed under evaluation load. The
+# symptom is nasty because it is silent: the container log prints "Retriever
+# FastAPI is ready" and then it simply stops answering, while the M3 REST API on
+# :8000 keeps serving 200s — so the harness sees "0 tools" and tasks fail with
+# empty answers rather than anything that looks like an infrastructure error.
+#
+# Confirmed on the RHEL VM (2026-07-28), five kills during the 2026-07-27 run:
+#
+#   oom-kill:constraint=CONSTRAINT_MEMCG ... task=uvicorn
+#   Memory cgroup out of memory: Killed process 9701 (uvicorn) anon-rss:4632992kB
+#
+# CONSTRAINT_MEMCG means it hit the *container's* cgroup limit, not host
+# exhaustion — that host has 62 GiB total with 56 GiB available, and upstream
+# caps this container at 8g. Successive kills show the process climbing
+# 4.6 -> 4.0 -> 6.8 -> 7.0 -> 7.0 GB across a long run, i.e. it accumulates
+# rather than spiking, so headroom buys time and may not be a permanent cure.
+# Watch `docker stats capability_4_multiturn` during a full run to see whether
+# it plateaus.
+#
+# 16g on a 62 GiB host is cheap insurance, so that is the default. Ankita
+# independently verified that 10g cleared the crash for her.
+#
+# On a memory-constrained host the default is wrong: a limit larger than the
+# Docker VM's own RAM does not bind at all, and the container can exhaust the VM
+# instead of being capped. A laptop running Rancher/Docker Desktop with a 16 GB
+# VM wants roughly 10g, leaving headroom for Kubernetes and everything else:
+#
+#   VAKRA_CAP4_MEM_LIMIT=10g docker compose -p benchmark \
+#     -f docker-compose.yml -f ../../benchmarks/m3/vakra-compose.override.yml \
+#     up -d --force-recreate capability_4_multiturn
+#
+# Check what the daemon actually has with `docker info | grep -i "total memory"`
+# and keep the limit comfortably under it.
+
+services:
+  capability_4_multiturn:
+    mem_limit: ${VAKRA_CAP4_MEM_LIMIT:-16g}
