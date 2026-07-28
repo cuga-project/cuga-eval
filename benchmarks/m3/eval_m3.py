@@ -91,6 +91,8 @@ from benchmarks.helpers import (
     save_evaluation_results,
     should_trace_langfuse_task,
 )
+from benchmarks.helpers.policy_isolation import dropped_count as policy_dropped_count
+from benchmarks.helpers.policy_isolation import isolated_policies
 from benchmarks.helpers.sdk_eval_helpers import (
     add_policy_via_agent,
     clear_all_policies,
@@ -1483,7 +1485,12 @@ class M3Evaluator:
         # extraction would read the interleaved union of both. Binding a
         # per-task bucket keeps concurrency and makes every tracker read
         # task-correct; see benchmarks/helpers/tracker_isolation.py.
-        with isolated_task(label=task_name):
+        # ToolGuide policies live in a process-shared PolicyStorage collection
+        # that check_tool_guide_policies() reads unscoped (cuga-agent#564), so a
+        # concurrent sibling's guide can rewrite this task's tool set before it
+        # acts. Bind the owning sample id so foreign guides are dropped; see
+        # benchmarks/helpers/policy_isolation.py.
+        with isolated_task(label=task_name), isolated_policies(task_name):
             tracker.reset(intent=intent, task_id=task_name)
             var_manager.reset()
 
@@ -1507,8 +1514,13 @@ class M3Evaluator:
         ``finish_task()`` trajectory dump at the end all read the same singleton,
         and under --batch-size > 1 they would otherwise interleave with
         concurrently-running siblings (cuga-agent#552).
+
+        The same binding scopes ToolGuide policy matching to this sample
+        (cuga-agent#564) — unscoped, a concurrent sibling's guide rewrites this
+        task's tool set before it acts.
         """
-        with isolated_task(label=sample.get("sample_id", "unknown")):
+        sample_id = sample.get("sample_id", "unknown")
+        with isolated_task(label=sample_id), isolated_policies(sample_id):
             return await self._evaluate_multiturn_task_inner(sample, sample_index)
 
     async def _evaluate_multiturn_task_inner(
@@ -3472,6 +3484,19 @@ async def evaluate_tasks_in_batches(task_evaluations: List[tuple], batch_size: i
             f"⚠️  [tracker-isolation] {escaped} tracker write(s) occurred outside any task "
             "binding and were dropped from per-task state. Step counts and trajectories "
             "may be incomplete for some tasks."
+        )
+
+    # Unlike the tracker canary above, a non-zero count here is expected under
+    # concurrency and is the workaround doing its job: each drop is a sibling's
+    # ToolGuide that would otherwise have rewritten this task's tool set before
+    # it acted (cuga-agent#564). Reported so a run's exposure is visible in its
+    # own log rather than only reconstructable from Langfuse traces afterwards.
+    leaked = policy_dropped_count()
+    if leaked:
+        logger.warning(
+            f"⚠️  [policy-isolation] dropped {leaked} foreign ToolGuide policy match(es) "
+            "that leaked between concurrently-running tasks (cuga-agent#564). Set "
+            "M3_POLICY_ISOLATION=0 to reproduce the unscoped behaviour."
         )
 
     return all_results
