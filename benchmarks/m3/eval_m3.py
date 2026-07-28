@@ -1670,6 +1670,13 @@ class M3Evaluator:
                 # multiturn-shaped fields _annotate_tool_call_diffs and the
                 # downstream Vakra scoring expect.
                 result = dict(single_result)
+                # evaluate_task_with_langfuse is the single-turn helper and never
+                # sets num_turns, so without this every primed dialogue landed in
+                # the results file with num_turns=None while the genuinely
+                # single-turn branch (below) recorded 1. That made the
+                # Dialogue-Length Breakdown blind to exactly the cohort it exists
+                # to surface: on cap4-300, 167 of 300 tasks were unattributed.
+                result["num_turns"] = num_turns
                 result["final_response"] = single_result.get("response")
                 result["all_responses"] = [
                     {

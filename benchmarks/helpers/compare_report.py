@@ -251,12 +251,56 @@ def _last_turn_judge_scores(vakra: dict) -> dict:
     return scores
 
 
-def _parse_sdk_results(data: dict) -> dict:
-    """Parse SDK-style results (BPO, M3, Oak)."""
+def _parse_sdk_results(data: dict, result_file: str | None = None) -> dict:
+    """Parse SDK-style results (BPO, M3, Oak).
+
+    For Vakra-scored M3 runs the judge's dialogue score is authoritative, so
+    ``success``/``match_rate`` are taken from it in preference to whatever the
+    results file recorded — from the per-result ``vakra`` blob when present,
+    otherwise from the sibling ``_vakra/results.json``. See
+    :func:`_load_vakra_dialogue_scores`.
+    """
     metrics = data.get("metrics", {})
     results = data.get("results", [])
+
+    sidecar = _load_vakra_dialogue_scores(result_file)
+
+    def _dialogue_score(r: dict):
+        """Vakra dialogue score for a result, or None if it isn't Vakra-scored.
+
+        The sidecar wins over the per-result ``vakra`` blob when both exist. The
+        blob is attached at scoring time and can go stale — if a task is rescored
+        (a resume, or a domain scored twice) the sidecar is rewritten while a
+        blob copied from an older partial into the merged file is not. Seen on
+        cap4_300_full_riders: two tasks carry ``vakra.score = 0.0`` while
+        ``_vakra/results.json`` records 1.0 for them. ``_vakra/results.json`` is
+        the evaluator's own final output, so it is the authority.
+        """
+        key = r.get("uuid") or r.get("task_name") or r.get("name")
+        if key in sidecar:
+            return sidecar[key]
+        blob = r.get("vakra")
+        if isinstance(blob, dict) and blob.get("score") is not None:
+            try:
+                return float(blob["score"])
+            except (TypeError, ValueError):
+                pass
+        return None
+
+    # Re-derive pass/fail before the aggregate counts below read it, so the
+    # summary, the per-task table and every breakdown agree on one verdict.
+    for r in results:
+        ds = _dialogue_score(r)
+        if ds is not None:
+            r["success"] = ds >= 1.0
+            r["match_rate"] = ds
+
     total = metrics.get("total_tasks", len(results))
-    passed = metrics.get("passed", sum(1 for r in results if r.get("success")))
+    passed = (
+        sum(1 for r in results if r.get("success"))
+        if sidecar or any(isinstance(r.get("vakra"), dict) for r in results)
+        else metrics.get("passed", sum(1 for r in results if r.get("success")))
+    )
     total_tokens = sum(r.get("total_tokens", 0) or 0 for r in results)
     total_cost = sum(r.get("total_cost", 0) or 0 for r in results)
     total_llm_calls = sum(r.get("total_llm_calls", 0) or 0 for r in results)
@@ -286,6 +330,11 @@ def _parse_sdk_results(data: dict) -> dict:
             # M3-specific tags so the eval report can group by (task, domain).
             "m3_task_id": r.get("m3_task_id"),
             "domain": r.get("domain"),
+            # Dialogue length, for the Dialogue-Length Breakdown. Single-turn and
+            # multi-turn performance can differ by a wide margin, and neither the
+            # capability nor the capability/domain rollup can show it — both
+            # average the cohorts together.
+            "num_turns": r.get("num_turns"),
             # 1-based position of this sample within its (capability, domain)
             # input file. Lets reports show the source "task number".
             "task_number": r.get("task_number"),
@@ -353,11 +402,48 @@ def _parse_appworld_results(data: dict) -> dict:
     }
 
 
+def _load_vakra_dialogue_scores(result_file: str | None) -> dict:
+    """Map uuid -> Vakra dialogue score from a sibling ``_vakra/results.json``.
+
+    The Vakra judge is the authority on whether an M3 task passed. Current runs
+    have ``score_results_async`` mutate ``match_rate``/``success`` in place, so
+    the results file already agrees with the judge. Older bundles (and any run
+    whose merged file was assembled from partials written before rescoring) kept
+    the pre-Vakra keyword score, leaving ``report.md`` disagreeing with
+    ``_vakra/results.json`` about the same run — 11 tasks on cap4_300_full_riders
+    (142/300 in the report vs 153/300 from the judge), always in the direction of
+    the report under-reporting.
+
+    Reading the judge's own file makes the report authoritative regardless of
+    which path produced the results file. Returns {} when there's nothing to
+    read, in which case callers fall back to the in-result values.
+    """
+    if not result_file:
+        return {}
+    vakra_path = Path(result_file).parent / "_vakra" / "results.json"
+    if not vakra_path.is_file():
+        return {}
+    try:
+        data = json.loads(vakra_path.read_text())
+    except (json.JSONDecodeError, OSError):
+        return {}
+    scores = {}
+    for dom in (data.get("domains") or {}).values():
+        for dlg in dom.get("dialogues", []) or []:
+            uuid = dlg.get("uuid")
+            if uuid is not None and dlg.get("score") is not None:
+                try:
+                    scores[uuid] = float(dlg["score"])
+                except (TypeError, ValueError):
+                    continue
+    return scores
+
+
 def parse_result_file(path: str) -> dict:
     data = json.loads(Path(path).read_text())
     if "task_results" in data:
         return _parse_appworld_results(data)
-    return _parse_sdk_results(data)
+    return _parse_sdk_results(data, result_file=path)
 
 
 def _avg(xs):
@@ -469,6 +555,39 @@ def _m3_capability_sort_key(g: str):
     try:
         return (0, int(g.rsplit("_", 1)[-1]))
     except (ValueError, TypeError):
+        return (1, g)
+
+
+def _m3_num_turns_group(t: dict) -> str | None:
+    """Group key: dialogue length, "1 turn" / "N turns", or None when absent.
+
+    Worth its own rollup because performance can differ enormously between
+    single-turn and multi-turn dialogues, and that split is invisible in the
+    capability and capability/domain breakdowns — both average the two cohorts
+    together, so no individual domain looks anomalous.
+
+    On the cap4-300 baseline this section separates 128/133 (96.2%) on
+    single-turn from 25/167 (15.0%) on multi-turn, a cliff that sat unnoticed
+    inside a 51.0% aggregate. The LLM/Task column carries the other half of the
+    story: multi-turn dialogues triggered a runaway (~31 tool calls against a
+    ground truth expecting 1, see cuga-agent#385), which is what the extra calls
+    are being spent on.
+    """
+    n = t.get("num_turns")
+    if n is None:
+        return None
+    try:
+        n = int(n)
+    except (TypeError, ValueError):
+        return None
+    return "1 turn" if n == 1 else f"{n} turns"
+
+
+def _m3_num_turns_sort_key(g: str):
+    """Sort dialogue-length labels numerically (2 turns < 10 turns)."""
+    try:
+        return (0, int(g.split()[0]))
+    except (ValueError, IndexError):
         return (1, g)
 
 
@@ -1561,6 +1680,19 @@ def generate_eval_report(result_file: str, markdown: bool = True) -> str:
             title="Capability/Domain Breakdown",
             col_label="Capability/Domain",
             group_fn=_m3_capability_domain_group,
+            markdown=markdown,
+        )
+    )
+    lines.extend(
+        _eval_group_breakdown(
+            parsed["tasks"],
+            fence_open,
+            fence_close,
+            h2,
+            title="Dialogue-Length Breakdown",
+            col_label="Turns",
+            group_fn=_m3_num_turns_group,
+            sort_key=_m3_num_turns_sort_key,
             markdown=markdown,
         )
     )
