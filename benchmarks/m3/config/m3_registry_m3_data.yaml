@@ -7,9 +7,10 @@
 # service below).
 #
 # Capabilities:
-#   task_id=2 → container `capability_2_dashboard_apis`
-#   task_id=3 → container `capability_3_multihop_reasoning`
-#   task_id=4 → container `capability_4_multiturn`
+#   task_id=1 -> container `capability_1_bi_apis`
+#   task_id=2 -> container `capability_2_dashboard_apis`
+#   task_id=3 -> container `capability_3_multihop_reasoning`
+#   task_id=4 -> container `capability_4_multiturn`
 #
 # Usage:
 #   ./benchmarks/m3/eval.sh --m3-data                        # bundled data/small_train.zip (default)
@@ -17,6 +18,87 @@
 #   ./benchmarks/m3/eval.sh --m3-data /path/to/other.zip
 
 services:
+
+  - m3_task_1:
+      transport: "stdio"
+      type: "mcp"
+      description: "M3 Task 1 environment"
+
+      command: "${CONTAINER_RUNTIME}"
+      args:
+        - "exec"
+        - "-i"
+        - "-e"
+        - "MCP_DOMAIN={domain}"
+        - "-e"
+        - "CAPABILITY_ID=1"
+        - "capability_1_bi_apis"
+        - "python3"
+        - "/app/mcp_dispatch.py"
+
+      metadata:
+        task_id: 1
+        container: "capability_1_bi_apis"
+        # Domains present in vendor/vakra/data/test/capability_1_bi_apis/input (54 total).
+        # Note this is the data-side list, which is narrower than the 55 domains in
+        # m3_registry_1.yaml: that config predates the --m3-data path and lists domains
+        # the test set does not ship. Domains listed here but absent from --m3-data are
+        # skipped automatically, so the data-side list is the safe one to track.
+        domains:
+          - "address"
+          - "authors"
+          - "beer_factory"
+          - "bike_share_1"
+          - "book_publishing_company"
+          - "books"
+          - "california_schools"
+          - "card_games"
+          - "cars"
+          - "chicago_crime"
+          - "citeseer"
+          - "codebase_comments"
+          - "coinmarketcap"
+          - "college_completion"
+          - "computer_student"
+          - "cookbook"
+          - "craftbeer"
+          - "debit_card_specializing"
+          - "disney"
+          - "european_football_1"
+          - "european_football_2"
+          - "financial"
+          - "food_inspection"
+          - "formula_1"
+          - "genes"
+          - "hockey"
+          - "ice_hockey_draft"
+          - "language_corpus"
+          - "law_episode"
+          - "legislator"
+          - "mental_health_survey"
+          - "menu"
+          - "mondial_geo"
+          - "movie"
+          - "movie_3"
+          - "movielens"
+          - "movies_4"
+          - "music_platform_2"
+          - "music_tracker"
+          - "olympics"
+          - "professional_basketball"
+          - "public_review_platform"
+          - "restaurant"
+          - "shakespeare"
+          - "simpson_episodes"
+          - "soccer_2016"
+          - "superhero"
+          - "thrombosis_prediction"
+          - "toxicology"
+          - "trains"
+          - "university"
+          - "video_games"
+          - "world"
+          - "world_development_indicators"
 
   - m3_task_2:
       transport: "stdio"
