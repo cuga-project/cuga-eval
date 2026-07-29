@@ -1636,6 +1636,76 @@ cap4_retriever_only_regression_n5 = [
   "d80c9bf910f1-fbb2521dcbd6",  # address, fabrication - invented 10+ county name list
 ]
 
+# 2026-07-29: the single-turn regressions in cap4_300_shortlist_off_scoped.
+# All 8 passed in the cap4_300_full_riders baseline and fail in the scoped run.
+#
+# Every one is a refusal trap (ground truth "I can not answer.", 0 expected tool
+# calls) and every one made 1-4 tool calls instead of none.
+#
+# The important detail: this is NOT a policy violation and no guard can fix it.
+# Policy scoping fired correctly on 7 of the 8 (verified in the run log:
+# resolved scope=retriever_only), pruning the toolset to retrievers - and the
+# agent then called a *permitted* retriever and answered from what it returned
+# instead of declining. RetrieverPolicyGuard sat on the hot path and correctly
+# did nothing, because there was nothing to block. The benchmark expects the
+# agent to try the permitted tool, find it cannot answer, and refuse.
+#
+# The 8th (c7355d2cc0ae) resolved scope=all - its conditional policy is about
+# "Retail, Sales & Commerce" and the classifier judged a book-publishing query
+# off-topic. Whether that judgement is right is a separate question; scoping
+# was never engaged for it.
+#
+# Baseline defended these by accident, not by design: cap4_300_full_riders ran
+# with SHORTLISTING_TOOL_THRESHOLD=1 and no M3 riders at all (see its
+# config/run.env), so find_tools was the only exposed tool and reaching a
+# retriever cost a search hop the agent usually declined to make.
+#
+# A/B set for the two post-hoc mechanisms that target this and are currently
+# off: M3_SUPPORT_CHECK (gated to scope==retriever_only, blanks answers whose
+# claims are unsupported by retrieved evidence) and M3_REFUSAL_NORM (blanks
+# give-up phrasing so the scorer's unanswerable bypass fires).
+cap4_single_turn_regression_n8 = [
+  "308738b8195d-03dbac110d2d",  # hockey, conditional policy -> retriever_only, 2 calls
+  "308738b8195d-308982452108",  # hockey, absolute retriever-only, 1 call
+  "308738b8195d-fd10e992b7cd",  # hockey, conditional -> retriever_only, 1 call
+  "3608e5ae1d0e-64148bae01ea",  # image_and_language, conditional -> retriever_only, 1 call
+  "912d5f84749d-48d7da7ce74b",  # genes, conditional -> retriever_only, 2 calls
+  "d80c9bf910f1-9429bbde3b29",  # address, absolute retriever-only, 2 calls
+  "e71440999ce8-55e2e833b829",  # law_episode, conditional -> retriever_only, 3 calls
+  "5661cd917583-c7355d2cc0ae",  # book_publishing_company, conditional -> scope=all, 4 calls
+]
+
+# 2026-07-29: every cap4 task whose primed dialogue history exceeds 500 KB.
+# Dialogue priming replays each prior turn's ground-truth answer verbatim, and
+# in these two domains those answers are megabytes wide.
+#
+# 8 of the 9 fail with a hard API error rather than a wrong answer:
+#   BedrockException - Failed to buffer the request body: length limit exceeded
+# and are scored 0.0, indistinguishable from a bad answer. The separation is
+# exact: every task at or above 1.81 MB fails, and the one task below it
+# (f7df278b8243, 1.05 MB) does not - so the gateway's ceiling sits between.
+#
+# The 9th is included deliberately as the control. It clears the request limit
+# but is still ~2x gpt-oss-120b's entire context window, so if truncation only
+# helps the 8 that hard-fail, the fix is a workaround for a gateway quirk; if it
+# helps this one too, the real problem is context, as measured (multi-turn
+# Pass@1 falls monotonically with primed-history size: 44% under 10 KB, 16% at
+# 200-500 KB, 0/3 above 500 KB).
+#
+# Test set for M3_PRIMED_HISTORY_MAX_CHARS (default 0 = off).
+# All 9 scored 0.0 in cap4_300_full_riders.
+cap4_primed_history_oversized_n9 = [
+  "840942187214-e8928dfedee1",  # authors, 9.68 MB primed history - API limit
+  "840942187214-96a451ee6942",  # authors, 4.99 MB - API limit
+  "398991009da1-28f0891f6a9f",  # menu,    1.87 MB - API limit
+  "398991009da1-c28341c44201",  # menu,    1.87 MB - API limit
+  "398991009da1-41c5ce9bc33e",  # menu,    1.87 MB - API limit
+  "398991009da1-0e96711343fe",  # menu,    1.87 MB - API limit
+  "398991009da1-5659e13dc73f",  # menu,    1.87 MB - API limit
+  "840942187214-2f503771fcad",  # authors, 1.81 MB - API limit
+  "398991009da1-f7df278b8243",  # menu,    1.05 MB - CONTROL, clears the limit, still oversized
+]
+
 # 2026-07-27: smoke set for the per-task ActivityTracker isolation fix
 # (cuga-agent#552, benchmarks/helpers/tracker_isolation.py). Five tasks in
 # five different domains, so at --batch-size 5 the harness runs five domain
