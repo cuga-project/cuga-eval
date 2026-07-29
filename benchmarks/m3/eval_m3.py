@@ -508,6 +508,68 @@ def _stringify_gt_answer(answer: Any) -> str:
         return str(answer)
 
 
+def _primed_history_max_chars() -> int:
+    """M3_PRIMED_HISTORY_MAX_CHARS (default 0 = off, no truncation).
+
+    Multi-turn dialogue priming replays each prior turn's ground-truth answer
+    verbatim as an AIMessage. In capability_4 a handful of those answers are
+    enormous - `menu` has five tasks at 1.87 MB and `authors` has one at
+    9.68 MB - and they break the run two different ways:
+
+      1. The request is rejected outright before the model ever sees it:
+         `BedrockException - Failed to buffer the request body: length limit
+         exceeded`. Measured on the cap4-300 baseline, every task whose primed
+         history exceeded ~1.8 MB failed this way (8 of 300, all in menu and
+         authors); the largest task that survived was 1.05 MB. All 8 score 0.0,
+         indistinguishable from a wrong answer.
+      2. Even below that hard limit the content is unusable: gpt-oss-120b's
+         context window is ~128k tokens, roughly 500 KB of text, so a 9.68 MB
+         prior answer is ~20x the entire window. Multi-turn Pass@1 degrades
+         monotonically with primed-history size (44% under 10 KB, 16% at
+         200-500 KB, 0/3 above 500 KB).
+
+    Truncating is therefore a correction, not a handicap: we are currently
+    sending content no model of this class can read. Kept default-off and
+    flagged so any run that uses it is reported as such - it does change what
+    the agent sees, and runs with and without it are not directly comparable.
+
+    Read fresh per call rather than cached at import, matching the convention
+    used by M3_GROUNDEDNESS_JUDGE_MAX_CHARS in evaluator/judge.py.
+    """
+    try:
+        return max(0, int(os.getenv("M3_PRIMED_HISTORY_MAX_CHARS", "0")))
+    except ValueError:
+        logger.warning("M3_PRIMED_HISTORY_MAX_CHARS is not an integer; treating as off")
+        return 0
+
+
+def _truncate_primed_answer(text: str, sample_id: str = "", turn_index: int = 0) -> str:
+    """Cap one primed prior-turn answer at M3_PRIMED_HISTORY_MAX_CHARS.
+
+    Keeps the head: these payloads are JSON arrays of records, and the entity a
+    follow-up question refers back to ("it", "that paper") appears in the first
+    records far more often than the last. This matches how judge.py truncates
+    pred_answer (head) while truncating tool responses (tail).
+
+    The marker is deliberately explicit about what was dropped: the groundedness
+    rider forbids calling a list complete or exhaustive, and a silently-cut list
+    would invite exactly that claim.
+    """
+    limit = _primed_history_max_chars()
+    if limit <= 0 or len(text) <= limit:
+        return text
+    dropped = len(text) - limit
+    logger.info(
+        f"[{sample_id}] [primed-history] turn {turn_index}: truncated prior answer "
+        f"{len(text)} -> {limit} chars (dropped {dropped})"
+    )
+    return (
+        text[:limit] + f"\n\n[... truncated: {dropped} of {len(text)} characters of this earlier "
+        f"answer were omitted because the full value exceeds the model's context "
+        f"window. The list above is a partial extract, not the complete result.]"
+    )
+
+
 tracker = ActivityTracker()
 
 
@@ -1641,12 +1703,22 @@ class M3Evaluator:
                 prior_turns = turns[:-1]
                 live_turn = turns[-1]
                 history_messages: List[BaseMessage] = []
-                for prior_turn in prior_turns:
+                for turn_index, prior_turn in enumerate(prior_turns):
                     history_messages.append(HumanMessage(content=prior_turn.get("query", "")))
                     # VAKRA's answer is structured data (lists/dicts), not prose -
                     # stringify it into plausible prior-agent-response text so it's
-                    # valid AIMessage content.
-                    history_messages.append(AIMessage(content=_stringify_gt_answer(prior_turn.get("answer"))))
+                    # valid AIMessage content. Optionally capped: a few of these
+                    # answers are megabytes wide and break the request outright
+                    # (see _truncate_primed_answer). Off by default.
+                    history_messages.append(
+                        AIMessage(
+                            content=_truncate_primed_answer(
+                                _stringify_gt_answer(prior_turn.get("answer")),
+                                sample_id=sample_id,
+                                turn_index=turn_index,
+                            )
+                        )
+                    )
                 live_query = live_turn.get("query", "")
                 live_intent = live_query
 
