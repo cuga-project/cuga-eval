@@ -30,21 +30,19 @@ async def test_zero_tools_with_require_tools_raises():
 
 
 @pytest.mark.asyncio
-async def test_zero_tools_without_require_tools_does_not_raise_early():
-    """Default stays permissive: the zero-tool guard must not fire when opted out."""
+async def test_zero_tools_without_require_tools_completes():
+    """Default stays permissive: with zero tools and require_tools unset, setup must
+    run to completion and return the constructed agent and langfuse handler."""
     from benchmarks.helpers import sdk_eval_helpers
 
-    with patch.object(sdk_eval_helpers, "CombinedToolProvider", return_value=_mock_provider([])):
-        # Later setup stages (langfuse, agent construction) are irrelevant here —
-        # stub them so the test pins ONLY the guard behavior.
-        with (
-            patch.object(sdk_eval_helpers, "setup_langfuse", return_value=None),
-            patch.object(sdk_eval_helpers, "CugaAgent") as agent_cls,
-        ):
-            agent_cls.return_value.initialize = AsyncMock()
-            try:
-                await sdk_eval_helpers.setup_agent_with_tools(require_tools=False)
-            except RuntimeError as e:
-                if "0 tools" in str(e):
-                    pytest.fail("guard fired despite require_tools=False")
-                # any other RuntimeError from deeper setup is out of scope
+    provider = _mock_provider([])
+    with (
+        patch.object(sdk_eval_helpers, "CombinedToolProvider", return_value=provider),
+        patch.object(sdk_eval_helpers, "setup_langfuse", return_value=None),
+        patch.object(sdk_eval_helpers, "CugaAgent") as agent_cls,
+    ):
+        agent, handler = await sdk_eval_helpers.setup_agent_with_tools(require_tools=False)
+
+    assert agent is agent_cls.return_value
+    assert handler is None
+    agent_cls.assert_called_once_with(tool_provider=provider)
