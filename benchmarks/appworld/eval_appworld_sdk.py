@@ -400,8 +400,12 @@ B. App-specific instructions:
         """
 
     async def setup(self):
+        # require_tools: AppWorld cannot run toolless — 0 tools means the registry
+        # failed to reach the app API server at startup; abort instead of burning
+        # the whole run (issue #148).
         self.agent, self.langfuse_handler = await setup_agent_with_tools(
-            special_instructions=self.special_instructions
+            special_instructions=self.special_instructions,
+            require_tools=True,
         )
         # Register a prompt-capture callback so the trajectory JSON files have
         # their `prompts` field populated.  The SDK path (CugaAgent.invoke) uses

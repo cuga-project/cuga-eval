@@ -285,12 +285,17 @@ def _langfuse_trace_root_log_message(agent: Any) -> str:
 async def setup_agent_with_tools(
     special_instructions: Optional[str] = None,
     extra_callbacks: Optional[List[Any]] = None,
+    require_tools: bool = False,
 ) -> tuple[CugaAgent, Optional[Any]]:
     """Set up CugaAgent with tools and Langfuse tracing.
 
     Args:
         special_instructions: Optional special instructions to pass to the agent
         extra_callbacks: Optional additional LangChain callbacks (e.g. TokenUsageCallback)
+        require_tools: Fail fast if the tool provider yields zero tools. Enable for
+            benchmarks that cannot run without tools (e.g. AppWorld) — an empty
+            toolbox there means a broken registry/API-server startup, and running
+            anyway burns the whole eval on an agent that cannot act (issue #148).
 
     Returns:
         Tuple of (agent, langfuse_handler)
@@ -301,6 +306,13 @@ async def setup_agent_with_tools(
     await tool_provider.initialize()
     all_tools = await tool_provider.get_all_tools()
     logger.info(f"Loaded {len(all_tools)} tools")
+    if require_tools and not all_tools:
+        raise RuntimeError(
+            "Tool provider returned 0 tools but this benchmark requires tools. "
+            "Likely cause: the registry could not reach the app API server at startup "
+            "(check the registry log for 'Failed to initialize server for ...'). "
+            "Aborting instead of running a toolless eval (issue #148)."
+        )
 
     langfuse_handler = setup_langfuse()
     if langfuse_handler:
