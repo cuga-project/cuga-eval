@@ -124,22 +124,51 @@ async def _invoke_cuga_agent(
     user_text: str,
     session_id: str,
 ) -> Any:
-    if _invoke_accepts_thread_id(agent):
-        result = agent.invoke(
-            user_text,
-            thread_id=session_id,
-        )
-    else:
-        _log(
-            "CugaAgent.invoke does not accept thread_id; "
-            "using invoke(user_text)"
-        )
-        result = agent.invoke(user_text)
+    from langfuse import get_client
+    from langfuse.langchain import CallbackHandler
 
-    if inspect.isawaitable(result):
-        result = await result
+    langfuse = get_client()
+    handler = CallbackHandler()
 
-    return result
+    config = {
+        "callbacks": [handler],
+        "metadata": {
+            "tau_session_id": session_id,
+        },
+        "tags": [
+            "cuga",
+            "tau-bench",
+        ],
+        "configurable": {
+            "thread_id": session_id,
+        },
+    }
+
+    try:
+        if _invoke_accepts_thread_id(agent):
+            result = agent.invoke(
+                user_text,
+                thread_id=session_id,
+                config=config,
+            )
+        else:
+            _log(
+                "CugaAgent.invoke does not accept thread_id; "
+                "using invoke(user_text)"
+            )
+            result = agent.invoke(
+                user_text,
+                config=config,
+            )
+
+        if inspect.isawaitable(result):
+            result = await result
+
+        return result
+
+    finally:
+        # Useful while debugging. It forces queued observations to be sent.
+        langfuse.flush()
 
 
 def _build_special_instructions(domain_policy: str) -> str:
