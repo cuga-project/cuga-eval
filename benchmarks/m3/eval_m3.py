@@ -1032,6 +1032,7 @@ async def _apply_self_verify(result: dict, model: Any, sample_id: str = "?") -> 
     """
     evidence = _collect_tool_evidence(result)
     if not evidence.strip():
+        logger.info(f"[{sample_id}] [self-verify] skipped: no tool evidence")
         return
     answer = ""
     for key in ("response", "answer", "final_response"):
@@ -1039,7 +1040,11 @@ async def _apply_self_verify(result: dict, model: Any, sample_id: str = "?") -> 
         if isinstance(val, str) and val.strip():
             answer = val
             break
-    if not answer or _is_giveup(answer):
+    if not answer:
+        logger.info(f"[{sample_id}] [self-verify] skipped: empty answer")
+        return
+    if _is_giveup(answer):
+        logger.info(f"[{sample_id}] [self-verify] skipped: answer is already a refusal")
         return
 
     prompt = (
@@ -1062,6 +1067,13 @@ async def _apply_self_verify(result: dict, model: Any, sample_id: str = "?") -> 
         logger.warning(f"[{sample_id}] [self-verify] failed ({e}); keeping draft answer")
         return
 
+    # Log unconditionally. Previously only the blanking and error paths logged,
+    # so a run with zero "[self-verify]" lines was ambiguous - never ran, or ran
+    # and approved everything - and there was no way to confirm the mechanism was
+    # armed. That is the same arm-verification gap this investigation has hit
+    # repeatedly; a mechanism you cannot confirm is running is a mechanism you
+    # cannot attribute a result to.
+    logger.info(f"[{sample_id}] [self-verify] verdict={verdict[:40]!r}")
     if "UNSUPPORTED" not in verdict:
         return
     logger.info(f"[{sample_id}] [self-verify] unsupported claims -> blanking answer")
