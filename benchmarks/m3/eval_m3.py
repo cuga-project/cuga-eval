@@ -359,6 +359,52 @@ Do not explain why. Do not describe what tools are or are not available, and do 
 """.strip()
 
 
+# Verbatim-grounding rule for retriever-scoped tasks (M3_VERBATIM_RIDER).
+# Ported from cuga_vakra_agent's VERBATIM_RULE (VAKRA_V2_VERBATIM), one of the
+# eight mechanisms in their FULL_GUARDS preset. We had explicitly declined to
+# port it (investigation section 14.3) on the reasoning that retriever tools were
+# never load-bearing in our corpus - which was true when that call was made and
+# is no longer, now that the retriever backend works and retriever_only scope
+# genuinely resolves.
+#
+# Targets the 24 multi-turn failures where we called the right tool, got real
+# data, and were still judged wrong. Note the second paragraph: it pushes AGAINST
+# refusing, which is the opposite pressure from M3_RETRIEVER_ONLY_REFUSAL_RULE.
+# The two are both gated on retriever_only scope and will both be appended if
+# both are enabled - deliberately not deduplicated, because which one dominates
+# is exactly what an A/B needs to measure.
+M3_VERBATIM_RULE = """
+## Document-only task - strict grounding
+
+Your final answer may contain ONLY facts written word-for-word in the retrieved document chunks. Do not infer, compute, combine, or attribute values the documents do not literally state. Before answering, verify that each name and number in your answer appears in the retrieved text.
+Before refusing, re-scan EVERY retrieved chunk carefully: if any chunk literally states the requested value, answer with that value verbatim instead of refusing.
+Only if the documents do not literally contain the requested values, reply with exactly:
+I can not answer.
+""".strip()
+
+
+def _verbatim_rider_enabled() -> bool:
+    """M3_VERBATIM_RIDER (default off). Appends M3_VERBATIM_RULE to the
+    ToolGuide for retriever-scoped tasks."""
+    return os.getenv("M3_VERBATIM_RIDER", "off").strip().lower() in ("1", "on", "true", "yes")
+
+
+def _self_verify_enabled() -> bool:
+    """M3_SELF_VERIFY (default off). Post-answer quote-or-refuse check: one
+    extra LLM call asking the model to find a supporting quote for every claim
+    in its own draft answer, blanking the answer if any claim is unsupported.
+
+    Ported from cuga_vakra_agent's VAKRA_V2_SELF_VERIFY. Note their own config
+    ships a recommended preset with this OFF ("Self-verify fired ... Preferred
+    for rate-limited providers"), so it is the most expensive and least certain
+    of the guards - one additional LLM call per task on top of the agent run.
+
+    Like their version, gated to retriever_only scope: the check compares the
+    answer against retrieved document text, which only exists for those tasks.
+    """
+    return os.getenv("M3_SELF_VERIFY", "off").strip().lower() in ("1", "on", "true", "yes")
+
+
 def _retriever_only_refusal_rider_enabled() -> bool:
     """Retriever-only refusal rider toggle. Default OFF - opt in with
     M3_RETRIEVER_ONLY_REFUSAL_RIDER=on/1/true/yes. See
@@ -970,6 +1016,63 @@ def _is_unsupported_claim(answer: str, evidence: str) -> bool:
         return False
     supported = sum(1 for t in tokens if t.lower().replace(",", "") in evidence)
     return (supported / len(tokens)) < 0.5
+
+
+async def _apply_self_verify(result: dict, model: Any, sample_id: str = "?") -> None:
+    """Mutate `result` in place: blank the answer if the model cannot find a
+    supporting quote for every claim in its own draft.
+
+    One extra LLM call per task. Ported from cuga_vakra_agent's
+    VAKRA_V2_SELF_VERIFY. Fails OPEN - any exception, empty evidence, or an
+    unparseable verdict leaves the answer untouched, because a verification
+    step that silently deletes answers when the judge model is unavailable
+    would be worse than not running it (see cuga-eval#143 / IBM/vakra#25: an
+    API failure scored as a wrong answer is the recurring shape of this class
+    of bug).
+    """
+    evidence = _collect_tool_evidence(result)
+    if not evidence.strip():
+        return
+    answer = ""
+    for key in ("response", "answer", "final_response"):
+        val = result.get(key)
+        if isinstance(val, str) and val.strip():
+            answer = val
+            break
+    if not answer or _is_giveup(answer):
+        return
+
+    prompt = (
+        "Documents:\n"
+        + evidence[:24000]
+        + "\n\nDraft answer:\n"
+        + answer[:4000]
+        + "\n\nTask: for EACH factual claim in the draft answer, find one exact quote from "
+        "the documents that directly supports it. If every claim has a supporting quote, "
+        "reply with exactly: SUPPORTED. If any claim has no supporting quote in the "
+        "documents, reply with exactly: UNSUPPORTED."
+    )
+    try:
+        resp = await model.ainvoke(prompt)
+        content = resp.content
+        if isinstance(content, list):
+            content = "".join(b.get("text", "") for b in content if isinstance(b, dict))
+        verdict = str(content).strip().upper()
+    except Exception as e:  # noqa: BLE001
+        logger.warning(f"[{sample_id}] [self-verify] failed ({e}); keeping draft answer")
+        return
+
+    if "UNSUPPORTED" not in verdict:
+        return
+    logger.info(f"[{sample_id}] [self-verify] unsupported claims -> blanking answer")
+    for key in ("response", "answer", "final_response"):
+        if isinstance(result.get(key), str):
+            result[key] = ""
+    all_responses = result.get("all_responses")
+    if isinstance(all_responses, list) and all_responses:
+        last = all_responses[-1]
+        if isinstance(last, dict) and isinstance(last.get("response"), str):
+            last["response"] = ""
 
 
 def _apply_support_check(result: dict, sample_id: str = "?") -> None:
@@ -1730,6 +1833,13 @@ class M3Evaluator:
                 scope == "retriever_only" or _policy_requires_retriever_only(policy_text)
             ):
                 tool_guide_content = policy_text + "\n\n" + M3_RETRIEVER_ONLY_REFUSAL_RULE
+            # M3_VERBATIM_RIDER (default off). Deliberately NOT deduplicated
+            # against the refusal rule above: that one pushes toward refusing,
+            # this one pushes against it ("before refusing, re-scan EVERY
+            # chunk"). Which pressure wins is what an A/B has to measure, and
+            # cuga_vakra_agent ships both together in FULL_GUARDS.
+            if _verbatim_rider_enabled() and scope == "retriever_only":
+                tool_guide_content = tool_guide_content + "\n\n" + M3_VERBATIM_RULE
             try:
                 policy_id = await self.agent.policies.add_tool_guide(
                     name=f"cap4_policy_{sample_id}",
@@ -1851,6 +1961,14 @@ class M3Evaluator:
         # version has a confirmed 52% false-positive rate.
         if _support_check_enabled() and scope == "retriever_only":
             _apply_support_check(result, sample_id)
+
+        # M3_SELF_VERIFY (default off): quote-or-refuse check, one extra LLM
+        # call. Runs AFTER support-check so the cheap deterministic filter gets
+        # first refusal and we do not pay for an LLM call on answers already
+        # blanked. Same retriever_only gate, for the same reason: it compares
+        # the answer against retrieved document text.
+        if _self_verify_enabled() and scope == "retriever_only":
+            await _apply_self_verify(result, self.agent._model, sample_id)
 
         # Technique #3 (M3_REFUSAL_NORM, default off): blank give-up answers
         # before they reach Vakra scoring.

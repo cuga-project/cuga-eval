@@ -1636,6 +1636,76 @@ cap4_retriever_only_regression_n5 = [
   "d80c9bf910f1-fbb2521dcbd6",  # address, fabrication - invented 10+ county name list
 ]
 
+# 2026-07-29: the multi-turn tasks we fail because the model picks the WRONG
+# TOOL from a good shortlist (44), plus those where it picks the right tool with
+# arguments that return nothing (5).
+#
+# Why this set matters more than any guard we could port. Of the 94 multi-turn
+# failures in cap4_300_shortlist_off_scoped, 44 are wrong-tool - and replaying
+# our own MiniLM shortlister offline against each domain's real catalog shows
+# the CORRECT tool was in the top-40 shortlist in 43 of those 44 cases, at a
+# median rank of 4. The tool was in the prompt, near the top, and the model
+# reached past it. Raising top_k or swapping the embedder would fix 1 task.
+#
+# So this is tool SELECTION by the model, not tool RETRIEVAL by the harness -
+# which retires the framing in issue 6.2 ("find_tools returns a plausible
+# near-miss"). That was true when the discovery wall was up and search was the
+# only path; with the wall down the failure moved.
+#
+# Target for M3_ANSWER_DISCIPLINE_RIDER and M3_PARAMETER_VARIATION_RIDER, both
+# built and both never enabled in any scored run.
+cap4_tool_selection_failures_n49 = [
+  "d80c9bf910f1-57459c25fc38",  # address wrong-tool
+  "d80c9bf910f1-63eeb2c7d9a5",  # address wrong-tool
+  "d80c9bf910f1-987f2a50ca13",  # address wrong-tool
+  "d80c9bf910f1-9d098c700ffd",  # address wrong-tool
+  "1b288c5c6dc9-2f8e71a52ddb",  # airline wrong-tool
+  "1b288c5c6dc9-543d35cad1e4",  # airline wrong-tool
+  "1b288c5c6dc9-6ceadadc98db",  # airline wrong-tool
+  "1b288c5c6dc9-8adf83d9ff03",  # airline bad-args
+  "1b288c5c6dc9-b4cac1895f6b",  # airline wrong-tool
+  "08a8a30623c3-a65375055690",  # app_store wrong-tool
+  "08a8a30623c3-b671ec191c56",  # app_store wrong-tool
+  "10050cfaf017-dcf7a086ca0b",  # bike_share_1 wrong-tool
+  "1960f609e439-3a1b0a9c3535",  # codebase_comments wrong-tool
+  "1960f609e439-d29f0d39204a",  # codebase_comments wrong-tool
+  "06e387dae8db-cb155052a179",  # coinmarketcap wrong-tool
+  "39a28b2592a2-f6b4cce8bef6",  # computer_student wrong-tool
+  "34a533dfd727-f4a68606ea81",  # disney wrong-tool
+  "3683085b75b9-a7be8fc69abc",  # food_inspection bad-args
+  "912d5f84749d-d3848b97d467",  # genes bad-args
+  "308738b8195d-79e2c0934327",  # hockey wrong-tool
+  "d0d7be63ebc2-6b4bc5e5169d",  # ice_hockey_draft wrong-tool
+  "3608e5ae1d0e-10a6d063310e",  # image_and_language wrong-tool
+  "3608e5ae1d0e-178cb832dc29",  # image_and_language wrong-tool
+  "3608e5ae1d0e-3232096aa30d",  # image_and_language wrong-tool
+  "55b7e50368aa-71be66a45049",  # mondial_geo wrong-tool
+  "55b7e50368aa-a84b648f9ade",  # mondial_geo wrong-tool
+  "55b7e50368aa-bc198a78a0e8",  # mondial_geo wrong-tool
+  "d14bbb0be92d-176697aea981",  # professional_basketball wrong-tool
+  "d14bbb0be92d-a2f1c2123f89",  # professional_basketball wrong-tool
+  "d14bbb0be92d-f61e315dbd38",  # professional_basketball wrong-tool
+  "ee275d64dafc-50d8deada301",  # restaurant wrong-tool
+  "ee275d64dafc-6446411af2dc",  # restaurant wrong-tool
+  "ee275d64dafc-71991df33155",  # restaurant wrong-tool
+  "ee275d64dafc-7b105ce08393",  # restaurant bad-args
+  "4bbb5c2b3439-f6cdc85940cf",  # sales_in_weather wrong-tool
+  "ac8f8d8803cd-06e874730a29",  # shakespeare wrong-tool
+  "ac8f8d8803cd-4ee244d687ac",  # shakespeare wrong-tool
+  "ac8f8d8803cd-4f907975ccb5",  # shakespeare wrong-tool
+  "ac8f8d8803cd-e6879799a166",  # shakespeare wrong-tool
+  "bc9218680ed5-0077a5752819",  # student_loan wrong-tool
+  "bc9218680ed5-2ab29c613d52",  # student_loan wrong-tool
+  "bc9218680ed5-d20c36b64a7e",  # student_loan wrong-tool
+  "bc9218680ed5-f07f07612b76",  # student_loan wrong-tool
+  "35a1befb81d1-4e797757d073",  # talkingdata wrong-tool
+  "35a1befb81d1-c3669f82fcdd",  # talkingdata wrong-tool
+  "35a1befb81d1-ea2be01f1e9d",  # talkingdata bad-args
+  "adba6c0ec8a8-73c209292d3a",  # university wrong-tool
+  "adba6c0ec8a8-8ebb5a5fce87",  # university wrong-tool
+  "adba6c0ec8a8-c9fb406da826",  # university wrong-tool
+]
+
 # 2026-07-29: all 68 single-turn tasks whose policy is CONDITIONAL
 # ("if a user's query pertains to X ... only use document retrievers").
 #
