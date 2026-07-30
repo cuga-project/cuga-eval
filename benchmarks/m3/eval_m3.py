@@ -685,6 +685,20 @@ async def _classify_policy_topic_match(model: Any, query: str, topic: str, desc:
         return True
 
 
+def _policy_requires_retriever_only(policy_text: Optional[str]) -> bool:
+    """True when a policy restricts the agent to document retrievers.
+
+    Matches the same two directive substrings the immutable policy judge checks
+    (benchmarks/m3/evaluator/policy_judge.py) - enforcing against a different
+    criterion than the one actually scored would be pointless. Covers both
+    absolute rules and the conditional ones, since the restricting clause is
+    worded identically in each; only the "if a user's query pertains to X"
+    preamble differs.
+    """
+    text = (policy_text or "").lower()
+    return "do not use any other type of tool" in text or "do not use other types of tool" in text
+
+
 def _policy_scope_absolute_only() -> bool:
     """M3_POLICY_SCOPE_ABSOLUTE_ONLY (default off).
 
@@ -1700,7 +1714,21 @@ class M3Evaluator:
         policy_id: Optional[str] = None
         if policy_text and self.policies_enabled:
             tool_guide_content = policy_text
-            if scope == "retriever_only" and _retriever_only_refusal_rider_enabled():
+            # Gate on the POLICY, not on the resolved scope. Gating on
+            # scope == "retriever_only" silently disabled this rider for every
+            # conditional-rule task once M3_POLICY_SCOPE_ABSOLUTE_ONLY was
+            # added, because those tasks resolve to "all" by design - so that
+            # flag removed two things instead of one: deterministic pruning AND
+            # the instruction to decline cleanly without naming tools. Observed
+            # live: a refusal-trap task answered "Evidence: The bike-share query
+            # tool (bike_share_1_query_bike_share_1) returned only general
+            # documents...", naming the tool in the final answer, which the
+            # groundedness judge penalises. cuga_vakra_agent keeps conditional
+            # rules prompt-enforced; dropping the prompt half is not their
+            # design and was not the intent here.
+            if _retriever_only_refusal_rider_enabled() and (
+                scope == "retriever_only" or _policy_requires_retriever_only(policy_text)
+            ):
                 tool_guide_content = policy_text + "\n\n" + M3_RETRIEVER_ONLY_REFUSAL_RULE
             try:
                 policy_id = await self.agent.policies.add_tool_guide(

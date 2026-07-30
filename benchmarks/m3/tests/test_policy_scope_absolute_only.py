@@ -110,3 +110,39 @@ def test_unknown_policy_shape_fails_open(monkeypatch):
     for mode in ("0", "1"):
         monkeypatch.setenv("M3_POLICY_SCOPE_ABSOLUTE_ONLY", mode)
         assert _resolve("Always cite your sources and never guess.") == "all"
+
+
+# --- the refusal rider must survive absolute-only mode -----------------------
+#
+# Regression guard for a bug found live: M3_RETRIEVER_ONLY_REFUSAL_RIDER was
+# gated on the RESOLVED SCOPE (`scope == "retriever_only"`). Once
+# M3_POLICY_SCOPE_ABSOLUTE_ONLY made conditional rules resolve to "all", the
+# rider silently stopped firing on exactly those tasks - so the flag removed
+# deterministic pruning AND the instruction to decline without naming tools.
+# Observed: a refusal trap answered "Evidence: The bike-share query tool
+# (bike_share_1_query_bike_share_1) returned only general documents...".
+# The gate is now on the policy text instead.
+
+
+def test_conditional_policy_still_requires_retriever_only():
+    """The restricting clause is identical in conditional and absolute rules -
+    only the 'if a user's query pertains to X' preamble differs - so the rider
+    must recognise both."""
+    assert eval_m3._policy_requires_retriever_only(CONDITIONAL) is True
+    assert eval_m3._policy_requires_retriever_only(ABSOLUTE) is True
+
+
+def test_negative_and_empty_policies_do_not_require_retriever_only():
+    assert eval_m3._policy_requires_retriever_only(ABSOLUTE_NEGATIVE) is False
+    assert eval_m3._policy_requires_retriever_only("") is False
+    assert eval_m3._policy_requires_retriever_only(None) is False
+    assert eval_m3._policy_requires_retriever_only("Answer concisely.") is False
+
+
+def test_rider_condition_holds_when_absolute_only_resolves_to_all(monkeypatch):
+    """The scenario that broke: conditional policy, absolute-only on, so scope
+    is 'all' - the rider must still apply."""
+    monkeypatch.setenv("M3_POLICY_SCOPE_ABSOLUTE_ONLY", "1")
+    scope = _resolve(CONDITIONAL)
+    assert scope == "all"
+    assert scope == "retriever_only" or eval_m3._policy_requires_retriever_only(CONDITIONAL)
