@@ -1141,6 +1141,7 @@ class ToolShortlister:
         self._model_name = model_name
         self._tool_embeddings = None
         self._tools = None
+        self._scope_hint = "all"
 
     def _get_model(self):
         if self._model is None:
@@ -1165,6 +1166,39 @@ class ToolShortlister:
         texts = [self._tool_text(t) for t in self._tools]
         self._tool_embeddings = self._get_model().encode(texts, convert_to_numpy=True)
 
+    def set_scope_hint(self, scope: str) -> None:
+        """Record this task's resolved policy scope. Only 'retriever_only'
+        justifies pinning retrievers ahead of more relevant tools."""
+        self._scope_hint = scope
+
+    def _rank(self, query: str, subset: list, all_tools: list) -> list:
+        """Return `subset` ordered by descending similarity to `query`."""
+        import numpy as np  # noqa: PLC0415
+
+        if (
+            self._tool_embeddings is not None
+            and self._tools is not None
+            and len(self._tools) == len(all_tools)
+        ):
+            idx = [i for i, t in enumerate(all_tools) if t in subset]
+            embs = self._tool_embeddings[idx]
+            ordered_subset = [all_tools[i] for i in idx]
+        else:
+            ordered_subset = list(subset)
+            embs = self._get_model().encode(
+                [self._tool_text(t) for t in ordered_subset], convert_to_numpy=True
+            )
+        q = self._get_model().encode([query], convert_to_numpy=True)
+        en = embs / np.where(
+            np.linalg.norm(embs, axis=1, keepdims=True) == 0, 1, np.linalg.norm(embs, axis=1, keepdims=True)
+        )
+        qn = q / np.where(
+            np.linalg.norm(q, axis=1, keepdims=True) == 0, 1, np.linalg.norm(q, axis=1, keepdims=True)
+        )
+        sims = (en @ qn.T).squeeze()
+        order = np.argsort(sims)[::-1]
+        return [ordered_subset[i] for i in order]
+
     def shortlist(self, query: str, tools: list) -> list:
         """Return the top_k tools most similar to `query`. Retriever tools
         (name containing "query_") are always kept, matching technique #1's
@@ -1174,6 +1208,27 @@ class ToolShortlister:
 
         if len(tools) <= self.top_k:
             return tools
+
+        # Retriever pinning is only justified when a policy actually restricts
+        # the agent to retrievers - there they are the only legal choice, so
+        # they must survive the top-k cut. Pinning them unconditionally, and to
+        # the FRONT of the list, is what the ported cuga_vakra_agent shortlister
+        # did, and it measurably misleads the model on policy-free tasks: of 41
+        # wrong-tool multi-turn failures in cap4_300_allguards, 22 called a
+        # retriever as their very first action, most on tasks with no policy at
+        # all. The correct structured tool was in the shortlist at median rank 4
+        # while the least specific tool in the catalog sat at position 1.
+        #
+        # Set M3_SHORTLIST_PIN_RETRIEVERS=always to restore the old behaviour.
+        pin_mode = os.getenv("M3_SHORTLIST_PIN_RETRIEVERS", "scoped").strip().lower()
+        pin_retrievers = pin_mode == "always" or (
+            pin_mode == "scoped" and self._scope_hint == "retriever_only"
+        )
+
+        if not pin_retrievers:
+            # Rank everything together and return in descending relevance, so
+            # the model reads the best candidate first.
+            return self._rank(query, tools, tools)[: self.top_k]
 
         pinned = [t for t in tools if _policy_is_retriever_tool(self._tool_name(t))]
         candidates = [t for t in tools if not _policy_is_retriever_tool(self._tool_name(t))]
@@ -1219,6 +1274,12 @@ class SemanticShortlistToolProvider:
 
     def set_query(self, query: str) -> None:
         self._query = query or ""
+
+    def set_scope_hint(self, scope: str) -> None:
+        """Pass this task's resolved policy scope to the shortlister, which
+        pins retrievers ahead of more relevant tools only under
+        'retriever_only'."""
+        self._shortlister.set_scope_hint(scope)
 
     async def initialize(self):
         if hasattr(self.base_provider, "initialize"):
@@ -1875,6 +1936,13 @@ class M3Evaluator:
         if shortlist_provider is not None:
             live_query_for_shortlist = turns[-1].get("query", "") if turns else ""
             shortlist_provider.set_query(live_query_for_shortlist)
+            # Tell the shortlister this task's resolved scope (computed above at
+            # the policy-scope step). It pins retrievers to the front of the
+            # shortlist only under retriever_only, where they are the only legal
+            # tool; on every other task they compete on relevance like anything
+            # else. See ToolShortlister.shortlist for the measurement behind it.
+            if hasattr(shortlist_provider, "set_scope_hint"):
+                shortlist_provider.set_scope_hint(scope)
 
         try:
             if num_turns >= 2:
