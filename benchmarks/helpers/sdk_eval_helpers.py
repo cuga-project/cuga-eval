@@ -1992,9 +1992,17 @@ def save_evaluation_results(
 
 async def setup_react_agent_for_evaluation(
     special_instructions: Optional[str] = None,
+    require_tools: bool = False,
 ) -> tuple[GenericReactAgent, Optional[Any]]:
-    """Set up the generic ReAct agent with tools and optional Langfuse."""
-    return await setup_react_agent_with_tools(special_instructions=special_instructions)
+    """Set up the generic ReAct agent with tools and optional Langfuse.
+
+    Args:
+        special_instructions: Optional special instructions for the agent
+        require_tools: Fail fast on an empty toolbox (see setup_agent_with_tools, #148)
+    """
+    return await setup_react_agent_with_tools(
+        special_instructions=special_instructions, require_tools=require_tools
+    )
 
 
 async def evaluate_task_with_langfuse_react(

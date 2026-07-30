@@ -46,3 +46,27 @@ async def test_zero_tools_without_require_tools_completes():
     assert agent is agent_cls.return_value
     assert handler is None
     agent_cls.assert_called_once_with(tool_provider=provider)
+
+
+@pytest.mark.asyncio
+async def test_react_zero_tools_with_require_tools_raises():
+    """AppWorld's --agent react/codeact paths go through the ReAct helper, so the
+    same guard must apply there (issue #148 review)."""
+    from benchmarks.helpers import react_agent
+
+    with patch.object(react_agent, "CombinedToolProvider", return_value=_mock_provider([])):
+        with pytest.raises(RuntimeError, match="0 tools"):
+            await react_agent.setup_react_agent_with_tools(require_tools=True)
+
+
+@pytest.mark.asyncio
+async def test_react_for_evaluation_forwards_require_tools():
+    """The sdk_eval_helpers wrapper used by the AppWorld evaluators must forward the flag."""
+    from benchmarks.helpers import sdk_eval_helpers
+
+    with patch.object(
+        sdk_eval_helpers, "setup_react_agent_with_tools", new=AsyncMock(return_value=(None, None))
+    ) as inner:
+        await sdk_eval_helpers.setup_react_agent_for_evaluation(require_tools=True)
+
+    assert inner.await_args.kwargs["require_tools"] is True

@@ -127,6 +127,7 @@ export APPWORLD_ENV_PORT
 export DYNACONF_SERVER_PORTS__ENVIRONMENT_URL="$APPWORLD_ENV_PORT"
 APPWORLD_APIS_PORT="${APPWORLD_APIS_PORT:-${DYNACONF_SERVER_PORTS__APIS_URL:-9111}}"
 export APPWORLD_APIS_PORT
+export DYNACONF_SERVER_PORTS__APIS_URL="$APPWORLD_APIS_PORT"
 
 # Capture console output to a log file for reproducibility bundles
 CONSOLE_LOG="/tmp/appworld_console.log"
@@ -139,10 +140,22 @@ echo ""
 
 # Start servers unless SKIP_SERVER_START is set
 if [ "${SKIP_SERVER_START:-false}" != "true" ]; then
-    # Reap orphaned AppWorld servers from a previous aborted run — an
-    # `appworld serve apis` child has been observed outliving its parent for
-    # hours, which would collide with (or serve stale state to) this run (#148).
-    kill_port_processes "$APPWORLD_ENV_PORT" "$APPWORLD_APIS_PORT"
+    # Reap only ORPHANED AppWorld servers: a port that is held but does not
+    # answer is a hung leftover from an aborted run (an `appworld serve apis`
+    # child has been observed outliving its parent for hours, #148). A port
+    # whose server still answers is left alone — compare.sh deliberately reuses
+    # live servers across runs (SKIP_SERVER_CLEANUP), and killing them here
+    # would re-pay the slow API-server boot on every run.
+    reap_unresponsive_port() {
+        local port=$1 url=$2 name=$3
+        if port_in_use "$port" 2>/dev/null && ! curl -s --max-time 5 "$url" > /dev/null 2>&1; then
+            echo -e "${YELLOW:-}Port $port held by an unresponsive $name — reaping orphan${NC:-}"
+            kill_port_processes "$port"
+            sleep 1
+        fi
+    }
+    reap_unresponsive_port "$APPWORLD_ENV_PORT" "http://127.0.0.1:$APPWORLD_ENV_PORT/" "AppWorld"
+    reap_unresponsive_port "$APPWORLD_APIS_PORT" "http://127.0.0.1:$APPWORLD_APIS_PORT/" "AppWorld API server"
 
     # Start AppWorld
     echo -e "${YELLOW:-}Starting AppWorld...${NC:-}"
