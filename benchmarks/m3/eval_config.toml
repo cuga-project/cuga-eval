@@ -1636,6 +1636,93 @@ cap4_retriever_only_regression_n5 = [
   "d80c9bf910f1-fbb2521dcbd6",  # address, fabrication - invented 10+ county name list
 ]
 
+# 2026-07-29: all 68 single-turn tasks whose policy is CONDITIONAL
+# ("if a user's query pertains to X ... only use document retrievers").
+#
+# This is the risk set for M3_POLICY_SCOPE_ABSOLUTE_ONLY. Under that flag,
+# conditional rules stop pruning the toolset and rely on the ToolGuide prompt
+# instead - which is what cuga_vakra_agent does, and they score 0.95 single-turn
+# where we score 0.86. But these 68 are refusal traps where the policy BINDS: if
+# the agent responds to an unpruned toolset by using a forbidden tool, the
+# policy judge hard-zeroes the task outright.
+#
+# So this set measures the downside, not the upside. The 8-task regression set
+# measures the upside. Both have to be read together: a change that recovers 13
+# single-turn tasks while breaking 20 of these is a net loss.
+#
+# Reference (300-task run, gpt-4.1 judge): the single-turn cohort overall scored
+# 127/132 in the no-scoping baseline and 114/132 with current scoping.
+cap4_conditional_single_turn_n68 = [
+  "d80c9bf910f1-6601abcf7062",  # address
+  "d80c9bf910f1-22ff4cb2a485",  # address
+  "d80c9bf910f1-a1e3d40e1b95",  # address
+  "d80c9bf910f1-bc1c12aa17d3",  # address
+  "d80c9bf910f1-fbb2521dcbd6",  # address
+  "1b288c5c6dc9-a487791d0fcd",  # airline
+  "1b288c5c6dc9-536b13d81e7f",  # airline
+  "1b288c5c6dc9-e0d44ea48a3c",  # airline
+  "1b288c5c6dc9-3cfb9361e826",  # airline
+  "08a8a30623c3-66aabe90a85c",  # app_store
+  "08a8a30623c3-44bea0f057d1",  # app_store
+  "08a8a30623c3-f4defd1ada68",  # app_store
+  "840942187214-f9c7e1a3f3c9",  # authors
+  "a823e527d383-93d962895368",  # beer_factory
+  "a823e527d383-d5827304d02a",  # beer_factory
+  "a823e527d383-7e459a98c30e",  # beer_factory
+  "10050cfaf017-8accf7ad0835",  # bike_share_1
+  "10050cfaf017-2b63205ffbf6",  # bike_share_1
+  "10050cfaf017-f59740dff717",  # bike_share_1
+  "10050cfaf017-d303dd8d28d3",  # bike_share_1
+  "5661cd917583-c7355d2cc0ae",  # book_publishing_company
+  "5661cd917583-8e921317a2fe",  # book_publishing_company
+  "6e317bcd6839-5ab374c76ffe",  # books
+  "1f58b1e965af-b52f62a0f432",  # cars
+  "1f58b1e965af-b4907ad7de9c",  # cars
+  "1f58b1e965af-03bc27917845",  # cars
+  "39a28b2592a2-16ff8f01c848",  # computer_student
+  "ec134bf7bda5-b0234c1fa938",  # cookbook
+  "3683085b75b9-b645fc09b637",  # food_inspection
+  "3683085b75b9-9245cb0ca116",  # food_inspection
+  "912d5f84749d-48d7da7ce74b",  # genes
+  "308738b8195d-03dbac110d2d",  # hockey
+  "308738b8195d-fd10e992b7cd",  # hockey
+  "308738b8195d-c632505fc2c2",  # hockey
+  "308738b8195d-7c1ce1b6c58c",  # hockey
+  "308738b8195d-38c4283e9228",  # hockey
+  "308738b8195d-c8b19d32a58b",  # hockey
+  "d0d7be63ebc2-70fb7a5db106",  # ice_hockey_draft
+  "3608e5ae1d0e-64148bae01ea",  # image_and_language
+  "3608e5ae1d0e-df09d6b80dce",  # image_and_language
+  "3608e5ae1d0e-a227b894aeea",  # image_and_language
+  "3608e5ae1d0e-9f6487009acf",  # image_and_language
+  "3608e5ae1d0e-6a27c503a55c",  # image_and_language
+  "e71440999ce8-34fe40a5251c",  # law_episode
+  "e71440999ce8-55e2e833b829",  # law_episode
+  "55b7e50368aa-c8f35b48ac4c",  # mondial_geo
+  "55b7e50368aa-2d12f895ac99",  # mondial_geo
+  "55b7e50368aa-e7768f5e0e14",  # mondial_geo
+  "55b7e50368aa-0dc25c3b7228",  # mondial_geo
+  "afabd538bbfe-f5406f8b20a1",  # music_tracker
+  "5caddc4c49de-ed32cad4e437",  # olympics
+  "5caddc4c49de-1426f1f6aa46",  # olympics
+  "d14bbb0be92d-71ba5d784672",  # professional_basketball
+  "d14bbb0be92d-ae240cc7a80e",  # professional_basketball
+  "ee275d64dafc-701c447541db",  # restaurant
+  "ee275d64dafc-68cfa9a911c1",  # restaurant
+  "ee275d64dafc-de3adc09c107",  # restaurant
+  "ee275d64dafc-14b7e58d4d14",  # restaurant
+  "4bbb5c2b3439-95238aeccc93",  # sales_in_weather
+  "ac8f8d8803cd-4b9ab86c88bb",  # shakespeare
+  "ac8f8d8803cd-98700adb4015",  # shakespeare
+  "fe971e7f850a-a8644203f130",  # soccer_2016
+  "fe971e7f850a-db2cf9c34392",  # soccer_2016
+  "bc9218680ed5-86fd043e6420",  # student_loan
+  "35a1befb81d1-31f0f413e523",  # talkingdata
+  "adba6c0ec8a8-e37243e347be",  # university
+  "486ea46224d1-ca7883fce9df",  # world
+  "486ea46224d1-2ca71b16e6f1",  # world
+]
+
 # 2026-07-29: the single-turn regressions in cap4_300_shortlist_off_scoped.
 # All 8 passed in the cap4_300_full_riders baseline and fail in the scoped run.
 #

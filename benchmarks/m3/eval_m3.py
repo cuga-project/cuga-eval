@@ -685,18 +685,53 @@ async def _classify_policy_topic_match(model: Any, query: str, topic: str, desc:
         return True
 
 
+def _policy_scope_absolute_only() -> bool:
+    """M3_POLICY_SCOPE_ABSOLUTE_ONLY (default off).
+
+    When on, deterministic tool pruning applies to ABSOLUTE policy rules only
+    ("use document retrievers ... do not use any other type of tool"), and
+    CONDITIONAL rules ("if a user's query pertains to X, ...") are left to
+    prompt enforcement via the ToolGuide - the toolset is not narrowed.
+
+    Why: measured against cuga_vakra_agent's submission on the same 300 tasks,
+    same evaluator and same judge, they beat us 206-186 and 12 of that 20-task
+    gap is single-turn - a cohort where they score 0.95 and our own no-scoping
+    baseline scored 0.96, while we dropped to 0.86. So the single-turn loss is
+    not a necessary price of the discovery fix; they hold both.
+
+    Their change log states the difference plainly: "per-item deterministic tool
+    scoping for absolute rules ...; conditional rules stay prompt-enforced."
+    We prune for both, resolving conditional rules through a one-shot LLM topic
+    classifier.
+
+    The failure this targets: of our 8 known single-turn regressions, 7 had
+    scoping fire (6 of them from conditional rules), the toolset was narrowed to
+    retrievers, and the agent then called a *permitted* retriever and answered
+    from whatever came back rather than declining. Not a policy violation, so no
+    guard catches it. Leaving conditional rules unpruned restores the fuller
+    toolset those tasks passed with in the baseline, while keeping the policy
+    text in front of the model.
+    """
+    return os.getenv("M3_POLICY_SCOPE_ABSOLUTE_ONLY", "0").strip().lower() in ("1", "on", "true", "yes")
+
+
 async def resolve_policy_tool_scope(model: Any, policy_text: str, query: str) -> str:
     """Deterministically resolve a cap4 policy's tool-usage scope: 'all',
     'retriever_only', or 'no_retriever'. Ported from cuga_vakra_agent's
     CugaV2Agent._resolve_scope. Absolute rules ("do not use document
     retrievers" / "only use document retrievers") prune unconditionally;
     conditional rules ("if a user's query pertains to X...") first classify
-    whether this specific query is on-topic before scoping anything."""
+    whether this specific query is on-topic before scoping anything - unless
+    M3_POLICY_SCOPE_ABSOLUTE_ONLY is set, in which case conditional rules are
+    never pruned and stay prompt-enforced."""
     text = (policy_text or "").lower()
     if "document retriever" not in text:
         return "all"
     m = _POLICY_COND_RULE_RE.search(policy_text or "")
     if m:
+        if _policy_scope_absolute_only():
+            logger.info("[policy-scope] conditional rule, absolute-only mode -> no pruning")
+            return "all"
         topic, desc = m.group(1).strip(), m.group(2).strip()
         if not await _classify_policy_topic_match(model, query, topic, desc):
             return "all"
