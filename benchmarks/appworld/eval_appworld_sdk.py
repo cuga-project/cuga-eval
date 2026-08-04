@@ -487,13 +487,28 @@ B. App-specific instructions:
                     )
                     score = float(result.get("match_rate", 0.0))
                     if result.get("error"):
+                        # Keep AppWorld's grade when a late error arrives after evaluation.
+                        # Previously this forced score=0.0 / answer="" even when match_rate
+                        # and appworld_evaluation were present (e.g. 3650990_1).
+                        evaluated = bool(eval_info)
+                        error_score = score if evaluated else 0.0
+                        error_answer = result.get("response", "") if evaluated else ""
+                        logger.warning(
+                            f"[APPWORLD-SDK] task {task_id} errored: {result.get('error')!r} — "
+                            + (
+                                f"evaluation present, recording score={error_score} "
+                                f"answer={error_answer!r:.60}"
+                                if evaluated
+                                else "no evaluation, recording score=0.0"
+                            )
+                        )
                         tracker.finish_task(
                             intent=intent,
                             site="",
                             task_id=task_id,
                             eval=report_md,
-                            score=0.0,
-                            agent_answer="",
+                            score=error_score,
+                            agent_answer=error_answer,
                             exception=True,
                             num_steps=agent_steps,
                             total_llm_calls=result.get("total_llm_calls", 0),
@@ -503,7 +518,7 @@ B. App-specific instructions:
                             duration=result.get("full_execution_time", 0),
                             agent_v="",
                         )
-                        tracker.collect_score(0.0)
+                        tracker.collect_score(error_score)
                     else:
                         tracker.finish_task(
                             intent=intent,
