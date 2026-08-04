@@ -99,5 +99,10 @@ services:
   - venmo:
       description: Allows for interaction with a peer-to-peer payment service like Venmo, enabling functionalities such as sending and receiving money or viewing transaction history. Peer-to-peer payments. If recipient is identified by **proper name** or relationship, you **must** first get contact info via the phone app.
       url: http://localhost:9111/venmo/openapi.json
+      api_overrides:
+        - operation_id: download_transaction_receipt_transactions__transaction_id__receipt_get
+          drop_query_parameters: ["file_system_access_token"]
+        - operation_id: download_bank_transfer_receipt_bank_transfers__bank_transfer_id__receipt_get
+          drop_query_parameters: ["file_system_access_token"]
       auth:
         type: oauth2
