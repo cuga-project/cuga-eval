@@ -487,17 +487,18 @@ B. App-specific instructions:
                     )
                     score = float(result.get("match_rate", 0.0))
                     if result.get("error"):
-                        # Keep AppWorld's grade when a late error arrives after evaluation.
-                        # Previously this forced score=0.0 / answer="" even when match_rate
-                        # and appworld_evaluation were present (e.g. 3650990_1).
-                        evaluated = bool(eval_info)
+                        # Agent invoke errored, but AppWorld may still have graded the DB
+                        # state left behind. Keep match_rate when num_tests ran. Note:
+                        # result["success"] stays False while err is set, so compare-report
+                        # pass counts are unchanged; this only affects tracker/cuga-viz score.
+                        evaluated = bool(eval_info.get("num_tests"))
                         error_score = score if evaluated else 0.0
                         error_answer = result.get("response", "") if evaluated else ""
+                        err_preview = str(result.get("error") or "")[:300]
                         logger.warning(
-                            f"[APPWORLD-SDK] task {task_id} errored: {result.get('error')!r} — "
+                            f"[APPWORLD-SDK] task {task_id} errored: {err_preview!r} — "
                             + (
-                                f"evaluation present, recording score={error_score} "
-                                f"answer={error_answer!r:.60}"
+                                f"evaluation present, recording score={error_score}"
                                 if evaluated
                                 else "no evaluation, recording score=0.0"
                             )
@@ -510,6 +511,7 @@ B. App-specific instructions:
                             score=error_score,
                             agent_answer=error_answer,
                             exception=True,
+                            fail_category="errored_after_grading" if evaluated else None,
                             num_steps=agent_steps,
                             total_llm_calls=result.get("total_llm_calls", 0),
                             total_tokens=result.get("total_tokens", 0),
@@ -518,6 +520,8 @@ B. App-specific instructions:
                             duration=result.get("full_execution_time", 0),
                             agent_v="",
                         )
+                        if evaluated:
+                            tracker.collect_step(Step(name="EvaluationResult", data=report_md))
                         tracker.collect_score(error_score)
                     else:
                         tracker.finish_task(
