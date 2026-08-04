@@ -468,6 +468,24 @@ B. App-specific instructions:
 
                 user_context = _build_user_context(world)
 
+                # Pre-authenticate every AppWorld app for this task so each app's
+                # access token — crucially file_system, which api_overrides
+                # auto-injects as file_system_access_token into cross-app
+                # receipt/attachment calls — is stored in the registry before the
+                # agent runs. Must happen AFTER AppWorld(...) opens (the task's
+                # supervisor must be live for the password lookup) and after the
+                # /api/reset above (which nulls the auth manager). Empty apps list
+                # = all configured apps; the registry skips apps it can't log into.
+                try:
+                    _auth_resp = requests.post(
+                        f"{_get_registry_base_url()}/api/authenticate_apps",
+                        json={"apps": []},
+                        timeout=30,
+                    )
+                    logger.info(f"[APPWORLD-SDK] authenticate_apps: {_auth_resp.json()}")
+                except Exception as _auth_exc:
+                    logger.warning(f"[APPWORLD-SDK] authenticate_apps failed: {_auth_exc}")
+
                 def tracker_callback(result: Dict[str, Any], keyword_check: Dict[str, Any], intent: str):
                     agent_steps = result.get("steps")
                     if agent_steps is None:
