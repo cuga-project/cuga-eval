@@ -463,15 +463,20 @@ B. App-specific instructions:
                 # supervisor must be live for the password lookup) and after the
                 # /api/reset above (which nulls the auth manager). Empty apps list
                 # = all configured apps; the registry skips apps it can't log into.
-                # Fail this task (not the whole suite) if auth transport fails or
-                # file_system is not ok — other apps may still be best-effort.
+                # Fail this task (not the whole suite) if auth transport fails, or
+                # if this task uses file_system and that app is not ok.
                 try:
                     auth_result = await authenticate_apps([])
                     logger.info(f"[APPWORLD-SDK] authenticate_apps: {auth_result}")
                     fs_status = (auth_result.get("authenticated") or {}).get("file_system")
-                    if fs_status != "ok":
+                    if fs_status != "ok" and "file_system" in world.task.app_descriptions:
                         raise RuntimeError(
                             f"file_system authenticate_apps status={fs_status!r}, expected 'ok'"
+                        )
+                    elif fs_status != "ok":
+                        logger.error(
+                            f"[APPWORLD-SDK] file_system auth status={fs_status!r}; "
+                            "task does not use file_system, continuing"
                         )
                 except Exception as auth_exc:
                     err_msg = f"authenticate_apps failed: {auth_exc}"

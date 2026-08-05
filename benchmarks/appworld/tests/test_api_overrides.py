@@ -23,6 +23,7 @@ _YAML = Path(__file__).parent.parent / "mcp_servers_appworld.yaml"
 _APPS_ROOT = Path(__file__).parent.parent / "appworld" / "src" / "appworld" / "apps"
 
 ParamKind = Literal["query", "body"]
+OverrideKey = Tuple[str, str]  # (app_name, operation_id)
 
 
 def _operation_id(route_name: str, path: str, method: str) -> str:
@@ -95,26 +96,24 @@ def _fs_token_endpoints(apis_py: Path) -> Dict[str, ParamKind]:
     return found
 
 
-def _all_fs_token_endpoints() -> Dict[str, Tuple[str, ParamKind]]:
-    """operation_id -> (app_name, kind), skipping apps without apis.py."""
+def _all_fs_token_endpoints() -> Dict[OverrideKey, ParamKind]:
+    """(app_name, operation_id) -> kind, skipping apps without apis.py."""
     if not _APPS_ROOT.is_dir():
-        pytest.skip(
-            f"AppWorld sources missing at {_APPS_ROOT}; run ./setup_appworld.sh first"
-        )
-    out: Dict[str, Tuple[str, ParamKind]] = {}
+        pytest.skip(f"AppWorld sources missing at {_APPS_ROOT}; run ./setup_appworld.sh first")
+    out: Dict[OverrideKey, ParamKind] = {}
     for app_dir in sorted(_APPS_ROOT.iterdir()):
         apis_py = app_dir / "apis.py"
         if not apis_py.is_file():
             continue
         for op_id, kind in _fs_token_endpoints(apis_py).items():
-            out[op_id] = (app_dir.name, kind)
+            out[(app_dir.name, op_id)] = kind
     return out
 
 
-def _yaml_overrides() -> Dict[str, Tuple[str, Set[str], Set[str]]]:
-    """operation_id -> (app_name, drop_query, drop_body)."""
+def _yaml_overrides() -> Dict[OverrideKey, Tuple[Set[str], Set[str]]]:
+    """(app_name, operation_id) -> (drop_query, drop_body)."""
     data = yaml.safe_load(_YAML.read_text())
-    out: Dict[str, Tuple[str, Set[str], Set[str]]] = {}
+    out: Dict[OverrideKey, Tuple[Set[str], Set[str]]] = {}
     for entry in data.get("services") or []:
         if not isinstance(entry, dict) or len(entry) != 1:
             continue
@@ -125,8 +124,7 @@ def _yaml_overrides() -> Dict[str, Tuple[str, Set[str], Set[str]]]:
             op_id = override.get("operation_id")
             if not op_id:
                 continue
-            out[op_id] = (
-                app_name,
+            out[(app_name, op_id)] = (
                 set(override.get("drop_query_parameters") or []),
                 set(override.get("drop_request_body_parameters") or []),
             )
@@ -144,25 +142,27 @@ def overrides():
 
 
 def test_every_override_resolves_to_a_real_operation(endpoints, overrides):
-    unknown = sorted(op for op in overrides if op not in endpoints)
+    unknown = sorted(f"{app}/{op}" for (app, op) in overrides if (app, op) not in endpoints)
     assert not unknown, (
-        "api_overrides operation_ids that match no AppWorld route "
-        f"(silent no-op at runtime): {unknown}"
+        f"api_overrides operation_ids that match no AppWorld route (silent no-op at runtime): {unknown}"
     )
 
 
 def test_override_drop_kind_matches_param_declaration(endpoints, overrides):
     mismatches = []
-    for op_id, (app_name, drop_query, drop_body) in overrides.items():
-        if op_id not in endpoints:
+    for (app_name, op_id), (drop_query, drop_body) in overrides.items():
+        key = (app_name, op_id)
+        if key not in endpoints:
             continue
-        _app, kind = endpoints[op_id]
+        kind = endpoints[key]
         drops_token_query = _TOKEN in drop_query
         drops_token_body = _TOKEN in drop_body
         if kind == "query" and not drops_token_query:
             mismatches.append(f"{app_name}/{op_id}: param is Query but not in drop_query_parameters")
         if kind == "query" and drops_token_body:
-            mismatches.append(f"{app_name}/{op_id}: param is Query but listed in drop_request_body_parameters")
+            mismatches.append(
+                f"{app_name}/{op_id}: param is Query but listed in drop_request_body_parameters"
+            )
         if kind == "body" and not drops_token_body:
             mismatches.append(f"{app_name}/{op_id}: param is Body but not in drop_request_body_parameters")
         if kind == "body" and drops_token_query:
@@ -172,11 +172,8 @@ def test_override_drop_kind_matches_param_declaration(endpoints, overrides):
 
 def test_every_fs_token_endpoint_has_an_override(endpoints, overrides):
     missing = sorted(
-        f"{app}/{op_id} ({kind})"
-        for op_id, (app, kind) in endpoints.items()
-        if op_id not in overrides
+        f"{app}/{op_id} ({kind})" for (app, op_id), kind in endpoints.items() if (app, op_id) not in overrides
     )
     assert not missing, (
-        "AppWorld endpoints declaring file_system_access_token without an "
-        f"api_overrides entry: {missing}"
+        f"AppWorld endpoints declaring file_system_access_token without an api_overrides entry: {missing}"
     )

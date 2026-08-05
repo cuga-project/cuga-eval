@@ -10,11 +10,15 @@ from cuga.config import settings
 
 
 def get_registry_base_url() -> str:
+    server_ports = getattr(settings, "server_ports", None)
+    registry_host = getattr(server_ports, "registry_host", None) if server_ports else None
+    if registry_host:
+        return str(registry_host).rstrip("/")
+
     registry_port = os.getenv("DYNACONF_SERVER_PORTS__REGISTRY")
     if registry_port:
         return f"http://localhost:{registry_port}"
 
-    server_ports = getattr(settings, "server_ports", None)
     for attr_name in ("registry", "registry_url", "registry_port"):
         port = getattr(server_ports, attr_name, None) if server_ports else None
         if port:
