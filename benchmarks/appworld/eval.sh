@@ -97,6 +97,10 @@ cleanup() {
             kill "$REGISTRY_PID" 2>/dev/null || true
             wait "$REGISTRY_PID" 2>/dev/null || true
         fi
+        # Killing $APPWORLD_PID does not reap its server children (`appworld
+        # serve env` / `appworld serve apis` — the latter observed listening on
+        # 9111 hours after its parent died, #148). Reap by port as a backstop.
+        kill_port_processes "$APPWORLD_ENV_PORT" "$APPWORLD_APIS_PORT"
     fi
     # RUN_MARKER (if created) is only used up to the LATEST_RESULT lookup right
     # after the evaluator exits; clean it up here instead of a dedicated trap so
@@ -121,6 +125,9 @@ export DYNACONF_SERVER_PORTS__REGISTRY="$REGISTRY_PORT"
 APPWORLD_ENV_PORT="${APPWORLD_ENV_PORT:-${DYNACONF_SERVER_PORTS__ENVIRONMENT_URL:-8000}}"
 export APPWORLD_ENV_PORT
 export DYNACONF_SERVER_PORTS__ENVIRONMENT_URL="$APPWORLD_ENV_PORT"
+APPWORLD_APIS_PORT="${APPWORLD_APIS_PORT:-${DYNACONF_SERVER_PORTS__APIS_URL:-9111}}"
+export APPWORLD_APIS_PORT
+export DYNACONF_SERVER_PORTS__APIS_URL="$APPWORLD_APIS_PORT"
 
 # Capture console output to a log file for reproducibility bundles
 CONSOLE_LOG="/tmp/appworld_console.log"
@@ -133,6 +140,23 @@ echo ""
 
 # Start servers unless SKIP_SERVER_START is set
 if [ "${SKIP_SERVER_START:-false}" != "true" ]; then
+    # Reap only ORPHANED AppWorld servers: a port that is held but does not
+    # answer is a hung leftover from an aborted run (an `appworld serve apis`
+    # child has been observed outliving its parent for hours, #148). A port
+    # whose server still answers is left alone — compare.sh deliberately reuses
+    # live servers across runs (SKIP_SERVER_CLEANUP), and killing them here
+    # would re-pay the slow API-server boot on every run.
+    reap_unresponsive_port() {
+        local port=$1 url=$2 name=$3
+        if port_in_use "$port" 2>/dev/null && ! curl -s --max-time 5 "$url" > /dev/null 2>&1; then
+            echo -e "${YELLOW:-}Port $port held by an unresponsive $name — reaping orphan${NC:-}"
+            kill_port_processes "$port"
+            sleep 1
+        fi
+    }
+    reap_unresponsive_port "$APPWORLD_ENV_PORT" "http://127.0.0.1:$APPWORLD_ENV_PORT/" "AppWorld"
+    reap_unresponsive_port "$APPWORLD_APIS_PORT" "http://127.0.0.1:$APPWORLD_APIS_PORT/" "AppWorld API server"
+
     # Start AppWorld
     echo -e "${YELLOW:-}Starting AppWorld...${NC:-}"
     uv run --no-sync cuga start appworld > /tmp/appworld.log 2>&1 &
@@ -142,6 +166,18 @@ if [ "${SKIP_SERVER_START:-false}" != "true" ]; then
         echo -e "${GREEN:-}✓${NC:-} AppWorld started (PID: $APPWORLD_PID)"
     else
         echo -e "${RED:-}Error: AppWorld failed to start${NC:-}"
+        cat /tmp/appworld.log | tail -20
+        exit 1
+    fi
+
+    # Also wait for the API server: it boots after the environment server and
+    # takes longer (it builds every app's routes). The registry fetches each
+    # app's openapi.json from it at init and does NOT retry — waiting only for
+    # the env server leaves a race where the registry loads 0 tools (#148).
+    if wait_for_server "http://127.0.0.1:$APPWORLD_APIS_PORT/" "AppWorld API server" 120; then
+        echo -e "${GREEN:-}✓${NC:-} AppWorld API server ready (port $APPWORLD_APIS_PORT)"
+    else
+        echo -e "${RED:-}Error: AppWorld API server failed to start${NC:-}"
         cat /tmp/appworld.log | tail -20
         exit 1
     fi

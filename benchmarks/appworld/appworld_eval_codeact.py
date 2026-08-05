@@ -258,7 +258,10 @@ async def run_agent_on_task(
         logger.info(f"Running task: {task_id}")
         logger.info(f"Task instruction: {world.task.instruction}")
 
-        react_agent, _ = await setup_react_agent_for_evaluation()
+        # require_tools: AppWorld cannot run toolless — 0 tools means the registry
+        # failed to reach the app API server at startup; abort instead of burning
+        # the whole run (issue #148).
+        react_agent, _ = await setup_react_agent_for_evaluation(require_tools=True)
         if config:
             react_agent.max_steps = config.max_steps
 
