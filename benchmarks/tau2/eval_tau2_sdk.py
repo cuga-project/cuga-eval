@@ -132,7 +132,11 @@ def run(args: argparse.Namespace) -> list[dict]:
     # CUGA's own LLM (recorded alongside the user-sim model — see _result_dict/§11.5).
     agent_model = os.getenv("MODEL_NAME") or "unknown"
 
-    tasks = get_tasks(args.subset, task_ids=args.task_ids, num_tasks=args.num_tasks)
+    # When explicit --task ids are given, run all of them: the --num-tasks default (1) must
+    # NOT silently truncate an explicit id list (get_tasks applies num_tasks as a cap even
+    # when task_ids are passed). Only apply num_tasks when no ids were requested.
+    num_tasks = None if args.task_ids else args.num_tasks
+    tasks = get_tasks(args.subset, task_ids=args.task_ids, num_tasks=num_tasks)
     if not tasks:
         raise SystemExit(f"No tasks found for subset={args.subset} task_ids={args.task_ids}.")
 
