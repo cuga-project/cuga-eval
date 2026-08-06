@@ -17,6 +17,7 @@ Enhanced metrics (opt-in via metrics_config):
 
 import asyncio
 import json
+import os
 import uuid
 from pathlib import Path
 from typing import Any, Callable, Dict, List, Optional, TypedDict
@@ -333,6 +334,65 @@ async def setup_agent_with_tools(
     logger.info(f"   Agent created with {len(callbacks)} callback(s)")
 
     return agent, langfuse_handler
+
+
+async def preflight_llm(timeout: Optional[float] = None) -> None:
+    """Send a throwaway "hi" to the configured LLM before an eval starts.
+
+    An unreachable gateway (VPN down, wrong base URL, wrong model name) does not
+    raise — it hangs. Every task then burns llm_http_timeout x retries on its
+    first call and records whatever score an agent that never acted happens to
+    get, so the run looks like a real (bad) result instead of a broken setup.
+    One upfront call turns that into an immediate, readable failure.
+
+    Raises:
+        RuntimeError: the LLM did not answer. Never raises for a slow-but-live
+            endpoint that answers within the timeout.
+    """
+    import time
+
+    from cuga.backend.llm.models import LLMManager
+    from cuga.config import settings
+    from langchain_core.messages import HumanMessage
+
+    model = LLMManager().get_model(settings.agent.code.model)
+    # request_timeout is the value cuga already resolved from
+    # CUGA_LLM_HTTP_TIMEOUT / LLM_HTTP_TIMEOUT / connections.llm_http_timeout,
+    # so the preflight waits exactly as long as a real call would — but only
+    # once, where a real call retries.
+    budget = timeout or float(getattr(model, "request_timeout", None) or 60)
+    name = getattr(model, "model_name", None) or "(unknown)"
+    endpoint = getattr(model, "openai_api_base", None) or os.getenv("OPENAI_BASE_URL") or "(provider default)"
+
+    logger.info("─" * 60)
+    logger.info("🔌 LLM preflight")
+    logger.info(f"   model:    {name}")
+    logger.info(f"   endpoint: {endpoint}")
+    logger.info(f'   sending "hi" (timeout {budget:.0f}s)...')
+
+    started = time.monotonic()
+    try:
+        reply = await asyncio.wait_for(model.ainvoke([HumanMessage(content="hi")]), timeout=budget)
+    except Exception as exc:  # noqa: BLE001 — every failure mode is the same verdict
+        elapsed = time.monotonic() - started
+        reason = "no response" if isinstance(exc, asyncio.TimeoutError) else f"{type(exc).__name__}: {exc}"
+        logger.error(f"   ❌ failed after {elapsed:.1f}s — {reason}")
+        logger.error("─" * 60)
+        raise RuntimeError(
+            f"LLM preflight failed after {elapsed:.1f}s ({reason}).\n"
+            f"  model:    {name}\n"
+            f"  endpoint: {endpoint}\n"
+            "A hang here usually means the endpoint is unreachable, not that the model is slow:\n"
+            "  - VPN not connected (internal gateways like *.vpc-int.res.ibm.com need it)\n"
+            "  - OPENAI_BASE_URL / OPENAI_API_KEY wrong or expired\n"
+            "  - MODEL_NAME not served by this gateway (check GET <base_url>/v1/models)\n"
+            "Aborting instead of running the eval against a dead endpoint."
+        ) from exc
+
+    elapsed = time.monotonic() - started
+    text = " ".join(str(getattr(reply, "content", reply) or "").split())[:60]
+    logger.info(f'   ✅ reachable in {elapsed:.1f}s — "{text}"')
+    logger.info("─" * 60)
 
 
 def _langfuse_callback_handler_class():
