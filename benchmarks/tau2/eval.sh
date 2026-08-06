@@ -11,7 +11,7 @@
 # Usage:
 #   ./eval.sh                                              # default: mock subset, 1 task
 #   ./eval.sh --subset airline --num-tasks 5              # 5 airline tasks
-#   ./eval.sh --subset retail --task task_0 task_3        # specific task ids
+#   ./eval.sh --subset retail --task 0 3                  # specific task ids (retail ids are 0,1,2,…)
 #   ./eval.sh --user-simulator-model watsonx/meta-llama/... --verbose
 #
 # Options:
@@ -20,7 +20,7 @@
 #   --num-tasks N                number of tasks (default: 1)
 #   --user-simulator-model M     LiteLLM model string for τ²'s customer LLM
 #                                (or set TAU2_USER_SIM_MODEL)
-#   --max-steps N                per-task step cap (default: 30)
+#   --max-steps N                per-task step cap (default: 50)
 #   --no-bundle                  skip reproducibility bundle creation
 #   --bundle-zip                 create zip archive of bundle
 #   --model-profile <name>       model profile (for bundle metadata)
@@ -104,7 +104,7 @@ while [[ $# -gt 0 ]]; do
             echo "  --task ID [ID ...]         Run specific task id(s)"
             echo "  --num-tasks N              Number of tasks (default: 1)"
             echo "  --user-simulator-model M   LiteLLM model for τ²'s customer LLM (or TAU2_USER_SIM_MODEL)"
-            echo "  --max-steps N              Per-task step cap (default: 30)"
+            echo "  --max-steps N              Per-task step cap (default: 50)"
             echo "  --no-bundle                Skip reproducibility bundle creation"
             echo "  --bundle-zip               Create zip archive of bundle"
             echo "  --model-profile <name>     Model profile (for bundle metadata)"
@@ -114,7 +114,7 @@ while [[ $# -gt 0 ]]; do
             echo "Examples:"
             echo "  ./eval.sh                                        # default: mock subset, 1 task"
             echo "  ./eval.sh --subset airline --num-tasks 5         # 5 airline tasks"
-            echo "  ./eval.sh --subset retail --task task_0 task_3   # specific task ids"
+            echo "  ./eval.sh --subset retail --task 0 3             # specific task ids (retail ids are 0,1,2,…)"
             exit 0
             ;;
         *)
