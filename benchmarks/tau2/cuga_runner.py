@@ -23,7 +23,7 @@ from typing import Any, Optional
 _RUN_TOKEN = uuid.uuid4().hex[:8]
 
 
-def _patch_tau2_nl_assertion_model(model: str, llm_args_user: Optional[dict]) -> None:
+def _patch_tau2_nl_assertion_model(model: str, llm_args_user: Optional[dict]) -> Optional[str]:
     """Point τ²'s NL-assertion scoring LLM at a reachable model.
 
     τ² hardcodes `DEFAULT_LLM_NL_ASSERTIONS = "gpt-4.1-2025-04-14"` in tau2/config.py with no
@@ -35,11 +35,17 @@ def _patch_tau2_nl_assertion_model(model: str, llm_args_user: Optional[dict]) ->
     reachable). The evaluator did `from tau2.config import DEFAULT_LLM_NL_ASSERTIONS`, which binds
     the name into ITS module — so we must patch that module's namespace too, not just tau2.config.
     Best-effort: if τ²'s internals move, we log and continue (scoring just reverts to the default).
+
+    Returns the judge model actually in force (our `model` on success, τ²'s hardcoded default on
+    failure) so the caller can RECORD it in the results — substituting the judge changes NL-assertion
+    scoring, so our numbers are only comparable to others run against the SAME judge (not the
+    official leaderboard, which uses τ²'s pinned gpt-4.1-2025-04-14).
     """
     args = {"temperature": 0.0, **(llm_args_user or {})}
     try:
         import tau2.config as tau2_config
 
+        default_judge = getattr(tau2_config, "DEFAULT_LLM_NL_ASSERTIONS", None)
         tau2_config.DEFAULT_LLM_NL_ASSERTIONS = model
         tau2_config.DEFAULT_LLM_NL_ASSERTIONS_ARGS = args
 
@@ -47,8 +53,10 @@ def _patch_tau2_nl_assertion_model(model: str, llm_args_user: Optional[dict]) ->
 
         nl_eval.DEFAULT_LLM_NL_ASSERTIONS = model
         nl_eval.DEFAULT_LLM_NL_ASSERTIONS_ARGS = args
+        return model
     except Exception as e:  # noqa: BLE001 — never fail the run over this patch
         print(f"    (could not repoint τ² NL-assertion model: {e!r})")
+        return locals().get("default_judge")
 
 
 def _maybe_setup_langfuse(domain: str, task: Any, thread_id: str) -> tuple[Optional[dict], Optional[str], Any]:
@@ -277,7 +285,11 @@ def _run_one_task(
 
     # Repoint τ²'s hardcoded NL-assertion scoring model (gpt-4.1-2025-04-14) at the reachable
     # user-sim model, so tasks with NL assertions (all retail) can be scored instead of erroring.
-    _patch_tau2_nl_assertion_model(user_sim_model, llm_args_user)
+    # Record the judge actually used — swapping it changes NL scoring, so comparability depends
+    # on the judge (see _patch_tau2_nl_assertion_model / the results-schema note).
+    nl_judge_model = _patch_tau2_nl_assertion_model(user_sim_model, llm_args_user)
+    if out is not None:
+        out["nl_judge_model"] = nl_judge_model
 
     # 1. Build a throwaway env just to read the tool schemas + policy for the decoys.
     #    (tau2 builds its own scored env inside run_single_task.)
@@ -335,6 +347,12 @@ def _run_one_task(
         cuga_error = e
     finally:
         t.join(timeout=join_timeout)
+        # A daemon thread that outlives the join keeps running in the background: don't read
+        # its half-written `result` as if the task finished. Flag it so we surface an explicit
+        # error below instead of silently recording reward=None.
+        thread_timed_out = t.is_alive()
+        if thread_timed_out:
+            print(f"    WARNING: τ² run thread did not finish within {join_timeout}s — abandoning it.")
         set_current_bridge(None)
         # Proactively clean up this task's async resources (LLM HTTP clients, etc.) on the
         # still-open shared loop, so they don't accumulate across a long multi-task run. GC
@@ -343,6 +361,10 @@ def _run_one_task(
         loop.run_until_complete(asyncio.sleep(0))
 
     sim = result.get("sim")
+    # A join timeout with no scored result is a real failure, not a None score: record it as
+    # the task's error so it's surfaced (and takes precedence over a benign CUGA cancellation).
+    if thread_timed_out and sim is None and "error" not in result:
+        result["error"] = TimeoutError(f"τ² run thread did not complete within {join_timeout}s")
     # If CUGA's loop raised but τ² still produced a scored result, the raise was just the
     # end-of-conversation cancellation — fall through and use τ²'s reward (fixes tasks that
     # hit max_steps mid-tool-call getting recorded as None instead of their real score). Only

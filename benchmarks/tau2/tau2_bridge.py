@@ -24,6 +24,7 @@ from __future__ import annotations
 
 import asyncio
 import queue
+import threading
 from dataclasses import dataclass
 from typing import Any, Optional
 
@@ -36,6 +37,14 @@ class _Done:
 
 
 DONE = _Done()
+
+
+def _safe_set_result(fut: asyncio.Future, result: Any) -> None:
+    """Complete `fut` iff it isn't already done. Scheduled onto the loop thread so it is
+    serialized against `fut.cancel` (also loop-thread): whichever the loop runs first wins,
+    and the second is a no-op — no InvalidStateError from set_result on a cancelled future."""
+    if not fut.done():
+        fut.set_result(result)
 
 
 # ── Actions CUGA emits through the bridge ─────────────────────────────────────
@@ -111,6 +120,12 @@ class ConversationBridge:
         # max_concurrency=1 + strict ping-pong, so one slot is sufficient).
         self._pending: Optional[asyncio.Future] = None
         self._closed = False
+        # Guards the (_closed, _pending) transitions. close() runs on the τ² thread while
+        # register_action runs on the CUGA loop thread, so the check-then-set in
+        # register_action and the read-then-cancel in close() must be atomic w.r.t. each
+        # other — otherwise close() can slip between register_action's `_closed` check and
+        # its `_pending = fut`, orphaning the new future (decoy awaits forever → run hangs).
+        self._lock = threading.Lock()
         # Context the CUGA side reads when building decoys / the agent.
         self.tau2_tools = tau2_tools
         self.domain_policy = domain_policy
@@ -126,13 +141,18 @@ class ConversationBridge:
 
     def close(self) -> None:
         """Idempotent shutdown: unblock both sides. Safe to call from any thread."""
-        if self._closed:
-            return
-        self._closed = True
+        with self._lock:
+            if self._closed:
+                return
+            self._closed = True
+            fut = self._pending
+        # Sentinels + cancel happen OUTSIDE the lock (queue.Queue is itself thread-safe, and
+        # a register_action racing us either already enqueued before we set _closed — so its
+        # future is `fut` here and gets cancelled — or sees _closed under the lock and cancels
+        # its own future). Either way no future is left orphaned.
         self._actions.put(DONE)
         self._observations.put(DONE)
         # Cancel an in-flight wait on the loop thread so the awaiting decoy unwinds.
-        fut = self._pending
         if self._loop is not None and fut is not None and not fut.done():
             self._loop.call_soon_threadsafe(fut.cancel)
 
@@ -143,11 +163,15 @@ class ConversationBridge:
         if self._loop is None:
             self._loop = asyncio.get_running_loop()
         fut: asyncio.Future = self._loop.create_future()
-        if self._closed:
-            fut.cancel()
-            return fut
-        self._pending = fut
-        self._actions.put(action)
+        # Check-then-set under the lock so a concurrent close() can't slip in between (see
+        # the _lock note in __init__). The enqueue is inside the lock too, so relative to
+        # close()'s DONE the ordering is well-defined: either (action, DONE) or DONE alone.
+        with self._lock:
+            if self._closed:
+                fut.cancel()
+                return fut
+            self._pending = fut
+            self._actions.put(action)
         return fut
 
     def register_message(self, text: str) -> asyncio.Future:
@@ -172,10 +196,14 @@ class ConversationBridge:
     def complete_pending(self, result: Any) -> None:
         """Hand `result` back to the decoy awaiting the current pending Future.
         Runs on the τ² thread, so it hops to the loop via call_soon_threadsafe."""
-        fut = self._pending
-        self._pending = None
-        if fut is not None and not fut.done() and self._loop is not None:
-            self._loop.call_soon_threadsafe(fut.set_result, result)
+        with self._lock:
+            fut = self._pending
+            self._pending = None
+        # Complete via _safe_set_result on the loop thread: if close() cancels the same
+        # future concurrently, the two hops are serialized on the loop and the later one
+        # no-ops (no set_result on a cancelled future).
+        if fut is not None and self._loop is not None:
+            self._loop.call_soon_threadsafe(_safe_set_result, fut, result)
 
     def deliver_observation(self, observation: Any) -> None:
         """Deliver the initial observation (first user message) to the CUGA side."""

@@ -45,6 +45,7 @@ def _result_dict(
     trace_id: Optional[str] = None,
     agent_model: Optional[str] = None,
     user_sim_model: Optional[str] = None,
+    nl_judge_model: Optional[str] = None,
     reward_info: Optional[dict] = None,
     messages: Optional[list] = None,
 ) -> dict:
@@ -53,6 +54,10 @@ def _result_dict(
     `trace_id` is the Langfuse trace id — the bundle's --fetch-langfuse reads it from here
     to download each task's trace. `agent_model` + `user_sim_model` record BOTH LLMs: τ²
     scores are not comparable across user-sim choices, so both must live in the results.
+    `nl_judge_model` is the model that scored NL assertions: we repoint τ²'s hardcoded judge at
+    a reachable model (see cuga_runner._patch_tau2_nl_assertion_model), and swapping the judge
+    changes NL scoring — so recording it is what makes a run's NL numbers interpretable and
+    comparable (and flags that they are NOT the official-leaderboard judge).
     `reward_info` is τ²'s per-check breakdown (db/action/nl/communicate checks) — the "why"
     behind a non-1.0 reward, so failures are explainable straight from the results file.
     """
@@ -68,21 +73,32 @@ def _result_dict(
         "trace_id": trace_id,
         "agent_model": agent_model,
         "user_sim_model": user_sim_model,
+        "nl_judge_model": nl_judge_model,
         "reward_info": reward_info,
         "messages": messages,
         "error": str(error) if error else None,
     }
 
 
-def _user_sim_llm_args() -> dict:
-    """Pass the user-simulator LLM's creds through to litellm. WatsonX reads its creds from
-    env; the OpenAI-compatible gateway needs api_base/api_key passed explicitly."""
+def _user_sim_llm_args(model: str) -> dict:
+    """Pass the user-simulator LLM's creds through to litellm, chosen by the model's PROVIDER
+    prefix — not by whichever creds happen to be in the env. When both WatsonX and the
+    OpenAI-compatible gateway are configured, keying off env vars alone would hand litellm a
+    mixed WatsonX+OpenAI payload that doesn't match the model string; selecting on the prefix
+    keeps the creds consistent with the model actually being called.
+
+    WatsonX reads most creds from env (we add project_id); the OpenAI-compatible gateway needs
+    api_base/api_key passed explicitly. An unrecognized provider gets no extra args (litellm
+    falls back to its own env handling)."""
     args: dict = {}
-    if os.getenv("WATSONX_PROJECT_ID"):
-        args["project_id"] = os.getenv("WATSONX_PROJECT_ID")
-    if os.getenv("OPENAI_BASE_URL"):
-        args["api_base"] = os.getenv("OPENAI_BASE_URL")
-        args["api_key"] = os.getenv("OPENAI_API_KEY")
+    m = (model or "").lower()
+    if m.startswith("watsonx/"):
+        if os.getenv("WATSONX_PROJECT_ID"):
+            args["project_id"] = os.getenv("WATSONX_PROJECT_ID")
+    elif m.startswith("openai/") or "azure" in m:
+        if os.getenv("OPENAI_BASE_URL"):
+            args["api_base"] = os.getenv("OPENAI_BASE_URL")
+            args["api_key"] = os.getenv("OPENAI_API_KEY")
     return args
 
 
@@ -128,7 +144,7 @@ def run(args: argparse.Namespace) -> list[dict]:
     from benchmarks.tau2.cuga_runner import _run_one_task
 
     run_ts = args.run_id or datetime.now().strftime("%Y%m%d_%H%M%S")
-    llm_args_user = _user_sim_llm_args()
+    llm_args_user = _user_sim_llm_args(args.user_sim_model)
     # CUGA's own LLM (recorded alongside the user-sim model — see _result_dict/§11.5).
     agent_model = os.getenv("MODEL_NAME") or "unknown"
 
@@ -190,6 +206,7 @@ def run(args: argparse.Namespace) -> list[dict]:
                 trace_id=extra.get("trace_id"),
                 agent_model=agent_model,
                 user_sim_model=args.user_sim_model,
+                nl_judge_model=extra.get("nl_judge_model"),
                 reward_info=extra.get("reward_info"),
                 messages=extra.get("messages"),
             )

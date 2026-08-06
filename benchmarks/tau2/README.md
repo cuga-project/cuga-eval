@@ -80,7 +80,11 @@ comparable across user-sim choices):
   passed through from the same `OPENAI_*` / `WATSONX_*` env.
 - **τ² NL-assertion scorer** — τ² hardcodes `gpt-4.1-2025-04-14` for this with no override
   hook; the runner repoints it at the user-sim model + creds so scoring works on any
-  gateway (otherwise retail tasks, which carry NL assertions, fail at scoring time).
+  gateway (otherwise retail tasks, which carry NL assertions, fail at scoring time). The
+  judge actually used is recorded per task as `nl_judge_model` in the results JSON.
+  **Comparability:** substituting the judge changes NL-assertion scoring, so a run's NL
+  numbers are comparable only to other runs that used the *same* judge — not to the official
+  leaderboard, which pins τ²'s original judge.
 
 Put secrets in the repo-root `.env` (gitignored). Langfuse tracing (traces + per-task
 reward scores) activates when `LANGFUSE_*` keys are present.
