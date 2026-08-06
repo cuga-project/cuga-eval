@@ -23,7 +23,15 @@ dependencies = [
     "langsmith>=0.8.18",
     "msgpack>=1.2.1",
     "pydantic-settings>=2.14.2",
+    # 3.14.3+ fixes CVE-2026-69244 (OOB heap read in the C response parser),
+    # CVE-2026-69243 (request smuggling via WebSocket upgrade) and CVE-2026-59881.
     "aiohttp>=3.14.3",
+    # 50.0.0+ fixes CVE-2026-69247 (PKCS#7 Bleichenbacher oracle); 49+ also covers
+    # CVE-2026-69249 and CVE-2026-69248. Mirrors cuga-agent's floor. langchain-litellm
+    # 0.6+/0.7.0 publish `cryptography<49`, so cuga pins `langchain-litellm<0.6` to
+    # keep this floor satisfiable — as an editable path dep that pin governs our lock
+    # too, which is why it resolves to 0.5.1 here as well. Don't work around it with a
+    # uv override: that would only diverge our lock from cuga-agent's.
     "cryptography>=50.0.0",
     "python-multipart>=0.0.31",
     "starlette>=1.3.1",
@@ -38,17 +46,6 @@ dependencies = [
 required-environments = [
     "sys_platform == 'linux' and platform_machine == 'x86_64'",
     "sys_platform == 'darwin' and platform_machine == 'arm64'",
-]
-
-# langchain-litellm (a transitive of cuga) declares `cryptography<49.0.0` in its
-# published metadata, up to and including the current 0.7.0. It never imports
-# cryptography — the cap is an artifact of exporting a full lockfile as install
-# requirements. Left alone, that cap holds cryptography at 48.x, which carries
-# PYSEC-2026-3552/3553/3554, and the only way the resolver can satisfy
-# `cryptography>=50` is to drag langchain-litellm back to 0.5.1. Overriding the
-# spurious cap keeps both current. Revisit once langchain-litellm relaxes it.
-override-dependencies = [
-    "cryptography>=50.0.0",
 ]
 
 [tool.uv.sources]
