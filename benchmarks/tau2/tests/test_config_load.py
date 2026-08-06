@@ -38,10 +38,20 @@ def test_safety_pins_loaded():
 
 
 def test_entrypoint_imports_without_cuga():
-    # Importing the entrypoint runs load_eval_config at import time and must NOT
-    # pull in cuga as a side effect (the config load must come first).
+    # Importing the entrypoint runs load_eval_config at import time and must NOT pull in cuga
+    # as a side effect (the config load must come first). Check in a FRESH subprocess: another
+    # test in the same suite may already have imported cuga, which would leave it in this
+    # process's sys.modules and make an in-process check order-dependent (fails in full-suite
+    # runs, passes alone).
+    import subprocess
     import sys
+    from pathlib import Path
 
-    import benchmarks.tau2.eval_tau2_sdk  # noqa: F401
-
-    assert "cuga" not in sys.modules, "entrypoint import must not import cuga before the driver runs"
+    repo_root = Path(__file__).resolve().parents[3]
+    code = "import benchmarks.tau2.eval_tau2_sdk, sys; assert 'cuga' not in sys.modules"
+    result = subprocess.run(  # noqa: S603 — fixed code string + sys.executable, no untrusted input
+        [sys.executable, "-c", code], cwd=repo_root, capture_output=True, text=True
+    )
+    assert result.returncode == 0, (
+        "entrypoint import must not import cuga before the driver runs\n" + result.stderr
+    )

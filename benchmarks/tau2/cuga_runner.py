@@ -14,7 +14,13 @@ from __future__ import annotations
 import asyncio
 import gc
 import threading
+import uuid
 from typing import Any, Optional
+
+# Unique per process (i.e. per eval.sh invocation). Mixed into the Langfuse trace-id seed so
+# repeated runs of the same task — e.g. compare.sh --runs N, which launches one eval.sh
+# process per run — get DISTINCT trace ids instead of colliding on a deterministic seed.
+_RUN_TOKEN = uuid.uuid4().hex[:8]
 
 
 def _patch_tau2_nl_assertion_model(model: str, llm_args_user: Optional[dict]) -> None:
@@ -63,7 +69,7 @@ def _maybe_setup_langfuse(domain: str, task: Any, thread_id: str) -> tuple[Optio
         from langfuse import get_client
 
         langfuse = get_client()
-        trace_id = langfuse.create_trace_id(seed=f"tau2_{domain}_{task.id}")
+        trace_id = langfuse.create_trace_id(seed=f"tau2_{domain}_{task.id}_{_RUN_TOKEN}")
         lf_config = build_langfuse_invoke_config(trace_id, thread_id)
         if not lf_config:  # handler couldn't be built
             return None, None, None

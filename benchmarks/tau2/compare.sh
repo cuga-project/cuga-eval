@@ -117,6 +117,10 @@ total_runs=0
 # Collect result files grouped by config label (bash 3 compat).
 CONFIG_RESULT_KEYS=()
 CONFIG_RESULT_VALS=()
+# Per-run console-log paths. eval.sh writes a unique console log per invocation; we pin a
+# known path via TAU2_CONSOLE_LOG for each run and collect them for the comparison bundle
+# (otherwise the bundle would reference eval.sh's timestamped path, which we can't predict).
+CONSOLE_LOGS=()
 
 for config in "${CONFIGS[@]}"; do
     IFS=':' read -r model agent <<< "$config"
@@ -144,7 +148,11 @@ for config in "${CONFIGS[@]}"; do
     for ((r=1; r<=RUNS; r++)); do
         total_runs=$((total_runs+1))
         echo -e "${CYAN:-}[${config}]${NC:-} Run ${GREEN:-}${r}/${RUNS}${NC:-}"
-        if "$SCRIPT_DIR/eval.sh" --model-profile "$model" --agent "$agent" "${eval_args[@]}" "${FORWARDED_ARGS[@]}"; then
+        # Pin this run's console log to a known path so we can bundle it (eval.sh honours
+        # TAU2_CONSOLE_LOG; without this it picks an unpredictable timestamped name).
+        run_console_log="/tmp/tau2_compare_$$_run${total_runs}.log"
+        CONSOLE_LOGS+=("$run_console_log")
+        if TAU2_CONSOLE_LOG="$run_console_log" "$SCRIPT_DIR/eval.sh" --model-profile "$model" --agent "$agent" "${eval_args[@]}" "${FORWARDED_ARGS[@]}"; then
             echo -e "${GREEN:-}✓${NC:-} Run ${r} complete"
         else
             echo -e "${RED:-}✗ Run ${r} failed${NC:-}"
@@ -217,7 +225,17 @@ if [[ "${NO_BUNDLE:-false}" != "true" && "$JSON_INPUT" != "{}" ]]; then
     if [[ -n "$MODEL_ENVS_JSON" ]]; then
         BUNDLE_CMD+=(--model-envs "$MODEL_ENVS_JSON")
     fi
-    LOG_JSON="{\"shared\":[\"/tmp/tau2_console.log\"]}"
+    # Build the shared-log list from the console logs we actually pinned per run (only the
+    # ones that exist), instead of a single hardcoded path eval.sh no longer writes.
+    logs_json=""
+    lfirst=true
+    for lg in "${CONSOLE_LOGS[@]}"; do
+        [[ -f "$lg" ]] || continue
+        [[ "$lfirst" != "true" ]] && logs_json+=","
+        lfirst=false
+        logs_json+="\"${lg}\""
+    done
+    LOG_JSON="{\"shared\":[${logs_json}]}"
     BUNDLE_CMD+=(--log-files "$LOG_JSON")
     BUNDLE_CMD+=(--fetch-langfuse)
     if [[ "${BUNDLE_ZIP:-false}" == "true" ]]; then
