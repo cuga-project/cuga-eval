@@ -47,6 +47,8 @@ def test_run_emits_results_json(monkeypatch, tmp_path):
         max_steps=5,
         max_workers=1,
         run_id="testrun",
+        agent="cuga",
+        agent_model=None,
     )
     results = sdk.run(args)
 

@@ -121,6 +121,14 @@ def _parse_args(argv=None) -> argparse.Namespace:
     ap.add_argument("--max-steps", type=int, default=50)
     ap.add_argument("--max-workers", type=int, default=1)
     ap.add_argument("--run-id", default=None)
+    # Which agent solves the tasks. `cuga` is driven through the bridge (the CUGA proxy);
+    # `llm_agent` is τ²'s own native tool-calling agent, run in-process with no bridge — a
+    # baseline for "does CUGA's scaffold beat a vanilla tool-calling loop on the same model?".
+    ap.add_argument("--agent", default="cuga", choices=["cuga", "llm_agent"])
+    # Model for the τ² native agent (llm_agent only). Defaults to the user-sim model, which is
+    # guaranteed gateway-reachable and gives a same-model comparison; override to pin a model
+    # (or set TAU2_AGENT_MODEL). Ignored for --agent cuga (which reads MODEL_NAME from env).
+    ap.add_argument("--agent-model", dest="agent_model", default=os.getenv("TAU2_AGENT_MODEL"))
     add_log_level_args(ap)  # --verbose / --quiet, same as the other entrypoints
     args = ap.parse_args(argv)
     apply_log_level(args)
@@ -145,8 +153,18 @@ def run(args: argparse.Namespace) -> list[dict]:
 
     run_ts = args.run_id or datetime.now().strftime("%Y%m%d_%H%M%S")
     llm_args_user = _user_sim_llm_args(args.user_sim_model)
-    # CUGA's own LLM (recorded alongside the user-sim model — see _result_dict/§11.5).
-    agent_model = os.getenv("MODEL_NAME") or "unknown"
+    # Resolve the agent's model + creds (recorded alongside the user-sim model — see
+    # _result_dict/§11.5). The two agents source their model differently:
+    #   cuga      — CUGA reads its own model from env (MODEL_NAME); no llm_args needed here.
+    #   llm_agent — τ² calls the model directly, so it needs a gateway-routable string + creds.
+    #               Default to the user-sim model (reachable + same-model comparison); select
+    #               creds by provider prefix, exactly like the user simulator.
+    if args.agent == "cuga":
+        agent_model = os.getenv("MODEL_NAME") or "unknown"
+        agent_llm_args: dict = {}
+    else:
+        agent_model = args.agent_model or args.user_sim_model
+        agent_llm_args = _user_sim_llm_args(agent_model)
 
     # When explicit --task ids are given, run all of them: the --num-tasks default (1) must
     # NOT silently truncate an explicit id list (get_tasks applies num_tasks as a cap even
@@ -159,8 +177,8 @@ def run(args: argparse.Namespace) -> list[dict]:
     tracker = ActivityTracker()
     tracker.start_experiment(
         task_ids=[t.id for t in tasks],
-        experiment_name=f"tau2_{args.subset}",
-        description=f"tau2 {args.subset} evaluation",
+        experiment_name=f"tau2_{args.subset}_{args.agent}",
+        description=f"tau2 {args.subset} evaluation (agent: {args.agent})",
     )
 
     # Incremental, crash-safe persistence via the shared helper (same mechanism the other
@@ -189,6 +207,9 @@ def run(args: argparse.Namespace) -> list[dict]:
                     args.subset,
                     task,
                     args.user_sim_model,
+                    agent=args.agent,
+                    agent_model=agent_model,
+                    agent_llm_args=agent_llm_args,
                     llm_args_user=llm_args_user,
                     max_steps=args.max_steps,
                     out=extra,
@@ -230,7 +251,10 @@ def run(args: argparse.Namespace) -> list[dict]:
     # tau2-shaped summary. (The shared print_evaluation_summary is bpo-specific — it hard-reads
     # `match_rate`, which tau2 results don't have; compare_report prints the full report at bundle.)
     passed = sum(1 for r in results if r["success"])
-    print(f"\nPass@1: {passed}/{len(results)}  (agent: {agent_model}, user-sim: {args.user_sim_model})")
+    print(
+        f"\nPass@1: {passed}/{len(results)}  "
+        f"(agent: {args.agent}/{agent_model}, user-sim: {args.user_sim_model})"
+    )
     print(f"Saved results -> {saved}")
     return results
 

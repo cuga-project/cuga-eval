@@ -13,6 +13,7 @@
 #   ./eval.sh --subset airline --num-tasks 5              # 5 airline tasks
 #   ./eval.sh --subset retail --task 0 3                  # specific task ids (retail ids are 0,1,2,…)
 #   ./eval.sh --user-simulator-model watsonx/meta-llama/... --verbose
+#   ./eval.sh --subset retail --agent llm_agent --num-tasks 5   # τ² native baseline (no bridge)
 #
 # Options:
 #   --subset <name>              mock | airline | retail | telecom (default: mock)
@@ -24,7 +25,14 @@
 #   --no-bundle                  skip reproducibility bundle creation
 #   --bundle-zip                 create zip archive of bundle
 #   --model-profile <name>       model profile (for bundle metadata)
-#   --agent <name>               agent to run (cuga; default: cuga)
+#   --agent <name>               cuga (default) | llm_agent — which agent solves the tasks.
+#                                cuga runs through the bridge; llm_agent is τ²'s own native
+#                                tool-calling baseline (runs in-process, no bridge). See the
+#                                "Choosing the agent" section of README.md.
+#   --agent-model M              model for the τ² native agent (llm_agent only). Defaults to
+#                                the user-simulator model so both hit the same gateway; set
+#                                explicitly (or via TAU2_AGENT_MODEL) to compare CUGA vs the
+#                                baseline on the SAME model. Ignored for --agent cuga.
 #   --verbose, -v / --quiet, -q  logging level
 #
 # Environment variables:
@@ -108,13 +116,16 @@ while [[ $# -gt 0 ]]; do
             echo "  --no-bundle                Skip reproducibility bundle creation"
             echo "  --bundle-zip               Create zip archive of bundle"
             echo "  --model-profile <name>     Model profile (for bundle metadata)"
-            echo "  --agent <name>             Agent to run (cuga; default: cuga)"
+            echo "  --agent <name>             cuga (default) | llm_agent — cuga runs via the bridge;"
+            echo "                             llm_agent is τ²'s native baseline (in-process, no bridge)"
+            echo "  --agent-model M            Model for the llm_agent baseline (default: user-sim model)"
             echo "  --verbose, -v / --quiet, -q  Logging level"
             echo ""
             echo "Examples:"
             echo "  ./eval.sh                                        # default: mock subset, 1 task"
             echo "  ./eval.sh --subset airline --num-tasks 5         # 5 airline tasks"
             echo "  ./eval.sh --subset retail --task 0 3             # specific task ids (retail ids are 0,1,2,…)"
+            echo "  ./eval.sh --subset retail --agent llm_agent --num-tasks 5   # τ² native baseline"
             exit 0
             ;;
         *)
@@ -124,9 +135,11 @@ while [[ $# -gt 0 ]]; do
     esac
 done
 
-# Only CUGA is supported on τ² today (the proxy agent is CUGA-specific).
-if [ -n "${AGENT:-}" ] && [ "$AGENT" != "cuga" ]; then
-    echo -e "${RED:-}Error: --agent '$AGENT' is not supported by the tau2 benchmark (only 'cuga').${NC:-}"
+# Two agents are supported: `cuga` (driven through the bridge — the CUGA-specific proxy) and
+# `llm_agent` (τ²'s own native tool-calling agent, run in-process with no bridge, as a baseline).
+AGENT="${AGENT:-cuga}"
+if [ "$AGENT" != "cuga" ] && [ "$AGENT" != "llm_agent" ]; then
+    echo -e "${RED:-}Error: --agent '$AGENT' is not supported (use 'cuga' or 'llm_agent').${NC:-}"
     exit 2
 fi
 
@@ -145,7 +158,7 @@ echo ""
 # handler), τ² has no servers and thus no trap — so drop out of `set -e` here to
 # capture the eval's exit code and still run the bundle / error branches below.
 set +e
-uv run python -m benchmarks.tau2.eval_tau2_sdk --max-workers 1 "${PASSTHROUGH_ARGS[@]}"
+uv run python -m benchmarks.tau2.eval_tau2_sdk --max-workers 1 --agent "$AGENT" "${PASSTHROUGH_ARGS[@]}"
 EVAL_EXIT_CODE=$?
 set -e
 

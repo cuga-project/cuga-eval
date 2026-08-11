@@ -255,6 +255,9 @@ def _run_one_task(
     task: Any,
     user_sim_model: str,
     *,
+    agent: str = "cuga",
+    agent_model: Optional[str] = None,
+    agent_llm_args: Optional[dict] = None,
     llm_args_user: Optional[dict] = None,
     agent_model_placeholder: str = "gpt-4.1",
     max_steps: int = 100,
@@ -262,16 +265,35 @@ def _run_one_task(
     join_timeout: float = 120.0,
     out: Optional[dict] = None,
 ) -> Optional[float]:
-    """Run one tau2 task end-to-end through CUGA + the bridge; return the reward in [0,1].
+    """Run one tau2 task end-to-end; return the reward in [0,1].
 
-    tau2's run_single_task drives the conversation (background thread); run_cuga_loop
-    responds (main thread). When tau2 finishes, the thread closes the bridge to unblock
-    the CUGA loop.
+    `agent` selects HOW the task is solved:
+      - "cuga" (default): CUGA drives via the bridge — tau2's run_single_task runs the
+        conversation on a background thread while run_cuga_loop responds on the main thread;
+        when tau2 finishes, the thread closes the bridge to unblock the CUGA loop.
+      - anything else (e.g. "llm_agent"): τ²'s own native agent solves the task in-process,
+        with NO bridge/proxy/thread — see _run_one_task_native. `agent_model` / `agent_llm_args`
+        give that agent its model + gateway creds.
 
-    `out`, if given, is populated with side outputs the caller needs in the results JSON —
-    currently `out["trace_id"]` (the Langfuse trace id, or None). Kept as an out-param so
-    the return value stays the plain reward.
+    `out`, if given, is populated with side outputs the caller needs in the results JSON
+    (`trace_id`, `nl_judge_model`, `reward_info`, `messages`). Kept as an out-param so the
+    return value stays the plain reward.
     """
+    # τ² native agents need no bridge — dispatch to the in-process path and return early.
+    if agent != "cuga":
+        return _run_one_task_native(
+            domain,
+            task,
+            agent=agent,
+            agent_model=agent_model,
+            agent_llm_args=agent_llm_args,
+            user_sim_model=user_sim_model,
+            llm_args_user=llm_args_user,
+            max_steps=max_steps,
+            thread_id=thread_id,
+            out=out,
+        )
+
     # Unique CUGA thread_id per task so its conversation memory never leaks between tasks.
     if thread_id is None:
         thread_id = f"tau2-{domain}-{task.id}"
@@ -372,17 +394,100 @@ def _run_one_task(
     if cuga_error is not None and sim is None and "error" not in result:
         raise cuga_error
 
-    reward = None
-    if sim and sim.reward_info:
-        reward = sim.reward_info.reward
-        if out is not None:
-            # τ²'s per-check breakdown — the authoritative "why" behind the score.
-            out["reward_info"] = _reward_info_summary(sim.reward_info)
-            # The full customer ↔ CUGA ↔ tool dialogue, as τ² saw it (the transcript that
-            # Langfuse/trajectory don't capture on τ²'s side).
-            out["messages"] = _messages_summary(sim)
+    reward = _sim_reward(sim)
+    _populate_sim_outputs(sim, out)
 
     # Push the τ² env-state reward onto the task's trace, then flush (short-lived process).
+    _maybe_score_and_flush(trace_id, langfuse, domain, task, reward)
+
+    if "error" in result:
+        raise result["error"]
+    return reward
+
+
+def _sim_reward(sim: Any) -> Optional[float]:
+    """The scalar reward from a τ² SimulationRun, or None if it never scored."""
+    return sim.reward_info.reward if sim and sim.reward_info else None
+
+
+def _populate_sim_outputs(sim: Any, out: Optional[dict]) -> None:
+    """Copy τ²'s per-check breakdown + full transcript into `out` (best-effort, shared by
+    both the CUGA and native-agent paths so the results JSON has the same shape either way).
+
+    - reward_info: τ²'s per-check breakdown — the authoritative "why" behind the score.
+    - messages: the full customer ↔ agent ↔ tool dialogue as τ² saw it (the transcript that
+      Langfuse/trajectory don't capture on τ²'s side).
+    """
+    if out is None or not sim or not sim.reward_info:
+        return
+    out["reward_info"] = _reward_info_summary(sim.reward_info)
+    out["messages"] = _messages_summary(sim)
+
+
+def _run_one_task_native(
+    domain: str,
+    task: Any,
+    *,
+    agent: str,
+    agent_model: Optional[str],
+    agent_llm_args: Optional[dict],
+    user_sim_model: str,
+    llm_args_user: Optional[dict],
+    max_steps: int,
+    thread_id: Optional[str],
+    out: Optional[dict],
+) -> Optional[float]:
+    """Run one task with a τ²-NATIVE agent (e.g. "llm_agent"), in-process, no bridge.
+
+    This is the baseline path: τ²'s own agent already lives in τ²'s registry, and
+    run_single_task dispatches `cfg.agent` to it and runs the whole conversation itself — so
+    unlike the CUGA path there is no bridge, no decoys, no proxy thread. We only build the
+    run config, hand τ² the agent's model + gateway creds, and read the reward back.
+
+    Notes:
+    - The NL-assertion judge patch still applies: it's about SCORING reachability (τ²'s
+      hardcoded judge model), independent of which agent produced the transcript.
+    - Langfuse: we still mint a trace id and push the reward score onto it (so the bundle's
+      --fetch-langfuse has an id + score). Per-LLM spans do NOT nest here — τ²'s native agent
+      calls the model through its own `generate()`, not through the langchain handler CUGA
+      uses — so the trace is score-only for this path. That's expected for the baseline.
+    """
+    if thread_id is None:
+        thread_id = f"tau2-{domain}-{task.id}"
+
+    from tau2.data_model.simulation import TextRunConfig
+    from tau2.runner.batch import run_single_task
+
+    # Scoring reachability — same reason as the CUGA path (see _patch_tau2_nl_assertion_model).
+    nl_judge_model = _patch_tau2_nl_assertion_model(user_sim_model, llm_args_user)
+    if out is not None:
+        out["nl_judge_model"] = nl_judge_model
+
+    lf_config, trace_id, langfuse = _maybe_setup_langfuse(domain, task, thread_id)
+    if out is not None:
+        out["trace_id"] = trace_id
+
+    cfg = TextRunConfig(
+        domain=domain,
+        agent=agent,  # τ²-native agent name (registered by τ²'s own registry, e.g. "llm_agent")
+        user="user_simulator",
+        llm_agent=agent_model,
+        llm_args_agent=agent_llm_args or {},
+        llm_user=user_sim_model,
+        llm_args_user=llm_args_user or {},
+        max_steps=max_steps,
+    )
+
+    # τ² runs its own agent + user sim + env end-to-end on this thread and scores the result.
+    result: dict = {}
+    try:
+        sim = run_single_task(cfg, task)
+    except Exception as e:  # noqa: BLE001 — record the failure the same way the caller expects
+        result["error"] = e
+        sim = None
+
+    reward = _sim_reward(sim)
+    _populate_sim_outputs(sim, out)
     _maybe_score_and_flush(trace_id, langfuse, domain, task, reward)
 
     if "error" in result:
