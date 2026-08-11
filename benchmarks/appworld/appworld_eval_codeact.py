@@ -35,7 +35,6 @@ from dataclasses import dataclass
 from datetime import datetime
 from typing import Any, Optional
 
-import httpx
 from appworld import AppWorld, load_task_ids  # pyright: ignore[reportAttributeAccessIssue]
 from cuga.backend.activity_tracker.tracker import ActivityTracker, Step
 from cuga.backend.cuga_graph.state.agent_state import VariablesManager
@@ -50,6 +49,7 @@ from utils.appworld_utils import (
     get_specific_task_levels,
     get_task_difficulty,
 )
+from utils.registry_auth import authenticate_apps
 
 from benchmarks.helpers.content_filter import log_content_filter_failure
 from benchmarks.helpers.sdk_eval_helpers import (
@@ -232,35 +232,6 @@ def _extract_completion_answer(code: str) -> str:
     return ""
 
 
-def _get_registry_base_url() -> str:
-    registry_port = os.getenv("DYNACONF_SERVER_PORTS__REGISTRY")
-    if registry_port:
-        return f"http://localhost:{registry_port}"
-
-    server_ports = getattr(settings, "server_ports", None)
-    for attr_name in ("registry", "registry_url", "registry_port"):
-        port = getattr(server_ports, attr_name, None) if server_ports else None
-        if port:
-            return f"http://localhost:{port}"
-
-    return "http://localhost:8001"
-
-
-async def _authenticate_apps(app_names: list[str]) -> dict[str, Any]:
-    payload = {"apps": app_names}
-    async with httpx.AsyncClient() as client:
-        response = await client.post(
-            f"{_get_registry_base_url()}/api/authenticate_apps",
-            json=payload,
-            timeout=15.0,
-        )
-        response.raise_for_status()
-        try:
-            return response.json()
-        except Exception:
-            return {"status_code": response.status_code, "text": response.text[:500]}
-
-
 async def run_agent_on_task(
     task_id: str,
     experiment_name: str = "api_codeact_agent",
@@ -287,7 +258,10 @@ async def run_agent_on_task(
         logger.info(f"Running task: {task_id}")
         logger.info(f"Task instruction: {world.task.instruction}")
 
-        react_agent, _ = await setup_react_agent_for_evaluation()
+        # require_tools: AppWorld cannot run toolless — 0 tools means the registry
+        # failed to reach the app API server at startup; abort instead of burning
+        # the whole run (issue #148).
+        react_agent, _ = await setup_react_agent_for_evaluation(require_tools=True)
         if config:
             react_agent.max_steps = config.max_steps
 
@@ -302,7 +276,7 @@ async def run_agent_on_task(
 
         app_names = sorted(world.task.app_descriptions.keys())
         try:
-            auth_result = await _authenticate_apps(app_names)
+            auth_result = await authenticate_apps(app_names)
             logger.info(f"[APPWORLD-CODEACT] Registry authenticate_apps result: {auth_result}")
         except Exception as auth_exc:
             logger.warning(f"[APPWORLD-CODEACT] authenticate_apps failed before task run: {auth_exc}")

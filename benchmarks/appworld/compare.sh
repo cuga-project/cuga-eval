@@ -33,6 +33,9 @@ export DYNACONF_SERVER_PORTS__REGISTRY="$REGISTRY_PORT"
 APPWORLD_ENV_PORT="${APPWORLD_ENV_PORT:-${DYNACONF_SERVER_PORTS__ENVIRONMENT_URL:-8000}}"
 export APPWORLD_ENV_PORT
 export DYNACONF_SERVER_PORTS__ENVIRONMENT_URL="$APPWORLD_ENV_PORT"
+APPWORLD_APIS_PORT="${APPWORLD_APIS_PORT:-${DYNACONF_SERVER_PORTS__APIS_URL:-9111}}"
+export APPWORLD_APIS_PORT
+export DYNACONF_SERVER_PORTS__APIS_URL="$APPWORLD_APIS_PORT"
 
 # Defaults
 RUNS="${RUNS:-1}"
@@ -188,7 +191,11 @@ fi
 
 compare_cleanup() {
     echo -e "${YELLOW:-}Stopping servers...${NC:-}"
-    kill_port_processes "$APPWORLD_ENV_PORT" "$REGISTRY_PORT"
+    # APPWORLD_APIS_PORT included: eval.sh's own cleanup is suppressed here via
+    # SKIP_SERVER_CLEANUP (servers are reused across runs on purpose), so this
+    # trap is the only thing that reaps the API server — without it every
+    # compare run left `appworld serve apis` listening on 9111 (#148).
+    kill_port_processes "$APPWORLD_ENV_PORT" "$APPWORLD_APIS_PORT" "$REGISTRY_PORT"
 }
 trap compare_cleanup EXIT INT TERM
 

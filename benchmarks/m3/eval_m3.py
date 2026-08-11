@@ -94,6 +94,14 @@ from benchmarks.helpers.sdk_eval_helpers import (
     clear_all_policies,
     is_langfuse_tracing_enabled,
 )
+from benchmarks.m3.container_health import (
+    EnvironmentFailureError,
+    EnvironmentFailureStreakTracker,
+    health_check_or_abort,
+    record_streak_or_abort,
+    render_environment_failure_banner,
+    resume_hint_for,
+)
 from benchmarks.m3.eval_config_loader import filter_samples_by_eval_key, load_eval_key_ids
 from benchmarks.m3.m3_data_loader import M3DataLoader, diff_tool_calls
 
@@ -767,6 +775,21 @@ class M3Evaluator:
         self.agent: Optional[CugaAgent] = None
         self.langfuse_enabled = None
         self.results: List[Dict[str, Any]] = []
+        # Per-domain sample-level environment-failure streak. Fresh per
+        # M3Evaluator instance, so it naturally resets each domain — this is
+        # what catches a container dying mid-domain, independent of how many
+        # domains or samples are configured (a single domain can hold 100+
+        # samples and run for hours; per-domain-only detection would
+        # otherwise grind through all of them before noticing).
+        #
+        # Deliberately a separate knob from the domain-level tracker in
+        # run_config_mode (M3_ENV_FAIL_DOMAIN_STREAK): "N bad samples in a
+        # row" and "N bad domains in a row" are very different sensitivities,
+        # and sharing one env var made the two easy to misconfigure or
+        # reason about incorrectly.
+        self._env_fail_streak = EnvironmentFailureStreakTracker(
+            threshold=_env_int("M3_ENV_FAIL_SAMPLE_STREAK", 3, min_value=1)
+        )
 
     def _resume_skip(self, identity: str) -> bool:
         """True if `identity` (optionally scoped to self.domain) is already done."""
@@ -1039,6 +1062,14 @@ class M3Evaluator:
                 result = await self.evaluate_multiturn_task(sample, sample_index=i)
                 self.results.append(result)
 
+                if self._env_fail_streak.record([result]):
+                    reason = (
+                        f"{self._env_fail_streak.threshold} consecutive samples in domain "
+                        f"'{self.domain}' failed with environment-shaped errors (last: {identity})"
+                    )
+                    print(render_environment_failure_banner(reason, resume_hint_for(self.bundle_dir)))
+                    raise EnvironmentFailureError(reason)
+
                 # Small delay to avoid rate limiting between samples
                 if i < len(samples):
                     await asyncio.sleep(0.5)
@@ -1094,6 +1125,14 @@ class M3Evaluator:
                 logger.info(f"\n[{i}/{len(test_cases)}] Processing task...")
                 result = await self.evaluate_task(task, task_index=i)
                 self.results.append(result)
+
+                if self._env_fail_streak.record([result]):
+                    reason = (
+                        f"{self._env_fail_streak.threshold} consecutive tasks in domain "
+                        f"'{self.domain}' failed with environment-shaped errors (last: {identity})"
+                    )
+                    print(render_environment_failure_banner(reason, resume_hint_for(self.bundle_dir)))
+                    raise EnvironmentFailureError(reason)
 
                 # Small delay to avoid rate limiting between tasks
                 if i < len(test_cases):
@@ -1723,6 +1762,12 @@ async def evaluate_single_task(
                         "(check API_KEY and Vakra failure warnings above)."
                     )
 
+        except EnvironmentFailureError:
+            # Must not be swallowed here — this is what actually aborts the
+            # run when a docker container dies mid-domain (a single domain
+            # can hold 100+ samples and run for hours; per-domain-only
+            # detection would otherwise grind through all of them).
+            raise
         except Exception as e:
             logger.error(f"❌ [{service_name}] Failed to evaluate domain '{domain}': {e}")
             import traceback
@@ -2084,10 +2129,26 @@ async def start_registry_server(
                         await asyncio.sleep(poll_interval)
 
                     if not all_ready:
-                        logger.warning(
-                            f"⚠️  Registry warmup timeout after {max_warmup_time}s. "
-                            "Some MCP servers may not be fully ready. Proceeding anyway..."
+                        # Zero applications registered in the FULL warmup window
+                        # (not "some missing" — all_ready only ever becomes True
+                        # once len(apps) > 0, so this means literally none did).
+                        # That's not "still starting up", it's the docker
+                        # environment being broken (dead/unreachable container,
+                        # or a wedged app inside a container that otherwise
+                        # looks "running"). Previously this just warned and
+                        # proceeded, letting the run grind through every task
+                        # against a registry with nothing behind it.
+                        reason = (
+                            f"registry warmup timed out after {max_warmup_time}s with 0 MCP "
+                            f"server(s) registered (expected: {expected_apps or 'unspecified'})"
                         )
+                        print(
+                            render_environment_failure_banner(
+                                reason, "fix the docker environment, then resume this run"
+                            )
+                        )
+                        await stop_registry_server(process)
+                        raise EnvironmentFailureError(reason)
 
                     break
                 else:
@@ -2461,9 +2522,22 @@ async def evaluate_tasks_in_batches(task_evaluations: List[tuple], batch_size: i
         # Run tasks in this batch in parallel
         batch_results = await asyncio.gather(*[coro for _, coro in batch], return_exceptions=True)
 
-        # Process results
+        # Process results. An EnvironmentFailureError is NOT just another
+        # per-task failure: gather(return_exceptions=True) would otherwise
+        # let it fall into the generic branch below, get logged as
+        # "❌ Task X failed", and be silently downgraded to an ordinary task
+        # failure — exactly the environment-noise-scored-as-failure outcome
+        # this whole module exists to prevent, and worse, in a way that
+        # drops any results already extended below for this batch without
+        # ever aborting the run. Collect it, still extend every other task's
+        # results in this batch, then abort with the same banner + exit-3
+        # behavior sequential mode gets.
+        env_failure: Optional[EnvironmentFailureError] = None
         for (service_name, _), task_results in zip(batch, batch_results):
-            if isinstance(task_results, Exception):
+            if isinstance(task_results, EnvironmentFailureError):
+                logger.error(f"❌ Task {service_name} hit an environment failure: {task_results}")
+                env_failure = env_failure or task_results
+            elif isinstance(task_results, Exception):
                 logger.error(f"❌ Task {service_name} failed: {task_results}")
                 import traceback
 
@@ -2471,6 +2545,15 @@ async def evaluate_tasks_in_batches(task_evaluations: List[tuple], batch_size: i
             elif isinstance(task_results, list):
                 all_results.extend(task_results)
                 logger.info(f"✅ Task {service_name}: {len(task_results)} results")
+
+        if env_failure is not None:
+            bundle_dir = Path(args.bundle_dir) if getattr(args, "bundle_dir", None) else None
+            print(render_environment_failure_banner(str(env_failure), resume_hint_for(bundle_dir)))
+            # Attach whatever this batch collected so a caller that wants to
+            # keep the work already done (rather than rely solely on
+            # bundle_dir's incremental per-domain persistence) still can.
+            env_failure.partial_results = list(all_results)
+            raise env_failure
 
         # Cleanup between batches (except for last batch)
         if batch_num < num_batches - 1:
@@ -2574,6 +2657,35 @@ def _finalize_and_save_results(
     ground_truth_path = evaluator_temp._save_ground_truth_format(output_dir)
     logger.info(f"Ground truth format saved to: {ground_truth_path}")
     return saved_path
+
+
+def _env_float(name: str, default: float) -> float:
+    """Parse a float env var, falling back to `default` (with a warning) if unset or malformed."""
+    raw = os.environ.get(name)
+    if raw is None:
+        return default
+    try:
+        return float(raw)
+    except ValueError:
+        logger.warning(f"{name}={raw!r} is not a valid number; using default {default}")
+        return default
+
+
+def _env_int(name: str, default: int, min_value: Optional[int] = None) -> int:
+    """Parse an int env var, falling back to `default` (with a warning) if unset,
+    malformed, or below `min_value`."""
+    raw = os.environ.get(name)
+    if raw is None:
+        return default
+    try:
+        value = int(raw)
+    except ValueError:
+        logger.warning(f"{name}={raw!r} is not a valid integer; using default {default}")
+        return default
+    if min_value is not None and value < min_value:
+        logger.warning(f"{name}={raw!r} is below the minimum of {min_value}; using default {default}")
+        return default
+    return value
 
 
 async def run_config_mode(args, container_runtime: str, defer_save: bool = False):
@@ -2940,6 +3052,19 @@ async def run_config_mode(args, container_runtime: str, defer_save: bool = False
             )
             logger.info(f"{'=' * 80}\n")
 
+            # Detect a broken docker environment (dead/wedged capability
+            # container) instead of silently grinding through it. See
+            # benchmarks/m3/container_health.py.
+            env_health_check_enabled = os.environ.get("M3_ENV_HEALTH_CHECK", "true").lower() != "false"
+            env_health_timeout = _env_float("M3_ENV_HEALTH_TIMEOUT", 5.0)
+            # Domain-level streak — deliberately a separate knob from the
+            # sample-level tracker in M3Evaluator.__init__
+            # (M3_ENV_FAIL_SAMPLE_STREAK); see the comment there.
+            env_fail_streak = EnvironmentFailureStreakTracker(
+                threshold=_env_int("M3_ENV_FAIL_DOMAIN_STREAK", 3, min_value=1)
+            )
+            env_resume_hint = resume_hint_for(bundle_dir)
+
             # In sequential mode we ignore the pre-built coroutines and
             # iterate `services` directly, because each service needs its
             # own one-service registry started *before* evaluate_single_task
@@ -2954,6 +3079,11 @@ async def run_config_mode(args, container_runtime: str, defer_save: bool = False
                 container = metadata.get("container")
                 domains = metadata.get("domains", [])
                 task_multiturn = metadata.get("multiturn", None)
+
+                if env_health_check_enabled and container:
+                    health_check_or_abort(
+                        container, container_runtime, env_resume_hint, timeout=env_health_timeout
+                    )
 
                 mini_yaml = None
                 svc_registry = None
@@ -2983,6 +3113,13 @@ async def run_config_mode(args, container_runtime: str, defer_save: bool = False
                     if isinstance(task_results, list):
                         all_results.extend(task_results)
                         logger.info(f"✅ Task {service_name}: {len(task_results)} results")
+                        record_streak_or_abort(
+                            env_fail_streak, service_name, container, task_results, env_resume_hint
+                        )
+                except EnvironmentFailureError:
+                    # Must not be swallowed by the generic handler below —
+                    # this is what actually aborts the run.
+                    raise
                 except Exception as e:
                     import traceback
 
@@ -3280,5 +3417,19 @@ Examples:
 # Removed run_direct_mode() function - now using registry mode only
 
 
+def _run_main() -> int:
+    """Run main(); translate EnvironmentFailureError into exit code 3.
+
+    Exit codes: 0 success, 1 generic error (existing sys.exit(1) guards
+    above), 2 CLI arg errors (eval.sh), 3 M3 docker environment failure.
+    """
+    try:
+        asyncio.run(main())
+        return 0
+    except EnvironmentFailureError as env_err:
+        logger.error(f"Exiting with code 3 due to environment failure: {env_err}")
+        return 3
+
+
 if __name__ == "__main__":
-    asyncio.run(main())
+    sys.exit(_run_main())
