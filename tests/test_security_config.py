@@ -86,9 +86,19 @@ def _dependency_specifier(name: str) -> str:
 
 
 def _sole_bound(specifier: str, operator: str) -> tuple[str, tuple[int, ...]]:
-    """Return the one `operator` clause in `specifier`, as (raw, version tuple)."""
-    found = re.findall(rf"{re.escape(operator)}\s*([\d.]+)", specifier)
-    assert len(found) == 1, f"expected exactly one `{operator}` clause for docling, got {specifier!r}"
+    """Return the one `operator` clause in `specifier`, as (raw, version tuple).
+
+    The version must be a plain dotted release running to a clause boundary. A
+    looser `[\\d.]+` silently truncates PEP 440 suffixes — `>=2.94rc1` would read
+    as `2.94` and pass the floor check while allowing a pre-release that predates
+    the fix — and mangles dotted ones into a trailing dot that dies in `int()`.
+    Requiring the whole token turns both into this assertion instead.
+    """
+    found = re.findall(rf"{re.escape(operator)}\s*(\d+(?:\.\d+)*)(?=\s*(?:[,;]|$))", specifier)
+    assert len(found) == 1, (
+        f"expected exactly one `{operator}` clause with a plain release version for "
+        f"docling, got {specifier!r} — pre/post/dev suffixes are not handled here"
+    )
     return found[0], tuple(int(part) for part in found[0].split("."))
 
 
