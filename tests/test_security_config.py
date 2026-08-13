@@ -85,24 +85,38 @@ def _dependency_specifier(name: str) -> str:
     raise AssertionError(f"{name} is not declared in project.dependencies")
 
 
+def _sole_bound(specifier: str, operator: str) -> tuple[str, tuple[int, ...]]:
+    """Return the one `operator` clause in `specifier`, as (raw, version tuple)."""
+    found = re.findall(rf"{re.escape(operator)}\s*([\d.]+)", specifier)
+    assert len(found) == 1, f"expected exactly one `{operator}` clause for docling, got {specifier!r}"
+    return found[0], tuple(int(part) for part in found[0].split("."))
+
+
 def test_docling_floor_keeps_cve_fix() -> None:
     """CVE-2026-47214 is fixed in docling 2.94.0, and its pip-audit ignore was
     dropped on that basis, so the floor must not regress below it."""
-    specifier = _dependency_specifier("docling")
-    floors = re.findall(r">=\s*([\d.]+)", specifier)
-    assert len(floors) == 1, f"expected exactly one `>=` floor for docling, got {specifier!r}"
-    floor = tuple(int(part) for part in floors[0].split("."))
+    raw, floor = _sole_bound(_dependency_specifier("docling"), ">=")
     assert floor >= DOCLING_CVE_FIX_FLOOR, (
-        f"docling floor {floors[0]} is below 2.94, where CVE-2026-47214 is fixed — "
+        f"docling floor {raw} is below 2.94, where CVE-2026-47214 is fixed — "
         "lowering it means restoring `--ignore-vuln CVE-2026-47214` in justfile and ci.yml"
     )
 
 
-def test_docling_is_bounded_above() -> None:
+def test_docling_is_bounded_at_the_next_major() -> None:
     """CI runs `uv sync --group dev` (not `--locked`) against cuga-agent @ main, so
     any sibling metadata change re-resolves and uv.lock does not backstop the floor.
-    An upper bound is what stops the next docling repackaging landing unreviewed."""
+    An upper bound is what stops the next docling repackaging landing unreviewed.
+
+    The bound has to actually bite: `<999` is no gate at all, and `<4` on a 2.x
+    floor still admits the whole 3.x line. So it must be the major right above
+    the floor, with nothing but zeros after it — derived from the floor rather
+    than hardcoded, so a deliberate future move to `>=3.1,<4` keeps passing.
+    """
     specifier = _dependency_specifier("docling")
-    assert re.search(r"<\s*[\d.]+", specifier), (
-        f"docling needs an upper bound, got {specifier!r} — see the note in pyproject.toml"
+    floor_major = _sole_bound(specifier, ">=")[1][0]
+    raw, cap = _sole_bound(specifier, "<")
+    assert cap[0] == floor_major + 1 and not any(cap[1:]), (
+        f"docling's upper bound must be the next major above the floor — expected "
+        f"`<{floor_major + 1}`, got `<{raw}` in {specifier!r}. A looser cap lets a "
+        "repackaging major land unreviewed; see the note in pyproject.toml"
     )
