@@ -19,10 +19,19 @@ that module into docling-slim and made `docling` depend on it unconditionally,
 so docling could go to >=2.94 where the CVE is fixed. The pin and the ignore
 were both dropped together.
 
-This test guards against any of the stale ignores being silently re-added.
+Dropping that ignore is only safe *while* the >=2.94 floor holds, so the floor
+is guarded here too (caught in review on PR #159 by Sergey-Zeltyn) — otherwise a
+later re-pin below 2.94, or a dependency sweep that rewrites the constraint,
+breaks CI's pip-audit with nothing in the suite explaining the connection. The
+`<3` upper bound is guarded alongside it: CI syncs unlocked, so uv.lock does not
+backstop the floor against a future docling repackaging.
+
+These tests guard against any of the stale ignores being silently re-added, and
+against the docling constraint that justifies the last one drifting.
 """
 
 import re
+import tomllib
 from pathlib import Path
 
 import pytest
@@ -36,6 +45,9 @@ STALE_IGNORES = (
     "PYSEC-2026-3447",  # setuptools, issue #130
     "CVE-2026-47214",  # docling, issues #45 / #49
 )
+
+# The docling release that fixes CVE-2026-47214.
+DOCLING_CVE_FIX_FLOOR = (2, 94)
 
 
 def _pip_audit_command(text: str) -> str:
@@ -54,3 +66,43 @@ def test_ci_pip_audit_step_drops_stale_ignores() -> None:
     cmd = _pip_audit_command((ROOT / ".github" / "workflows" / "ci.yml").read_text())
     for stale in STALE_IGNORES:
         assert stale not in cmd, f"stale ignore {stale} should be removed from ci.yml: {cmd}"
+
+
+def _dependency_specifier(name: str) -> str:
+    """Return the version specifier declared for `name` in project.dependencies.
+
+    Parsed rather than grepped so the assertions below survive a floor bump past
+    2.99 — a literal pattern like `docling>=2.9[4-9]` would fail on 2.100, i.e.
+    reject a change that is strictly safer than the one it was written to catch.
+    """
+    pyproject = tomllib.loads((ROOT / "pyproject.toml").read_text())
+    for requirement in pyproject["project"]["dependencies"]:
+        # Anchor on the distribution name so `docling` can't match docling-core.
+        match = re.match(r"\s*([A-Za-z0-9._-]+)\s*(?:\[[^\]]*\])?\s*(.*)", requirement)
+        assert match, f"unparseable requirement: {requirement!r}"
+        if match.group(1).lower().replace("_", "-") == name:
+            return match.group(2)
+    raise AssertionError(f"{name} is not declared in project.dependencies")
+
+
+def test_docling_floor_keeps_cve_fix() -> None:
+    """CVE-2026-47214 is fixed in docling 2.94.0, and its pip-audit ignore was
+    dropped on that basis, so the floor must not regress below it."""
+    specifier = _dependency_specifier("docling")
+    floors = re.findall(r">=\s*([\d.]+)", specifier)
+    assert len(floors) == 1, f"expected exactly one `>=` floor for docling, got {specifier!r}"
+    floor = tuple(int(part) for part in floors[0].split("."))
+    assert floor >= DOCLING_CVE_FIX_FLOOR, (
+        f"docling floor {floors[0]} is below 2.94, where CVE-2026-47214 is fixed — "
+        "lowering it means restoring `--ignore-vuln CVE-2026-47214` in justfile and ci.yml"
+    )
+
+
+def test_docling_is_bounded_above() -> None:
+    """CI runs `uv sync --group dev` (not `--locked`) against cuga-agent @ main, so
+    any sibling metadata change re-resolves and uv.lock does not backstop the floor.
+    An upper bound is what stops the next docling repackaging landing unreviewed."""
+    specifier = _dependency_specifier("docling")
+    assert re.search(r"<\s*[\d.]+", specifier), (
+        f"docling needs an upper bound, got {specifier!r} — see the note in pyproject.toml"
+    )
