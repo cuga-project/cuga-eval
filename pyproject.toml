@@ -12,39 +12,29 @@ dependencies = [
     "python-dotenv>=1.0.0",
     "pyarrow>=23.0.0",
     "griffelib",
-    # Resolves to different `transformers` versions per platform (5.8.1 on macOS,
-    # 5.9.0 elsewhere) — see the docling note below for why. That is upstream's
-    # constraint, not ours; don't "fix" the skew with an override here.
+    # Inherits the per-platform `transformers` fork described in the docling note below.
+    # That is upstream's constraint, not ours; don't "fix" the skew with an override here.
     "sentence-transformers",
     "langfuse>=3",
     "cuga-oak-health",
-    # 2.94.0+ fixes CVE-2026-47214 (unsafe URI/path handling in the HTML backend).
-    # The old <2.92 pin assumed the 2.92 slim split broke langchain-docling's
-    # `from docling.chunking import ...`. It never did. 2.92 removed docling/chunking from
-    # the docling wheel and, in the same release, added an unconditional
-    # `docling-slim[standard]==<same version>` dependency; docling-slim ships that module.
-    # Checked every release 2.92.0-2.119.0: all 32 carry that dependency (no extra marker),
-    # and the `==` keeps the two in lockstep, so the import cannot skew apart.
-    # langchain-docling 2.0.0 therefore needs no new release. See cuga-project/cuga-eval#49.
-    #
-    # Nothing in this repo imports docling. The dependency exists only to hoist the CVE
-    # floor onto cuga's transitive graph: cuga-agent's own `docling>=2.94.0` lives in
+    # Nothing here imports docling. It is a direct dependency only to hoist a floor onto
+    # cuga's transitive graph: cuga-agent's own `docling>=2.94.0` lives in
     # `[tool.uv] constraint-dependencies`, which is local resolution config and does not
     # travel through published metadata, so it never reaches us.
     #
+    # `>=2.94` fixes CVE-2026-47214 (unsafe URI/path handling in the HTML backend).
     # `<3` because CI syncs unlocked (`uv sync --group dev` against cuga-agent @ main, not
-    # `--locked`), so any cuga-agent metadata change re-resolves and uv.lock is not a
-    # backstop. A packaging restructure is exactly what caused the mess above; an
-    # unbounded floor leaves the door open for the next one. tests/test_security_config.py
-    # guards both ends.
+    # `--locked`), so a cuga-agent metadata change re-resolves and uv.lock is not a backstop;
+    # a docling repackaging is what caused the pin this replaced. tests/test_security_config.py
+    # guards both ends. Since 2.92 the code lives in `docling-slim`, which `docling` requires
+    # at `==<same version>` — that lockstep is why the chunking import survives the split.
     #
-    # Platform note: docling-core's `chunking` extra (pulled in via docling-slim[standard])
-    # declares `transformers<5.9.0` on `sys_platform == "darwin"` and `<6.0.0` everywhere
-    # else. uv therefore forks, and macOS resolves transformers 5.8.1 while Linux/CI gets
-    # 5.9.0 — visible under docling-core[chunking], docling-ibm-models and
-    # sentence-transformers in uv.lock. Deliberate upstream, not a resolver accident.
-    # Consequence to know about: pip-audit runs on Linux, so it never scans the darwin-only
-    # pin (neither version has a known advisory today).
+    # Platform note: docling-core's `chunking` extra (via docling-slim[standard]) declares
+    # `transformers<5.9.0` on `sys_platform == "darwin"` and `<6.0.0` elsewhere, so uv forks
+    # and macOS resolves an older transformers than Linux/CI. Deliberate upstream, not a
+    # resolver accident. Consequence: pip-audit runs on Linux and never scans the darwin side.
+    #
+    # Release-by-release archaeology behind the floor is in cuga-project/cuga-eval#49.
     "docling>=2.94,<3",
     "langchain>=1.3.9",
     "langsmith>=0.8.18",
