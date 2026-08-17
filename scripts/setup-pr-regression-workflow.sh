@@ -14,7 +14,8 @@ set -Eeuo pipefail
 #   ├── cuga-agent/
 #   ├── cuga-eval/
 #   │   └── scripts/
-#   │       └── run-eval.sh
+#   │       ├── run-pr-regression-eval.sh
+#   │       └── run-pr-eval.sh -> run-pr-regression-eval.sh
 #   └── github-runner/
 #       └── _work/
 #
@@ -32,6 +33,7 @@ set -Eeuo pipefail
 #   RUNNER_LABELS
 #   CUGA_AGENT_BRANCH
 #   CUGA_EVAL_BRANCH
+#   RUN_EVAL_SCRIPT
 #   RUNNER_VERSION
 # =============================================================================
 
@@ -39,7 +41,7 @@ REPO_MODE="${REPO_MODE:-fork}"
 ROOT_DIR="${ROOT_DIR:-$HOME/pr-regression-testing}"
 
 RUNNER_NAME="${RUNNER_NAME:-$(hostname)}"
-RUNNER_LABELS="${RUNNER_LABELS:-run-eval}"
+RUNNER_LABELS="${RUNNER_LABELS:-run-pr-eval}"
 
 CUGA_AGENT_BRANCH="${CUGA_AGENT_BRANCH:-main}"
 CUGA_EVAL_BRANCH="${CUGA_EVAL_BRANCH:-main}"
@@ -66,8 +68,9 @@ CUGA_AGENT_DIR="${ROOT_DIR}/cuga-agent"
 CUGA_EVAL_DIR="${ROOT_DIR}/cuga-eval"
 GH_RUNNER_DIR="${ROOT_DIR}/github-runner"
 
-RUN_EVAL_SCRIPT="${CUGA_EVAL_DIR}/scripts/run-pr-regression-eval.sh"
-x
+RUN_EVAL_SCRIPT="${RUN_EVAL_SCRIPT:-${CUGA_EVAL_DIR}/scripts/run-pr-regression-eval.sh}"
+WORKFLOW_EVAL_SCRIPT="${CUGA_EVAL_DIR}/scripts/run-pr-eval.sh"
+
 log() {
   printf '\n[%s] %s\n' "$(date -u +"%Y-%m-%d %H:%M:%S UTC")" "$*"
 }
@@ -157,7 +160,7 @@ chmod u+x ./setup_appworld.sh
 bash ./setup_appworld.sh
 uv sync --group appworld
 
-log "Checking run-eval.sh"
+log "Checking PR regression evaluation entrypoint"
 if [[ ! -f "${RUN_EVAL_SCRIPT}" ]]; then
   cat >&2 <<EOF
 
@@ -172,10 +175,10 @@ cuga-eval repository:
   ${CUGA_EVAL_REPO_URL}
 
 If running in temporary fork mode, ensure your fork contains:
-  scripts/run-eval.sh
+  scripts/run-pr-regression-eval.sh
 
 If switching to upstream later, either:
-  1. ensure upstream contains scripts/run-eval.sh, or
+  1. ensure upstream contains scripts/run-pr-regression-eval.sh, or
   2. override RUN_EVAL_SCRIPT logic in this bootstrap.
 
 EOF
@@ -183,6 +186,11 @@ EOF
 fi
 
 chmod u+x "${RUN_EVAL_SCRIPT}"
+
+if [[ "${RUN_EVAL_SCRIPT}" != "${WORKFLOW_EVAL_SCRIPT}" && ! -e "${WORKFLOW_EVAL_SCRIPT}" ]]; then
+  log "Creating workflow compatibility symlink: ${WORKFLOW_EVAL_SCRIPT}"
+  ln -s "$(basename "${RUN_EVAL_SCRIPT}")" "${WORKFLOW_EVAL_SCRIPT}"
+fi
 
 mkdir -p "${GH_RUNNER_DIR}"
 cd "${GH_RUNNER_DIR}"
