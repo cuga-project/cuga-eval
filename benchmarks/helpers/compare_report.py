@@ -1826,7 +1826,7 @@ def generate_eval_report(result_file: str, markdown: bool = True) -> str:
             markdown=markdown,
         )
     )
-    lines.extend("######## REPORT END ########")
+    lines.append("######## REPORT END ########")
 
     return "\n".join(lines)
 
@@ -1864,14 +1864,15 @@ def main():
     # the canonical bundle location at the end of the run, which is what the
     # user actually wants to navigate to.
     if args.output:
-        # Compare-mode and eval-mode both produce markdown for the saved file
-        # and re-render plain text for the terminal.
+        # Compare-mode and eval-mode both produce markdown for the saved file.
+        # For eval-mode, also print markdown to stdout because PR workflows
+        # capture stdout and post marked report blocks back to GitHub comments.
         if "command" in args and getattr(args, "command", None) == "eval":
-            plain = generate_eval_report(args.result_file, markdown=False)
+            stdout_report = report
         else:
-            plain = generate_report(config_results, markdown=False)
+            stdout_report = generate_report(config_results, markdown=False)
         Path(args.output).write_text(report)
-        print(plain)
+        print(stdout_report)
     else:
         # No file requested — just print whatever generate_* produced.
         print(report)

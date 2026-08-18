@@ -8,6 +8,18 @@ log() {
   printf '[%s] %s\n' "$(date -u +"%Y-%m-%d %H:%M:%S UTC")" "$*"
 }
 
+open_details() {
+  local title="$1"
+  echo "<details>"
+  echo "<summary>${title}</summary>"
+  echo
+}
+
+close_details() {
+  echo
+  echo "</details>"
+}
+
 on_exit() {
   status=$?
   end_epoch="$(date +%s)"
@@ -18,7 +30,7 @@ on_exit() {
 
   echo "######## REPORT START ########"
   echo
-  echo "## Run summary"
+  open_details "Run summary"
   echo "- Started: ${START_TIME}"
   echo "- Finished: ${end_time}"
   echo "- Duration: ${minutes}m ${seconds}s"
@@ -29,6 +41,7 @@ on_exit() {
   else
     echo "- Result: FAILED"
   fi
+  close_details
   echo "######## REPORT END ########"
 }
 trap on_exit EXIT
@@ -63,7 +76,7 @@ COMMENT_BODY="${COMMENT_BODY//$'\n'/ }"
 
 read -r -a TOKENS <<< "${COMMENT_BODY}"
 echo "######## REPORT START ########"
-echo "## Requested parameters"
+open_details "Requested parameters"
 for token in "${TOKENS[@]}"; do
   case "${token}" in
     /run-pr-eval)
@@ -96,6 +109,7 @@ for token in "${TOKENS[@]}"; do
     *)
       echo "ERROR: Unsupported parameter: ${token}"
       echo "Supported parameters: model_name, task_id, task_ids, split_name, num_tasks, agent"
+      close_details
       echo "######## REPORT END ########"
       exit 2
       ;;
@@ -104,12 +118,14 @@ done
 
 if [[ -z "${MODEL_NAME}" ]]; then
   echo "ERROR: model_name cannot be empty."
+  close_details
   echo "######## REPORT END ########"
   exit 2
 fi
 
 if [[ ! "${NUM_TASKS}" =~ ^[0-9]+$ ]] || [[ "${NUM_TASKS}" -lt 1 ]]; then
   echo "ERROR: num_tasks must be a positive integer."
+  close_details
   echo "######## REPORT END ########"
   exit 2
 fi
@@ -119,6 +135,7 @@ case "${AGENT}" in
     ;;
   *)
     echo "ERROR: agent must be one of: react, cuga, codeact."
+    close_details
     echo "######## REPORT END ########"
     exit 2
     ;;
@@ -128,6 +145,7 @@ read -r -a TASK_ID_ARRAY <<< "${TASK_IDS}"
 
 if [[ ${#TASK_ID_ARRAY[@]} -eq 0 ]]; then
   echo "ERROR: At least one task_id is required."
+  close_details
   echo "######## REPORT END ########"
   exit 2
 fi
@@ -136,6 +154,7 @@ echo "- Agent: ${AGENT}"
 echo "- Split: ${SPLIT_NAME}"
 echo "- Num tasks: ${NUM_TASKS}"
 echo "- Task IDs: ${TASK_IDS}"
+close_details
 echo "######## REPORT END ########"
 
 # num_tasks is currently a dummy input, but limit the supplied task list to make
@@ -162,14 +181,15 @@ cd "${EVAL_REPO}"
 echo "######## REPORT START ########"
 echo "# PR Evaluation"
 echo
-echo "## Run metadata"
+open_details "Run metadata"
 echo "- Repository: ${GITHUB_REPOSITORY:-unknown}"
 echo "- PR: ${PR_NUMBER:-unknown}"
 echo "- Commit: ${PR_HEAD_SHA:-$(git rev-parse HEAD 2>/dev/null || echo unknown)}"
 echo "- Runner: ${RUNNER_NAME:-$(hostname)}"
 echo "- Agent: ${AGENT}"
+close_details
 echo
-echo "## Evaluation configuration"
+open_details "Evaluation configuration"
 echo "- Agent: ${AGENT}"
 echo "- Model: ${MODEL_NAME}"
 echo "- Split: ${SPLIT_NAME}"
@@ -179,7 +199,7 @@ echo "- Task IDs:"
 for task_id in "${TASK_ID_ARRAY[@]}"; do
   echo "  - ${task_id}"
 done
-echo
+close_details
 echo "######## REPORT END ########"
 
 log "Verifying required commands"
