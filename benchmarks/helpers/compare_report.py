@@ -1536,7 +1536,8 @@ def generate_eval_report(result_file: str, markdown: bool = True) -> str:
     fence_open = (lambda: "```text") if markdown else (lambda: "")
     fence_close = (lambda: "```") if markdown else (lambda: "")
 
-    lines = [h1("Evaluation Report"), ""]
+    lines = ["######## REPORT START ########"]
+    lines.extend([h1("Evaluation Report"), ""])
     lines.append(h2("Summary"))
     lines.append("")
     if markdown:
@@ -1825,6 +1826,7 @@ def generate_eval_report(result_file: str, markdown: bool = True) -> str:
             markdown=markdown,
         )
     )
+    lines.extend("######## REPORT END ########")
 
     return "\n".join(lines)
 
