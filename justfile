@@ -40,11 +40,9 @@ test-stability:
 
 # Static security scan (bandit) and dependency CVE audit (pip-audit).
 # --skip-editable: cuga and appworld are editable path installs not on PyPI.
-# --ignore-vuln CVE-2026-47214: docling is pinned to <2.92 until langchain-docling
-#   supports the newer "slim" docling layout. See issue #45.
 security:
     uv run --frozen bandit -c pyproject.toml -r benchmarks scripts -ll
-    uv run --frozen pip-audit --skip-editable --ignore-vuln CVE-2026-47214
+    uv run --frozen pip-audit --skip-editable
 
 # Composite gate matching what CI runs.
 ci: lint test-regression security
