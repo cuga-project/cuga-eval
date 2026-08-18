@@ -49,6 +49,31 @@ _HELPERS_DIR = Path(__file__).resolve().parent
 PROJECT_ROOT = _HELPERS_DIR.parent.parent
 
 
+def _bundle_timestamp() -> str:
+    """Local-time stamp for auto-generated bundle directory names.
+
+    Deliberately local, not UTC: every other artifact of the same run — the
+    ``RUN_ID`` exported by ``eval.sh``, the results JSON filename, the
+    trajectory directory — is stamped with local wall-clock time. A UTC bundle
+    name made a single run look like two runs an offset apart and sorted
+    bundles out of step with the results files they contain.
+
+    Machine-readable timestamps stay absolute; see :func:`_utc_now_iso`.
+    """
+    return datetime.now().strftime("%Y%m%d_%H%M%S")
+
+
+def _utc_now_iso() -> str:
+    """Valid ISO-8601 UTC instant for machine-readable metadata fields.
+
+    Absolute rather than local so bundles produced on machines in different
+    timezones stay comparable and orderable. ``isoformat()`` already emits the
+    ``+00:00`` offset — appending a ``Z`` on top of it (as this did until
+    2026-08) produced ``...+00:00Z``, which ``datetime.fromisoformat`` rejects.
+    """
+    return datetime.now(timezone.utc).isoformat()
+
+
 def _sanitize_model_slug(model_name: str) -> str:
     """Filesystem-safe label from a model name (e.g. google/gemma-4-31b → gemma-4-31b)."""
     name = model_name.rsplit("/", 1)[-1].lower()
@@ -245,7 +270,7 @@ def _write_run_env(bundle_dir: Path) -> None:
     config_dir.mkdir(exist_ok=True)
     lines = [
         "# Actual environment variables captured at runtime",
-        f"# Generated: {datetime.now(timezone.utc).isoformat()}Z",
+        f"# Generated: {_utc_now_iso()}",
         "",
     ]
     for key, value in sorted(env.items()):
@@ -486,7 +511,7 @@ def _write_per_model_config(bundle_dir: Path, model_envs: dict, benchmark_dir: P
         settings_path = env_data.pop("settings_path", "")
         lines = [
             f"# Runtime environment for model profile: {model_name}",
-            f"# Generated: {datetime.now(timezone.utc).isoformat()}Z",
+            f"# Generated: {_utc_now_iso()}",
             "",
         ]
         for key, value in sorted(env_data.items()):
@@ -546,7 +571,7 @@ def assemble_bundle(
     if bundle_root is None:
         bundle_root = benchmark_dir / "evaluation_bundles"
 
-    timestamp = datetime.now(timezone.utc).strftime("%Y%m%d_%H%M%S")
+    timestamp = _bundle_timestamp()
     profile_label = _bundle_profile_label(model_profile)
     bundle_dir = bundle_root / f"{timestamp}_{profile_label}"
     bundle_dir.mkdir(parents=True, exist_ok=True)
@@ -597,7 +622,7 @@ def assemble_bundle(
 
     metadata = {
         "bundle_version": BUNDLE_VERSION,
-        "created_at": datetime.now(timezone.utc).isoformat() + "Z",
+        "created_at": _utc_now_iso(),
         "benchmark": benchmark_name,
         "eval_repo": collect_repo_git_info(),
         "run": {
@@ -671,7 +696,7 @@ def assemble_compare_bundle(
     if bundle_dir_override is not None:
         bundle_dir = Path(bundle_dir_override)
     else:
-        timestamp = datetime.now(timezone.utc).strftime("%Y%m%d_%H%M%S")
+        timestamp = _bundle_timestamp()
         models = sorted(set(k.split(":")[0] for k in config_results))
         # Detect inner-dim variants (agent and/or policy mode) so the dir name
         # reflects what was compared. Config keys are "model[:agent[:policy_mode]]".
@@ -798,7 +823,7 @@ def assemble_compare_bundle(
 
     metadata = {
         "bundle_version": BUNDLE_VERSION,
-        "created_at": datetime.now(timezone.utc).isoformat() + "Z",
+        "created_at": _utc_now_iso(),
         "bundle_type": "comparison",
         "benchmark": benchmark_name,
         "eval_repo": collect_repo_git_info(),
@@ -847,7 +872,7 @@ def create_workspace_bundle(
     bundle_dir = Path(bundle_dir)
     (bundle_dir / "results" / "partial").mkdir(parents=True, exist_ok=True)
 
-    now = datetime.now(timezone.utc).isoformat() + "Z"
+    now = _utc_now_iso()
     meta_path = bundle_dir / "metadata.json"
     metadata: dict = {}
     if meta_path.exists():
@@ -955,7 +980,7 @@ def finalize_workspace_bundle(
         except (json.JSONDecodeError, OSError):
             metadata = {}
 
-    now = datetime.now(timezone.utc).isoformat() + "Z"
+    now = _utc_now_iso()
     metadata.setdefault("bundle_version", BUNDLE_VERSION)
     metadata.setdefault("created_at", now)
     metadata["benchmark"] = benchmark_name
