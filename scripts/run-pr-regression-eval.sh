@@ -47,15 +47,15 @@ on_exit() {
 trap on_exit EXIT
 
 DEFAULT_MODEL_NAME="openai/gpt-oss-120b-a100"
-DEFAULT_TASK_IDS="9aae7da_1 365e0a3_1 eb5ad85_1 5e27cd7_1"
-DEFAULT_SPLIT_NAME="default"
+DEFAULT_APPWORLD_TASK_IDS="9aae7da_1 365e0a3_1 eb5ad85_1 5e27cd7_1"
+DEFAULT_BENCHMARK="appworld"
 DEFAULT_NUM_TASKS="4"
 DEFAULT_AGENT="react"
 DEFAULT_AGENT_SETTING_CONFIG="settings.rits.toml"
 
 MODEL_NAME="${MODEL_NAME:-$DEFAULT_MODEL_NAME}"
-TASK_IDS="${TASK_IDS:-$DEFAULT_TASK_IDS}"
-SPLIT_NAME="${SPLIT_NAME:-$DEFAULT_SPLIT_NAME}"
+TASK_IDS="${TASK_IDS:-}"
+BENCHMARK="${BENCHMARK:-$DEFAULT_BENCHMARK}"
 NUM_TASKS="${NUM_TASKS:-$DEFAULT_NUM_TASKS}"
 AGENT="${AGENT:-$DEFAULT_AGENT}"
 AGENT_SETTING_CONFIG="${AGENT_SETTING_CONFIG:-$DEFAULT_AGENT_SETTING_CONFIG}"
@@ -65,7 +65,7 @@ AGENT_SETTING_CONFIG="${AGENT_SETTING_CONFIG:-$DEFAULT_AGENT_SETTING_CONFIG}"
 #   model_name=...
 #   task_id=id1,id2
 #   task_ids=id1,id2
-#   split_name=...
+#   benchmark=appworld|m3
 #   num_tasks=...
 #   agent=react|cuga|codeact
 COMMENT_BODY="${1:-}"
@@ -91,8 +91,8 @@ for token in "${TOKENS[@]}"; do
       TASK_IDS="${TASK_IDS//,/ }"
       ;;
 
-    split_name=*)
-      SPLIT_NAME="${token#split_name=}"
+    benchmark=*)
+      BENCHMARK="${token#benchmark=}"
       ;;
 
     num_tasks=*)
@@ -108,7 +108,7 @@ for token in "${TOKENS[@]}"; do
 
     *)
       echo "ERROR: Unsupported parameter: ${token}"
-      echo "Supported parameters: model_name, task_id, task_ids, split_name, num_tasks, agent"
+      echo "Supported parameters: model_name, task_id, task_ids, benchmark, num_tasks, agent"
       close_details
       echo "######## REPORT END ########"
       exit 2
@@ -130,11 +130,25 @@ if [[ ! "${NUM_TASKS}" =~ ^[0-9]+$ ]] || [[ "${NUM_TASKS}" -lt 1 ]]; then
   exit 2
 fi
 
+AGENT="$(printf '%s' "${AGENT}" | tr '[:upper:]' '[:lower:]')"
+BENCHMARK="$(printf '%s' "${BENCHMARK}" | tr '[:upper:]' '[:lower:]')"
+
 case "${AGENT}" in
   react|cuga|codeact)
     ;;
   *)
     echo "ERROR: agent must be one of: react, cuga, codeact."
+    close_details
+    echo "######## REPORT END ########"
+    exit 2
+    ;;
+esac
+
+case "${BENCHMARK}" in
+  appworld|m3)
+    ;;
+  *)
+    echo "ERROR: benchmark must be one of: appworld, m3."
     close_details
     echo "######## REPORT END ########"
     exit 2
@@ -160,25 +174,33 @@ case "${AGENT_SETTING_CONFIG}" in
     ;;
 esac
 
+if [[ -z "${TASK_IDS}" && "${BENCHMARK}" == "appworld" ]]; then
+  TASK_IDS="${DEFAULT_APPWORLD_TASK_IDS}"
+fi
+
 read -r -a TASK_ID_ARRAY <<< "${TASK_IDS}"
 
-if [[ ${#TASK_ID_ARRAY[@]} -eq 0 ]]; then
-  echo "ERROR: At least one task_id is required."
+if [[ ${#TASK_ID_ARRAY[@]} -eq 0 && "${BENCHMARK}" == "appworld" ]]; then
+  echo "ERROR: At least one task_id is required for benchmark=appworld."
   close_details
   echo "######## REPORT END ########"
   exit 2
 fi
 echo "- Model: ${MODEL_NAME}"
 echo "- Agent: ${AGENT}"
-echo "- Split: ${SPLIT_NAME}"
+echo "- Benchmark: ${BENCHMARK}"
 echo "- Num tasks: ${NUM_TASKS}"
-echo "- Task IDs: ${TASK_IDS}"
+if [[ ${#TASK_ID_ARRAY[@]} -gt 0 ]]; then
+  echo "- Task IDs: ${TASK_IDS}"
+else
+  echo "- Task IDs: benchmark default"
+fi
 close_details
 echo "######## REPORT END ########"
 
-# num_tasks is currently a dummy input, but limit the supplied task list to make
-# the mock behavior predictable.
-if [[ ${NUM_TASKS} -lt ${#TASK_ID_ARRAY[@]} ]]; then
+# For AppWorld, num_tasks limits the explicit task list. M3 maps num_tasks to
+# --max-samples-per-domain below.
+if [[ "${BENCHMARK}" == "appworld" && ${NUM_TASKS} -lt ${#TASK_ID_ARRAY[@]} ]]; then
   TASK_ID_ARRAY=("${TASK_ID_ARRAY[@]:0:${NUM_TASKS}}")
 fi
 
@@ -211,18 +233,31 @@ echo "- PR: ${PR_NUMBER:-unknown}"
 echo "- Commit: ${PR_HEAD_SHA:-$(git rev-parse HEAD 2>/dev/null || echo unknown)}"
 echo "- Runner: ${RUNNER_NAME:-$(hostname)}"
 echo "- Agent: ${AGENT}"
+echo "- Benchmark: ${BENCHMARK}"
 close_details
 echo
 open_details "Evaluation configuration"
 echo "- Agent: ${AGENT}"
+echo "- Benchmark: ${BENCHMARK}"
 echo "- Model: ${MODEL_NAME}"
-echo "- Split: ${SPLIT_NAME}"
 echo "- Requested num_tasks: ${NUM_TASKS}"
-echo "- Effective task count: ${#TASK_ID_ARRAY[@]}"
-echo "- Task IDs:"
-for task_id in "${TASK_ID_ARRAY[@]}"; do
-  echo "  - ${task_id}"
-done
+if [[ "${BENCHMARK}" == "appworld" ]]; then
+  echo "- Effective task count: ${#TASK_ID_ARRAY[@]}"
+  echo "- Task IDs:"
+  for task_id in "${TASK_ID_ARRAY[@]}"; do
+    echo "  - ${task_id}"
+  done
+else
+  echo "- M3 max samples per domain: ${NUM_TASKS}"
+  if [[ ${#TASK_ID_ARRAY[@]} -gt 0 ]]; then
+    echo "- M3 task filters:"
+    for task_id in "${TASK_ID_ARRAY[@]}"; do
+      echo "  - ${task_id}"
+    done
+  else
+    echo "- M3 task filters: benchmark default"
+  fi
+fi
 close_details
 echo "######## REPORT END ########"
 
@@ -237,11 +272,20 @@ command -v curl >/dev/null 2>&1 || {
   exit 127
 }
 
-log "Starting AppWorld ${AGENT} evaluation"
+log "Starting ${BENCHMARK} ${AGENT} evaluation"
 
 EVAL_ARGS=(
+  --benchmark "${BENCHMARK}"
   --agent "${AGENT}"
-  --task "${TASK_ID_ARRAY[@]}"
 )
 
-bash benchmarks/appworld/eval.sh "${EVAL_ARGS[@]}"
+if [[ "${BENCHMARK}" == "appworld" ]]; then
+  EVAL_ARGS+=(--task "${TASK_ID_ARRAY[@]}")
+else
+  EVAL_ARGS+=(--m3-data --max-samples-per-domain "${NUM_TASKS}")
+  if [[ ${#TASK_ID_ARRAY[@]} -gt 0 ]]; then
+    EVAL_ARGS+=(--task "${TASK_ID_ARRAY[@]}")
+  fi
+fi
+
+bash scripts/eval.sh "${EVAL_ARGS[@]}"
