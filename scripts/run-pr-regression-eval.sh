@@ -12,11 +12,9 @@ on_exit() {
   status=$?
   end_epoch="$(date +%s)"
   end_time="$(date -u +"%Y-%m-%d %H:%M:%S UTC")"
-  duration=$((end_epoch - START_EPOCH
-  
+  duration=$((end_epoch - START_EPOCH))
   minutes=$((duration / 60))
-  seconds=$((duration % 60))))
-  
+  seconds=$((duration % 60))
 
   echo "######## REPORT START ########"
   echo
@@ -62,9 +60,10 @@ COMMENT_BODY="${COMMENT_BODY//$'\n'/ }"
 
 read -r -a TOKENS <<< "${COMMENT_BODY}"
 echo "######## REPORT START ########"
+echo "## Requested parameters"
 for token in "${TOKENS[@]}"; do
   case "${token}" in
-    /run-eval|/appworld-eval)
+    /run-pr-eval)
       ;;
 
     model_name=*)
@@ -90,6 +89,7 @@ for token in "${TOKENS[@]}"; do
     *)
       echo "ERROR: Unsupported parameter: ${token}"
       echo "Supported parameters: model_name, task_id, task_ids, split_name, num_tasks"
+      echo "######## REPORT END ########"
       exit 2
       ;;
   esac
@@ -97,11 +97,13 @@ done
 
 if [[ -z "${MODEL_NAME}" ]]; then
   echo "ERROR: model_name cannot be empty."
+  echo "######## REPORT END ########"
   exit 2
 fi
 
 if [[ ! "${NUM_TASKS}" =~ ^[0-9]+$ ]] || [[ "${NUM_TASKS}" -lt 1 ]]; then
   echo "ERROR: num_tasks must be a positive integer."
+  echo "######## REPORT END ########"
   exit 2
 fi
 
@@ -109,8 +111,13 @@ read -r -a TASK_ID_ARRAY <<< "${TASK_IDS}"
 
 if [[ ${#TASK_ID_ARRAY[@]} -eq 0 ]]; then
   echo "ERROR: At least one task_id is required."
+  echo "######## REPORT END ########"
   exit 2
 fi
+echo "- Model: ${MODEL_NAME}"
+echo "- Split: ${SPLIT_NAME}"
+echo "- Num tasks: ${NUM_TASKS}"
+echo "- Task IDs: ${TASK_IDS}"
 echo "######## REPORT END ########"
 
 # num_tasks is currently a dummy input, but limit the supplied task list to make
@@ -126,7 +133,8 @@ export MODEL_NAME
 export ENVIRONMENT_URL="${ENVIRONMENT_URL:-http://127.0.0.1:8000}"
 export APIS_URL="${APIS_URL:-http://127.0.0.1:9000}"
 
-EVAL_REPO="/proj/cuga_models/cuga-eval"
+SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+EVAL_REPO="${EVAL_REPO:-$(cd "${SCRIPT_DIR}/.." && pwd)}"
 
 if [[ ! -d "${EVAL_REPO}" ]]; then
   echo "ERROR: Evaluation repo not found: ${EVAL_REPO}"
