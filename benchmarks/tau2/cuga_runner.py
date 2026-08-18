@@ -59,7 +59,9 @@ def _patch_tau2_nl_assertion_model(model: str, llm_args_user: Optional[dict]) ->
         return locals().get("default_judge")
 
 
-def _maybe_setup_langfuse(domain: str, task: Any, thread_id: str) -> tuple[Optional[dict], Optional[str], Any]:
+def _maybe_setup_langfuse(
+    domain: str, task: Any, thread_id: str
+) -> tuple[Optional[dict], Optional[str], Any]:
     """Create one Langfuse trace for this task, if tracing is enabled and keys are present.
 
     Returns (lf_config, trace_id, langfuse_client). All None when tracing is off or the
