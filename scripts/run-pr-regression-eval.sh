@@ -126,7 +126,6 @@ if [[ ${NUM_TASKS} -lt ${#TASK_ID_ARRAY[@]} ]]; then
   TASK_ID_ARRAY=("${TASK_ID_ARRAY[@]:0:${NUM_TASKS}}")
 fi
 
-export DYNACONF_SERVER_PORTS__REGISTRY="${DYNACONF_SERVER_PORTS__REGISTRY:-8100}"
 export AGENT_SETTING_CONFIG="${AGENT_SETTING_CONFIG:-settings.rits.toml}"
 export OPENAI_BASE_URL="${OPENAI_BASE_URL:-https://inference-3scale-apicast-production.apps.rits.fmaas.res.ibm.com/gpt-oss-120b-a100}"
 export MODEL_NAME
