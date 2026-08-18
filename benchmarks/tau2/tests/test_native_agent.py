@@ -52,6 +52,7 @@ def test_non_cuga_agent_dispatches_to_native(monkeypatch):
 def test_native_builds_config_and_returns_reward(monkeypatch):
     """_run_one_task_native hands τ² a run config carrying the agent's model + creds, runs
     τ²'s own task runner, and returns its reward — no bridge involved."""
+    pytest.importorskip("tau2")  # skip when the vendored tau2 isn't installed (CI without setup_tau2.sh)
     import tau2.runner.batch as tau2_batch
 
     # Stub out the scoring-reachability patch + langfuse so the test needs no network/keys.
