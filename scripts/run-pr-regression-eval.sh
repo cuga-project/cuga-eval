@@ -167,6 +167,7 @@ echo "- Repository: ${GITHUB_REPOSITORY:-unknown}"
 echo "- PR: ${PR_NUMBER:-unknown}"
 echo "- Commit: ${PR_HEAD_SHA:-$(git rev-parse HEAD 2>/dev/null || echo unknown)}"
 echo "- Runner: ${RUNNER_NAME:-$(hostname)}"
+echo "- Agent: ${AGENT}"
 echo
 echo "## Evaluation configuration"
 echo "- Agent: ${AGENT}"
