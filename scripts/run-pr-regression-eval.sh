@@ -129,8 +129,6 @@ fi
 export AGENT_SETTING_CONFIG="${AGENT_SETTING_CONFIG:-settings.rits.toml}"
 export OPENAI_BASE_URL="${OPENAI_BASE_URL:-https://inference-3scale-apicast-production.apps.rits.fmaas.res.ibm.com/gpt-oss-120b-a100}"
 export MODEL_NAME
-export ENVIRONMENT_URL="${ENVIRONMENT_URL:-http://127.0.0.1:8000}"
-export APIS_URL="${APIS_URL:-http://127.0.0.1:9000}"
 
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 EVAL_REPO="${EVAL_REPO:-$(cd "${SCRIPT_DIR}/.." && pwd)}"
@@ -174,18 +172,11 @@ command -v curl >/dev/null 2>&1 || {
   exit 127
 }
 
-log "Verifying local benchmark services"
-for endpoint in "${ENVIRONMENT_URL}" "${APIS_URL}"; do
-  if ! curl --silent --show-error --fail --max-time 5 "${endpoint}" >/dev/null; then
-    echo "ERROR: Required service is unavailable at ${endpoint}"
-    exit 1
-  fi
-done
-
 log "Starting AppWorld React evaluation"
 
-uv run --no-sync python -m benchmarks.appworld.appworld_eval_react \
-  --agent react \
-  --task-id "${TASK_ID_ARRAY[@]}" \
-  --environment-url "${ENVIRONMENT_URL}" \
-  --apis-url "${APIS_URL}"
+EVAL_ARGS=(
+  --agent react
+  --task "${TASK_ID_ARRAY[@]}"
+)
+
+bash benchmarks/appworld/eval.sh "${EVAL_ARGS[@]}"
