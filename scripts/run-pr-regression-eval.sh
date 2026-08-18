@@ -185,6 +185,11 @@ fi
 export AGENT_SETTING_CONFIG
 export DYNACONF_ADVANCED_FEATURES__LANGFUSE_TRACING="${DYNACONF_ADVANCED_FEATURES__LANGFUSE_TRACING:-false}"
 export OPENAI_BASE_URL="${OPENAI_BASE_URL:-https://inference-3scale-apicast-production.apps.rits.fmaas.res.ibm.com/gpt-oss-120b-a100}"
+if [[ -z "${RITS_BASE_URL:-}" ]]; then
+  RITS_BASE_URL="${OPENAI_BASE_URL%/}"
+  [[ "${RITS_BASE_URL}" == */v1 ]] || RITS_BASE_URL="${RITS_BASE_URL}/v1"
+  export RITS_BASE_URL
+fi
 export MODEL_NAME
 
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
