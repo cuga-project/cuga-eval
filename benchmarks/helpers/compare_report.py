@@ -1537,9 +1537,16 @@ def generate_eval_report(result_file: str, markdown: bool = True) -> str:
     fence_close = (lambda: "```") if markdown else (lambda: "")
 
     lines = ["######## REPORT START ########"]
-    lines.extend([h1("Evaluation Report"), ""])
-    lines.append(h2("Summary"))
-    lines.append("")
+    if markdown:
+        lines.append("<details>")
+        lines.append("<summary>Evaluation Report</summary>")
+        lines.append("")
+        lines.append(h2("Summary"))
+        lines.append("")
+    else:
+        lines.extend([h1("Evaluation Report"), ""])
+        lines.append(h2("Summary"))
+        lines.append("")
     if markdown:
         lines.append(f"- **Pass@1**: {parsed['passed']}/{parsed['total']} ({parsed['rate']:.1%})")
         lines.append(f"- **Total Tokens**: {_fmt(parsed['tokens'])}")
@@ -1826,6 +1833,9 @@ def generate_eval_report(result_file: str, markdown: bool = True) -> str:
             markdown=markdown,
         )
     )
+    if markdown:
+        lines.append("")
+        lines.append("</details>")
     lines.append("######## REPORT END ########")
 
     return "\n".join(lines)
