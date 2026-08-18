@@ -335,8 +335,9 @@ async def run_agent_on_task(
 
         langfuse_data = None
         # Extract Langfuse data if trace_id is available
-        langfuse_handler = LangfuseTraceHandler(langfuse_trace_id)
-        langfuse_data = await langfuse_handler.get_langfuse_data()
+        if langfuse_trace_id:
+            langfuse_handler = LangfuseTraceHandler(langfuse_trace_id)
+            langfuse_data = await langfuse_handler.get_langfuse_data()
         if langfuse_trace_id:
             task_result.trace_id = langfuse_trace_id
         if langfuse_data:
