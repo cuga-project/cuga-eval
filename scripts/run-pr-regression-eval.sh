@@ -46,19 +46,19 @@ on_exit() {
 }
 trap on_exit EXIT
 
-: "${OPENAI_API_KEY:?OPENAI_API_KEY is required}"
-
 DEFAULT_MODEL_NAME="openai/gpt-oss-120b-a100"
 DEFAULT_TASK_IDS="9aae7da_1 365e0a3_1 eb5ad85_1 5e27cd7_1"
 DEFAULT_SPLIT_NAME="default"
 DEFAULT_NUM_TASKS="4"
 DEFAULT_AGENT="react"
+DEFAULT_AGENT_SETTING_CONFIG="settings.rits.toml"
 
 MODEL_NAME="${MODEL_NAME:-$DEFAULT_MODEL_NAME}"
 TASK_IDS="${TASK_IDS:-$DEFAULT_TASK_IDS}"
 SPLIT_NAME="${SPLIT_NAME:-$DEFAULT_SPLIT_NAME}"
 NUM_TASKS="${NUM_TASKS:-$DEFAULT_NUM_TASKS}"
 AGENT="${AGENT:-$DEFAULT_AGENT}"
+AGENT_SETTING_CONFIG="${AGENT_SETTING_CONFIG:-$DEFAULT_AGENT_SETTING_CONFIG}"
 
 # Parse whitespace-separated key=value parameters from the PR comment.
 # Supported aliases:
@@ -141,6 +141,25 @@ case "${AGENT}" in
     ;;
 esac
 
+case "${AGENT_SETTING_CONFIG}" in
+  settings.rits.toml|settings.rits.proxy.toml)
+    if [[ -z "${RITS_API_KEY:-}" ]]; then
+      echo "ERROR: RITS_API_KEY is required when AGENT_SETTING_CONFIG=${AGENT_SETTING_CONFIG}."
+      close_details
+      echo "######## REPORT END ########"
+      exit 2
+    fi
+    ;;
+  *)
+    if [[ -z "${OPENAI_API_KEY:-}" ]]; then
+      echo "ERROR: OPENAI_API_KEY is required when AGENT_SETTING_CONFIG=${AGENT_SETTING_CONFIG}."
+      close_details
+      echo "######## REPORT END ########"
+      exit 2
+    fi
+    ;;
+esac
+
 read -r -a TASK_ID_ARRAY <<< "${TASK_IDS}"
 
 if [[ ${#TASK_ID_ARRAY[@]} -eq 0 ]]; then
@@ -163,7 +182,7 @@ if [[ ${NUM_TASKS} -lt ${#TASK_ID_ARRAY[@]} ]]; then
   TASK_ID_ARRAY=("${TASK_ID_ARRAY[@]:0:${NUM_TASKS}}")
 fi
 
-export AGENT_SETTING_CONFIG="${AGENT_SETTING_CONFIG:-settings.rits.toml}"
+export AGENT_SETTING_CONFIG
 export DYNACONF_ADVANCED_FEATURES__LANGFUSE_TRACING="${DYNACONF_ADVANCED_FEATURES__LANGFUSE_TRACING:-false}"
 export OPENAI_BASE_URL="${OPENAI_BASE_URL:-https://inference-3scale-apicast-production.apps.rits.fmaas.res.ibm.com/gpt-oss-120b-a100}"
 export MODEL_NAME
