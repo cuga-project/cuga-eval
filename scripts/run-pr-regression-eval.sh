@@ -39,11 +39,13 @@ DEFAULT_MODEL_NAME="openai/gpt-oss-120b-a100"
 DEFAULT_TASK_IDS="9aae7da_1 365e0a3_1 eb5ad85_1 5e27cd7_1"
 DEFAULT_SPLIT_NAME="default"
 DEFAULT_NUM_TASKS="4"
+DEFAULT_AGENT="react"
 
 MODEL_NAME="${MODEL_NAME:-$DEFAULT_MODEL_NAME}"
 TASK_IDS="${TASK_IDS:-$DEFAULT_TASK_IDS}"
 SPLIT_NAME="${SPLIT_NAME:-$DEFAULT_SPLIT_NAME}"
 NUM_TASKS="${NUM_TASKS:-$DEFAULT_NUM_TASKS}"
+AGENT="${AGENT:-$DEFAULT_AGENT}"
 
 # Parse whitespace-separated key=value parameters from the PR comment.
 # Supported aliases:
@@ -52,6 +54,7 @@ NUM_TASKS="${NUM_TASKS:-$DEFAULT_NUM_TASKS}"
 #   task_ids=id1,id2
 #   split_name=...
 #   num_tasks=...
+#   agent=react|cuga|codeact
 COMMENT_BODY="${1:-}"
 
 # Remove Windows carriage returns and newlines.
@@ -83,12 +86,16 @@ for token in "${TOKENS[@]}"; do
       NUM_TASKS="${token#num_tasks=}"
       ;;
 
+    agent=*|agent_type=*)
+      AGENT="${token#*=}"
+      ;;
+
     "")
       ;;
 
     *)
       echo "ERROR: Unsupported parameter: ${token}"
-      echo "Supported parameters: model_name, task_id, task_ids, split_name, num_tasks"
+      echo "Supported parameters: model_name, task_id, task_ids, split_name, num_tasks, agent"
       echo "######## REPORT END ########"
       exit 2
       ;;
@@ -107,6 +114,16 @@ if [[ ! "${NUM_TASKS}" =~ ^[0-9]+$ ]] || [[ "${NUM_TASKS}" -lt 1 ]]; then
   exit 2
 fi
 
+case "${AGENT}" in
+  react|cuga|codeact)
+    ;;
+  *)
+    echo "ERROR: agent must be one of: react, cuga, codeact."
+    echo "######## REPORT END ########"
+    exit 2
+    ;;
+esac
+
 read -r -a TASK_ID_ARRAY <<< "${TASK_IDS}"
 
 if [[ ${#TASK_ID_ARRAY[@]} -eq 0 ]]; then
@@ -115,6 +132,7 @@ if [[ ${#TASK_ID_ARRAY[@]} -eq 0 ]]; then
   exit 2
 fi
 echo "- Model: ${MODEL_NAME}"
+echo "- Agent: ${AGENT}"
 echo "- Split: ${SPLIT_NAME}"
 echo "- Num tasks: ${NUM_TASKS}"
 echo "- Task IDs: ${TASK_IDS}"
@@ -151,6 +169,7 @@ echo "- Commit: ${PR_HEAD_SHA:-$(git rev-parse HEAD 2>/dev/null || echo unknown)
 echo "- Runner: ${RUNNER_NAME:-$(hostname)}"
 echo
 echo "## Evaluation configuration"
+echo "- Agent: ${AGENT}"
 echo "- Model: ${MODEL_NAME}"
 echo "- Split: ${SPLIT_NAME}"
 echo "- Requested num_tasks: ${NUM_TASKS}"
@@ -173,10 +192,10 @@ command -v curl >/dev/null 2>&1 || {
   exit 127
 }
 
-log "Starting AppWorld React evaluation"
+log "Starting AppWorld ${AGENT} evaluation"
 
 EVAL_ARGS=(
-  --agent react
+  --agent "${AGENT}"
   --task "${TASK_ID_ARRAY[@]}"
 )
 
