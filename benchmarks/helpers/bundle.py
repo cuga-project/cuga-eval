@@ -68,8 +68,9 @@ def _utc_now_iso() -> str:
 
     Absolute rather than local so bundles produced on machines in different
     timezones stay comparable and orderable. ``isoformat()`` already emits the
-    ``+00:00`` offset — appending a ``Z`` on top of it (as this did until
-    2026-08) produced ``...+00:00Z``, which ``datetime.fromisoformat`` rejects.
+    ``+00:00`` offset — appending a ``Z`` on top of it (as this did before the
+    timestamp fix in PR #162) produced ``...+00:00Z``, which
+    ``datetime.fromisoformat`` rejects.
     """
     return datetime.now(timezone.utc).isoformat()
 

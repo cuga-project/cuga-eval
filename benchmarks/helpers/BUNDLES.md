@@ -18,7 +18,7 @@ The `YYYYMMDD_HHMMSS` prefix above is **local wall-clock time**, matching the `R
 
 `metadata.json`'s `created_at` is **UTC**, so bundles produced on machines in different timezones stay comparable. Read that field, not the directory name, whenever you need an absolute instant.
 
-> **Bundles created before 2026-08** are named in UTC and carry a malformed `created_at` (`...+00:00Z`, which `datetime.fromisoformat` rejects). A directory listing spanning the change is therefore not strictly chronological across that boundary, and parsers should tolerate the trailing `Z` — see `_parse_created_at` in `analytics/trace_comparison_rules/pipeline.py`.
+> **Bundles created before the timestamp fix (PR #162)** are named in UTC and carry a malformed `created_at` (`...+00:00Z`, which `datetime.fromisoformat` rejects). A directory listing spanning the change is therefore not strictly chronological across that boundary, and parsers should tolerate the trailing `Z` — see `_parse_created_at` in `analytics/trace_comparison_rules/pipeline.py`.
 
 Named experiments (`--experiment <name>`, `--resume`) have no timestamp in the directory name at all; only auto-named bundles do.
 
