@@ -36,6 +36,7 @@ This folder contains the scripts used to set up and run PR-triggered regression 
    ```bash
    export GITHUB_REPO_URL="https://github.com/OWNER/cuga-agent"
    export GITHUB_RUNNER_TOKEN="YOUR_TEMPORARY_RUNNER_TOKEN"
+   export RUNNER_LABELS="run-pr-eval"
    ```
 
 5. Optionally choose repo mode and branches:
