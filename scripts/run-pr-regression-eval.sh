@@ -225,15 +225,13 @@ fi
 cd "${EVAL_REPO}"
 
 echo "######## REPORT START ########"
-echo "# PR Evaluation"
+echo "## Evaluation Metrics"
 echo
 open_details "Run metadata"
 echo "- Repository: ${GITHUB_REPOSITORY:-unknown}"
 echo "- PR: ${PR_NUMBER:-unknown}"
 echo "- Commit: ${PR_HEAD_SHA:-$(git rev-parse HEAD 2>/dev/null || echo unknown)}"
 echo "- Runner: ${RUNNER_NAME:-$(hostname)}"
-echo "- Agent: ${AGENT}"
-echo "- Benchmark: ${BENCHMARK}"
 close_details
 echo
 open_details "Evaluation configuration"
