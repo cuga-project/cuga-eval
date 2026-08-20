@@ -51,14 +51,14 @@ DEFAULT_APPWORLD_TASK_IDS="9aae7da_1 365e0a3_1 eb5ad85_1 5e27cd7_1"
 DEFAULT_BENCHMARK="appworld"
 DEFAULT_NUM_TASKS="4"
 DEFAULT_AGENT="react"
-DEFAULT_AGENT_SETTING_CONFIG="settings.rits.toml"
+DEFAULT_PROVIDER="rits"
 
 MODEL_NAME="${MODEL_NAME:-$DEFAULT_MODEL_NAME}"
 TASK_IDS="${TASK_IDS:-}"
 BENCHMARK="${BENCHMARK:-$DEFAULT_BENCHMARK}"
 NUM_TASKS="${NUM_TASKS:-$DEFAULT_NUM_TASKS}"
 AGENT="${AGENT:-$DEFAULT_AGENT}"
-AGENT_SETTING_CONFIG="${AGENT_SETTING_CONFIG:-$DEFAULT_AGENT_SETTING_CONFIG}"
+PROVIDER="${PROVIDER:-$DEFAULT_PROVIDER}"
 
 # Parse whitespace-separated key=value parameters from the PR comment.
 # Supported aliases:
@@ -68,6 +68,7 @@ AGENT_SETTING_CONFIG="${AGENT_SETTING_CONFIG:-$DEFAULT_AGENT_SETTING_CONFIG}"
 #   benchmark=appworld|m3
 #   num_tasks=...
 #   agent=react|cuga|codeact
+#   provider=rits|litellm
 COMMENT_BODY="${1:-}"
 
 # Remove Windows carriage returns and newlines.
@@ -103,12 +104,16 @@ for token in "${TOKENS[@]}"; do
       AGENT="${token#*=}"
       ;;
 
+    provider=*)
+      PROVIDER="${token#provider=}"
+      ;;
+
     "")
       ;;
 
     *)
       echo "ERROR: Unsupported parameter: ${token}"
-      echo "Supported parameters: model_name, task_id, task_ids, benchmark, num_tasks, agent"
+      echo "Supported parameters: model_name, task_id, task_ids, benchmark, num_tasks, agent, provider"
       close_details
       echo "######## REPORT END ########"
       exit 2
@@ -132,6 +137,7 @@ fi
 
 AGENT="$(printf '%s' "${AGENT}" | tr '[:upper:]' '[:lower:]')"
 BENCHMARK="$(printf '%s' "${BENCHMARK}" | tr '[:upper:]' '[:lower:]')"
+PROVIDER="$(printf '%s' "${PROVIDER}" | tr '[:upper:]' '[:lower:]')"
 
 case "${AGENT}" in
   react|cuga|codeact)
@@ -155,24 +161,56 @@ case "${BENCHMARK}" in
     ;;
 esac
 
-case "${AGENT_SETTING_CONFIG}" in
-  settings.rits.toml|settings.rits.proxy.toml)
+case "${PROVIDER}" in
+  rits)
+    AGENT_SETTING_CONFIG="settings.rits.toml"
     if [[ -z "${RITS_API_KEY:-}" ]]; then
-      echo "ERROR: RITS_API_KEY is required when AGENT_SETTING_CONFIG=${AGENT_SETTING_CONFIG}."
+      echo "ERROR: RITS_API_KEY is required when provider=rits."
       close_details
       echo "######## REPORT END ########"
       exit 2
     fi
+    ;;
+  litellm)
+    if [[ "${AGENT}" == "cuga" ]]; then
+      AGENT_SETTING_CONFIG="settings.litellm.toml"
+    else
+      AGENT_SETTING_CONFIG="settings.openai.toml"
+    fi
+    OPENAI_BASE_URL="${LITE_LLM_URL:-${OPENAI_BASE_URL:-}}"
+    OPENAI_API_KEY="${LITE_LLM_KEY:-${OPENAI_API_KEY:-}}"
+    if [[ -z "${OPENAI_API_KEY:-}" ]]; then
+      echo "ERROR: LITE_LLM_KEY or OPENAI_API_KEY is required when provider=litellm."
+      close_details
+      echo "######## REPORT END ########"
+      exit 2
+    fi
+    if [[ -z "${OPENAI_BASE_URL:-}" ]]; then
+      echo "ERROR: LITE_LLM_URL or OPENAI_BASE_URL is required when provider=litellm."
+      close_details
+      echo "######## REPORT END ########"
+      exit 2
+    fi
+    export OPENAI_API_KEY OPENAI_BASE_URL
     ;;
   *)
-    if [[ -z "${OPENAI_API_KEY:-}" ]]; then
-      echo "ERROR: OPENAI_API_KEY is required when AGENT_SETTING_CONFIG=${AGENT_SETTING_CONFIG}."
-      close_details
-      echo "######## REPORT END ########"
-      exit 2
-    fi
+    echo "ERROR: provider must be one of: rits, litellm."
+    close_details
+    echo "######## REPORT END ########"
+    exit 2
     ;;
 esac
+
+if [[ "${PROVIDER}" == "rits" ]]; then
+  export OPENAI_BASE_URL="${OPENAI_BASE_URL:-https://inference-3scale-apicast-production.apps.rits.fmaas.res.ibm.com/gpt-oss-120b-a100}"
+  if [[ -z "${RITS_BASE_URL:-}" ]]; then
+    RITS_BASE_URL="${OPENAI_BASE_URL%/}"
+    [[ "${RITS_BASE_URL}" == */v1 ]] || RITS_BASE_URL="${RITS_BASE_URL}/v1"
+    export RITS_BASE_URL
+  fi
+else
+  :
+fi
 
 if [[ -z "${TASK_IDS}" && "${BENCHMARK}" == "appworld" ]]; then
   TASK_IDS="${DEFAULT_APPWORLD_TASK_IDS}"
@@ -189,6 +227,7 @@ fi
 echo "- Model: ${MODEL_NAME}"
 echo "- Agent: ${AGENT}"
 echo "- Benchmark: ${BENCHMARK}"
+echo "- Provider: ${PROVIDER}"
 echo "- Num tasks: ${NUM_TASKS}"
 if [[ ${#TASK_ID_ARRAY[@]} -gt 0 ]]; then
   echo "- Task IDs: ${TASK_IDS}"
@@ -206,12 +245,6 @@ fi
 
 export AGENT_SETTING_CONFIG
 export DYNACONF_ADVANCED_FEATURES__LANGFUSE_TRACING="${DYNACONF_ADVANCED_FEATURES__LANGFUSE_TRACING:-false}"
-export OPENAI_BASE_URL="${OPENAI_BASE_URL:-https://inference-3scale-apicast-production.apps.rits.fmaas.res.ibm.com/gpt-oss-120b-a100}"
-if [[ -z "${RITS_BASE_URL:-}" ]]; then
-  RITS_BASE_URL="${OPENAI_BASE_URL%/}"
-  [[ "${RITS_BASE_URL}" == */v1 ]] || RITS_BASE_URL="${RITS_BASE_URL}/v1"
-  export RITS_BASE_URL
-fi
 export MODEL_NAME
 
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
@@ -232,11 +265,16 @@ echo "- Repository: ${GITHUB_REPOSITORY:-unknown}"
 echo "- PR: ${PR_NUMBER:-unknown}"
 echo "- Commit: ${PR_HEAD_SHA:-$(git rev-parse HEAD 2>/dev/null || echo unknown)}"
 echo "- Runner: ${RUNNER_NAME:-$(hostname)}"
+echo "- Agent: ${AGENT}"
+echo "- Benchmark: ${BENCHMARK}"
+echo "- Provider: ${PROVIDER}"
 close_details
 echo
 open_details "Evaluation configuration"
 echo "- Agent: ${AGENT}"
 echo "- Benchmark: ${BENCHMARK}"
+echo "- Provider: ${PROVIDER}"
+echo "- Agent setting config: ${AGENT_SETTING_CONFIG}"
 echo "- Model: ${MODEL_NAME}"
 echo "- Requested num_tasks: ${NUM_TASKS}"
 if [[ "${BENCHMARK}" == "appworld" ]]; then
