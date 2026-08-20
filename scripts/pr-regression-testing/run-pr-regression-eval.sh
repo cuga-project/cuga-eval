@@ -254,10 +254,21 @@ export DYNACONF_ADVANCED_FEATURES__LANGFUSE_TRACING="${DYNACONF_ADVANCED_FEATURE
 export MODEL_NAME
 
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
-EVAL_REPO="${EVAL_REPO:-$(cd "${SCRIPT_DIR}/.." && pwd)}"
+if [[ -z "${EVAL_REPO:-}" ]]; then
+  if [[ -f "${SCRIPT_DIR}/../../scripts/eval.sh" ]]; then
+    EVAL_REPO="$(cd "${SCRIPT_DIR}/../.." && pwd)"
+  else
+    EVAL_REPO="$(cd "${SCRIPT_DIR}/.." && pwd)"
+  fi
+fi
 
 if [[ ! -d "${EVAL_REPO}" ]]; then
   echo "ERROR: Evaluation repo not found: ${EVAL_REPO}"
+  exit 1
+fi
+
+if [[ ! -f "${EVAL_REPO}/scripts/eval.sh" ]]; then
+  echo "ERROR: Evaluation script not found: ${EVAL_REPO}/scripts/eval.sh"
   exit 1
 fi
 
