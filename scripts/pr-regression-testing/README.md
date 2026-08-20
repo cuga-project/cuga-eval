@@ -5,7 +5,7 @@ This folder contains the scripts used to set up and run PR-triggered regression 
 ## Files
 
 - `setup-pr-regression-workflow.sh`: bootstraps the self-hosted GitHub Actions runner VM.
-- `run-pr-regression-eval.sh`: parses `/run-pr-eval` PR comments and runs the requested benchmark.
+- `run-pr-regression-eval.sh`: parses `/run-pr-eval` PR comments and runs the requested benchmark using the `cuga-eval/scripts/eval.sh` script.
 
 ## Setup The PR Regression Flow
 
@@ -15,13 +15,7 @@ This folder contains the scripts used to set up and run PR-triggered regression 
    .github/workflows/run-pr-eval.yml
    ```
 
-2. Configure the workflow to use the self-hosted runner label:
-
-   ```yaml
-   runs-on: [self-hosted, linux, run-pr-eval]
-   ```
-
-3. In GitHub, create a self-hosted runner token for the `cuga-agent` repository.
+2. In GitHub, create a self-hosted runner token for the `cuga-agent` repository.
 
    Go to:
 
@@ -29,7 +23,13 @@ This folder contains the scripts used to set up and run PR-triggered regression 
    cuga-agent repository -> Settings -> Actions -> Runners -> New self-hosted runner
    ```
 
-   Copy the repository URL and temporary runner token from the generated `config.sh` command.
+   Copy temporary runner token from the generated `config.sh` command.
+
+3. Ensure the workflow file uses the self-hosted runner labels:
+
+   ```yaml
+   runs-on: [self-hosted, linux, run-pr-eval]
+   ```
 
 4. On the runner VM, export the required setup variables:
 
@@ -64,7 +64,6 @@ This folder contains the scripts used to set up and run PR-triggered regression 
    - run `cuga-eval/setup_cuga.sh`;
    - create and sync the `uv` environment;
    - run AppWorld setup;
-   - create the workflow compatibility symlink;
    - download and register the GitHub Actions runner;
    - start the runner in the background.
 
@@ -73,6 +72,8 @@ This folder contains the scripts used to set up and run PR-triggered regression 
    ```text
    cuga-agent repository -> Settings -> Actions -> Runners
    ```
+
+   Ensure the runner is running with the labels `[self-hosted, linux, run-pr-eval]` i.e. same as workflow file.
 
 8. Check runner logs on the VM if needed:
 
