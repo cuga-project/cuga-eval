@@ -177,7 +177,7 @@ case "${PROVIDER}" in
     else
       AGENT_SETTING_CONFIG="settings.openai.toml"
     fi
-    OPENAI_BASE_URL="${LITE_LLM_URL:-${OPENAI_BASE_URL:-}}"
+    OPENAI_BASE_URL="${LITE_LLM_URL:-${OPENAI_BASE_URL:-https://ete-litellm.ai-models.vpc-int.res.ibm.com/}}"
     OPENAI_API_KEY="${LITE_LLM_KEY:-${OPENAI_API_KEY:-}}"
     if [[ -z "${OPENAI_API_KEY:-}" ]]; then
       echo "ERROR: LITE_LLM_KEY or OPENAI_API_KEY is required when provider=litellm."
