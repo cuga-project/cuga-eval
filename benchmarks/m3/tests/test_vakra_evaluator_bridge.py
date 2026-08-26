@@ -162,11 +162,16 @@ def test_evaluate_domain_defaults_policy_judge_path_when_present(monkeypatch):
         return {"missing_prediction_uuids": [], "dialogues": [], "summary": {}}, []
 
     monkeypatch.setattr(vakra_evaluator, "_vendor_evaluate_domain", _fake_vendor_evaluate_domain)
-    monkeypatch.setattr(type(vakra_evaluator._DEFAULT_POLICY_JUDGE_PATH), "is_file", lambda self: True)
+    fake_path = type(
+        "_FakePolicyJudgePath",
+        (),
+        {"is_file": lambda self: True, "__str__": lambda self: "/fake/policy_judge.py"},
+    )()
+    monkeypatch.setattr(vakra_evaluator, "_DEFAULT_POLICY_JUDGE_PATH", fake_path)
 
     asyncio.run(vakra_evaluator.evaluate_domain("addr", None, None, object(), None, "capability_multiturn"))
 
-    assert captured["policy_judge_path"] == str(vakra_evaluator._DEFAULT_POLICY_JUDGE_PATH)
+    assert captured["policy_judge_path"] == "/fake/policy_judge.py"
 
 
 def test_evaluate_domain_explicit_policy_judge_path_overrides_default(monkeypatch):

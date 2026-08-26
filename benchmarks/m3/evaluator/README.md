@@ -33,6 +33,8 @@ wrong or missing, that's an upstream fix.
 Defaults to this org's LiteLLM proxy (`JUDGE_BACKEND=litellm`, the bridge's own
 default — vendor's own default is Groq, which is discontinued as a service).
 Requires `OPENAI_BASE_URL` + `OPENAI_API_KEY` (same env the agent's `gpt4.1` model
-profile uses). Override the model with `JUDGE_MODEL_NAME` (default `gpt-4.1`).
+profile uses); `JUDGE_BASE_URL` + `JUDGE_API_KEY` take precedence when set, so the
+judge can target a different endpoint/key than the agent. Override the model with
+`JUDGE_MODEL_NAME` (default `gpt-4.1`).
 Vendor's own `groq`/`rits` backends are still selectable via `JUDGE_BACKEND=groq`
 or `JUDGE_BACKEND=rits` if you have credentials for those.
