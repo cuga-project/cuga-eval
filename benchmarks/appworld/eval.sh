@@ -48,6 +48,7 @@ done
 
 APPWORLD_PID=""
 REGISTRY_PID=""
+APPWORLD_MCP_EXPANDED=""
 
 # Parse bundle / model-profile / sdk flags before any server startup so
 # --status / --stop / --background can short-circuit without side effects.
@@ -131,25 +132,27 @@ APPWORLD_APIS_PORT="${APPWORLD_APIS_PORT:-${DYNACONF_SERVER_PORTS__APIS_URL:-911
 export APPWORLD_APIS_PORT
 export DYNACONF_SERVER_PORTS__APIS_URL="$APPWORLD_APIS_PORT"
 
+# Capture console output to a log file for reproducibility bundles
+CONSOLE_LOG="/tmp/appworld_console.log"
+exec > >(tee "$CONSOLE_LOG") 2>&1
+
 # mcp_servers_appworld.yaml hard-codes the app API server as localhost:9111 (one
 # per registered app), so overriding APPWORLD_APIS_PORT alone moves the server but
 # leaves the registry fetching tool specs from 9111 — it then loads 0 tools and the
 # run aborts (#113). When a non-default port is in use, expand the config into a
 # per-run temp copy with the real port and point MCP_SERVERS_FILE at it. This
 # mirrors benchmarks/m3/eval_m3.py, which expands its registry YAML per run.
+# (Done after the exec/tee above so the confirmation echo below lands in
+# CONSOLE_LOG and is captured by reproducibility bundles, not just the terminal.)
 if [ "$APPWORLD_APIS_PORT" != "9111" ]; then
     APPWORLD_MCP_SRC="$SCRIPT_DIR/mcp_servers_appworld.yaml"
     if [ -f "$APPWORLD_MCP_SRC" ]; then
-        APPWORLD_MCP_EXPANDED="$(mktemp -t appworld_mcp_servers)"
+        APPWORLD_MCP_EXPANDED="$(mktemp "${TMPDIR:-/tmp}/appworld_mcp_servers.XXXXXX")"
         sed "s#localhost:9111#localhost:${APPWORLD_APIS_PORT}#g" "$APPWORLD_MCP_SRC" > "$APPWORLD_MCP_EXPANDED"
         export MCP_SERVERS_FILE="$APPWORLD_MCP_EXPANDED"
         echo -e "${GREEN:-}✓${NC:-} Templated MCP servers config for APIS port ${APPWORLD_APIS_PORT}"
     fi
 fi
-
-# Capture console output to a log file for reproducibility bundles
-CONSOLE_LOG="/tmp/appworld_console.log"
-exec > >(tee "$CONSOLE_LOG") 2>&1
 
 echo -e "${BLUE:-}╔════════════════════════════════════════════════════════════╗${NC:-}"
 echo -e "${BLUE:-}║  AppWorld Benchmark Evaluation                             ║${NC:-}"
