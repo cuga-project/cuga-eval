@@ -1,11 +1,14 @@
 """Test-time defaults for the m3 package.
 
-Importing ``m3_vakra_score`` pulls in ``benchmarks.m3.evaluator`` which
-instantiates Vakra's CorrectnessJudge at class-definition time. That
-constructor raises ``ValueError("API_KEY is required")`` when no API key
-is configured. Tests that exercise pure-Python helpers (no real LLM
-calls) shouldn't have to provision a real key, so we set a placeholder
-before any m3 module is imported.
+Importing ``m3_vakra_score`` pulls in ``benchmarks.m3.evaluator`` (a bridge to
+vendor/vakra's evaluator — see that module's docstring), whose ``CapabilityPolicy``
+instantiates every judge at class-definition time. The judge LLM backend defaults
+to this org's LiteLLM proxy (``JUDGE_BACKEND=litellm``, the bridge's own default),
+which raises ``ValueError`` if ``OPENAI_BASE_URL``/``OPENAI_API_KEY`` aren't set;
+vendor's own Groq/RITS backends raise similarly on their own env vars. Tests that
+exercise pure-Python helpers (no real LLM calls) shouldn't have to provision real
+credentials, so placeholders for all of them are set before any m3 module is
+imported.
 """
 
 import os
@@ -20,4 +23,15 @@ _project_root = Path(__file__).resolve().parents[3]
 if str(_project_root) not in sys.path:
     sys.path.insert(0, str(_project_root))
 
-os.environ.setdefault("API_KEY", "test-key-not-used")  # noqa: S105
+# `pytest.importorskip("evaluator")` (used by every test that needs the Vakra
+# evaluator present) can only succeed if benchmarks/m3/evaluator is itself on
+# sys.path at collection time — nothing else adds it that early. Without this,
+# those tests always skip regardless of whether vendor/vakra is cloned.
+_eval_dir = Path(__file__).resolve().parents[1] / "evaluator"
+if str(_eval_dir) not in sys.path:
+    sys.path.insert(0, str(_eval_dir))
+
+os.environ.setdefault("API_KEY", "test-key-not-used")  # noqa: S105 — vendor's Groq backend
+os.environ.setdefault("RITS_API_KEY", "test-key-not-used")  # noqa: S105 — vendor's RITS backend
+os.environ.setdefault("OPENAI_BASE_URL", "https://example.invalid")  # bridge's litellm default
+os.environ.setdefault("OPENAI_API_KEY", "test-key-not-used")  # noqa: S105
