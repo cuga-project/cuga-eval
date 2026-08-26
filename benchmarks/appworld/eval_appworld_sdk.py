@@ -388,7 +388,10 @@ B. App-specific instructions:
 C. Obstacle escalation:
 
 - My request itself authorizes the outcome I asked for; selecting among my own already-configured resources to achieve it is in scope.
-- When a resource-specific error blocks the goal (insufficient balance, an expired or declined card, an invalid code): try every candidate in already-fetched lists (e.g., each payment card - re-verify which entries actually qualify rather than trusting a first reading); re-read the failing tool's parameter documentation for built-in fallbacks (e.g., an account balance used when the card id is omitted); and look for a path that removes the obstacle - a top-up, a transfer, or adding the needed resource to this app from my profile data in another connected app (e.g., the Supervisor app holds my full card list).
+- When a resource-specific error blocks the goal (insufficient balance, an expired or declined card, an invalid code): first re-verify which entries in the already-fetched list actually qualify (do not trust your first reading), then try each remaining qualifying candidate; also re-read the failing tool's parameter documentation for built-in fallbacks (e.g., an account balance that is used when the card id is omitted).
+- If no usable resource exists in this app, get the real one from my profile data in another connected app (the Supervisor app holds my full card list) and add it to this app: read the exact details (card number, expiry, CVV) from the source app FIRST, then add that exact card. NEVER invent or fabricate card numbers, codes, or other resource details - fabricated resources are always rejected.
+- When adding funds to cover a shortfall, compute the missing difference (required amount minus current balance) and add only that difference, not the full price.
+- If the same approach has failed twice with the same error, switch to a different approach (a different resource, tool, or path) - do not keep retrying variants of the same call.
 - Only report failure after stating which alternatives you tried and why each one is exhausted.
         """
 
