@@ -174,7 +174,11 @@ REGISTRY_PID=""
 # Initialized before the cleanup trap below so an early Ctrl-C/crash (before
 # the run-scoped tmp dir is created further down) can't see a stale value
 # inherited from the caller's environment (PR #164 review, issue #115).
-M3_RUN_TMP_DIR=""
+# M3_RUN_TMP_DIR is deliberately NOT pre-declared here: unlike CONSOLE_LOG/
+# REGISTRY_LOG, it's meant to be inherited — compare.sh exports one so all its
+# sequential eval.sh runs share the same directory. Clobbering it here to ""
+# would defeat that (the fallback below always wins on the next line, so
+# compare.sh's exported value would be silently discarded every time).
 CONSOLE_LOG=""
 REGISTRY_LOG=""
 
@@ -217,10 +221,13 @@ create_bundle() {
         if [ -n "$traj_dir" ]; then
             fin_extra+=(--trajectory-dir "$traj_dir")
         fi
-        local registry_log="$SCRIPT_DIR/registry_server.log"
+        local registry_log="${M3_REGISTRY_SERVER_LOG:-}"
+        local legacy_registry_log="$SCRIPT_DIR/registry_server.log"
         local logs=()
-        if [ -f "$registry_log" ]; then
+        if [ -n "$registry_log" ] && [ -f "$registry_log" ]; then
             logs+=("$registry_log")
+        elif [ -f "$legacy_registry_log" ]; then
+            logs+=("$legacy_registry_log")
         elif [ -n "$REGISTRY_LOG" ]; then
             logs+=("$REGISTRY_LOG")
         fi
@@ -306,10 +313,13 @@ create_bundle() {
         bundle_args+=(--trajectory-dir "$traj_dir")
     fi
     # Include server and console logs (whichever exists)
-    local registry_log="$SCRIPT_DIR/registry_server.log"
+    local registry_log="${M3_REGISTRY_SERVER_LOG:-}"
+    local legacy_registry_log="$SCRIPT_DIR/registry_server.log"
     local logs=()
-    if [ -f "$registry_log" ]; then
+    if [ -n "$registry_log" ] && [ -f "$registry_log" ]; then
         logs+=("$registry_log")
+    elif [ -f "$legacy_registry_log" ]; then
+        logs+=("$legacy_registry_log")
     elif [ -n "$REGISTRY_LOG" ]; then
         logs+=("$REGISTRY_LOG")
     fi
@@ -417,6 +427,12 @@ export M3_RUN_TMP_DIR
 M3_SUMMARY_FILE="${M3_SUMMARY_FILE:-$M3_RUN_TMP_DIR/m3_summary.txt}"
 export M3_SUMMARY_FILE
 REGISTRY_LOG="$M3_RUN_TMP_DIR/m3_registry.log"
+# eval_m3.py's --m3-data flow starts its own per-service registries and logs
+# their startup output here (reads M3_REGISTRY_SERVER_LOG from env) — a
+# separate log from the outer $REGISTRY_LOG above, which only the non-m3-data
+# flow uses.
+M3_REGISTRY_SERVER_LOG="$M3_RUN_TMP_DIR/registry_server.log"
+export M3_REGISTRY_SERVER_LOG
 
 # Capture console output to a log file for reproducibility bundles
 CONSOLE_LOG="$M3_RUN_TMP_DIR/m3_console.log"

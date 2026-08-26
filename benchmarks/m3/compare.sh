@@ -625,9 +625,11 @@ for config in "${CONFIGS[@]}"; do
         # Console: eval.sh tees stdout to $M3_RUN_TMP_DIR/m3_console.log
         # (truncated each run, so it holds exactly this run). Registry: the
         # --m3-data flow lets eval_m3.py manage per-service registries and
-        # write to benchmarks/m3/registry_server.log; the multiturn flow uses
-        # the outer $M3_RUN_TMP_DIR/m3_registry.log. Prefer the former, fall
-        # back to the latter.
+        # write to $M3_RUN_TMP_DIR/registry_server.log (run-scoped, issue
+        # #115 — falls back to the legacy shared benchmarks/m3/registry_server.log
+        # for older eval.sh versions); the multiturn flow uses the outer
+        # $M3_RUN_TMP_DIR/m3_registry.log. Prefer the m3-data path, then the
+        # legacy shared one, then the outer one.
         run_log_dir="$LOG_STAGE_DIR/$(echo "$config" | tr ':/' '__')_run${r}"
         mkdir -p "$run_log_dir"
         run_log_lines=""
@@ -636,7 +638,9 @@ for config in "${CONFIGS[@]}"; do
                 && run_log_lines+="$run_log_dir/m3_console.log"$'\n'
         fi
         reg_src=""
-        if [[ -s "$SCRIPT_DIR/registry_server.log" ]]; then
+        if [[ -s "$M3_RUN_TMP_DIR/registry_server.log" ]]; then
+            reg_src="$M3_RUN_TMP_DIR/registry_server.log"
+        elif [[ -s "$SCRIPT_DIR/registry_server.log" ]]; then
             reg_src="$SCRIPT_DIR/registry_server.log"
         elif [[ -s "$M3_RUN_TMP_DIR/m3_registry.log" ]]; then
             reg_src="$M3_RUN_TMP_DIR/m3_registry.log"
