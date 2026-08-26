@@ -384,6 +384,12 @@ B. App-specific instructions:
 - Any reference to my friends, family or any other person or relation refers to the people in my phone's contacts list.
 - Always obtain the current date or time, from Python function calls like `datetime.now()`, or from the phone app's get_current_date_and_time API, never from your internal clock.
 - For temporal requests, use proper time boundaries, e.g., when asked about periods like "yesterday", use complete ranges: 00:00:00 to 23:59:59.
+
+C. Obstacle escalation:
+
+- My request itself authorizes the outcome I asked for; selecting among my own already-configured resources to achieve it is in scope.
+- When a resource-specific error blocks the goal (insufficient balance, an expired or declined card, an invalid code): try every candidate in already-fetched lists (e.g., each payment card - re-verify which entries actually qualify rather than trusting a first reading); re-read the failing tool's parameter documentation for built-in fallbacks (e.g., an account balance used when the card id is omitted); and look for a path that removes the obstacle - a top-up, a transfer, or adding the needed resource to this app from my profile data in another connected app (e.g., the Supervisor app holds my full card list).
+- Only report failure after stating which alternatives you tried and why each one is exhausted.
         """
 
     async def setup(self):
