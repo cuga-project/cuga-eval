@@ -261,6 +261,16 @@ def _parse_sdk_results(data: dict) -> dict:
     total_cost = sum(r.get("total_cost", 0) or 0 for r in results)
     total_llm_calls = sum(r.get("total_llm_calls", 0) or 0 for r in results)
     total_cache_tokens = sum(r.get("total_cache_input_tokens", 0) or 0 for r in results)
+    # Run Receipt fields (cuga-eval#95 / cuga-agent#467) — absent (0) for
+    # results sourced from Langfuse or from benchmarks not yet opted in.
+    total_input_tokens = sum(r.get("input_tokens", 0) or 0 for r in results)
+    total_output_tokens = sum(r.get("output_tokens", 0) or 0 for r in results)
+    total_receipt_cache_read = sum(r.get("cache_read_tokens", 0) or 0 for r in results)
+    total_reasoning_tokens = sum(r.get("reasoning_tokens", 0) or 0 for r in results)
+    total_tool_call_count = sum(r.get("tool_call_count", 0) or 0 for r in results)
+    total_llm_time_s = sum(r.get("llm_time_s", 0) or 0 for r in results)
+    total_tool_time_s = sum(r.get("tool_time_s", 0) or 0 for r in results)
+    total_wall_time_s = sum(r.get("wall_time_s", 0) or 0 for r in results)
 
     tasks = {}
     total_duration = 0.0
@@ -277,6 +287,14 @@ def _parse_sdk_results(data: dict) -> dict:
             "cost": r.get("total_cost", 0) or 0,
             "llm_calls": r.get("total_llm_calls", 0) or 0,
             "cache_tokens": r.get("total_cache_input_tokens", 0) or 0,
+            "input_tokens": r.get("input_tokens", 0) or 0,
+            "output_tokens": r.get("output_tokens", 0) or 0,
+            "cache_read_tokens": r.get("cache_read_tokens", 0) or 0,
+            "reasoning_tokens": r.get("reasoning_tokens", 0) or 0,
+            "tool_call_count": r.get("tool_call_count", 0) or 0,
+            "llm_time_s": r.get("llm_time_s", 0) or 0,
+            "tool_time_s": r.get("tool_time_s", 0) or 0,
+            "wall_time_s": r.get("wall_time_s", 0) or 0,
             "duration": dur,
             "steps": r.get("steps"),
             # AppWorld results carry a per-task difficulty band; preserved for
@@ -307,6 +325,14 @@ def _parse_sdk_results(data: dict) -> dict:
         "cost": total_cost,
         "llm_calls": total_llm_calls,
         "cache_tokens": total_cache_tokens,
+        "input_tokens": total_input_tokens,
+        "output_tokens": total_output_tokens,
+        "cache_read_tokens": total_receipt_cache_read,
+        "reasoning_tokens": total_reasoning_tokens,
+        "tool_call_count": total_tool_call_count,
+        "llm_time_s": total_llm_time_s,
+        "tool_time_s": total_tool_time_s,
+        "wall_time_s": total_wall_time_s,
         "duration": total_duration if has_duration else None,
         "tasks": tasks,
     }
@@ -544,6 +570,43 @@ def _aggregate_costs(tasks: dict) -> dict:
         "avg_llm_calls": (total_llm_calls / n) if n else None,
         "avg_duration": (total_duration / n) if (n and total_duration is not None) else None,
     }
+
+
+_RECEIPT_COST_FIELDS = (
+    "input_tokens",
+    "output_tokens",
+    "cache_read_tokens",
+    "reasoning_tokens",
+    "tool_call_count",
+    "llm_time_s",
+    "tool_time_s",
+    "wall_time_s",
+)
+
+
+def _aggregate_receipt_costs(tasks: dict) -> dict:
+    """Sum and average Run Receipt fields (cuga-eval#95 / cuga-agent#467)
+    across a dict of task dicts (as produced by ``_parse_sdk_results``).
+
+    Returns every value as None (not 0) when no task in *tasks* carries any
+    receipt data, so callers can render "--" instead of a misleading zero for
+    benchmarks/runs that never opted into ``advanced_features.run_receipt``.
+    """
+    has_any = any(t.get("input_tokens") or t.get("output_tokens") for t in tasks.values())
+    if not has_any:
+        result: dict = {}
+        for field in _RECEIPT_COST_FIELDS:
+            result[f"total_{field}"] = None
+            result[f"avg_{field}"] = None
+        return result
+
+    n = len(tasks)
+    result = {}
+    for field in _RECEIPT_COST_FIELDS:
+        total = sum(t.get(field, 0) or 0 for t in tasks.values())
+        result[f"total_{field}"] = total
+        result[f"avg_{field}"] = (total / n) if n else None
+    return result
 
 
 def _per_config_cost_stats(runs, task_filter=None) -> dict:

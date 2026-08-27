@@ -26,6 +26,7 @@ from pathlib import Path
 import pytest
 
 from benchmarks.helpers.compare_report import (
+    _aggregate_receipt_costs,
     _last_turn_judge_scores,
     _m3_capability_group,
     _parse_sdk_results,
@@ -924,3 +925,86 @@ def test_vakra_scores_stay_attributed_within_grouped_sections(tmp_path):
     assert "1.00" in cuga_section
     assert "Dialog" in react_section
     assert "0.00" in react_section
+
+
+def test_parse_sdk_results_extracts_receipt_fields():
+    data = {
+        "metrics": {"total_tasks": 1, "passed": 1},
+        "results": [
+            {
+                "task_name": "t1",
+                "success": True,
+                "total_tokens": 150,
+                "input_tokens": 100,
+                "output_tokens": 50,
+                "cache_read_tokens": 20,
+                "reasoning_tokens": 5,
+                "tool_call_count": 2,
+                "llm_time_s": 1.5,
+                "tool_time_s": 0.5,
+                "wall_time_s": 2.5,
+            }
+        ],
+    }
+    parsed = _parse_sdk_results(data)
+
+    assert parsed["input_tokens"] == 100
+    assert parsed["output_tokens"] == 50
+    assert parsed["cache_read_tokens"] == 20
+    assert parsed["reasoning_tokens"] == 5
+    assert parsed["tool_call_count"] == 2
+    assert parsed["llm_time_s"] == 1.5
+    assert parsed["tool_time_s"] == 0.5
+    assert parsed["wall_time_s"] == 2.5
+    assert parsed["tasks"]["t1"]["input_tokens"] == 100
+
+
+def test_parse_sdk_results_defaults_receipt_fields_to_zero_when_absent():
+    data = {
+        "metrics": {"total_tasks": 1, "passed": 1},
+        "results": [{"task_name": "t1", "success": True, "total_tokens": 50}],
+    }
+    parsed = _parse_sdk_results(data)
+
+    assert parsed["input_tokens"] == 0
+    assert parsed["tasks"]["t1"]["input_tokens"] == 0
+
+
+def test_aggregate_receipt_costs_totals_and_averages():
+    tasks = {
+        "t1": {
+            "input_tokens": 100,
+            "output_tokens": 50,
+            "cache_read_tokens": 20,
+            "reasoning_tokens": 5,
+            "tool_call_count": 2,
+            "llm_time_s": 1.0,
+            "tool_time_s": 0.5,
+            "wall_time_s": 1.5,
+        },
+        "t2": {
+            "input_tokens": 200,
+            "output_tokens": 100,
+            "cache_read_tokens": 0,
+            "reasoning_tokens": 0,
+            "tool_call_count": 4,
+            "llm_time_s": 2.0,
+            "tool_time_s": 1.0,
+            "wall_time_s": 3.0,
+        },
+    }
+    agg = _aggregate_receipt_costs(tasks)
+
+    assert agg["total_input_tokens"] == 300
+    assert agg["avg_input_tokens"] == 150
+    assert agg["total_output_tokens"] == 150
+    assert agg["total_tool_call_count"] == 6
+    assert agg["avg_wall_time_s"] == 2.25
+
+
+def test_aggregate_receipt_costs_all_none_when_no_receipt_data():
+    tasks = {"t1": {"tokens": 50}}  # legacy shape, no receipt fields at all
+    agg = _aggregate_receipt_costs(tasks)
+
+    assert agg["total_input_tokens"] is None
+    assert agg["avg_input_tokens"] is None
