@@ -1008,3 +1008,34 @@ def test_aggregate_receipt_costs_all_none_when_no_receipt_data():
 
     assert agg["total_input_tokens"] is None
     assert agg["avg_input_tokens"] is None
+
+
+def test_aggregate_receipt_costs_detects_nontoken_receipt_data():
+    """When a task has zero token-related fields but nonzero non-token fields
+    (tool_call_count, llm_time_s, tool_time_s, wall_time_s, cache_read_tokens,
+    reasoning_tokens), _aggregate_receipt_costs must recognize this as receipt
+    data and return real numbers, not None."""
+    tasks = {
+        "t1": {
+            "input_tokens": 0,
+            "output_tokens": 0,
+            "cache_read_tokens": 0,
+            "reasoning_tokens": 0,
+            "tool_call_count": 3,  # nonzero non-token field
+            "llm_time_s": 1.5,  # nonzero non-token field
+            "tool_time_s": 0.0,
+            "wall_time_s": 2.0,  # nonzero non-token field
+        }
+    }
+    agg = _aggregate_receipt_costs(tasks)
+
+    # All fields should have real numbers, not None
+    assert agg["total_tool_call_count"] == 3
+    assert agg["avg_tool_call_count"] == 3
+    assert agg["total_llm_time_s"] == 1.5
+    assert agg["avg_llm_time_s"] == 1.5
+    assert agg["total_wall_time_s"] == 2.0
+    assert agg["avg_wall_time_s"] == 2.0
+    # Token fields are still 0, not None
+    assert agg["total_input_tokens"] == 0
+    assert agg["avg_input_tokens"] == 0

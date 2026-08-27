@@ -592,7 +592,7 @@ def _aggregate_receipt_costs(tasks: dict) -> dict:
     receipt data, so callers can render "--" instead of a misleading zero for
     benchmarks/runs that never opted into ``advanced_features.run_receipt``.
     """
-    has_any = any(t.get("input_tokens") or t.get("output_tokens") for t in tasks.values())
+    has_any = any(t.get(field) for field in _RECEIPT_COST_FIELDS for t in tasks.values())
     if not has_any:
         result: dict = {}
         for field in _RECEIPT_COST_FIELDS:
