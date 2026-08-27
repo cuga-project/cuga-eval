@@ -1292,3 +1292,40 @@ def test_compare_report_per_task_details_shows_input_output_reasoning_and_averag
     assert "300.0" in t2_line
     assert "225.0" in avg_line
     assert "45.0" in avg_line
+
+
+def test_eval_report_appworld_task_results_shape_defaults_receipt_fields_to_zero(tmp_path):
+    """Legacy AppWorld `task_results`-shaped result files (still produced today by
+    appworld_eval.py / appworld_eval_react.py / appworld_eval_codeact.py, parsed by
+    `_parse_appworld_results` rather than `_parse_sdk_results`) carry no
+    input_tokens/output_tokens/reasoning_tokens on their per-task dicts. These must
+    default to 0 (mirroring the existing `cache_tokens` default on the very next
+    line), not be left absent -- an absent key renders `--` in the per-task table,
+    which would sit inconsistently next to a `0` Cache Tokens on the same row
+    (cuga-eval#95 follow-up review finding)."""
+    result_file = _appworld_eval_run(
+        tmp_path,
+        "appworld_no_receipt.json",
+        {
+            "t1": {
+                "success": True,
+                "total_tokens": 150,
+                "total_llm_calls": 3,
+                "cache_input_tokens": 0,
+                "full_execution_time": 5.0,
+                "steps": 4,
+            }
+        },
+    )
+
+    report = generate_eval_report(result_file)
+
+    assert (
+        "| Task | Result | Tokens | Cost | LLM Calls | Cache Tokens "
+        "| Input | Output | Reasoning | Duration | Steps |" in report
+    )
+    row = next(ln for ln in report.splitlines() if ln.startswith("| t1 "))
+    # Cache Tokens, Input, Output, Reasoning are all genuinely absent from the
+    # source data and must all render as 0, not `--`.
+    assert "| 0 | 0 | 0 | 0 |" in row
+    assert "--" not in row
