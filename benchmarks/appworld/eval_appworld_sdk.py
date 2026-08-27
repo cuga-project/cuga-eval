@@ -63,7 +63,10 @@ from benchmarks.helpers import (
     save_evaluation_results,
     setup_agent_with_tools,
 )
-from benchmarks.helpers.sdk_eval_helpers import _react_steps_from_invoke_result
+from benchmarks.helpers.sdk_eval_helpers import (
+    _react_steps_from_invoke_result,
+    receipt_fields_from_invoke_result,
+)
 
 tracker = ActivityTracker()
 var_manager = VariablesManager()
@@ -143,10 +146,11 @@ async def invoke_and_score_appworld(
     eval_dict: Dict[str, Any] = {}
     trace_id: Optional[str] = None
     _langfuse_metrics = None
+    _receipt_metrics = None
     invoke_result_holder: List[Any] = []
 
     async def run_invoke(invoke_config: Optional[dict] = None) -> None:
-        nonlocal response, tool_calls, err, err_exc, is_error, invoked
+        nonlocal response, tool_calls, err, err_exc, is_error, invoked, _receipt_metrics
         try:
             invoke_result = await agent.invoke(
                 [HumanMessage(content=intent)],
@@ -159,6 +163,7 @@ async def invoke_and_score_appworld(
             invoke_result_holder.append(invoke_result)
             response = invoke_result.answer
             tool_calls = list(invoke_result.tool_calls or []) if track_tool_calls else []
+            _receipt_metrics = receipt_fields_from_invoke_result(invoke_result)
             invoked = True
         except Exception as e:
             err = str(e)
@@ -218,11 +223,12 @@ async def invoke_and_score_appworld(
                 comment="Fraction of AppWorld tests passed",
             )
 
-            try:
-                _langfuse_metrics = await fetch_langfuse_metrics_for_trace(predefined_trace_id)
-            except Exception as langfuse_err:
-                logger.warning(f"Failed to fetch Langfuse metrics: {langfuse_err}")
-                _langfuse_metrics = None
+            if _receipt_metrics is None:
+                try:
+                    _langfuse_metrics = await fetch_langfuse_metrics_for_trace(predefined_trace_id)
+                except Exception as langfuse_err:
+                    logger.warning(f"Failed to fetch Langfuse metrics: {langfuse_err}")
+                    _langfuse_metrics = None
         except Exception as e:
             logger.warning(f"Langfuse trace failed: {e}")
             _langfuse_metrics = None
@@ -309,8 +315,11 @@ async def invoke_and_score_appworld(
         "appworld_evaluation": eval_dict,
     }
 
-    # Add Langfuse metrics if available
-    if langfuse_handler and _langfuse_metrics:
+    # Prefer the SDK's own RunReceipt (advanced_features.run_receipt) over a
+    # Langfuse fetch when both are available (cuga-eval#95 / cuga-agent#467).
+    if _receipt_metrics:
+        result.update(_receipt_metrics)
+    elif langfuse_handler and _langfuse_metrics:
         result["total_tokens"] = _langfuse_metrics.total_tokens
         result["total_llm_calls"] = _langfuse_metrics.total_llm_calls
         result["total_cost"] = _langfuse_metrics.total_cost
