@@ -84,9 +84,26 @@ def test_flattens_all_receipt_fields():
     assert fields["tool_timings"] == [{"name": "search", "calls": 2, "total_ms": 500.0}]
 
 
+def test_full_execution_time_mirrors_wall_time_s():
+    """cuga-eval#95 regression: report.md's Total Duration column reads
+    r.get("full_execution_time") or r.get("duration"); without this key the
+    receipt path silently renders "--" for every run."""
+    invoke_result = SimpleNamespace(answer="ok", receipt=_receipt(wall_time_s=2.5))
+    fields = receipt_fields_from_invoke_result(invoke_result)
+
+    assert fields["full_execution_time"] == 2.5
+    assert fields["full_execution_time"] == fields["wall_time_s"]
+
+
 def test_accumulate_sums_across_turns():
-    r1 = SimpleNamespace(answer="a", receipt=_receipt(total_tokens=100, input_tokens=70, output_tokens=30))
-    r2 = SimpleNamespace(answer="b", receipt=_receipt(total_tokens=50, input_tokens=30, output_tokens=20))
+    r1 = SimpleNamespace(
+        answer="a",
+        receipt=_receipt(total_tokens=100, input_tokens=70, output_tokens=30, wall_time_s=1.5),
+    )
+    r2 = SimpleNamespace(
+        answer="b",
+        receipt=_receipt(total_tokens=50, input_tokens=30, output_tokens=20, wall_time_s=1.0),
+    )
 
     acc = _accumulate_receipt_metrics(None, r1)
     acc = _accumulate_receipt_metrics(acc, r2)
@@ -97,6 +114,7 @@ def test_accumulate_sums_across_turns():
     assert acc["total_llm_calls"] == 6  # 3 + 3
     assert acc["models"] == ["gpt-oss-120b"]  # deduped, not doubled
     assert len(acc["tool_timings"]) == 2  # one per turn, concatenated
+    assert acc["full_execution_time"] == pytest.approx(2.5)  # 1.5 + 1.0, summed like wall_time_s
 
 
 def test_accumulate_returns_none_once_any_turn_lacks_a_receipt():

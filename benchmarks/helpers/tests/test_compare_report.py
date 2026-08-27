@@ -1041,8 +1041,8 @@ def test_aggregate_receipt_costs_detects_nontoken_receipt_data():
     assert agg["avg_input_tokens"] == 0
 
 
-def _write_sdk_result_file(tmp_path, results):
-    path = tmp_path / "results.json"
+def _write_sdk_result_file(tmp_path, results, name="results.json"):
+    path = tmp_path / name
     path.write_text(
         json.dumps({"metrics": {"total_tasks": len(results), "passed": len(results)}, "results": results})
     )
@@ -1108,3 +1108,67 @@ def test_generate_report_omits_receipt_breakdown_when_absent(tmp_path):
     report = generate_report({"gpt-oss-120b": [result_file]})
 
     assert "Run Receipt Breakdown" not in report
+
+
+def test_generate_report_detects_nontoken_receipt_data(tmp_path):
+    """Same class of bug as test_aggregate_receipt_costs_detects_nontoken_receipt_data,
+    but for _render_compare_report_sections's own any_receipt_data gate: a run
+    with zero input_tokens/output_tokens but nonzero tool_call_count/wall_time_s
+    must still trigger the "Run Receipt Breakdown" section (cuga-eval#95 final
+    review finding — the gate previously only looked at 2 of 8 receipt fields)."""
+    results = [
+        {
+            "task_name": "t1",
+            "success": True,
+            "total_tokens": 0,
+            "input_tokens": 0,
+            "output_tokens": 0,
+            "tool_call_count": 3,
+            "wall_time_s": 2.0,
+        }
+    ]
+    result_file = _write_sdk_result_file(tmp_path, results)
+    report = generate_report({"gpt-oss-120b": [result_file]})
+
+    assert "Run Receipt Breakdown" in report
+
+
+def test_generate_report_shows_dash_for_config_without_receipt_data(tmp_path):
+    """A/B comparison between a baseline bundle predating the receipt feature
+    (no receipt fields at all) and a new one that has them: the baseline's row
+    in the Run Receipt Breakdown table must render "--", not "0" (cuga-eval#95
+    final review finding — a config with no receipt data looked identical to
+    one that measured real zeros)."""
+    with_receipt = [
+        {
+            "task_name": "t1",
+            "success": True,
+            "total_tokens": 150,
+            "input_tokens": 100,
+            "output_tokens": 50,
+            "cache_read_tokens": 20,
+            "reasoning_tokens": 5,
+            "tool_call_count": 2,
+            "llm_time_s": 1.5,
+            "tool_time_s": 0.5,
+            "wall_time_s": 2.5,
+        }
+    ]
+    without_receipt = [{"task_name": "t1", "success": True, "total_tokens": 150}]
+
+    file_with = _write_sdk_result_file(tmp_path, with_receipt, name="with.json")
+    file_without = _write_sdk_result_file(tmp_path, without_receipt, name="without.json")
+
+    report = generate_report({"model-with-receipt": [file_with], "model-without-receipt": [file_without]})
+
+    assert "Run Receipt Breakdown" in report
+
+    breakdown = report.split("Run Receipt Breakdown", 1)[1]
+    with_line = next(line for line in breakdown.splitlines() if "model-with-receipt" in line)
+    without_line = next(line for line in breakdown.splitlines() if "model-without-receipt" in line)
+
+    assert "100" in with_line
+    assert "--" not in with_line
+
+    assert "--" in without_line
+    assert "0" not in without_line

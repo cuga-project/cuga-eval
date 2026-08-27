@@ -946,7 +946,7 @@ def _render_compare_report_sections(
     # carries Run Receipt data (cuga-eval#95 / cuga-agent#467) — bpo/oak/
     # appworld-default runs never will, so their reports are unchanged.
     any_receipt_data = any(
-        (r.get("input_tokens") or r.get("output_tokens")) for runs in model_data.values() for r in runs
+        r.get(f) for runs in model_data.values() for r in runs for f in _RECEIPT_COST_FIELDS
     )
     if any_receipt_data:
         lines.append(h2("Run Receipt Breakdown"))
@@ -962,6 +962,14 @@ def _render_compare_report_sections(
         for config_key, runs in model_data.items():
             display = _format_config_label(config_key)
             n = len(runs)
+            config_has_receipt = any(r.get(f) for r in runs for f in _RECEIPT_COST_FIELDS)
+            if not config_has_receipt:
+                lines.append(
+                    f"{display:<28} {_fmt(None):>9}  {_fmt(None):>9}  {_fmt(None):>9}  "
+                    f"{_fmt(None):>8}  {_fmt(None):>6}  {_fmt(None, 's'):>8}  "
+                    f"{_fmt(None, 's'):>8}  {_fmt(None, 's'):>8}"
+                )
+                continue
             avg_in = sum(r.get("input_tokens", 0) or 0 for r in runs) / n
             avg_out = sum(r.get("output_tokens", 0) or 0 for r in runs) / n
             avg_cache = sum(r.get("cache_read_tokens", 0) or 0 for r in runs) / n

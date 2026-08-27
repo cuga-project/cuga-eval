@@ -583,6 +583,7 @@ def receipt_fields_from_invoke_result(invoke_result: Any) -> Optional[Dict[str, 
         "llm_time_s": getattr(receipt, "llm_time_s", 0.0) or 0.0,
         "tool_time_s": getattr(receipt, "tool_time_s", 0.0) or 0.0,
         "wall_time_s": getattr(receipt, "wall_time_s", 0.0) or 0.0,
+        "full_execution_time": getattr(receipt, "wall_time_s", 0.0) or 0.0,
         "models": list(getattr(receipt, "models", None) or []),
         "slowest_tool": getattr(receipt, "slowest_tool", None),
         "tool_timings": [tt.model_dump() if hasattr(tt, "model_dump") else tt for tt in tool_timings],
@@ -601,6 +602,7 @@ _RECEIPT_SUM_KEYS = (
     "llm_time_s",
     "tool_time_s",
     "wall_time_s",
+    "full_execution_time",
 )
 
 
@@ -619,7 +621,10 @@ def _accumulate_receipt_metrics(
     if fields is None:
         return None
     if acc is None:
-        acc = {key: (0.0 if key.endswith("_s") else 0) for key in _RECEIPT_SUM_KEYS}
+        acc = {
+            key: (0.0 if key.endswith("_s") or key == "full_execution_time" else 0)
+            for key in _RECEIPT_SUM_KEYS
+        }
         acc["token_source"] = "receipt"  # noqa: S105
         acc["models"] = []
         acc["tool_timings"] = []
