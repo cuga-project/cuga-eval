@@ -295,6 +295,7 @@ def _parse_sdk_results(data: dict) -> dict:
             "llm_time_s": r.get("llm_time_s", 0) or 0,
             "tool_time_s": r.get("tool_time_s", 0) or 0,
             "wall_time_s": r.get("wall_time_s", 0) or 0,
+            "token_source": r.get("token_source"),
             "duration": dur,
             "steps": r.get("steps"),
             # AppWorld results carry a per-task difficulty band; preserved for
@@ -334,6 +335,7 @@ def _parse_sdk_results(data: dict) -> dict:
         "tool_time_s": total_tool_time_s,
         "wall_time_s": total_wall_time_s,
         "duration": total_duration if has_duration else None,
+        "has_receipt_data": any(t.get("token_source") == "receipt" for t in tasks.values()),
         "tasks": tasks,
     }
 
@@ -362,6 +364,7 @@ def _parse_appworld_results(data: dict) -> dict:
             "input_tokens": t.get("input_tokens", 0) or 0,
             "output_tokens": t.get("output_tokens", 0) or 0,
             "reasoning_tokens": t.get("reasoning_tokens", 0) or 0,
+            "token_source": t.get("token_source"),
             "duration": t.get("full_execution_time") or t.get("duration"),
             "steps": t.get("steps"),
             "difficulty": t.get("difficulty"),
@@ -378,6 +381,7 @@ def _parse_appworld_results(data: dict) -> dict:
         "llm_calls": total_llm_calls,
         "cache_tokens": total_cache_tokens,
         "duration": total_duration,
+        "has_receipt_data": any(t.get("token_source") == "receipt" for t in tasks.values()),
         "tasks": tasks,
     }
 
@@ -591,24 +595,29 @@ def _aggregate_receipt_costs(tasks: dict) -> dict:
     """Sum and average Run Receipt fields (cuga-eval#95 / cuga-agent#467)
     across a dict of task dicts (as produced by ``_parse_sdk_results``).
 
-    Returns every value as None (not 0) when no task in *tasks* carries any
-    receipt data, so callers can render "--" instead of a misleading zero for
-    benchmarks/runs that never opted into ``advanced_features.run_receipt``.
+    Uses each task's ``token_source == "receipt"`` marker (not field
+    truthiness) to decide which tasks actually carry receipt data — a
+    genuine receipt with every field at 0 must still count, and averages
+    must exclude legacy/non-receipt tasks from the denominator rather than
+    silently diluting them in. Returns every value as None (not 0) when no
+    task in *tasks* carries receipt data, so callers can render "--" instead
+    of a misleading zero for benchmarks/runs that never opted into
+    ``advanced_features.run_receipt``.
     """
-    has_any = any(t.get(field) for field in _RECEIPT_COST_FIELDS for t in tasks.values())
-    if not has_any:
+    receipt_tasks = [t for t in tasks.values() if t.get("token_source") == "receipt"]
+    if not receipt_tasks:
         result: dict = {}
         for field in _RECEIPT_COST_FIELDS:
             result[f"total_{field}"] = None
             result[f"avg_{field}"] = None
         return result
 
-    n = len(tasks)
+    n = len(receipt_tasks)
     result = {}
     for field in _RECEIPT_COST_FIELDS:
-        total = sum(t.get(field, 0) or 0 for t in tasks.values())
+        total = sum(t.get(field, 0) or 0 for t in receipt_tasks)
         result[f"total_{field}"] = total
-        result[f"avg_{field}"] = (total / n) if n else None
+        result[f"avg_{field}"] = total / n
     return result
 
 
@@ -806,11 +815,18 @@ def _stats_for_task(task_runs):
         "mean_tokens": _avg([r.get("tokens") for r in task_runs]),
         "mean_llm": _avg([r.get("llm_calls") for r in task_runs]),
         "mean_dur": _avg([r.get("duration") for r in task_runs]),
-        # Run Receipt fields (cuga-eval#95 / cuga-agent#467) — None for
-        # results sourced from Langfuse or from benchmarks not yet opted in.
-        "mean_input": _avg([r.get("input_tokens") for r in task_runs]),
-        "mean_output": _avg([r.get("output_tokens") for r in task_runs]),
-        "mean_reasoning": _avg([r.get("reasoning_tokens") for r in task_runs]),
+        # Run Receipt fields (cuga-eval#95 / cuga-agent#467) — averaged only
+        # over runs that actually carry a receipt (token_source == "receipt"),
+        # so a mix of receipt and legacy/Langfuse runs for the same task
+        # doesn't dilute the average toward zero. _avg returns None when the
+        # filtered list is empty, which callers render as "--".
+        "mean_input": _avg([r.get("input_tokens") for r in task_runs if r.get("token_source") == "receipt"]),
+        "mean_output": _avg(
+            [r.get("output_tokens") for r in task_runs if r.get("token_source") == "receipt"]
+        ),
+        "mean_reasoning": _avg(
+            [r.get("reasoning_tokens") for r in task_runs if r.get("token_source") == "receipt"]
+        ),
         # Vakra scores (M3 only): mean dialogue score and mean per-judge
         # scores across runs, ignoring runs where a judge was skipped.
         "mean_match_rate": _avg([r.get("match_rate") for r in task_runs]),
@@ -953,9 +969,10 @@ def _render_compare_report_sections(
     # ---- 2a-2. Run Receipt Breakdown: only rendered when at least one run
     # carries Run Receipt data (cuga-eval#95 / cuga-agent#467) — bpo/oak/
     # appworld-default runs never will, so their reports are unchanged.
-    any_receipt_data = any(
-        r.get(f) for runs in model_data.values() for r in runs for f in _RECEIPT_COST_FIELDS
-    )
+    # Uses the run-level has_receipt_data marker (token_source == "receipt"
+    # on at least one task), not field truthiness, so a genuine all-zero
+    # receipt still counts.
+    any_receipt_data = any(r.get("has_receipt_data") for runs in model_data.values() for r in runs)
     if any_receipt_data:
         lines.append(h2("Run Receipt Breakdown"))
         lines.append("")
@@ -969,23 +986,23 @@ def _render_compare_report_sections(
         lines.append("─" * len(receipt_header))
         for config_key, runs in model_data.items():
             display = _format_config_label(config_key)
-            n = len(runs)
-            config_has_receipt = any(r.get(f) for r in runs for f in _RECEIPT_COST_FIELDS)
-            if not config_has_receipt:
+            receipt_runs = [r for r in runs if r.get("has_receipt_data")]
+            if not receipt_runs:
                 lines.append(
                     f"{display:<28} {_fmt(None):>9}  {_fmt(None):>9}  {_fmt(None):>9}  "
                     f"{_fmt(None):>8}  {_fmt(None):>6}  {_fmt(None, 's'):>8}  "
                     f"{_fmt(None, 's'):>8}  {_fmt(None, 's'):>8}"
                 )
                 continue
-            avg_in = sum(r.get("input_tokens", 0) or 0 for r in runs) / n
-            avg_out = sum(r.get("output_tokens", 0) or 0 for r in runs) / n
-            avg_cache = sum(r.get("cache_read_tokens", 0) or 0 for r in runs) / n
-            avg_reason = sum(r.get("reasoning_tokens", 0) or 0 for r in runs) / n
-            avg_tool_n = sum(r.get("tool_call_count", 0) or 0 for r in runs) / n
-            avg_llm_t = sum(r.get("llm_time_s", 0) or 0 for r in runs) / n
-            avg_tool_t = sum(r.get("tool_time_s", 0) or 0 for r in runs) / n
-            avg_wall_t = sum(r.get("wall_time_s", 0) or 0 for r in runs) / n
+            n = len(receipt_runs)
+            avg_in = sum(r.get("input_tokens", 0) or 0 for r in receipt_runs) / n
+            avg_out = sum(r.get("output_tokens", 0) or 0 for r in receipt_runs) / n
+            avg_cache = sum(r.get("cache_read_tokens", 0) or 0 for r in receipt_runs) / n
+            avg_reason = sum(r.get("reasoning_tokens", 0) or 0 for r in receipt_runs) / n
+            avg_tool_n = sum(r.get("tool_call_count", 0) or 0 for r in receipt_runs) / n
+            avg_llm_t = sum(r.get("llm_time_s", 0) or 0 for r in receipt_runs) / n
+            avg_tool_t = sum(r.get("tool_time_s", 0) or 0 for r in receipt_runs) / n
+            avg_wall_t = sum(r.get("wall_time_s", 0) or 0 for r in receipt_runs) / n
             lines.append(
                 f"{display:<28} {_fmt(avg_in):>9}  {_fmt(avg_out):>9}  {_fmt(avg_cache):>9}  "
                 f"{_fmt(avg_reason):>8}  {_fmt(avg_tool_n):>6}  {_fmt(avg_llm_t, 's'):>8}  "

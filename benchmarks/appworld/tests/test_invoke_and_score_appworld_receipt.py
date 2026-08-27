@@ -6,7 +6,12 @@ from unittest.mock import AsyncMock, MagicMock, patch
 
 import pytest
 
-from benchmarks.appworld import eval_appworld_sdk
+pytest.importorskip(
+    "appworld",
+    reason="AppWorld package not installed; run ./setup_appworld.sh to enable this test.",
+)
+
+from benchmarks.appworld import eval_appworld_sdk  # noqa: E402
 
 pytestmark = pytest.mark.unit
 

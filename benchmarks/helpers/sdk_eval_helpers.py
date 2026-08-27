@@ -606,6 +606,18 @@ _RECEIPT_SUM_KEYS = (
 )
 
 
+class _ReceiptAccumulationFailed:
+    """Sentinel distinct from None: a prior multi-turn step lacked a receipt,
+    so this task's receipt total is permanently invalid. Using a dedicated
+    sentinel (rather than reusing None for both "not started" and "gave up")
+    prevents a later turn's receipt from wrongly resurrecting a partial total
+    — see cuga-eval#182 CodeRabbit review.
+    """
+
+
+_RECEIPT_ACCUMULATION_FAILED = _ReceiptAccumulationFailed()
+
+
 def _accumulate_receipt_metrics(
     acc: Optional[Dict[str, Any]], invoke_result: Any
 ) -> Optional[Dict[str, Any]]:
@@ -613,13 +625,18 @@ def _accumulate_receipt_metrics(
 
     A fresh RunMetricsCollector is attached per ``agent.invoke()`` call
     (cuga-agent#467), so a multi-turn task needs to sum across turns itself.
-    Returns None once any turn lacks a receipt — a multi-turn total must
-    never silently under-report from a partial mix of receipt/no-receipt
-    turns.
+    Once any turn lacks a receipt, permanently gives up (returns the
+    ``_RECEIPT_ACCUMULATION_FAILED`` sentinel forever after) rather than
+    returning to ``None`` — a later turn having a receipt again must never
+    resurrect a partial total from only the turns seen after the gap. Callers
+    treat anything that is not a ``dict`` (``None`` or the sentinel) as "no
+    valid receipt for this task."
     """
+    if acc is _RECEIPT_ACCUMULATION_FAILED:
+        return _RECEIPT_ACCUMULATION_FAILED
     fields = receipt_fields_from_invoke_result(invoke_result)
     if fields is None:
-        return None
+        return _RECEIPT_ACCUMULATION_FAILED
     if acc is None:
         acc = {
             key: (0.0 if key.endswith("_s") or key == "full_execution_time" else 0)
@@ -1609,7 +1626,7 @@ async def evaluate_multiturn_task_with_langfuse(
                     },
                 )
 
-                if _receipt_metrics is None:
+                if not isinstance(_receipt_metrics, dict):
                     try:
                         _langfuse_metrics = await fetch_langfuse_metrics_for_trace(predefined_trace_id)
                     except Exception as langfuse_err:
@@ -1763,7 +1780,7 @@ async def evaluate_multiturn_task_with_langfuse(
 
         if predefined_trace_id:
             result["trace_id"] = predefined_trace_id
-        if _receipt_metrics:
+        if isinstance(_receipt_metrics, dict):
             result.update(_receipt_metrics)
         elif _langfuse_metrics:
             result["total_tokens"] = _langfuse_metrics.total_tokens

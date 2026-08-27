@@ -11,6 +11,7 @@ from types import SimpleNamespace
 import pytest
 
 from benchmarks.helpers.sdk_eval_helpers import (
+    _RECEIPT_ACCUMULATION_FAILED,
     _accumulate_receipt_metrics,
     receipt_fields_from_invoke_result,
 )
@@ -117,11 +118,34 @@ def test_accumulate_sums_across_turns():
     assert acc["full_execution_time"] == pytest.approx(2.5)  # 1.5 + 1.0, summed like wall_time_s
 
 
-def test_accumulate_returns_none_once_any_turn_lacks_a_receipt():
+def test_accumulate_returns_failure_sentinel_once_any_turn_lacks_a_receipt():
+    """Once any turn lacks a receipt, accumulation permanently gives up —
+    represented by a dedicated sentinel distinct from None (cuga-eval#182
+    CodeRabbit review), not by None itself. Callers should treat anything
+    that isn't a dict (None or the sentinel) as "no valid receipt"."""
     r1 = SimpleNamespace(answer="a", receipt=_receipt())
     r2 = SimpleNamespace(answer="b", receipt=None)
 
     acc = _accumulate_receipt_metrics(None, r1)
     acc = _accumulate_receipt_metrics(acc, r2)
 
-    assert acc is None
+    assert acc is _RECEIPT_ACCUMULATION_FAILED
+    assert not isinstance(acc, dict)
+
+
+def test_accumulate_stays_failed_once_a_later_turn_has_a_receipt_again():
+    """Regression for the bug this sentinel fixes: turn 1 has a receipt,
+    turn 2 does not (accumulation fails), turn 3 has one again. Before the
+    fix, turn 3 saw ``acc is None`` and wrongly started a brand-new,
+    turn-3-only total. Now the failure is permanent: turn 3's receipt must
+    not resurrect a partial total."""
+    r1 = SimpleNamespace(answer="a", receipt=_receipt())
+    r2 = SimpleNamespace(answer="b", receipt=None)
+    r3 = SimpleNamespace(answer="c", receipt=_receipt())
+
+    acc = _accumulate_receipt_metrics(None, r1)
+    acc = _accumulate_receipt_metrics(acc, r2)
+    acc = _accumulate_receipt_metrics(acc, r3)
+
+    assert acc is _RECEIPT_ACCUMULATION_FAILED
+    assert not isinstance(acc, dict)

@@ -974,6 +974,7 @@ def test_parse_sdk_results_defaults_receipt_fields_to_zero_when_absent():
 def test_aggregate_receipt_costs_totals_and_averages():
     tasks = {
         "t1": {
+            "token_source": "receipt",
             "input_tokens": 100,
             "output_tokens": 50,
             "cache_read_tokens": 20,
@@ -984,6 +985,7 @@ def test_aggregate_receipt_costs_totals_and_averages():
             "wall_time_s": 1.5,
         },
         "t2": {
+            "token_source": "receipt",
             "input_tokens": 200,
             "output_tokens": 100,
             "cache_read_tokens": 0,
@@ -1018,6 +1020,7 @@ def test_aggregate_receipt_costs_detects_nontoken_receipt_data():
     data and return real numbers, not None."""
     tasks = {
         "t1": {
+            "token_source": "receipt",
             "input_tokens": 0,
             "output_tokens": 0,
             "cache_read_tokens": 0,
@@ -1042,6 +1045,75 @@ def test_aggregate_receipt_costs_detects_nontoken_receipt_data():
     assert agg["avg_input_tokens"] == 0
 
 
+def test_aggregate_receipt_costs_detects_genuine_all_zero_receipt():
+    """A task marked token_source == "receipt" whose every receipt field is
+    legitimately 0 (e.g. a call that used 0 output tokens) must still be
+    detected as carrying receipt data — the marker, not field truthiness,
+    decides this (cuga-eval#182 CodeRabbit review)."""
+    tasks = {
+        "t1": {
+            "token_source": "receipt",
+            "input_tokens": 0,
+            "output_tokens": 0,
+            "cache_read_tokens": 0,
+            "reasoning_tokens": 0,
+            "tool_call_count": 0,
+            "llm_time_s": 0.0,
+            "tool_time_s": 0.0,
+            "wall_time_s": 0.0,
+        }
+    }
+    agg = _aggregate_receipt_costs(tasks)
+
+    assert agg["total_input_tokens"] == 0
+    assert agg["avg_input_tokens"] == 0
+    assert agg["total_wall_time_s"] == 0.0
+    assert agg["avg_wall_time_s"] == 0.0
+
+
+def test_aggregate_receipt_costs_averages_only_over_receipt_tagged_tasks():
+    """A run with a mix of receipt-tagged tasks and legacy/non-receipt tasks
+    (no token_source, everything defaulted to 0) must average only over the
+    receipt-tagged subset — dividing by the full task count would silently
+    dilute the average toward zero (cuga-eval#182 CodeRabbit review)."""
+    tasks = {
+        "t1": {
+            "token_source": "receipt",
+            "input_tokens": 100,
+            "output_tokens": 50,
+            "cache_read_tokens": 0,
+            "reasoning_tokens": 0,
+            "tool_call_count": 1,
+            "llm_time_s": 1.0,
+            "tool_time_s": 0.0,
+            "wall_time_s": 1.0,
+        },
+        "t2": {
+            "token_source": "receipt",
+            "input_tokens": 200,
+            "output_tokens": 100,
+            "cache_read_tokens": 0,
+            "reasoning_tokens": 0,
+            "tool_call_count": 1,
+            "llm_time_s": 1.0,
+            "tool_time_s": 0.0,
+            "wall_time_s": 1.0,
+        },
+        "t3_legacy": {
+            # No token_source at all: pre-migration task, never opted in.
+            "input_tokens": 0,
+            "output_tokens": 0,
+        },
+    }
+    agg = _aggregate_receipt_costs(tasks)
+
+    # Average must divide by 2 (the receipt-tagged count), not 3.
+    assert agg["total_input_tokens"] == 300
+    assert agg["avg_input_tokens"] == 150
+    assert agg["total_output_tokens"] == 150
+    assert agg["avg_output_tokens"] == 75
+
+
 def _write_sdk_result_file(tmp_path, results, name="results.json"):
     path = tmp_path / name
     path.write_text(
@@ -1056,6 +1128,7 @@ def test_generate_eval_report_includes_receipt_breakdown_when_present(tmp_path):
             "task_name": "t1",
             "success": True,
             "total_tokens": 150,
+            "token_source": "receipt",
             "input_tokens": 100,
             "output_tokens": 50,
             "cache_read_tokens": 20,
@@ -1086,6 +1159,7 @@ def test_generate_report_includes_receipt_breakdown_when_present(tmp_path):
             "task_name": "t1",
             "success": True,
             "total_tokens": 150,
+            "token_source": "receipt",
             "input_tokens": 100,
             "output_tokens": 50,
             "cache_read_tokens": 20,
@@ -1122,6 +1196,7 @@ def test_generate_report_detects_nontoken_receipt_data(tmp_path):
             "task_name": "t1",
             "success": True,
             "total_tokens": 0,
+            "token_source": "receipt",
             "input_tokens": 0,
             "output_tokens": 0,
             "tool_call_count": 3,
@@ -1132,6 +1207,35 @@ def test_generate_report_detects_nontoken_receipt_data(tmp_path):
     report = generate_report({"gpt-oss-120b": [result_file]})
 
     assert "Run Receipt Breakdown" in report
+
+
+def test_generate_report_detects_genuine_all_zero_receipt(tmp_path):
+    """A run whose single task has token_source == "receipt" but every
+    receipt field is legitimately 0 must still trigger the "Run Receipt
+    Breakdown" section — field truthiness alone would wrongly treat this as
+    "no receipt data" (cuga-eval#182 CodeRabbit review)."""
+    results = [
+        {
+            "task_name": "t1",
+            "success": True,
+            "total_tokens": 0,
+            "token_source": "receipt",
+            "input_tokens": 0,
+            "output_tokens": 0,
+            "cache_read_tokens": 0,
+            "reasoning_tokens": 0,
+            "tool_call_count": 0,
+            "llm_time_s": 0.0,
+            "tool_time_s": 0.0,
+            "wall_time_s": 0.0,
+        }
+    ]
+    result_file = _write_sdk_result_file(tmp_path, results)
+    report = generate_report({"gpt-oss-120b": [result_file]})
+    eval_report = generate_eval_report(result_file)
+
+    assert "Run Receipt Breakdown" in report
+    assert "Run Receipt Breakdown" in eval_report
 
 
 def test_generate_report_shows_dash_for_config_without_receipt_data(tmp_path):
@@ -1145,6 +1249,7 @@ def test_generate_report_shows_dash_for_config_without_receipt_data(tmp_path):
             "task_name": "t1",
             "success": True,
             "total_tokens": 150,
+            "token_source": "receipt",
             "input_tokens": 100,
             "output_tokens": 50,
             "cache_read_tokens": 20,
@@ -1252,8 +1357,8 @@ def test_eval_report_per_task_table_shows_zero_when_receipt_fields_absent(tmp_pa
 
 def test_stats_for_task_computes_mean_input_output_reasoning():
     task_runs = [
-        {"input_tokens": 100, "output_tokens": 20, "reasoning_tokens": 2},
-        {"input_tokens": 200, "output_tokens": 40, "reasoning_tokens": 6},
+        {"token_source": "receipt", "input_tokens": 100, "output_tokens": 20, "reasoning_tokens": 2},
+        {"token_source": "receipt", "input_tokens": 200, "output_tokens": 40, "reasoning_tokens": 6},
     ]
     stats = _stats_for_task(task_runs)
 
@@ -1266,12 +1371,40 @@ def test_compare_report_per_task_details_shows_input_output_reasoning_and_averag
     """generate_report's Per-Task Details table gains Input/Output/Reasoning
     columns, correctly averaged per task and in the AVERAGE row."""
     results_r1 = [
-        {"task_name": "t1", "success": True, "total_tokens": 150, "input_tokens": 100, "output_tokens": 20},
-        {"task_name": "t2", "success": True, "total_tokens": 150, "input_tokens": 300, "output_tokens": 60},
+        {
+            "task_name": "t1",
+            "success": True,
+            "total_tokens": 150,
+            "token_source": "receipt",
+            "input_tokens": 100,
+            "output_tokens": 20,
+        },
+        {
+            "task_name": "t2",
+            "success": True,
+            "total_tokens": 150,
+            "token_source": "receipt",
+            "input_tokens": 300,
+            "output_tokens": 60,
+        },
     ]
     results_r2 = [
-        {"task_name": "t1", "success": True, "total_tokens": 150, "input_tokens": 200, "output_tokens": 40},
-        {"task_name": "t2", "success": True, "total_tokens": 150, "input_tokens": 300, "output_tokens": 60},
+        {
+            "task_name": "t1",
+            "success": True,
+            "total_tokens": 150,
+            "token_source": "receipt",
+            "input_tokens": 200,
+            "output_tokens": 40,
+        },
+        {
+            "task_name": "t2",
+            "success": True,
+            "total_tokens": 150,
+            "token_source": "receipt",
+            "input_tokens": 300,
+            "output_tokens": 60,
+        },
     ]
     run1 = _write_sdk_result_file(tmp_path, results_r1, name="r1.json")
     run2 = _write_sdk_result_file(tmp_path, results_r2, name="r2.json")
