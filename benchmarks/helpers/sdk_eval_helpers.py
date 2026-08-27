@@ -554,6 +554,88 @@ async def fetch_langfuse_metrics_for_trace(trace_id: str) -> Any:
     return metrics
 
 
+def receipt_fields_from_invoke_result(invoke_result: Any) -> Optional[Dict[str, Any]]:
+    """Flatten ``InvokeResult.receipt`` (cuga-agent's RunReceipt) into result fields.
+
+    Returns None when the caller's cuga-agent build didn't attach a receipt —
+    ``advanced_features.run_receipt`` is off (the default), or the installed
+    cuga-agent predates it (cuga-agent#467). Callers use that None-ness as the
+    signal to fall back to the existing Langfuse-fetch path.
+
+    Reuses total_tokens / total_llm_calls / total_cache_input_tokens so every
+    existing aggregator (compare_report.py) needs no branching on where the
+    numbers came from; the remaining keys have no Langfuse-path equivalent.
+    """
+    receipt = getattr(invoke_result, "receipt", None)
+    if receipt is None:
+        return None
+    tool_timings = getattr(receipt, "tool_timings", None) or []
+    return {
+        "token_source": "receipt",
+        "total_tokens": getattr(receipt, "total_tokens", 0) or 0,
+        "total_llm_calls": getattr(receipt, "llm_calls", 0) or 0,
+        "total_cache_input_tokens": getattr(receipt, "cache_read_tokens", 0) or 0,
+        "input_tokens": getattr(receipt, "input_tokens", 0) or 0,
+        "output_tokens": getattr(receipt, "output_tokens", 0) or 0,
+        "cache_read_tokens": getattr(receipt, "cache_read_tokens", 0) or 0,
+        "reasoning_tokens": getattr(receipt, "reasoning_tokens", 0) or 0,
+        "tool_call_count": getattr(receipt, "tool_call_count", 0) or 0,
+        "llm_time_s": getattr(receipt, "llm_time_s", 0.0) or 0.0,
+        "tool_time_s": getattr(receipt, "tool_time_s", 0.0) or 0.0,
+        "wall_time_s": getattr(receipt, "wall_time_s", 0.0) or 0.0,
+        "models": list(getattr(receipt, "models", None) or []),
+        "slowest_tool": getattr(receipt, "slowest_tool", None),
+        "tool_timings": [tt.model_dump() if hasattr(tt, "model_dump") else tt for tt in tool_timings],
+    }
+
+
+_RECEIPT_SUM_KEYS = (
+    "total_tokens",
+    "total_llm_calls",
+    "total_cache_input_tokens",
+    "input_tokens",
+    "output_tokens",
+    "cache_read_tokens",
+    "reasoning_tokens",
+    "tool_call_count",
+    "llm_time_s",
+    "tool_time_s",
+    "wall_time_s",
+)
+
+
+def _accumulate_receipt_metrics(
+    acc: Optional[Dict[str, Any]], invoke_result: Any
+) -> Optional[Dict[str, Any]]:
+    """Fold one multi-turn step's receipt into a running total.
+
+    A fresh RunMetricsCollector is attached per ``agent.invoke()`` call
+    (cuga-agent#467), so a multi-turn task needs to sum across turns itself.
+    Returns None once any turn lacks a receipt — a multi-turn total must
+    never silently under-report from a partial mix of receipt/no-receipt
+    turns.
+    """
+    fields = receipt_fields_from_invoke_result(invoke_result)
+    if fields is None:
+        return None
+    if acc is None:
+        acc = {key: (0.0 if key.endswith("_s") else 0) for key in _RECEIPT_SUM_KEYS}
+        acc["token_source"] = "receipt"  # noqa: S105
+        acc["models"] = []
+        acc["tool_timings"] = []
+        acc["slowest_tool"] = None
+    for key in _RECEIPT_SUM_KEYS:
+        acc[key] += fields[key]
+    for model in fields["models"]:
+        if model not in acc["models"]:
+            acc["models"].append(model)
+    acc["tool_timings"].extend(fields["tool_timings"])
+    acc["slowest_tool"] = (
+        max(acc["tool_timings"], key=lambda t: t.get("total_ms", 0))["name"] if acc["tool_timings"] else None
+    )
+    return acc
+
+
 def setup_langfuse():
     """Setup Langfuse tracing callback handler.
 
