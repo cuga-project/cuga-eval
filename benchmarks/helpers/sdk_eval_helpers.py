@@ -1477,6 +1477,7 @@ async def evaluate_multiturn_task_with_langfuse(
         all_tool_calls = []
         final_response = None
         _langfuse_metrics = None
+        _receipt_metrics = None
         predefined_trace_id = None
         total_react_steps = 0
 
@@ -1509,6 +1510,7 @@ async def evaluate_multiturn_task_with_langfuse(
                         lf_config=lf_config,
                     )
                     total_react_steps = _accumulate_react_steps(total_react_steps, invoke_result)
+                    _receipt_metrics = _accumulate_receipt_metrics(_receipt_metrics, invoke_result)
                     result_state = invoke_result.answer
                     turn_tool_calls = invoke_result.tool_calls or []
                     all_tool_calls.extend([(turn_idx, tc) for tc in turn_tool_calls])
@@ -1602,11 +1604,12 @@ async def evaluate_multiturn_task_with_langfuse(
                     },
                 )
 
-                try:
-                    _langfuse_metrics = await fetch_langfuse_metrics_for_trace(predefined_trace_id)
-                except Exception as langfuse_err:
-                    logger.warning(f"Failed to fetch Langfuse metrics: {langfuse_err}")
-                    _langfuse_metrics = None
+                if _receipt_metrics is None:
+                    try:
+                        _langfuse_metrics = await fetch_langfuse_metrics_for_trace(predefined_trace_id)
+                    except Exception as langfuse_err:
+                        logger.warning(f"Failed to fetch Langfuse metrics: {langfuse_err}")
+                        _langfuse_metrics = None
 
             except Exception as e:
                 logger.warning(f"Langfuse tracing failed: {e}")
@@ -1623,6 +1626,7 @@ async def evaluate_multiturn_task_with_langfuse(
                         track_tool_calls=track_tool_calls,
                     )
                     total_react_steps = _accumulate_react_steps(total_react_steps, invoke_result)
+                    _receipt_metrics = _accumulate_receipt_metrics(_receipt_metrics, invoke_result)
                     result_state = invoke_result.answer
                     turn_tool_calls = invoke_result.tool_calls or []
                     all_tool_calls.extend([(turn_idx, tc) for tc in turn_tool_calls])
@@ -1678,6 +1682,7 @@ async def evaluate_multiturn_task_with_langfuse(
                     track_tool_calls=track_tool_calls,
                 )
                 total_react_steps = _accumulate_react_steps(total_react_steps, invoke_result)
+                _receipt_metrics = _accumulate_receipt_metrics(_receipt_metrics, invoke_result)
                 result_state = invoke_result.answer
                 turn_tool_calls = invoke_result.tool_calls or []
                 all_tool_calls.extend([(turn_idx, tc) for tc in turn_tool_calls])
@@ -1753,7 +1758,9 @@ async def evaluate_multiturn_task_with_langfuse(
 
         if predefined_trace_id:
             result["trace_id"] = predefined_trace_id
-        if _langfuse_metrics:
+        if _receipt_metrics:
+            result.update(_receipt_metrics)
+        elif _langfuse_metrics:
             result["total_tokens"] = _langfuse_metrics.total_tokens
             result["total_llm_calls"] = _langfuse_metrics.total_llm_calls
             result["total_cost"] = _langfuse_metrics.total_cost
