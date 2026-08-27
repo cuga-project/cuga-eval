@@ -959,6 +959,7 @@ async def evaluate_task_with_langfuse(
         keyword_check_result = None
         tool_calls = []
         _langfuse_metrics = None
+        _receipt_metrics = None
         predefined_trace_id = None
 
         if should_trace_langfuse_task(langfuse_handler):
@@ -984,6 +985,7 @@ async def evaluate_task_with_langfuse(
                     track_tool_calls=track_tool_calls,
                     lf_config=lf_config,
                 )
+                _receipt_metrics = receipt_fields_from_invoke_result(invoke_result)
                 if isinstance(agent, GenericReactAgent) and predefined_trace_id:
                     record_harness_trace_output(
                         langfuse,
@@ -1027,11 +1029,12 @@ async def evaluate_task_with_langfuse(
                     comment="Overall task success: True if all keywords found, otherwise False",
                 )
 
-                try:
-                    _langfuse_metrics = await fetch_langfuse_metrics_for_trace(predefined_trace_id)
-                except Exception as langfuse_err:
-                    logger.warning(f"Failed to fetch Langfuse metrics: {langfuse_err}")
-                    _langfuse_metrics = None
+                if _receipt_metrics is None:
+                    try:
+                        _langfuse_metrics = await fetch_langfuse_metrics_for_trace(predefined_trace_id)
+                    except Exception as langfuse_err:
+                        logger.warning(f"Failed to fetch Langfuse metrics: {langfuse_err}")
+                        _langfuse_metrics = None
 
             except Exception as e:
                 logger.warning(f"Failed to start Langfuse trace: {e}")
@@ -1042,6 +1045,7 @@ async def evaluate_task_with_langfuse(
                     user_context=user_context or "",
                     track_tool_calls=track_tool_calls,
                 )
+                _receipt_metrics = receipt_fields_from_invoke_result(invoke_result)
                 # Handle both string and object return types
                 response = invoke_result.answer if hasattr(invoke_result, 'answer') else invoke_result
                 keyword_check_result = check_keywords(response, expected_keywords)
@@ -1052,6 +1056,7 @@ async def evaluate_task_with_langfuse(
                 user_context=user_context or "",
                 track_tool_calls=track_tool_calls,
             )
+            _receipt_metrics = receipt_fields_from_invoke_result(invoke_result)
             # Handle both string and object return types
             response = invoke_result.answer if hasattr(invoke_result, 'answer') else invoke_result
             keyword_check_result = check_keywords(response, expected_keywords)
@@ -1169,7 +1174,9 @@ async def evaluate_task_with_langfuse(
 
         if predefined_trace_id:
             result["trace_id"] = predefined_trace_id
-        if _langfuse_metrics:
+        if _receipt_metrics:
+            result.update(_receipt_metrics)
+        elif _langfuse_metrics:
             result["total_tokens"] = _langfuse_metrics.total_tokens
             result["total_llm_calls"] = _langfuse_metrics.total_llm_calls
             result["total_cost"] = _langfuse_metrics.total_cost
