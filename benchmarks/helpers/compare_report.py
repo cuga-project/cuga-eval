@@ -803,6 +803,11 @@ def _stats_for_task(task_runs):
         "mean_tokens": _avg([r.get("tokens") for r in task_runs]),
         "mean_llm": _avg([r.get("llm_calls") for r in task_runs]),
         "mean_dur": _avg([r.get("duration") for r in task_runs]),
+        # Run Receipt fields (cuga-eval#95 / cuga-agent#467) — None for
+        # results sourced from Langfuse or from benchmarks not yet opted in.
+        "mean_input": _avg([r.get("input_tokens") for r in task_runs]),
+        "mean_output": _avg([r.get("output_tokens") for r in task_runs]),
+        "mean_reasoning": _avg([r.get("reasoning_tokens") for r in task_runs]),
         # Vakra scores (M3 only): mean dialogue score and mean per-judge
         # scores across runs, ignoring runs where a judge was skipped.
         "mean_match_rate": _avg([r.get("match_rate") for r in task_runs]),
@@ -1117,7 +1122,8 @@ def _render_compare_report_sections(
         vakra_hdr = f"{'Dialog':>6} {'ExctM':>5} {'Answer':>6} {'Ground':>6}   " if has_vakra else ""
         task_header = (
             f"{prefix_hdr}{'Task':<{col_task_w}} {run_cols}   {'Successes':>10}   "
-            f"{'Rate':>6}   {vakra_hdr}{'Tokens':>8} {'LLM':>5} {'Time':>6}"
+            f"{'Rate':>6}   {vakra_hdr}{'Tokens':>8} {'Input':>8} {'Output':>8} {'Reason':>7} "
+            f"{'LLM':>5} {'Time':>6}"
         )
         lines.append(task_header)
         lines.append("─" * len(task_header))
@@ -1129,6 +1135,12 @@ def _render_compare_report_sections(
         n_llm = 0
         sum_dur = 0.0
         n_dur = 0
+        sum_input = 0.0
+        n_input = 0
+        sum_output = 0.0
+        n_output = 0
+        sum_reasoning = 0.0
+        n_reasoning = 0
         sum_match_rate = 0.0
         n_match_rate = 0
         sum_judge = dict.fromkeys(_JUDGE_KEYS, 0.0)
@@ -1166,6 +1178,18 @@ def _render_compare_report_sections(
             if md is not None:
                 sum_dur += md
                 n_dur += 1
+            mi = stats["mean_input"]
+            mo = stats["mean_output"]
+            mre = stats["mean_reasoning"]
+            if mi is not None:
+                sum_input += mi
+                n_input += 1
+            if mo is not None:
+                sum_output += mo
+                n_output += 1
+            if mre is not None:
+                sum_reasoning += mre
+                n_reasoning += 1
             mr = stats["mean_match_rate"]
             if mr is not None:
                 sum_match_rate += mr
@@ -1194,7 +1218,8 @@ def _render_compare_report_sections(
             lines.append(
                 f"{row_prefix}{task_disp:<{col_task_w}} {symbols}   "
                 f"{successes:>3}/{total:<3}   {rate_pct:>5.1f}%   {vakra_cols}"
-                f"{_fmt(mt):>8} {_fmt(ml):>5} {_fmt(md, 's'):>6}"
+                f"{_fmt(mt):>8} {_fmt(mi):>8} {_fmt(mo):>8} {_fmt(mre):>7} "
+                f"{_fmt(ml):>5} {_fmt(md, 's'):>6}"
             )
 
         # AVERAGE row
@@ -1205,6 +1230,9 @@ def _render_compare_report_sections(
             avg_tok = _fmt(sum_tokens / n_tokens) if n_tokens else "--"
             avg_llm = _fmt(sum_llm / n_llm) if n_llm else "--"
             avg_dur = _fmt(sum_dur / n_dur, "s") if n_dur else "--"
+            avg_input = _fmt(sum_input / n_input) if n_input else "--"
+            avg_output = _fmt(sum_output / n_output) if n_output else "--"
+            avg_reasoning = _fmt(sum_reasoning / n_reasoning) if n_reasoning else "--"
             lines.append("─" * len(task_header))
             spacer = "  ".join("──" for _ in range(n_runs))
             avg_prefix = f"{'':<{cap_w}} {'':<{dom_w}} {'':>{num_w}}  " if m3_mode else ""
@@ -1222,7 +1250,8 @@ def _render_compare_report_sections(
             lines.append(
                 f"{avg_prefix}{'AVERAGE':<{col_task_w}} {spacer}   "
                 f"{avg_successes:>3.1f}/{n_runs:<3}   {avg_rate:>5.1f}%   {avg_vakra_cols}"
-                f"{avg_tok:>8} {avg_llm:>5} {avg_dur:>6}"
+                f"{avg_tok:>8} {avg_input:>8} {avg_output:>8} {avg_reasoning:>7} "
+                f"{avg_llm:>5} {avg_dur:>6}"
             )
             lines.append("")
             cons = (all_pass / maj_pass) if maj_pass else None
@@ -1527,18 +1556,20 @@ def generate_eval_report(result_file: str, markdown: bool = True) -> str:
             if has_vakra:
                 lines.append(
                     "| Task | Domain | # | Result | Dialogue | ExactMatch | Answer | Groundedness "
-                    "| Tokens | Cost | LLM Calls | Cache Tokens | Duration | Steps |"
+                    "| Tokens | Cost | LLM Calls | Cache Tokens | Input | Output | Reasoning | Duration | Steps |"
                 )
                 lines.append(
                     "|------|--------|---|--------|----------|------------|--------|--------------"
-                    "|--------|------|-----------|--------------|----------|-------|"
+                    "|--------|------|-----------|--------------|-------|--------|-----------|----------|-------|"
                 )
             else:
                 lines.append(
-                    "| Task | Domain | # | Result | Tokens | Cost | LLM Calls | Cache Tokens | Duration | Steps |"
+                    "| Task | Domain | # | Result | Tokens | Cost | LLM Calls | Cache Tokens "
+                    "| Input | Output | Reasoning | Duration | Steps |"
                 )
                 lines.append(
-                    "|------|--------|---|--------|--------|------|-----------|--------------|----------|-------|"
+                    "|------|--------|---|--------|--------|------|-----------|--------------"
+                    "|-------|--------|-----------|----------|-------|"
                 )
             current_key: tuple = (None, None)
             for row in rows:
@@ -1570,6 +1601,8 @@ def generate_eval_report(result_file: str, markdown: bool = True) -> str:
                     f"| {tid_disp} | {dom_disp} | {ordn_disp} | {status} {vakra_cols}"
                     f"| {_fmt(t['tokens'])} | {_fmt(t.get('cost'), '$')} "
                     f"| {_fmt(t.get('llm_calls'))} | {_fmt(t.get('cache_tokens'))} "
+                    f"| {_fmt(t.get('input_tokens'))} | {_fmt(t.get('output_tokens'))} "
+                    f"| {_fmt(t.get('reasoning_tokens'))} "
                     f"| {_fmt(t.get('duration'), 's')} | {_fmt(t.get('steps'))} |"
                 )
         else:
@@ -1581,13 +1614,15 @@ def generate_eval_report(result_file: str, markdown: bool = True) -> str:
                     f"  {col_task:<4}  {'Domain':<{col_dom_w}}  {'#':>2}  "
                     f"{'R':<2}  {'Dialog':>6}  {'ExctM':>5}  {'Answer':>6}  {'Ground':>6}  "
                     f"{'Tokens':>10}  {'Cost':>7}  {'LLM':>5}  "
-                    f"{'Cache':>10}  {'Duration':>9}  {'Steps':>5}"
+                    f"{'Cache':>10}  {'Input':>9}  {'Output':>9}  {'Reason':>7}  "
+                    f"{'Duration':>9}  {'Steps':>5}"
                 )
             else:
                 header = (
                     f"  {col_task:<4}  {'Domain':<{col_dom_w}}  {'#':>2}  "
                     f"{'R':<2}  {'Tokens':>10}  {'Cost':>7}  {'LLM':>5}  "
-                    f"{'Cache':>10}  {'Duration':>9}  {'Steps':>5}"
+                    f"{'Cache':>10}  {'Input':>9}  {'Output':>9}  {'Reason':>7}  "
+                    f"{'Duration':>9}  {'Steps':>5}"
                 )
             lines.append(header)
             lines.append("  " + "─" * (len(header) - 2))
@@ -1625,21 +1660,33 @@ def generate_eval_report(result_file: str, markdown: bool = True) -> str:
                     f"{_fmt(t.get('cost'), '$'):>7}  "
                     f"{_fmt(t.get('llm_calls')):>5}  "
                     f"{_fmt(t.get('cache_tokens')):>10}  "
+                    f"{_fmt(t.get('input_tokens')):>9}  "
+                    f"{_fmt(t.get('output_tokens')):>9}  "
+                    f"{_fmt(t.get('reasoning_tokens')):>7}  "
                     f"{_fmt(t.get('duration'), 's'):>9}  "
                     f"{_fmt(t.get('steps')):>5}"
                 )
     else:
         # Legacy flat table (e.g. AppWorld where m3_task_id/domain aren't set).
         if markdown:
-            lines.append("| Task | Result | Tokens | Cost | LLM Calls | Cache Tokens | Duration | Steps |")
-            lines.append("|------|--------|--------|------|-----------|--------------|----------|-------|")
+            lines.append(
+                "| Task | Result | Tokens | Cost | LLM Calls | Cache Tokens "
+                "| Input | Output | Reasoning | Duration | Steps |"
+            )
+            lines.append(
+                "|------|--------|--------|------|-----------|--------------"
+                "|-------|--------|-----------|----------|-------|"
+            )
             for row in rows:
                 t = row["data"]
                 status = _task_result_mark(t)
                 lines.append(
                     f"| {row['label']} | {status} | {_fmt(t['tokens'])} "
                     f"| {_fmt(t.get('cost'), '$')} | {_fmt(t.get('llm_calls'))} "
-                    f"| {_fmt(t.get('cache_tokens'))} | {_fmt(t.get('duration'), 's')} "
+                    f"| {_fmt(t.get('cache_tokens'))} "
+                    f"| {_fmt(t.get('input_tokens'))} | {_fmt(t.get('output_tokens'))} "
+                    f"| {_fmt(t.get('reasoning_tokens'))} "
+                    f"| {_fmt(t.get('duration'), 's')} "
                     f"| {_fmt(t.get('steps'))} |"
                 )
         else:
@@ -1647,6 +1694,7 @@ def generate_eval_report(result_file: str, markdown: bool = True) -> str:
             header = (
                 f"  {'Task':<{col_task_w}}  {'R':<2}  {'Tokens':>10}  "
                 f"{'Cost':>7}  {'LLM':>5}  {'Cache':>10}  "
+                f"{'Input':>9}  {'Output':>9}  {'Reason':>7}  "
                 f"{'Duration':>9}  {'Steps':>5}"
             )
             lines.append(header)
@@ -1663,6 +1711,9 @@ def generate_eval_report(result_file: str, markdown: bool = True) -> str:
                     f"{_fmt(t.get('cost'), '$'):>7}  "
                     f"{_fmt(t.get('llm_calls')):>5}  "
                     f"{_fmt(t.get('cache_tokens')):>10}  "
+                    f"{_fmt(t.get('input_tokens')):>9}  "
+                    f"{_fmt(t.get('output_tokens')):>9}  "
+                    f"{_fmt(t.get('reasoning_tokens')):>7}  "
                     f"{_fmt(t.get('duration'), 's'):>9}  "
                     f"{_fmt(t.get('steps')):>5}"
                 )

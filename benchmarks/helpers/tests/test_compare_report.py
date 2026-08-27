@@ -30,6 +30,7 @@ from benchmarks.helpers.compare_report import (
     _last_turn_judge_scores,
     _m3_capability_group,
     _parse_sdk_results,
+    _stats_for_task,
     generate_eval_report,
     generate_report,
 )
@@ -337,8 +338,8 @@ def test_eval_report_m3_without_vakra_omits_columns(tmp_path):
     assert "Dialogue" not in report
     assert "ExactMatch" not in report
     assert (
-        "| Task | Domain | # | Result | Tokens | Cost | LLM Calls | Cache Tokens | Duration | Steps |"
-        in report
+        "| Task | Domain | # | Result | Tokens | Cost | LLM Calls | Cache Tokens "
+        "| Input | Output | Reasoning | Duration | Steps |" in report
     )
 
 
@@ -1172,3 +1173,122 @@ def test_generate_report_shows_dash_for_config_without_receipt_data(tmp_path):
 
     assert "--" in without_line
     assert "0" not in without_line
+
+
+# ---------------------------------------------------------------------------
+# Per-task Input/Output/Reasoning columns (cuga-eval#95 follow-up).
+#
+# These are distinct from the "Run Receipt Breakdown" summary section tested
+# above: the columns added here appear unconditionally on the genuinely
+# per-task tables (Per-Task Results in generate_eval_report, Per-Task Details
+# in generate_report), the same way `Cache Tokens` already does — they are
+# not gated behind "does this result carry receipt data".
+# ---------------------------------------------------------------------------
+
+
+def test_eval_report_grouped_per_task_table_shows_input_output_reasoning(tmp_path):
+    """generate_eval_report's grouped (M3), non-Vakra per-task table gains
+    Input/Output/Reasoning columns with correct per-task values."""
+    result_file = _m3_run(
+        tmp_path,
+        "m3_receipt.json",
+        {
+            "uuid-a": {"m3_task_id": 2, "domain": "hockey", "task_number": 1, "success": True},
+            "uuid-b": {"m3_task_id": 2, "domain": "hockey", "task_number": 2, "success": False},
+        },
+    )
+    # _m3_run doesn't plumb receipt fields, so patch them into the raw file.
+    payload = json.loads(Path(result_file).read_text())
+    payload["results"][0].update({"input_tokens": 111, "output_tokens": 22, "reasoning_tokens": 3})
+    payload["results"][1].update({"input_tokens": 444, "output_tokens": 55, "reasoning_tokens": 6})
+    Path(result_file).write_text(json.dumps(payload))
+
+    report = generate_eval_report(result_file)
+
+    assert (
+        "| Task | Domain | # | Result | Tokens | Cost | LLM Calls | Cache Tokens "
+        "| Input | Output | Reasoning | Duration | Steps |" in report
+    )
+    assert "| 111 | 22 | 3 |" in report
+    assert "| 444 | 55 | 6 |" in report
+
+
+def test_eval_report_legacy_per_task_table_shows_input_output_reasoning(tmp_path):
+    """generate_eval_report's non-grouped/legacy per-task table (e.g. AppWorld)
+    gains Input/Output/Reasoning columns with correct per-task values."""
+    results = [
+        {
+            "task_name": "t1",
+            "success": True,
+            "total_tokens": 150,
+            "input_tokens": 100,
+            "output_tokens": 50,
+            "reasoning_tokens": 5,
+        }
+    ]
+    report = generate_eval_report(_write_sdk_result_file(tmp_path, results))
+
+    assert (
+        "| Task | Result | Tokens | Cost | LLM Calls | Cache Tokens "
+        "| Input | Output | Reasoning | Duration | Steps |" in report
+    )
+    assert "| 100 | 50 | 5 |" in report
+
+
+def test_eval_report_per_task_table_shows_zero_when_receipt_fields_absent(tmp_path):
+    """Legacy/non-receipt result files (no input_tokens/output_tokens/
+    reasoning_tokens at all) still render the per-task table without crashing;
+    the new columns are unconditional so they show 0 (matching the existing
+    `.get(field, 0)` default from `_parse_sdk_results`), not `--`."""
+    results = [{"task_name": "t1", "success": True, "total_tokens": 150}]
+    report = generate_eval_report(_write_sdk_result_file(tmp_path, results))
+
+    assert (
+        "| Task | Result | Tokens | Cost | LLM Calls | Cache Tokens "
+        "| Input | Output | Reasoning | Duration | Steps |" in report
+    )
+    assert "| 0 | 0 | 0 |" in report
+
+
+def test_stats_for_task_computes_mean_input_output_reasoning():
+    task_runs = [
+        {"input_tokens": 100, "output_tokens": 20, "reasoning_tokens": 2},
+        {"input_tokens": 200, "output_tokens": 40, "reasoning_tokens": 6},
+    ]
+    stats = _stats_for_task(task_runs)
+
+    assert stats["mean_input"] == 150
+    assert stats["mean_output"] == 30
+    assert stats["mean_reasoning"] == 4
+
+
+def test_compare_report_per_task_details_shows_input_output_reasoning_and_average(tmp_path):
+    """generate_report's Per-Task Details table gains Input/Output/Reasoning
+    columns, correctly averaged per task and in the AVERAGE row."""
+    results_r1 = [
+        {"task_name": "t1", "success": True, "total_tokens": 150, "input_tokens": 100, "output_tokens": 20},
+        {"task_name": "t2", "success": True, "total_tokens": 150, "input_tokens": 300, "output_tokens": 60},
+    ]
+    results_r2 = [
+        {"task_name": "t1", "success": True, "total_tokens": 150, "input_tokens": 200, "output_tokens": 40},
+        {"task_name": "t2", "success": True, "total_tokens": 150, "input_tokens": 300, "output_tokens": 60},
+    ]
+    run1 = _write_sdk_result_file(tmp_path, results_r1, name="r1.json")
+    run2 = _write_sdk_result_file(tmp_path, results_r2, name="r2.json")
+
+    report = generate_report({"gpt-oss:cuga": [run1, run2]})
+
+    assert "Input" in report
+    assert "Output" in report
+    assert "Reason" in report
+    # t1: mean input = (100+200)/2 = 150.0, mean output = (20+40)/2 = 30.0.
+    # t2: mean input = 300.0, mean output = 60.0 (constant across both runs).
+    # AVERAGE row: mean input across tasks = (150+300)/2 = 225.0, mean output = (30+60)/2 = 45.0.
+    lines = report.splitlines()
+    t1_line = next(ln for ln in lines if ln.strip().startswith("t1 "))
+    t2_line = next(ln for ln in lines if ln.strip().startswith("t2 "))
+    avg_line = next(ln for ln in lines if "AVERAGE" in ln)
+    assert "150.0" in t1_line
+    assert "300.0" in t2_line
+    assert "225.0" in avg_line
+    assert "45.0" in avg_line
