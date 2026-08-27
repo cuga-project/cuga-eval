@@ -349,6 +349,18 @@ def _parse_appworld_results(data: dict) -> dict:
     total_cost = sum(t.get("total_cost", 0) or 0 for t in task_results.values())
     total_llm_calls = sum(t.get("total_llm_calls", 0) or 0 for t in task_results.values())
     total_cache_tokens = sum(t.get("cache_input_tokens", 0) or 0 for t in task_results.values())
+    # Run Receipt fields (cuga-eval#95 / cuga-agent#467) — mirrors the full
+    # 8-field set _parse_sdk_results carries, not just the 3 token fields, so
+    # a future receipt-producing AppWorld harness isn't silently truncated to
+    # zero on cache/tool/timing columns (CodeRabbit review, PR #182).
+    total_input_tokens = sum(t.get("input_tokens", 0) or 0 for t in task_results.values())
+    total_output_tokens = sum(t.get("output_tokens", 0) or 0 for t in task_results.values())
+    total_receipt_cache_read = sum(t.get("cache_read_tokens", 0) or 0 for t in task_results.values())
+    total_reasoning_tokens = sum(t.get("reasoning_tokens", 0) or 0 for t in task_results.values())
+    total_tool_call_count = sum(t.get("tool_call_count", 0) or 0 for t in task_results.values())
+    total_llm_time_s = sum(t.get("llm_time_s", 0) or 0 for t in task_results.values())
+    total_tool_time_s = sum(t.get("tool_time_s", 0) or 0 for t in task_results.values())
+    total_wall_time_s = sum(t.get("wall_time_s", 0) or 0 for t in task_results.values())
     total_duration = data.get("duration") or sum(
         t.get("full_execution_time", 0) or 0 for t in task_results.values()
     )
@@ -363,7 +375,12 @@ def _parse_appworld_results(data: dict) -> dict:
             "cache_tokens": t.get("cache_input_tokens", 0) or 0,
             "input_tokens": t.get("input_tokens", 0) or 0,
             "output_tokens": t.get("output_tokens", 0) or 0,
+            "cache_read_tokens": t.get("cache_read_tokens", 0) or 0,
             "reasoning_tokens": t.get("reasoning_tokens", 0) or 0,
+            "tool_call_count": t.get("tool_call_count", 0) or 0,
+            "llm_time_s": t.get("llm_time_s", 0) or 0,
+            "tool_time_s": t.get("tool_time_s", 0) or 0,
+            "wall_time_s": t.get("wall_time_s", 0) or 0,
             "token_source": t.get("token_source"),
             "duration": t.get("full_execution_time") or t.get("duration"),
             "steps": t.get("steps"),
@@ -380,6 +397,14 @@ def _parse_appworld_results(data: dict) -> dict:
         "cost": total_cost,
         "llm_calls": total_llm_calls,
         "cache_tokens": total_cache_tokens,
+        "input_tokens": total_input_tokens,
+        "output_tokens": total_output_tokens,
+        "cache_read_tokens": total_receipt_cache_read,
+        "reasoning_tokens": total_reasoning_tokens,
+        "tool_call_count": total_tool_call_count,
+        "llm_time_s": total_llm_time_s,
+        "tool_time_s": total_tool_time_s,
+        "wall_time_s": total_wall_time_s,
         "duration": total_duration,
         "has_receipt_data": any(t.get("token_source") == "receipt" for t in tasks.values()),
         "tasks": tasks,

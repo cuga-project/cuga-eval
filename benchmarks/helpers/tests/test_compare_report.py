@@ -29,6 +29,7 @@ from benchmarks.helpers.compare_report import (
     _aggregate_receipt_costs,
     _last_turn_judge_scores,
     _m3_capability_group,
+    _parse_appworld_results,
     _parse_sdk_results,
     _stats_for_task,
     generate_eval_report,
@@ -1462,3 +1463,46 @@ def test_eval_report_appworld_task_results_shape_defaults_receipt_fields_to_zero
     # source data and must all render as 0, not `--`.
     assert "| 0 | 0 | 0 | 0 |" in row
     assert "--" not in row
+
+
+def test_parse_appworld_results_preserves_all_eight_receipt_fields():
+    """_parse_appworld_results must mirror _parse_sdk_results' full 8-field
+    Run Receipt handling (cache_read_tokens, tool_call_count, llm_time_s,
+    tool_time_s, wall_time_s), not just input/output/reasoning tokens --
+    otherwise a receipt-producing AppWorld harness would have those 5 fields
+    silently truncated to zero in both the per-task dict and the run-level
+    totals (CodeRabbit review, PR #182)."""
+    data = {
+        "tasks_total": 1,
+        "tasks_completed": 1,
+        "task_results": {
+            "t1": {
+                "success": True,
+                "total_tokens": 150,
+                "input_tokens": 100,
+                "output_tokens": 50,
+                "cache_read_tokens": 20,
+                "reasoning_tokens": 5,
+                "tool_call_count": 2,
+                "llm_time_s": 1.5,
+                "tool_time_s": 0.5,
+                "wall_time_s": 2.5,
+                "token_source": "receipt",
+            }
+        },
+    }
+
+    parsed = _parse_appworld_results(data)
+
+    task = parsed["tasks"]["t1"]
+    assert task["cache_read_tokens"] == 20
+    assert task["tool_call_count"] == 2
+    assert task["llm_time_s"] == 1.5
+    assert task["tool_time_s"] == 0.5
+    assert task["wall_time_s"] == 2.5
+    assert parsed["cache_read_tokens"] == 20
+    assert parsed["tool_call_count"] == 2
+    assert parsed["llm_time_s"] == 1.5
+    assert parsed["tool_time_s"] == 0.5
+    assert parsed["wall_time_s"] == 2.5
+    assert parsed["has_receipt_data"] is True
