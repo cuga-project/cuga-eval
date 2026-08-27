@@ -359,6 +359,10 @@ REGISTRY_PORT="${REGISTRY_PORT:-${DYNACONF_SERVER_PORTS__REGISTRY:-8001}}"
 export REGISTRY_PORT
 export DYNACONF_SERVER_PORTS__REGISTRY="$REGISTRY_PORT"
 
+# Per-run token/timing receipt from CugaAgent.invoke() (cuga-agent#467),
+# preferred over the Langfuse HTTP fetch when present (cuga-eval#95).
+export DYNACONF_ADVANCED_FEATURES__RUN_RECEIPT=true
+
 # Capture the cuga-agent checkout's git state now, before the eval run starts
 # — not at bundle-assembly time (after the run finishes). If the checkout is
 # shared (e.g. someone switches branches in it for unrelated work) while a
