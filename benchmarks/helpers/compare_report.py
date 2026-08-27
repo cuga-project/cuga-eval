@@ -1406,6 +1406,7 @@ def generate_eval_report(result_file: str, markdown: bool = True) -> str:
     parsed = parse_result_file(result_file)
     rows, grouped = _bucket_m3_tasks(parsed["tasks"])
     cost = _aggregate_costs(parsed["tasks"])
+    receipt_cost = _aggregate_receipt_costs(parsed["tasks"])
 
     h1 = (lambda s: f"# {s}") if markdown else (lambda s: f"\n{s}\n{'=' * len(s)}")
     h2 = (lambda s: f"## {s}") if markdown else (lambda s: f"\n{s}\n{'-' * len(s)}")
@@ -1433,6 +1434,33 @@ def generate_eval_report(result_file: str, markdown: bool = True) -> str:
         lines.append(f"  Avg Duration/Task  {_fmt(cost['avg_duration'], 's')}")
     _append_content_filter_summary(lines, parsed["tasks"], markdown=markdown)
     lines.append("")
+
+    if receipt_cost["total_input_tokens"] is not None:
+        lines.append(h2("Run Receipt Breakdown"))
+        lines.append("")
+        receipt_rows = [
+            ("Input Tokens", "total_input_tokens", "avg_input_tokens", ","),
+            ("Output Tokens", "total_output_tokens", "avg_output_tokens", ","),
+            ("Cache Read Tokens", "total_cache_read_tokens", "avg_cache_read_tokens", ","),
+            ("Reasoning Tokens", "total_reasoning_tokens", "avg_reasoning_tokens", ","),
+            ("Tool Calls", "total_tool_call_count", "avg_tool_call_count", ","),
+            ("LLM Time", "total_llm_time_s", "avg_llm_time_s", "s"),
+            ("Tool Time", "total_tool_time_s", "avg_tool_time_s", "s"),
+            ("Wall Time", "total_wall_time_s", "avg_wall_time_s", "s"),
+        ]
+        if markdown:
+            for label, total_key, avg_key, fmt in receipt_rows:
+                lines.append(
+                    f"- **{label}**: {_fmt(receipt_cost[total_key], fmt)} total, "
+                    f"{_fmt(receipt_cost[avg_key], fmt)} / task"
+                )
+        else:
+            for label, total_key, avg_key, fmt in receipt_rows:
+                lines.append(
+                    f"  {label:<18} {_fmt(receipt_cost[total_key], fmt):>10} total   "
+                    f"{_fmt(receipt_cost[avg_key], fmt):>10} / task"
+                )
+        lines.append("")
 
     lines.append(h2("Per-Task Results"))
     lines.append("")

@@ -1039,3 +1039,41 @@ def test_aggregate_receipt_costs_detects_nontoken_receipt_data():
     # Token fields are still 0, not None
     assert agg["total_input_tokens"] == 0
     assert agg["avg_input_tokens"] == 0
+
+
+def _write_sdk_result_file(tmp_path, results):
+    path = tmp_path / "results.json"
+    path.write_text(
+        json.dumps({"metrics": {"total_tasks": len(results), "passed": len(results)}, "results": results})
+    )
+    return str(path)
+
+
+def test_generate_eval_report_includes_receipt_breakdown_when_present(tmp_path):
+    results = [
+        {
+            "task_name": "t1",
+            "success": True,
+            "total_tokens": 150,
+            "input_tokens": 100,
+            "output_tokens": 50,
+            "cache_read_tokens": 20,
+            "reasoning_tokens": 5,
+            "tool_call_count": 2,
+            "llm_time_s": 1.5,
+            "tool_time_s": 0.5,
+            "wall_time_s": 2.5,
+        }
+    ]
+    report = generate_eval_report(_write_sdk_result_file(tmp_path, results))
+
+    assert "Run Receipt Breakdown" in report
+    assert "Input Tokens" in report
+    assert "100" in report
+
+
+def test_generate_eval_report_omits_receipt_breakdown_when_absent(tmp_path):
+    results = [{"task_name": "t1", "success": True, "total_tokens": 150}]
+    report = generate_eval_report(_write_sdk_result_file(tmp_path, results))
+
+    assert "Run Receipt Breakdown" not in report
