@@ -1077,3 +1077,34 @@ def test_generate_eval_report_omits_receipt_breakdown_when_absent(tmp_path):
     report = generate_eval_report(_write_sdk_result_file(tmp_path, results))
 
     assert "Run Receipt Breakdown" not in report
+
+
+def test_generate_report_includes_receipt_breakdown_when_present(tmp_path):
+    results = [
+        {
+            "task_name": "t1",
+            "success": True,
+            "total_tokens": 150,
+            "input_tokens": 100,
+            "output_tokens": 50,
+            "cache_read_tokens": 20,
+            "reasoning_tokens": 5,
+            "tool_call_count": 2,
+            "llm_time_s": 1.5,
+            "tool_time_s": 0.5,
+            "wall_time_s": 2.5,
+        }
+    ]
+    result_file = _write_sdk_result_file(tmp_path, results)
+    report = generate_report({"gpt-oss-120b": [result_file]})
+
+    assert "Run Receipt Breakdown" in report
+    assert "In Tok" in report
+
+
+def test_generate_report_omits_receipt_breakdown_when_absent(tmp_path):
+    results = [{"task_name": "t1", "success": True, "total_tokens": 150}]
+    result_file = _write_sdk_result_file(tmp_path, results)
+    report = generate_report({"gpt-oss-120b": [result_file]})
+
+    assert "Run Receipt Breakdown" not in report

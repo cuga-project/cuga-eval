@@ -942,6 +942,43 @@ def _render_compare_report_sections(
         lines.append(fence_close())
     lines.append("")
 
+    # ---- 2a-2. Run Receipt Breakdown: only rendered when at least one run
+    # carries Run Receipt data (cuga-eval#95 / cuga-agent#467) — bpo/oak/
+    # appworld-default runs never will, so their reports are unchanged.
+    any_receipt_data = any(
+        (r.get("input_tokens") or r.get("output_tokens")) for runs in model_data.values() for r in runs
+    )
+    if any_receipt_data:
+        lines.append(h2("Run Receipt Breakdown"))
+        lines.append("")
+        if fence_open():
+            lines.append(fence_open())
+        receipt_header = (
+            f"{'Configuration':<28} {'In Tok':>9}  {'Out Tok':>9}  {'Cache Rd':>9}  "
+            f"{'Reason':>8}  {'Tool#':>6}  {'LLM(s)':>8}  {'Tool(s)':>8}  {'Wall(s)':>8}"
+        )
+        lines.append(receipt_header)
+        lines.append("─" * len(receipt_header))
+        for config_key, runs in model_data.items():
+            display = _format_config_label(config_key)
+            n = len(runs)
+            avg_in = sum(r.get("input_tokens", 0) or 0 for r in runs) / n
+            avg_out = sum(r.get("output_tokens", 0) or 0 for r in runs) / n
+            avg_cache = sum(r.get("cache_read_tokens", 0) or 0 for r in runs) / n
+            avg_reason = sum(r.get("reasoning_tokens", 0) or 0 for r in runs) / n
+            avg_tool_n = sum(r.get("tool_call_count", 0) or 0 for r in runs) / n
+            avg_llm_t = sum(r.get("llm_time_s", 0) or 0 for r in runs) / n
+            avg_tool_t = sum(r.get("tool_time_s", 0) or 0 for r in runs) / n
+            avg_wall_t = sum(r.get("wall_time_s", 0) or 0 for r in runs) / n
+            lines.append(
+                f"{display:<28} {_fmt(avg_in):>9}  {_fmt(avg_out):>9}  {_fmt(avg_cache):>9}  "
+                f"{_fmt(avg_reason):>8}  {_fmt(avg_tool_n):>6}  {_fmt(avg_llm_t, 's'):>8}  "
+                f"{_fmt(avg_tool_t, 's'):>8}  {_fmt(avg_wall_t, 's'):>8}"
+            )
+        if fence_close():
+            lines.append(fence_close())
+        lines.append("")
+
     # ---- 2b. Per-group breakdowns (only when result files carry the relevant
     # metadata, so unrelated reports stay unchanged):
     #   - difficulty (AppWorld)
