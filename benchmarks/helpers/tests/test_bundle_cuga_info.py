@@ -49,6 +49,24 @@ def test_git_info_passed_explicitly_is_used_as_is(monkeypatch):
     assert info["git_dirty"] is False
 
 
+def test_warns_when_explicit_git_info_has_no_commit(monkeypatch):
+    """git_info={} (or a dict with an empty git_commit) is truthy, so the old
+    warning — scoped to the `else` branch only — never fired for it. bundle.py's
+    ``--cuga-git-info '{}'`` CLI path hits exactly this.
+    """
+    monkeypatch.setattr(
+        bundle, "_run_git", lambda *a, **k: (_ for _ in ()).throw(AssertionError("should not shell out"))
+    )
+    warnings = []
+    monkeypatch.setattr(bundle.logger, "warning", lambda msg: warnings.append(msg))
+
+    info = bundle.collect_cuga_info(git_info={})
+
+    assert "git_commit" not in info
+    assert warnings, "expected a warning when explicit git_info has no git_commit"
+    assert "could not resolve cuga-agent's git info" in warnings[0]
+
+
 def test_resolves_via_live_checkout_not_the_guessed_path(monkeypatch, fake_cuga, tmp_path):
     live_repo = tmp_path / "not_workspace" / "cuga-agent"
     (live_repo / "src" / "cuga").mkdir(parents=True)
@@ -62,6 +80,9 @@ def test_resolves_via_live_checkout_not_the_guessed_path(monkeypatch, fake_cuga,
         if args == ["rev-parse", "--show-toplevel"]:
             assert Path(cwd) == live_repo / "src" / "cuga"
             return str(live_repo)
+        if args[:2] == ["ls-files", "--error-unmatch"]:
+            assert Path(cwd) == live_repo
+            return ""  # tracked
         assert Path(cwd) == live_repo, f"expected git ops against the live repo, got {cwd}"
         if args == ["rev-parse", "--short", "HEAD"]:
             return "deadbee"
@@ -79,6 +100,44 @@ def test_resolves_via_live_checkout_not_the_guessed_path(monkeypatch, fake_cuga,
     assert info["git_branch"] == "feature/live"
     assert info["git_dirty"] is False
     assert info["version"] == "0.9.9-test"
+
+
+def test_falls_back_to_cuga_repo_path_when_toplevel_is_a_different_repo(monkeypatch, fake_cuga, tmp_path):
+    """A non-editable install under <cuga-eval>/.venv/.../site-packages/cuga sits
+    inside *cuga-eval's* repo — `--show-toplevel` resolves to a real, but wrong,
+    root. Only trust it once `ls-files` confirms the module dir is tracked there.
+    """
+    wheel_install_dir = tmp_path / "site-packages" / "cuga"  # untracked by the enclosing repo
+    wheel_install_dir.mkdir(parents=True)
+    fake_cuga(str(wheel_install_dir / "__init__.py"))
+
+    wrong_repo_root = tmp_path  # e.g. cuga-eval's checkout, containing .venv/site-packages/cuga
+    guessed_repo = tmp_path / "workspace" / "cuga-agent"
+    guessed_repo.mkdir(parents=True)
+    monkeypatch.setenv("CUGA_REPO_PATH", str(guessed_repo))
+
+    def fake_run_git(args, cwd=None):
+        if args == ["rev-parse", "--show-toplevel"]:
+            assert Path(cwd) == wheel_install_dir
+            return str(wrong_repo_root)
+        if args[:2] == ["ls-files", "--error-unmatch"]:
+            assert Path(cwd) == wrong_repo_root
+            return None  # not tracked — the resolved root is the wrong repo
+        assert Path(cwd) == guessed_repo, f"expected git ops against the guessed repo, got {cwd}"
+        if args == ["rev-parse", "--short", "HEAD"]:
+            return "f00d123"
+        if args == ["rev-parse", "--abbrev-ref", "HEAD"]:
+            return "main"
+        if args == ["status", "--short"]:
+            return ""
+        raise AssertionError(f"unexpected git args: {args}")
+
+    monkeypatch.setattr(bundle, "_run_git", fake_run_git)
+
+    info = bundle.collect_cuga_info()
+
+    assert info["git_commit"] == "f00d123"
+    assert info["git_branch"] == "main"
 
 
 def test_falls_back_to_cuga_repo_path_when_live_checkout_has_no_git_root(monkeypatch, fake_cuga, tmp_path):

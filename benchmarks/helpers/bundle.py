@@ -215,8 +215,18 @@ def collect_cuga_info(git_info: dict | None = None) -> dict:
         # installed as a non-editable wheel with no accessible .git).
         cuga_repo_path = None
         if cuga_module_file:
-            toplevel = _run_git(["rev-parse", "--show-toplevel"], cwd=Path(cuga_module_file).resolve().parent)
-            if toplevel:
+            module_dir = Path(cuga_module_file).resolve().parent
+            toplevel = _run_git(["rev-parse", "--show-toplevel"], cwd=module_dir)
+            # --show-toplevel answers "which repo contains this directory", not
+            # "is this directory the source of this package" — a non-editable
+            # install under <cuga-eval>/.venv/.../site-packages/cuga resolves to
+            # cuga-eval's repo root, which would then silently record the wrong
+            # project's git state. Confirm the module dir is actually tracked by
+            # the repo before trusting it.
+            if (
+                toplevel
+                and _run_git(["ls-files", "--error-unmatch", str(module_dir)], cwd=toplevel) is not None
+            ):
                 cuga_repo_path = Path(toplevel)
         if cuga_repo_path is None:
             cuga_repo = os.environ.get("CUGA_REPO_PATH", os.path.expanduser("~/workspace/cuga-agent"))
@@ -231,12 +241,13 @@ def collect_cuga_info(git_info: dict | None = None) -> dict:
                 "git_branch": _run_git(["rev-parse", "--abbrev-ref", "HEAD"], cwd=cuga_repo_path),
                 "git_dirty": bool(_run_git(["status", "--short"], cwd=cuga_repo_path) or ""),
             }
-        if not cuga_git.get("git_commit"):
-            logger.warning(
-                "collect_cuga_info: could not resolve cuga-agent's git info (checked the live "
-                "'cuga' package location, then CUGA_REPO_PATH / ~/workspace/cuga-agent) — "
-                "this bundle's metadata.json will be missing cuga.git_commit/git_branch/git_dirty."
-            )
+
+    if not cuga_git.get("git_commit"):
+        logger.warning(
+            "collect_cuga_info: could not resolve cuga-agent's git info (checked the live "
+            "'cuga' package location, then CUGA_REPO_PATH / ~/workspace/cuga-agent) — "
+            "this bundle's metadata.json will be missing cuga.git_commit/git_branch/git_dirty."
+        )
 
     return {
         "version": cuga_version,

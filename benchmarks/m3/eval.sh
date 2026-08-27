@@ -364,7 +364,7 @@ export DYNACONF_SERVER_PORTS__REGISTRY="$REGISTRY_PORT"
 # shared (e.g. someone switches branches in it for unrelated work) while a
 # long run is in flight, a live git query at the end would silently mislabel
 # the bundle with whatever happens to be checked out by then.
-CUGA_REPO_PATH_RESOLVED="${CUGA_REPO_PATH:-$HOME/workspace/cuga-agent}"
+CUGA_REPO_PATH_RESOLVED="$(resolve_cuga_repo_path)"
 CUGA_GIT_INFO_JSON=""
 if [ -d "$CUGA_REPO_PATH_RESOLVED" ]; then
     _cuga_commit=$(git -C "$CUGA_REPO_PATH_RESOLVED" rev-parse --short HEAD 2>/dev/null || echo "")
