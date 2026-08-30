@@ -261,6 +261,16 @@ def _parse_sdk_results(data: dict) -> dict:
     total_cost = sum(r.get("total_cost", 0) or 0 for r in results)
     total_llm_calls = sum(r.get("total_llm_calls", 0) or 0 for r in results)
     total_cache_tokens = sum(r.get("total_cache_input_tokens", 0) or 0 for r in results)
+    # Run Receipt fields (cuga-eval#95 / cuga-agent#467) — absent (0) for
+    # results sourced from Langfuse or from benchmarks not yet opted in.
+    total_input_tokens = sum(r.get("input_tokens", 0) or 0 for r in results)
+    total_output_tokens = sum(r.get("output_tokens", 0) or 0 for r in results)
+    total_receipt_cache_read = sum(r.get("cache_read_tokens", 0) or 0 for r in results)
+    total_reasoning_tokens = sum(r.get("reasoning_tokens", 0) or 0 for r in results)
+    total_tool_call_count = sum(r.get("tool_call_count", 0) or 0 for r in results)
+    total_llm_time_s = sum(r.get("llm_time_s", 0) or 0 for r in results)
+    total_tool_time_s = sum(r.get("tool_time_s", 0) or 0 for r in results)
+    total_wall_time_s = sum(r.get("wall_time_s", 0) or 0 for r in results)
 
     tasks = {}
     total_duration = 0.0
@@ -277,6 +287,17 @@ def _parse_sdk_results(data: dict) -> dict:
             "cost": r.get("total_cost", 0) or 0,
             "llm_calls": r.get("total_llm_calls", 0) or 0,
             "cache_tokens": r.get("total_cache_input_tokens", 0) or 0,
+            # Receipt-only: left None (not 0) when absent so per-task tables
+            # render "--" via _fmt instead of a misleading 0 (PR #182 review).
+            "input_tokens": r.get("input_tokens"),
+            "output_tokens": r.get("output_tokens"),
+            "cache_read_tokens": r.get("cache_read_tokens", 0) or 0,
+            "reasoning_tokens": r.get("reasoning_tokens"),
+            "tool_call_count": r.get("tool_call_count", 0) or 0,
+            "llm_time_s": r.get("llm_time_s", 0) or 0,
+            "tool_time_s": r.get("tool_time_s", 0) or 0,
+            "wall_time_s": r.get("wall_time_s", 0) or 0,
+            "token_source": r.get("token_source"),
             "duration": dur,
             "steps": r.get("steps"),
             # AppWorld results carry a per-task difficulty band; preserved for
@@ -307,7 +328,16 @@ def _parse_sdk_results(data: dict) -> dict:
         "cost": total_cost,
         "llm_calls": total_llm_calls,
         "cache_tokens": total_cache_tokens,
+        "input_tokens": total_input_tokens,
+        "output_tokens": total_output_tokens,
+        "cache_read_tokens": total_receipt_cache_read,
+        "reasoning_tokens": total_reasoning_tokens,
+        "tool_call_count": total_tool_call_count,
+        "llm_time_s": total_llm_time_s,
+        "tool_time_s": total_tool_time_s,
+        "wall_time_s": total_wall_time_s,
         "duration": total_duration if has_duration else None,
+        "has_receipt_data": any(t.get("token_source") == "receipt" for t in tasks.values()),
         "tasks": tasks,
     }
 
@@ -321,6 +351,18 @@ def _parse_appworld_results(data: dict) -> dict:
     total_cost = sum(t.get("total_cost", 0) or 0 for t in task_results.values())
     total_llm_calls = sum(t.get("total_llm_calls", 0) or 0 for t in task_results.values())
     total_cache_tokens = sum(t.get("cache_input_tokens", 0) or 0 for t in task_results.values())
+    # Run Receipt fields (cuga-eval#95 / cuga-agent#467) — mirrors the full
+    # 8-field set _parse_sdk_results carries, not just the 3 token fields, so
+    # a future receipt-producing AppWorld harness isn't silently truncated to
+    # zero on cache/tool/timing columns (CodeRabbit review, PR #182).
+    total_input_tokens = sum(t.get("input_tokens", 0) or 0 for t in task_results.values())
+    total_output_tokens = sum(t.get("output_tokens", 0) or 0 for t in task_results.values())
+    total_receipt_cache_read = sum(t.get("cache_read_tokens", 0) or 0 for t in task_results.values())
+    total_reasoning_tokens = sum(t.get("reasoning_tokens", 0) or 0 for t in task_results.values())
+    total_tool_call_count = sum(t.get("tool_call_count", 0) or 0 for t in task_results.values())
+    total_llm_time_s = sum(t.get("llm_time_s", 0) or 0 for t in task_results.values())
+    total_tool_time_s = sum(t.get("tool_time_s", 0) or 0 for t in task_results.values())
+    total_wall_time_s = sum(t.get("wall_time_s", 0) or 0 for t in task_results.values())
     total_duration = data.get("duration") or sum(
         t.get("full_execution_time", 0) or 0 for t in task_results.values()
     )
@@ -333,6 +375,17 @@ def _parse_appworld_results(data: dict) -> dict:
             "cost": t.get("total_cost", 0) or 0,
             "llm_calls": t.get("total_llm_calls", 0) or 0,
             "cache_tokens": t.get("cache_input_tokens", 0) or 0,
+            # Receipt-only: left None (not 0) when absent so per-task tables
+            # render "--" via _fmt instead of a misleading 0 (PR #182 review).
+            "input_tokens": t.get("input_tokens"),
+            "output_tokens": t.get("output_tokens"),
+            "cache_read_tokens": t.get("cache_read_tokens", 0) or 0,
+            "reasoning_tokens": t.get("reasoning_tokens"),
+            "tool_call_count": t.get("tool_call_count", 0) or 0,
+            "llm_time_s": t.get("llm_time_s", 0) or 0,
+            "tool_time_s": t.get("tool_time_s", 0) or 0,
+            "wall_time_s": t.get("wall_time_s", 0) or 0,
+            "token_source": t.get("token_source"),
             "duration": t.get("full_execution_time") or t.get("duration"),
             "steps": t.get("steps"),
             "difficulty": t.get("difficulty"),
@@ -348,7 +401,16 @@ def _parse_appworld_results(data: dict) -> dict:
         "cost": total_cost,
         "llm_calls": total_llm_calls,
         "cache_tokens": total_cache_tokens,
+        "input_tokens": total_input_tokens,
+        "output_tokens": total_output_tokens,
+        "cache_read_tokens": total_receipt_cache_read,
+        "reasoning_tokens": total_reasoning_tokens,
+        "tool_call_count": total_tool_call_count,
+        "llm_time_s": total_llm_time_s,
+        "tool_time_s": total_tool_time_s,
+        "wall_time_s": total_wall_time_s,
         "duration": total_duration,
+        "has_receipt_data": any(t.get("token_source") == "receipt" for t in tasks.values()),
         "tasks": tasks,
     }
 
@@ -546,6 +608,48 @@ def _aggregate_costs(tasks: dict) -> dict:
     }
 
 
+_RECEIPT_COST_FIELDS = (
+    "input_tokens",
+    "output_tokens",
+    "cache_read_tokens",
+    "reasoning_tokens",
+    "tool_call_count",
+    "llm_time_s",
+    "tool_time_s",
+    "wall_time_s",
+)
+
+
+def _aggregate_receipt_costs(tasks: dict) -> dict:
+    """Sum and average Run Receipt fields (cuga-eval#95 / cuga-agent#467)
+    across a dict of task dicts (as produced by ``_parse_sdk_results``).
+
+    Uses each task's ``token_source == "receipt"`` marker (not field
+    truthiness) to decide which tasks actually carry receipt data — a
+    genuine receipt with every field at 0 must still count, and averages
+    must exclude legacy/non-receipt tasks from the denominator rather than
+    silently diluting them in. Returns every value as None (not 0) when no
+    task in *tasks* carries receipt data, so callers can render "--" instead
+    of a misleading zero for benchmarks/runs that never opted into
+    ``advanced_features.run_receipt``.
+    """
+    receipt_tasks = [t for t in tasks.values() if t.get("token_source") == "receipt"]
+    if not receipt_tasks:
+        result: dict = {}
+        for field in _RECEIPT_COST_FIELDS:
+            result[f"total_{field}"] = None
+            result[f"avg_{field}"] = None
+        return result
+
+    n = len(receipt_tasks)
+    result = {}
+    for field in _RECEIPT_COST_FIELDS:
+        total = sum(t.get(field, 0) or 0 for t in receipt_tasks)
+        result[f"total_{field}"] = total
+        result[f"avg_{field}"] = total / n
+    return result
+
+
 def _per_config_cost_stats(runs, task_filter=None) -> dict:
     """Mean tokens / LLM calls / duration *per task* across runs for the
     filtered task subset. Companion to ``_per_config_pass_stats`` so the
@@ -740,6 +844,18 @@ def _stats_for_task(task_runs):
         "mean_tokens": _avg([r.get("tokens") for r in task_runs]),
         "mean_llm": _avg([r.get("llm_calls") for r in task_runs]),
         "mean_dur": _avg([r.get("duration") for r in task_runs]),
+        # Run Receipt fields (cuga-eval#95 / cuga-agent#467) — averaged only
+        # over runs that actually carry a receipt (token_source == "receipt"),
+        # so a mix of receipt and legacy/Langfuse runs for the same task
+        # doesn't dilute the average toward zero. _avg returns None when the
+        # filtered list is empty, which callers render as "--".
+        "mean_input": _avg([r.get("input_tokens") for r in task_runs if r.get("token_source") == "receipt"]),
+        "mean_output": _avg(
+            [r.get("output_tokens") for r in task_runs if r.get("token_source") == "receipt"]
+        ),
+        "mean_reasoning": _avg(
+            [r.get("reasoning_tokens") for r in task_runs if r.get("token_source") == "receipt"]
+        ),
         # Vakra scores (M3 only): mean dialogue score and mean per-judge
         # scores across runs, ignoring runs where a judge was skipped.
         "mean_match_rate": _avg([r.get("match_rate") for r in task_runs]),
@@ -879,6 +995,52 @@ def _render_compare_report_sections(
         lines.append(fence_close())
     lines.append("")
 
+    # ---- 2a-2. Run Receipt Breakdown: only rendered when at least one run
+    # carries Run Receipt data (cuga-eval#95 / cuga-agent#467) — bpo/oak/
+    # appworld-default runs never will, so their reports are unchanged.
+    # Uses the run-level has_receipt_data marker (token_source == "receipt"
+    # on at least one task), not field truthiness, so a genuine all-zero
+    # receipt still counts.
+    any_receipt_data = any(r.get("has_receipt_data") for runs in model_data.values() for r in runs)
+    if any_receipt_data:
+        lines.append(h2("Run Receipt Breakdown"))
+        lines.append("")
+        if fence_open():
+            lines.append(fence_open())
+        receipt_header = (
+            f"{'Configuration':<28} {'In Tok':>9}  {'Out Tok':>9}  {'Cache Rd':>9}  "
+            f"{'Reason':>8}  {'Tool#':>6}  {'LLM(s)':>8}  {'Tool(s)':>8}  {'Wall(s)':>8}"
+        )
+        lines.append(receipt_header)
+        lines.append("─" * len(receipt_header))
+        for config_key, runs in model_data.items():
+            display = _format_config_label(config_key)
+            receipt_runs = [r for r in runs if r.get("has_receipt_data")]
+            if not receipt_runs:
+                lines.append(
+                    f"{display:<28} {_fmt(None):>9}  {_fmt(None):>9}  {_fmt(None):>9}  "
+                    f"{_fmt(None):>8}  {_fmt(None):>6}  {_fmt(None, 's'):>8}  "
+                    f"{_fmt(None, 's'):>8}  {_fmt(None, 's'):>8}"
+                )
+                continue
+            n = len(receipt_runs)
+            avg_in = sum(r.get("input_tokens", 0) or 0 for r in receipt_runs) / n
+            avg_out = sum(r.get("output_tokens", 0) or 0 for r in receipt_runs) / n
+            avg_cache = sum(r.get("cache_read_tokens", 0) or 0 for r in receipt_runs) / n
+            avg_reason = sum(r.get("reasoning_tokens", 0) or 0 for r in receipt_runs) / n
+            avg_tool_n = sum(r.get("tool_call_count", 0) or 0 for r in receipt_runs) / n
+            avg_llm_t = sum(r.get("llm_time_s", 0) or 0 for r in receipt_runs) / n
+            avg_tool_t = sum(r.get("tool_time_s", 0) or 0 for r in receipt_runs) / n
+            avg_wall_t = sum(r.get("wall_time_s", 0) or 0 for r in receipt_runs) / n
+            lines.append(
+                f"{display:<28} {_fmt(avg_in):>9}  {_fmt(avg_out):>9}  {_fmt(avg_cache):>9}  "
+                f"{_fmt(avg_reason):>8}  {_fmt(avg_tool_n):>6}  {_fmt(avg_llm_t, 's'):>8}  "
+                f"{_fmt(avg_tool_t, 's'):>8}  {_fmt(avg_wall_t, 's'):>8}"
+            )
+        if fence_close():
+            lines.append(fence_close())
+        lines.append("")
+
     # ---- 2b. Per-group breakdowns (only when result files carry the relevant
     # metadata, so unrelated reports stay unchanged):
     #   - difficulty (AppWorld)
@@ -1009,7 +1171,8 @@ def _render_compare_report_sections(
         vakra_hdr = f"{'Dialog':>6} {'ExctM':>5} {'Answer':>6} {'Ground':>6}   " if has_vakra else ""
         task_header = (
             f"{prefix_hdr}{'Task':<{col_task_w}} {run_cols}   {'Successes':>10}   "
-            f"{'Rate':>6}   {vakra_hdr}{'Tokens':>8} {'LLM':>5} {'Time':>6}"
+            f"{'Rate':>6}   {vakra_hdr}{'Tokens':>8} {'Input':>8} {'Output':>8} {'Reason':>7} "
+            f"{'LLM':>5} {'Time':>6}"
         )
         lines.append(task_header)
         lines.append("─" * len(task_header))
@@ -1021,6 +1184,12 @@ def _render_compare_report_sections(
         n_llm = 0
         sum_dur = 0.0
         n_dur = 0
+        sum_input = 0.0
+        n_input = 0
+        sum_output = 0.0
+        n_output = 0
+        sum_reasoning = 0.0
+        n_reasoning = 0
         sum_match_rate = 0.0
         n_match_rate = 0
         sum_judge = dict.fromkeys(_JUDGE_KEYS, 0.0)
@@ -1058,6 +1227,18 @@ def _render_compare_report_sections(
             if md is not None:
                 sum_dur += md
                 n_dur += 1
+            mi = stats["mean_input"]
+            mo = stats["mean_output"]
+            mre = stats["mean_reasoning"]
+            if mi is not None:
+                sum_input += mi
+                n_input += 1
+            if mo is not None:
+                sum_output += mo
+                n_output += 1
+            if mre is not None:
+                sum_reasoning += mre
+                n_reasoning += 1
             mr = stats["mean_match_rate"]
             if mr is not None:
                 sum_match_rate += mr
@@ -1086,7 +1267,8 @@ def _render_compare_report_sections(
             lines.append(
                 f"{row_prefix}{task_disp:<{col_task_w}} {symbols}   "
                 f"{successes:>3}/{total:<3}   {rate_pct:>5.1f}%   {vakra_cols}"
-                f"{_fmt(mt):>8} {_fmt(ml):>5} {_fmt(md, 's'):>6}"
+                f"{_fmt(mt):>8} {_fmt(mi):>8} {_fmt(mo):>8} {_fmt(mre):>7} "
+                f"{_fmt(ml):>5} {_fmt(md, 's'):>6}"
             )
 
         # AVERAGE row
@@ -1097,6 +1279,9 @@ def _render_compare_report_sections(
             avg_tok = _fmt(sum_tokens / n_tokens) if n_tokens else "--"
             avg_llm = _fmt(sum_llm / n_llm) if n_llm else "--"
             avg_dur = _fmt(sum_dur / n_dur, "s") if n_dur else "--"
+            avg_input = _fmt(sum_input / n_input) if n_input else "--"
+            avg_output = _fmt(sum_output / n_output) if n_output else "--"
+            avg_reasoning = _fmt(sum_reasoning / n_reasoning) if n_reasoning else "--"
             lines.append("─" * len(task_header))
             spacer = "  ".join("──" for _ in range(n_runs))
             avg_prefix = f"{'':<{cap_w}} {'':<{dom_w}} {'':>{num_w}}  " if m3_mode else ""
@@ -1114,7 +1299,8 @@ def _render_compare_report_sections(
             lines.append(
                 f"{avg_prefix}{'AVERAGE':<{col_task_w}} {spacer}   "
                 f"{avg_successes:>3.1f}/{n_runs:<3}   {avg_rate:>5.1f}%   {avg_vakra_cols}"
-                f"{avg_tok:>8} {avg_llm:>5} {avg_dur:>6}"
+                f"{avg_tok:>8} {avg_input:>8} {avg_output:>8} {avg_reasoning:>7} "
+                f"{avg_llm:>5} {avg_dur:>6}"
             )
             lines.append("")
             cons = (all_pass / maj_pass) if maj_pass else None
@@ -1343,6 +1529,7 @@ def generate_eval_report(result_file: str, markdown: bool = True) -> str:
     parsed = parse_result_file(result_file)
     rows, grouped = _bucket_m3_tasks(parsed["tasks"])
     cost = _aggregate_costs(parsed["tasks"])
+    receipt_cost = _aggregate_receipt_costs(parsed["tasks"])
 
     h1 = (lambda s: f"# {s}") if markdown else (lambda s: f"\n{s}\n{'=' * len(s)}")
     h2 = (lambda s: f"## {s}") if markdown else (lambda s: f"\n{s}\n{'-' * len(s)}")
@@ -1371,6 +1558,33 @@ def generate_eval_report(result_file: str, markdown: bool = True) -> str:
     _append_content_filter_summary(lines, parsed["tasks"], markdown=markdown)
     lines.append("")
 
+    if receipt_cost["total_input_tokens"] is not None:
+        lines.append(h2("Run Receipt Breakdown"))
+        lines.append("")
+        receipt_rows = [
+            ("Input Tokens", "total_input_tokens", "avg_input_tokens", ","),
+            ("Output Tokens", "total_output_tokens", "avg_output_tokens", ","),
+            ("Cache Read Tokens", "total_cache_read_tokens", "avg_cache_read_tokens", ","),
+            ("Reasoning Tokens", "total_reasoning_tokens", "avg_reasoning_tokens", ","),
+            ("Tool Calls", "total_tool_call_count", "avg_tool_call_count", ","),
+            ("LLM Time", "total_llm_time_s", "avg_llm_time_s", "s"),
+            ("Tool Time", "total_tool_time_s", "avg_tool_time_s", "s"),
+            ("Wall Time", "total_wall_time_s", "avg_wall_time_s", "s"),
+        ]
+        if markdown:
+            for label, total_key, avg_key, fmt in receipt_rows:
+                lines.append(
+                    f"- **{label}**: {_fmt(receipt_cost[total_key], fmt)} total, "
+                    f"{_fmt(receipt_cost[avg_key], fmt)} / task"
+                )
+        else:
+            for label, total_key, avg_key, fmt in receipt_rows:
+                lines.append(
+                    f"  {label:<18} {_fmt(receipt_cost[total_key], fmt):>10} total   "
+                    f"{_fmt(receipt_cost[avg_key], fmt):>10} / task"
+                )
+        lines.append("")
+
     lines.append(h2("Per-Task Results"))
     lines.append("")
 
@@ -1391,18 +1605,20 @@ def generate_eval_report(result_file: str, markdown: bool = True) -> str:
             if has_vakra:
                 lines.append(
                     "| Task | Domain | # | Result | Dialogue | ExactMatch | Answer | Groundedness "
-                    "| Tokens | Cost | LLM Calls | Cache Tokens | Duration | Steps |"
+                    "| Tokens | Cost | LLM Calls | Cache Tokens | Input | Output | Reasoning | Duration | Steps |"
                 )
                 lines.append(
                     "|------|--------|---|--------|----------|------------|--------|--------------"
-                    "|--------|------|-----------|--------------|----------|-------|"
+                    "|--------|------|-----------|--------------|-------|--------|-----------|----------|-------|"
                 )
             else:
                 lines.append(
-                    "| Task | Domain | # | Result | Tokens | Cost | LLM Calls | Cache Tokens | Duration | Steps |"
+                    "| Task | Domain | # | Result | Tokens | Cost | LLM Calls | Cache Tokens "
+                    "| Input | Output | Reasoning | Duration | Steps |"
                 )
                 lines.append(
-                    "|------|--------|---|--------|--------|------|-----------|--------------|----------|-------|"
+                    "|------|--------|---|--------|--------|------|-----------|--------------"
+                    "|-------|--------|-----------|----------|-------|"
                 )
             current_key: tuple = (None, None)
             for row in rows:
@@ -1434,6 +1650,8 @@ def generate_eval_report(result_file: str, markdown: bool = True) -> str:
                     f"| {tid_disp} | {dom_disp} | {ordn_disp} | {status} {vakra_cols}"
                     f"| {_fmt(t['tokens'])} | {_fmt(t.get('cost'), '$')} "
                     f"| {_fmt(t.get('llm_calls'))} | {_fmt(t.get('cache_tokens'))} "
+                    f"| {_fmt(t.get('input_tokens'))} | {_fmt(t.get('output_tokens'))} "
+                    f"| {_fmt(t.get('reasoning_tokens'))} "
                     f"| {_fmt(t.get('duration'), 's')} | {_fmt(t.get('steps'))} |"
                 )
         else:
@@ -1445,13 +1663,15 @@ def generate_eval_report(result_file: str, markdown: bool = True) -> str:
                     f"  {col_task:<4}  {'Domain':<{col_dom_w}}  {'#':>2}  "
                     f"{'R':<2}  {'Dialog':>6}  {'ExctM':>5}  {'Answer':>6}  {'Ground':>6}  "
                     f"{'Tokens':>10}  {'Cost':>7}  {'LLM':>5}  "
-                    f"{'Cache':>10}  {'Duration':>9}  {'Steps':>5}"
+                    f"{'Cache':>10}  {'Input':>9}  {'Output':>9}  {'Reason':>7}  "
+                    f"{'Duration':>9}  {'Steps':>5}"
                 )
             else:
                 header = (
                     f"  {col_task:<4}  {'Domain':<{col_dom_w}}  {'#':>2}  "
                     f"{'R':<2}  {'Tokens':>10}  {'Cost':>7}  {'LLM':>5}  "
-                    f"{'Cache':>10}  {'Duration':>9}  {'Steps':>5}"
+                    f"{'Cache':>10}  {'Input':>9}  {'Output':>9}  {'Reason':>7}  "
+                    f"{'Duration':>9}  {'Steps':>5}"
                 )
             lines.append(header)
             lines.append("  " + "─" * (len(header) - 2))
@@ -1489,21 +1709,33 @@ def generate_eval_report(result_file: str, markdown: bool = True) -> str:
                     f"{_fmt(t.get('cost'), '$'):>7}  "
                     f"{_fmt(t.get('llm_calls')):>5}  "
                     f"{_fmt(t.get('cache_tokens')):>10}  "
+                    f"{_fmt(t.get('input_tokens')):>9}  "
+                    f"{_fmt(t.get('output_tokens')):>9}  "
+                    f"{_fmt(t.get('reasoning_tokens')):>7}  "
                     f"{_fmt(t.get('duration'), 's'):>9}  "
                     f"{_fmt(t.get('steps')):>5}"
                 )
     else:
         # Legacy flat table (e.g. AppWorld where m3_task_id/domain aren't set).
         if markdown:
-            lines.append("| Task | Result | Tokens | Cost | LLM Calls | Cache Tokens | Duration | Steps |")
-            lines.append("|------|--------|--------|------|-----------|--------------|----------|-------|")
+            lines.append(
+                "| Task | Result | Tokens | Cost | LLM Calls | Cache Tokens "
+                "| Input | Output | Reasoning | Duration | Steps |"
+            )
+            lines.append(
+                "|------|--------|--------|------|-----------|--------------"
+                "|-------|--------|-----------|----------|-------|"
+            )
             for row in rows:
                 t = row["data"]
                 status = _task_result_mark(t)
                 lines.append(
                     f"| {row['label']} | {status} | {_fmt(t['tokens'])} "
                     f"| {_fmt(t.get('cost'), '$')} | {_fmt(t.get('llm_calls'))} "
-                    f"| {_fmt(t.get('cache_tokens'))} | {_fmt(t.get('duration'), 's')} "
+                    f"| {_fmt(t.get('cache_tokens'))} "
+                    f"| {_fmt(t.get('input_tokens'))} | {_fmt(t.get('output_tokens'))} "
+                    f"| {_fmt(t.get('reasoning_tokens'))} "
+                    f"| {_fmt(t.get('duration'), 's')} "
                     f"| {_fmt(t.get('steps'))} |"
                 )
         else:
@@ -1511,6 +1743,7 @@ def generate_eval_report(result_file: str, markdown: bool = True) -> str:
             header = (
                 f"  {'Task':<{col_task_w}}  {'R':<2}  {'Tokens':>10}  "
                 f"{'Cost':>7}  {'LLM':>5}  {'Cache':>10}  "
+                f"{'Input':>9}  {'Output':>9}  {'Reason':>7}  "
                 f"{'Duration':>9}  {'Steps':>5}"
             )
             lines.append(header)
@@ -1527,6 +1760,9 @@ def generate_eval_report(result_file: str, markdown: bool = True) -> str:
                     f"{_fmt(t.get('cost'), '$'):>7}  "
                     f"{_fmt(t.get('llm_calls')):>5}  "
                     f"{_fmt(t.get('cache_tokens')):>10}  "
+                    f"{_fmt(t.get('input_tokens')):>9}  "
+                    f"{_fmt(t.get('output_tokens')):>9}  "
+                    f"{_fmt(t.get('reasoning_tokens')):>7}  "
                     f"{_fmt(t.get('duration'), 's'):>9}  "
                     f"{_fmt(t.get('steps')):>5}"
                 )

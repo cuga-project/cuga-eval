@@ -132,6 +132,11 @@ APPWORLD_APIS_PORT="${APPWORLD_APIS_PORT:-${DYNACONF_SERVER_PORTS__APIS_URL:-911
 export APPWORLD_APIS_PORT
 export DYNACONF_SERVER_PORTS__APIS_URL="$APPWORLD_APIS_PORT"
 
+# Per-run token/timing receipt from CugaAgent.invoke() (cuga-agent#467).
+# Only the --sdk evaluator (eval_appworld_sdk.py) calls agent.invoke() and can
+# use it; the default graph-based appworld_eval.py ignores it harmlessly.
+export DYNACONF_ADVANCED_FEATURES__RUN_RECEIPT=true
+
 # Capture console output to a log file for reproducibility bundles
 CONSOLE_LOG="/tmp/appworld_console.log"
 exec > >(tee "$CONSOLE_LOG") 2>&1
