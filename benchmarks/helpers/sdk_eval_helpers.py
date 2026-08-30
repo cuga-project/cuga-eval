@@ -554,6 +554,127 @@ async def fetch_langfuse_metrics_for_trace(trace_id: str) -> Any:
     return metrics
 
 
+def receipt_fields_from_invoke_result(invoke_result: Any) -> Optional[Dict[str, Any]]:
+    """Flatten ``InvokeResult.receipt`` (cuga-agent's RunReceipt) into result fields.
+
+    Returns None when the caller's cuga-agent build didn't attach a receipt —
+    ``advanced_features.run_receipt`` is off (the default), or the installed
+    cuga-agent predates it (cuga-agent#467). Callers use that None-ness as the
+    signal to fall back to the existing Langfuse-fetch path.
+
+    Reuses total_tokens / total_llm_calls / total_cache_input_tokens so every
+    existing aggregator (compare_report.py) needs no branching on where the
+    numbers came from; the remaining keys have no Langfuse-path equivalent.
+    """
+    receipt = getattr(invoke_result, "receipt", None)
+    if receipt is None:
+        return None
+    tool_timings = getattr(receipt, "tool_timings", None) or []
+    return {
+        "token_source": "receipt",
+        "total_tokens": getattr(receipt, "total_tokens", 0) or 0,
+        "total_llm_calls": getattr(receipt, "llm_calls", 0) or 0,
+        "total_cache_input_tokens": getattr(receipt, "cache_read_tokens", 0) or 0,
+        "input_tokens": getattr(receipt, "input_tokens", 0) or 0,
+        "output_tokens": getattr(receipt, "output_tokens", 0) or 0,
+        "cache_read_tokens": getattr(receipt, "cache_read_tokens", 0) or 0,
+        "reasoning_tokens": getattr(receipt, "reasoning_tokens", 0) or 0,
+        "tool_call_count": getattr(receipt, "tool_call_count", 0) or 0,
+        "llm_time_s": getattr(receipt, "llm_time_s", 0.0) or 0.0,
+        "tool_time_s": getattr(receipt, "tool_time_s", 0.0) or 0.0,
+        "wall_time_s": getattr(receipt, "wall_time_s", 0.0) or 0.0,
+        # Basis differs from the Langfuse path: this is agent.invoke() wall
+        # time, not Langfuse trace-span duration. Both feed the same Duration
+        # column in compare.sh, so a bundle from before this PR isn't directly
+        # comparable on that column to one from after (Sergey review, PR #182).
+        "full_execution_time": getattr(receipt, "wall_time_s", 0.0) or 0.0,
+        "models": list(getattr(receipt, "models", None) or []),
+        "slowest_tool": getattr(receipt, "slowest_tool", None),
+        "tool_timings": [tt.model_dump() if hasattr(tt, "model_dump") else tt for tt in tool_timings],
+    }
+
+
+_RECEIPT_SUM_KEYS = (
+    "total_tokens",
+    "total_llm_calls",
+    "total_cache_input_tokens",
+    "input_tokens",
+    "output_tokens",
+    "cache_read_tokens",
+    "reasoning_tokens",
+    "tool_call_count",
+    "llm_time_s",
+    "tool_time_s",
+    "wall_time_s",
+    "full_execution_time",
+)
+
+
+class _ReceiptAccumulationFailed:
+    """Sentinel distinct from None: a prior multi-turn step lacked a receipt,
+    so this task's receipt total is permanently invalid. Using a dedicated
+    sentinel (rather than reusing None for both "not started" and "gave up")
+    prevents a later turn's receipt from wrongly resurrecting a partial total
+    — see cuga-eval#182 CodeRabbit review.
+    """
+
+
+_RECEIPT_ACCUMULATION_FAILED = _ReceiptAccumulationFailed()
+
+
+def _accumulate_receipt_metrics(
+    acc: Optional[Dict[str, Any]], invoke_result: Any
+) -> Optional[Dict[str, Any]]:
+    """Fold one multi-turn step's receipt into a running total.
+
+    A fresh RunMetricsCollector is attached per ``agent.invoke()`` call
+    (cuga-agent#467), so a multi-turn task needs to sum across turns itself.
+    Once any turn lacks a receipt, permanently gives up (returns the
+    ``_RECEIPT_ACCUMULATION_FAILED`` sentinel forever after) rather than
+    returning to ``None`` — a later turn having a receipt again must never
+    resurrect a partial total from only the turns seen after the gap. Callers
+    treat anything that is not a ``dict`` (``None`` or the sentinel) as "no
+    valid receipt for this task."
+    """
+    if acc is _RECEIPT_ACCUMULATION_FAILED:
+        return _RECEIPT_ACCUMULATION_FAILED
+    fields = receipt_fields_from_invoke_result(invoke_result)
+    if fields is None:
+        return _RECEIPT_ACCUMULATION_FAILED
+    if acc is None:
+        acc = {
+            key: (0.0 if key.endswith("_s") or key == "full_execution_time" else 0)
+            for key in _RECEIPT_SUM_KEYS
+        }
+        acc["token_source"] = "receipt"  # noqa: S105
+        acc["models"] = []
+        acc["tool_timings"] = []
+        acc["slowest_tool"] = None
+    for key in _RECEIPT_SUM_KEYS:
+        acc[key] += fields[key]
+    for model in fields["models"]:
+        if model not in acc["models"]:
+            acc["models"].append(model)
+    # Merge by tool name (mirroring cuga-agent's build_run_receipt) rather
+    # than a flat extend: a tool called once per turn would otherwise get one
+    # entry per turn, so ranking by a single entry's total_ms could pick a
+    # tool called once for 150ms over one called 3x for 100ms each (300ms
+    # total) (Sergey review, PR #182).
+    by_name = {t["name"]: dict(t) for t in acc["tool_timings"]}
+    for tt in fields["tool_timings"]:
+        name = tt["name"]
+        if name in by_name:
+            by_name[name]["calls"] += tt.get("calls", 0)
+            by_name[name]["total_ms"] += tt.get("total_ms", 0)
+        else:
+            by_name[name] = dict(tt)
+    acc["tool_timings"] = list(by_name.values())
+    acc["slowest_tool"] = (
+        max(acc["tool_timings"], key=lambda t: t.get("total_ms", 0))["name"] if acc["tool_timings"] else None
+    )
+    return acc
+
+
 def setup_langfuse():
     """Setup Langfuse tracing callback handler.
 
@@ -877,6 +998,7 @@ async def evaluate_task_with_langfuse(
         keyword_check_result = None
         tool_calls = []
         _langfuse_metrics = None
+        _receipt_metrics = None
         predefined_trace_id = None
 
         if should_trace_langfuse_task(langfuse_handler):
@@ -902,6 +1024,7 @@ async def evaluate_task_with_langfuse(
                     track_tool_calls=track_tool_calls,
                     lf_config=lf_config,
                 )
+                _receipt_metrics = receipt_fields_from_invoke_result(invoke_result)
                 if isinstance(agent, GenericReactAgent) and predefined_trace_id:
                     record_harness_trace_output(
                         langfuse,
@@ -945,11 +1068,12 @@ async def evaluate_task_with_langfuse(
                     comment="Overall task success: True if all keywords found, otherwise False",
                 )
 
-                try:
-                    _langfuse_metrics = await fetch_langfuse_metrics_for_trace(predefined_trace_id)
-                except Exception as langfuse_err:
-                    logger.warning(f"Failed to fetch Langfuse metrics: {langfuse_err}")
-                    _langfuse_metrics = None
+                if _receipt_metrics is None:
+                    try:
+                        _langfuse_metrics = await fetch_langfuse_metrics_for_trace(predefined_trace_id)
+                    except Exception as langfuse_err:
+                        logger.warning(f"Failed to fetch Langfuse metrics: {langfuse_err}")
+                        _langfuse_metrics = None
 
             except Exception as e:
                 logger.warning(f"Failed to start Langfuse trace: {e}")
@@ -960,6 +1084,7 @@ async def evaluate_task_with_langfuse(
                     user_context=user_context or "",
                     track_tool_calls=track_tool_calls,
                 )
+                _receipt_metrics = receipt_fields_from_invoke_result(invoke_result)
                 # Handle both string and object return types
                 response = invoke_result.answer if hasattr(invoke_result, 'answer') else invoke_result
                 keyword_check_result = check_keywords(response, expected_keywords)
@@ -970,6 +1095,7 @@ async def evaluate_task_with_langfuse(
                 user_context=user_context or "",
                 track_tool_calls=track_tool_calls,
             )
+            _receipt_metrics = receipt_fields_from_invoke_result(invoke_result)
             # Handle both string and object return types
             response = invoke_result.answer if hasattr(invoke_result, 'answer') else invoke_result
             keyword_check_result = check_keywords(response, expected_keywords)
@@ -1087,7 +1213,9 @@ async def evaluate_task_with_langfuse(
 
         if predefined_trace_id:
             result["trace_id"] = predefined_trace_id
-        if _langfuse_metrics:
+        if _receipt_metrics:
+            result.update(_receipt_metrics)
+        elif _langfuse_metrics:
             result["total_tokens"] = _langfuse_metrics.total_tokens
             result["total_llm_calls"] = _langfuse_metrics.total_llm_calls
             result["total_cost"] = _langfuse_metrics.total_cost
@@ -1388,6 +1516,7 @@ async def evaluate_multiturn_task_with_langfuse(
         all_tool_calls = []
         final_response = None
         _langfuse_metrics = None
+        _receipt_metrics = None
         predefined_trace_id = None
         total_react_steps = 0
 
@@ -1420,6 +1549,7 @@ async def evaluate_multiturn_task_with_langfuse(
                         lf_config=lf_config,
                     )
                     total_react_steps = _accumulate_react_steps(total_react_steps, invoke_result)
+                    _receipt_metrics = _accumulate_receipt_metrics(_receipt_metrics, invoke_result)
                     result_state = invoke_result.answer
                     turn_tool_calls = invoke_result.tool_calls or []
                     all_tool_calls.extend([(turn_idx, tc) for tc in turn_tool_calls])
@@ -1513,14 +1643,23 @@ async def evaluate_multiturn_task_with_langfuse(
                     },
                 )
 
-                try:
-                    _langfuse_metrics = await fetch_langfuse_metrics_for_trace(predefined_trace_id)
-                except Exception as langfuse_err:
-                    logger.warning(f"Failed to fetch Langfuse metrics: {langfuse_err}")
-                    _langfuse_metrics = None
+                if not isinstance(_receipt_metrics, dict):
+                    try:
+                        _langfuse_metrics = await fetch_langfuse_metrics_for_trace(predefined_trace_id)
+                    except Exception as langfuse_err:
+                        logger.warning(f"Failed to fetch Langfuse metrics: {langfuse_err}")
+                        _langfuse_metrics = None
 
             except Exception as e:
                 logger.warning(f"Langfuse tracing failed: {e}")
+                # The try block above may have partially accumulated these
+                # (some turns ran before Langfuse failed); this fallback
+                # replays every turn from scratch, so reset first or the
+                # replayed turns double-count on top of the partial totals.
+                total_react_steps = 0
+                _receipt_metrics = None
+                all_responses = []
+                all_tool_calls = []
                 for turn_idx, turn in enumerate(turns, 1):
                     query = turn.get("query", "")
                     logger.info(f"\n[Turn {turn_idx}/{num_turns}] Query: {query}")
@@ -1534,6 +1673,7 @@ async def evaluate_multiturn_task_with_langfuse(
                         track_tool_calls=track_tool_calls,
                     )
                     total_react_steps = _accumulate_react_steps(total_react_steps, invoke_result)
+                    _receipt_metrics = _accumulate_receipt_metrics(_receipt_metrics, invoke_result)
                     result_state = invoke_result.answer
                     turn_tool_calls = invoke_result.tool_calls or []
                     all_tool_calls.extend([(turn_idx, tc) for tc in turn_tool_calls])
@@ -1589,6 +1729,7 @@ async def evaluate_multiturn_task_with_langfuse(
                     track_tool_calls=track_tool_calls,
                 )
                 total_react_steps = _accumulate_react_steps(total_react_steps, invoke_result)
+                _receipt_metrics = _accumulate_receipt_metrics(_receipt_metrics, invoke_result)
                 result_state = invoke_result.answer
                 turn_tool_calls = invoke_result.tool_calls or []
                 all_tool_calls.extend([(turn_idx, tc) for tc in turn_tool_calls])
@@ -1664,7 +1805,9 @@ async def evaluate_multiturn_task_with_langfuse(
 
         if predefined_trace_id:
             result["trace_id"] = predefined_trace_id
-        if _langfuse_metrics:
+        if isinstance(_receipt_metrics, dict):
+            result.update(_receipt_metrics)
+        elif _langfuse_metrics:
             result["total_tokens"] = _langfuse_metrics.total_tokens
             result["total_llm_calls"] = _langfuse_metrics.total_llm_calls
             result["total_cost"] = _langfuse_metrics.total_cost
