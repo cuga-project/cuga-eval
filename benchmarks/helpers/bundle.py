@@ -15,6 +15,8 @@ import subprocess
 from datetime import datetime, timezone
 from pathlib import Path
 
+from loguru import logger
+
 from benchmarks.helpers.incremental_results import atomic_write_json
 
 BUNDLE_VERSION = "2"
@@ -193,25 +195,59 @@ def collect_cuga_info(git_info: dict | None = None) -> dict:
     kicking off any eval.sh subprocess, and thread it through unchanged.
     """
     cuga_version = None
+    cuga_module_file = None
     try:
         import cuga
 
         cuga_version = getattr(cuga, "__version__", None)
+        cuga_module_file = getattr(cuga, "__file__", None)
     except ImportError:
         pass
 
     if git_info is not None:
         cuga_git = git_info
     else:
-        cuga_repo = os.environ.get("CUGA_REPO_PATH", os.path.expanduser("~/workspace/cuga-agent"))
-        cuga_repo_path = Path(cuga_repo)
+        # Prefer the live checkout: once `import cuga` succeeds, cuga.__file__
+        # points at the actual source tree regardless of where it lives (an
+        # editable install can sit anywhere), so ask git where its root is
+        # instead of guessing a fixed path. Only fall back to
+        # CUGA_REPO_PATH/~/workspace/cuga-agent if that fails (e.g. cuga
+        # installed as a non-editable wheel with no accessible .git).
+        cuga_repo_path = None
+        if cuga_module_file:
+            module_dir = Path(cuga_module_file).resolve().parent
+            toplevel = _run_git(["rev-parse", "--show-toplevel"], cwd=module_dir)
+            # --show-toplevel answers "which repo contains this directory", not
+            # "is this directory the source of this package" — a non-editable
+            # install under <cuga-eval>/.venv/.../site-packages/cuga resolves to
+            # cuga-eval's repo root, which would then silently record the wrong
+            # project's git state. Confirm the module dir is actually tracked by
+            # the repo before trusting it.
+            if (
+                toplevel
+                and _run_git(["ls-files", "--error-unmatch", str(module_dir)], cwd=toplevel) is not None
+            ):
+                cuga_repo_path = Path(toplevel)
+        if cuga_repo_path is None:
+            cuga_repo = os.environ.get("CUGA_REPO_PATH", os.path.expanduser("~/workspace/cuga-agent"))
+            candidate = Path(cuga_repo)
+            if candidate.exists():
+                cuga_repo_path = candidate
+
         cuga_git = {}
-        if cuga_repo_path.exists():
+        if cuga_repo_path is not None:
             cuga_git = {
                 "git_commit": _run_git(["rev-parse", "--short", "HEAD"], cwd=cuga_repo_path),
                 "git_branch": _run_git(["rev-parse", "--abbrev-ref", "HEAD"], cwd=cuga_repo_path),
                 "git_dirty": bool(_run_git(["status", "--short"], cwd=cuga_repo_path) or ""),
             }
+
+    if not cuga_git.get("git_commit"):
+        logger.warning(
+            "collect_cuga_info: could not resolve cuga-agent's git info (checked the live "
+            "'cuga' package location, then CUGA_REPO_PATH / ~/workspace/cuga-agent) — "
+            "this bundle's metadata.json will be missing cuga.git_commit/git_branch/git_dirty."
+        )
 
     return {
         "version": cuga_version,
