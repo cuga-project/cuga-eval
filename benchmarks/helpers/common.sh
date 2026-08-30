@@ -127,8 +127,14 @@ resolve_project_root() {
 #
 # Echoes the resolved path (or nothing if neither resolves to an existing dir).
 resolve_cuga_repo_path() {
-    local module_file module_dir toplevel
-    module_file="$(uv run --no-sync python -c "import cuga; print(cuga.__file__)" 2>/dev/null || echo "")"
+    local module_file module_dir toplevel project_root venv_python
+    project_root="$(resolve_project_root 2>/dev/null || echo "")"
+    venv_python="$project_root/.venv/bin/python"
+    if [ -n "$project_root" ] && [ -x "$venv_python" ]; then
+        module_file="$("$venv_python" -c "import cuga; print(cuga.__file__)" 2>/dev/null || echo "")"
+    else
+        module_file="$(python3 -c "import cuga; print(cuga.__file__)" 2>/dev/null || echo "")"
+    fi
     if [ -n "$module_file" ]; then
         module_dir="$(cd "$(dirname "$module_file")" && pwd)"
         toplevel="$(git -C "$module_dir" rev-parse --show-toplevel 2>/dev/null || echo "")"
