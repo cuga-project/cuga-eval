@@ -128,7 +128,7 @@ resolve_project_root() {
 # Echoes the resolved path (or nothing if neither resolves to an existing dir).
 resolve_cuga_repo_path() {
     local module_file module_dir toplevel
-    module_file="$(python3 -c "import cuga; print(cuga.__file__)" 2>/dev/null || echo "")"
+    module_file="$(uv run --no-sync python -c "import cuga; print(cuga.__file__)" 2>/dev/null || echo "")"
     if [ -n "$module_file" ]; then
         module_dir="$(cd "$(dirname "$module_file")" && pwd)"
         toplevel="$(git -C "$module_dir" rev-parse --show-toplevel 2>/dev/null || echo "")"
@@ -143,7 +143,7 @@ resolve_cuga_repo_path() {
         return 0
     fi
     echo ""
-    return 1
+    return 0
 }
 
 # Parse common CLI arguments.
