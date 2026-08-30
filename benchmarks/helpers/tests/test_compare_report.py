@@ -962,6 +962,10 @@ def test_parse_sdk_results_extracts_receipt_fields():
 
 
 def test_parse_sdk_results_defaults_receipt_fields_to_zero_when_absent():
+    """Run-level totals still sum to 0 when no result carries receipt fields
+    (they're plain sums). The per-task value, however, stays None -- it's a
+    receipt-only field that was never measured for this task, not a genuine
+    zero (Sergey review, PR #182 follow-up)."""
     data = {
         "metrics": {"total_tasks": 1, "passed": 1},
         "results": [{"task_name": "t1", "success": True, "total_tokens": 50}],
@@ -969,7 +973,7 @@ def test_parse_sdk_results_defaults_receipt_fields_to_zero_when_absent():
     parsed = _parse_sdk_results(data)
 
     assert parsed["input_tokens"] == 0
-    assert parsed["tasks"]["t1"]["input_tokens"] == 0
+    assert parsed["tasks"]["t1"]["input_tokens"] is None
 
 
 def test_aggregate_receipt_costs_totals_and_averages():
@@ -1341,11 +1345,11 @@ def test_eval_report_legacy_per_task_table_shows_input_output_reasoning(tmp_path
     assert "| 100 | 50 | 5 |" in report
 
 
-def test_eval_report_per_task_table_shows_zero_when_receipt_fields_absent(tmp_path):
+def test_eval_report_per_task_table_shows_dash_when_receipt_fields_absent(tmp_path):
     """Legacy/non-receipt result files (no input_tokens/output_tokens/
     reasoning_tokens at all) still render the per-task table without crashing;
-    the new columns are unconditional so they show 0 (matching the existing
-    `.get(field, 0)` default from `_parse_sdk_results`), not `--`."""
+    those three receipt-only columns render `--` (never measured), not a
+    misleading 0 (Sergey review, PR #182 follow-up)."""
     results = [{"task_name": "t1", "success": True, "total_tokens": 150}]
     report = generate_eval_report(_write_sdk_result_file(tmp_path, results))
 
@@ -1353,7 +1357,7 @@ def test_eval_report_per_task_table_shows_zero_when_receipt_fields_absent(tmp_pa
         "| Task | Result | Tokens | Cost | LLM Calls | Cache Tokens "
         "| Input | Output | Reasoning | Duration | Steps |" in report
     )
-    assert "| 0 | 0 | 0 |" in report
+    assert "| -- | -- | -- |" in report
 
 
 def test_stats_for_task_computes_mean_input_output_reasoning():
@@ -1428,15 +1432,16 @@ def test_compare_report_per_task_details_shows_input_output_reasoning_and_averag
     assert "45.0" in avg_line
 
 
-def test_eval_report_appworld_task_results_shape_defaults_receipt_fields_to_zero(tmp_path):
+def test_eval_report_appworld_task_results_shape_shows_dashes_for_receipt_only_fields(tmp_path):
     """Legacy AppWorld `task_results`-shaped result files (still produced today by
     appworld_eval.py / appworld_eval_react.py / appworld_eval_codeact.py, parsed by
     `_parse_appworld_results` rather than `_parse_sdk_results`) carry no
-    input_tokens/output_tokens/reasoning_tokens on their per-task dicts. These must
-    default to 0 (mirroring the existing `cache_tokens` default on the very next
-    line), not be left absent -- an absent key renders `--` in the per-task table,
-    which would sit inconsistently next to a `0` Cache Tokens on the same row
-    (cuga-eval#95 follow-up review finding)."""
+    input_tokens/output_tokens/reasoning_tokens on their per-task dicts -- those
+    are receipt-only fields written solely by sdk_eval_helpers.py. They render
+    `--` (never measured), distinct from Cache Tokens, which is a genuinely
+    universal field (populated by every evaluator whenever Langfuse succeeds or
+    a receipt exists) and legitimately 0 here, not absent (Sergey review, PR
+    #182 follow-up)."""
     result_file = _appworld_eval_run(
         tmp_path,
         "appworld_no_receipt.json",
@@ -1459,10 +1464,9 @@ def test_eval_report_appworld_task_results_shape_defaults_receipt_fields_to_zero
         "| Input | Output | Reasoning | Duration | Steps |" in report
     )
     row = next(ln for ln in report.splitlines() if ln.startswith("| t1 "))
-    # Cache Tokens, Input, Output, Reasoning are all genuinely absent from the
-    # source data and must all render as 0, not `--`.
-    assert "| 0 | 0 | 0 | 0 |" in row
-    assert "--" not in row
+    # Cache Tokens is a real measured 0; Input/Output/Reasoning were never
+    # measured for this result shape and must render `--`, not a misleading 0.
+    assert "| 0 | -- | -- | -- |" in row
 
 
 def test_parse_appworld_results_preserves_all_eight_receipt_fields():

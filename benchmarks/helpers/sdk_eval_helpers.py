@@ -583,6 +583,10 @@ def receipt_fields_from_invoke_result(invoke_result: Any) -> Optional[Dict[str, 
         "llm_time_s": getattr(receipt, "llm_time_s", 0.0) or 0.0,
         "tool_time_s": getattr(receipt, "tool_time_s", 0.0) or 0.0,
         "wall_time_s": getattr(receipt, "wall_time_s", 0.0) or 0.0,
+        # Basis differs from the Langfuse path: this is agent.invoke() wall
+        # time, not Langfuse trace-span duration. Both feed the same Duration
+        # column in compare.sh, so a bundle from before this PR isn't directly
+        # comparable on that column to one from after (Sergey review, PR #182).
         "full_execution_time": getattr(receipt, "wall_time_s", 0.0) or 0.0,
         "models": list(getattr(receipt, "models", None) or []),
         "slowest_tool": getattr(receipt, "slowest_tool", None),
@@ -651,7 +655,20 @@ def _accumulate_receipt_metrics(
     for model in fields["models"]:
         if model not in acc["models"]:
             acc["models"].append(model)
-    acc["tool_timings"].extend(fields["tool_timings"])
+    # Merge by tool name (mirroring cuga-agent's build_run_receipt) rather
+    # than a flat extend: a tool called once per turn would otherwise get one
+    # entry per turn, so ranking by a single entry's total_ms could pick a
+    # tool called once for 150ms over one called 3x for 100ms each (300ms
+    # total) (Sergey review, PR #182).
+    by_name = {t["name"]: dict(t) for t in acc["tool_timings"]}
+    for tt in fields["tool_timings"]:
+        name = tt["name"]
+        if name in by_name:
+            by_name[name]["calls"] += tt.get("calls", 0)
+            by_name[name]["total_ms"] += tt.get("total_ms", 0)
+        else:
+            by_name[name] = dict(tt)
+    acc["tool_timings"] = list(by_name.values())
     acc["slowest_tool"] = (
         max(acc["tool_timings"], key=lambda t: t.get("total_ms", 0))["name"] if acc["tool_timings"] else None
     )
@@ -1635,6 +1652,14 @@ async def evaluate_multiturn_task_with_langfuse(
 
             except Exception as e:
                 logger.warning(f"Langfuse tracing failed: {e}")
+                # The try block above may have partially accumulated these
+                # (some turns ran before Langfuse failed); this fallback
+                # replays every turn from scratch, so reset first or the
+                # replayed turns double-count on top of the partial totals.
+                total_react_steps = 0
+                _receipt_metrics = None
+                all_responses = []
+                all_tool_calls = []
                 for turn_idx, turn in enumerate(turns, 1):
                     query = turn.get("query", "")
                     logger.info(f"\n[Turn {turn_idx}/{num_turns}] Query: {query}")

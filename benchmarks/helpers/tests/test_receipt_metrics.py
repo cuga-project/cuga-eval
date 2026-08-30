@@ -114,8 +114,34 @@ def test_accumulate_sums_across_turns():
     assert acc["output_tokens"] == 50
     assert acc["total_llm_calls"] == 6  # 3 + 3
     assert acc["models"] == ["gpt-oss-120b"]  # deduped, not doubled
-    assert len(acc["tool_timings"]) == 2  # one per turn, concatenated
+    # Same tool name ("search") in both turns' default tool_timings merges
+    # into one entry, calls/total_ms summed -- not concatenated per-turn
+    # (Sergey review, PR #182 follow-up).
+    assert len(acc["tool_timings"]) == 1
+    assert acc["tool_timings"][0] == {"name": "search", "calls": 4, "total_ms": 1000.0}
     assert acc["full_execution_time"] == pytest.approx(2.5)  # 1.5 + 1.0, summed like wall_time_s
+
+
+def test_accumulate_merges_slowest_tool_across_turns_by_name():
+    """A tool called once per turn must rank by its summed total_ms across
+    turns, not by any single turn's entry -- otherwise a tool called once for
+    150ms outranks one called 3x for 100ms each (300ms total), the exact
+    inversion cuga-agent's build_run_receipt avoids by merging timings by
+    name before picking the max (Sergey review, PR #182 follow-up)."""
+    turns = [
+        _receipt(tool_timings=[_tool_timing("frequent", 1, 100.0), _tool_timing("rare", 1, 150.0)]),
+        _receipt(tool_timings=[_tool_timing("frequent", 1, 100.0)]),
+        _receipt(tool_timings=[_tool_timing("frequent", 1, 100.0)]),
+    ]
+
+    acc = None
+    for r in turns:
+        acc = _accumulate_receipt_metrics(acc, SimpleNamespace(answer="x", receipt=r))
+
+    timings_by_name = {t["name"]: t for t in acc["tool_timings"]}
+    assert timings_by_name["frequent"] == {"name": "frequent", "calls": 3, "total_ms": 300.0}
+    assert timings_by_name["rare"] == {"name": "rare", "calls": 1, "total_ms": 150.0}
+    assert acc["slowest_tool"] == "frequent"
 
 
 def test_accumulate_returns_failure_sentinel_once_any_turn_lacks_a_receipt():

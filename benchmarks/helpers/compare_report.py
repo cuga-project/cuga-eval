@@ -287,10 +287,12 @@ def _parse_sdk_results(data: dict) -> dict:
             "cost": r.get("total_cost", 0) or 0,
             "llm_calls": r.get("total_llm_calls", 0) or 0,
             "cache_tokens": r.get("total_cache_input_tokens", 0) or 0,
-            "input_tokens": r.get("input_tokens", 0) or 0,
-            "output_tokens": r.get("output_tokens", 0) or 0,
+            # Receipt-only: left None (not 0) when absent so per-task tables
+            # render "--" via _fmt instead of a misleading 0 (PR #182 review).
+            "input_tokens": r.get("input_tokens"),
+            "output_tokens": r.get("output_tokens"),
             "cache_read_tokens": r.get("cache_read_tokens", 0) or 0,
-            "reasoning_tokens": r.get("reasoning_tokens", 0) or 0,
+            "reasoning_tokens": r.get("reasoning_tokens"),
             "tool_call_count": r.get("tool_call_count", 0) or 0,
             "llm_time_s": r.get("llm_time_s", 0) or 0,
             "tool_time_s": r.get("tool_time_s", 0) or 0,
@@ -373,10 +375,12 @@ def _parse_appworld_results(data: dict) -> dict:
             "cost": t.get("total_cost", 0) or 0,
             "llm_calls": t.get("total_llm_calls", 0) or 0,
             "cache_tokens": t.get("cache_input_tokens", 0) or 0,
-            "input_tokens": t.get("input_tokens", 0) or 0,
-            "output_tokens": t.get("output_tokens", 0) or 0,
+            # Receipt-only: left None (not 0) when absent so per-task tables
+            # render "--" via _fmt instead of a misleading 0 (PR #182 review).
+            "input_tokens": t.get("input_tokens"),
+            "output_tokens": t.get("output_tokens"),
             "cache_read_tokens": t.get("cache_read_tokens", 0) or 0,
-            "reasoning_tokens": t.get("reasoning_tokens", 0) or 0,
+            "reasoning_tokens": t.get("reasoning_tokens"),
             "tool_call_count": t.get("tool_call_count", 0) or 0,
             "llm_time_s": t.get("llm_time_s", 0) or 0,
             "tool_time_s": t.get("tool_time_s", 0) or 0,
