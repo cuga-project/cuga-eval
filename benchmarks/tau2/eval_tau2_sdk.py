@@ -48,6 +48,7 @@ def _result_dict(
     nl_judge_model: Optional[str] = None,
     reward_info: Optional[dict] = None,
     messages: Optional[list] = None,
+    termination_reason: Optional[str] = None,
 ) -> dict:
     """Per-task result in the shape compare_report / bundles expect (§11.5).
 
@@ -76,6 +77,7 @@ def _result_dict(
         "nl_judge_model": nl_judge_model,
         "reward_info": reward_info,
         "messages": messages,
+        "termination_reason": termination_reason,
         "error": str(error) if error else None,
     }
 
@@ -230,6 +232,7 @@ def run(args: argparse.Namespace) -> list[dict]:
                 nl_judge_model=extra.get("nl_judge_model"),
                 reward_info=extra.get("reward_info"),
                 messages=extra.get("messages"),
+                termination_reason=extra.get("termination_reason"),
             )
             results.append(rd)
             write_task_result(bundle_dir, task.id, rd, domain=args.subset)  # atomic per-task

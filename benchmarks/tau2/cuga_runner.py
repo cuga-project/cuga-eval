@@ -36,12 +36,14 @@ def _patch_tau2_nl_assertion_model(model: str, llm_args_user: Optional[dict]) ->
     the name into ITS module — so we must patch that module's namespace too, not just tau2.config.
     Best-effort: if τ²'s internals move, we log and continue (scoring just reverts to the default).
 
-    Returns the judge model actually in force (our `model` on success, τ²'s hardcoded default on
-    failure) so the caller can RECORD it in the results — substituting the judge changes NL-assertion
-    scoring, so our numbers are only comparable to others run against the SAME judge (not the
-    official leaderboard, which uses τ²'s pinned gpt-4.1-2025-04-14).
+    Returns the judge model actually in force (our `model` on success; on failure, τ²'s hardcoded
+    default if we managed to read it, else None when τ² can't even be imported) so the caller can
+    RECORD it in the results — substituting the judge changes NL-assertion scoring, so our numbers
+    are only comparable to others run against the SAME judge (not the official leaderboard, which
+    uses τ²'s pinned gpt-4.1-2025-04-14).
     """
     args = {"temperature": 0.0, **(llm_args_user or {})}
+    default_judge = None  # defined up-front so the except branch returns it even if the import fails
     try:
         import tau2.config as tau2_config
 
@@ -56,7 +58,7 @@ def _patch_tau2_nl_assertion_model(model: str, llm_args_user: Optional[dict]) ->
         return model
     except Exception as e:  # noqa: BLE001 — never fail the run over this patch
         print(f"    (could not repoint τ² NL-assertion model: {e!r})")
-        return locals().get("default_judge")
+        return default_judge
 
 
 def _maybe_setup_langfuse(
@@ -416,11 +418,18 @@ def _populate_sim_outputs(sim: Any, out: Optional[dict]) -> None:
     """Copy τ²'s per-check breakdown + full transcript into `out` (best-effort, shared by
     both the CUGA and native-agent paths so the results JSON has the same shape either way).
 
+    - termination_reason: how τ² ended the run (e.g. max_steps / agent_stop / user_stop) — the
+      only field that says whether the agent ran out of steps. Captured even when reward_info is
+      absent, so a run that hit the cap is still explainable.
     - reward_info: τ²'s per-check breakdown — the authoritative "why" behind the score.
     - messages: the full customer ↔ agent ↔ tool dialogue as τ² saw it (the transcript that
       Langfuse/trajectory don't capture on τ²'s side).
     """
-    if out is None or not sim or not sim.reward_info:
+    if out is None or not sim:
+        return
+    tr = getattr(sim, "termination_reason", None)
+    out["termination_reason"] = getattr(tr, "value", tr)  # unwrap enum -> str if needed
+    if not sim.reward_info:
         return
     out["reward_info"] = _reward_info_summary(sim.reward_info)
     out["messages"] = _messages_summary(sim)
