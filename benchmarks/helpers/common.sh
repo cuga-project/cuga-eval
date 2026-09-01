@@ -113,6 +113,45 @@ resolve_project_root() {
     return 1
 }
 
+# Resolve the cuga-agent checkout to capture git info from, mirroring
+# collect_cuga_info()'s Python-side resolution (benchmarks/helpers/bundle.py):
+# prefer the live 'cuga' package's actual location over a guessed path, since
+# an editable install can sit anywhere. `git -C <module dir> rev-parse
+# --show-toplevel` answers "which repo contains this directory", not "is this
+# directory the source of this package" — a non-editable install under
+# <cuga-eval>/.venv/.../site-packages/cuga resolves to cuga-eval's own repo
+# root, so confirm the module dir is actually tracked there before trusting
+# it. Falls back to CUGA_REPO_PATH/~/workspace/cuga-agent when the live
+# checkout can't be resolved this way (e.g. cuga isn't importable, or it's a
+# non-editable install with no accessible .git).
+#
+# Echoes the resolved path (or nothing if neither resolves to an existing dir).
+resolve_cuga_repo_path() {
+    local module_file module_dir toplevel project_root venv_python
+    project_root="$(resolve_project_root 2>/dev/null || echo "")"
+    venv_python="$project_root/.venv/bin/python"
+    if [ -n "$project_root" ] && [ -x "$venv_python" ]; then
+        module_file="$("$venv_python" -c "import cuga; print(cuga.__file__)" 2>/dev/null || echo "")"
+    else
+        module_file="$(python3 -c "import cuga; print(cuga.__file__)" 2>/dev/null || echo "")"
+    fi
+    if [ -n "$module_file" ]; then
+        module_dir="$(cd "$(dirname "$module_file")" && pwd)"
+        toplevel="$(git -C "$module_dir" rev-parse --show-toplevel 2>/dev/null || echo "")"
+        if [ -n "$toplevel" ] && git -C "$toplevel" ls-files --error-unmatch "$module_dir" >/dev/null 2>&1; then
+            echo "$toplevel"
+            return 0
+        fi
+    fi
+    local guessed="${CUGA_REPO_PATH:-$HOME/workspace/cuga-agent}"
+    if [ -d "$guessed" ]; then
+        echo "$guessed"
+        return 0
+    fi
+    echo ""
+    return 0
+}
+
 # Parse common CLI arguments.
 # Sets global variables: BENCHMARK, RUNS, OUTPUT_FILE, DRY_RUN, VERBOSE, MODEL_PROFILE,
 # AGENT, AGENTS, COMPARE_AGENTS. Remaining args go into FORWARDED_ARGS array.

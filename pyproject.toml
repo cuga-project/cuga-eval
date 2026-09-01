@@ -86,6 +86,9 @@ dev = [
     "pre-commit>=4.3.0",
     "bandit>=1.7.10",
     "pip-audit>=2.7",
+    # 26.2 fixes PYSEC-2026-3721. Pulled in transitively via pip-audit -> pip-api -> pip,
+    # so it must be floored here directly for pip-audit's own scan of this group to pass.
+    "pip>=26.2",
 ]
 
 groq = [
@@ -126,6 +129,7 @@ markers = [
     "sanity: fast unit tests, run on every commit",
     "regression: integration tests, run on every PR",
     "stability: long-running tests, scheduled only",
+    "unit: fast unit tests, no external services",
 ]
 # Use importlib import mode (`--import-mode=importlib`) so per-benchmark
 # `tests/` packages don't collide on the shared `tests.*` module namespace.

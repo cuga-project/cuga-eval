@@ -275,6 +275,19 @@ The benchmark tracks various metrics through the tracker and Langfuse integratio
 - `full_execution_time` - Total execution time
 - `total_cache_input_tokens` - Cached token usage
 
+### Run Receipt Metrics (SDK path, `--sdk`)
+When run via the SDK path, the eval tool reads a `RunReceipt` directly from
+the agent instead of the Langfuse metrics above (no Langfuse round-trip),
+additionally breaking tokens down into `input_tokens`, `output_tokens`,
+`cache_read_tokens`, `reasoning_tokens`, plus `tool_call_count`, `llm_time_s`,
+`tool_time_s`, and `wall_time_s`. `total_cost`, `node_timings`,
+`llm_call_details`, and `generation_timings` have no receipt equivalent and
+are not populated when the receipt path is used. Note also that
+`full_execution_time` changes basis on the receipt path: it's
+`agent.invoke()` wall time rather than a Langfuse trace-span duration, so the
+Duration column isn't directly comparable between a bundle from before this
+change and one from after.
+
 ---
 
 ## 📊 Langfuse Tracing (Optional)
