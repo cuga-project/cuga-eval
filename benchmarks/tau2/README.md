@@ -20,11 +20,15 @@ uv sync --group tau2        # install base deps + tau2
 
 ## Quick Start
 
-Run with `./eval.sh`, or from the repo root with `./scripts/eval.sh --benchmark tau2`.
+The `./eval.sh` / `./compare.sh` commands below are run **from this directory**
+(`benchmarks/tau2`) — `cd benchmarks/tau2` first. Equivalently, from the repo root use
+`./scripts/eval.sh --benchmark tau2`.
 Everything runs in a **single process** — τ²'s orchestrator and user simulator execute
 in-process alongside CUGA, so there are no servers to start or ports to manage.
 
 ```bash
+cd benchmarks/tau2   # all commands below run from here
+
 # Default: mock subset, 1 task
 ./eval.sh
 

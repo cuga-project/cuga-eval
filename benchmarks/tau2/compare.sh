@@ -129,12 +129,16 @@ for config in "${CONFIGS[@]}"; do
     echo -e "${CYAN:-}Configuration: ${config}${NC:-}"
     echo -e "${BLUE:-}══════════════════════════════════════════════════════════════${NC:-}"
 
-    # Apply model config (profile + optional .env overrides)
-    if type apply_model_config &>/dev/null; then
-        if ! apply_model_config "$model"; then
-            echo -e "${RED:-}Error: Failed to apply model config '$model'${NC:-}"
-            exit 1
-        fi
+    # Apply model config (profile + optional .env overrides). Hard-fail if the helper isn't
+    # available — silently skipping it would run every config on whatever model happened to be
+    # in the environment, invalidating the comparison.
+    if ! type apply_model_config &>/dev/null; then
+        echo -e "${RED:-}Error: apply_model_config unavailable (common.sh / model_profiles.sh not sourced)${NC:-}" >&2
+        exit 1
+    fi
+    if ! apply_model_config "$model"; then
+        echo -e "${RED:-}Error: Failed to apply model config '$model'${NC:-}"
+        exit 1
     fi
 
     eval_args=()
@@ -245,3 +249,7 @@ if [[ "${NO_BUNDLE:-false}" != "true" && "$JSON_INPUT" != "{}" ]]; then
     (cd "$PROJECT_ROOT" && "${BUNDLE_CMD[@]}")
     rm -f "$REPORT_TMP"
 fi
+
+# Exit non-zero if any run failed, so callers/CI can detect it (the report + bundle still run
+# above so a partial comparison is preserved).
+exit $(( failed > 0 ? 1 : 0 ))

@@ -58,8 +58,15 @@ else
   echo "Found existing tau2-bench clone at '$TAU2_REPO_DIR'."
   current="$(git -C "$TAU2_REPO_DIR" rev-parse HEAD 2>/dev/null || echo unknown)"
   if [ "$current" != "$TAU2_PIN" ]; then
-    echo "Warning: clone is at ${current:0:7}, not the pinned ${TAU2_PIN:0:7}."
-    echo "         Remove '$TAU2_REPO_DIR' and re-run to re-pin, or checkout manually."
+    # Don't register a wrong-revision clone as the editable source (non-reproducible installs).
+    # Re-pin to TAU2_PIN; stop loudly if we can't (e.g. local changes in the clone).
+    echo "Clone is at ${current:0:7}, not the pinned ${TAU2_PIN:0:7} — re-pinning..."
+    git -C "$TAU2_REPO_DIR" fetch --quiet origin "$TAU2_PIN" 2>/dev/null || true
+    if ! git -C "$TAU2_REPO_DIR" checkout --quiet "$TAU2_PIN"; then
+      echo "Error: could not check out pin ${TAU2_PIN:0:7} in '$TAU2_REPO_DIR'." >&2
+      echo "       Commit/stash local changes there, or remove the dir and re-run." >&2
+      exit 1
+    fi
   fi
 fi
 
