@@ -394,6 +394,9 @@ B. App-specific instructions:
 - Any reference to my friends, family or any other person or relation refers to the people in my phone's contacts list.
 - Always obtain the current date or time, from Python function calls like `datetime.now()`, or from the phone app's get_current_date_and_time API, never from your internal clock.
 - For temporal requests, use proper time boundaries, e.g., when asked about periods like "yesterday", use complete ranges: 00:00:00 to 23:59:59.
+- File system paths must be home-anchored tilde paths like `~/downloads/report.csv` (or absolute paths starting with `/`). Never pass cwd-relative paths (`./report.csv`, `.`, `downloads/report.csv`) to file_system APIs — the file system has no working directory.
+- When the task states an output format literally (a header line such as `title,artists`, a template such as `'<name>' => $<price>`, a separator), reproduce it verbatim: same wording, same letter case, same spacing and punctuation. Never uppercase, retitle, or otherwise reformat values you copied from a source.
+- When composing CSV content: quote fields only if the task or the source data shows quotes; keep the source's row and column order unless asked to reorder; end lines with `\\n` only, never `\\r\\n`.
         """
 
     async def setup(self):
