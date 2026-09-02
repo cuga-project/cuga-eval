@@ -500,8 +500,23 @@ def write_official_results(bundle_dir: Path, table: dict, *, split: str | None, 
     atomic_write_json(out, {"split": split, "task_count": task_ids_count, "table": table})
     report = bundle_dir / "report.md"
     text = report.read_text() if report.is_file() else "# Evaluation report\n"
-    if OFFICIAL_SECTION in text:
-        text = text.split(OFFICIAL_SECTION, 1)[0].rstrip() + "\n"
+
+    # Find and remove the old section if it exists
+    marker_pattern = re.compile(r"^## AppWorld official metrics\s*$", re.MULTILINE)
+    match = marker_pattern.search(text)
+    if match:
+        # Find the start of the section (the marker line)
+        section_start = match.start()
+        # Find the end of the section (next ## heading or end of file)
+        rest = text[match.end() :]
+        next_section_match = re.search(r"^## ", rest, re.MULTILINE)
+        if next_section_match:
+            section_end = match.end() + next_section_match.start()
+        else:
+            section_end = len(text)
+        # Remove the old section
+        text = text[:section_start] + text[section_end:]
+
     section = (
         f"\n{OFFICIAL_SECTION}\n\n"
         f"scope: {'split ' + split if split else f'{task_ids_count} task ids'}\n\n"

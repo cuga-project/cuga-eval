@@ -542,6 +542,38 @@ def test_write_official_results_and_report(ws):
     assert (ws / "report.md").read_text().count("## AppWorld official metrics") == 1
 
 
+def test_write_official_results_preserves_following_sections(ws):
+    table = {
+        "aggregate": {"task_goal_completion": 50.0, "scenario_goal_completion": 25.0},
+        "difficulty_1": {"task_goal_completion": 50.0, "scenario_goal_completion": 25.0},
+        "difficulty_2": {"task_goal_completion": None, "scenario_goal_completion": None},
+        "difficulty_3": {"task_goal_completion": None, "scenario_goal_completion": None},
+    }
+    initial_report = (
+        "# Eval report\n\nintro\n\n## AppWorld official metrics\n\nold\n\n## Another section\n\nkeep me\n"
+    )
+    (ws / "report.md").write_text(initial_report)
+    lb.write_official_results(ws, table, split="test_normal", task_ids_count=2)
+    rep = (ws / "report.md").read_text()
+    # Verify old section content is gone
+    assert "old" not in rep
+    # Verify following sections and content are preserved
+    assert "## Another section" in rep
+    assert "keep me" in rep
+    assert "intro" in rep
+    # Verify new table is present
+    assert "scenario_goal_completion" in rep
+    # Verify marker occurs exactly once
+    assert rep.count("## AppWorld official metrics") == 1
+    # Second write still preserves everything
+    lb.write_official_results(ws, table, split="test_normal", task_ids_count=2)
+    rep2 = (ws / "report.md").read_text()
+    assert "## Another section" in rep2
+    assert "keep me" in rep2
+    assert "intro" in rep2
+    assert rep2.count("## AppWorld official metrics") == 1
+
+
 def test_format_official_table():
     table = {
         "aggregate": {"task_goal_completion": 50.0, "scenario_goal_completion": 25.0},
