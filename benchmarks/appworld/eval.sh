@@ -34,6 +34,10 @@ for arg in "$@"; do
         echo "  --model-profile <name>       Model profile (for bundle metadata)"
         echo "  --agent <name>               Agent to run (cuga, react, codeact; default: cuga)"
         echo "  --eval-key <key>             Task group key in eval_config.toml (e.g. test_med); recorded in bundle metadata"
+        echo "  --leaderboard <prefix>       Tag this run for official AppWorld leaderboard submission (implies --sdk)"
+        echo "  --force-retry                Re-run tasks even if a cached leaderboard result already exists"
+        echo "  --dry-run                    Print the evaluator command that would run and exit without starting servers"
+        echo "  --status                     Show run status; also prints leaderboard status when the workspace has a leaderboard block"
         echo ""
         echo "Examples:"
         echo "  ./eval.sh                          # Default evaluation (cuga)"
@@ -69,6 +73,9 @@ while [[ $# -gt 0 ]]; do
         --restart)     RESTART=true; shift ;;
         --status)      STATUS=true; shift ;;
         --agent)       AGENT="$2"; shift 2 ;;
+        --leaderboard) LEADERBOARD="$2"; PASSTHROUGH_ARGS+=(--leaderboard "$2"); USE_SDK=true; shift 2 ;;
+        --force-retry) PASSTHROUGH_ARGS+=(--force-retry); shift ;;
+        --dry-run)     DRY_RUN=true; shift ;;
         --verbose|-v|--quiet|-q)  PASSTHROUGH_ARGS+=("$1"); shift ;;
         --task)        PASSTHROUGH_ARGS+=("--task-id"); shift
                        while [[ $# -gt 0 && ! "$1" =~ ^-- ]]; do
@@ -77,6 +84,21 @@ while [[ $# -gt 0 ]]; do
         *)             PASSTHROUGH_ARGS+=("$1"); shift ;;
     esac
 done
+
+if [[ "${DRY_RUN:-false}" == "true" ]]; then
+    if [ "${AGENT:-cuga}" = "codeact" ]; then mod=benchmarks.appworld.appworld_eval_codeact
+    elif [ "${AGENT:-cuga}" = "react" ]; then mod=benchmarks.appworld.appworld_eval_react
+    elif [[ "$USE_SDK" == "true" ]]; then mod=benchmarks.appworld.eval_appworld_sdk
+    else mod=benchmarks.appworld.appworld_eval; fi
+    echo "DISPATCH: uv run --no-sync python -m $mod ${PASSTHROUGH_ARGS[*]}"
+    exit 0
+fi
+
+if [[ "${STATUS:-false}" == "true" ]]; then
+    if bd=$(resolve_lifecycle_bundle_dir "appworld" 2>/dev/null) && grep -q '"leaderboard"' "$bd/metadata.json" 2>/dev/null; then
+        uv run --no-sync python -m benchmarks.appworld.leaderboard status --bundle-dir "$bd"
+    fi
+fi
 
 if handle_eval_lifecycle "appworld" "$0" "${PASSTHROUGH_ARGS[@]}"; then
     exit 0
@@ -320,6 +342,13 @@ fi
 if [ -n "$LATEST_RESULT" ] && [ "${NO_BUNDLE:-false}" != "true" ]; then
     echo ""
     if [ -n "${WORKSPACE_BUNDLE_DIR:-}" ]; then
+        if [ $EVAL_EXIT -eq 0 ] && grep -q '"leaderboard"' "$WORKSPACE_BUNDLE_DIR/metadata.json" 2>/dev/null; then
+            AW_EXP=$(uv run --no-sync python -c "import json,sys;print(json.load(open(sys.argv[1]))['leaderboard']['appworld_experiment'])" "$WORKSPACE_BUNDLE_DIR/metadata.json")
+            if [[ -n "${EVAL_KEY:-}" ]]; then
+                echo -e "${YELLOW:-}Official AppWorld evaluate for key ${EVAL_KEY}...${NC:-}"
+                uv run --no-sync python -m benchmarks.appworld.leaderboard evaluate "$AW_EXP" --key "$EVAL_KEY" --bundle-dir "$WORKSPACE_BUNDLE_DIR" || echo -e "${YELLOW:-}Warning: official evaluate failed (see above)${NC:-}"
+            fi
+        fi
         echo -e "${YELLOW:-}Finalizing experiment workspace...${NC:-}"
         FIN_EXTRA=(--task-file "$SCRIPT_DIR/eval_config.toml")
         TRAJ_DIR=$(find_latest_trajectory "$SCRIPT_DIR/logging/trajectory_data")
