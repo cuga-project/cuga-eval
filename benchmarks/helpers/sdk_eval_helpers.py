@@ -391,6 +391,20 @@ async def preflight_llm(timeout: Optional[float] = None) -> None:
 
     elapsed = time.monotonic() - started
     text = " ".join(str(getattr(reply, "content", reply) or "").split())[:60]
+    if not text:
+        # 200 with an empty body is what some proxies return when the requested
+        # model is not served: the endpoint is up, the model is not. Treat it
+        # as a failed preflight — "reachable" has to mean "answers".
+        logger.error(f"   ❌ empty response after {elapsed:.1f}s")
+        logger.error("─" * 60)
+        raise RuntimeError(
+            f"LLM preflight got an empty response after {elapsed:.1f}s.\n"
+            f"  model:    {name}\n"
+            f"  endpoint: {endpoint}\n"
+            "The endpoint answered but returned no content — usually MODEL_NAME is not\n"
+            "served by this gateway (check GET <base_url>/v1/models).\n"
+            "Aborting instead of running the eval against a model that returns nothing."
+        )
     logger.info(f'   ✅ reachable in {elapsed:.1f}s — "{text}"')
     logger.info("─" * 60)
 
