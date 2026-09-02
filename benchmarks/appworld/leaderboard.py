@@ -226,7 +226,7 @@ class ValidationReport:
             lines.append(
                 f"tasks with <=1 environment interaction ({len(self.low_interaction_tasks)}): "
                 f"{' '.join(self.low_interaction_tasks)}  "
-                "(CUGA API calls bypass world.execute — see issue; pass --allow-low-interactions to proceed)"
+                "(pass --allow-low-interactions if the agent really made no API calls besides complete_task)"
             )
         if self.ok():
             footer = "OK"

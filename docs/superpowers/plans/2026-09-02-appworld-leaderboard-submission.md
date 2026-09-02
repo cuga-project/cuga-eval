@@ -16,7 +16,7 @@
 - Split sizes: `test_normal` = 168 ids, `test_challenge` = 417 ids, read from `<APPWORLD_ROOT>/data/datasets/<split>.txt` (one id per line).
 - 19 packed files per task: 12 app `dbs/<app>.jsonl` (`admin amazon api_docs file_system gmail phone simple_note splitwise spotify supervisor todoist venmo`) + `dbs/model_hashes.json` + `logs/environment_io.md` + `logs/api_calls.jsonl` + `version/code.txt` + `version/data.txt` + `evaluation/report.md` + `evaluation/version.txt`.
 - `appworld pack` never fails on missing files: it prints `WARNING: Missing file path (...)` and says nothing about absent task dirs. Our wrapper must fail on either.
-- Interaction logging for CUGA paths (spec item 2) is a **cuga-agent** change and is NOT in this plan. Until it lands, `validate` reports low-interaction tasks as a warning and `pack` refuses unless `--allow-low-interactions` is passed.
+- Interaction logging for CUGA SDK paths (spec item 2) is done in-eval: after `world.close_all()`, `benchmarks/appworld/interaction_logs.py` copies `invoke_result.tool_calls` into `environment_io.md` / `api_calls.jsonl` without re-executing the APIs. `validate` still reports tasks with ≤1 interaction; `pack` refuses unless `--allow-low-interactions` is passed.
 - cuga-viz "Failed = score == 0.0" fix is a **cuga-viz** change and is NOT in this plan; the harness's own `retry-key failed` covers it.
 - Do not commit `uv.lock` or the `verify_check`/`reflection_ab` hunks already sitting uncommitted in `benchmarks/appworld/eval_config.toml` (they belong to another branch). Stage files explicitly; never `git add -A`.
 - Run `just format` (ruff) before every commit.
@@ -613,7 +613,7 @@ class ValidationReport:
             lines.append(
                 f"tasks with <=1 environment interaction ({len(self.low_interaction_tasks)}): "
                 f"{' '.join(self.low_interaction_tasks)}  "
-                "(CUGA API calls bypass world.execute — see issue; pass --allow-low-interactions to proceed)"
+                "(pass --allow-low-interactions if the agent really made no API calls besides complete_task)"
             )
         lines.append("OK" if self.ok(allow_low_interactions=True) else "NOT SUBMITTABLE")
         return "\n".join(lines)
@@ -2244,9 +2244,10 @@ Batch keys skip ids that already completed. Ids must belong to the workspace's s
     uv run python -m benchmarks.appworld.leaderboard evaluate cuga_v1_test_challenge --split test_challenge \
         --bundle-dir benchmarks/appworld/evaluation_bundles/cuga_v1_chal
 
-`validate` exits 1 on missing tasks/files/scenarios. Tasks with ≤1 environment interaction are
-a known CUGA logging gap (API calls bypass `world.execute`); pass `--allow-low-interactions`
-only when that is understood. `evaluate` prints TGC + SGC by difficulty and writes them into the
+`validate` exits 1 on missing tasks/files/scenarios. SDK eval copies ToolCallTracker records into
+`environment_io.md` / `api_calls.jsonl` after invoke (HTTP still goes to port 9111; the APIs are
+not re-executed). Pass `--allow-low-interactions` only for tasks that really made no AppWorld API
+calls besides `complete_task`. `evaluate` prints TGC + SGC by difficulty and writes them into the
 workspace `report.md` under "AppWorld official metrics".
 
 ## 6. Pack both splits
@@ -2340,14 +2341,14 @@ git commit -m "docs(appworld): leaderboard submission flow in README and eval.sh
 
 **Spec coverage**
 - Item 1 (leaderboard flag, stable name, split-key): Tasks 1, 2, 4, 5, 6, 11. ✔
-- Item 2 (interaction logging): out of scope (cuga-agent) — surfaced by `validate` low-interaction warning + `--allow-low-interactions` (Tasks 3, 9). Documented in Global Constraints and the skill. ✔ (deliberate gap)
+- Item 2 (interaction logging): SDK backfill from ToolCallTracker (`interaction_logs.py`, hooked in `eval_appworld_sdk.py`). `validate` low-interaction warning + `--allow-low-interactions` remain as a safety valve. ✔
 - Item 3 (toml-driven continue/retry, cuga-viz paste, resume_history, `--write-retry-key`): Tasks 2, 4, 5, 7 (`retry-key` CLI), 6. ✔
 - Item 4 (multi `--task`): Tasks 6, 11. ✔
 - Item 5 (`validate`): Tasks 3, 9. ✔
 - Item 6 (pack wrapper): Tasks 9, 12. ✔
 - Item 7 (official TGC/SGC): Tasks 8, 11 (post-run), 12. ✔
 - Item 8 (docs): Tasks 13, 14. ✔
-- Testing A1–A9: Tasks 5 (A1–A5 via plan_run/metadata), 2 (A6, A7), 3 (A8), 8 (A9 partially: TGC consistency check is not implemented as a hard assertion — `evaluate` prints the official table and the workspace report keeps our own metrics; add an assertion in a follow-up if the two ever disagree). B10–B15: Task 10 (B15 depends on the cuga-agent change). C16–C18: Task 11. D: Task 15.
+- Testing A1–A9: Tasks 5 (A1–A5 via plan_run/metadata), 2 (A6, A7), 3 (A8), 8 (A9 partially: TGC consistency check is not implemented as a hard assertion — `evaluate` prints the official table and the workspace report keeps our own metrics; add an assertion in a follow-up if the two ever disagree). B10–B15: Task 10 (B15 is the ToolCallTracker backfill in `interaction_logs.py`). C16–C18: Task 11. D: Task 15.
 - cuga-viz Failed fix: out of scope (cuga-viz) — `retry-key failed` covers it. ✔ (deliberate gap)
 
 **Placeholder scan:** none.

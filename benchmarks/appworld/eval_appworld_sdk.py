@@ -181,6 +181,7 @@ async def invoke_and_score_appworld(
 
     def complete_and_eval() -> None:
         nonlocal harness_done, eval_dict
+        logs_dir = world.output_logs_directory
         _complete_task(world, response, is_error)
         evaluation = world.evaluate()
         eval_dict = evaluation_task_info(evaluation)
@@ -189,6 +190,18 @@ async def invoke_and_score_appworld(
         except Exception:  # noqa: S110 — cleanup is best-effort, swallowing is intentional
             pass
         harness_done = True
+        # Registry HTTP calls never go through world.execute. Copy ToolCallTracker
+        # records into environment_io.md / api_calls.jsonl without re-running them.
+        # Logs are already on disk from execute() → save_logs(); close_all() is
+        # only here so a later remote save cannot clobber the rewrite.
+        try:
+            from benchmarks.appworld.interaction_logs import merge_tracker_into_appworld_logs
+
+            n = merge_tracker_into_appworld_logs(logs_dir, tool_calls)
+            if n:
+                logger.info(f"[APPWORLD-SDK] wrote {n} CUGA tool calls into AppWorld logs")
+        except Exception as log_exc:
+            logger.warning(f"[APPWORLD-SDK] could not merge tool calls into AppWorld logs: {log_exc}")
 
     if langfuse_handler:
         try:

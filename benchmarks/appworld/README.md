@@ -255,10 +255,14 @@ uv run python -m benchmarks.appworld.leaderboard evaluate cuga_v1_test_challenge
 | Every base task has all its scenarios (`_1`/`_2`/`_3`) | listed under "bases missing a scenario" — exits 1 |
 | Task has more than 1 environment interaction | listed under "tasks with <=1 environment interaction" — exits 1 unless `--allow-low-interactions` |
 
-The low-interaction case is a known CUGA logging gap (API calls bypass `world.execute`); pass
-`--allow-low-interactions` to `validate`/`pack` only once that's understood — it does not silence
-a missing-tasks/files/scenario failure. `evaluate` prints TGC + SGC by difficulty and writes them
-into the workspace `report.md` under "AppWorld official metrics".
+SDK eval (`--sdk` / `--leaderboard`) still calls AppWorld APIs over HTTP to the registry (port
+9111), so those calls never go through `world.execute`. After each task the harness copies
+`invoke_result.tool_calls` (ToolCallTracker) into `logs/environment_io.md` and `logs/api_calls.jsonl`
+**without re-executing** them, and keeps the harness `complete_task` interaction last. Pass
+`--allow-low-interactions` to `validate`/`pack` only for tasks that really made no AppWorld API
+calls besides `complete_task` (crash / no-op). It does not silence a missing-tasks/files/scenario
+failure. `evaluate` prints TGC + SGC by difficulty and writes them into the workspace `report.md`
+under "AppWorld official metrics".
 
 **6. Pack both splits**
 

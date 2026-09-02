@@ -64,9 +64,10 @@ Batch keys skip ids that already completed. Ids must belong to the workspace's s
     uv run python -m benchmarks.appworld.leaderboard evaluate cuga_v1_test_challenge --split test_challenge \
         --bundle-dir benchmarks/appworld/evaluation_bundles/cuga_v1_chal
 
-`validate` exits 1 on missing tasks/files/scenarios. Tasks with ≤1 environment interaction are
-a known CUGA logging gap (API calls bypass `world.execute`); pass `--allow-low-interactions`
-only when that is understood. `evaluate` prints TGC + SGC by difficulty and writes them into the
+`validate` exits 1 on missing tasks/files/scenarios. SDK eval copies ToolCallTracker records into
+`environment_io.md` / `api_calls.jsonl` after invoke (HTTP still goes to port 9111; the APIs are
+not re-executed). Pass `--allow-low-interactions` only for tasks that really made no AppWorld API
+calls besides `complete_task`. `evaluate` prints TGC + SGC by difficulty and writes them into the
 workspace `report.md` under "AppWorld official metrics".
 
 ## 6. Pack both splits
