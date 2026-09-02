@@ -204,7 +204,7 @@ Writes `<key>_b1..bN` batch keys; scenarios `_1/_2/_3` of a base always stay in 
 ```
 
 Watch with `./benchmarks/appworld/eval.sh --status --resume-experiment cuga_v1_chal` (or
-`uv run python -m benchmarks.appworld.leaderboard status --bundle-dir evaluation_bundles/cuga_v1_chal`).
+`uv run python -m benchmarks.appworld.leaderboard status --bundle-dir benchmarks/appworld/evaluation_bundles/cuga_v1_chal`).
 
 **2. Inspect and decide what to retry**
 
@@ -212,8 +212,8 @@ Prefer the harness lists over cuga-viz's "Failed" tab (it only lists score == 0.
 AppWorld's fractional scores):
 
 ```bash
-uv run python -m benchmarks.appworld.leaderboard retry-key errored     --bundle-dir evaluation_bundles/cuga_v1_chal --of-key test_challenge_all_b1
-uv run python -m benchmarks.appworld.leaderboard retry-key uncompleted --bundle-dir evaluation_bundles/cuga_v1_chal --of-key test_challenge_all_b1
+uv run python -m benchmarks.appworld.leaderboard retry-key errored     --bundle-dir benchmarks/appworld/evaluation_bundles/cuga_v1_chal --of-key test_challenge_all_b1
+uv run python -m benchmarks.appworld.leaderboard retry-key uncompleted --bundle-dir benchmarks/appworld/evaluation_bundles/cuga_v1_chal --of-key test_challenge_all_b1
 ```
 
 Either appends a key like `cuga_v1_chal_errored = [...]` to `eval_config.toml`. Only retry
@@ -226,8 +226,9 @@ leaderboard run (one attempt per task).
 ./benchmarks/appworld/eval.sh --resume-experiment cuga_v1_chal --eval-key cuga_v1_chal_errored
 ```
 
-A key ending in `_errored|_failed|_uncompleted|_failed_tasks|_uncompleted_tasks` re-runs every id
-even if its partial is clean. For any other key add `--force-retry`.
+A key that `retry-key` wrote for **this** workspace re-runs every id even if its partial is clean —
+the workspace records the key name in `metadata.json` (`retry_keys`), so an unrelated key that
+merely ends in `_failed` never gains that power. For a hand-written key add `--force-retry`.
 
 **4. Next batches**
 
@@ -243,7 +244,7 @@ Batch keys skip ids that already completed. Ids must belong to the workspace's s
 ```bash
 uv run python -m benchmarks.appworld.leaderboard validate cuga_v1 --split test_challenge
 uv run python -m benchmarks.appworld.leaderboard evaluate cuga_v1_test_challenge --split test_challenge \
-    --bundle-dir evaluation_bundles/cuga_v1_chal
+    --bundle-dir benchmarks/appworld/evaluation_bundles/cuga_v1_chal
 ```
 
 `validate` checks the experiment directory before anything is packed:
@@ -258,10 +259,16 @@ uv run python -m benchmarks.appworld.leaderboard evaluate cuga_v1_test_challenge
 SDK eval (`--sdk` / `--leaderboard`) still calls AppWorld APIs over HTTP to the registry (port
 9111), so those calls never go through `world.execute`. After each task the harness copies
 `invoke_result.tool_calls` (ToolCallTracker) into `logs/environment_io.md` and `logs/api_calls.jsonl`
-**without re-executing** them, and keeps the harness `complete_task` interaction last. Pass
-`--allow-low-interactions` to `validate`/`pack` only for tasks that really made no AppWorld API
-calls besides `complete_task` (crash / no-op). It does not silence a missing-tasks/files/scenario
-failure. `evaluate` prints TGC + SGC by difficulty and writes them into the workspace `report.md`
+**without re-executing** them, and keeps the harness `complete_task` interaction last.
+
+Pass `--allow-low-interactions` to `validate`/`pack` only when the ≤1-interaction tasks are one of:
+
+- the task really made no AppWorld API call besides `complete_task` (crash / no-op), or
+- the known logging gap: the merge could not run or found nothing to copy, so only the harness
+  `complete_task` interaction was recorded even though the agent did call APIs over the registry.
+
+It never silences a missing-task, missing-file or missing-scenario failure — those always exit 1.
+`evaluate` prints TGC + SGC by difficulty and writes them into the workspace `report.md`
 under "AppWorld official metrics".
 
 **6. Pack both splits**
@@ -271,8 +278,10 @@ under "AppWorld official metrics".
     https://github.com/cuga-project/cuga-agent
 ```
 
-Refuses unless both splits validate; runs `appworld evaluate` (writes `evaluations/<split>.json` under
-the AppWorld experiment dir — not the cuga-eval workspace `report.md`; that is step 5) then
+Refuses unless both splits validate — or just the one split, with `--only test_normal` /
+`--only test_challenge`. Then runs `appworld evaluate` (writes `evaluations/<split>.json` under
+the AppWorld experiment dir — not the cuga-eval workspace `report.md`; that is step 5), skipping it
+when that file is already newer than every task output (`--re-evaluate` forces it), then
 `appworld pack`, unpacks the bundle into a temp dir and
 byte-compares every file; prints the two `leaderboard.bundle` paths and the
 `/add-to-leaderboard --python … --appworld … cuga_v1` comment for the PR. Don't trust `appworld
