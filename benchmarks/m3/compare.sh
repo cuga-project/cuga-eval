@@ -31,6 +31,14 @@ REGISTRY_PORT="${REGISTRY_PORT:-${DYNACONF_SERVER_PORTS__REGISTRY:-8001}}"
 export REGISTRY_PORT
 export DYNACONF_SERVER_PORTS__REGISTRY="$REGISTRY_PORT"
 
+# One run-scoped temp dir shared by every eval.sh run in this comparison
+# (issue #115). eval.sh honors a pre-set M3_RUN_TMP_DIR, so the log-staging
+# below knows exactly where each run's console/registry logs land, while a
+# concurrent compare/eval on the same host gets its own directory. eval.sh
+# truncates the console log per run, preserving the old per-run semantics.
+M3_RUN_TMP_DIR="${M3_RUN_TMP_DIR:-$(mktemp -d "${TMPDIR:-/tmp}/m3_compare_XXXXXX")}"
+export M3_RUN_TMP_DIR
+
 # Capture the cuga-agent checkout's git state now, before any eval.sh run
 # starts — not at bundle-assembly time (after every run finishes). A
 # multi-run comparison can take a long time; if the cuga-agent checkout is
@@ -614,23 +622,28 @@ for config in "${CONFIGS[@]}"; do
         run_before_trajs="$run_after_trajs"
 
         # Snapshot THIS run's logs before the next eval.sh run overwrites them.
-        # Console: eval.sh tees stdout to /tmp/m3_console.log (truncated each
-        # run, so it holds exactly this run). Registry: the --m3-data flow lets
-        # eval_m3.py manage per-service registries and write to
-        # benchmarks/m3/registry_server.log; the multiturn flow uses the outer
-        # /tmp/m3_registry.log. Prefer the former, fall back to the latter.
+        # Console: eval.sh tees stdout to $M3_RUN_TMP_DIR/m3_console.log
+        # (truncated each run, so it holds exactly this run). Registry: the
+        # --m3-data flow lets eval_m3.py manage per-service registries and
+        # write to $M3_RUN_TMP_DIR/registry_server.log (run-scoped, issue
+        # #115 — falls back to the legacy shared benchmarks/m3/registry_server.log
+        # for older eval.sh versions); the multiturn flow uses the outer
+        # $M3_RUN_TMP_DIR/m3_registry.log. Prefer the m3-data path, then the
+        # legacy shared one, then the outer one.
         run_log_dir="$LOG_STAGE_DIR/$(echo "$config" | tr ':/' '__')_run${r}"
         mkdir -p "$run_log_dir"
         run_log_lines=""
-        if [[ -f /tmp/m3_console.log ]]; then
-            cp -f /tmp/m3_console.log "$run_log_dir/m3_console.log" 2>/dev/null \
+        if [[ -f "$M3_RUN_TMP_DIR/m3_console.log" ]]; then
+            cp -f "$M3_RUN_TMP_DIR/m3_console.log" "$run_log_dir/m3_console.log" 2>/dev/null \
                 && run_log_lines+="$run_log_dir/m3_console.log"$'\n'
         fi
         reg_src=""
-        if [[ -s "$SCRIPT_DIR/registry_server.log" ]]; then
+        if [[ -s "$M3_RUN_TMP_DIR/registry_server.log" ]]; then
+            reg_src="$M3_RUN_TMP_DIR/registry_server.log"
+        elif [[ -s "$SCRIPT_DIR/registry_server.log" ]]; then
             reg_src="$SCRIPT_DIR/registry_server.log"
-        elif [[ -s /tmp/m3_registry.log ]]; then
-            reg_src="/tmp/m3_registry.log"
+        elif [[ -s "$M3_RUN_TMP_DIR/m3_registry.log" ]]; then
+            reg_src="$M3_RUN_TMP_DIR/m3_registry.log"
         fi
         if [[ -n "$reg_src" ]]; then
             cp -f "$reg_src" "$run_log_dir/m3_registry.log" 2>/dev/null \

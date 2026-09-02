@@ -22,6 +22,7 @@ Examples::
 from __future__ import annotations
 
 import argparse
+import os
 import subprocess
 import sys
 import tempfile
@@ -56,20 +57,28 @@ def _default_task_file(benchmark: str, result_file: Path) -> Path | None:
     return None
 
 
-def _default_log_files(benchmark: str) -> list[Path]:
+def _default_log_files(benchmark: str, legacy_tmp_dir: Path = Path("/tmp")) -> list[Path]:  # noqa: S108  # nosec B108
     bench_dir = PROJECT_ROOT / "benchmarks" / benchmark
     logs: list[Path] = []
     for name in ("registry_server.log",):
         path = bench_dir / name
         if path.is_file() and path.stat().st_size > 0:
             logs.append(path)
-    # Same fixed paths as benchmarks/m3/eval.sh (not user-controlled).
-    for fallback in (
-        Path("/tmp/m3_registry.log"),  # noqa: S108  # nosec B108
-        Path("/tmp/m3_console.log"),  # noqa: S108  # nosec B108
-    ):
-        if fallback.is_file() and fallback.stat().st_size > 0:
-            logs.append(fallback)
+    # Same run-scoped dir convention as benchmarks/m3/eval.sh (issue #115),
+    # with the legacy fixed /tmp paths kept for logs left by pre-#115 runs.
+    # Only the first existing candidate per log name is used, so a stale
+    # legacy /tmp log doesn't also get included alongside the run-scoped one.
+    # legacy_tmp_dir is overridable so tests don't have to touch real /tmp.
+    run_tmp_dir = os.getenv("M3_RUN_TMP_DIR")
+    for log_name in ("m3_registry.log", "m3_console.log"):
+        candidates = []
+        if run_tmp_dir:
+            candidates.append(Path(run_tmp_dir) / log_name)
+        candidates.append(legacy_tmp_dir / log_name)
+        for candidate in candidates:
+            if candidate.is_file() and candidate.stat().st_size > 0:
+                logs.append(candidate)
+                break
     return logs
 
 
