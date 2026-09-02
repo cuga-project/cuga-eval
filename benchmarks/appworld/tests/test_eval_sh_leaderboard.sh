@@ -24,6 +24,13 @@ assert_contains "forwards --force-retry" "--force-retry" "$out"
 out=$(bash "$EVAL" --dry-run --leaderboard cuga_v1 --eval-key k 2>&1)
 assert_contains "leaderboard implies --sdk" "eval_appworld_sdk" "$out"
 
+out=$(bash "$EVAL" --dry-run --experiment cuga_v1_chal --eval-key test_challenge_all_b1 2>&1)
+assert_contains "experiment without --sdk still dispatches SDK" "eval_appworld_sdk" "$out"
+assert_not_contains "experiment dry-run is not the graph evaluator" "benchmarks.appworld.appworld_eval " "$out"
+
+out=$(bash "$EVAL" --dry-run --experiment cuga_v1_chal --agent codeact --eval-key k 2>&1)
+assert_contains "experiment+codeact still dispatches codeact" "appworld_eval_codeact" "$out"
+
 out=$(bash "$EVAL" --dry-run --leaderboard cuga_v1 --agent codeact --eval-key k 2>&1); rc=$?
 assert_contains "rejects leaderboard+codeact" "SDK-only" "$out"
 [[ $rc -eq 2 ]] && { echo "  PASS: leaderboard+codeact exits 2"; PASS=$((PASS+1)); } || { echo "  FAIL: leaderboard+codeact rc=$rc"; FAIL=$((FAIL+1)); }

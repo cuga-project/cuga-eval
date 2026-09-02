@@ -87,3 +87,14 @@ async def test_langfuse_fetch_skipped_when_receipt_present_even_with_handler():
 
     mock_fetch.assert_not_awaited()
     assert result["total_tokens"] == 15
+
+
+def test_count_selected_completed_ignores_prior_batches():
+    results = [
+        {"task_name": "old_1"},
+        {"task_name": "old_2"},
+        {"task_name": "new_1"},
+    ]
+    assert eval_appworld_sdk.count_selected_completed(results, ["new_1", "new_2"]) == 1
+    assert eval_appworld_sdk.count_selected_completed(results, ["new_1"]) == 1
+    assert eval_appworld_sdk.count_selected_completed(results, ["old_1", "old_2"]) == 2

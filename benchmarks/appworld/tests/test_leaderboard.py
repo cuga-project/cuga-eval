@@ -121,6 +121,13 @@ def test_write_toml_key_appends_and_keeps_comments(toml_path):
     assert lb.read_toml_keys(toml_path)["retry_1"] == ["a_1", "b_2"]
 
 
+def test_write_toml_key_empty_list_is_idempotent(toml_path):
+    assert lb.write_toml_key(toml_path, "empty_retry", [], "0 tasks — retry") is True
+    assert lb.write_toml_key(toml_path, "empty_retry", [], "0 tasks — retry") is False
+    assert toml_path.read_text().count("empty_retry = ") == 1
+    assert lb.read_toml_keys(toml_path)["empty_retry"] == []
+
+
 def test_write_toml_key_idempotent_and_conflict(toml_path):
     lb.write_toml_key(toml_path, "k", ["a_1"], "c")
     assert lb.write_toml_key(toml_path, "k", ["a_1"], "c") is False

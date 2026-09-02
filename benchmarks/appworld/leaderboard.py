@@ -97,7 +97,7 @@ def read_toml_keys(toml_path: Path) -> dict[str, list[str]]:
         """Recursively extract string lists from nested dicts."""
         if isinstance(obj, dict):
             for k, v in obj.items():
-                if isinstance(v, list) and v and all(isinstance(x, str) for x in v):
+                if isinstance(v, list) and all(isinstance(x, str) for x in v):
                     result[k] = [str(x) for x in v]
                 elif isinstance(v, dict):
                     extract_lists(v)

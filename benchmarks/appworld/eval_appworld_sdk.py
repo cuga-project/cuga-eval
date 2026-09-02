@@ -104,6 +104,16 @@ def _task_ids_for_run(
     return load_task_ids(dataset_name), None
 
 
+def count_selected_completed(results: List[Dict[str, Any]], selected_ids: List[str]) -> int:
+    """How many of ``selected_ids`` have a ``task_name`` row in ``results``.
+
+    ``results`` may also hold prior batches in the same workspace, so
+    ``len(results)`` is not a valid completion check for this run.
+    """
+    names = {r.get("task_name") for r in results if r.get("task_name") is not None}
+    return sum(1 for tid in selected_ids if tid in names)
+
+
 def _build_user_context(world: AppWorld) -> str:
     sup = json.dumps(world.task.supervisor)
     dt = world.task.datetime.isoformat()
@@ -402,6 +412,7 @@ class AppWorldSdkEvaluator:
         # (not None) so the partial-run check in main() can't be silently
         # disabled by a future refactor that catches exceptions inside evaluate_all().
         self.total_tasks: int = 0
+        self.selected_task_ids: List[str] = []
         self.special_instructions: Optional[str] = """
 # INSTRUCTIONS
 
@@ -660,15 +671,17 @@ B. App-specific instructions:
             default_experiment_name=self.experiment_name,
         )
         self.experiment_name = plan.experiment_name
+        task_ids = list(plan.task_ids)
+        self.selected_task_ids = list(task_ids)
         logger.info(
             f"[APPWORLD-SDK] mode={plan.mode} experiment={plan.experiment_name} "
             f"run={len(plan.task_ids)} skip={len(plan.skipped)}"
         )
         if plan.mode == "retry":
             self.resume_completed_ids = set()
-        # Total intended for this run; compared against len(self.results) so a
-        # run that stops early (crash/interrupt) is detected as partial rather
-        # than silently reported as complete.
+        # Total intended for this run. Compared against how many of
+        # selected_task_ids appear in self.results — not len(self.results),
+        # which also holds prior batches in the same workspace.
         self.total_tasks = len(task_ids)
 
         tracker.start_experiment(
@@ -895,10 +908,16 @@ async def main():
         else:
             logger.warning("No results to save")
 
-    # Fewer results than intended means the run stopped early. Report it as a
-    # failure so the harness does not present a partial run as a clean pass.
-    total = getattr(evaluator, "total_tasks", None)
-    completed = len(getattr(evaluator, "results", []) or [])
+    # Fewer selected tasks than intended means the run stopped early. Report it
+    # as a failure so the harness does not present a partial run as a clean pass.
+    # Count only this run's ids: self.results also contains prior batches.
+    selected = getattr(evaluator, "selected_task_ids", None)
+    if selected is not None:
+        completed = count_selected_completed(getattr(evaluator, "results", []) or [], list(selected))
+        total = len(selected)
+    else:
+        total = getattr(evaluator, "total_tasks", None)
+        completed = len(getattr(evaluator, "results", []) or [])
     if exit_code == 0 and total is not None and completed < total:
         logger.error(f"Partial run: only {completed}/{total} tasks completed — marking as failed")
         exit_code = 2

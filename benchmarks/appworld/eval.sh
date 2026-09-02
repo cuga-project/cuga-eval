@@ -92,6 +92,12 @@ if [[ -n "${LEADERBOARD:-}" && ( "${AGENT:-cuga}" == "codeact" || "${AGENT:-cuga
 fi
 
 if [[ "${DRY_RUN:-false}" == "true" ]]; then
+    # Named experiments / resume use the SDK evaluator on the live path
+    # (see experiment_workspace_requested below). Apply the same rule here
+    # so --dry-run --experiment prints the module that would actually run.
+    if experiment_workspace_requested && [[ "${NO_BUNDLE:-false}" != "true" ]]; then
+        USE_SDK=true
+    fi
     if [ "${AGENT:-cuga}" = "codeact" ]; then mod=benchmarks.appworld.appworld_eval_codeact
     elif [ "${AGENT:-cuga}" = "react" ]; then mod=benchmarks.appworld.appworld_eval_react
     elif [[ "$USE_SDK" == "true" ]]; then mod=benchmarks.appworld.eval_appworld_sdk
