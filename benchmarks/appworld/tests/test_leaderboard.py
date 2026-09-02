@@ -429,3 +429,11 @@ def test_plan_no_bundle_dir_is_plain(root):
         default_experiment_name="appworld_sdk_evaluation",
     )
     assert plan.mode == "plain" and plan.experiment_name == "appworld_sdk_evaluation"
+
+
+def test_evaluator_uses_plan_run_and_stores_metadata():
+    """Static guard: the evaluator must route naming through plan_run and persist the block."""
+    src = (Path(lb.PROJECT_ROOT) / "benchmarks" / "appworld" / "eval_appworld_sdk.py").read_text()
+    assert "plan_run(" in src
+    assert "store_leaderboard_metadata(" in src
+    assert "tracker.experiment_folder" in src
