@@ -190,6 +190,13 @@ def make_task_dir(exp_dir: Path, tid: str, interactions: int = 2) -> Path:
     return t
 
 
+def make_evaluations(exp_dir: Path, split: str) -> None:
+    d = exp_dir / "evaluations"
+    d.mkdir(parents=True, exist_ok=True)
+    (d / f"{split}.json").write_text("{}\n")
+    (d / f"{split}.txt").write_text("report\n")
+
+
 def test_required_task_files_count():
     assert len(lb.REQUIRED_TASK_FILES) == 19
     assert "dbs/model_hashes.json" in lb.REQUIRED_TASK_FILES
@@ -602,12 +609,18 @@ def _fake_packer_factory(root: Path, warn: bool = False):
         if staging.exists():
             shutil.rmtree(staging)
         for t in (exp / "tasks").iterdir():
-            for rel in lb.REQUIRED_TASK_FILES:
+            for rel in lb.REQUIRED_TASK_FILES + lb.OPTIONAL_TASK_FILES:
                 src = t / rel
                 if src.is_file():
                     dst = staging / "tasks" / t.name / rel
                     dst.parent.mkdir(parents=True, exist_ok=True)
                     shutil.copy2(src, dst)
+        for rel in lb.EVALUATION_FILES:
+            src = exp / rel
+            if src.is_file():
+                dst = staging / rel
+                dst.parent.mkdir(parents=True, exist_ok=True)
+                shutil.copy2(src, dst)
         shutil.copy2(exp / "metadata.json", staging / "metadata.json")
         (staging / "LICENSE").write_text("license")
         (staging / "README_BEFORE_SHARING.md").write_text("readme")
@@ -637,6 +650,8 @@ def test_pack_and_verify_roundtrip(root):
     exp = lb.outputs_dir(root) / "cuga_v1_test_normal"
     for tid in NORMAL:
         make_task_dir(exp, tid)
+    make_evaluations(exp, "test_normal")
+    (exp / "tasks" / NORMAL[0] / "logs" / "lm_calls.jsonl").write_text("{}\n")
     bundle = lb.pack_and_verify(
         "cuga_v1",
         "test_normal",
@@ -675,6 +690,7 @@ def test_pack_refuses_low_interactions_unless_allowed(root):
     exp = lb.outputs_dir(root) / "cuga_v1_test_normal"
     for tid in NORMAL:
         make_task_dir(exp, tid, interactions=1)
+    make_evaluations(exp, "test_normal")
     kw = dict(
         root=root,
         method="m",
@@ -694,6 +710,7 @@ def test_pack_fails_on_appworld_warning(root):
     exp = lb.outputs_dir(root) / "cuga_v1_test_normal"
     for tid in NORMAL:
         make_task_dir(exp, tid)
+    make_evaluations(exp, "test_normal")
     with pytest.raises(lb.LeaderboardError, match="Missing file path"):
         lb.pack_and_verify(
             "cuga_v1",
@@ -713,6 +730,7 @@ def test_pack_detects_unpack_mismatch(root):
     exp = lb.outputs_dir(root) / "cuga_v1_test_normal"
     for tid in NORMAL:
         make_task_dir(exp, tid)
+    make_evaluations(exp, "test_normal")
 
     def bad_unpacker(bundle_path, dest):
         names = _fake_unpacker(bundle_path, dest)
@@ -732,6 +750,38 @@ def test_pack_detects_unpack_mismatch(root):
             packer=_fake_packer_factory(root),
             unpacker=bad_unpacker,
         )
+
+
+def test_pack_requires_evaluations_file(root):
+    exp = lb.outputs_dir(root) / "cuga_v1_test_normal"
+    for tid in NORMAL:
+        make_task_dir(exp, tid)
+    with pytest.raises(lb.LeaderboardError, match="evaluations/test_normal.json missing"):
+        lb.pack_and_verify(
+            "cuga_v1",
+            "test_normal",
+            root=root,
+            method="m",
+            method_tooltip="",
+            llm="l",
+            llm_tooltip="",
+            url="u",
+            packer=_fake_packer_factory(root),
+            unpacker=_fake_unpacker,
+        )
+
+
+def test_expected_bundle_files_includes_optional_when_present(root):
+    exp = lb.outputs_dir(root) / "cuga_v1_test_normal"
+    for tid in NORMAL:
+        make_task_dir(exp, tid)
+    make_evaluations(exp, "test_normal")
+    (exp / "tasks" / NORMAL[0] / "logs" / "lm_calls.jsonl").write_text("{}\n")
+    expected = lb.expected_bundle_files(exp, NORMAL)
+    assert f"tasks/{NORMAL[0]}/logs/lm_calls.jsonl" in expected
+    assert f"tasks/{NORMAL[1]}/logs/lm_calls.jsonl" not in expected
+    assert "evaluations/test_normal.json" in expected
+    assert "evaluations/test_normal.txt" in expected
 
 
 def test_cli_split_key_and_status(root, toml_path, ws, capsys):
