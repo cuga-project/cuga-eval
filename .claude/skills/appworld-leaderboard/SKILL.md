@@ -36,7 +36,7 @@ Open the card named in the log. **Uncompleted** = never finished (kill, crash).
 prefer the harness list:
 
     uv run python -m benchmarks.appworld.leaderboard retry-key errored   --bundle-dir benchmarks/appworld/evaluation_bundles/cuga_v1_chal --of-key test_challenge_all_b1
-    uv run python -m benchmarks.appworld.leaderboard retry-key uncompleted --bundle-dir ... --of-key test_challenge_all_b1
+    uv run python -m benchmarks.appworld.leaderboard retry-key uncompleted --bundle-dir benchmarks/appworld/evaluation_bundles/cuga_v1_chal --of-key test_challenge_all_b1
 
 Either command appends a key like `cuga_v1_chal_errored = [...]` to eval_config.toml. Pasting
 the cuga-viz line (`<card>_uncompleted_tasks = [...]`) into the toml works too.
