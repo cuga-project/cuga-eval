@@ -605,6 +605,18 @@ When Langfuse is enabled, evaluations collect:
 - `full_execution_time` - Total execution time
 - `total_cache_input_tokens` - Cached token usage
 
+For m3 and the SDK appworld path, this is now the fallback: the eval tool
+reads a `RunReceipt` directly from the agent instead (no Langfuse round-trip),
+which additionally breaks tokens down into `input_tokens`, `output_tokens`,
+`cache_read_tokens`, `reasoning_tokens`, plus `tool_call_count`, `llm_time_s`,
+`tool_time_s`, and `wall_time_s`. `total_cost`, `node_timings`,
+`llm_call_details`, and `generation_timings` have no receipt equivalent and
+are not populated when the receipt path is used (the Langfuse fetch above is
+skipped entirely in that case). Note also that `full_execution_time` changes
+basis on the receipt path: it's `agent.invoke()` wall time rather than a
+Langfuse trace-span duration, so the Duration column isn't directly
+comparable between a bundle from before this change and one from after.
+
 For more details, see the Langfuse sections in individual benchmark READMEs.
 
 ---

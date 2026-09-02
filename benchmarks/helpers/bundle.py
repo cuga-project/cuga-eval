@@ -15,6 +15,8 @@ import subprocess
 from datetime import datetime, timezone
 from pathlib import Path
 
+from loguru import logger
+
 from benchmarks.helpers.incremental_results import atomic_write_json
 
 BUNDLE_VERSION = "2"
@@ -47,6 +49,32 @@ DYNACONF_PREFIXES = [
 # Resolve once: <project_root>/benchmarks/helpers -> <project_root>
 _HELPERS_DIR = Path(__file__).resolve().parent
 PROJECT_ROOT = _HELPERS_DIR.parent.parent
+
+
+def _bundle_timestamp() -> str:
+    """Local-time stamp for auto-generated bundle directory names.
+
+    Deliberately local, not UTC: every other artifact of the same run — the
+    ``RUN_ID`` exported by ``eval.sh``, the results JSON filename, the
+    trajectory directory — is stamped with local wall-clock time. A UTC bundle
+    name made a single run look like two runs an offset apart and sorted
+    bundles out of step with the results files they contain.
+
+    Machine-readable timestamps stay absolute; see :func:`_utc_now_iso`.
+    """
+    return datetime.now().strftime("%Y%m%d_%H%M%S")
+
+
+def _utc_now_iso() -> str:
+    """Valid ISO-8601 UTC instant for machine-readable metadata fields.
+
+    Absolute rather than local so bundles produced on machines in different
+    timezones stay comparable and orderable. ``isoformat()`` already emits the
+    ``+00:00`` offset — appending a ``Z`` on top of it (as this did before the
+    timestamp fix in PR #162) produced ``...+00:00Z``, which
+    ``datetime.fromisoformat`` rejects.
+    """
+    return datetime.now(timezone.utc).isoformat()
 
 
 def _sanitize_model_slug(model_name: str) -> str:
@@ -167,25 +195,59 @@ def collect_cuga_info(git_info: dict | None = None) -> dict:
     kicking off any eval.sh subprocess, and thread it through unchanged.
     """
     cuga_version = None
+    cuga_module_file = None
     try:
         import cuga
 
         cuga_version = getattr(cuga, "__version__", None)
+        cuga_module_file = getattr(cuga, "__file__", None)
     except ImportError:
         pass
 
     if git_info is not None:
         cuga_git = git_info
     else:
-        cuga_repo = os.environ.get("CUGA_REPO_PATH", os.path.expanduser("~/workspace/cuga-agent"))
-        cuga_repo_path = Path(cuga_repo)
+        # Prefer the live checkout: once `import cuga` succeeds, cuga.__file__
+        # points at the actual source tree regardless of where it lives (an
+        # editable install can sit anywhere), so ask git where its root is
+        # instead of guessing a fixed path. Only fall back to
+        # CUGA_REPO_PATH/~/workspace/cuga-agent if that fails (e.g. cuga
+        # installed as a non-editable wheel with no accessible .git).
+        cuga_repo_path = None
+        if cuga_module_file:
+            module_dir = Path(cuga_module_file).resolve().parent
+            toplevel = _run_git(["rev-parse", "--show-toplevel"], cwd=module_dir)
+            # --show-toplevel answers "which repo contains this directory", not
+            # "is this directory the source of this package" — a non-editable
+            # install under <cuga-eval>/.venv/.../site-packages/cuga resolves to
+            # cuga-eval's repo root, which would then silently record the wrong
+            # project's git state. Confirm the module dir is actually tracked by
+            # the repo before trusting it.
+            if (
+                toplevel
+                and _run_git(["ls-files", "--error-unmatch", str(module_dir)], cwd=toplevel) is not None
+            ):
+                cuga_repo_path = Path(toplevel)
+        if cuga_repo_path is None:
+            cuga_repo = os.environ.get("CUGA_REPO_PATH", os.path.expanduser("~/workspace/cuga-agent"))
+            candidate = Path(cuga_repo)
+            if candidate.exists():
+                cuga_repo_path = candidate
+
         cuga_git = {}
-        if cuga_repo_path.exists():
+        if cuga_repo_path is not None:
             cuga_git = {
                 "git_commit": _run_git(["rev-parse", "--short", "HEAD"], cwd=cuga_repo_path),
                 "git_branch": _run_git(["rev-parse", "--abbrev-ref", "HEAD"], cwd=cuga_repo_path),
                 "git_dirty": bool(_run_git(["status", "--short"], cwd=cuga_repo_path) or ""),
             }
+
+    if not cuga_git.get("git_commit"):
+        logger.warning(
+            "collect_cuga_info: could not resolve cuga-agent's git info (checked the live "
+            "'cuga' package location, then CUGA_REPO_PATH / ~/workspace/cuga-agent) — "
+            "this bundle's metadata.json will be missing cuga.git_commit/git_branch/git_dirty."
+        )
 
     return {
         "version": cuga_version,
@@ -245,7 +307,7 @@ def _write_run_env(bundle_dir: Path) -> None:
     config_dir.mkdir(exist_ok=True)
     lines = [
         "# Actual environment variables captured at runtime",
-        f"# Generated: {datetime.now(timezone.utc).isoformat()}Z",
+        f"# Generated: {_utc_now_iso()}",
         "",
     ]
     for key, value in sorted(env.items()):
@@ -486,7 +548,7 @@ def _write_per_model_config(bundle_dir: Path, model_envs: dict, benchmark_dir: P
         settings_path = env_data.pop("settings_path", "")
         lines = [
             f"# Runtime environment for model profile: {model_name}",
-            f"# Generated: {datetime.now(timezone.utc).isoformat()}Z",
+            f"# Generated: {_utc_now_iso()}",
             "",
         ]
         for key, value in sorted(env_data.items()):
@@ -546,7 +608,7 @@ def assemble_bundle(
     if bundle_root is None:
         bundle_root = benchmark_dir / "evaluation_bundles"
 
-    timestamp = datetime.now(timezone.utc).strftime("%Y%m%d_%H%M%S")
+    timestamp = _bundle_timestamp()
     profile_label = _bundle_profile_label(model_profile)
     bundle_dir = bundle_root / f"{timestamp}_{profile_label}"
     bundle_dir.mkdir(parents=True, exist_ok=True)
@@ -597,7 +659,7 @@ def assemble_bundle(
 
     metadata = {
         "bundle_version": BUNDLE_VERSION,
-        "created_at": datetime.now(timezone.utc).isoformat() + "Z",
+        "created_at": _utc_now_iso(),
         "benchmark": benchmark_name,
         "eval_repo": collect_repo_git_info(),
         "run": {
@@ -671,7 +733,7 @@ def assemble_compare_bundle(
     if bundle_dir_override is not None:
         bundle_dir = Path(bundle_dir_override)
     else:
-        timestamp = datetime.now(timezone.utc).strftime("%Y%m%d_%H%M%S")
+        timestamp = _bundle_timestamp()
         models = sorted(set(k.split(":")[0] for k in config_results))
         # Detect inner-dim variants (agent and/or policy mode) so the dir name
         # reflects what was compared. Config keys are "model[:agent[:policy_mode]]".
@@ -798,7 +860,7 @@ def assemble_compare_bundle(
 
     metadata = {
         "bundle_version": BUNDLE_VERSION,
-        "created_at": datetime.now(timezone.utc).isoformat() + "Z",
+        "created_at": _utc_now_iso(),
         "bundle_type": "comparison",
         "benchmark": benchmark_name,
         "eval_repo": collect_repo_git_info(),
@@ -847,7 +909,7 @@ def create_workspace_bundle(
     bundle_dir = Path(bundle_dir)
     (bundle_dir / "results" / "partial").mkdir(parents=True, exist_ok=True)
 
-    now = datetime.now(timezone.utc).isoformat() + "Z"
+    now = _utc_now_iso()
     meta_path = bundle_dir / "metadata.json"
     metadata: dict = {}
     if meta_path.exists():
@@ -955,7 +1017,7 @@ def finalize_workspace_bundle(
         except (json.JSONDecodeError, OSError):
             metadata = {}
 
-    now = datetime.now(timezone.utc).isoformat() + "Z"
+    now = _utc_now_iso()
     metadata.setdefault("bundle_version", BUNDLE_VERSION)
     metadata.setdefault("created_at", now)
     metadata["benchmark"] = benchmark_name
