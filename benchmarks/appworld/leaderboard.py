@@ -222,7 +222,13 @@ class ValidationReport:
                 f"{' '.join(self.low_interaction_tasks)}  "
                 "(CUGA API calls bypass world.execute — see issue; pass --allow-low-interactions to proceed)"
             )
-        lines.append("OK" if self.ok(allow_low_interactions=True) else "NOT SUBMITTABLE")
+        if self.ok():
+            footer = "OK"
+        elif self.ok(allow_low_interactions=True):
+            footer = "SUBMITTABLE ONLY WITH --allow-low-interactions"
+        else:
+            footer = "NOT SUBMITTABLE"
+        lines.append(footer)
         return "\n".join(lines)
 
 

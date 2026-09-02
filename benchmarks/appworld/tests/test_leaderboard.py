@@ -284,3 +284,17 @@ def test_load_leaderboard_metadata_none_when_absent(tmp_path):
     assert lb.load_leaderboard_metadata(tmp_path) is None
     (tmp_path / "metadata.json").write_text("{}")
     assert lb.load_leaderboard_metadata(tmp_path) is None
+
+
+def test_summary_footer_reflects_strict_verdict():
+    # Clean: strict ok() is True
+    clean = lb.ValidationReport(split="test_normal", expected=6, present=6)
+    assert clean.summary().splitlines()[-1] == "OK"
+
+    # Only low interactions: strict ok() is False, allow_low_interactions=True is True
+    only_low = lb.ValidationReport(split="test_normal", expected=1, present=1, low_interaction_tasks=["a_1"])
+    assert only_low.summary().splitlines()[-1] == "SUBMITTABLE ONLY WITH --allow-low-interactions"
+
+    # Missing tasks: both False
+    missing = lb.ValidationReport(split="test_normal", expected=2, present=1, missing_tasks=["b_1"])
+    assert missing.summary().splitlines()[-1] == "NOT SUBMITTABLE"
