@@ -65,6 +65,7 @@ from benchmarks.helpers import (
 )
 from benchmarks.helpers.sdk_eval_helpers import (
     _react_steps_from_invoke_result,
+    preflight_llm,
     receipt_fields_from_invoke_result,
 )
 
@@ -396,6 +397,10 @@ B. App-specific instructions:
         """
 
     async def setup(self):
+        # Prove the LLM answers before touching the agent. An unreachable
+        # gateway hangs rather than erroring, so without this every task times
+        # out on its first call and gets scored as if the agent had tried.
+        await preflight_llm()
         # require_tools: AppWorld cannot run toolless — 0 tools means the registry
         # failed to reach the app API server at startup; abort instead of burning
         # the whole run (issue #148).
