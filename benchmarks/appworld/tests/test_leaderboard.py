@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import json
+import shutil
 from pathlib import Path
 
 import pytest
@@ -553,3 +554,170 @@ def test_format_official_table():
     assert lines[0].split() == ["type", "task_goal_completion", "scenario_goal_completion"]
     assert lines[1].split() == ["aggregate", "50.0", "25.0"]
     assert lines[3].split() == ["difficulty_2", "n/a", "n/a"]
+
+
+def _fake_packer_factory(root: Path, warn: bool = False):
+    """Simulate appworld pack: copy the 19 files per task + metadata.json into a 'bundle' dir."""
+
+    def packer(
+        *, experiment_name, dataset_name, method_name, method_tooltip, llm_name, llm_tooltip, url, root
+    ):
+        exp = lb.outputs_dir(root) / experiment_name
+        (exp / "metadata.json").write_text(
+            json.dumps({"dataset": dataset_name, "method": {"name": method_name}})
+        )
+        staging = root / "_staging" / experiment_name
+        if staging.exists():
+            shutil.rmtree(staging)
+        for t in (exp / "tasks").iterdir():
+            for rel in lb.REQUIRED_TASK_FILES:
+                src = t / rel
+                if src.is_file():
+                    dst = staging / "tasks" / t.name / rel
+                    dst.parent.mkdir(parents=True, exist_ok=True)
+                    shutil.copy2(src, dst)
+        shutil.copy2(exp / "metadata.json", staging / "metadata.json")
+        (staging / "LICENSE").write_text("license")
+        (staging / "README_BEFORE_SHARING.md").write_text("readme")
+        (exp / "leaderboard.bundle").write_text(str(staging))
+        return (
+            "WARNING: Missing file path (x)\n"
+            if warn
+            else f"Leaderboard bundle ready at '{exp / 'leaderboard.bundle'}'.\n"
+        )
+
+    return packer
+
+
+def _fake_unpacker(bundle_path: Path, dest: Path) -> list[str]:
+    staging = Path(bundle_path.read_text())
+    names = []
+    for p in staging.rglob("*"):
+        if p.is_file():
+            rel = p.relative_to(staging.parent)
+            (dest / rel).parent.mkdir(parents=True, exist_ok=True)
+            shutil.copy2(p, dest / rel)
+            names.append(str(rel))
+    return names
+
+
+def test_pack_and_verify_roundtrip(root):
+    exp = lb.outputs_dir(root) / "cuga_v1_test_normal"
+    for tid in NORMAL:
+        make_task_dir(exp, tid)
+    bundle = lb.pack_and_verify(
+        "cuga_v1",
+        "test_normal",
+        root=root,
+        method="CUGA",
+        method_tooltip="lite",
+        llm="gpt",
+        llm_tooltip="",
+        url="u",
+        packer=_fake_packer_factory(root),
+        unpacker=_fake_unpacker,
+    )
+    assert bundle == exp / "leaderboard.bundle"
+
+
+def test_pack_refuses_incomplete_experiment(root):
+    exp = lb.outputs_dir(root) / "cuga_v1_test_normal"
+    for tid in NORMAL[:3]:
+        make_task_dir(exp, tid)
+    with pytest.raises(lb.LeaderboardError, match="NOT SUBMITTABLE"):
+        lb.pack_and_verify(
+            "cuga_v1",
+            "test_normal",
+            root=root,
+            method="m",
+            method_tooltip="",
+            llm="l",
+            llm_tooltip="",
+            url="u",
+            packer=_fake_packer_factory(root),
+            unpacker=_fake_unpacker,
+        )
+
+
+def test_pack_refuses_low_interactions_unless_allowed(root):
+    exp = lb.outputs_dir(root) / "cuga_v1_test_normal"
+    for tid in NORMAL:
+        make_task_dir(exp, tid, interactions=1)
+    kw = dict(
+        root=root,
+        method="m",
+        method_tooltip="",
+        llm="l",
+        llm_tooltip="",
+        url="u",
+        packer=_fake_packer_factory(root),
+        unpacker=_fake_unpacker,
+    )
+    with pytest.raises(lb.LeaderboardError, match="interaction"):
+        lb.pack_and_verify("cuga_v1", "test_normal", **kw)
+    assert lb.pack_and_verify("cuga_v1", "test_normal", allow_low_interactions=True, **kw).is_file()
+
+
+def test_pack_fails_on_appworld_warning(root):
+    exp = lb.outputs_dir(root) / "cuga_v1_test_normal"
+    for tid in NORMAL:
+        make_task_dir(exp, tid)
+    with pytest.raises(lb.LeaderboardError, match="Missing file path"):
+        lb.pack_and_verify(
+            "cuga_v1",
+            "test_normal",
+            root=root,
+            method="m",
+            method_tooltip="",
+            llm="l",
+            llm_tooltip="",
+            url="u",
+            packer=_fake_packer_factory(root, warn=True),
+            unpacker=_fake_unpacker,
+        )
+
+
+def test_pack_detects_unpack_mismatch(root):
+    exp = lb.outputs_dir(root) / "cuga_v1_test_normal"
+    for tid in NORMAL:
+        make_task_dir(exp, tid)
+
+    def bad_unpacker(bundle_path, dest):
+        names = _fake_unpacker(bundle_path, dest)
+        (dest / "cuga_v1_test_normal" / "tasks" / NORMAL[0] / "dbs" / "gmail.jsonl").write_text("tampered")
+        return names
+
+    with pytest.raises(lb.LeaderboardError, match="differs"):
+        lb.pack_and_verify(
+            "cuga_v1",
+            "test_normal",
+            root=root,
+            method="m",
+            method_tooltip="",
+            llm="l",
+            llm_tooltip="",
+            url="u",
+            packer=_fake_packer_factory(root),
+            unpacker=bad_unpacker,
+        )
+
+
+def test_cli_split_key_and_status(root, toml_path, ws, capsys):
+    assert lb.cli(["split-key", "test_normal_all", "--batch-size", "3", "--toml", str(toml_path)]) == 0
+    assert "test_normal_all_b2" in capsys.readouterr().out
+    lb.store_leaderboard_metadata(
+        ws, prefix="cuga_v1", split="test_normal", appworld_experiment="cuga_v1_test_normal"
+    )
+    assert lb.cli(["status", "--bundle-dir", str(ws), "--root", str(root)]) == 0
+    assert "completed 0/6" in capsys.readouterr().out
+
+
+def test_cli_validate_exit_codes(root, capsys):
+    exp = lb.outputs_dir(root) / "cuga_v1_test_normal"
+    for tid in NORMAL[:3]:
+        make_task_dir(exp, tid)
+    assert lb.cli(["validate", "cuga_v1", "--split", "test_normal", "--root", str(root)]) == 1
+    assert "missing tasks (3)" in capsys.readouterr().out
+    for tid in NORMAL[3:]:
+        make_task_dir(exp, tid)
+    assert lb.cli(["validate", "cuga_v1", "--split", "test_normal", "--root", str(root)]) == 0

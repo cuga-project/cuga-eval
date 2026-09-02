@@ -11,9 +11,15 @@ one per split, each with every task of the split on disk.
 
 from __future__ import annotations
 
+import argparse
+import contextlib
+import filecmp
+import io
 import json
 import os
 import re
+import sys
+import tempfile
 import tomllib
 from collections.abc import Callable, Iterable, Mapping
 from dataclasses import dataclass, field
@@ -503,3 +509,197 @@ def write_official_results(bundle_dir: Path, table: dict, *, split: str | None, 
     )
     report.write_text(text.rstrip() + "\n" + section)
     return out
+
+
+PACKED_EXTRA_FILES = ("metadata.json", "LICENSE", "README_BEFORE_SHARING.md")
+
+
+def _appworld_packer(**kw) -> str:
+    from appworld.common.path_store import path_store
+    from appworld.leaderboard import pack_experiment
+
+    path_store.update_root(str(kw.pop("root")))
+    buf = io.StringIO()
+    with contextlib.redirect_stdout(buf):
+        pack_experiment(**kw)
+    return buf.getvalue()
+
+
+def _appworld_unpacker(bundle_path: Path, dest: Path) -> list[str]:
+    from appworld.common.constants import PASSWORD, SALT
+    from appworld.common.crypto import unpack_bundle
+
+    return unpack_bundle(
+        bundle_file_path=str(bundle_path), base_directory=str(dest), password=PASSWORD, salt=SALT
+    )
+
+
+def pack_and_verify(
+    prefix: str,
+    split: str,
+    *,
+    root: Path,
+    method: str,
+    method_tooltip: str,
+    llm: str,
+    llm_tooltip: str,
+    url: str,
+    allow_low_interactions: bool = False,
+    packer: Callable[..., str] | None = None,
+    unpacker: Callable[[Path, Path], list[str]] | None = None,
+) -> Path:
+    experiment_name = appworld_experiment_name(prefix, split)
+    split_ids = load_split_ids(split, root)
+    exp_dir = outputs_dir(root) / experiment_name
+    report = validate_experiment(exp_dir, split_ids, split)
+    if not report.ok(allow_low_interactions=allow_low_interactions):
+        raise LeaderboardError(report.summary())
+
+    out = (packer or _appworld_packer)(
+        experiment_name=experiment_name,
+        dataset_name=split,
+        method_name=method,
+        method_tooltip=method_tooltip,
+        llm_name=llm,
+        llm_tooltip=llm_tooltip,
+        url=url,
+        root=root,
+    )
+    warnings = [line for line in out.splitlines() if "WARNING: Missing file path" in line]
+    if warnings:
+        raise LeaderboardError("appworld pack reported missing files:\n" + "\n".join(warnings))
+    bundle_path = exp_dir / "leaderboard.bundle"
+    if not bundle_path.is_file():
+        raise LeaderboardError(f"pack did not produce {bundle_path}")
+
+    with tempfile.TemporaryDirectory(prefix="lb_verify_") as tmp:
+        dest = Path(tmp)
+        names = (unpacker or _appworld_unpacker)(bundle_path, dest)
+        expected = len(split_ids) * len(REQUIRED_TASK_FILES) + len(PACKED_EXTRA_FILES)
+        if len(names) != expected:
+            raise LeaderboardError(f"bundle has {len(names)} files, expected {expected}")
+        unpacked_root = dest / experiment_name
+        for tid in split_ids:
+            for rel in REQUIRED_TASK_FILES:
+                a, b = exp_dir / "tasks" / tid / rel, unpacked_root / "tasks" / tid / rel
+                if not b.is_file() or not filecmp.cmp(a, b, shallow=False):
+                    raise LeaderboardError(f"unpacked file differs or is missing: tasks/{tid}/{rel}")
+    return bundle_path
+
+
+def cli(argv: list[str] | None = None) -> int:
+    parser = argparse.ArgumentParser(prog="python -m benchmarks.appworld.leaderboard")
+    sub = parser.add_subparsers(dest="cmd", required=True)
+    default_toml = PROJECT_ROOT / "benchmarks" / "appworld" / "eval_config.toml"
+
+    p = sub.add_parser("split-key", help="Write <key>_b1..bN batch keys into eval_config.toml")
+    p.add_argument("key")
+    p.add_argument("--batch-size", type=int, default=100)
+    p.add_argument("--toml", type=Path, default=default_toml)
+
+    p = sub.add_parser(
+        "retry-key", help="Write a retry key (errored|failed|uncompleted) from workspace partials"
+    )
+    p.add_argument("kind", choices=RETRY_KINDS)
+    p.add_argument("--bundle-dir", type=Path, required=True)
+    p.add_argument("--of-key", default=None, help="Expected ids: a toml key (default: the workspace's split)")
+    p.add_argument("--name", default=None)
+    p.add_argument("--toml", type=Path, default=default_toml)
+    p.add_argument("--root", type=Path, default=None)
+
+    p = sub.add_parser("status", help="Completed/errored/score<1 counts from a workspace")
+    p.add_argument("--bundle-dir", type=Path, required=True)
+    p.add_argument("--root", type=Path, default=None)
+
+    p = sub.add_parser("validate", help="Check an AppWorld experiment dir is submittable")
+    p.add_argument("prefix")
+    p.add_argument("--split", choices=SPLITS, required=True)
+    p.add_argument("--root", type=Path, default=None)
+    p.add_argument("--allow-low-interactions", action="store_true")
+
+    p = sub.add_parser("evaluate", help="Run the official appworld evaluate and record TGC/SGC")
+    p.add_argument("experiment_name")
+    p.add_argument("--split", choices=SPLITS, default=None)
+    p.add_argument("--key", default=None, help="toml key with task ids (instead of --split)")
+    p.add_argument(
+        "--bundle-dir", type=Path, default=None, help="also write results/appworld_official.json + report.md"
+    )
+    p.add_argument("--toml", type=Path, default=default_toml)
+    p.add_argument("--root", type=Path, default=None)
+
+    p = sub.add_parser("pack", help="validate + appworld pack + unpack verification for one split")
+    p.add_argument("prefix")
+    p.add_argument("--split", choices=SPLITS, required=True)
+    p.add_argument("--method", required=True)
+    p.add_argument("--method-tooltip", default="")
+    p.add_argument("--llm", required=True)
+    p.add_argument("--llm-tooltip", default="")
+    p.add_argument("--url", required=True)
+    p.add_argument("--allow-low-interactions", action="store_true")
+    p.add_argument("--root", type=Path, default=None)
+
+    args = parser.parse_args(argv)
+    root = Path(args.root) if getattr(args, "root", None) else appworld_root()
+    try:
+        if args.cmd == "split-key":
+            for name in split_key(args.toml, args.key, args.batch_size):
+                print(name)
+            return 0
+        if args.cmd == "retry-key":
+            if args.of_key:
+                expected = read_toml_keys(args.toml)[args.of_key]
+            else:
+                stored = load_leaderboard_metadata(args.bundle_dir)
+                if not stored:
+                    raise LeaderboardError("no leaderboard block in workspace; pass --of-key")
+                expected = load_split_ids(stored["split"], root)
+            name, ids = write_retry_key(args.toml, args.bundle_dir, args.kind, expected, args.name)
+            print(f"{name} = {json.dumps(ids)}")
+            return 0
+        if args.cmd == "status":
+            print(format_status(workspace_status(args.bundle_dir, root)))
+            return 0
+        if args.cmd == "validate":
+            rep = validate_experiment(
+                outputs_dir(root) / appworld_experiment_name(args.prefix, args.split),
+                load_split_ids(args.split, root),
+                args.split,
+            )
+            print(rep.summary())
+            return 0 if rep.ok(allow_low_interactions=args.allow_low_interactions) else 1
+        if args.cmd == "evaluate":
+            if bool(args.split) == bool(args.key):
+                raise LeaderboardError("pass exactly one of --split / --key")
+            ids = None if args.split else read_toml_keys(args.toml)[args.key]
+            result = evaluate_official(args.experiment_name, root=root, split=args.split, task_ids=ids)
+            table = official_table(result)
+            print(format_official_table(table))
+            if args.bundle_dir:
+                write_official_results(
+                    args.bundle_dir, table, split=args.split, task_ids_count=len(ids or [])
+                )
+            return 0
+        if args.cmd == "pack":
+            bundle = pack_and_verify(
+                args.prefix,
+                args.split,
+                root=root,
+                method=args.method,
+                method_tooltip=args.method_tooltip,
+                llm=args.llm,
+                llm_tooltip=args.llm_tooltip,
+                url=args.url,
+                allow_low_interactions=args.allow_low_interactions,
+            )
+            print(f"Bundle verified: {bundle}")
+            return 0
+    except LeaderboardError as e:
+        print(f"Error: {e}", file=sys.stderr)
+        print(str(e))  # also on stdout so shell callers can show it
+        return 1
+    parser.error(f"unknown command {args.cmd!r}")
+    return 2
+
+
+if __name__ == "__main__":
+    raise SystemExit(cli())
