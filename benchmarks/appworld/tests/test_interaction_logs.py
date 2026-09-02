@@ -10,7 +10,7 @@ import pytest
 from benchmarks.appworld import interaction_logs as il
 from benchmarks.appworld import leaderboard as lb
 
-pytestmark = pytest.mark.unit
+pytestmark = [pytest.mark.unit, pytest.mark.sanity]
 
 GMAIL_DOCS = [
     {
@@ -267,3 +267,126 @@ def test_live_gmail_docs_write_parseable_jsonl(tmp_path: Path):
         "data": {"access_token": "tok", "to": ["a@b.com"], "subject": "hi", "body": "x"},
     }
     assert api_parsed[-1]["url"] == "/supervisor/complete_task"
+
+
+# --- block-boundary escaping (an unescaped rule/header makes the bundle unparseable) ---
+
+
+def _appworld_parse(text: str):
+    pytest.importorskip("appworld", reason="AppWorld not installed; run ./setup_appworld.sh")
+    from appworld.environment import AppWorld
+
+    return AppWorld._parse_environment_io_log(text)
+
+
+@pytest.mark.parametrize(
+    "payload",
+    [
+        "-" * 76,
+        "  " + "-" * 76 + "  ",
+        "before\n" + "-" * 76 + "\nafter",
+        "### Environment Interaction 2",
+        "## Execution 3",
+        "leading text\n### Environment Interaction 99\ntrailing",
+        "```python\nnested fence\n```",
+    ],
+    ids=["rule", "padded-rule", "rule-inline", "header", "execution", "header-inline", "fence"],
+)
+def test_unsafe_payload_stays_parseable_by_appworld(tmp_path, payload):
+    """AppWorld's own parser must still see exactly one interaction."""
+    logs = tmp_path / "logs"
+    logs.mkdir()
+    calls = [
+        {
+            "name": "gmail__send_email",
+            "app_name": "gmail",
+            "operation_id": "send_email",
+            "arguments": {"to": "a@b.c"},
+            "result": payload,
+        }
+    ]
+    n = il.merge_tracker_into_appworld_logs(logs, calls, docs_for_app=lambda _a: GMAIL_DOCS)
+    assert n == 1
+    text = (logs / "environment_io.md").read_text()
+    assert len(_appworld_parse(text)) == 1
+    # and our own re-merge parser agrees
+    assert len(il.parse_existing_blocks(text)) == 1
+
+
+def test_escaped_payload_is_still_readable(tmp_path):
+    logs = tmp_path / "logs"
+    logs.mkdir()
+    calls = [
+        {
+            "name": "gmail__send_email",
+            "app_name": "gmail",
+            "operation_id": "send_email",
+            "arguments": {},
+            "result": "-" * 76,
+        }
+    ]
+    il.merge_tracker_into_appworld_logs(logs, calls, docs_for_app=lambda _a: GMAIL_DOCS)
+    output = _appworld_parse((logs / "environment_io.md").read_text())[0]["output"]
+    assert output.replace("​", "") == "-" * 76
+
+
+def test_parse_existing_blocks_refuses_to_drop_unparseable(tmp_path):
+    """Rewriting a file we cannot fully parse would delete real interactions."""
+    text = "\n### Environment Interaction 1\n---\nnot a code block at all\n\n"
+    with pytest.raises(ValueError, match="refusing to rewrite"):
+        il.parse_existing_blocks(text)
+
+
+def test_merge_leaves_file_untouched_when_existing_is_unparseable(tmp_path):
+    logs = tmp_path / "logs"
+    logs.mkdir()
+    broken = "\n### Environment Interaction 1\n---\nnot a code block at all\n\n"
+    (logs / "environment_io.md").write_text(broken)
+    calls = [
+        {
+            "name": "gmail__send_email",
+            "app_name": "gmail",
+            "operation_id": "send_email",
+            "arguments": {},
+            "result": "ok",
+        }
+    ]
+    with pytest.raises(ValueError):
+        il.merge_tracker_into_appworld_logs(logs, calls, docs_for_app=lambda _a: GMAIL_DOCS)
+    assert (logs / "environment_io.md").read_text() == broken
+
+
+# --- api-name resolution must not silently drop a call ---
+
+
+def test_resolve_prefixed_name_with_suffix_and_no_operation_id():
+    """`call_api` defaults operation_id to None; the prefixed name must still map."""
+    assert il.resolve_api_name("gmail", "gmail__send_email_v2", None, docs=GMAIL_DOCS) == "send_email"
+
+
+def test_resolve_prefers_longest_match():
+    docs = [
+        {"api_name": "send", "path": "/gmail/x", "method": "post"},
+        {"api_name": "send_email", "path": "/gmail/emails", "method": "post"},
+    ]
+    assert il.resolve_api_name("gmail", "gmail__send_email_v2", None, docs=docs) == "send_email"
+
+
+def test_resolve_unknown_still_returns_none():
+    assert il.resolve_api_name("gmail", "gmail__totally_unknown", None, docs=GMAIL_DOCS) is None
+
+
+def test_call_without_operation_id_reaches_the_logs(tmp_path):
+    logs = tmp_path / "logs"
+    logs.mkdir()
+    calls = [
+        {
+            "name": "gmail__send_email_v2",
+            "app_name": "gmail",
+            "operation_id": None,
+            "arguments": {"to": "a@b.c"},
+            "result": "sent",
+        }
+    ]
+    assert il.merge_tracker_into_appworld_logs(logs, calls, docs_for_app=lambda _a: GMAIL_DOCS) == 1
+    assert "apis.gmail.send_email(" in (logs / "environment_io.md").read_text()

@@ -106,6 +106,23 @@ def read_toml_keys(toml_path: Path) -> dict[str, list[str]]:
     return result
 
 
+def toml_key_ids(toml_path: Path, key: str) -> list[str]:
+    """Return the id list for ``key``, as a ``LeaderboardError`` when it is absent.
+
+    Indexing ``read_toml_keys`` directly raised a bare ``KeyError`` that escaped
+    the CLI's error handler, so a typo'd ``--key`` printed a traceback instead of
+    "Error: ...". Note this reads raw toml while the evaluator resolves keys via
+    dynaconf, so a key that only exists as an env override lands here too.
+    """
+    keys = read_toml_keys(toml_path)
+    if key not in keys:
+        known = ", ".join(sorted(keys)[:10]) or "(none)"
+        raise LeaderboardError(f"toml key {key!r} not found in {toml_path}; known keys: {known}")
+    if not keys[key]:
+        raise LeaderboardError(f"toml key {key!r} in {toml_path} is empty — nothing to evaluate")
+    return keys[key]
+
+
 def base_id(task_id: str) -> str:
     return task_id.rsplit("_", 1)[0]
 
@@ -264,16 +281,62 @@ def validate_experiment(exp_dir: Path, split_ids: list[str], split: str) -> Vali
     return rep
 
 
-def load_leaderboard_metadata(bundle_dir: Path) -> dict | None:
+def _read_metadata(bundle_dir: Path) -> dict:
     meta_path = Path(bundle_dir) / "metadata.json"
     if not meta_path.is_file():
-        return None
+        return {}
     try:
         meta = json.loads(meta_path.read_text())
     except (OSError, ValueError):
-        return None
-    block = meta.get("leaderboard")
+        return {}
+    return meta if isinstance(meta, dict) else {}
+
+
+def require_workspace(bundle_dir: Path) -> Path:
+    """Return ``bundle_dir``, failing loudly when it is not an eval workspace.
+
+    ``load_all_partial_results`` yields nothing for a path that does not exist, so
+    a typo'd ``--bundle-dir`` would otherwise look like "no task completed here".
+    ``retry-key uncompleted --of-key <split key>`` would then write the whole key
+    back out as a retry key and the next run would re-run — and overwrite — every
+    already-completed task, losing the leaderboard one-attempt-per-task rule.
+    """
+    path = Path(bundle_dir)
+    if not path.is_dir():
+        raise LeaderboardError(f"workspace directory not found: {path}")
+    if not (path / "metadata.json").is_file():
+        raise LeaderboardError(f"not an eval workspace (no metadata.json): {path}")
+    return path
+
+
+def load_leaderboard_metadata(bundle_dir: Path) -> dict | None:
+    block = _read_metadata(bundle_dir).get("leaderboard")
     return dict(block) if isinstance(block, dict) and block else None
+
+
+def load_retry_keys(bundle_dir: Path | None) -> set[str]:
+    """Return the eval keys this workspace recorded as retry keys.
+
+    Retry-ness is data, not a naming convention: only a key that ``retry-key``
+    actually wrote for *this* workspace re-runs clean partials. An unrelated key
+    that happens to end in ``_failed`` must not silently gain that power.
+    """
+    if bundle_dir is None:
+        return set()
+    keys = _read_metadata(Path(bundle_dir)).get("retry_keys")
+    return {str(k) for k in keys} if isinstance(keys, list) else set()
+
+
+def record_retry_key(bundle_dir: Path, key: str) -> None:
+    """Record ``key`` in the workspace so a later run treats it as a retry key."""
+    from benchmarks.helpers.incremental_results import atomic_write_json
+
+    meta = _read_metadata(bundle_dir)
+    keys = [str(k) for k in meta.get("retry_keys") or [] if isinstance(k, (str, int))]
+    if key not in keys:
+        keys.append(key)
+    meta["retry_keys"] = keys
+    atomic_write_json(Path(bundle_dir) / "metadata.json", meta)
 
 
 def store_leaderboard_metadata(
@@ -287,12 +350,7 @@ def store_leaderboard_metadata(
     from benchmarks.helpers.incremental_results import atomic_write_json
 
     meta_path = Path(bundle_dir) / "metadata.json"
-    meta: dict = {}
-    if meta_path.is_file():
-        try:
-            meta = json.loads(meta_path.read_text())
-        except (OSError, ValueError):
-            meta = {}
+    meta = _read_metadata(bundle_dir)
     existing = meta.get("leaderboard") or {}
     for key, value in (("prefix", prefix), ("split", split), ("appworld_experiment", appworld_experiment)):
         if existing.get(key) not in (None, value):
@@ -351,7 +409,10 @@ def plan_run(
             raise LeaderboardError(f"task ids not in {split}: {outside[:10]}")
         experiment_name = stored["appworld_experiment"]
 
-    retry = force_retry or (eval_key is not None and is_retry_key(eval_key))
+    # Retry-ness comes from what the workspace recorded, not from the key's name:
+    # a plain resume whose key merely ends in "_failed" must not clear the
+    # completed set. `is_retry_key` stays a creation-time check in write_retry_key.
+    retry = force_retry or (eval_key is not None and eval_key in load_retry_keys(bundle_dir))
     if retry:
         mode = "retry"
         to_run, skipped = list(task_ids), []
@@ -366,28 +427,49 @@ RETRY_KINDS = ("errored", "failed", "uncompleted")
 
 
 def _partials_by_task(bundle_dir: Path) -> dict[str, dict]:
-    from benchmarks.helpers.incremental_results import load_all_partial_results
+    from benchmarks.helpers.incremental_results import _result_task_key, load_all_partial_results
 
     out: dict[str, dict] = {}
     for r in load_all_partial_results(Path(bundle_dir)):
-        key = r.get("task_name") or r.get("task_id")
+        key = _result_task_key(r)
         if key:
             out[str(key)] = r
     return out
 
 
+def _completed(result: Mapping[str, object]) -> bool:
+    """Whether a partial counts as done — the same test ``--resume`` applies.
+
+    ``error is None`` alone was too loose: a hollow partial
+    (``error=None, success=False, response=None``) is re-run by resume but was
+    reported completed by ``status`` and omitted from the ``uncompleted`` retry
+    key, so the two views of the same workspace disagreed.
+    """
+    from benchmarks.helpers.incremental_results import _looks_completed
+
+    return _looks_completed(dict(result))
+
+
 def retry_candidates(bundle_dir: Path, kind: str, expected_ids: list[str]) -> list[str]:
     if kind not in RETRY_KINDS:
         raise LeaderboardError(f"kind must be one of {', '.join(RETRY_KINDS)}; got {kind!r}")
+    require_workspace(bundle_dir)
     partials = _partials_by_task(bundle_dir)
     if kind == "uncompleted":
-        return [t for t in expected_ids if t not in partials]
+        # Absent, or present but hollow — both are re-run by --resume. Errored
+        # partials are deliberately left to the "errored" kind so the two do not
+        # overlap; a hollow partial has no error to classify it by.
+        return [
+            t
+            for t in expected_ids
+            if t not in partials or (partials[t].get("error") is None and not _completed(partials[t]))
+        ]
     if kind == "errored":
         return [t for t in expected_ids if t in partials and partials[t].get("error") is not None]
     return [
         t
         for t in expected_ids
-        if t in partials and partials[t].get("error") is None and partials[t].get("success") is not True
+        if t in partials and _completed(partials[t]) and partials[t].get("success") is not True
     ]
 
 
@@ -399,18 +481,24 @@ def write_retry_key(
     if not is_retry_key(key):
         raise LeaderboardError(f"retry key name must end with one of {RETRY_KEY_SUFFIXES}: {key!r}")
     write_toml_key(toml_path, key, ids, f"{len(ids)} tasks — {kind} in experiment {Path(bundle_dir).name}")
+    # Recorded in the workspace so plan_run re-runs clean partials for this key
+    # (and only this key) without inferring anything from its name.
+    record_retry_key(Path(bundle_dir), key)
     return key, ids
 
 
 def workspace_status(bundle_dir: Path, root: Path) -> dict:
-    bundle_dir = Path(bundle_dir)
+    bundle_dir = require_workspace(bundle_dir)
     stored = load_leaderboard_metadata(bundle_dir)
     partials = _partials_by_task(bundle_dir)
     split = stored["split"] if stored else None
     expected_ids = load_split_ids(split, root) if split else list(partials)
-    completed = sum(1 for r in partials.values() if r.get("error") is None)
+    completed = sum(1 for r in partials.values() if _completed(r))
     errored = sum(1 for r in partials.values() if r.get("error") is not None)
-    below = sum(1 for r in partials.values() if r.get("error") is None and r.get("success") is not True)
+    below = sum(1 for r in partials.values() if _completed(r) and r.get("success") is not True)
+    # Present, no error, but no sign the agent ran. Reported separately so it
+    # never inflates "completed" — --resume re-runs these.
+    hollow = sum(1 for r in partials.values() if r.get("error") is None and not _completed(r))
     return {
         "experiment": bundle_dir.name,
         "split": split,
@@ -418,14 +506,16 @@ def workspace_status(bundle_dir: Path, root: Path) -> dict:
         "completed": completed,
         "errored": errored,
         "score_below_1": below,
+        "hollow": hollow,
         "missing": len([t for t in expected_ids if t not in partials]),
     }
 
 
 def format_status(status: dict) -> str:
+    hollow = f"  hollow {status['hollow']}" if status.get("hollow") else ""
     return (
         f"{status['experiment']}  split={status['split'] or '-'}  "
-        f"completed {status['completed']}/{status['expected']}  errored {status['errored']}  "
+        f"completed {status['completed']}/{status['expected']}  errored {status['errored']}{hollow}  "
         f"score<1: {status['score_below_1']}  missing {status['missing']}"
     )
 
@@ -689,8 +779,11 @@ def cli(argv: list[str] | None = None) -> int:
             return 0
         if args.cmd == "retry-key":
             if args.of_key:
-                expected = read_toml_keys(args.toml)[args.of_key]
+                expected = toml_key_ids(args.toml, args.of_key)
             else:
+                # Check the dir first, so a typo'd --bundle-dir says so instead
+                # of blaming a missing leaderboard block.
+                require_workspace(args.bundle_dir)
                 stored = load_leaderboard_metadata(args.bundle_dir)
                 if not stored:
                     raise LeaderboardError("no leaderboard block in workspace; pass --of-key")
@@ -712,7 +805,7 @@ def cli(argv: list[str] | None = None) -> int:
         if args.cmd == "evaluate":
             if bool(args.split) == bool(args.key):
                 raise LeaderboardError("pass exactly one of --split / --key")
-            ids = None if args.split else read_toml_keys(args.toml)[args.key]
+            ids = None if args.split else toml_key_ids(args.toml, args.key)
             result = evaluate_official(args.experiment_name, root=root, split=args.split, task_ids=ids)
             table = official_table(result)
             print(format_official_table(table))

@@ -11,7 +11,7 @@ import pytest
 from benchmarks.appworld import leaderboard as lb
 from benchmarks.helpers import incremental_results as ir
 
-pytestmark = pytest.mark.unit
+pytestmark = [pytest.mark.unit, pytest.mark.sanity]
 
 NORMAL = ["fd1f8fa_1", "fd1f8fa_2", "fd1f8fa_3", "29a7b7e_1", "29a7b7e_2", "29a7b7e_3"]
 CHALLENGE = ["5238afc_1", "5238afc_2", "5238afc_3", "0d22252_1", "0d22252_2", "0d22252_3"]
@@ -402,13 +402,15 @@ def test_plan_rejects_prefix_conflict(root, ws):
         )
 
 
-def test_plan_retry_key_reruns_completed(root, ws):
+def test_plan_recorded_retry_key_reruns_completed(root, ws):
     lb.store_leaderboard_metadata(
         ws, prefix="cuga_v1", split="test_challenge", appworld_experiment="cuga_v1_test_challenge"
     )
+    key = "test_challenge_all_b1_03_09__10h02m11s_uncompleted_tasks"
+    lb.record_retry_key(ws, key)
     plan = lb.plan_run(
         task_ids=CHALLENGE[:2],
-        eval_key="test_challenge_all_b1_03_09__10h02m11s_uncompleted_tasks",
+        eval_key=key,
         leaderboard_prefix=None,
         bundle_dir=ws,
         completed_ids=set(CHALLENGE),
@@ -417,6 +419,28 @@ def test_plan_retry_key_reruns_completed(root, ws):
         default_experiment_name="x",
     )
     assert plan.mode == "retry" and plan.task_ids == CHALLENGE[:2] and plan.skipped == []
+
+
+def test_plan_unrecorded_retry_shaped_key_does_not_rerun(root, ws):
+    """A key that merely *looks* like a retry key must not clear the completed set.
+
+    Retry-ness is recorded per workspace by ``retry-key``; inferring it from the
+    suffix silently turned an ordinary resume into a full re-run.
+    """
+    lb.store_leaderboard_metadata(
+        ws, prefix="cuga_v1", split="test_challenge", appworld_experiment="cuga_v1_test_challenge"
+    )
+    plan = lb.plan_run(
+        task_ids=CHALLENGE[:2],
+        eval_key="smoke_failed",
+        leaderboard_prefix=None,
+        bundle_dir=ws,
+        completed_ids=set(CHALLENGE),
+        force_retry=False,
+        root=root,
+        default_experiment_name="x",
+    )
+    assert plan.mode == "batch" and plan.task_ids == [] and plan.skipped == CHALLENGE[:2]
 
 
 def test_plan_force_retry_on_batch_key(root, ws):
@@ -456,11 +480,18 @@ def test_evaluator_uses_plan_run_and_stores_metadata():
 
 
 def _seed_partials(ws: Path) -> None:
+    # `response` matters: it is one of the signs of real work that
+    # incremental_results._looks_completed (and so --resume) looks for. A task
+    # that ran and scored below 1.0 always has one; a hollow partial does not.
     ir.write_task_result(
-        ws, NORMAL[0], {"task_name": NORMAL[0], "success": True, "error": None, "match_rate": 1.0}
+        ws,
+        NORMAL[0],
+        {"task_name": NORMAL[0], "success": True, "error": None, "match_rate": 1.0, "response": "ok"},
     )
     ir.write_task_result(
-        ws, NORMAL[1], {"task_name": NORMAL[1], "success": False, "error": None, "match_rate": 0.4}
+        ws,
+        NORMAL[1],
+        {"task_name": NORMAL[1], "success": False, "error": None, "match_rate": 0.4, "response": "partial"},
     )
     ir.write_task_result(
         ws, NORMAL[2], {"task_name": NORMAL[2], "success": False, "error": "ReadTimeout", "match_rate": 0.0}
@@ -497,6 +528,7 @@ def test_workspace_status_leaderboard(root, ws):
         "completed": 2,
         "errored": 1,
         "score_below_1": 1,
+        "hollow": 0,
         "missing": 3,
     }
     line = lb.format_status(st)
@@ -810,3 +842,99 @@ def test_cli_validate_exit_codes(root, capsys):
     for tid in NORMAL[3:]:
         make_task_dir(exp, tid)
     assert lb.cli(["validate", "cuga_v1", "--split", "test_normal", "--root", str(root)]) == 0
+
+
+# --- workspace guard (a typo'd --bundle-dir must not look like "nothing ran") ---
+
+
+def test_retry_candidates_rejects_missing_workspace(tmp_path):
+    with pytest.raises(lb.LeaderboardError, match="workspace directory not found"):
+        lb.retry_candidates(tmp_path / "typo", "uncompleted", NORMAL)
+
+
+def test_retry_candidates_rejects_dir_without_metadata(tmp_path):
+    d = tmp_path / "not_a_workspace"
+    d.mkdir()
+    with pytest.raises(lb.LeaderboardError, match="not an eval workspace"):
+        lb.retry_candidates(d, "uncompleted", NORMAL)
+
+
+def test_write_retry_key_on_typod_dir_does_not_write_whole_split(tmp_path):
+    """The bug this guards: a silent empty read turned every id into a retry id."""
+    toml_path = tmp_path / "eval_config.toml"
+    toml_path.write_text("[eval_config]\n")
+    with pytest.raises(lb.LeaderboardError):
+        lb.write_retry_key(toml_path, tmp_path / "typo", "uncompleted", NORMAL)
+    assert "uncompleted" not in toml_path.read_text()
+
+
+def test_workspace_status_rejects_missing_workspace(tmp_path, root):
+    with pytest.raises(lb.LeaderboardError, match="workspace directory not found"):
+        lb.workspace_status(tmp_path / "typo", root)
+
+
+def test_write_retry_key_records_key_in_workspace(tmp_path, ws):
+    toml_path = tmp_path / "eval_config.toml"
+    toml_path.write_text("[eval_config]\n")
+    key, ids = lb.write_retry_key(toml_path, ws, "uncompleted", NORMAL[:2])
+    assert ids == NORMAL[:2]
+    assert lb.load_retry_keys(ws) == {key}
+
+
+# --- status / retry-key must agree with what --resume would re-run ---
+
+
+def test_hollow_partial_is_not_completed(ws, root):
+    """`error is None` alone is not completion — resume re-runs these.
+
+    A middleware guard returning early leaves {error: None, success: False,
+    response: None}. Counting it completed hid the task from both `status` and
+    the `uncompleted` retry key while resume kept re-running it.
+    """
+    ir.write_task_result(ws, NORMAL[0], {"task_name": NORMAL[0], "success": True, "response": "ok"})
+    ir.write_task_result(
+        ws, NORMAL[1], {"task_name": NORMAL[1], "success": False, "error": None, "response": None}
+    )
+    assert lb.retry_candidates(ws, "uncompleted", NORMAL[:2]) == [NORMAL[1]]
+
+    lb.store_leaderboard_metadata(
+        ws, prefix="cuga_v1", split="test_normal", appworld_experiment="cuga_v1_test_normal"
+    )
+    st = lb.workspace_status(ws, root)
+    assert st["completed"] == 1 and st["hollow"] == 1
+    assert "hollow 1" in lb.format_status(st)
+
+
+def test_status_completed_matches_resume_skip_set(ws, root):
+    """The two views of one workspace must never disagree."""
+    _seed_partials(ws)
+    lb.store_leaderboard_metadata(
+        ws, prefix="cuga_v1", split="test_normal", appworld_experiment="cuga_v1_test_normal"
+    )
+    st = lb.workspace_status(ws, root)
+    assert st["completed"] == len(ir.load_completed_task_ids(ws))
+
+
+# --- CLI errors stay CLI errors ---
+
+
+def test_toml_key_ids_unknown_key_is_leaderboard_error(toml_path):
+    with pytest.raises(lb.LeaderboardError, match="not found"):
+        lb.toml_key_ids(toml_path, "test_normal_alll")
+
+
+def test_toml_key_ids_empty_key_is_leaderboard_error(toml_path):
+    lb.write_toml_key(toml_path, "empty_k", [], "0 tasks")
+    with pytest.raises(lb.LeaderboardError, match="is empty"):
+        lb.toml_key_ids(toml_path, "empty_k")
+
+
+@pytest.mark.parametrize("cmd", ["retry-key", "evaluate"])
+def test_cli_typod_key_exits_1_without_traceback(tmp_path, toml_path, ws, capsys, cmd):
+    argv = (
+        ["retry-key", "uncompleted", "--bundle-dir", str(ws), "--of-key", "nope", "--toml", str(toml_path)]
+        if cmd == "retry-key"
+        else ["evaluate", "x_test_normal", "--key", "nope", "--toml", str(toml_path)]
+    )
+    assert lb.cli(argv) == 1
+    assert "Error:" in capsys.readouterr().err

@@ -144,6 +144,7 @@ async def invoke_and_score_appworld(
     difficulty: str,
     user_context: Optional[str],
     track_tool_calls: bool = True,
+    merge_tool_call_logs: bool = False,
 ) -> Dict[str, Any]:
     intent = world.task.instruction
     thread_id = f"appworld_sdk_{task_id}_{task_index}_{uuid.uuid4().hex[:8]}"
@@ -201,10 +202,14 @@ async def invoke_and_score_appworld(
         except Exception:  # noqa: S110 — cleanup is best-effort, swallowing is intentional
             pass
         harness_done = True
+        # Leaderboard runs only: rewriting the AppWorld logs is for submission
+        # bundles, so a routine train/dev run leaves environment_io.md and
+        # api_calls.jsonl exactly as world.execute wrote them.
+        if not merge_tool_call_logs:
+            return
         # Registry HTTP calls never go through world.execute. Copy ToolCallTracker
         # records into environment_io.md / api_calls.jsonl without re-running them.
-        # Logs are already on disk from execute() → save_logs(); close_all() is
-        # only here so a later remote save cannot clobber the rewrite.
+        # Logs are already on disk from execute() → save_logs().
         try:
             from benchmarks.appworld.interaction_logs import merge_tracker_into_appworld_logs
 
@@ -399,6 +404,9 @@ class AppWorldSdkEvaluator:
         self.bundle_dir = bundle_dir
         self.resume_completed_ids = resume_completed_ids or set()
         self.leaderboard_prefix = leaderboard_prefix
+        # Set from the resolved RunPlan in evaluate_all (covers resume, where
+        # --leaderboard is not repeated but the workspace metadata says so).
+        self.leaderboard_mode = False
         self.force_retry = force_retry
         self.experiment_name = experiment_name or os.getenv(
             "APPWORLD_SDK_EXPERIMENT_NAME", "appworld_sdk_evaluation"
@@ -638,6 +646,7 @@ B. App-specific instructions:
                     task_index=task_index,
                     difficulty=difficulty,
                     user_context=user_context,
+                    merge_tool_call_logs=self.leaderboard_mode,
                 )
                 tracker_callback(merged, {}, world.task.instruction)
                 return merged
@@ -676,6 +685,10 @@ B. App-specific instructions:
             default_experiment_name=self.experiment_name,
         )
         self.experiment_name = plan.experiment_name
+        # Leaderboard mode is whatever the plan resolved — from --leaderboard on
+        # this invocation or from the workspace's stored leaderboard block on a
+        # resume. Gates the AppWorld interaction-log rewrite (submission-only).
+        self.leaderboard_mode = bool(plan.split and plan.prefix)
         task_ids = list(plan.task_ids)
         self.selected_task_ids = list(task_ids)
         logger.info(

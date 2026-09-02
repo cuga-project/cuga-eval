@@ -38,6 +38,27 @@ out=$(bash "$EVAL" --dry-run --leaderboard cuga_v1 --agent react --eval-key k 2>
 assert_contains "rejects leaderboard+react" "SDK-only" "$out"
 [[ $rc -eq 2 ]] && { echo "  PASS: leaderboard+react exits 2"; PASS=$((PASS+1)); } || { echo "  FAIL: leaderboard+react rc=$rc"; FAIL=$((FAIL+1)); }
 
+# --force-retry is defined only by eval_appworld_sdk.py; the other evaluators use
+# parse_args() and would exit 2 *after* booting the AppWorld and registry servers.
+out=$(bash "$EVAL" --dry-run --force-retry --eval-key k 2>&1)
+assert_contains "force-retry implies --sdk" "eval_appworld_sdk" "$out"
+out=$(bash "$EVAL" --dry-run --force-retry --agent codeact --eval-key k 2>&1); rc=$?
+assert_contains "rejects force-retry+codeact" "SDK-only" "$out"
+[[ $rc -eq 2 ]] && { echo "  PASS: force-retry+codeact exits 2"; PASS=$((PASS+1)); } || { echo "  FAIL: force-retry+codeact rc=$rc"; FAIL=$((FAIL+1)); }
+out=$(bash "$EVAL" --dry-run --force-retry --agent react --eval-key k 2>&1); rc=$?
+assert_contains "rejects force-retry+react" "SDK-only" "$out"
+[[ $rc -eq 2 ]] && { echo "  PASS: force-retry+react exits 2"; PASS=$((PASS+1)); } || { echo "  FAIL: force-retry+react rc=$rc"; FAIL=$((FAIL+1)); }
+
+# --dry-run must print what would actually run. It used to be a second copy of
+# the dispatch logic and had drifted: the live paths append --agent, DISPATCH did
+# not. Both now go through build_eval_command, so assert the --agent flags show up.
+out=$(bash "$EVAL" --dry-run --agent codeact --eval-key k 2>&1)
+assert_contains "dry-run shows codeact --agent flag" "appworld_eval_codeact --agent codeact" "$out"
+out=$(bash "$EVAL" --dry-run --agent react --eval-key k 2>&1)
+assert_contains "dry-run shows react --agent flag" "appworld_eval_react --agent react" "$out"
+out=$(bash "$EVAL" --dry-run --eval-key k --no-bundle 2>&1)
+assert_contains "dry-run shows default --agent flag" "appworld_eval --agent cuga" "$out"
+
 echo "pack_leaderboard.sh"
 PACK="$SCRIPT_DIR/../pack_leaderboard.sh"
 out=$(bash "$PACK" 2>&1); rc=$?

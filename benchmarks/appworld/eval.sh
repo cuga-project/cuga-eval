@@ -74,7 +74,7 @@ while [[ $# -gt 0 ]]; do
         --status)      STATUS=true; shift ;;
         --agent)       AGENT="$2"; shift 2 ;;
         --leaderboard) LEADERBOARD="$2"; PASSTHROUGH_ARGS+=(--leaderboard "$2"); USE_SDK=true; shift 2 ;;
-        --force-retry) PASSTHROUGH_ARGS+=(--force-retry); shift ;;
+        --force-retry) FORCE_RETRY=true; PASSTHROUGH_ARGS+=(--force-retry); USE_SDK=true; shift ;;
         --dry-run)     DRY_RUN=true; shift ;;
         --verbose|-v|--quiet|-q)  PASSTHROUGH_ARGS+=("$1"); shift ;;
         --task)        PASSTHROUGH_ARGS+=("--task-id"); shift
@@ -85,11 +85,39 @@ while [[ $# -gt 0 ]]; do
     esac
 done
 
-if [[ -n "${LEADERBOARD:-}" && ( "${AGENT:-cuga}" == "codeact" || "${AGENT:-cuga}" == "react" ) ]]; then
-    echo "Error: --leaderboard is SDK-only (CUGA lite). --agent ${AGENT} does not accept --leaderboard." >&2
-    echo "Drop --agent, or drop --leaderboard." >&2
-    exit 2
-fi
+# --leaderboard and --force-retry are defined only by eval_appworld_sdk.py. The
+# other evaluators use argparse.parse_args(), so passing either through would
+# abort with "unrecognized arguments" *after* the AppWorld and registry servers
+# have already booted. Reject it up front instead.
+for sdk_only in ${LEADERBOARD:+--leaderboard} ${FORCE_RETRY:+--force-retry}; do
+    if [[ "${AGENT:-cuga}" == "codeact" || "${AGENT:-cuga}" == "react" ]]; then
+        echo "Error: ${sdk_only} is SDK-only (CUGA lite). --agent ${AGENT} does not accept ${sdk_only}." >&2
+        echo "Drop --agent, or drop ${sdk_only}." >&2
+        exit 2
+    fi
+done
+
+# Single source of truth for the evaluator command. Both --dry-run and the live
+# run below call this, so what --dry-run prints is exactly what would execute —
+# the two used to be separate copies and had already drifted on the --agent flags.
+# Sets EVAL_CMD (array) and EVAL_LABEL. Reads AGENT, USE_SDK, PASSTHROUGH_ARGS.
+build_eval_command() {
+    EVAL_CMD=(uv run --no-sync python -m)
+    if [ "${AGENT:-cuga}" = "codeact" ]; then
+        EVAL_CMD+=(benchmarks.appworld.appworld_eval_codeact --agent codeact)
+        EVAL_LABEL="Using CodeAct agent (appworld_eval_codeact.py)"
+    elif [ "${AGENT:-cuga}" = "react" ]; then
+        EVAL_CMD+=(benchmarks.appworld.appworld_eval_react --agent react)
+        EVAL_LABEL="Using React agent (appworld_eval_react.py)"
+    elif [[ "$USE_SDK" == "true" ]]; then
+        EVAL_CMD+=(benchmarks.appworld.eval_appworld_sdk)
+        EVAL_LABEL="Using SDK evaluator (eval_appworld_sdk.py)"
+    else
+        EVAL_CMD+=(benchmarks.appworld.appworld_eval --agent "${AGENT:-cuga}")
+        EVAL_LABEL="Using default evaluator (appworld_eval.py)"
+    fi
+    EVAL_CMD+=("${PASSTHROUGH_ARGS[@]+"${PASSTHROUGH_ARGS[@]}"}")
+}
 
 if [[ "${DRY_RUN:-false}" == "true" ]]; then
     # Named experiments / resume use the SDK evaluator on the live path
@@ -98,11 +126,8 @@ if [[ "${DRY_RUN:-false}" == "true" ]]; then
     if experiment_workspace_requested && [[ "${NO_BUNDLE:-false}" != "true" ]]; then
         USE_SDK=true
     fi
-    if [ "${AGENT:-cuga}" = "codeact" ]; then mod=benchmarks.appworld.appworld_eval_codeact
-    elif [ "${AGENT:-cuga}" = "react" ]; then mod=benchmarks.appworld.appworld_eval_react
-    elif [[ "$USE_SDK" == "true" ]]; then mod=benchmarks.appworld.eval_appworld_sdk
-    else mod=benchmarks.appworld.appworld_eval; fi
-    echo "DISPATCH: uv run --no-sync python -m $mod ${PASSTHROUGH_ARGS[*]}"
+    build_eval_command
+    echo "DISPATCH: ${EVAL_CMD[*]}"
     exit 0
 fi
 
@@ -306,19 +331,9 @@ RUN_MARKER=$(mktemp "${TMPDIR:-/tmp}/appworld_run_marker.XXXXXX")
 # Capture the evaluator's exit code instead of letting `set -e` abort here — an
 # abort would skip both bundling and the failure banner below.
 set +e
-if [ "${AGENT:-cuga}" = "codeact" ]; then
-    echo -e "${BLUE:-}Using CodeAct agent (appworld_eval_codeact.py)${NC:-}"
-    uv run --no-sync python -m benchmarks.appworld.appworld_eval_codeact --agent codeact "${PASSTHROUGH_ARGS[@]}"
-elif [ "${AGENT:-cuga}" = "react" ]; then
-    echo -e "${BLUE:-}Using React agent (appworld_eval_react.py)${NC:-}"
-    uv run --no-sync python -m benchmarks.appworld.appworld_eval_react --agent react "${PASSTHROUGH_ARGS[@]}"
-elif [[ "$USE_SDK" == "true" ]]; then
-    echo -e "${BLUE:-}Using SDK evaluator (eval_appworld_sdk.py)${NC:-}"
-    uv run --no-sync python -m benchmarks.appworld.eval_appworld_sdk "${PASSTHROUGH_ARGS[@]}"
-else
-    echo -e "${BLUE:-}Using default evaluator (appworld_eval.py)${NC:-}"
-    uv run --no-sync python -m benchmarks.appworld.appworld_eval --agent "${AGENT:-cuga}" "${PASSTHROUGH_ARGS[@]}"
-fi
+build_eval_command
+echo -e "${BLUE:-}${EVAL_LABEL}${NC:-}"
+"${EVAL_CMD[@]}"
 EVAL_EXIT=$?
 set -e
 
@@ -372,11 +387,21 @@ if [ -n "$LATEST_RESULT" ] && [ "${NO_BUNDLE:-false}" != "true" ]; then
         # section appended before finalize would be overwritten.
         if [ $EVAL_EXIT -eq 0 ] && grep -q '"leaderboard"' "$WORKSPACE_BUNDLE_DIR/metadata.json" 2>/dev/null; then
             AW_EXP=$(uv run --no-sync python -c "import json,sys;print(json.load(open(sys.argv[1]))['leaderboard']['appworld_experiment'])" "$WORKSPACE_BUNDLE_DIR/metadata.json" 2>/dev/null) || AW_EXP=""
+            # Fall back to the eval_key this run recorded in metadata, so a
+            # resume that finishes without repeating --eval-key still writes
+            # appworld_official.json and the report.md section.
+            OFFICIAL_KEY="${EVAL_KEY:-}"
+            if [[ -z "$OFFICIAL_KEY" ]]; then
+                OFFICIAL_KEY=$(uv run --no-sync python -c "import json,sys;m=json.load(open(sys.argv[1]));print((m.get('run') or {}).get('eval_key') or '')" "$WORKSPACE_BUNDLE_DIR/metadata.json" 2>/dev/null) || OFFICIAL_KEY=""
+            fi
             if [[ -z "$AW_EXP" ]]; then
                 echo -e "${YELLOW:-}Warning: could not read leaderboard.appworld_experiment from metadata.json; skipping official evaluate${NC:-}"
-            elif [[ -n "${EVAL_KEY:-}" ]]; then
-                echo -e "${YELLOW:-}Official AppWorld evaluate for key ${EVAL_KEY}...${NC:-}"
-                uv run --no-sync python -m benchmarks.appworld.leaderboard evaluate "$AW_EXP" --key "$EVAL_KEY" --bundle-dir "$WORKSPACE_BUNDLE_DIR" || echo -e "${YELLOW:-}Warning: official evaluate failed (see above)${NC:-}"
+            elif [[ -n "$OFFICIAL_KEY" ]]; then
+                echo -e "${YELLOW:-}Official AppWorld evaluate for key ${OFFICIAL_KEY}...${NC:-}"
+                uv run --no-sync python -m benchmarks.appworld.leaderboard evaluate "$AW_EXP" --key "$OFFICIAL_KEY" --bundle-dir "$WORKSPACE_BUNDLE_DIR" || echo -e "${YELLOW:-}Warning: official evaluate failed (see above)${NC:-}"
+            else
+                echo -e "${YELLOW:-}Note: no --eval-key for this run and none recorded in metadata.json; skipping the official evaluate.${NC:-}"
+                echo -e "${YELLOW:-}      Run it manually: uv run --no-sync python -m benchmarks.appworld.leaderboard evaluate ${AW_EXP} --split <split> --bundle-dir ${WORKSPACE_BUNDLE_DIR}${NC:-}"
             fi
         fi
     else

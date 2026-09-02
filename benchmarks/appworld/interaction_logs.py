@@ -28,8 +28,20 @@ _HEADER_RE = re.compile(r"^### Environment Interaction (\d+(?:\.\d+)?)", re.MULT
 _BLOCK_RE = re.compile(r"```python\n(.*?)\n```\n\n```\n(.*?)\n```", re.DOTALL)
 # Zero-width space so a tracker payload that contains fences cannot break
 # AppWorld's non-greedy parse_environment_io_log.
+_ZWSP = "\u200b"
 _FENCE = "```"
-_FENCE_SAFE = "``\u200b`"
+_FENCE_SAFE = "``" + _ZWSP + "`"
+# AppWorld's _parse_environment_io_log also ends a block on a bare horizontal rule
+# (`line.strip() == SINGLE_HORIZONTAL_RULE`) and starts one on a
+# `#+ (Execution|Environment Interaction) N` header matched at column 0. A string
+# tool result or error containing either verbatim would make the packed bundle
+# unparseable for the leaderboard maintainers, and mis-split our own re-merge.
+# Prefixing such a line with a zero-width space breaks both matches and reads the
+# same; ZWSP is not whitespace to str.strip(), so the rule comparison misses too.
+_UNSAFE_LINE_RE = re.compile(
+    rf"^(?=[ \t]*-{{{len(HORIZONTAL)}}}[ \t]*$|#+ (?:Execution|Environment Interaction) \d)",
+    re.MULTILINE,
+)
 
 
 def _as_dict(tc: Any) -> dict[str, Any]:
@@ -106,23 +118,21 @@ def resolve_api_name(
     for cand in (tool_name, operation_id or ""):
         if cand in by_name:
             return cand
+    stripped = ""
     if tool_name.startswith(f"{app_name}__"):
-        rest = tool_name[len(app_name) + 2 :]
-        if rest in by_name or not docs:
-            return rest
+        stripped = tool_name[len(app_name) + 2 :]
+        if stripped in by_name or not docs:
+            return stripped
     if docs:
-        matches = [
-            d["api_name"]
-            for d in docs
-            if tool_name == d["api_name"] or tool_name.startswith(f"{d['api_name']}_")
-        ]
-        if matches:
-            return max(matches, key=len)
-        if operation_id:
+        # The prefix-stripped name is tried here too: a record with no
+        # operation_id (the sandbox `call_api` helper defaults it to None) whose
+        # tool name is "<app>__<api>_<suffix>" otherwise resolved to nothing and
+        # its API call vanished from the submission logs.
+        for cand in (tool_name, stripped, operation_id):
+            if not cand:
+                continue
             matches = [
-                d["api_name"]
-                for d in docs
-                if operation_id == d["api_name"] or operation_id.startswith(f"{d['api_name']}_")
+                d["api_name"] for d in docs if cand == d["api_name"] or cand.startswith(f"{d['api_name']}_")
             ]
             if matches:
                 return max(matches, key=len)
@@ -146,7 +156,7 @@ def format_python_call(app_name: str, api_name: str, arguments: Mapping[str, Any
 
 
 def _safe_fence_body(text: str) -> str:
-    return text.replace(_FENCE, _FENCE_SAFE)
+    return _UNSAFE_LINE_RE.sub(_ZWSP, text.replace(_FENCE, _FENCE_SAFE))
 
 
 def format_output(record: Mapping[str, Any]) -> str:
@@ -203,9 +213,12 @@ def parse_existing_blocks(text: str) -> list[tuple[str, str]]:
             blocks.append((m.group(1), m.group(2)))
     n_headers = len(_HEADER_RE.findall(text))
     if n_headers != len(blocks):
-        logger.warning(
+        # Rewriting would drop the unparseable blocks, silently deleting real
+        # interactions from a submission. Refuse instead: the caller logs and
+        # leaves the original file untouched, and `validate` still flags the task.
+        raise ValueError(
             f"environment_io.md: parsed {len(blocks)} blocks from {n_headers} headers; "
-            "unparseable blocks will be dropped on rewrite"
+            "refusing to rewrite because that would drop the unparseable ones"
         )
     return blocks
 
