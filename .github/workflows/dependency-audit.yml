@@ -6,9 +6,11 @@ name: Dependency Audit (scheduled)
 # security job: transitive CVEs that land between PRs would otherwise go
 # unnoticed until the next dependency-touching PR happens to surface them.
 #
-# The pip-audit command here must stay in sync with justfile's `security`
-# recipe and ci.yml's `security` job (e.g. any --ignore-vuln flags added to
-# one need to be added to all three, see .ai/why/ for prior incidents).
+# The vulnerability-scanning flags here (e.g. --ignore-vuln, --skip-editable)
+# must stay in sync with justfile's `security` recipe and ci.yml's `security`
+# job — see .ai/why/ for prior incidents. -f json is specific to this
+# workflow (needed to build the tracking-issue body and to tell a real
+# finding apart from a tool error) and isn't part of that sync contract.
 #
 # On failure, opens (or updates, if already open) a single tracking issue,
 # deduped by the type: security label plus a fixed title (label list, not
@@ -65,14 +67,26 @@ jobs:
       - name: Sync dev dependencies
         run: uv sync --group dev
 
+      # pip-audit exits nonzero both for real findings and for tool/network
+      # errors (e.g. a resolver hiccup), so the exit code alone can't tell
+      # them apart. -f json gives a reliable discriminator instead: a tool
+      # error aborts before it can write valid JSON, while a real run always
+      # produces parseable JSON whether or not it found anything. On a tool
+      # error, fail the job loudly but leave the tracking issue untouched —
+      # a flake should not overwrite or comment on a real report.
       - name: pip-audit
         id: audit
         run: |
           set +e
-          uv run pip-audit --skip-editable > pip-audit-output.txt 2>&1
+          uv run pip-audit --skip-editable -f json -o pip-audit.json > pip-audit-run.log 2>&1
           status=$?
+          if [ "$status" -ne 0 ] && ! jq -e . pip-audit.json > /dev/null 2>&1; then
+            echo "::error::pip-audit failed to run (not a vulnerability finding)"
+            cat pip-audit-run.log
+            exit 1
+          fi
           echo "status=$status" >> "$GITHUB_OUTPUT"
-          cat pip-audit-output.txt
+          cat pip-audit-run.log
           exit 0 # the job's final step below decides pass/fail
 
       - name: Open or update tracking issue
@@ -83,15 +97,24 @@ jobs:
           SERVER_URL: ${{ github.server_url }}
           RUN_ID: ${{ github.run_id }}
         run: |
+          findings="$(jq -r '
+            [.dependencies[] | select(.vulns | length > 0)] as $vulnerable
+            | if ($vulnerable | length) == 0 then "No vulnerabilities found."
+              else
+                ($vulnerable | map(
+                  "- **\(.name) \(.version)**\n"
+                  + (.vulns | map("  - `\(.id)`" + (if (.fix_versions | length) > 0 then " (fixed in \(.fix_versions | join(", ")))" else " (no fix available)" end)) | join("\n"))
+                ) | join("\n"))
+              end
+          ' pip-audit.json)"
+
           body_file="$(mktemp)"
           {
             echo "The scheduled dependency audit found vulnerable dependencies on \`main\` as of $(date -u +%Y-%m-%dT%H:%M:%SZ)."
             echo
             echo "Workflow run: ${SERVER_URL}/${REPO}/actions/runs/${RUN_ID}"
             echo
-            echo '```'
-            cat pip-audit-output.txt
-            echo '```'
+            echo "$findings"
           } > "$body_file"
 
           # Label list, not --search: GitHub issue search is eventually consistent

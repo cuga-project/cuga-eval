@@ -4,9 +4,12 @@ updates:
   # ecosystem reached Dependabot GA in March 2025 and understands
   # pyproject.toml/uv.lock directly. Scheduled after the 06:00 UTC
   # dependency-audit sweep so the two Monday jobs don't pile on together.
+  # No target-branch: main is already the default branch, and setting
+  # target-branch explicitly opts this ecosystem entry out of Dependabot
+  # security-update PRs (which always target the default branch and ignore
+  # this option) even when it names that same branch.
   - package-ecosystem: "uv"
     directory: "/"
-    target-branch: "main"
     schedule:
       interval: "weekly"
       day: "monday"
@@ -30,7 +33,6 @@ updates:
   # into a patch PR.
   - package-ecosystem: "github-actions"
     directory: "/"
-    target-branch: "main"
     schedule:
       interval: "weekly"
       day: "monday"
