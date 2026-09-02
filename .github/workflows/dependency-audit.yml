@@ -11,7 +11,9 @@ name: Dependency Audit (scheduled)
 # one need to be added to all three, see .ai/why/ for prior incidents).
 #
 # On failure, opens (or updates, if already open) a single tracking issue,
-# deduped by a fixed title. On success, closes that issue if it was open.
+# deduped by the type: security label plus a fixed title (label list, not
+# GitHub search — search indexing can lag). On success, closes that issue
+# if it was open.
 # This job's own pass/fail is not a required check anywhere, so it's safe to
 # let the job itself fail on findings; that shows as a red X in the Actions
 # tab in addition to the tracking issue.
@@ -77,27 +79,32 @@ jobs:
         if: steps.audit.outputs.status != '0'
         env:
           GH_TOKEN: ${{ github.token }}
+          REPO: ${{ github.repository }}
+          SERVER_URL: ${{ github.server_url }}
+          RUN_ID: ${{ github.run_id }}
         run: |
           body_file="$(mktemp)"
           {
             echo "The scheduled dependency audit found vulnerable dependencies on \`main\` as of $(date -u +%Y-%m-%dT%H:%M:%SZ)."
             echo
-            echo "Workflow run: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}"
+            echo "Workflow run: ${SERVER_URL}/${REPO}/actions/runs/${RUN_ID}"
             echo
             echo '```'
             cat pip-audit-output.txt
             echo '```'
           } > "$body_file"
 
-          existing="$(gh issue list --repo "${{ github.repository }}" \
-            --search "\"$TRACKING_ISSUE_TITLE\" in:title" --state open --json number --jq '.[0].number')"
+          # Label list, not --search: GitHub issue search is eventually consistent
+          # and can miss a just-created tracking issue.
+          existing="$(gh issue list --repo "$REPO" --label "type: security" --state open --limit 100 --json number,title \
+            | jq -r --arg t "$TRACKING_ISSUE_TITLE" '.[] | select(.title == $t) | .number' | head -n 1)"
 
           if [ -n "$existing" ]; then
-            gh issue edit "$existing" --repo "${{ github.repository }}" --body-file "$body_file"
-            gh issue comment "$existing" --repo "${{ github.repository }}" \
+            gh issue edit "$existing" --repo "$REPO" --body-file "$body_file"
+            gh issue comment "$existing" --repo "$REPO" \
               --body "Still finding vulnerabilities as of $(date -u +%Y-%m-%dT%H:%M:%SZ). Issue body updated with the latest report; see the linked workflow run above."
           else
-            gh issue create --repo "${{ github.repository }}" \
+            gh issue create --repo "$REPO" \
               --title "$TRACKING_ISSUE_TITLE" --body-file "$body_file" --label "type: security"
           fi
 
@@ -105,13 +112,14 @@ jobs:
         if: steps.audit.outputs.status == '0'
         env:
           GH_TOKEN: ${{ github.token }}
+          REPO: ${{ github.repository }}
         run: |
-          existing="$(gh issue list --repo "${{ github.repository }}" \
-            --search "\"$TRACKING_ISSUE_TITLE\" in:title" --state open --json number --jq '.[0].number')"
+          existing="$(gh issue list --repo "$REPO" --label "type: security" --state open --limit 100 --json number,title \
+            | jq -r --arg t "$TRACKING_ISSUE_TITLE" '.[] | select(.title == $t) | .number' | head -n 1)"
           if [ -n "$existing" ]; then
-            gh issue comment "$existing" --repo "${{ github.repository }}" \
+            gh issue comment "$existing" --repo "$REPO" \
               --body "Latest scheduled audit ($(date -u +%Y-%m-%dT%H:%M:%SZ)) is clean; closing."
-            gh issue close "$existing" --repo "${{ github.repository }}"
+            gh issue close "$existing" --repo "$REPO"
           fi
 
       - name: Fail the job if vulnerabilities were found

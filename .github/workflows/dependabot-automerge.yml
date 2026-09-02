@@ -8,6 +8,14 @@ name: Dependabot auto-merge
 # branch in this repo, not a fork, so there's no cross-trust boundary to
 # protect against here, and pull_request_target would add privilege surface
 # for no benefit.
+#
+# main requires one approving review, and GITHUB_TOKEN approvals do not
+# count toward that. Store a PAT or GitHub App token as a *Dependabot*
+# secret (Settings → Secrets → Dependabot, not Actions) named
+# DEPENDABOT_AUTO_MERGE_TOKEN so the approval satisfies branch protection.
+# Dependabot-triggered workflows cannot read Actions secrets. Until that
+# secret exists, this job still enables auto-merge and the PR waits for a
+# human approval.
 
 on:
   pull_request:
@@ -24,20 +32,29 @@ jobs:
     steps:
       - name: Fetch dependabot metadata
         id: metadata
-        uses: dependabot/fetch-metadata@21025c705c08248db411dc16f3619e6b5f9ea21a # v2
+        uses: dependabot/fetch-metadata@25dd0e34f4fe68f24cc83900b1fe3fe149efef98 # v3.1.0
         with:
           github-token: "${{ secrets.GITHUB_TOKEN }}"
 
-      - name: Approve and enable auto-merge (patch/minor only)
+      # Groups are patch/minor-only, so an empty update-type (common on
+      # grouped PRs even after v3.1.0's title fallback) is still safe.
+      - name: Approve and enable auto-merge (patch/minor/grouped)
         if: |
           steps.metadata.outputs.update-type == 'version-update:semver-patch' ||
-          steps.metadata.outputs.update-type == 'version-update:semver-minor'
+          steps.metadata.outputs.update-type == 'version-update:semver-minor' ||
+          steps.metadata.outputs.update-type == ''
         env:
-          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          GH_TOKEN: ${{ secrets.DEPENDABOT_AUTO_MERGE_TOKEN || secrets.GITHUB_TOKEN }}
+          HAS_AUTO_MERGE_TOKEN: ${{ secrets.DEPENDABOT_AUTO_MERGE_TOKEN != '' }}
           PR_URL: ${{ github.event.pull_request.html_url }}
+          UPDATE_TYPE: ${{ steps.metadata.outputs.update-type }}
+          DEPENDENCY_NAMES: ${{ steps.metadata.outputs.dependency-names }}
         run: |
+          if [ "$HAS_AUTO_MERGE_TOKEN" != "true" ]; then
+            echo "::warning title=Dependabot auto-merge::DEPENDABOT_AUTO_MERGE_TOKEN is unset. GITHUB_TOKEN approvals do not satisfy main's required review, so auto-merge will wait for a human. Add a PAT or GitHub App token as a Dependabot secret named DEPENDABOT_AUTO_MERGE_TOKEN."
+          fi
           gh pr review "$PR_URL" --approve \
-            --body "Auto-approved: Dependabot ${{ steps.metadata.outputs.update-type }} update for ${{ steps.metadata.outputs.dependency-names }}."
+            --body "Auto-approved: Dependabot ${UPDATE_TYPE:-grouped} update for ${DEPENDENCY_NAMES}."
           gh pr merge "$PR_URL" --auto --squash
 
       - name: Flag major updates for human review
