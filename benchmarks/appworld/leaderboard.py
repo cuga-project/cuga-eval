@@ -15,7 +15,7 @@ import json
 import os
 import re
 import tomllib
-from collections.abc import Iterable, Mapping
+from collections.abc import Callable, Iterable, Mapping
 from dataclasses import dataclass, field
 from pathlib import Path
 
@@ -422,3 +422,84 @@ def format_status(status: dict) -> str:
         f"completed {status['completed']}/{status['expected']}  errored {status['errored']}  "
         f"score<1: {status['score_below_1']}  missing {status['missing']}"
     )
+
+
+OFFICIAL_SECTION = "## AppWorld official metrics"
+_ROWS = ("aggregate", "difficulty_1", "difficulty_2", "difficulty_3")
+_COLS = ("task_goal_completion", "scenario_goal_completion")
+
+
+def _appworld_runner(
+    *, experiment_name: str, root: Path, split: str | None, task_ids: list[str] | None
+) -> dict:
+    from appworld.common.path_store import path_store
+    from appworld.evaluator import evaluate_dataset, evaluate_tasks
+
+    path_store.update_root(str(root))
+    if split:
+        return evaluate_dataset(
+            experiment_name,
+            split,
+            include_details=True,
+            aggregate_only=False,
+            save_reports=True,
+            print_report=False,
+        )
+    return evaluate_tasks(
+        task_ids or [], experiment_name=experiment_name, include_details=True, save_reports=False
+    )
+
+
+def evaluate_official(
+    experiment_name: str,
+    *,
+    root: Path,
+    split: str | None = None,
+    task_ids: list[str] | None = None,
+    runner: Callable[..., dict] | None = None,
+) -> dict:
+    if bool(split) == bool(task_ids):
+        raise LeaderboardError("pass either split or task_ids (exactly one)")
+    run = runner or _appworld_runner
+    return run(experiment_name=experiment_name, root=root, split=split, task_ids=task_ids)
+
+
+def official_table(evaluation_dict: dict) -> dict:
+    from appworld.evaluator import Metric
+
+    data = Metric.build_report(evaluation_dict)
+    table: dict = {}
+    for i, row in enumerate(data["type"]):
+        table[row] = {col: data[col][i] for col in _COLS if col in data}
+    return table
+
+
+def format_official_table(table: dict) -> str:
+    def cell(v: object) -> str:
+        return "n/a" if v is None else str(v)
+
+    lines = [f"{'type':<14}{'task_goal_completion':<24}scenario_goal_completion"]
+    for row in _ROWS:
+        vals = table.get(row, {})
+        lines.append(f"{row:<14}{cell(vals.get(_COLS[0])):<24}{cell(vals.get(_COLS[1]))}")
+    return "\n".join(lines)
+
+
+def write_official_results(bundle_dir: Path, table: dict, *, split: str | None, task_ids_count: int) -> Path:
+    from benchmarks.helpers.incremental_results import atomic_write_json
+
+    bundle_dir = Path(bundle_dir)
+    out = bundle_dir / "results" / "appworld_official.json"
+    out.parent.mkdir(parents=True, exist_ok=True)
+    atomic_write_json(out, {"split": split, "task_count": task_ids_count, "table": table})
+    report = bundle_dir / "report.md"
+    text = report.read_text() if report.is_file() else "# Evaluation report\n"
+    if OFFICIAL_SECTION in text:
+        text = text.split(OFFICIAL_SECTION, 1)[0].rstrip() + "\n"
+    section = (
+        f"\n{OFFICIAL_SECTION}\n\n"
+        f"scope: {'split ' + split if split else f'{task_ids_count} task ids'}\n\n"
+        f"```\n{format_official_table(table)}\n```\n"
+    )
+    report.write_text(text.rstrip() + "\n" + section)
+    return out

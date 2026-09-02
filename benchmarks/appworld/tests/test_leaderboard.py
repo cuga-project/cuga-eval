@@ -492,3 +492,64 @@ def test_workspace_status_plain(root, ws):
     _seed_partials(ws)
     st = lb.workspace_status(ws, root)
     assert st["split"] is None and st["expected"] == 3 and st["missing"] == 0
+
+
+FAKE_EVAL = {
+    "aggregate": {"task_goal_completion": 50.0, "scenario_goal_completion": 25.0},
+    "individual": {
+        "a_1": {"difficulty": 1, "success": True},
+        "a_2": {"difficulty": 1, "success": False},
+    },
+}
+
+
+def test_evaluate_official_uses_runner_and_root(tmp_path):
+    seen = {}
+
+    def runner(**kw):
+        seen.update(kw)
+        return FAKE_EVAL
+
+    out = lb.evaluate_official("cuga_v1_test_normal", root=tmp_path, task_ids=["a_1", "a_2"], runner=runner)
+    assert out is FAKE_EVAL
+    assert seen == {
+        "experiment_name": "cuga_v1_test_normal",
+        "root": tmp_path,
+        "split": None,
+        "task_ids": ["a_1", "a_2"],
+    }
+    with pytest.raises(lb.LeaderboardError, match="either split or task_ids"):
+        lb.evaluate_official("x", root=tmp_path, runner=runner)
+
+
+def test_write_official_results_and_report(ws):
+    table = {
+        "aggregate": {"task_goal_completion": 50.0, "scenario_goal_completion": 25.0},
+        "difficulty_1": {"task_goal_completion": 50.0, "scenario_goal_completion": 25.0},
+        "difficulty_2": {"task_goal_completion": None, "scenario_goal_completion": None},
+        "difficulty_3": {"task_goal_completion": None, "scenario_goal_completion": None},
+    }
+    (ws / "report.md").write_text("# Eval report\n\nsomething\n")
+    out = lb.write_official_results(ws, table, split="test_normal", task_ids_count=2)
+    assert out == ws / "results" / "appworld_official.json"
+    data = json.loads(out.read_text())
+    assert data["split"] == "test_normal" and data["table"]["aggregate"]["scenario_goal_completion"] == 25.0
+    rep = (ws / "report.md").read_text()
+    assert "## AppWorld official metrics" in rep and "scenario_goal_completion" in rep and "something" in rep
+    # second write replaces the section instead of appending a second copy
+    lb.write_official_results(ws, table, split="test_normal", task_ids_count=2)
+    assert (ws / "report.md").read_text().count("## AppWorld official metrics") == 1
+
+
+def test_format_official_table():
+    table = {
+        "aggregate": {"task_goal_completion": 50.0, "scenario_goal_completion": 25.0},
+        "difficulty_1": {"task_goal_completion": 50.0, "scenario_goal_completion": 25.0},
+        "difficulty_2": {"task_goal_completion": None, "scenario_goal_completion": None},
+        "difficulty_3": {"task_goal_completion": None, "scenario_goal_completion": None},
+    }
+    text = lb.format_official_table(table)
+    lines = text.splitlines()
+    assert lines[0].split() == ["type", "task_goal_completion", "scenario_goal_completion"]
+    assert lines[1].split() == ["aggregate", "50.0", "25.0"]
+    assert lines[3].split() == ["difficulty_2", "n/a", "n/a"]
