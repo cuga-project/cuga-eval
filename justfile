@@ -46,3 +46,5 @@ security:
 
 # Composite gate matching what CI runs.
 ci: lint test-regression security
+
+# verification: this comment is temporary, part of CI gating test, do not merge
