@@ -1,0 +1,53 @@
+version: 2
+updates:
+  # Python dependencies: pyproject.toml + uv.lock at repo root. The `uv`
+  # ecosystem reached Dependabot GA in March 2025 and understands
+  # pyproject.toml/uv.lock directly. Scheduled after the 06:00 UTC
+  # dependency-audit sweep so the two Monday jobs don't pile on together.
+  # No target-branch: main is already the default branch, and setting
+  # target-branch explicitly opts this ecosystem entry out of Dependabot
+  # security-update PRs (which always target the default branch and ignore
+  # this option) even when it names that same branch.
+  - package-ecosystem: "uv"
+    directory: "/"
+    schedule:
+      interval: "weekly"
+      day: "monday"
+      time: "08:00"
+      timezone: "UTC"
+    open-pull-requests-limit: 10
+    groups:
+      python-patch-minor:
+        applies-to: version-updates
+        update-types:
+          - "patch"
+          - "minor"
+    commit-message:
+      prefix: "chore(deps)"
+    labels:
+      - "dependencies"
+
+  # GitHub Actions version pins in .github/workflows/*.yml (actions/checkout,
+  # astral-sh/setup-uv, actions/setup-python, etc.). Patch/minor only — majors
+  # stay ungrouped so automerge cannot squash an actions/checkout v4→v5 bump
+  # into a patch PR.
+  - package-ecosystem: "github-actions"
+    directory: "/"
+    schedule:
+      interval: "weekly"
+      day: "monday"
+      time: "08:00"
+      timezone: "UTC"
+    groups:
+      github-actions-patch-minor:
+        applies-to: version-updates
+        update-types:
+          - "patch"
+          - "minor"
+        patterns:
+          - "*"
+    commit-message:
+      prefix: "chore(ci)"
+    labels:
+      - "dependencies"
+      - "ci"
