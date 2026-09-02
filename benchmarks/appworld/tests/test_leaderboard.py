@@ -70,3 +70,98 @@ def test_infer_split_rejects_mixed_and_unknown(root):
         lb.infer_split([NORMAL[0], CHALLENGE[0]], root)
     with pytest.raises(lb.LeaderboardError, match="zzz_9"):
         lb.infer_split([NORMAL[0], "zzz_9"], root)
+
+
+TOML = '''[eval_config]
+headless = true
+
+# 6 tasks — demo
+test_normal_all = ["fd1f8fa_1", "fd1f8fa_2", "fd1f8fa_3", "29a7b7e_1", "29a7b7e_2", "29a7b7e_3"]
+
+eval_key = "test_easy"
+'''
+
+
+@pytest.fixture
+def toml_path(tmp_path: Path) -> Path:
+    p = tmp_path / "eval_config.toml"
+    p.write_text(TOML)
+    return p
+
+
+def test_read_toml_keys_only_string_lists(toml_path):
+    keys = lb.read_toml_keys(toml_path)
+    assert keys == {"test_normal_all": NORMAL}
+
+
+def test_base_id():
+    assert lb.base_id("5238afc_2") == "5238afc"
+
+
+def test_batch_ids_keeps_scenarios_together():
+    ids = NORMAL + CHALLENGE  # 4 bases x 3
+    batches = lb.batch_ids(ids, batch_size=4)
+    # 4 would cut a base in half -> the batch grows to the base boundary (6)
+    assert batches == [NORMAL, CHALLENGE]
+    assert [t for b in batches for t in b] == ids
+
+
+def test_batch_ids_last_batch_is_remainder():
+    batches = lb.batch_ids(NORMAL + CHALLENGE, batch_size=9)
+    assert [len(b) for b in batches] == [9, 3]
+
+
+def test_write_toml_key_appends_and_keeps_comments(toml_path):
+    assert lb.write_toml_key(toml_path, "retry_1", ["a_1", "b_2"], "2 tasks — retry") is True
+    text = toml_path.read_text()
+    assert "# 6 tasks — demo" in text  # existing comment survives
+    assert text.rstrip().endswith('retry_1 = ["a_1", "b_2"]')
+    assert lb.read_toml_keys(toml_path)["retry_1"] == ["a_1", "b_2"]
+
+
+def test_write_toml_key_idempotent_and_conflict(toml_path):
+    lb.write_toml_key(toml_path, "k", ["a_1"], "c")
+    assert lb.write_toml_key(toml_path, "k", ["a_1"], "c") is False
+    assert toml_path.read_text().count("k = ") == 1
+    with pytest.raises(lb.LeaderboardError, match="already exists"):
+        lb.write_toml_key(toml_path, "k", ["b_1"], "c")
+
+
+def test_split_key_writes_batches(toml_path):
+    names = lb.split_key(toml_path, "test_normal_all", batch_size=3)
+    assert names == ["test_normal_all_b1", "test_normal_all_b2"]
+    keys = lb.read_toml_keys(toml_path)
+    assert keys["test_normal_all_b1"] == NORMAL[:3]
+    assert keys["test_normal_all_b2"] == NORMAL[3:]
+    # idempotent
+    assert lb.split_key(toml_path, "test_normal_all", batch_size=3) == names
+    assert toml_path.read_text().count("test_normal_all_b1 = ") == 1
+
+
+def test_split_key_unknown_source(toml_path):
+    with pytest.raises(lb.LeaderboardError, match="nope"):
+        lb.split_key(toml_path, "nope", batch_size=3)
+
+
+def test_cuga_viz_paste_line_loads(toml_path):
+    line = 'test_hard_01_09__20h12m07s062ms_uncompleted_tasks = ["042a9fc_1", "0a9d82a_1"]\n'
+    toml_path.write_text(toml_path.read_text() + "\n" + line)
+    assert lb.read_toml_keys(toml_path)["test_hard_01_09__20h12m07s062ms_uncompleted_tasks"] == [
+        "042a9fc_1",
+        "0a9d82a_1",
+    ]
+
+
+@pytest.mark.parametrize(
+    "key,expected",
+    [
+        ("test_hard_01_09__20h12m07s062ms_uncompleted_tasks", True),
+        ("x_failed_tasks", True),
+        ("cuga_v1_errored", True),
+        ("cuga_v1_failed", True),
+        ("test_challenge_all_b2", False),
+        ("test_easy", False),
+    ],
+)
+def test_is_retry_key(key, expected):
+    assert lb.is_retry_key(key) is expected

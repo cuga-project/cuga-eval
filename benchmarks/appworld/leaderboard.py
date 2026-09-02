@@ -11,8 +11,10 @@ one per split, each with every task of the split on disk.
 
 from __future__ import annotations
 
+import json
 import os
 import re
+import tomllib
 from collections.abc import Iterable, Mapping
 from pathlib import Path
 
@@ -73,3 +75,75 @@ def infer_split(task_ids: Iterable[str], root: Path) -> str:
     if outside:
         raise LeaderboardError(f"task ids not in {split}: {outside[:10]}")
     return split
+
+
+RETRY_KEY_SUFFIXES = ("_uncompleted_tasks", "_failed_tasks", "_uncompleted", "_failed", "_errored")
+
+
+def read_toml_keys(toml_path: Path) -> dict[str, list[str]]:
+    with open(toml_path, "rb") as fh:
+        data = tomllib.load(fh)
+
+    result = {}
+
+    def extract_lists(obj):
+        """Recursively extract string lists from nested dicts."""
+        if isinstance(obj, dict):
+            for k, v in obj.items():
+                if isinstance(v, list) and v and all(isinstance(x, str) for x in v):
+                    result[k] = [str(x) for x in v]
+                elif isinstance(v, dict):
+                    extract_lists(v)
+
+    extract_lists(data)
+    return result
+
+
+def base_id(task_id: str) -> str:
+    return task_id.rsplit("_", 1)[0]
+
+
+def batch_ids(ids: list[str], batch_size: int) -> list[list[str]]:
+    if batch_size < 1:
+        raise LeaderboardError("batch_size must be >= 1")
+    batches: list[list[str]] = []
+    current: list[str] = []
+    for tid in ids:
+        # Close the batch only at a base boundary so _1/_2/_3 of a base stay together.
+        if len(current) >= batch_size and base_id(tid) != base_id(current[-1]):
+            batches.append(current)
+            current = []
+        current.append(tid)
+    if current:
+        batches.append(current)
+    return batches
+
+
+def write_toml_key(toml_path: Path, key: str, ids: list[str], comment: str) -> bool:
+    existing = read_toml_keys(toml_path) if Path(toml_path).is_file() else {}
+    if key in existing:
+        if existing[key] == list(ids):
+            return False
+        raise LeaderboardError(f"toml key {key!r} already exists with different ids in {toml_path}")
+    text = Path(toml_path).read_text() if Path(toml_path).is_file() else ""
+    if text and not text.endswith("\n"):
+        text += "\n"
+    text += f"\n# {comment}\n{key} = {json.dumps(list(ids))}\n"
+    Path(toml_path).write_text(text)
+    return True
+
+
+def split_key(toml_path: Path, key: str, batch_size: int) -> list[str]:
+    keys = read_toml_keys(toml_path)
+    if key not in keys:
+        raise LeaderboardError(f"toml key {key!r} not found in {toml_path}")
+    names: list[str] = []
+    for i, batch in enumerate(batch_ids(keys[key], batch_size), 1):
+        name = f"{key}_b{i}"
+        write_toml_key(toml_path, name, batch, f"{len(batch)} tasks — batch {i} of {key}")
+        names.append(name)
+    return names
+
+
+def is_retry_key(key: str) -> bool:
+    return key.endswith(RETRY_KEY_SUFFIXES)
