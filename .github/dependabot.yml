@@ -1,0 +1,44 @@
+version: 2
+updates:
+  # Python dependencies: pyproject.toml + uv.lock at repo root. The `uv`
+  # ecosystem reached Dependabot GA in March 2025 and understands
+  # pyproject.toml/uv.lock directly.
+  - package-ecosystem: "uv"
+    directory: "/"
+    target-branch: "main"
+    schedule:
+      interval: "weekly"
+      day: "monday"
+      time: "06:00"
+      timezone: "UTC"
+    open-pull-requests-limit: 10
+    groups:
+      python-patch-minor:
+        applies-to: version-updates
+        update-types:
+          - "patch"
+          - "minor"
+    commit-message:
+      prefix: "chore(deps)"
+    labels:
+      - "dependencies"
+
+  # GitHub Actions version pins in .github/workflows/*.yml (actions/checkout,
+  # astral-sh/setup-uv, actions/setup-python, etc.)
+  - package-ecosystem: "github-actions"
+    directory: "/"
+    target-branch: "main"
+    schedule:
+      interval: "weekly"
+      day: "monday"
+      time: "06:00"
+      timezone: "UTC"
+    groups:
+      github-actions:
+        patterns:
+          - "*"
+    commit-message:
+      prefix: "chore(ci)"
+    labels:
+      - "dependencies"
+      - "ci"

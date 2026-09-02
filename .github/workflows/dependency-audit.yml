@@ -1,0 +1,112 @@
+name: Dependency Audit (scheduled)
+
+# Runs pip-audit against main's locked dependencies on a schedule, independent
+# of whether any individual PR touched pyproject.toml/uv.lock. This is the
+# real blocking backstop for the "unrelated PR" carve-out in ci.yml's
+# security job: transitive CVEs that land between PRs would otherwise go
+# unnoticed until the next dependency-touching PR happens to surface them.
+#
+# The pip-audit command here must stay in sync with justfile's `security`
+# recipe and ci.yml's `security` job (e.g. any --ignore-vuln flags added to
+# one need to be added to all three, see .ai/why/ for prior incidents).
+#
+# On failure, opens (or updates, if already open) a single tracking issue,
+# deduped by a fixed title. On success, closes that issue if it was open.
+# This job's own pass/fail is not a required check anywhere, so it's safe to
+# let the job itself fail on findings; that shows as a red X in the Actions
+# tab in addition to the tracking issue.
+
+on:
+  schedule:
+    - cron: '0 6 * * 1' # every Monday, 06:00 UTC
+  workflow_dispatch: {} # allows on-demand runs, e.g. for testing
+
+permissions:
+  contents: read
+  issues: write
+
+defaults:
+  run:
+    working-directory: cuga-eval
+
+env:
+  TRACKING_ISSUE_TITLE: 'Scheduled dependency audit: pip-audit found vulnerabilities'
+
+jobs:
+  audit:
+    name: pip-audit (main)
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          path: cuga-eval
+          ref: main
+      - uses: actions/checkout@v4
+        with:
+          repository: cuga-project/cuga-agent
+          path: cuga-agent
+          ref: main
+      - uses: astral-sh/setup-uv@v6
+        with:
+          enable-cache: true
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - name: Sync dev dependencies
+        run: uv sync --group dev
+
+      - name: pip-audit
+        id: audit
+        run: |
+          set +e
+          uv run pip-audit --skip-editable > pip-audit-output.txt 2>&1
+          status=$?
+          echo "status=$status" >> "$GITHUB_OUTPUT"
+          cat pip-audit-output.txt
+          exit 0 # the job's final step below decides pass/fail
+
+      - name: Open or update tracking issue
+        if: steps.audit.outputs.status != '0'
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          body_file="$(mktemp)"
+          {
+            echo "The scheduled dependency audit found vulnerable dependencies on \`main\` as of $(date -u +%Y-%m-%dT%H:%M:%SZ)."
+            echo
+            echo "Workflow run: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}"
+            echo
+            echo '```'
+            cat pip-audit-output.txt
+            echo '```'
+          } > "$body_file"
+
+          existing="$(gh issue list --repo "${{ github.repository }}" \
+            --search "\"$TRACKING_ISSUE_TITLE\" in:title" --state open --json number --jq '.[0].number')"
+
+          if [ -n "$existing" ]; then
+            gh issue edit "$existing" --repo "${{ github.repository }}" --body-file "$body_file"
+            gh issue comment "$existing" --repo "${{ github.repository }}" \
+              --body "Still finding vulnerabilities as of $(date -u +%Y-%m-%dT%H:%M:%SZ). Issue body updated with the latest report; see the linked workflow run above."
+          else
+            gh issue create --repo "${{ github.repository }}" \
+              --title "$TRACKING_ISSUE_TITLE" --body-file "$body_file" --label "type: security"
+          fi
+
+      - name: Close tracking issue if audit is now clean
+        if: steps.audit.outputs.status == '0'
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          existing="$(gh issue list --repo "${{ github.repository }}" \
+            --search "\"$TRACKING_ISSUE_TITLE\" in:title" --state open --json number --jq '.[0].number')"
+          if [ -n "$existing" ]; then
+            gh issue comment "$existing" --repo "${{ github.repository }}" \
+              --body "Latest scheduled audit ($(date -u +%Y-%m-%dT%H:%M:%SZ)) is clean; closing."
+            gh issue close "$existing" --repo "${{ github.repository }}"
+          fi
+
+      - name: Fail the job if vulnerabilities were found
+        if: steps.audit.outputs.status != '0'
+        run: exit 1
