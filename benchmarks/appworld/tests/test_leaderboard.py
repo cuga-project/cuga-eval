@@ -243,3 +243,44 @@ def test_validate_low_interactions_can_be_allowed(root):
 def test_validate_missing_experiment_dir(root):
     rep = lb.validate_experiment(lb.outputs_dir(root) / "nope_test_normal", NORMAL, "test_normal")
     assert rep.present == 0 and rep.missing_tasks == NORMAL
+
+
+def test_store_and_load_leaderboard_metadata(tmp_path):
+    (tmp_path / "metadata.json").write_text(json.dumps({"experiment_name": "cuga_v1_chal"}))
+    got = lb.store_leaderboard_metadata(
+        tmp_path, prefix="cuga_v1", split="test_challenge", appworld_experiment="cuga_v1_test_challenge"
+    )
+    assert got == {
+        "prefix": "cuga_v1",
+        "split": "test_challenge",
+        "appworld_experiment": "cuga_v1_test_challenge",
+    }
+    assert lb.load_leaderboard_metadata(tmp_path) == got
+    # tracker folder is additive and overwrites the previous one
+    lb.store_leaderboard_metadata(
+        tmp_path,
+        prefix="cuga_v1",
+        split="test_challenge",
+        appworld_experiment="cuga_v1_test_challenge",
+        tracker_folder="b1_03-09--10h02m11s",
+    )
+    assert lb.load_leaderboard_metadata(tmp_path)["tracker_folder"] == "b1_03-09--10h02m11s"
+    meta = json.loads((tmp_path / "metadata.json").read_text())
+    assert meta["experiment_name"] == "cuga_v1_chal"  # untouched
+
+
+def test_store_leaderboard_metadata_rejects_conflict(tmp_path):
+    (tmp_path / "metadata.json").write_text("{}")
+    lb.store_leaderboard_metadata(
+        tmp_path, prefix="a", split="test_normal", appworld_experiment="a_test_normal"
+    )
+    with pytest.raises(lb.LeaderboardError, match="already"):
+        lb.store_leaderboard_metadata(
+            tmp_path, prefix="b", split="test_normal", appworld_experiment="b_test_normal"
+        )
+
+
+def test_load_leaderboard_metadata_none_when_absent(tmp_path):
+    assert lb.load_leaderboard_metadata(tmp_path) is None
+    (tmp_path / "metadata.json").write_text("{}")
+    assert lb.load_leaderboard_metadata(tmp_path) is None

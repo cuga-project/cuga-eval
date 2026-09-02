@@ -287,3 +287,15 @@ def test_assemble_compare_bundle_with_override_writes_in_place(tmp_path):
     assert (existing_dir / "compare_state.json").exists()
     # Result file must land under runs/, not a second freshly-timestamped dir.
     assert any(existing_dir.glob("runs/*/results/r1.json"))
+
+
+@pytest.mark.sanity
+def test_resume_history_records_eval_key(tmp_path):
+    from benchmarks.helpers.bundle import create_workspace_bundle
+
+    create_workspace_bundle(tmp_path, "appworld", experiment_name="x", args={"eval_key": "b1"})
+    create_workspace_bundle(
+        tmp_path, "appworld", experiment_name="x", args={"eval_key": "b1_uncompleted_tasks"}
+    )
+    meta = json.loads((tmp_path / "metadata.json").read_text())
+    assert [h["eval_key"] for h in meta["resume_history"]] == ["b1", "b1_uncompleted_tasks"]

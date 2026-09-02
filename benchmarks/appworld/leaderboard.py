@@ -250,3 +250,47 @@ def validate_experiment(exp_dir: Path, split_ids: list[str], split: str) -> Vali
             rep.incomplete_bases.append(b)
     rep.incomplete_bases.sort()
     return rep
+
+
+def load_leaderboard_metadata(bundle_dir: Path) -> dict | None:
+    meta_path = Path(bundle_dir) / "metadata.json"
+    if not meta_path.is_file():
+        return None
+    try:
+        meta = json.loads(meta_path.read_text())
+    except (OSError, ValueError):
+        return None
+    block = meta.get("leaderboard")
+    return dict(block) if isinstance(block, dict) and block else None
+
+
+def store_leaderboard_metadata(
+    bundle_dir: Path,
+    *,
+    prefix: str,
+    split: str,
+    appworld_experiment: str,
+    tracker_folder: str | None = None,
+) -> dict:
+    from benchmarks.helpers.incremental_results import atomic_write_json
+
+    meta_path = Path(bundle_dir) / "metadata.json"
+    meta: dict = {}
+    if meta_path.is_file():
+        try:
+            meta = json.loads(meta_path.read_text())
+        except (OSError, ValueError):
+            meta = {}
+    existing = meta.get("leaderboard") or {}
+    for key, value in (("prefix", prefix), ("split", split), ("appworld_experiment", appworld_experiment)):
+        if existing.get(key) not in (None, value):
+            raise LeaderboardError(
+                f"workspace already bound to leaderboard {key}={existing[key]!r}; got {value!r}. "
+                "Start a new --experiment for a different prefix/split."
+            )
+    block = {**existing, "prefix": prefix, "split": split, "appworld_experiment": appworld_experiment}
+    if tracker_folder:
+        block["tracker_folder"] = tracker_folder
+    meta["leaderboard"] = block
+    atomic_write_json(meta_path, meta)
+    return block

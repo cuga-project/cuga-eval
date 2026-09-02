@@ -925,7 +925,13 @@ def create_workspace_bundle(
         metadata.setdefault("experiment_name", experiment_name)
     metadata["status"] = "in_progress"
     history = metadata.get("resume_history") or []
-    history.append({"started_at": now, "model_profile": model_profile})
+    history.append(
+        {
+            "started_at": now,
+            "model_profile": model_profile,
+            "eval_key": (args or {}).get("eval_key"),
+        }
+    )
     metadata["resume_history"] = history
     if args:
         run = metadata.get("run") or {}
