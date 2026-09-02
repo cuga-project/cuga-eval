@@ -342,13 +342,6 @@ fi
 if [ -n "$LATEST_RESULT" ] && [ "${NO_BUNDLE:-false}" != "true" ]; then
     echo ""
     if [ -n "${WORKSPACE_BUNDLE_DIR:-}" ]; then
-        if [ $EVAL_EXIT -eq 0 ] && grep -q '"leaderboard"' "$WORKSPACE_BUNDLE_DIR/metadata.json" 2>/dev/null; then
-            AW_EXP=$(uv run --no-sync python -c "import json,sys;print(json.load(open(sys.argv[1]))['leaderboard']['appworld_experiment'])" "$WORKSPACE_BUNDLE_DIR/metadata.json")
-            if [[ -n "${EVAL_KEY:-}" ]]; then
-                echo -e "${YELLOW:-}Official AppWorld evaluate for key ${EVAL_KEY}...${NC:-}"
-                uv run --no-sync python -m benchmarks.appworld.leaderboard evaluate "$AW_EXP" --key "$EVAL_KEY" --bundle-dir "$WORKSPACE_BUNDLE_DIR" || echo -e "${YELLOW:-}Warning: official evaluate failed (see above)${NC:-}"
-            fi
-        fi
         echo -e "${YELLOW:-}Finalizing experiment workspace...${NC:-}"
         FIN_EXTRA=(--task-file "$SCRIPT_DIR/eval_config.toml")
         TRAJ_DIR=$(find_latest_trajectory "$SCRIPT_DIR/logging/trajectory_data")
@@ -357,6 +350,19 @@ if [ -n "$LATEST_RESULT" ] && [ "${NO_BUNDLE:-false}" != "true" ]; then
         fi
         FIN_EXTRA+=(--log-file /tmp/appworld.log --log-file /tmp/appworld_registry.log --log-file "$CONSOLE_LOG")
         finalize_experiment_workspace "appworld" "${FIN_EXTRA[@]}"
+
+        # Run AFTER finalize: finalize_workspace_bundle regenerates
+        # <workspace>/report.md from scratch (generate_eval_report), so a
+        # section appended before finalize would be overwritten.
+        if [ $EVAL_EXIT -eq 0 ] && grep -q '"leaderboard"' "$WORKSPACE_BUNDLE_DIR/metadata.json" 2>/dev/null; then
+            AW_EXP=$(uv run --no-sync python -c "import json,sys;print(json.load(open(sys.argv[1]))['leaderboard']['appworld_experiment'])" "$WORKSPACE_BUNDLE_DIR/metadata.json" 2>/dev/null) || AW_EXP=""
+            if [[ -z "$AW_EXP" ]]; then
+                echo -e "${YELLOW:-}Warning: could not read leaderboard.appworld_experiment from metadata.json; skipping official evaluate${NC:-}"
+            elif [[ -n "${EVAL_KEY:-}" ]]; then
+                echo -e "${YELLOW:-}Official AppWorld evaluate for key ${EVAL_KEY}...${NC:-}"
+                uv run --no-sync python -m benchmarks.appworld.leaderboard evaluate "$AW_EXP" --key "$EVAL_KEY" --bundle-dir "$WORKSPACE_BUNDLE_DIR" || echo -e "${YELLOW:-}Warning: official evaluate failed (see above)${NC:-}"
+            fi
+        fi
     else
         echo -e "${YELLOW:-}Creating reproducibility bundle...${NC:-}"
 
