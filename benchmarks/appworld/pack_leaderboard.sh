@@ -1,5 +1,8 @@
 #!/bin/bash
 # Validate, officially evaluate, pack and verify both AppWorld leaderboard splits.
+# `evaluate` writes AppWorld evaluations/<split>.json (required to pack). It does
+# not update a cuga-eval workspace report.md — that is skill step 5 (`evaluate
+# … --bundle-dir …`).
 # Usage: ./pack_leaderboard.sh <prefix> "<method>" "<method tooltip>" "<llm>" "<llm tooltip>" <url> [--allow-low-interactions] [--only SPLIT]
 set -uo pipefail
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"

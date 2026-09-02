@@ -35,7 +35,7 @@ for arg in "$@"; do
         echo "  --agent <name>               Agent to run (cuga, react, codeact; default: cuga)"
         echo "  --eval-key <key>             Task group key in eval_config.toml (e.g. test_med); recorded in bundle metadata"
         echo "  --leaderboard <prefix>       Tag this run for official AppWorld leaderboard submission (implies --sdk)"
-        echo "  --force-retry                Re-run tasks even if a cached leaderboard result already exists"
+        echo "  --force-retry                Re-run listed tasks even if a clean partial already exists"
         echo "  --dry-run                    Print the evaluator command that would run and exit without starting servers"
         echo "  --status                     Show run status; also prints leaderboard status when the workspace has a leaderboard block"
         echo ""
@@ -84,6 +84,12 @@ while [[ $# -gt 0 ]]; do
         *)             PASSTHROUGH_ARGS+=("$1"); shift ;;
     esac
 done
+
+if [[ -n "${LEADERBOARD:-}" && ( "${AGENT:-cuga}" == "codeact" || "${AGENT:-cuga}" == "react" ) ]]; then
+    echo "Error: --leaderboard is SDK-only (CUGA lite). --agent ${AGENT} does not accept --leaderboard." >&2
+    echo "Drop --agent, or drop --leaderboard." >&2
+    exit 2
+fi
 
 if [[ "${DRY_RUN:-false}" == "true" ]]; then
     if [ "${AGENT:-cuga}" = "codeact" ]; then mod=benchmarks.appworld.appworld_eval_codeact

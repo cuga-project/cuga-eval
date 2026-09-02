@@ -253,7 +253,7 @@ uv run python -m benchmarks.appworld.leaderboard evaluate cuga_v1_test_challenge
 | Every expected task id has an output directory | listed under "missing tasks" — exits 1 |
 | Every task has its required result files | listed under "missing files in `<task>`" — exits 1 |
 | Every base task has all its scenarios (`_1`/`_2`/`_3`) | listed under "bases missing a scenario" — exits 1 |
-| Task has more than 1 environment interaction | listed under "tasks with <=1 environment interaction" — **warning only** |
+| Task has more than 1 environment interaction | listed under "tasks with <=1 environment interaction" — exits 1 unless `--allow-low-interactions` |
 
 The low-interaction case is a known CUGA logging gap (API calls bypass `world.execute`); pass
 `--allow-low-interactions` to `validate`/`pack` only once that's understood — it does not silence
@@ -267,7 +267,9 @@ into the workspace `report.md` under "AppWorld official metrics".
     https://github.com/cuga-project/cuga-agent
 ```
 
-Refuses unless both splits validate; runs `appworld pack`, unpacks the bundle into a temp dir and
+Refuses unless both splits validate; runs `appworld evaluate` (writes `evaluations/<split>.json` under
+the AppWorld experiment dir — not the cuga-eval workspace `report.md`; that is step 5) then
+`appworld pack`, unpacks the bundle into a temp dir and
 byte-compares every file; prints the two `leaderboard.bundle` paths and the
 `/add-to-leaderboard --python … --appworld … cuga_v1` comment for the PR. Don't trust `appworld
 pack` output alone — it prints WARNINGs and still writes the bundle, and says nothing about
@@ -292,7 +294,7 @@ absent task dirs; only `pack_leaderboard.sh` / `leaderboard pack` verify.
 | `--status` | Show progress without starting servers (also prints leaderboard status when the workspace has a leaderboard block) | `--status` |
 | `--stop` | Stop background run | `--stop` |
 | `--leaderboard <prefix>` | Tag this run for official AppWorld leaderboard submission (implies `--sdk`); see [Leaderboard submissions](#leaderboard-submissions-full-test_normal--test_challenge) | `--leaderboard cuga_v1` |
-| `--force-retry` | Re-run tasks even if a cached leaderboard result already exists | `--force-retry` |
+| `--force-retry` | Re-run listed tasks even if a clean partial already exists | `--force-retry` |
 | `--dry-run` | Print the evaluator command that would run and exit without starting servers | `--dry-run` |
 
 ---

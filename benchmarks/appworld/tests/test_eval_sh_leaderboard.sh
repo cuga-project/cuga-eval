@@ -24,6 +24,13 @@ assert_contains "forwards --force-retry" "--force-retry" "$out"
 out=$(bash "$EVAL" --dry-run --leaderboard cuga_v1 --eval-key k 2>&1)
 assert_contains "leaderboard implies --sdk" "eval_appworld_sdk" "$out"
 
+out=$(bash "$EVAL" --dry-run --leaderboard cuga_v1 --agent codeact --eval-key k 2>&1); rc=$?
+assert_contains "rejects leaderboard+codeact" "SDK-only" "$out"
+[[ $rc -eq 2 ]] && { echo "  PASS: leaderboard+codeact exits 2"; PASS=$((PASS+1)); } || { echo "  FAIL: leaderboard+codeact rc=$rc"; FAIL=$((FAIL+1)); }
+out=$(bash "$EVAL" --dry-run --leaderboard cuga_v1 --agent react --eval-key k 2>&1); rc=$?
+assert_contains "rejects leaderboard+react" "SDK-only" "$out"
+[[ $rc -eq 2 ]] && { echo "  PASS: leaderboard+react exits 2"; PASS=$((PASS+1)); } || { echo "  FAIL: leaderboard+react rc=$rc"; FAIL=$((FAIL+1)); }
+
 echo "pack_leaderboard.sh"
 PACK="$SCRIPT_DIR/../pack_leaderboard.sh"
 out=$(bash "$PACK" 2>&1); rc=$?
