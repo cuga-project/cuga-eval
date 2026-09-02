@@ -24,5 +24,14 @@ assert_contains "forwards --force-retry" "--force-retry" "$out"
 out=$(bash "$EVAL" --dry-run --leaderboard cuga_v1 --eval-key k 2>&1)
 assert_contains "leaderboard implies --sdk" "eval_appworld_sdk" "$out"
 
+echo "pack_leaderboard.sh"
+PACK="$SCRIPT_DIR/../pack_leaderboard.sh"
+out=$(bash "$PACK" 2>&1); rc=$?
+assert_contains "usage on missing args" "Usage:" "$out"
+[[ $rc -ne 0 ]] && { echo "  PASS: non-zero exit"; PASS=$((PASS+1)); } || { echo "  FAIL: exit 0"; FAIL=$((FAIL+1)); }
+out=$(bash "$PACK" nope_prefix "m" "" "l" "" https://x --only test_normal 2>&1); rc=$?
+assert_contains "validate runs first and reports" "task dirs present" "$out"
+[[ $rc -ne 0 ]] && { echo "  PASS: refuses incomplete"; PASS=$((PASS+1)); } || { echo "  FAIL: packed incomplete"; FAIL=$((FAIL+1)); }
+
 echo; echo "passed=$PASS failed=$FAIL"
 [[ $FAIL -eq 0 ]]
