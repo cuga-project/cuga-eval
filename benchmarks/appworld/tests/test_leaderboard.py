@@ -8,6 +8,7 @@ from pathlib import Path
 import pytest
 
 from benchmarks.appworld import leaderboard as lb
+from benchmarks.helpers import incremental_results as ir
 
 pytestmark = pytest.mark.unit
 
@@ -437,3 +438,57 @@ def test_evaluator_uses_plan_run_and_stores_metadata():
     assert "plan_run(" in src
     assert "store_leaderboard_metadata(" in src
     assert "tracker.experiment_folder" in src
+
+
+def _seed_partials(ws: Path) -> None:
+    ir.write_task_result(
+        ws, NORMAL[0], {"task_name": NORMAL[0], "success": True, "error": None, "match_rate": 1.0}
+    )
+    ir.write_task_result(
+        ws, NORMAL[1], {"task_name": NORMAL[1], "success": False, "error": None, "match_rate": 0.4}
+    )
+    ir.write_task_result(
+        ws, NORMAL[2], {"task_name": NORMAL[2], "success": False, "error": "ReadTimeout", "match_rate": 0.0}
+    )
+
+
+def test_retry_candidates(ws):
+    _seed_partials(ws)
+    assert lb.retry_candidates(ws, "errored", NORMAL) == [NORMAL[2]]
+    assert lb.retry_candidates(ws, "failed", NORMAL) == [NORMAL[1]]
+    assert lb.retry_candidates(ws, "uncompleted", NORMAL) == NORMAL[3:]
+    with pytest.raises(lb.LeaderboardError):
+        lb.retry_candidates(ws, "bogus", NORMAL)
+
+
+def test_write_retry_key(ws, toml_path):
+    _seed_partials(ws)
+    name, ids = lb.write_retry_key(toml_path, ws, "errored", NORMAL)
+    assert name == "ws_errored" and ids == [NORMAL[2]]
+    assert lb.read_toml_keys(toml_path)["ws_errored"] == [NORMAL[2]]
+    assert lb.is_retry_key(name)
+
+
+def test_workspace_status_leaderboard(root, ws):
+    lb.store_leaderboard_metadata(
+        ws, prefix="cuga_v1", split="test_normal", appworld_experiment="cuga_v1_test_normal"
+    )
+    _seed_partials(ws)
+    st = lb.workspace_status(ws, root)
+    assert st == {
+        "experiment": "ws",
+        "split": "test_normal",
+        "expected": 6,
+        "completed": 2,
+        "errored": 1,
+        "score_below_1": 1,
+        "missing": 3,
+    }
+    line = lb.format_status(st)
+    assert "completed 2/6" in line and "errored 1" in line and "score<1: 1" in line and "missing 3" in line
+
+
+def test_workspace_status_plain(root, ws):
+    _seed_partials(ws)
+    st = lb.workspace_status(ws, root)
+    assert st["split"] is None and st["expected"] == 3 and st["missing"] == 0

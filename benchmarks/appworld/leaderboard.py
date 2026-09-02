@@ -354,3 +354,71 @@ def plan_run(
         to_run = [t for t in task_ids if t not in completed_ids]
         skipped = [t for t in task_ids if t in completed_ids]
     return RunPlan(experiment_name, to_run, skipped, split, prefix, mode)
+
+
+RETRY_KINDS = ("errored", "failed", "uncompleted")
+
+
+def _partials_by_task(bundle_dir: Path) -> dict[str, dict]:
+    from benchmarks.helpers.incremental_results import load_all_partial_results
+
+    out: dict[str, dict] = {}
+    for r in load_all_partial_results(Path(bundle_dir)):
+        key = r.get("task_name") or r.get("task_id")
+        if key:
+            out[str(key)] = r
+    return out
+
+
+def retry_candidates(bundle_dir: Path, kind: str, expected_ids: list[str]) -> list[str]:
+    if kind not in RETRY_KINDS:
+        raise LeaderboardError(f"kind must be one of {', '.join(RETRY_KINDS)}; got {kind!r}")
+    partials = _partials_by_task(bundle_dir)
+    if kind == "uncompleted":
+        return [t for t in expected_ids if t not in partials]
+    if kind == "errored":
+        return [t for t in expected_ids if t in partials and partials[t].get("error") is not None]
+    return [
+        t
+        for t in expected_ids
+        if t in partials and partials[t].get("error") is None and partials[t].get("success") is not True
+    ]
+
+
+def write_retry_key(
+    toml_path: Path, bundle_dir: Path, kind: str, expected_ids: list[str], name: str | None = None
+) -> tuple[str, list[str]]:
+    ids = retry_candidates(bundle_dir, kind, expected_ids)
+    key = name or f"{Path(bundle_dir).name}_{kind}"
+    if not is_retry_key(key):
+        raise LeaderboardError(f"retry key name must end with one of {RETRY_KEY_SUFFIXES}: {key!r}")
+    write_toml_key(toml_path, key, ids, f"{len(ids)} tasks — {kind} in experiment {Path(bundle_dir).name}")
+    return key, ids
+
+
+def workspace_status(bundle_dir: Path, root: Path) -> dict:
+    bundle_dir = Path(bundle_dir)
+    stored = load_leaderboard_metadata(bundle_dir)
+    partials = _partials_by_task(bundle_dir)
+    split = stored["split"] if stored else None
+    expected_ids = load_split_ids(split, root) if split else list(partials)
+    completed = sum(1 for r in partials.values() if r.get("error") is None)
+    errored = sum(1 for r in partials.values() if r.get("error") is not None)
+    below = sum(1 for r in partials.values() if r.get("error") is None and r.get("success") is not True)
+    return {
+        "experiment": bundle_dir.name,
+        "split": split,
+        "expected": len(expected_ids),
+        "completed": completed,
+        "errored": errored,
+        "score_below_1": below,
+        "missing": len([t for t in expected_ids if t not in partials]),
+    }
+
+
+def format_status(status: dict) -> str:
+    return (
+        f"{status['experiment']}  split={status['split'] or '-'}  "
+        f"completed {status['completed']}/{status['expected']}  errored {status['errored']}  "
+        f"score<1: {status['score_below_1']}  missing {status['missing']}"
+    )
