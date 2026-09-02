@@ -165,3 +165,81 @@ def test_cuga_viz_paste_line_loads(toml_path):
 )
 def test_is_retry_key(key, expected):
     assert lb.is_retry_key(key) is expected
+
+
+ENV_IO_TWO = (
+    "\n### Environment Interaction 1\n---\n```python\nx\n```\n\n```\nok\n```\n\n"
+    "\n### Environment Interaction 2\n---\n```python\ny\n```\n\n```\nok\n```\n\n"
+)
+
+
+def make_task_dir(exp_dir: Path, tid: str, interactions: int = 2) -> Path:
+    t = exp_dir / "tasks" / tid
+    for rel in lb.REQUIRED_TASK_FILES:
+        p = t / rel
+        p.parent.mkdir(parents=True, exist_ok=True)
+        p.write_text("{}\n")
+    body = "".join(
+        f"\n### Environment Interaction {i}\n---\n```python\nz\n```\n\n```\nok\n```\n\n"
+        for i in range(1, interactions + 1)
+    )
+    (t / "logs" / "environment_io.md").write_text(body)
+    (t / "logs" / "api_calls.jsonl").write_text("{}\n" * interactions)
+    return t
+
+
+def test_required_task_files_count():
+    assert len(lb.REQUIRED_TASK_FILES) == 19
+    assert "dbs/model_hashes.json" in lb.REQUIRED_TASK_FILES
+    assert "evaluation/report.md" in lb.REQUIRED_TASK_FILES
+
+
+def test_count_interactions_and_api_calls(tmp_path):
+    p = tmp_path / "environment_io.md"
+    p.write_text(ENV_IO_TWO)
+    assert lb.count_interactions(p) == 2
+    a = tmp_path / "api_calls.jsonl"
+    a.write_text('{"a":1}\n\n{"b":2}\n')
+    assert lb.count_api_calls(a) == 2
+    assert lb.count_interactions(tmp_path / "missing.md") == 0
+
+
+def test_validate_complete_experiment(root):
+    exp = lb.outputs_dir(root) / "cuga_v1_test_normal"
+    for tid in NORMAL:
+        make_task_dir(exp, tid)
+    rep = lb.validate_experiment(exp, NORMAL, "test_normal")
+    assert rep.ok()
+    assert rep.present == 6 and rep.expected == 6
+    assert "6/6" in rep.summary()
+
+
+def test_validate_reports_every_problem(root):
+    exp = lb.outputs_dir(root) / "cuga_v1_test_normal"
+    make_task_dir(exp, "fd1f8fa_1")
+    make_task_dir(exp, "fd1f8fa_2", interactions=1)  # low interactions
+    make_task_dir(exp, "fd1f8fa_3")
+    (exp / "tasks" / "fd1f8fa_3" / "dbs" / "gmail.jsonl").unlink()  # missing file
+    make_task_dir(exp, "29a7b7e_1")  # base 29a7b7e incomplete
+    rep = lb.validate_experiment(exp, NORMAL, "test_normal")
+    assert not rep.ok()
+    assert rep.missing_tasks == ["29a7b7e_2", "29a7b7e_3"]
+    assert rep.missing_files == {"fd1f8fa_3": ["dbs/gmail.jsonl"]}
+    assert rep.low_interaction_tasks == ["fd1f8fa_2"]
+    assert rep.incomplete_bases == ["29a7b7e"]
+    s = rep.summary()
+    assert "29a7b7e_2" in s and "dbs/gmail.jsonl" in s and "fd1f8fa_2" in s
+
+
+def test_validate_low_interactions_can_be_allowed(root):
+    exp = lb.outputs_dir(root) / "cuga_v1_test_normal"
+    for tid in NORMAL:
+        make_task_dir(exp, tid, interactions=1)
+    rep = lb.validate_experiment(exp, NORMAL, "test_normal")
+    assert not rep.ok()
+    assert rep.ok(allow_low_interactions=True)
+
+
+def test_validate_missing_experiment_dir(root):
+    rep = lb.validate_experiment(lb.outputs_dir(root) / "nope_test_normal", NORMAL, "test_normal")
+    assert rep.present == 0 and rep.missing_tasks == NORMAL

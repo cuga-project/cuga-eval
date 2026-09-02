@@ -16,6 +16,7 @@ import os
 import re
 import tomllib
 from collections.abc import Iterable, Mapping
+from dataclasses import dataclass, field
 from pathlib import Path
 
 PROJECT_ROOT = Path(__file__).resolve().parents[2]
@@ -147,3 +148,105 @@ def split_key(toml_path: Path, key: str, batch_size: int) -> list[str]:
 
 def is_retry_key(key: str) -> bool:
     return key.endswith(RETRY_KEY_SUFFIXES)
+
+
+APP_NAMES: tuple[str, ...] = (
+    "admin",
+    "amazon",
+    "api_docs",
+    "file_system",
+    "gmail",
+    "phone",
+    "simple_note",
+    "splitwise",
+    "spotify",
+    "supervisor",
+    "todoist",
+    "venmo",
+)
+REQUIRED_TASK_FILES: tuple[str, ...] = tuple(
+    [f"dbs/{app}.jsonl" for app in APP_NAMES]
+    + [
+        "dbs/model_hashes.json",
+        "logs/environment_io.md",
+        "logs/api_calls.jsonl",
+        "version/code.txt",
+        "version/data.txt",
+        "evaluation/report.md",
+        "evaluation/version.txt",
+    ]
+)
+_INTERACTION_RE = re.compile(r"^### Environment Interaction \d+", re.MULTILINE)
+
+
+def count_interactions(env_io_path: Path) -> int:
+    p = Path(env_io_path)
+    if not p.is_file():
+        return 0
+    return len(_INTERACTION_RE.findall(p.read_text(errors="replace")))
+
+
+def count_api_calls(api_calls_path: Path) -> int:
+    p = Path(api_calls_path)
+    if not p.is_file():
+        return 0
+    return sum(1 for line in p.read_text(errors="replace").splitlines() if line.strip())
+
+
+@dataclass
+class ValidationReport:
+    split: str
+    expected: int
+    present: int
+    missing_tasks: list[str] = field(default_factory=list)
+    missing_files: dict[str, list[str]] = field(default_factory=dict)
+    low_interaction_tasks: list[str] = field(default_factory=list)
+    incomplete_bases: list[str] = field(default_factory=list)
+
+    def ok(self, allow_low_interactions: bool = False) -> bool:
+        if self.missing_tasks or self.missing_files or self.incomplete_bases:
+            return False
+        return allow_low_interactions or not self.low_interaction_tasks
+
+    def summary(self) -> str:
+        lines = [f"{self.split}: {self.present}/{self.expected} task dirs present"]
+        if self.missing_tasks:
+            lines.append(f"missing tasks ({len(self.missing_tasks)}): {' '.join(self.missing_tasks)}")
+        for tid, files in self.missing_files.items():
+            lines.append(f"missing files in {tid}: {' '.join(files)}")
+        if self.incomplete_bases:
+            lines.append(f"bases missing a scenario: {' '.join(self.incomplete_bases)}")
+        if self.low_interaction_tasks:
+            lines.append(
+                f"tasks with <=1 environment interaction ({len(self.low_interaction_tasks)}): "
+                f"{' '.join(self.low_interaction_tasks)}  "
+                "(CUGA API calls bypass world.execute — see issue; pass --allow-low-interactions to proceed)"
+            )
+        lines.append("OK" if self.ok(allow_low_interactions=True) else "NOT SUBMITTABLE")
+        return "\n".join(lines)
+
+
+def validate_experiment(exp_dir: Path, split_ids: list[str], split: str) -> ValidationReport:
+    exp_dir = Path(exp_dir)
+    rep = ValidationReport(split=split, expected=len(split_ids), present=0)
+    present_ids: set[str] = set()
+    for tid in split_ids:
+        t = exp_dir / "tasks" / tid
+        if not t.is_dir():
+            rep.missing_tasks.append(tid)
+            continue
+        present_ids.add(tid)
+        rep.present += 1
+        missing = [rel for rel in REQUIRED_TASK_FILES if not (t / rel).is_file()]
+        if missing:
+            rep.missing_files[tid] = missing
+        if count_interactions(t / "logs" / "environment_io.md") <= 1:
+            rep.low_interaction_tasks.append(tid)
+    bases: dict[str, set[str]] = {}
+    for tid in split_ids:
+        bases.setdefault(base_id(tid), set()).add(tid)
+    for b, members in bases.items():
+        if members & present_ids and not members <= present_ids:
+            rep.incomplete_bases.append(b)
+    rep.incomplete_bases.sort()
+    return rep
