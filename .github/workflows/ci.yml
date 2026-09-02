@@ -80,6 +80,7 @@ jobs:
       - uses: actions/checkout@v4
         with:
           path: cuga-eval
+          fetch-depth: 0 # need PR base/head history for the dependency-file diff below
       - uses: actions/checkout@v4
         with:
           repository: cuga-project/cuga-agent
@@ -96,5 +97,34 @@ jobs:
         run: uv sync --group dev
       - name: bandit
         run: uv run bandit -c pyproject.toml -r benchmarks scripts -ll
+
+      # pip-audit below always runs, but only fails this required check when
+      # the PR itself touches dependency files. Otherwise an unrelated PR can
+      # get blocked by a CVE it didn't introduce (see PR #166 / c13ba72,
+      # where pip-audit's own tool chain got flagged and blocked every open
+      # PR until a standalone fix landed). The weekly dependency-audit
+      # workflow is the real, continuously-blocking sweep of main.
+      - name: Detect dependency-file changes
+        id: dep-changes
+        run: |
+          if [ "${{ github.event_name }}" = "pull_request" ]; then
+            changed="$(git diff --name-only "${{ github.event.pull_request.base.sha }}" "${{ github.event.pull_request.head.sha }}" -- pyproject.toml uv.lock)"
+            if [ -n "$changed" ]; then
+              echo "changed=true" >> "$GITHUB_OUTPUT"
+            else
+              echo "changed=false" >> "$GITHUB_OUTPUT"
+            fi
+          else
+            # push to main: no PR diff to reason about, stay blocking.
+            echo "changed=true" >> "$GITHUB_OUTPUT"
+          fi
+
       - name: pip-audit
-        run: uv run pip-audit --skip-editable
+        id: pip-audit
+        continue-on-error: ${{ github.event_name == 'pull_request' && steps.dep-changes.outputs.changed != 'true' }}
+        run: uv run pip-audit --skip-editable; exit 1 # TEMP: forced failure for verification
+
+      - name: Annotate non-blocking pip-audit finding
+        if: steps.pip-audit.outcome == 'failure' && steps.pip-audit.conclusion == 'success'
+        run: |
+          echo "::warning title=pip-audit (non-blocking)::pip-audit found a vulnerability, but this PR does not modify pyproject.toml or uv.lock, so the Security check is not failed for it. See the pip-audit step log above. The weekly dependency-audit workflow tracks vulnerabilities on main independent of PR activity."
