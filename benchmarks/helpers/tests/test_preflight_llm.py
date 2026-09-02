@@ -76,6 +76,11 @@ def test_empty_response_fails_the_preflight():
 @pytest.mark.asyncio
 async def test_setup_preflights_before_building_the_agent():
     """The guard must be wired into setup() and run before the expensive agent build."""
+    # eval_appworld_sdk imports `appworld` at module level; CI does not install it.
+    pytest.importorskip(
+        "appworld",
+        reason="AppWorld package not installed; run ./setup_appworld.sh to enable this test.",
+    )
     from benchmarks.appworld import eval_appworld_sdk as mod
 
     calls = []
