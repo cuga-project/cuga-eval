@@ -26,6 +26,7 @@ scenarios `_1/_2/_3` of a base always stay in the same batch.
 
 Watch: `./benchmarks/appworld/eval.sh --status --resume-experiment cuga_v1_chal`
 → `cuga_v1_chal  split=test_challenge  completed 100/417  errored 0  score<1: 31  missing 317`
+Direct form: `uv run python -m benchmarks.appworld.leaderboard status --bundle-dir benchmarks/appworld/evaluation_bundles/cuga_v1_chal`
 The console/background.log also prints `cuga-viz experiment: <card name>`.
 
 ## 2. Inspect in cuga-viz (http://localhost:8988/)
