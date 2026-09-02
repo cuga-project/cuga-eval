@@ -298,3 +298,134 @@ def test_summary_footer_reflects_strict_verdict():
     # Missing tasks: both False
     missing = lb.ValidationReport(split="test_normal", expected=2, present=1, missing_tasks=["b_1"])
     assert missing.summary().splitlines()[-1] == "NOT SUBMITTABLE"
+
+
+@pytest.fixture
+def ws(tmp_path: Path) -> Path:
+    w = tmp_path / "ws"
+    w.mkdir()
+    (w / "metadata.json").write_text("{}")
+    return w
+
+
+def test_plan_plain_run_skips_completed(root, ws):
+    plan = lb.plan_run(
+        task_ids=NORMAL[:3],
+        eval_key="test_easy",
+        leaderboard_prefix=None,
+        bundle_dir=ws,
+        completed_ids={NORMAL[0]},
+        force_retry=False,
+        root=root,
+        default_experiment_name="test_easy",
+    )
+    assert plan.mode == "plain"
+    assert plan.experiment_name == "test_easy"
+    assert plan.task_ids == NORMAL[1:3] and plan.skipped == [NORMAL[0]]
+
+
+def test_plan_leaderboard_first_batch(root, ws):
+    plan = lb.plan_run(
+        task_ids=CHALLENGE[:3],
+        eval_key="test_challenge_all_b1",
+        leaderboard_prefix="cuga_v1",
+        bundle_dir=ws,
+        completed_ids=set(),
+        force_retry=False,
+        root=root,
+        default_experiment_name="x",
+    )
+    assert plan.mode == "batch"
+    assert plan.experiment_name == "cuga_v1_test_challenge"
+    assert plan.split == "test_challenge" and plan.prefix == "cuga_v1"
+
+
+def test_plan_resume_uses_stored_name_and_split(root, ws):
+    lb.store_leaderboard_metadata(
+        ws, prefix="cuga_v1", split="test_challenge", appworld_experiment="cuga_v1_test_challenge"
+    )
+    plan = lb.plan_run(
+        task_ids=CHALLENGE[3:],
+        eval_key="test_challenge_all_b2",
+        leaderboard_prefix=None,
+        bundle_dir=ws,
+        completed_ids=set(CHALLENGE[:3]),
+        force_retry=False,
+        root=root,
+        default_experiment_name="x",
+    )
+    assert plan.experiment_name == "cuga_v1_test_challenge"
+    assert plan.task_ids == CHALLENGE[3:]
+    with pytest.raises(lb.LeaderboardError, match="not in test_challenge"):
+        lb.plan_run(
+            task_ids=NORMAL[:1],
+            eval_key="oops",
+            leaderboard_prefix=None,
+            bundle_dir=ws,
+            completed_ids=set(),
+            force_retry=False,
+            root=root,
+            default_experiment_name="x",
+        )
+
+
+def test_plan_rejects_prefix_conflict(root, ws):
+    lb.store_leaderboard_metadata(
+        ws, prefix="cuga_v1", split="test_challenge", appworld_experiment="cuga_v1_test_challenge"
+    )
+    with pytest.raises(lb.LeaderboardError, match="prefix"):
+        lb.plan_run(
+            task_ids=CHALLENGE[:3],
+            eval_key="k",
+            leaderboard_prefix="cuga_v2",
+            bundle_dir=ws,
+            completed_ids=set(),
+            force_retry=False,
+            root=root,
+            default_experiment_name="x",
+        )
+
+
+def test_plan_retry_key_reruns_completed(root, ws):
+    lb.store_leaderboard_metadata(
+        ws, prefix="cuga_v1", split="test_challenge", appworld_experiment="cuga_v1_test_challenge"
+    )
+    plan = lb.plan_run(
+        task_ids=CHALLENGE[:2],
+        eval_key="test_challenge_all_b1_03_09__10h02m11s_uncompleted_tasks",
+        leaderboard_prefix=None,
+        bundle_dir=ws,
+        completed_ids=set(CHALLENGE),
+        force_retry=False,
+        root=root,
+        default_experiment_name="x",
+    )
+    assert plan.mode == "retry" and plan.task_ids == CHALLENGE[:2] and plan.skipped == []
+
+
+def test_plan_force_retry_on_batch_key(root, ws):
+    plan = lb.plan_run(
+        task_ids=NORMAL[:2],
+        eval_key="test_normal_all_b1",
+        leaderboard_prefix="cuga_v1",
+        bundle_dir=ws,
+        completed_ids=set(NORMAL),
+        force_retry=True,
+        root=root,
+        default_experiment_name="x",
+    )
+    assert plan.mode == "retry" and plan.task_ids == NORMAL[:2]
+
+
+def test_plan_no_bundle_dir_is_plain(root):
+    plan = lb.plan_run(
+        task_ids=NORMAL[:1],
+        eval_key=None,
+        leaderboard_prefix=None,
+        bundle_dir=None,
+        completed_ids=set(),
+        force_retry=False,
+        root=root,
+        default_experiment_name="appworld_sdk_evaluation",
+    )
+    assert plan.mode == "plain" and plan.experiment_name == "appworld_sdk_evaluation"

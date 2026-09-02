@@ -300,3 +300,57 @@ def store_leaderboard_metadata(
     meta["leaderboard"] = block
     atomic_write_json(meta_path, meta)
     return block
+
+
+@dataclass
+class RunPlan:
+    experiment_name: str
+    task_ids: list[str]
+    skipped: list[str]
+    split: str | None
+    prefix: str | None
+    mode: str  # "plain" | "batch" | "retry"
+
+
+def plan_run(
+    *,
+    task_ids: list[str],
+    eval_key: str | None,
+    leaderboard_prefix: str | None,
+    bundle_dir: Path | None,
+    completed_ids: set[str],
+    force_retry: bool,
+    root: Path,
+    default_experiment_name: str,
+) -> RunPlan:
+    stored = load_leaderboard_metadata(bundle_dir) if bundle_dir is not None else None
+    split: str | None = None
+    prefix: str | None = None
+    experiment_name = default_experiment_name
+
+    if leaderboard_prefix:
+        prefix = validate_prefix(leaderboard_prefix)
+        split = infer_split(task_ids, root)
+        if stored and (stored.get("prefix") != prefix or stored.get("split") != split):
+            raise LeaderboardError(
+                f"workspace is bound to prefix={stored.get('prefix')!r} split={stored.get('split')!r}; "
+                f"got prefix={prefix!r} split={split!r}"
+            )
+        experiment_name = appworld_experiment_name(prefix, split)
+    elif stored:
+        prefix, split = stored["prefix"], stored["split"]
+        allowed = set(load_split_ids(split, root))
+        outside = [t for t in task_ids if t not in allowed]
+        if outside:
+            raise LeaderboardError(f"task ids not in {split}: {outside[:10]}")
+        experiment_name = stored["appworld_experiment"]
+
+    retry = force_retry or (eval_key is not None and is_retry_key(eval_key))
+    if retry:
+        mode = "retry"
+        to_run, skipped = list(task_ids), []
+    else:
+        mode = "batch" if split else "plain"
+        to_run = [t for t in task_ids if t not in completed_ids]
+        skipped = [t for t in task_ids if t in completed_ids]
+    return RunPlan(experiment_name, to_run, skipped, split, prefix, mode)
