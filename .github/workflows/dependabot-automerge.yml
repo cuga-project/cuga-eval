@@ -21,14 +21,20 @@ on:
   pull_request:
     branches: [main]
 
-permissions:
-  contents: write
-  pull-requests: write
-
 jobs:
-  auto-merge:
+  # Kept as its own job with read-only permissions: dependabot/fetch-metadata
+  # is a third-party action, and it should never be handed the write-scoped
+  # token that the merge/approve steps below need. If the pinned action were
+  # ever compromised, the blast radius is capped at read access.
+  metadata:
     if: github.event.pull_request.user.login == 'dependabot[bot]' && github.event.pull_request.head.repo.full_name == github.repository
     runs-on: ubuntu-latest
+    permissions:
+      pull-requests: read
+    outputs:
+      update-type: ${{ steps.metadata.outputs.update-type }}
+      dependency-names: ${{ steps.metadata.outputs.dependency-names }}
+      dependency-group: ${{ steps.metadata.outputs.dependency-group }}
     steps:
       - name: Fetch dependabot metadata
         id: metadata
@@ -36,19 +42,29 @@ jobs:
         with:
           github-token: "${{ secrets.GITHUB_TOKEN }}"
 
-      # Groups are patch/minor-only, so an empty update-type (common on
-      # grouped PRs even after v3.1.0's title fallback) is still safe.
+  auto-merge:
+    needs: metadata
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+      pull-requests: write
+    steps:
+      # fetch-metadata returns an empty update-type for a grouped PR when it
+      # can't infer a single semver level from the group's title. Only trust
+      # that empty case for our own patch/minor-only groups (dependabot.yml),
+      # never unconditionally — an unclassified PR outside those groups
+      # (e.g. a stray major) must not slip through.
       - name: Approve and enable auto-merge (patch/minor/grouped)
         if: |
-          steps.metadata.outputs.update-type == 'version-update:semver-patch' ||
-          steps.metadata.outputs.update-type == 'version-update:semver-minor' ||
-          steps.metadata.outputs.update-type == ''
+          needs.metadata.outputs.update-type == 'version-update:semver-patch' ||
+          needs.metadata.outputs.update-type == 'version-update:semver-minor' ||
+          (needs.metadata.outputs.update-type == '' && (needs.metadata.outputs.dependency-group == 'python-patch-minor' || needs.metadata.outputs.dependency-group == 'github-actions-patch-minor'))
         env:
           GH_TOKEN: ${{ secrets.DEPENDABOT_AUTO_MERGE_TOKEN || secrets.GITHUB_TOKEN }}
           HAS_AUTO_MERGE_TOKEN: ${{ secrets.DEPENDABOT_AUTO_MERGE_TOKEN != '' }}
           PR_URL: ${{ github.event.pull_request.html_url }}
-          UPDATE_TYPE: ${{ steps.metadata.outputs.update-type }}
-          DEPENDENCY_NAMES: ${{ steps.metadata.outputs.dependency-names }}
+          UPDATE_TYPE: ${{ needs.metadata.outputs.update-type }}
+          DEPENDENCY_NAMES: ${{ needs.metadata.outputs.dependency-names }}
         run: |
           if [ "$HAS_AUTO_MERGE_TOKEN" != "true" ]; then
             echo "::warning title=Dependabot auto-merge::DEPENDABOT_AUTO_MERGE_TOKEN is unset. GITHUB_TOKEN approvals do not satisfy main's required review, so auto-merge will wait for a human. Add a PAT or GitHub App token as a Dependabot secret named DEPENDABOT_AUTO_MERGE_TOKEN."
@@ -58,7 +74,7 @@ jobs:
           gh pr merge "$PR_URL" --auto --squash
 
       - name: Flag major updates for human review
-        if: steps.metadata.outputs.update-type == 'version-update:semver-major'
+        if: needs.metadata.outputs.update-type == 'version-update:semver-major'
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           PR_URL: ${{ github.event.pull_request.html_url }}
