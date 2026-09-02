@@ -96,7 +96,7 @@ fi
 
 if [[ "${STATUS:-false}" == "true" ]]; then
     if bd=$(resolve_lifecycle_bundle_dir "appworld" 2>/dev/null) && grep -q '"leaderboard"' "$bd/metadata.json" 2>/dev/null; then
-        uv run --no-sync python -m benchmarks.appworld.leaderboard status --bundle-dir "$bd"
+        uv run --no-sync python -m benchmarks.appworld.leaderboard status --bundle-dir "$bd" || echo -e "${YELLOW:-}Warning: leaderboard status failed (see above)${NC:-}"
     fi
 fi
 
@@ -261,6 +261,10 @@ fi
 if prepare_experiment_workspace "appworld"; then
     PASSTHROUGH_ARGS+=(--bundle-dir "$WORKSPACE_BUNDLE_DIR")
     mark_run_state_started
+fi
+
+if [[ -n "${LEADERBOARD:-}" && -z "${WORKSPACE_BUNDLE_DIR:-}" ]]; then
+    echo -e "${YELLOW:-}Warning: --leaderboard without --experiment/--resume-experiment: no workspace, so resume, retry keys and the official evaluate are unavailable for this run${NC:-}"
 fi
 
 # Apply --model-profile after load_env + arg parsing. common.sh is sourced
