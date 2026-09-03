@@ -27,19 +27,19 @@ jobs:
     name: Lint
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
         with:
           path: cuga-eval
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
         with:
           repository: cuga-project/cuga-agent
           path: cuga-agent
           ref: main
-      - uses: astral-sh/setup-uv@v6
+      - uses: astral-sh/setup-uv@v7
         with:
           enable-cache: true
       - name: Set up Python
-        uses: actions/setup-python@v5
+        uses: actions/setup-python@v7
         with:
           python-version: '3.12'
       - name: Sync dev dependencies
@@ -53,19 +53,19 @@ jobs:
     name: Tests (sanity + regression)
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
         with:
           path: cuga-eval
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
         with:
           repository: cuga-project/cuga-agent
           path: cuga-agent
           ref: main
-      - uses: astral-sh/setup-uv@v6
+      - uses: astral-sh/setup-uv@v7
         with:
           enable-cache: true
       - name: Set up Python
-        uses: actions/setup-python@v5
+        uses: actions/setup-python@v7
         with:
           python-version: '3.12'
       - name: Sync dev dependencies
@@ -80,19 +80,19 @@ jobs:
       contents: read
       pull-requests: read
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
         with:
           path: cuga-eval
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
         with:
           repository: cuga-project/cuga-agent
           path: cuga-agent
           ref: main
-      - uses: astral-sh/setup-uv@v6
+      - uses: astral-sh/setup-uv@v7
         with:
           enable-cache: true
       - name: Set up Python
-        uses: actions/setup-python@v5
+        uses: actions/setup-python@v7
         with:
           python-version: '3.12'
       - name: Sync dev dependencies
