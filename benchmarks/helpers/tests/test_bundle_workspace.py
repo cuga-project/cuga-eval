@@ -299,3 +299,38 @@ def test_resume_history_records_eval_key(tmp_path):
     )
     meta = json.loads((tmp_path / "metadata.json").read_text())
     assert [h["eval_key"] for h in meta["resume_history"]] == ["b1", "b1_uncompleted_tasks"]
+
+
+@pytest.mark.sanity
+def test_run_eval_key_survives_a_keyless_resume(tmp_path):
+    """eval.sh reads run.eval_key back to pick the official AppWorld evaluate.
+
+    Clobbering it to None on any invocation that omits --eval-key made that
+    fallback dead on arrival; model_profile and task_ids already preserved.
+    """
+    from benchmarks.helpers.bundle import create_workspace_bundle
+
+    create_workspace_bundle(
+        tmp_path, "appworld", experiment_name="x", args={"eval_key": "b1", "task_ids": ["a_1"]}
+    )
+    create_workspace_bundle(tmp_path, "appworld", experiment_name="x", args={})
+    run = json.loads((tmp_path / "metadata.json").read_text())["run"]
+    assert run["eval_key"] == "b1"
+    assert run["task_ids"] == ["a_1"]
+    # The per-invocation truth still lives in resume_history.
+    hist = json.loads((tmp_path / "metadata.json").read_text())["resume_history"]
+    assert [h["eval_key"] for h in hist] == ["b1", None]
+
+
+@pytest.mark.sanity
+def test_finalize_does_not_clobber_run_eval_key(tmp_path):
+    """finalize runs before eval.sh reads the key back, so it must preserve too."""
+    from benchmarks.helpers.bundle import create_workspace_bundle, finalize_workspace_bundle
+
+    create_workspace_bundle(
+        tmp_path, "appworld", experiment_name="x", args={"eval_key": "b1", "task_ids": ["a_1"]}
+    )
+    finalize_workspace_bundle(tmp_path, "appworld", args={})
+    run = json.loads((tmp_path / "metadata.json").read_text())["run"]
+    assert run["eval_key"] == "b1"
+    assert run["task_ids"] == ["a_1"]

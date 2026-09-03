@@ -73,7 +73,7 @@ while [[ $# -gt 0 ]]; do
         --restart)     RESTART=true; shift ;;
         --status)      STATUS=true; shift ;;
         --agent)       AGENT="$2"; shift 2 ;;
-        --leaderboard) LEADERBOARD="$2"; PASSTHROUGH_ARGS+=(--leaderboard "$2"); USE_SDK=true; shift 2 ;;
+        --leaderboard) LEADERBOARD="$2"; LEADERBOARD_REQUESTED=true; PASSTHROUGH_ARGS+=(--leaderboard "$2"); USE_SDK=true; shift 2 ;;
         --force-retry) FORCE_RETRY=true; PASSTHROUGH_ARGS+=(--force-retry); USE_SDK=true; shift ;;
         --dry-run)     DRY_RUN=true; shift ;;
         --verbose|-v|--quiet|-q)  PASSTHROUGH_ARGS+=("$1"); shift ;;
@@ -88,8 +88,9 @@ done
 # --leaderboard and --force-retry are defined only by eval_appworld_sdk.py. The
 # other evaluators use argparse.parse_args(), so passing either through would
 # abort with "unrecognized arguments" *after* the AppWorld and registry servers
-# have already booted. Reject it up front instead.
-for sdk_only in ${LEADERBOARD:+--leaderboard} ${FORCE_RETRY:+--force-retry}; do
+# have already booted. Reject it up front instead. Keyed on whether the flag was
+# *passed*, not on its value — `--leaderboard ""` must not slip past the guard.
+for sdk_only in ${LEADERBOARD_REQUESTED:+--leaderboard} ${FORCE_RETRY:+--force-retry}; do
     if [[ "${AGENT:-cuga}" == "codeact" || "${AGENT:-cuga}" == "react" ]]; then
         echo "Error: ${sdk_only} is SDK-only (CUGA lite). --agent ${AGENT} does not accept ${sdk_only}." >&2
         echo "Drop --agent, or drop ${sdk_only}." >&2
@@ -300,7 +301,7 @@ if prepare_experiment_workspace "appworld"; then
     mark_run_state_started
 fi
 
-if [[ -n "${LEADERBOARD:-}" && -z "${WORKSPACE_BUNDLE_DIR:-}" ]]; then
+if [[ -n "${LEADERBOARD_REQUESTED:-}" && -z "${WORKSPACE_BUNDLE_DIR:-}" ]]; then
     echo -e "${YELLOW:-}Warning: --leaderboard without --experiment/--resume-experiment: no workspace, so resume, retry keys and the official evaluate are unavailable for this run${NC:-}"
 fi
 

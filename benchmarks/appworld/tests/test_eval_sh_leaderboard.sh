@@ -59,6 +59,15 @@ assert_contains "dry-run shows react --agent flag" "appworld_eval_react --agent 
 out=$(bash "$EVAL" --dry-run --eval-key k --no-bundle 2>&1)
 assert_contains "dry-run shows default --agent flag" "appworld_eval --agent cuga" "$out"
 
+# An empty value must not slip past the SDK-only guard: ${VAR:+...} is empty for
+# both "unset" and "", so keying on the value dispatched codeact with an
+# unsupported --leaderboard.
+out=$(bash "$EVAL" --dry-run --leaderboard "" --agent codeact --eval-key k 2>&1); rc=$?
+assert_contains "rejects empty leaderboard value + codeact" "SDK-only" "$out"
+[[ $rc -eq 2 ]] && { echo "  PASS: empty leaderboard+codeact exits 2"; PASS=$((PASS+1)); } || { echo "  FAIL: empty leaderboard+codeact rc=$rc"; FAIL=$((FAIL+1)); }
+out=$(bash "$EVAL" --dry-run --leaderboard "" --eval-key k 2>&1)
+assert_contains "empty leaderboard still implies --sdk" "eval_appworld_sdk" "$out"
+
 echo "pack_leaderboard.sh"
 PACK="$SCRIPT_DIR/../pack_leaderboard.sh"
 out=$(bash "$PACK" 2>&1); rc=$?

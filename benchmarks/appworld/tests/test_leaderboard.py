@@ -435,12 +435,14 @@ def test_plan_unrecorded_retry_shaped_key_does_not_rerun(root, ws):
         eval_key="smoke_failed",
         leaderboard_prefix=None,
         bundle_dir=ws,
-        completed_ids=set(CHALLENGE),
+        # One still to do, so this exercises the skip logic rather than the
+        # separate "nothing would run" guard below.
+        completed_ids={CHALLENGE[0]},
         force_retry=False,
         root=root,
         default_experiment_name="x",
     )
-    assert plan.mode == "batch" and plan.task_ids == [] and plan.skipped == CHALLENGE[:2]
+    assert plan.mode == "batch" and plan.task_ids == [CHALLENGE[1]] and plan.skipped == [CHALLENGE[0]]
 
 
 def test_plan_force_retry_on_batch_key(root, ws):
@@ -937,4 +939,59 @@ def test_cli_typod_key_exits_1_without_traceback(tmp_path, toml_path, ws, capsys
         else ["evaluate", "x_test_normal", "--key", "nope", "--toml", str(toml_path)]
     )
     assert lb.cli(argv) == 1
-    assert "Error:" in capsys.readouterr().err
+    stderr = capsys.readouterr().err
+    assert "Error:" in stderr
+    assert "Traceback" not in stderr
+
+
+def test_unrecorded_retry_shaped_key_that_would_noop_raises(root, ws):
+    """Pre-fix retry keys have no `retry_keys` record — don't burn a silent no-op run."""
+    lb.store_leaderboard_metadata(
+        ws, prefix="cuga_v1", split="test_normal", appworld_experiment="cuga_v1_test_normal"
+    )
+    with pytest.raises(lb.LeaderboardError, match="looks like a retry key"):
+        lb.plan_run(
+            task_ids=NORMAL[:2],
+            eval_key="cuga_v1_chal_errored",
+            leaderboard_prefix=None,
+            bundle_dir=ws,
+            completed_ids=set(NORMAL),
+            force_retry=False,
+            root=root,
+            default_experiment_name="x",
+        )
+
+
+def test_unrecorded_retry_shaped_key_with_work_left_is_a_plain_resume(root, ws):
+    """Only the would-be-no-op case errors; a partly-done key still resumes."""
+    lb.store_leaderboard_metadata(
+        ws, prefix="cuga_v1", split="test_normal", appworld_experiment="cuga_v1_test_normal"
+    )
+    plan = lb.plan_run(
+        task_ids=NORMAL[:2],
+        eval_key="cuga_v1_chal_errored",
+        leaderboard_prefix=None,
+        bundle_dir=ws,
+        completed_ids={NORMAL[0]},
+        force_retry=False,
+        root=root,
+        default_experiment_name="x",
+    )
+    assert plan.mode == "batch" and plan.task_ids == [NORMAL[1]]
+
+
+def test_force_retry_rescues_an_unrecorded_retry_key(root, ws):
+    lb.store_leaderboard_metadata(
+        ws, prefix="cuga_v1", split="test_normal", appworld_experiment="cuga_v1_test_normal"
+    )
+    plan = lb.plan_run(
+        task_ids=NORMAL[:2],
+        eval_key="cuga_v1_chal_errored",
+        leaderboard_prefix=None,
+        bundle_dir=ws,
+        completed_ids=set(NORMAL),
+        force_retry=True,
+        root=root,
+        default_experiment_name="x",
+    )
+    assert plan.mode == "retry" and plan.task_ids == NORMAL[:2]

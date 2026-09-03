@@ -420,6 +420,16 @@ def plan_run(
         mode = "batch" if split else "plain"
         to_run = [t for t in task_ids if t not in completed_ids]
         skipped = [t for t in task_ids if t in completed_ids]
+        # A retry-shaped key with no record is either a hand-written key or one
+        # written before retry-ness became data. Skipping every id silently
+        # would look like a no-op run, so say what to do about it.
+        if not to_run and eval_key is not None and is_retry_key(eval_key):
+            raise LeaderboardError(
+                f"eval key {eval_key!r} looks like a retry key but this workspace has no record "
+                f"of it, so all {len(skipped)} ids counted as already completed and nothing would "
+                "run. Re-generate it with `leaderboard retry-key`, or add --force-retry to re-run "
+                "these ids deliberately."
+            )
     return RunPlan(experiment_name, to_run, skipped, split, prefix, mode)
 
 
