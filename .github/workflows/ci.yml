@@ -27,19 +27,19 @@ jobs:
     name: Lint
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
         with:
           path: cuga-eval
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
         with:
           repository: cuga-project/cuga-agent
           path: cuga-agent
           ref: main
-      - uses: astral-sh/setup-uv@v6
+      - uses: astral-sh/setup-uv@v7
         with:
           enable-cache: true
       - name: Set up Python
-        uses: actions/setup-python@v5
+        uses: actions/setup-python@v7
         with:
           python-version: '3.12'
       - name: Sync dev dependencies
@@ -53,19 +53,19 @@ jobs:
     name: Tests (sanity + regression)
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
         with:
           path: cuga-eval
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
         with:
           repository: cuga-project/cuga-agent
           path: cuga-agent
           ref: main
-      - uses: astral-sh/setup-uv@v6
+      - uses: astral-sh/setup-uv@v7
         with:
           enable-cache: true
       - name: Set up Python
-        uses: actions/setup-python@v5
+        uses: actions/setup-python@v7
         with:
           python-version: '3.12'
       - name: Sync dev dependencies
@@ -76,25 +76,62 @@ jobs:
   security:
     name: Security (bandit + pip-audit)
     runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      pull-requests: read
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
         with:
           path: cuga-eval
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
         with:
           repository: cuga-project/cuga-agent
           path: cuga-agent
           ref: main
-      - uses: astral-sh/setup-uv@v6
+      - uses: astral-sh/setup-uv@v7
         with:
           enable-cache: true
       - name: Set up Python
-        uses: actions/setup-python@v5
+        uses: actions/setup-python@v7
         with:
           python-version: '3.12'
       - name: Sync dev dependencies
         run: uv sync --group dev
       - name: bandit
         run: uv run bandit -c pyproject.toml -r benchmarks scripts -ll
+
+      # pip-audit always runs, but only fails this required check when the
+      # PR itself touches dependency files. Unrelated PRs (and pushes to
+      # main) stay green with a warning annotation; otherwise a CVE this
+      # change didn't introduce would block merge and paint main red (see
+      # PR #166 / c13ba72). The weekly dependency-audit workflow is the
+      # continuously-blocking backstop: it opens a tracking issue on main.
+      - name: Detect dependency-file changes
+        id: dep-changes
+        env:
+          EVENT_NAME: ${{ github.event_name }}
+          GH_TOKEN: ${{ github.token }}
+          REPO: ${{ github.repository }}
+          PR_NUMBER: ${{ github.event.pull_request.number }}
+        run: |
+          if [ "$EVENT_NAME" != "pull_request" ]; then
+            echo "changed=false" >> "$GITHUB_OUTPUT"
+            exit 0
+          fi
+          changed="$(gh api --paginate "repos/${REPO}/pulls/${PR_NUMBER}/files" --jq '.[].filename' \
+            | grep -E '^(pyproject\.toml|uv\.lock)$' || true)"
+          if [ -n "$changed" ]; then
+            echo "changed=true" >> "$GITHUB_OUTPUT"
+          else
+            echo "changed=false" >> "$GITHUB_OUTPUT"
+          fi
+
       - name: pip-audit
+        id: pip-audit
+        continue-on-error: ${{ steps.dep-changes.outputs.changed != 'true' }}
         run: uv run pip-audit --skip-editable
+
+      - name: Annotate non-blocking pip-audit finding
+        if: steps.pip-audit.outcome == 'failure' && steps.pip-audit.conclusion == 'success'
+        run: |
+          echo "::warning title=pip-audit (non-blocking)::pip-audit found a vulnerability, but this run does not modify pyproject.toml or uv.lock, so the Security check is not failed. See the pip-audit step log above. The weekly dependency-audit workflow tracks vulnerabilities on main independent of PR activity."

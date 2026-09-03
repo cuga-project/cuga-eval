@@ -1,0 +1,82 @@
+name: Dependabot auto-merge
+
+# Auto-approves and enables auto-merge for Dependabot patch/minor PRs once
+# required checks (Lint, Tests, Security, CodeRabbit) pass. Major-version
+# bumps are left for manual review.
+#
+# Runs on `pull_request` (not `pull_request_target`): Dependabot pushes to a
+# branch in this repo, not a fork, so there's no cross-trust boundary to
+# protect against here, and pull_request_target would add privilege surface
+# for no benefit.
+#
+# main requires one approving review, and GITHUB_TOKEN approvals do not
+# count toward that. Store a PAT or GitHub App token as a *Dependabot*
+# secret (Settings → Secrets → Dependabot, not Actions) named
+# DEPENDABOT_AUTO_MERGE_TOKEN so the approval satisfies branch protection.
+# Dependabot-triggered workflows cannot read Actions secrets. Until that
+# secret exists, this job still enables auto-merge and the PR waits for a
+# human approval.
+
+on:
+  pull_request:
+    branches: [main]
+
+jobs:
+  # Kept as its own job with read-only permissions: dependabot/fetch-metadata
+  # is a third-party action, and it should never be handed the write-scoped
+  # token that the merge/approve steps below need. If the pinned action were
+  # ever compromised, the blast radius is capped at read access.
+  metadata:
+    if: github.event.pull_request.user.login == 'dependabot[bot]' && github.event.pull_request.head.repo.full_name == github.repository
+    runs-on: ubuntu-latest
+    permissions:
+      pull-requests: read
+    outputs:
+      update-type: ${{ steps.metadata.outputs.update-type }}
+      dependency-names: ${{ steps.metadata.outputs.dependency-names }}
+      dependency-group: ${{ steps.metadata.outputs.dependency-group }}
+    steps:
+      - name: Fetch dependabot metadata
+        id: metadata
+        uses: dependabot/fetch-metadata@25dd0e34f4fe68f24cc83900b1fe3fe149efef98 # v3.1.0
+        with:
+          github-token: "${{ secrets.GITHUB_TOKEN }}"
+
+  auto-merge:
+    needs: metadata
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+      pull-requests: write
+    steps:
+      # fetch-metadata returns an empty update-type for a grouped PR when it
+      # can't infer a single semver level from the group's title. Only trust
+      # that empty case for our own patch/minor-only groups (dependabot.yml),
+      # never unconditionally — an unclassified PR outside those groups
+      # (e.g. a stray major) must not slip through.
+      - name: Approve and enable auto-merge (patch/minor/grouped)
+        if: |
+          needs.metadata.outputs.update-type == 'version-update:semver-patch' ||
+          needs.metadata.outputs.update-type == 'version-update:semver-minor' ||
+          (needs.metadata.outputs.update-type == '' && (needs.metadata.outputs.dependency-group == 'python-patch-minor' || needs.metadata.outputs.dependency-group == 'github-actions-patch-minor'))
+        env:
+          GH_TOKEN: ${{ secrets.DEPENDABOT_AUTO_MERGE_TOKEN || secrets.GITHUB_TOKEN }}
+          HAS_AUTO_MERGE_TOKEN: ${{ secrets.DEPENDABOT_AUTO_MERGE_TOKEN != '' }}
+          PR_URL: ${{ github.event.pull_request.html_url }}
+          UPDATE_TYPE: ${{ needs.metadata.outputs.update-type }}
+          DEPENDENCY_NAMES: ${{ needs.metadata.outputs.dependency-names }}
+        run: |
+          if [ "$HAS_AUTO_MERGE_TOKEN" != "true" ]; then
+            echo "::warning title=Dependabot auto-merge::DEPENDABOT_AUTO_MERGE_TOKEN is unset. GITHUB_TOKEN approvals do not satisfy main's required review, so auto-merge will wait for a human. Add a PAT or GitHub App token as a Dependabot secret named DEPENDABOT_AUTO_MERGE_TOKEN."
+          fi
+          gh pr review "$PR_URL" --approve \
+            --body "Auto-approved: Dependabot ${UPDATE_TYPE:-grouped} update for ${DEPENDENCY_NAMES}."
+          gh pr merge "$PR_URL" --auto --squash
+
+      - name: Flag major updates for human review
+        if: needs.metadata.outputs.update-type == 'version-update:semver-major'
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          PR_URL: ${{ github.event.pull_request.html_url }}
+        run: |
+          gh pr comment "$PR_URL" --body "Major version update — not auto-merged, needs manual review."

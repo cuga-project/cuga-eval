@@ -925,7 +925,13 @@ def create_workspace_bundle(
         metadata.setdefault("experiment_name", experiment_name)
     metadata["status"] = "in_progress"
     history = metadata.get("resume_history") or []
-    history.append({"started_at": now, "model_profile": model_profile})
+    history.append(
+        {
+            "started_at": now,
+            "model_profile": model_profile,
+            "eval_key": (args or {}).get("eval_key"),
+        }
+    )
     metadata["resume_history"] = history
     if args:
         run = metadata.get("run") or {}
@@ -941,7 +947,12 @@ def create_workspace_bundle(
                 # task_ids when this call (e.g. a --resume-experiment invocation
                 # without task filtering) doesn't supply any.
                 "task_ids": args.get("task_ids") if args.get("task_ids") is not None else run.get("task_ids"),
-                "eval_key": args.get("eval_key"),
+                # Same fallback again: a --resume-experiment that omits
+                # --eval-key must not blank the key this workspace was run
+                # with. eval.sh reads it back to pick the official AppWorld
+                # evaluate; clobbering it to None made that fallback dead.
+                # The exact per-invocation value stays in resume_history.
+                "eval_key": args.get("eval_key") if args.get("eval_key") is not None else run.get("eval_key"),
             }
         )
         metadata["run"] = run
@@ -1034,8 +1045,11 @@ def finalize_workspace_bundle(
             "model_profile": model_profile if model_profile is not None else run.get("model_profile"),
             "policies_enabled": not args.get("no_policies", False),
             "task_files": [str(Path(tf).name) for tf in (task_files or [])],
-            "task_ids": args.get("task_ids"),
-            "eval_key": args.get("eval_key"),
+            # Preserve rather than clobber, exactly as create_workspace_bundle
+            # does: finalize runs on every invocation, including a resume that
+            # supplied neither, and it runs *before* eval.sh reads eval_key back.
+            "task_ids": args.get("task_ids") if args.get("task_ids") is not None else run.get("task_ids"),
+            "eval_key": args.get("eval_key") if args.get("eval_key") is not None else run.get("eval_key"),
         }
     )
     metadata["run"] = run
