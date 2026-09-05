@@ -56,6 +56,7 @@ DEFAULT_PROVIDER="rits"
 
 MODEL_NAME="${MODEL_NAME:-$DEFAULT_MODEL_NAME}"
 TASK_IDS="${TASK_IDS:-}"
+EVAL_KEY="${EVAL_KEY:-}"
 BENCHMARK="${BENCHMARK:-$DEFAULT_BENCHMARK}"
 NUM_TASKS="${NUM_TASKS:-$DEFAULT_NUM_TASKS}"
 AGENT="${AGENT:-$DEFAULT_AGENT}"
@@ -67,6 +68,7 @@ MODEL_NAME_FROM_COMMENT=false
 #   model_name=...
 #   task_id=id1,id2
 #   task_ids=id1,id2
+#   eval_key=test_easy|test_med|test_hard|...
 #   benchmark=appworld|m3
 #   num_tasks=...
 #   agent=react|cuga|codeact
@@ -95,6 +97,10 @@ for token in "${TOKENS[@]}"; do
       TASK_IDS="${TASK_IDS//,/ }"
       ;;
 
+    eval_key=*|eval-key=*)
+      EVAL_KEY="${token#*=}"
+      ;;
+
     benchmark=*)
       BENCHMARK="${token#benchmark=}"
       ;;
@@ -116,7 +122,7 @@ for token in "${TOKENS[@]}"; do
 
     *)
       echo "ERROR: Unsupported parameter: ${token}"
-      echo "Supported parameters: model_name, task_id, task_ids, benchmark, num_tasks, agent, provider"
+      echo "Supported parameters: model_name, task_id, task_ids, eval_key, benchmark, num_tasks, agent, provider"
       close_details
       echo "######## REPORT END ########"
       exit 2
@@ -141,6 +147,7 @@ fi
 AGENT="$(printf '%s' "${AGENT}" | tr '[:upper:]' '[:lower:]')"
 BENCHMARK="$(printf '%s' "${BENCHMARK}" | tr '[:upper:]' '[:lower:]')"
 PROVIDER="$(printf '%s' "${PROVIDER}" | tr '[:upper:]' '[:lower:]')"
+EVAL_KEY="$(printf '%s' "${EVAL_KEY}" | tr '[:upper:]' '[:lower:]')"
 
 case "${AGENT}" in
   react|cuga|codeact)
@@ -163,6 +170,13 @@ case "${BENCHMARK}" in
     exit 2
     ;;
 esac
+
+if [[ -n "${EVAL_KEY}" && "${BENCHMARK}" != "appworld" ]]; then
+  echo "ERROR: eval_key is only supported for benchmark=appworld."
+  close_details
+  echo "######## REPORT END ########"
+  exit 2
+fi
 
 case "${PROVIDER}" in
   rits)
@@ -218,14 +232,14 @@ else
   :
 fi
 
-if [[ -z "${TASK_IDS}" && "${BENCHMARK}" == "appworld" ]]; then
+if [[ -z "${TASK_IDS}" && -z "${EVAL_KEY}" && "${BENCHMARK}" == "appworld" ]]; then
   TASK_IDS="${DEFAULT_APPWORLD_TASK_IDS}"
 fi
 
 read -r -a TASK_ID_ARRAY <<< "${TASK_IDS}"
 
-if [[ ${#TASK_ID_ARRAY[@]} -eq 0 && "${BENCHMARK}" == "appworld" ]]; then
-  echo "ERROR: At least one task_id is required for benchmark=appworld."
+if [[ ${#TASK_ID_ARRAY[@]} -eq 0 && -z "${EVAL_KEY}" && "${BENCHMARK}" == "appworld" ]]; then
+  echo "ERROR: At least one task_id or eval_key is required for benchmark=appworld."
   close_details
   echo "######## REPORT END ########"
   exit 2
@@ -234,6 +248,9 @@ echo "- Model: ${MODEL_NAME}"
 echo "- Agent: ${AGENT}"
 echo "- Benchmark: ${BENCHMARK}"
 echo "- Provider: ${PROVIDER}"
+if [[ -n "${EVAL_KEY}" ]]; then
+  echo "- Eval key: ${EVAL_KEY}"
+fi
 echo "- Num tasks: ${NUM_TASKS}"
 if [[ ${#TASK_ID_ARRAY[@]} -gt 0 ]]; then
   echo "- Task IDs: ${TASK_IDS}"
@@ -295,11 +312,18 @@ echo "- Agent setting config: ${AGENT_SETTING_CONFIG}"
 echo "- Model: ${MODEL_NAME}"
 echo "- Requested num_tasks: ${NUM_TASKS}"
 if [[ "${BENCHMARK}" == "appworld" ]]; then
-  echo "- Effective task count: ${#TASK_ID_ARRAY[@]}"
-  echo "- Task IDs:"
-  for task_id in "${TASK_ID_ARRAY[@]}"; do
-    echo "  - ${task_id}"
-  done
+  if [[ -n "${EVAL_KEY}" ]]; then
+    echo "- Eval key: ${EVAL_KEY}"
+  fi
+  if [[ ${#TASK_ID_ARRAY[@]} -gt 0 ]]; then
+    echo "- Effective task count: ${#TASK_ID_ARRAY[@]}"
+    echo "- Task IDs:"
+    for task_id in "${TASK_ID_ARRAY[@]}"; do
+      echo "  - ${task_id}"
+    done
+  else
+    echo "- Task IDs: selected by eval_key"
+  fi
 else
   echo "- M3 max samples per domain: ${NUM_TASKS}"
   if [[ ${#TASK_ID_ARRAY[@]} -gt 0 ]]; then
@@ -333,7 +357,12 @@ EVAL_ARGS=(
 )
 
 if [[ "${BENCHMARK}" == "appworld" ]]; then
-  EVAL_ARGS+=(--task "${TASK_ID_ARRAY[@]}")
+  if [[ -n "${EVAL_KEY}" ]]; then
+    EVAL_ARGS+=(--eval-key "${EVAL_KEY}")
+  fi
+  if [[ ${#TASK_ID_ARRAY[@]} -gt 0 ]]; then
+    EVAL_ARGS+=(--task "${TASK_ID_ARRAY[@]}")
+  fi
 else
   EVAL_ARGS+=(--m3-data --max-samples-per-domain "${NUM_TASKS}")
   if [[ ${#TASK_ID_ARRAY[@]} -gt 0 ]]; then
