@@ -7,13 +7,15 @@ from typing import Any, List, Optional
 
 from langchain_openai import ChatOpenAI
 from prompt import CorrectnessPrompt, GroundednessPrompt
-from constant import N_TOOL_CALLS_PER_TURN
 from utils import JudgeInput, JudgeOutput
 
 _LABEL_RE = re.compile(r"\b(yes|partial|no|unsure)\b", re.IGNORECASE)
 _CONCLUSION_RE = re.compile(r"<conclusion>\s*(.*?)\s*</conclusion>", re.IGNORECASE | re.DOTALL)
 
 _SCORE_MAP = {"yes": 1.0, "partial": 0.0, "no": 0.0, "unsure": 0.0}
+
+N_TOOL_CALLS_PER_TURN = 20
+
 
 class JudgeOutputParseError(ValueError):
     pass
@@ -52,30 +54,6 @@ class ChatModel(ChatOpenAI):
         config.update(params)
 
         super().__init__(**config)
-
-
-class ChatRits(ChatOpenAI):
-    """RITS chat model integration using langchain-openai."""
-
-    def __init__(self, config: dict):
-        model_name = config.get("model_name", "openai/gpt-oss-120b")
-        end_point = config.get(
-            "end_point",
-            "https://inference-3scale-apicast-production.apps.rits.fmaas.res.ibm.com/gpt-oss-120b",
-        )
-        rits_api_key = os.getenv("RITS_API_KEY")
-        if rits_api_key is None or rits_api_key == "":
-            raise ValueError("RITS_API_KEY is required")
-
-        params = config.get("params", {})
-        rits_config = {}
-        rits_config.setdefault("model_name", model_name)
-        rits_config.setdefault("api_key", "/")
-        rits_config.setdefault("default_headers", {"RITS_API_KEY": rits_api_key})
-        rits_config.setdefault("base_url", end_point.rstrip("/") + "/v1")
-        rits_config.update(params)
-
-        super().__init__(**rits_config)
 
 
 class LiteLLMChatModel(ChatOpenAI):
@@ -117,19 +95,16 @@ class LiteLLMChatModel(ChatOpenAI):
 def _build_judge_llm(config: dict) -> ChatOpenAI:
     """Select the judge backend. Default ``litellm`` -> Azure/gpt-4.1 via the
     LiteLLM proxy; set ``JUDGE_BACKEND=groq`` (or gpt-oss) for the legacy
-    Groq-backed gpt-oss-120b judge, or ``JUDGE_BACKEND=rits`` for RITS.
-    An explicit ``config["backend"]`` wins."""
+    Groq-backed gpt-oss-120b judge. An explicit ``config["backend"]`` wins."""
     backend = (config.get("backend") or os.getenv("JUDGE_BACKEND", "litellm")).strip().lower()
     if backend in ("groq", "gpt-oss", "gpt_oss", "oss"):
         return ChatModel(config)
-    if backend == "rits":
-        return ChatRits(config)
     if backend in ("litellm", "azure", ""):
         return LiteLLMChatModel(config)
     raise ValueError(
         f"Unknown judge backend {backend!r}. Set JUDGE_BACKEND (or config['backend']) to one of: "
         "'litellm'/'azure' (default, Azure/gpt-4.1 via the LiteLLM proxy) or "
-        "'groq'/'gpt-oss' (legacy Groq gpt-oss-120b) or 'rits'."
+        "'groq'/'gpt-oss' (legacy Groq gpt-oss-120b)."
     )
 
 
