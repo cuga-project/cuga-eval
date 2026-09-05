@@ -133,12 +133,25 @@ The command accepts whitespace-separated `key=value` parameters:
 - `model_name`: model name to evaluate.
 - `task_id`: one task ID, or comma-separated task IDs.
 - `task_ids`: alias for `task_id`.
+- `eval_key`: AppWorld task group from `benchmarks/appworld/eval_config.toml`, such as `test_easy`, `test_med`, or `test_hard`.
 - `benchmark`: `appworld` or `m3`; defaults to `appworld`.
 - `num_tasks`: positive integer; defaults to `4`.
 - `agent`: `react`, `cuga`, or `codeact`; defaults to `react`.
 - `provider`: `rits` or `litellm`; defaults to `rits`.
 
 Unsupported parameters cause the workflow to fail early with a list of supported parameters.
+
+Useful AppWorld `eval_key` values:
+
+- `test_easy`
+- `test_med`
+- `test_hard`
+- `test_challenge_easy`
+- `test_challenge_med`
+- `test_challenge_hard`
+- `test_normal_easy`
+- `test_normal_med`
+- `test_normal_hard`
 
 ## Examples
 
@@ -164,6 +177,24 @@ Run AppWorld with two explicit tasks:
 
 ```text
 /run-pr-eval benchmark=appworld task_id=9aae7da_1,365e0a3_1 num_tasks=2
+```
+
+Run AppWorld easy tasks from `eval_config.toml`:
+
+```text
+/run-pr-eval benchmark=appworld eval_key=test_easy
+```
+
+Run AppWorld medium tasks from `eval_config.toml`:
+
+```text
+/run-pr-eval benchmark=appworld eval_key=test_med
+```
+
+Run AppWorld hard tasks from `eval_config.toml`:
+
+```text
+/run-pr-eval benchmark=appworld eval_key=test_hard
 ```
 
 Run M3 with the default React agent:
