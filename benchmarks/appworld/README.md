@@ -180,6 +180,114 @@ uv run python -m benchmarks.helpers.bundle replay \
 
 Experiment flags auto-enable `--sdk`. See the [main README](../../README.md#named-experiments-resume-and-background-runs).
 
+### Leaderboard submissions (full test_normal / test_challenge)
+
+Everything is driven by keys in [`eval_config.toml`](eval_config.toml). One cuga-eval workspace
+(`evaluation_bundles/<name>`) and one AppWorld experiment directory
+(`appworld/experiments/outputs/<prefix>_<split>`) per split. Never create a second workspace for
+the same prefix+split. For an agent-guided walkthrough use `/appworld-leaderboard`.
+
+**0. Prepare batch keys (once per split)**
+
+```bash
+uv run python -m benchmarks.appworld.leaderboard split-key test_challenge_all --batch-size 100
+uv run python -m benchmarks.appworld.leaderboard split-key test_normal_all --batch-size 100
+```
+
+Writes `<key>_b1..bN` batch keys; scenarios `_1/_2/_3` of a base always stay in the same batch.
+
+**1. First batch**
+
+```bash
+./benchmarks/appworld/eval.sh --sdk --experiment cuga_v1_chal --leaderboard cuga_v1 \
+    --eval-key test_challenge_all_b1 --background
+```
+
+Watch with `./benchmarks/appworld/eval.sh --status --resume-experiment cuga_v1_chal` (or
+`uv run python -m benchmarks.appworld.leaderboard status --bundle-dir benchmarks/appworld/evaluation_bundles/cuga_v1_chal`).
+
+**2. Inspect and decide what to retry**
+
+Prefer the harness lists over cuga-viz's "Failed" tab (it only lists score == 0.0 and misses
+AppWorld's fractional scores):
+
+```bash
+uv run python -m benchmarks.appworld.leaderboard retry-key errored     --bundle-dir benchmarks/appworld/evaluation_bundles/cuga_v1_chal --of-key test_challenge_all_b1
+uv run python -m benchmarks.appworld.leaderboard retry-key uncompleted --bundle-dir benchmarks/appworld/evaluation_bundles/cuga_v1_chal --of-key test_challenge_all_b1
+```
+
+Either appends a key like `cuga_v1_chal_errored = [...]` to `eval_config.toml`. Only retry
+timeouts/connection resets/5xx/empty LLM replies — a genuine agent mistake is not retried on a
+leaderboard run (one attempt per task).
+
+**3. Retry (same workspace, same AppWorld dir)**
+
+```bash
+./benchmarks/appworld/eval.sh --resume-experiment cuga_v1_chal --eval-key cuga_v1_chal_errored
+```
+
+A key that `retry-key` wrote for **this** workspace re-runs every id even if its partial is clean —
+the workspace records the key name in `metadata.json` (`retry_keys`), so an unrelated key that
+merely ends in `_failed` never gains that power. For a hand-written key add `--force-retry`.
+
+**4. Next batches**
+
+```bash
+./benchmarks/appworld/eval.sh --resume-experiment cuga_v1_chal --eval-key test_challenge_all_b2 --background
+# inspect / retry, then b3, b4, ...
+```
+
+Batch keys skip ids that already completed. Ids must belong to the workspace's split or the run aborts.
+
+**5. Validate + official numbers**
+
+```bash
+uv run python -m benchmarks.appworld.leaderboard validate cuga_v1 --split test_challenge
+uv run python -m benchmarks.appworld.leaderboard evaluate cuga_v1_test_challenge --split test_challenge \
+    --bundle-dir benchmarks/appworld/evaluation_bundles/cuga_v1_chal
+```
+
+`validate` checks the experiment directory before anything is packed:
+
+| Check | Result if it fails |
+|---|---|
+| Every expected task id has an output directory | listed under "missing tasks" — exits 1 |
+| Every task has its required result files | listed under "missing files in `<task>`" — exits 1 |
+| Every base task has all its scenarios (`_1`/`_2`/`_3`) | listed under "bases missing a scenario" — exits 1 |
+| Task has more than 1 environment interaction | listed under "tasks with <=1 environment interaction" — exits 1 unless `--allow-low-interactions` |
+
+SDK eval (`--sdk` / `--leaderboard`) still calls AppWorld APIs over HTTP to the registry (port
+9111), so those calls never go through `world.execute`. After each task the harness copies
+`invoke_result.tool_calls` (ToolCallTracker) into `logs/environment_io.md` and `logs/api_calls.jsonl`
+**without re-executing** them, and keeps the harness `complete_task` interaction last.
+
+Pass `--allow-low-interactions` to `validate`/`pack` only when the ≤1-interaction tasks are one of:
+
+- the task really made no AppWorld API call besides `complete_task` (crash / no-op), or
+- the known logging gap: the merge could not run or found nothing to copy, so only the harness
+  `complete_task` interaction was recorded even though the agent did call APIs over the registry.
+
+It never silences a missing-task, missing-file or missing-scenario failure — those always exit 1.
+`evaluate` prints TGC + SGC by difficulty and writes them into the workspace `report.md`
+under "AppWorld official metrics".
+
+**6. Pack both splits**
+
+```bash
+./benchmarks/appworld/pack_leaderboard.sh cuga_v1 "CUGA" "CUGA lite via SDK" "gpt-4.1" "gpt-4.1-2025-04-14" \
+    https://github.com/cuga-project/cuga-agent
+```
+
+Refuses unless both splits validate — or just the one split, with `--only test_normal` /
+`--only test_challenge`. Then runs `appworld evaluate` (writes `evaluations/<split>.json` under
+the AppWorld experiment dir — not the cuga-eval workspace `report.md`; that is step 5), skipping it
+when that file is already newer than every task output (`--re-evaluate` forces it), then
+`appworld pack`, unpacks the bundle into a temp dir and
+byte-compares every file; prints the two `leaderboard.bundle` paths and the
+`/add-to-leaderboard --python … --appworld … cuga_v1` comment for the PR. Don't trust `appworld
+pack` output alone — it prints WARNINGs and still writes the bundle, and says nothing about
+absent task dirs; only `pack_leaderboard.sh` / `leaderboard pack` verify.
+
 ### `eval.sh` Parameters
 
 | Parameter | Description | Example |
@@ -196,8 +304,11 @@ Experiment flags auto-enable `--sdk`. See the [main README](../../README.md#name
 | `--resume-experiment <name>` | Resume a named experiment | `--resume-experiment my-appworld` |
 | `--resume` | Resume last experiment | `--resume` |
 | `--background` | Background run (requires experiment flags) | `--background` |
-| `--status` | Show progress without starting servers | `--status` |
+| `--status` | Show progress without starting servers (also prints leaderboard status when the workspace has a leaderboard block) | `--status` |
 | `--stop` | Stop background run | `--stop` |
+| `--leaderboard <prefix>` | Tag this run for official AppWorld leaderboard submission (implies `--sdk`); see [Leaderboard submissions](#leaderboard-submissions-full-test_normal--test_challenge) | `--leaderboard cuga_v1` |
+| `--force-retry` | Re-run listed tasks even if a clean partial already exists | `--force-retry` |
+| `--dry-run` | Print the evaluator command that would run and exit without starting servers | `--dry-run` |
 
 ---
 

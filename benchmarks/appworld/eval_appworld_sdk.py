@@ -51,6 +51,12 @@ from cuga.backend.cuga_graph.utils.controller import AgentRunner
 from cuga.config import settings
 from cuga.sdk import CugaAgent
 
+from benchmarks.appworld.leaderboard import (
+    LeaderboardError,
+    appworld_root,
+    plan_run,
+    store_leaderboard_metadata,
+)
 from benchmarks.appworld.utils.appworld_utils import (
     evaluation_task_info,
     get_specific_task_levels,
@@ -74,17 +80,17 @@ var_manager = VariablesManager()
 
 
 def _task_ids_for_run(
-    task_id: Optional[str],
+    task_ids: Optional[List[str]],
     dataset_name: str,
     eval_key: Optional[str],
     from_dataset: bool,
 ) -> tuple[List[str], Optional[str]]:
-    """Resolve task IDs: single task, eval_config.toml group, or load_task_ids(dataset).
+    """Resolve task IDs: explicit ids, eval_config.toml group, or load_task_ids(dataset).
 
     Returns (task_ids, eval_group_name) where eval_group_name is set when tasks came from toml.
     """
-    if task_id:
-        return [task_id], None
+    if task_ids:
+        return list(task_ids), None
     if from_dataset:
         return load_task_ids(dataset_name), None
     key = eval_key or getattr(settings.eval_config, "eval_key", None)
@@ -97,6 +103,16 @@ def _task_ids_for_run(
             f"eval_config.toml has no task list for key {key!r}; falling back to dataset {dataset_name!r}"
         )
     return load_task_ids(dataset_name), None
+
+
+def count_selected_completed(results: List[Dict[str, Any]], selected_ids: List[str]) -> int:
+    """How many of ``selected_ids`` have a ``task_name`` row in ``results``.
+
+    ``results`` may also hold prior batches in the same workspace, so
+    ``len(results)`` is not a valid completion check for this run.
+    """
+    names = {r.get("task_name") for r in results if r.get("task_name") is not None}
+    return sum(1 for tid in selected_ids if tid in names)
 
 
 def _build_user_context(world: AppWorld) -> str:
@@ -128,6 +144,7 @@ async def invoke_and_score_appworld(
     difficulty: str,
     user_context: Optional[str],
     track_tool_calls: bool = True,
+    merge_tool_call_logs: bool = False,
 ) -> Dict[str, Any]:
     intent = world.task.instruction
     thread_id = f"appworld_sdk_{task_id}_{task_index}_{uuid.uuid4().hex[:8]}"
@@ -176,6 +193,7 @@ async def invoke_and_score_appworld(
 
     def complete_and_eval() -> None:
         nonlocal harness_done, eval_dict
+        logs_dir = world.output_logs_directory
         _complete_task(world, response, is_error)
         evaluation = world.evaluate()
         eval_dict = evaluation_task_info(evaluation)
@@ -184,6 +202,22 @@ async def invoke_and_score_appworld(
         except Exception:  # noqa: S110 — cleanup is best-effort, swallowing is intentional
             pass
         harness_done = True
+        # Leaderboard runs only: rewriting the AppWorld logs is for submission
+        # bundles, so a routine train/dev run leaves environment_io.md and
+        # api_calls.jsonl exactly as world.execute wrote them.
+        if not merge_tool_call_logs:
+            return
+        # Registry HTTP calls never go through world.execute. Copy ToolCallTracker
+        # records into environment_io.md / api_calls.jsonl without re-running them.
+        # Logs are already on disk from execute() → save_logs().
+        try:
+            from benchmarks.appworld.interaction_logs import merge_tracker_into_appworld_logs
+
+            n = merge_tracker_into_appworld_logs(logs_dir, tool_calls)
+            if n:
+                logger.info(f"[APPWORLD-SDK] wrote {n} CUGA tool calls into AppWorld logs")
+        except Exception as log_exc:
+            logger.warning(f"[APPWORLD-SDK] could not merge tool calls into AppWorld logs: {log_exc}")
 
     if langfuse_handler:
         try:
@@ -350,7 +384,7 @@ class AppWorldSdkEvaluator:
     def __init__(
         self,
         dataset_name: str = "train",
-        task_id: Optional[str] = None,
+        task_ids: Optional[List[str]] = None,
         specific_task_levels: Optional[List[int]] = None,
         experiment_name: Optional[str] = None,
         environment_url: Optional[str] = None,
@@ -359,14 +393,21 @@ class AppWorldSdkEvaluator:
         from_dataset: bool = False,
         bundle_dir: Optional[Path] = None,
         resume_completed_ids: Optional[set] = None,
+        leaderboard_prefix: Optional[str] = None,
+        force_retry: bool = False,
     ):
         self.dataset_name = dataset_name
-        self.task_id = task_id
+        self.task_ids = task_ids
         self.specific_task_levels = specific_task_levels
         self.eval_key = eval_key
         self.from_dataset = from_dataset
         self.bundle_dir = bundle_dir
         self.resume_completed_ids = resume_completed_ids or set()
+        self.leaderboard_prefix = leaderboard_prefix
+        # Set from the resolved RunPlan in evaluate_all (covers resume, where
+        # --leaderboard is not repeated but the workspace metadata says so).
+        self.leaderboard_mode = False
+        self.force_retry = force_retry
         self.experiment_name = experiment_name or os.getenv(
             "APPWORLD_SDK_EXPERIMENT_NAME", "appworld_sdk_evaluation"
         )
@@ -380,6 +421,7 @@ class AppWorldSdkEvaluator:
         # (not None) so the partial-run check in main() can't be silently
         # disabled by a future refactor that catches exceptions inside evaluate_all().
         self.total_tasks: int = 0
+        self.selected_task_ids: List[str] = []
         self.special_instructions: Optional[str] = """
 # INSTRUCTIONS
 
@@ -604,6 +646,7 @@ B. App-specific instructions:
                     task_index=task_index,
                     difficulty=difficulty,
                     user_context=user_context,
+                    merge_tool_call_logs=self.leaderboard_mode,
                 )
                 tracker_callback(merged, {}, world.task.instruction)
                 return merged
@@ -615,32 +658,65 @@ B. App-specific instructions:
 
     async def evaluate_all(self):
         task_ids, eval_group = _task_ids_for_run(
-            self.task_id,
+            self.task_ids,
             self.dataset_name,
             self.eval_key,
             self.from_dataset,
         )
-        if self.task_id:
-            logger.info(f"Single task mode: {self.task_id}")
+        if self.task_ids:
+            logger.info(f"Single task mode: {self.task_ids}")
         elif eval_group:
             logger.info(f"Tasks from eval_config.toml (group {eval_group!r}): {len(task_ids)} tasks")
         else:
             logger.info(f"Dataset '{self.dataset_name}': {len(task_ids)} tasks")
 
-        if self.specific_task_levels and not self.task_id:
+        if self.specific_task_levels and not self.task_ids:
             task_ids = get_specific_task_levels(task_ids, self.specific_task_levels)
             logger.info(f"Filtered to levels {self.specific_task_levels}: {len(task_ids)} tasks")
+
+        plan = plan_run(
+            task_ids=task_ids,
+            eval_key=eval_group or self.eval_key,
+            leaderboard_prefix=self.leaderboard_prefix,
+            bundle_dir=self.bundle_dir,
+            completed_ids=set(self.resume_completed_ids),
+            force_retry=self.force_retry,
+            root=appworld_root(),
+            default_experiment_name=self.experiment_name,
+        )
+        self.experiment_name = plan.experiment_name
+        # Leaderboard mode is whatever the plan resolved — from --leaderboard on
+        # this invocation or from the workspace's stored leaderboard block on a
+        # resume. Gates the AppWorld interaction-log rewrite (submission-only).
+        self.leaderboard_mode = bool(plan.split and plan.prefix)
+        task_ids = list(plan.task_ids)
+        self.selected_task_ids = list(task_ids)
+        logger.info(
+            f"[APPWORLD-SDK] mode={plan.mode} experiment={plan.experiment_name} "
+            f"run={len(plan.task_ids)} skip={len(plan.skipped)}"
+        )
+        if plan.mode == "retry":
+            self.resume_completed_ids = set()
+        # Total intended for this run. Compared against how many of
+        # selected_task_ids appear in self.results — not len(self.results),
+        # which also holds prior batches in the same workspace.
+        self.total_tasks = len(task_ids)
 
         tracker.start_experiment(
             task_ids=task_ids,
             experiment_name=self.experiment_name,
             description="AppWorld SDK (CombinedToolProvider) evaluation",
         )
+        logger.info(f"[APPWORLD-SDK] cuga-viz experiment: {tracker.experiment_folder}")
+        if self.bundle_dir is not None and plan.split and plan.prefix:
+            store_leaderboard_metadata(
+                self.bundle_dir,
+                prefix=plan.prefix,
+                split=plan.split,
+                appworld_experiment=plan.experiment_name,
+                tracker_folder=tracker.experiment_folder,
+            )
 
-        # Total intended for this run; compared against len(self.results) so a
-        # run that stops early (crash/interrupt) is detected as partial rather
-        # than silently reported as complete.
-        self.total_tasks = len(task_ids)
         self.results = []
         results_index: Dict[str, int] = {}  # task_name -> index (resume dedupe)
         if self.bundle_dir is not None:
@@ -715,7 +791,7 @@ async def main():
     parser.add_argument(
         "--dataset", default="train", help="Dataset name when using --from-dataset or as fallback"
     )
-    parser.add_argument("--task-id", default=None, help="Run a single task ID")
+    parser.add_argument("--task-id", nargs="+", default=None, help="Run one or more task IDs")
     parser.add_argument(
         "--eval-key",
         default=None,
@@ -761,6 +837,18 @@ async def main():
         default=None,
         help="Task IDs to treat as already completed (skip). Usually computed by the shell layer.",
     )
+    parser.add_argument(
+        "--leaderboard",
+        default=None,
+        metavar="PREFIX",
+        help="Leaderboard mode: AppWorld experiment becomes <PREFIX>_<split>; "
+        "split inferred from the task ids; persisted in the workspace",
+    )
+    parser.add_argument(
+        "--force-retry",
+        action="store_true",
+        help="Re-run every listed task even if its partial result is clean",
+    )
 
     from benchmarks.helpers.logging_args import add_log_level_args, apply_log_level
 
@@ -790,7 +878,7 @@ async def main():
 
     evaluator = AppWorldSdkEvaluator(
         dataset_name=args.dataset,
-        task_id=args.task_id,
+        task_ids=args.task_id,
         specific_task_levels=args.specific_task_levels,
         experiment_name=experiment_name,
         environment_url=args.environment_url,
@@ -799,6 +887,8 @@ async def main():
         from_dataset=args.from_dataset,
         bundle_dir=bundle_dir,
         resume_completed_ids=resume_completed_ids,
+        leaderboard_prefix=args.leaderboard,
+        force_retry=args.force_retry,
     )
 
     exit_code = 0
@@ -808,6 +898,9 @@ async def main():
     except KeyboardInterrupt:
         logger.warning("\nEvaluation interrupted by user")
         exit_code = 130
+    except LeaderboardError as e:
+        logger.error(f"Leaderboard: {e}")
+        exit_code = 3
     except Exception as e:
         logger.error(f"Evaluation failed: {e}")
         import traceback
@@ -833,10 +926,16 @@ async def main():
         else:
             logger.warning("No results to save")
 
-    # Fewer results than intended means the run stopped early. Report it as a
-    # failure so the harness does not present a partial run as a clean pass.
-    total = getattr(evaluator, "total_tasks", None)
-    completed = len(getattr(evaluator, "results", []) or [])
+    # Fewer selected tasks than intended means the run stopped early. Report it
+    # as a failure so the harness does not present a partial run as a clean pass.
+    # Count only this run's ids: self.results also contains prior batches.
+    selected = getattr(evaluator, "selected_task_ids", None)
+    if selected is not None:
+        completed = count_selected_completed(getattr(evaluator, "results", []) or [], list(selected))
+        total = len(selected)
+    else:
+        total = getattr(evaluator, "total_tasks", None)
+        completed = len(getattr(evaluator, "results", []) or [])
     if exit_code == 0 and total is not None and completed < total:
         logger.error(f"Partial run: only {completed}/{total} tasks completed — marking as failed")
         exit_code = 2

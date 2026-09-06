@@ -78,3 +78,28 @@ def test_finalize_reflects_retry_overwrite(tmp_path):
     data = json.loads(out.read_text())
     assert data["metrics"]["total_tasks"] == 1
     assert data["metrics"]["passed"] == 1
+
+
+@pytest.mark.regression
+def test_appworld_evaluator_exposes_leaderboard_flags():
+    source = (PROJECT_ROOT / EVAL_FILES["appworld"]).read_text()
+    options = _argparse_option_strings(source)
+    assert {"--leaderboard", "--force-retry"} <= options
+
+
+@pytest.mark.regression
+def test_appworld_task_id_accepts_many():
+    source = (PROJECT_ROOT / EVAL_FILES["appworld"]).read_text()
+    tree = ast.parse(source)
+    for node in ast.walk(tree):
+        if (
+            isinstance(node, ast.Call)
+            and isinstance(node.func, ast.Attribute)
+            and node.func.attr == "add_argument"
+            and node.args
+            and getattr(node.args[0], "value", None) == "--task-id"
+        ):
+            kw = {k.arg: getattr(k.value, "value", None) for k in node.keywords}
+            assert kw.get("nargs") == "+", "--task-id must accept several ids (eval.sh --task a b c)"
+            return
+    pytest.fail("--task-id argument not found")
