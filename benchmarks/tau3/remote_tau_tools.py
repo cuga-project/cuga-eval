@@ -86,7 +86,12 @@ def drain_pending_tau_tool_calls(
 
 
 def _log(*args: Any) -> None:
-    print("[remote_tau_tools]", *args, flush=True)
+    # Intentionally disabled. remote_tau_tools runs inside CUGA's sandbox for
+    # actual tool calls, and sandbox stdout is fed back to the agent as part of
+    # the execution observation. Printing bridge/debug metadata here therefore
+    # contaminates the semantic tool result and later memory-graph ingestion.
+    # Keep the helper as a no-op so existing call sites remain harmless.
+    return None
 
 
 def _json_schema_type_to_python(schema: dict[str, Any]) -> Any:

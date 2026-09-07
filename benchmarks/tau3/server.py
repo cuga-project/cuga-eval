@@ -1,5 +1,11 @@
 from __future__ import annotations
 
+from pathlib import Path
+import os
+
+_REPO_ROOT = Path(__file__).resolve().parents[2]
+os.environ["ENV_FILE"] = str(_REPO_ROOT / ".env")
+
 import inspect
 import traceback
 from dataclasses import dataclass
@@ -7,6 +13,17 @@ from typing import Any
 
 import uvicorn
 from fastapi import FastAPI, HTTPException
+
+print("dfgkjsdflkgjslkdfjgl;skdj")
+
+print("ENV_FILE:", os.environ.get("ENV_FILE"))
+print("MODEL_NAME:", os.environ.get("MODEL_NAME"))
+print(
+    "AGENT_SETTING_CONFIG:",
+    os.environ.get("AGENT_SETTING_CONFIG"),
+)
+print("OPENAI_BASE_URL:", os.environ.get("OPENAI_BASE_URL"))
+
 
 from cuga import CugaAgent
 from benchmarks.tau3.protocol import (
@@ -17,6 +34,7 @@ from benchmarks.tau3.protocol import (
 )
 from benchmarks.tau3.remote_tau_tools import make_remote_tau_tools
 
+from benchmarks.tau3.experiments import load_active_experiment
 
 @dataclass
 class CugaSessionState:
@@ -28,6 +46,8 @@ class CugaSessionState:
 app = FastAPI(title="CUGA Tau Adapter")
 
 _SESSIONS: dict[str, CugaSessionState] = {}
+
+_ACTIVE_EXPERIMENT = load_active_experiment()
 
 
 def _log(*args: Any) -> None:
@@ -134,10 +154,12 @@ async def _invoke_cuga_agent(
         "callbacks": [handler],
         "metadata": {
             "tau_session_id": session_id,
+            "experiment": _ACTIVE_EXPERIMENT.name,
         },
         "tags": [
             "cuga",
             "tau-bench",
+            f"experiment:{_ACTIVE_EXPERIMENT.name}",
         ],
         "configurable": {
             "thread_id": session_id,
@@ -172,13 +194,20 @@ async def _invoke_cuga_agent(
 
 
 def _build_special_instructions(domain_policy: str) -> str:
+    domain_policy = domain_policy.strip()
+    domain_policy_section = (
+        f"Domain policy:\n{domain_policy}\n\n"
+        if domain_policy
+        else ""
+    )
+
     return (
         "You are being evaluated inside tau-bench.\n"
         "Follow the domain policy exactly.\n"
         "Use the provided external tools whenever the policy or knowledge "
         "base requires an action or lookup.\n"
         "Do not mention implementation details about the bridge.\n\n"
-        f"Domain policy:\n{domain_policy}\n\n"
+        f"{domain_policy_section}"
         "Adapter-specific discoverable-tool mapping:\n"
         "These instructions override earlier low-level instructions about "
         "separately unlocking and calling an agent discoverable tool.\n"
@@ -238,7 +267,7 @@ def health() -> dict[str, str]:
 
 
 @app.post("/sessions", response_model=CreateCugaSessionResponse)
-def create_session(
+async def create_session(
     request: CreateCugaSessionRequest,
 ) -> CreateCugaSessionResponse:
     try:
@@ -252,14 +281,15 @@ def create_session(
             tool_specs=[tool.model_dump() for tool in request.tools],
         )
 
-        cuga_agent = CugaAgent(
-            tool_mode="external",
-            tools=remote_tools,
-            special_instructions=_build_special_instructions(
-                request.domain_policy
-            ),
-            enable_knowledge=False,
-            enable_skills=False,
+        agent_result = _ACTIVE_EXPERIMENT.build_agent(
+            request=request,
+            remote_tools=remote_tools,
+            build_special_instructions=_build_special_instructions,
+        )
+        cuga_agent = (
+            await agent_result
+            if inspect.isawaitable(agent_result)
+            else agent_result
         )
 
         _SESSIONS[request.session_id] = CugaSessionState(
@@ -270,6 +300,7 @@ def create_session(
 
         _log("==== CUGA /sessions ====")
         _log("session_id:", request.session_id)
+        _log("experiment:", _ACTIVE_EXPERIMENT.name)
         _log("remote_tools count:", len(remote_tools))
         _log("remote tool names:", [tool.name for tool in remote_tools])
         _log("cuga_agent type:", type(cuga_agent))
@@ -331,6 +362,21 @@ async def respond(
             user_text=user_text,
             session_id=session_id,
         )
+
+        _log(
+            "cuga result:",
+            result.model_dump()
+            if hasattr(result, "model_dump")
+            else result,
+        )
+
+        result_error = getattr(result, "error", None)
+
+        if result_error:
+            raise RuntimeError(
+                f"CugaAgent.invoke returned an error: {result_error}"
+            )
+
         content = _extract_content_from_cuga_result(result)
 
         _log("cuga result type:", type(result))
