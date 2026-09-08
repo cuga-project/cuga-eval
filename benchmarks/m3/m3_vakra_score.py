@@ -1,9 +1,12 @@
 """Glue between M3 agent results and the Vakra evaluator (benchmarks/m3/evaluator/).
 
-The evaluator was authored to be invoked from its own working directory, so its
-internal imports use sibling-module form (``from judge import ...`` rather than
-``from .judge import ...``). We keep the package drop-in by prepending the
-package directory to ``sys.path`` here.
+``benchmarks/m3/evaluator/evaluator.py`` is a thin bridge module, not a
+byte-for-byte copy of vendor/vakra's evaluator — it loads vendor/vakra's own
+evaluator.py directly (via importlib) and layers a handful of monkeypatched
+overrides on top (see that module's docstring for the full list and why each is
+still needed). It also owns adding vendor/vakra to ``sys.path`` and raising a
+clear error if the checkout is missing. All this file needs to do is make sure
+``benchmarks/m3/evaluator`` itself is importable.
 
 Both sync (``score_results``) and async (``score_results_async``) entry points
 are provided. M3 eval scripts run inside an asyncio event loop, so they MUST
@@ -23,21 +26,14 @@ from typing import Any, Dict, List, Optional, Tuple
 from loguru import logger
 
 _EVAL_DIR = Path(__file__).resolve().parent / "evaluator"
-# The upstream vendor was renamed `enterprise-benchmark` → `vakra`. Try the
-# new name first; fall back to the old name so older clones still work.
-_VENDOR_ROOT = Path(__file__).resolve().parents[2] / "vendor"
-_VENDOR = next(
-    (_VENDOR_ROOT / d for d in ("vakra", "enterprise-benchmark") if (_VENDOR_ROOT / d).is_dir()),
-    _VENDOR_ROOT / "vakra",
-)
-# Order matters: insert _VENDOR first (lower priority), then _EVAL_DIR (highest
-# priority). Otherwise vendor's older evaluator/ package shadows our copy when
-# Python resolves `import evaluator` and `from judge import ...`.
-for _p in (str(_VENDOR), str(_EVAL_DIR)):
-    if _p not in sys.path:
-        sys.path.insert(0, _p)
+if str(_EVAL_DIR) not in sys.path:
+    sys.path.insert(0, str(_EVAL_DIR))
 
 import evaluator as vakra_evaluator  # noqa: E402
+
+# evaluator.py's own vendor-path resolution already validated vendor/vakra exists
+# by the time this import above succeeds; reuse the same path here.
+_VENDOR = vakra_evaluator._VENDOR_ROOT
 
 CAPABILITY_DEFAULT = "capability_bi_apis"
 
