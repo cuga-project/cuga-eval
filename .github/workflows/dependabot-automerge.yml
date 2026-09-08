@@ -58,7 +58,7 @@ jobs:
         if: |
           needs.metadata.outputs.update-type == 'version-update:semver-patch' ||
           needs.metadata.outputs.update-type == 'version-update:semver-minor' ||
-          (needs.metadata.outputs.update-type == '' && (needs.metadata.outputs.dependency-group == 'python-patch-minor' || needs.metadata.outputs.dependency-group == 'github-actions-patch-minor'))
+          (needs.metadata.outputs.update-type == '' && needs.metadata.outputs.dependency-group == 'github-actions-patch-minor')
         env:
           GH_TOKEN: ${{ secrets.DEPENDABOT_AUTO_MERGE_TOKEN || secrets.GITHUB_TOKEN }}
           HAS_AUTO_MERGE_TOKEN: ${{ secrets.DEPENDABOT_AUTO_MERGE_TOKEN != '' }}
