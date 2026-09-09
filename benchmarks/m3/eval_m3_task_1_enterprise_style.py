@@ -51,7 +51,6 @@ from cuga.backend.activity_tracker.tracker import ActivityTracker
 from cuga.backend.cuga_graph.state.agent_state import VariablesManager
 
 # Import CUGA modules
-from cuga.sdk import CugaAgent
 from langchain_core.messages import HumanMessage
 from loguru import logger
 
@@ -62,6 +61,10 @@ from benchmarks.helpers import (
     save_evaluation_results,
     setup_langfuse,
 )
+
+# VAKRA adapter: configured-CUGA construction seam (default preset "off" = a
+# plain CugaAgent, unchanged behavior; see benchmarks/m3/ADAPTER.md).
+from benchmarks.m3.adapter import AdapterConfig, build_m3_agent, resolve_adapter_config
 
 # Import MCP client utilities
 from benchmarks.m3.direct_mcp_client import (
@@ -216,6 +219,7 @@ async def run_benchmark_for_domain_with_retry(
     max_samples: Optional[int] = None,
     agent_timeout: int = 300,
     max_retries: int = 3,
+    adapter_cfg: Optional[AdapterConfig] = None,
 ) -> List[Dict[str, Any]]:
     """Run benchmark with automatic reconnection on connection failures."""
     all_results = []
@@ -234,6 +238,7 @@ async def run_benchmark_for_domain_with_retry(
             config=config,
             max_samples=None,
             agent_timeout=agent_timeout,
+            adapter_cfg=adapter_cfg,
         )
 
         all_results.extend(batch_results)  # Append results from this batch
@@ -258,6 +263,7 @@ async def run_benchmark_for_domain_single_connection(
     config: DirectMCPConfig,
     max_samples: Optional[int] = None,
     agent_timeout: int = 300,
+    adapter_cfg: Optional[AdapterConfig] = None,
 ) -> List[Dict[str, Any]]:
     """
     Run benchmark for a single domain using persistent stdio connection.
@@ -322,13 +328,12 @@ async def run_benchmark_for_domain_single_connection(
             # Create agent with tool_provider (not raw tools)
             # Note: Code executor timeout is hardcoded at 30s in CUGA
             # For slow queries, consider increasing container resources or using --max-samples
-            if langfuse_handler:
-                agent = CugaAgent(
-                    tool_provider=tool_provider,
-                    callbacks=[langfuse_handler],
-                )
-            else:
-                agent = CugaAgent(tool_provider=tool_provider)
+            cfg = adapter_cfg if adapter_cfg is not None else resolve_adapter_config("off")
+            agent = build_m3_agent(
+                tool_provider=tool_provider,
+                config=cfg,
+                callbacks=[langfuse_handler] if langfuse_handler else None,
+            )
             logger.info(f"✅ Agent created with {len(tools)} tools via DirectLangChainToolsProvider")
             logger.warning("⚠️  Code executor timeout is 30s (hardcoded in CUGA). Slow queries may timeout.")
 
@@ -391,6 +396,21 @@ async def run_benchmark_for_domain_single_connection(
                         raise RuntimeError(f"Universe switch failed: {parsed_data['error']}")
 
                     logger.info("  ✅ Universe loaded successfully")
+
+                    # VAKRA adapter: hand the item's data handle/peek to the agent
+                    # (cap1 handle protocol) and optionally re-list the tools the
+                    # universe switch just swapped in (relist_after_switch).
+                    if hasattr(agent, "set_task_context"):
+                        peek = parsed_data if isinstance(parsed_data, dict) else None
+                        agent.set_task_context(
+                            initial_data_handle=(peek or {}).get("handle"),
+                            initial_data_peek=peek,
+                            domain=domain,
+                        )
+                    if cfg.relist_after_switch and hasattr(agent, "refresh_tools"):
+                        fresh_tools = await get_tools_from_session(session)
+                        agent.refresh_tools(fresh_tools)
+                        logger.info(f"  🔁 Re-listed tools after universe switch ({len(fresh_tools)})")
 
                     # STEP 2: Run agent with clean query (no augmentation)
                     logger.info("  🤖 Running agent...")
@@ -683,8 +703,20 @@ async def main():
         default=300,
         help="Agent timeout in seconds (default: 300)",
     )
+    parser.add_argument(
+        "--adapter-preset",
+        type=str,
+        choices=["off", "cap1", "cap2", "cap3", "cap4_v3wx"],
+        default=None,
+        help=(
+            "VAKRA adapter preset (configured CUGA; see benchmarks/m3/ADAPTER.md). "
+            "For this capability-1 runner the documented value is 'cap1'. "
+            "Default: M3_ADAPTER_PRESET env var, else 'off' (current behavior)."
+        ),
+    )
 
     args = parser.parse_args()
+    adapter_cfg = resolve_adapter_config(args.adapter_preset, capability=1)
 
     # Auto-detect runtime if not specified
     runtime = args.runtime or detect_container_runtime()
@@ -753,6 +785,7 @@ async def main():
             config=config,
             max_samples=args.max_samples,
             agent_timeout=args.agent_timeout,
+            adapter_cfg=adapter_cfg,
         )
 
         all_results.extend(domain_results)

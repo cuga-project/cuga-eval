@@ -64,6 +64,10 @@ from benchmarks.helpers import (
     setup_agent_with_tools,
 )
 
+# VAKRA adapter: configured-CUGA wrapper (default preset "off" = no wrapping,
+# unchanged behavior; see benchmarks/m3/ADAPTER.md).
+from benchmarks.m3.adapter import AdapterConfig, resolve_adapter_config, wrap_existing_agent
+
 tracker = ActivityTracker()
 var_manager = VariablesManager()
 
@@ -82,12 +86,17 @@ class M3MultiTurnEvaluator:
         self.agent: Optional[CugaAgent] = None
         self.results: List[Dict[str, Any]] = []
 
-    async def setup(self, policies: Optional[List] = None):
+    async def setup(self, policies: Optional[List] = None, adapter_cfg: Optional["AdapterConfig"] = None):
         """Set up the agent with tools and policies."""
         special_instructions = ""
         self.agent, self.langfuse_handler = await setup_agent_with_tools(
             special_instructions=special_instructions
         )
+
+        # VAKRA adapter: wrap the freshly built agent BEFORE its first invoke
+        # (no-op passthrough when the preset is off; see benchmarks/m3/ADAPTER.md).
+        if adapter_cfg is not None and adapter_cfg.enabled:
+            self.agent = wrap_existing_agent(self.agent, adapter_cfg)
 
         logger.info("Resetting policy database...")
         await clear_all_policies(self.agent)
@@ -129,6 +138,14 @@ class M3MultiTurnEvaluator:
             "domain": domain,
             "difficulty": sample.get("difficulty", "unknown"),
         }
+
+        # VAKRA adapter: deliver the per-sample policy string to the agent before
+        # the turns run (verbatim passthrough + deterministic tool scoping).
+        if hasattr(self.agent, "set_task_context"):
+            self.agent.set_task_context(
+                additional_instructions=sample.get("additional_instructions", "") or "",
+                domain=domain,
+            )
 
         result = await evaluate_multiturn_task_with_langfuse(
             agent=self.agent,
@@ -225,19 +242,31 @@ async def main():
         default=os.path.join(os.path.dirname(__file__), "data", default_data_file),
         help=f"Path to data file (default: data/{default_data_file})",
     )
+    parser.add_argument(
+        "--adapter-preset",
+        type=str,
+        choices=["off", "cap1", "cap2", "cap3", "cap4_v3wx"],
+        default=None,
+        help=(
+            "VAKRA adapter preset (configured CUGA; see benchmarks/m3/ADAPTER.md). "
+            "For this multiturn runner the documented value is 'cap4_v3wx'. "
+            "Default: M3_ADAPTER_PRESET env var, else 'off' (current behavior)."
+        ),
+    )
     from benchmarks.helpers.logging_args import add_log_level_args, apply_log_level
 
     add_log_level_args(parser)
 
     args = parser.parse_args()
     apply_log_level(args)
+    adapter_cfg = resolve_adapter_config(args.adapter_preset, capability=4)
 
     # Create evaluator
     evaluator = M3MultiTurnEvaluator(task_id=args.task)
 
     try:
         # Setup
-        await evaluator.setup()
+        await evaluator.setup(adapter_cfg=adapter_cfg)
 
         # Evaluate
         await evaluator.evaluate_all(args.data)
