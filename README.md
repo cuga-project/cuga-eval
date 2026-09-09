@@ -16,6 +16,7 @@ This repository contains:
 | **[Oak Health Insurance](benchmarks/oak_health_insurance/README.md)** | Healthcare insurance application with claims, coverage, and benefits tasks | Healthcare |
 | **[M3](benchmarks/m3/README.md)** | Multi-hop question answering using hockey domain data | Knowledge Retrieval |
 | **[AppWorld](benchmarks/appworld/README.md)** | Complex web application automation and task completion | Web Automation |
+| **[tau2-bench (τ²)](benchmarks/tau2/README.md)** | Multi-turn customer-service benchmark (airline/retail/telecom) with user simulator and env-state scoring | Customer Service |
 
 ---
 
@@ -57,7 +58,7 @@ source .venv/bin/activate  # On Windows: .venv\Scripts\activate
 uv sync
 ```
 
-This installs the base dependencies needed for all benchmarks except AppWorld.
+This installs the base dependencies needed for all benchmarks except AppWorld and tau2 — each of those has a one-time setup step (see below).
 
 ### 4. Configure environment variables
 ```bash
@@ -83,7 +84,7 @@ LANGFUSE_HOST="https://us.cloud.langfuse.com"
 
 ### 5. Per-benchmark setup
 
-Steps 1–4 above (clone, `setup_cuga.sh`, `uv venv && uv sync`, `.env`) are enough to run **BPO** and **Oak Health Insurance** out of the box. **M3** and **AppWorld** each need one extra setup step. The four subsections below are independent — run only the ones for benchmarks you actually want to use.
+Steps 1–4 above (clone, `setup_cuga.sh`, `uv venv && uv sync`, `.env`) are enough to run **BPO** and **Oak Health Insurance** out of the box. **M3**, **AppWorld**, and **tau2 (τ²)** each need one extra setup step. The five subsections below are independent — run only the ones for benchmarks you actually want to use.
 
 At-a-glance:
 
@@ -93,6 +94,7 @@ At-a-glance:
 | Oak Health Insurance | None — base `uv sync` is enough | – |
 | M3 | Yes (one-time) | `./setup_m3.sh` |
 | AppWorld | Yes (one-time) | `git lfs install && ./setup_appworld.sh` |
+| tau2-bench (τ²) | Yes (one-time) | `bash setup_tau2.sh && uv sync --group tau2` |
 
 #### BPO — no extra setup
 
@@ -146,6 +148,25 @@ After setup:
   since the group is opt-in. Re-add it any time with `uv sync --group appworld`.
 
 See [`benchmarks/appworld/README.md`](benchmarks/appworld/README.md) for full details.
+
+#### tau2-bench (τ²) Setup
+
+If you plan to run the tau2 benchmark:
+
+```bash
+# Clones tau2-bench (pinned), registers it as an editable dependency in the
+# `tau2` group, and verifies the benchmark data.
+bash setup_tau2.sh
+
+# Install the tau2 group.
+uv sync --group tau2
+```
+
+Like AppWorld, `setup_tau2.sh` writes `[tool.uv.sources]` / `[dependency-groups].tau2`
+entries into your **local** `pyproject.toml` and `uv.lock` — these are intentional and
+should **not** be committed. τ² runs entirely in-process (no servers to start).
+
+See [`benchmarks/tau2/README.md`](benchmarks/tau2/README.md) for full details.
 
 #### Running multiple benchmarks
 

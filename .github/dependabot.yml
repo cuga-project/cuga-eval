@@ -1,36 +1,27 @@
 version: 2
 updates:
-  # Python dependencies: pyproject.toml + uv.lock at repo root. The `uv`
-  # ecosystem reached Dependabot GA in March 2025 and understands
-  # pyproject.toml/uv.lock directly. Scheduled after the 06:00 UTC
-  # dependency-audit sweep so the two Monday jobs don't pile on together.
-  # No target-branch: main is already the default branch, and setting
-  # target-branch explicitly opts this ecosystem entry out of Dependabot
-  # security-update PRs (which always target the default branch and ignore
-  # this option) even when it names that same branch.
-  - package-ecosystem: "uv"
-    directory: "/"
-    schedule:
-      interval: "weekly"
-      day: "monday"
-      time: "08:00"
-      timezone: "UTC"
-    open-pull-requests-limit: 10
-    groups:
-      python-patch-minor:
-        applies-to: version-updates
-        update-types:
-          - "patch"
-          - "minor"
-    commit-message:
-      prefix: "chore(deps)"
-    labels:
-      - "dependencies"
+  # No "uv" (Python) ecosystem entry: pyproject.toml declares `cuga` as an
+  # editable path dependency at `../cuga-agent` — deliberately outside this
+  # repo, since cuga-eval is designed to always integration-test against
+  # cuga-agent's live main (not a pinned version), the same way CI checks it
+  # out as a sibling before every uv sync. Dependabot requires path-based
+  # dependencies to resolve inside the scanned repo's own source tree
+  # (dependabot-core#8428, #12945, #13872 are the same class of failure), so
+  # every "uv" ecosystem run fails outright with "Dependabot couldn't fetch
+  # all your path-based dependencies" before it can even look at the other,
+  # normal PyPI packages in the same lockfile — there's no config (ignore:
+  # or otherwise) that works around a structurally-unreachable path source.
+  # Nesting cuga-agent inside this repo (e.g. a git submodule) would make
+  # Dependabot happy but pins to one commit instead of tracking main, which
+  # defeats the point of this repo. pip-audit (CI's security job + the
+  # weekly dependency-audit.yml) remains the vulnerability-detection
+  # backstop for Python deps; version bumps for them stay manual.
 
   # GitHub Actions version pins in .github/workflows/*.yml (actions/checkout,
   # astral-sh/setup-uv, actions/setup-python, etc.). Patch/minor only — majors
   # stay ungrouped so automerge cannot squash an actions/checkout v4→v5 bump
-  # into a patch PR.
+  # into a patch PR. 08:00 (not 06:00) so this doesn't pile onto
+  # dependency-audit.yml's 06:00 Monday sweep.
   - package-ecosystem: "github-actions"
     directory: "/"
     schedule:
