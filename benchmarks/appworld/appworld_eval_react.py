@@ -33,6 +33,7 @@ from dataclasses import dataclass
 from datetime import datetime
 from typing import Any, Optional
 
+import httpx
 from appworld import AppWorld, load_task_ids  # pyright: ignore[reportAttributeAccessIssue]
 from cuga.backend.activity_tracker.tracker import ActivityTracker, Step
 from cuga.backend.cuga_graph.state.agent_state import VariablesManager
@@ -181,13 +182,13 @@ def _print_appworld_summary(report: dict):
     avg_steps = report.get("avg_steps", 0)
     avg_duration = report.get("avg_duration", 0)
 
-    print("\n" + "=" * 80)
-    print("EVALUATION COMPLETE")
-    print("=" * 80)
+    print("######## REPORT START ########")
+    print("## EVALUATION COMPLETE")
     print(f"Total Tasks: {total}")
     print(f"Completed: {completed}/{total} ({success_rate:.1%})")
     print(f"Avg Steps: {avg_steps:.2f}")
     print(f"Avg Duration: {avg_duration:.2f}s")
+    print("######## REPORT END ########")
 
 
 def _render_initial_prompt(world: AppWorld) -> str:
