@@ -387,7 +387,10 @@ def _emit_cleanly(func, *args, **kwargs) -> None:
             pass
 
 
-M3_SUMMARY_FILE = "/tmp/m3_summary.txt"  # noqa: S108  # nosec B108 — fixed dev-tool output path; not security-sensitive
+# eval.sh exports a run-scoped path so concurrent runs on one host don't
+# overwrite each other's summary (issue #115); the fixed default only applies
+# when eval_m3 is invoked directly.
+M3_SUMMARY_FILE = os.getenv("M3_SUMMARY_FILE", "/tmp/m3_summary.txt")  # noqa: S108  # nosec B108 — dev-tool output path; not security-sensitive
 
 
 def print_m3_data_summary(results: List[Dict[str, Any]]) -> None:
@@ -1969,8 +1972,13 @@ async def start_registry_server(
             env["CONTAINER_RUNTIME"] = "docker"
             logger.warning("No container runtime detected, defaulting to 'docker'")
 
-    # Start registry in background with output logging
-    registry_log_file = Path(__file__).parent / "registry_server.log"
+    # Start registry in background with output logging. eval.sh exports a
+    # run-scoped path (issue #115) so concurrent --m3-data runs on one host
+    # don't clobber each other's registry-startup log; the fixed default only
+    # applies when eval_m3 is invoked directly.
+    registry_log_file = Path(
+        os.getenv("M3_REGISTRY_SERVER_LOG", str(Path(__file__).parent / "registry_server.log"))
+    )
     log_file = open(registry_log_file, "w")
     logger.info(f"📝 Registry server output will be logged to: {registry_log_file}")
     logger.info("📝 Registry log preview will be echoed here during warmup")

@@ -59,6 +59,13 @@ COMMON=(--runs "$RUNS" --no-policies --m3-data --eval-key "$EVAL_KEY" "${DOTENV[
 # M3_GROUNDEDNESS_TRIM and conflate two independent changes.
 TRIM="${M3_GROUNDEDNESS_TRIM:-off}"
 
+# Run-scoped temp dir shared with the compare.sh/eval.sh runs below (issue
+# #115). The current-arm marker lives here so two concurrent A/B comparisons
+# on one host don't clobber each other's breadcrumb.
+M3_RUN_TMP_DIR="${M3_RUN_TMP_DIR:-$(mktemp -d "${TMPDIR:-/tmp}/m3_ab_XXXXXX")}"
+export M3_RUN_TMP_DIR
+echo "Run-scoped temp dir (arm marker + logs): $M3_RUN_TMP_DIR"
+
 run_arm() {
     local label="$1" ground="$2"
     echo ""
@@ -69,7 +76,7 @@ run_arm() {
     echo "#   eval-key=${EVAL_KEY}  runs=${RUNS}  extra=${PASS[*]:-none}"
     echo "############################################################"
     echo "arm=${label} groundedness=${ground} trim=${TRIM} eval_key=${EVAL_KEY} ts=$(date -u +%FT%TZ)" \
-        > "/tmp/m3_groundedness_arm.txt"
+        > "$M3_RUN_TMP_DIR/m3_groundedness_arm.txt"
     M3_GROUNDEDNESS_PROMPT="$ground" M3_GROUNDEDNESS_TRIM="$TRIM" \
         bash "$SCRIPT_DIR/compare.sh" "${COMMON[@]}"
 }

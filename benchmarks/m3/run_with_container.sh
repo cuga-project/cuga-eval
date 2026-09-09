@@ -31,6 +31,8 @@ NC='\033[0m' # No Color
 ENTERPRISE_BENCHMARK_DIR="${ENTERPRISE_BENCHMARK_DIR:-/Users/hamidadebayo/dev/enterprise-benchmark}"
 CONTAINER_NAME="fastapi-mcp-server"
 FASTAPI_PORT=8000
+# Overridable so concurrent runs on one host don't share a log (issue #115).
+REGISTRY_LOG="${M3_REGISTRY_LOG:-/tmp/m3_registry.log}"
 
 echo -e "${BLUE}========================================${NC}"
 echo -e "${BLUE}M3 Benchmark with FastAPI Container${NC}"
@@ -138,7 +140,7 @@ lsof -ti:8001 | xargs kill -9 2>/dev/null || true
 
 # Start registry in background
 cd benchmarks/m3
-bash run_registry.sh > /tmp/m3_registry.log 2>&1 &
+bash run_registry.sh > "$REGISTRY_LOG" 2>&1 &
 REGISTRY_PID=$!
 
 # Wait for registry to be ready
@@ -160,9 +162,9 @@ done
 
 if [ $attempt -gt $max_attempts ]; then
     echo -e "${RED}✗ Registry server failed to start after $max_attempts attempts${NC}"
-    echo -e "${YELLOW}Check logs: tail -f /tmp/m3_registry.log${NC}"
+    echo -e "${YELLOW}Check logs: tail -f $REGISTRY_LOG${NC}"
     echo -e "${YELLOW}Last 20 lines of log:${NC}"
-    tail -20 /tmp/m3_registry.log
+    tail -20 "$REGISTRY_LOG"
     exit 1
 fi
 
@@ -174,7 +176,7 @@ if [ "$TOOL_COUNT" -gt "0" ]; then
     echo -e "${GREEN}✓ Registry loaded $TOOL_COUNT hockey tools${NC}"
 else
     echo -e "${RED}✗ Registry did not load any tools${NC}"
-    echo -e "${YELLOW}Check logs: tail -f /tmp/m3_registry.log${NC}"
+    echo -e "${YELLOW}Check logs: tail -f $REGISTRY_LOG${NC}"
     exit 1
 fi
 
@@ -208,7 +210,7 @@ if [ -d "$RESULTS_DIR" ]; then
     fi
 fi
 
-echo -e "\n${YELLOW}Registry logs: tail -f /tmp/m3_registry.log${NC}"
+echo -e "\n${YELLOW}Registry logs: tail -f $REGISTRY_LOG${NC}"
 echo -e "${YELLOW}Container logs: docker logs $CONTAINER_NAME -f${NC}"
 
 exit $EVAL_EXIT_CODE
