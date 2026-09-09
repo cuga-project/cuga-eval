@@ -92,3 +92,13 @@ def test_make_final_answer_fn_honors_canonicalize_flag():
     assert off("<|channel|>x") == "x"
     # refusal untouched either way
     assert on("I can not answer.") == "I can not answer."
+
+
+def test_normalize_strips_trailing_source_citation():
+    assert normalize_answer("Charles. Source: hockey_get_players_by_position_no_shoot_catch.") == "Charles"
+    assert normalize_answer("42. Sources: tool_a, tool_b") == "42"
+    # mid-answer "Source" is content, not a citation
+    assert normalize_answer("The Source of the Nile") == "The Source of the Nile"
+    # citation-only answers are preserved, never emptied (underscores go via the
+    # ported markdown-emphasis strip, as in the original normalizer)
+    assert normalize_answer("Source: tool_a.") == "Source: toola"

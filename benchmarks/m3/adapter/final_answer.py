@@ -86,16 +86,28 @@ def looks_like_failure(text: str) -> bool:
     return t.strip("*` .").lower() in _BLUFF_VALUES
 
 
+# Trailing citation clause CUGA's final-answer composer sometimes appends
+# ("Charles. Source: hockey_get_players_by_position."). The groundedness judge
+# treats the tool-name citation as an unsupported claim, so a correct value
+# scores 0. Strip only a TRAILING clause; a "Source" mid-answer is content.
+_SOURCE_SUFFIX_RE = re.compile(r"[\s.]*\bSources?\s*:\s*[^.:]{1,200}\.?\s*$", re.IGNORECASE)
+
+
 def normalize_answer(text: str) -> str:
     """Deterministic, judge-aligned cleanup of the final answer string.
 
     - strips markdown emphasis and surrounding quotes/backticks
+    - drops a trailing "Source: ..." citation clause (judge counts it as an
+      unsupported claim)
     - collapses float-formatted integers (36526.0 -> 36526), incl. inside lists
     - drops stray IMPOSSIBLE tokens when real content is present
-    - never touches non-numeric content beyond markdown stripping
+    - never touches non-numeric content beyond the cleanups above
     """
     t = (text or "").strip()
     t = re.sub(r"[*_`]{1,3}", "", t).strip()
+    desourced = _SOURCE_SUFFIX_RE.sub("", t).strip()
+    if desourced:  # keep the citation only when it is all there is
+        t = desourced
     t = re.sub(r"(?<![\d.])(\d+)\.0(?![\d])", r"\1", t)
     stripped = re.sub(r"\bIMPOSSIBLE\b", "", t, flags=re.IGNORECASE).strip(" .,;:")
     if stripped:  # keep the real content; keep IMPOSSIBLE only when it's all there is

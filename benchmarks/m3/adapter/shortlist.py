@@ -84,7 +84,9 @@ def build_shortlister(cfg: AdapterConfig) -> Optional[Any]:
     """
     if not cfg.shortlist_top_k:
         return None
-    from cuga.sdk import Shortlister  # noqa: PLC0415  (lazy: cuga optional at import time)
+    # Lazy: cuga optional at import time. `Shortlister` is re-exported at the
+    # package top level; cuga.sdk only names it under TYPE_CHECKING.
+    from cuga.backend.cuga_graph.nodes.cuga_lite.shortlister import Shortlister  # noqa: PLC0415
 
     return Shortlister(
         strategy=PINNED_STRATEGY_PATH if cfg.shortlist_pin_retrievers else "embedding",

@@ -49,11 +49,24 @@ def fake_cuga(monkeypatch):
     def _install(agent_cls):
         sdk = ModuleType("cuga.sdk")
         sdk.CugaAgent = agent_cls
-        sdk.Shortlister = lambda **kw: SimpleNamespace(**kw)
+        # Real layout: Shortlister lives in the shortlister package (cuga.sdk
+        # only names it under TYPE_CHECKING) — mirror that path here.
+        shortlister_mod = ModuleType("cuga.backend.cuga_graph.nodes.cuga_lite.shortlister")
+        shortlister_mod.Shortlister = lambda **kw: SimpleNamespace(**kw)
         cuga = ModuleType("cuga")
         cuga.sdk = sdk
         monkeypatch.setitem(sys.modules, "cuga", cuga)
         monkeypatch.setitem(sys.modules, "cuga.sdk", sdk)
+        for name in (
+            "cuga.backend",
+            "cuga.backend.cuga_graph",
+            "cuga.backend.cuga_graph.nodes",
+            "cuga.backend.cuga_graph.nodes.cuga_lite",
+        ):
+            monkeypatch.setitem(sys.modules, name, ModuleType(name))
+        monkeypatch.setitem(
+            sys.modules, "cuga.backend.cuga_graph.nodes.cuga_lite.shortlister", shortlister_mod
+        )
         return sdk
 
     return _install
