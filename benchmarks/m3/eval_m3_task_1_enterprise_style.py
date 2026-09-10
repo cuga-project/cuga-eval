@@ -85,7 +85,9 @@ async def wrap_tool_with_tracking(tool, app_name: str = "mcp_server"):
     """
     import time
 
-    from cuga.backend.cuga_graph.nodes.cuga_lite.tool_call_tracker import ToolCallTracker
+    # ToolCallTracker moved from cuga_lite.tool_call_tracker to
+    # cuga_lite.tracking.tracker in current cuga main; same record_call API.
+    from cuga.backend.cuga_graph.nodes.cuga_lite.tracking.tracker import ToolCallTracker
 
     # Store original function
     original_func = tool.coroutine if hasattr(tool, 'coroutine') and tool.coroutine else tool.func
@@ -319,7 +321,8 @@ async def run_benchmark_for_domain_single_connection(
 
             # Create a DirectLangChainToolsProvider to wrap our tools
             # This ensures tool call tracking works properly
-            from cuga.backend.cuga_graph.nodes.cuga_lite.direct_langchain_tools_provider import (
+            # Moved to providers.langchain in current cuga main.
+            from cuga.backend.cuga_graph.nodes.cuga_lite.providers.langchain import (
                 DirectLangChainToolsProvider,
             )
 
