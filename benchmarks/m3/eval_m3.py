@@ -864,13 +864,19 @@ class M3Evaluator:
         if "uuid" in sample:
             task_metadata["uuid"] = sample["uuid"]
 
+        # VAKRA per-sample policy text (M3DataLoader's "additional_instructions"),
+        # distinct from the agent-level M3_* special_instructions rider built once
+        # per domain. Threaded through as user_context -> CugaAgent's `pi`, which
+        # graph_adapter.py appends as a "## User Context" block on the first human
+        # message of the thread (see shared_nodes.py) — i.e. additive, not a
+        # replacement for the standing special_instructions.
         result = await evaluate_multiturn_task_with_langfuse(
             agent=self.agent,
             turns=turns,
             task_name=sample_id,
             task_index=sample_index,
             langfuse_handler=self.langfuse_enabled,
-            user_context=None,
+            user_context=sample.get("additional_instructions") or None,
             tracker_callback=tracker_callback,
             track_tool_calls=True,
             expected_keywords=expected_keywords,
