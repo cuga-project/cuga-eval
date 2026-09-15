@@ -253,13 +253,22 @@ async def main():
             "Default: M3_ADAPTER_PRESET env var, else 'off' (current behavior)."
         ),
     )
+    parser.add_argument(
+        "--demo-data",
+        dest="demo_data",
+        type=str,
+        default=None,
+        metavar="PATH",
+        help="Demo corpus for adapter presets with few-shot demos (accepted for eval.sh parity; "
+        "the cap4 preset uses no demos).",
+    )
     from benchmarks.helpers.logging_args import add_log_level_args, apply_log_level
 
     add_log_level_args(parser)
 
     args = parser.parse_args()
     apply_log_level(args)
-    adapter_cfg = resolve_adapter_config(args.adapter_preset, capability=4)
+    adapter_cfg = resolve_adapter_config(args.adapter_preset, capability=4, demo_data=args.demo_data)
 
     # Create evaluator
     evaluator = M3MultiTurnEvaluator(task_id=args.task)

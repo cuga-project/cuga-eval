@@ -16,12 +16,14 @@ from benchmarks.m3.adapter.config import (
     TaskContext,
     resolve_adapter_config,
 )
+from benchmarks.m3.adapter.demos import load_demo_corpus
 
 __all__ = [
     "AdapterConfig",
     "PRESETS",
     "TaskContext",
     "resolve_adapter_config",
+    "load_demo_corpus",
     "build_m3_agent",
     "wrap_existing_agent",
 ]

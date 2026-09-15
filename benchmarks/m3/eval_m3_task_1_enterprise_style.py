@@ -64,7 +64,7 @@ from benchmarks.helpers import (
 
 # VAKRA adapter: configured-CUGA construction seam (default preset "off" = a
 # plain CugaAgent, unchanged behavior; see benchmarks/m3/ADAPTER.md).
-from benchmarks.m3.adapter import AdapterConfig, build_m3_agent, resolve_adapter_config
+from benchmarks.m3.adapter import AdapterConfig, build_m3_agent, load_demo_corpus, resolve_adapter_config
 
 # Import MCP client utilities
 from benchmarks.m3.direct_mcp_client import (
@@ -335,6 +335,9 @@ async def run_benchmark_for_domain_single_connection(
             agent = build_m3_agent(
                 tool_provider=tool_provider,
                 config=cfg,
+                # Explicit demo source only (--demo-data); the bundled train zip has
+                # no capability-1 split, so cap1 runs demo-less unless one is given.
+                demo_corpus=load_demo_corpus(cfg, task_id=1, domain=domain),
                 callbacks=[langfuse_handler] if langfuse_handler else None,
             )
             logger.info(f"✅ Agent created with {len(tools)} tools via DirectLangChainToolsProvider")
@@ -717,9 +720,22 @@ async def main():
             "Default: M3_ADAPTER_PRESET env var, else 'off' (current behavior)."
         ),
     )
+    parser.add_argument(
+        "--demo-data",
+        dest="demo_data",
+        type=str,
+        default=None,
+        metavar="PATH",
+        help=(
+            "Demo corpus for adapter presets with few-shot demos (cap1-3): an M3 data source "
+            "(.zip or capability_<id>_* dir) whose solved samples become the demos. "
+            "Default: M3_ADAPTER_DEMO_DATA env var, else the bundled data/small_train.zip. "
+            "Never defaults to the evaluated data (label leakage; see benchmarks/m3/ADAPTER.md)."
+        ),
+    )
 
     args = parser.parse_args()
-    adapter_cfg = resolve_adapter_config(args.adapter_preset, capability=1)
+    adapter_cfg = resolve_adapter_config(args.adapter_preset, capability=1, demo_data=args.demo_data)
 
     # Auto-detect runtime if not specified
     runtime = args.runtime or detect_container_runtime()

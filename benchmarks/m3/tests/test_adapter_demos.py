@@ -1,8 +1,20 @@
 """Demo corpus extraction + prose-pair selection (embedder stubbed where possible)."""
 
-import pytest
+from pathlib import Path
 
-from benchmarks.m3.adapter.demos import _format_call, _iter_calls, build_demo_index, select_prose_pairs
+import pytest
+from loguru import logger
+
+from benchmarks.m3.adapter.config import ENV_PREFIX, AdapterConfig, resolve_adapter_config
+from benchmarks.m3.adapter.demos import (
+    DEFAULT_DEMO_DATA,
+    _format_call,
+    _iter_calls,
+    build_demo_index,
+    load_demo_corpus,
+    resolve_demo_source,
+    select_prose_pairs,
+)
 
 pytestmark = pytest.mark.sanity
 
@@ -101,3 +113,85 @@ def test_select_pairs_none_index_or_zero_k():
     assert select_prose_pairs(None, "q", 2) == []
     index = build_demo_index([_sample()])
     assert select_prose_pairs(index, "q", 0) == []
+
+
+# ------------------------------ corpus source -------------------------------
+
+
+def test_resolve_demo_source_defaults_to_bundled_train_zip():
+    assert resolve_demo_source(None) == DEFAULT_DEMO_DATA
+    assert DEFAULT_DEMO_DATA.name == "small_train.zip" and DEFAULT_DEMO_DATA.parent.name == "data"
+    assert resolve_demo_source("/x/train.zip") == Path("/x/train.zip")
+
+
+def test_demo_data_env_override_and_cli_precedence():
+    assert resolve_adapter_config("cap2", env={}).demo_data is None
+    cfg = resolve_adapter_config("cap2", env={f"{ENV_PREFIX}DEMO_DATA": "/env.zip"})
+    assert cfg.demo_data == "/env.zip"
+    cfg = resolve_adapter_config("cap2", env={f"{ENV_PREFIX}DEMO_DATA": "/env.zip"}, demo_data="/cli.zip")
+    assert cfg.demo_data == "/cli.zip"
+
+
+class _Loader:
+    def __init__(self, samples=None, fail=False):
+        self.samples = [_sample()] if samples is None else samples
+        self.fail = fail
+        self.calls = []
+
+    def load_domain(self, task_id, domain):
+        self.calls.append((task_id, domain))
+        if self.fail:
+            raise FileNotFoundError("no such domain")
+        return self.samples
+
+
+def test_load_demo_corpus_off_or_missing_source_is_none(tmp_path):
+    assert load_demo_corpus(AdapterConfig(enabled=True, demos=False), task_id=2, domain="hockey") is None
+    cfg = AdapterConfig(enabled=True, demos=True, demo_data=str(tmp_path / "missing.zip"))
+    assert load_demo_corpus(cfg, task_id=2, domain="hockey", loader_factory=lambda p: _Loader()) is None
+
+
+def test_load_demo_corpus_reads_explicit_source_for_the_runs_task_and_domain(tmp_path):
+    src = tmp_path / "train.zip"
+    src.write_bytes(b"")
+    loader = _Loader()
+    seen = {}
+
+    def factory(path):
+        seen["path"] = path
+        return loader
+
+    cfg = AdapterConfig(enabled=True, demos=True, demo_data=str(src))
+    out = load_demo_corpus(
+        cfg, task_id=2, domain="hockey", eval_source=tmp_path / "test.zip", loader_factory=factory
+    )
+    assert out == loader.samples
+    assert seen["path"] == src and loader.calls == [(2, "hockey")]
+
+
+def test_load_demo_corpus_degrades_on_loader_failure_or_empty_split(tmp_path):
+    src = tmp_path / "train.zip"
+    src.write_bytes(b"")
+    cfg = AdapterConfig(enabled=True, demos=True, demo_data=str(src))
+    assert (
+        load_demo_corpus(cfg, task_id=1, domain="movie", loader_factory=lambda p: _Loader(fail=True)) is None
+    )
+    assert (
+        load_demo_corpus(cfg, task_id=1, domain="movie", loader_factory=lambda p: _Loader(samples=[])) is None
+    )
+
+
+def test_load_demo_corpus_same_source_as_eval_warns_but_loads(tmp_path):
+    src = tmp_path / "small_train.zip"
+    src.write_bytes(b"")
+    cfg = AdapterConfig(enabled=True, demos=True, demo_data=str(src))
+    messages = []
+    handle = logger.add(lambda m: messages.append(str(m)), level="WARNING")
+    try:
+        out = load_demo_corpus(
+            cfg, task_id=2, domain="hockey", eval_source=str(src), loader_factory=lambda p: _Loader()
+        )
+    finally:
+        logger.remove(handle)
+    assert out  # train-split runs are legitimate; the run is warned, not refused
+    assert any("evaluated data" in m for m in messages)

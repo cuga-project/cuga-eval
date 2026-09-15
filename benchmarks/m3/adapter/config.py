@@ -74,6 +74,9 @@ class AdapterConfig:
     # --- harness behavior ---
     use_policy_system: bool = True  # False => the eval skips _load_m3_policies (cap4 preset)
 
+    # --- demos source (never the split under evaluation; see demos.load_demo_corpus) ---
+    demo_data: Optional[str] = None  # M3_ADAPTER_DEMO_DATA / --demo-data; None = bundled data/small_train.zip
+
 
 PRESETS: dict[str, AdapterConfig] = {
     "off": AdapterConfig(),
@@ -163,13 +166,16 @@ def resolve_adapter_config(
     *,
     capability: Optional[int] = None,
     env: Optional[Mapping[str, str]] = None,
+    demo_data: Optional[str] = None,
 ) -> AdapterConfig:
     """Resolve the effective adapter config.
 
     Precedence: ``M3_ADAPTER_<FIELD>`` env override > preset value > dataclass
     default. The preset name itself: explicit argument (CLI) > ``M3_ADAPTER_PRESET``
-    env > ``"off"``. ``capability``, when given (from the m3 task id), always wins.
-    Unknown preset names and malformed overrides raise immediately (fail fast).
+    env > ``"off"``. ``capability``, when given (from the m3 task id), always wins;
+    so does an explicit ``demo_data`` (the ``--demo-data`` CLI flag) over
+    ``M3_ADAPTER_DEMO_DATA``. Unknown preset names and malformed overrides raise
+    immediately (fail fast).
     """
     env = os.environ if env is None else env
     name = preset or env.get(f"{ENV_PREFIX}PRESET") or "off"
@@ -196,4 +202,6 @@ def resolve_adapter_config(
             overrides[f.name] = raw
     if capability is not None:
         overrides["capability"] = capability
+    if demo_data:
+        overrides["demo_data"] = demo_data
     return replace(cfg, **overrides) if overrides else cfg
