@@ -76,7 +76,7 @@ async def test_recording_wraps_sync_only_tool():
     out = await wrapped.coroutine(x=3)
     assert out == "sync:3"
     assert provider.recorded_calls[0] == {"tool_name": "s", "arguments": {"x": 3}, "result": "sync:3"}
-    assert wrapped.func is None  # single execution path
+    assert callable(wrapped.func)  # sync shim: keeps func-level metadata reachable for the prompt
 
 
 async def test_recording_get_tools_path_applies_scope_too():

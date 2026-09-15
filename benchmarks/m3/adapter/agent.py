@@ -242,6 +242,17 @@ def build_m3_agent(
     )
 
 
+def _toolguard_provider_class():
+    """cuga's ToolGuard provider-decorator class, or None when it cannot be imported."""
+    try:
+        from cuga.backend.cuga_graph.nodes.cuga_lite.providers.toolguard import (  # noqa: PLC0415
+            ToolGuardingToolProvider,
+        )
+    except Exception:  # noqa: BLE001  (fake/partial cuga in tests, older checkouts)
+        return None
+    return ToolGuardingToolProvider
+
+
 def wrap_existing_agent(agent: Any, config: AdapterConfig, demo_corpus: Optional[List[dict]] = None):
     """Wrap an already-constructed CugaAgent (e.g. from ``setup_agent_with_tools``).
 
@@ -249,17 +260,32 @@ def wrap_existing_agent(agent: Any, config: AdapterConfig, demo_corpus: Optional
     still flow into the graph build. The in-graph final_answer function cannot
     be injected post-construction, so the equivalent post-invoke fallback runs
     instead. No-op passthrough when the preset is off.
+
+    ``CugaAgent.__init__`` installs a ToolGuard decorator around the caller's
+    provider; the recording wrapper goes *inside* it so ToolGuard stays
+    outermost — it is what normalizes positional tool args and what the SDK
+    hands policy storage to (``configure_toolguard_provider`` is a no-op on any
+    other outer object). ``build_m3_agent`` ends up in the same order because
+    the constructor wraps whatever it is given.
     """
     if not config.enabled:
         return agent
-    base = getattr(agent, "tool_provider", None)
-    if base is None:
+    outer = getattr(agent, "tool_provider", None)
+    toolguard_cls = _toolguard_provider_class()
+    if outer is None:
         logger.warning(
             "[m3-adapter] wrapped agent exposes no tool_provider; evidence-based guards "
             "will see zero recorded calls"
         )
-    provider = RecordingScopedToolProvider(base, tool_cap=config.tool_cap)
-    if base is not None:
+        provider = RecordingScopedToolProvider(None, tool_cap=config.tool_cap)
+    elif toolguard_cls is not None and isinstance(outer, toolguard_cls):
+        provider = RecordingScopedToolProvider(outer.base_provider, tool_cap=config.tool_cap)
+        outer.base_provider = provider
+        invalidate = getattr(outer, "invalidate_toolguard_runtime", None)
+        if callable(invalidate):
+            invalidate()  # guarded-tool cache is keyed by raw tool id; the raw tools just changed
+    else:
+        provider = RecordingScopedToolProvider(outer, tool_cap=config.tool_cap)
         agent.tool_provider = provider
     demo_index = build_demo_index(demo_corpus) if (config.demos and demo_corpus) else None
     logger.info(

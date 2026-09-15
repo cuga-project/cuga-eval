@@ -42,6 +42,17 @@ class _FakeCugaAgentNoFinalAnswer:
         self.kwargs = kwargs
 
 
+class _FakeToolGuard:
+    """Shape mirror of cuga's ToolGuardingToolProvider: a `base_provider` slot + cache invalidation."""
+
+    def __init__(self, base_provider):
+        self.base_provider = base_provider
+        self.invalidations = 0
+
+    def invalidate_toolguard_runtime(self):
+        self.invalidations += 1
+
+
 @pytest.fixture
 def fake_cuga(monkeypatch):
     """Install a fake cuga.sdk so agent.py's lazy imports resolve without CUGA."""
@@ -67,6 +78,15 @@ def fake_cuga(monkeypatch):
         monkeypatch.setitem(
             sys.modules, "cuga.backend.cuga_graph.nodes.cuga_lite.shortlister", shortlister_mod
         )
+        # ToolGuard decorator class, so wrap_existing_agent can nest inside it.
+        toolguard_mod = ModuleType("cuga.backend.cuga_graph.nodes.cuga_lite.providers.toolguard")
+        toolguard_mod.ToolGuardingToolProvider = _FakeToolGuard
+        monkeypatch.setitem(
+            sys.modules,
+            "cuga.backend.cuga_graph.nodes.cuga_lite.providers",
+            ModuleType("cuga.backend.cuga_graph.nodes.cuga_lite.providers"),
+        )
+        monkeypatch.setitem(sys.modules, toolguard_mod.__name__, toolguard_mod)
         return sdk
 
     return _install
@@ -158,3 +178,22 @@ def test_set_task_context_resets_state(fake_cuga):
     agent.set_task_context(domain="olympics")
     assert agent._ctx.additional_instructions == ""  # fresh context per task
     assert agent._ctx.domain == "olympics"
+
+
+def test_wrap_existing_agent_nests_inside_toolguard(fake_cuga):
+    """CugaAgent installs ToolGuard around the caller's provider; the recorder goes inside it
+    so ToolGuard stays outermost (positional-arg normalization, policy storage attach)."""
+    fake_cuga(_FakeCugaAgent)
+    from benchmarks.m3.adapter.agent import wrap_existing_agent
+    from benchmarks.m3.adapter.recording import RecordingScopedToolProvider
+
+    raw = object()
+    guard = _FakeToolGuard(raw)
+    plain = _FakeCugaAgent(tool_provider=guard)
+    wrapped = wrap_existing_agent(plain, PRESETS["cap4_v3wx"])
+    assert plain.tool_provider is guard  # ToolGuard still outermost
+    assert isinstance(guard.base_provider, RecordingScopedToolProvider)
+    assert guard.base_provider.base_provider is raw  # recorder sits right above the raw provider
+    assert guard.base_provider.tool_cap == 16
+    assert wrapped._provider is guard.base_provider  # the guards read the same sink
+    assert guard.invalidations == 1  # guarded-tool cache dropped (keyed by raw tool id)

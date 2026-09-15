@@ -1,5 +1,7 @@
 """cap4 policy scoping + the recording/scoping tool provider."""
 
+import asyncio
+
 import pytest
 from langchain_core.tools import StructuredTool
 from pydantic import BaseModel
@@ -152,3 +154,100 @@ async def test_result_truncated_to_4000():
     tools = await provider.get_all_tools()
     await tools[0].coroutine(x=1)
     assert len(provider.recorded_calls[0]["result"]) == 4000
+
+
+# ------------------ fidelity: args, metadata, sync shim, memo ------------------
+
+
+class _Args2(BaseModel):
+    x: int = 0
+    y: int = 0
+
+
+def _tool2(name="get_xy"):
+    async def coro(x: int = 0, y: int = 0):
+        return f"ok:{x}:{y}"
+
+    return StructuredTool(name=name, description="d", args_schema=_Args2, coroutine=coro)
+
+
+async def test_positional_and_dict_bag_calls_resolve_like_raw_tools():
+    """The sandbox calls tool.coroutine with whatever the model wrote; mirror cuga's merge."""
+    provider = RecordingScopedToolProvider(_FakeProvider([_tool2()]))
+    w = (await provider.get_all_tools())[0]
+    assert await w.coroutine(1, 2) == "ok:1:2"  # positional -> schema order
+    assert await w.coroutine({"x": 3, "y": 4}) == "ok:3:4"  # single dict of known keys = kwargs bag
+    assert await w.coroutine(5, y=6) == "ok:5:6"  # mixed
+    assert [c["arguments"] for c in provider.recorded_calls] == [
+        {"x": 1, "y": 2},
+        {"x": 3, "y": 4},
+        {"x": 5, "y": 6},
+    ]
+
+
+async def test_dict_with_no_known_keys_is_nested_payload_for_first_param():
+    provider = RecordingScopedToolProvider(_FakeProvider([_tool("get_a")]))
+    w = (await provider.get_all_tools())[0]
+    assert await w.coroutine({"z": 9}) == "ok:{'z': 9}"
+    assert provider.recorded_calls[0]["arguments"] == {"x": {"z": 9}}
+
+
+async def test_extra_positionals_reach_the_raw_tool_as_argN_and_fail_there():
+    provider = RecordingScopedToolProvider(_FakeProvider([_tool2()]))
+    w = (await provider.get_all_tools())[0]
+    with pytest.raises(TypeError):  # the raw tool rejects arg2, exactly as it would unwrapped
+        await w.coroutine(1, 2, 3)
+    assert provider.recorded_calls[0]["arguments"] == {"x": 1, "y": 2, "arg2": 3}
+    assert provider.recorded_calls[0]["result"].startswith("Error:")
+
+
+async def test_function_metadata_survives_on_both_entry_points():
+    """Prompt rendering reads _response_schemas/_param_constraints off tool.func;
+    ToolGuard copies them from there; _cuga_tracked stops CUGA double-recording."""
+    raw = _tool("get_a")
+    raw.coroutine._param_constraints = {"x": {"minimum": 0}}
+    raw.coroutine._response_schemas = {"success": {"type": "object"}}
+    raw.coroutine._cuga_tracked = True
+    raw._operation_id = "op-1"  # the registry sets this on func, coroutine and the tool itself
+    provider = RecordingScopedToolProvider(_FakeProvider([raw]))
+    w = (await provider.get_all_tools())[0]
+    assert callable(w.func) and w.func.__name__ == "get_a" and w.coroutine.__name__ == "get_a"
+    for entry in (w.func, w.coroutine):
+        assert entry._param_constraints == {"x": {"minimum": 0}}
+        assert entry._response_schemas == {"success": {"type": "object"}}
+        assert entry._cuga_tracked is True
+        assert entry._operation_id == "op-1"
+
+
+def test_sync_shim_works_outside_an_event_loop():
+    provider = RecordingScopedToolProvider(_FakeProvider([_tool("get_a")]))
+    w = asyncio.run(provider.get_all_tools())[0]
+    assert w.func(x=4) == "ok:4"
+    assert provider.recorded_calls == [{"tool_name": "get_a", "arguments": {"x": 4}, "result": "ok:4"}]
+
+
+async def test_sync_shim_refuses_to_block_a_running_loop():
+    provider = RecordingScopedToolProvider(_FakeProvider([_tool("get_a")]))
+    w = (await provider.get_all_tools())[0]
+    with pytest.raises(RuntimeError, match="synchronously"):
+        w.func(x=1)
+    assert provider.recorded_calls == []
+
+
+async def test_wrapped_tools_are_memoized_per_raw_tool():
+    """Stable wrapper identity per raw tool: ToolGuard caches by id(raw tool), so a
+    fresh object per fetch would miss that cache on every one of CUGA's per-invoke fetches."""
+    raw = _tool("get_a")
+    base = _FakeProvider([raw])
+    provider = RecordingScopedToolProvider(base)
+    first = (await provider.get_all_tools())[0]
+    assert (await provider.get_all_tools())[0] is first
+    assert (await provider.get_tools("demo"))[0] is first  # both fetch paths share the memo
+    base._tools = [_tool("get_a")]  # provider hands out a new raw object under the same name
+    renewed = (await provider.get_all_tools())[0]
+    assert renewed is not first
+    provider.base_provider = _FakeProvider([raw])  # cap1 re-list swaps the provider: memo dropped
+    swapped = (await provider.get_all_tools())[0]
+    assert swapped is not first and swapped is not renewed
+    assert await swapped.coroutine(x=1) == "ok:1"  # and still records through the new wrapper
+    assert provider.recorded_calls[-1]["tool_name"] == "get_a"
