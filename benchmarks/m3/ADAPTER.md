@@ -10,7 +10,7 @@ changed; everything goes through public SDK surfaces:
 | `CugaAgent(final_answer=...)` | deterministic answer function: harmony-token strip + judge-shape canonicalization |
 | `CugaAgent(shortlister=Shortlister(...))` | the exact validated shortlisting: MiniLM embedding, top-k bounded, retriever pinning (custom strategy by dotted path) |
 | `configurable["mcp_few_shot_examples"]` | k similar solved train examples as chat pairs (prose demos) |
-| a `ToolProviderInterface` wrapper | tool-call recording (evidence for the guards), runaway cap, cap4 policy tool scoping |
+| a `ToolProviderInterface` wrapper | tool-call recording (evidence for the guards), runaway cap, cap4 policy tool scoping. Sits *inside* CUGA's ToolGuard decorator (ToolGuard stays outermost: positional-arg normalization, policy storage), accepts exactly what the raw tools accept, and keeps the `tool.func` metadata (`_response_schemas`, `_param_constraints`) so the rendered tool docs match a plain run |
 
 Default preset **`off`** builds a plain `CugaAgent` with exactly today's
 kwargs — current behavior, byte-identical (asserted by
@@ -31,8 +31,13 @@ uv run python benchmarks/m3/eval_m3_task_1_enterprise_style.py \
 uv run python -m benchmarks.m3.eval_m3_multiturn --adapter-preset cap4_v3wx
 ```
 
-Or set `M3_ADAPTER_PRESET=<preset>` in the environment (`benchmarks/m3/config/m3.env`
-or the shell). Precedence: CLI flag > `M3_ADAPTER_PRESET` > `off`.
+Or set `M3_ADAPTER_PRESET=<preset>` in the environment — `benchmarks/m3/config/m3.env`
+(`eval.sh` loads it through `benchmarks/helpers/load_env.sh`) or the shell.
+Precedence: CLI flag > `M3_ADAPTER_PRESET` > `off`.
+
+Presets with few-shot demos (cap1-3) read their corpus from `--demo-data` /
+`M3_ADAPTER_DEMO_DATA` (default: the bundled `data/small_train.zip`) — see
+[Demos](#demos).
 
 ## Presets
 
@@ -93,6 +98,20 @@ through untouched). The cap4 preset uses the dotted-path strategy
 to the SDK embedding strategy and pins `query_*` retriever tools into the top-k
 (vakra fidelity).
 
+## Demos
+
+`demos` (caps 1-3) injects `demos_k` solved examples per query through
+`configurable["mcp_few_shot_examples"]`. The corpus is loaded from an **explicit
+demo source** — `--demo-data PATH` / `M3_ADAPTER_DEMO_DATA` (a `.zip` or
+`capability_<id>_*` directory in the M3 data layout), default the bundled
+`data/small_train.zip` — for the run's own task and domain. It is never taken
+from the samples being evaluated: those carry gold tool chains and answers, and
+showing them as few-shots for sibling items of a test split is label leakage.
+If the demo source resolves to the same path as `--m3-data`, the run logs a
+warning (fine for train-split smoke runs; do not report test scores from it).
+The bundled train zip has no capability-1 split, so cap1 runs without demos
+unless `--demo-data` points at one. Any load failure degrades to "no demos".
+
 ## capability specifics
 
 - **cap1** (`eval_m3_task_1_enterprise_style.py`): after each per-item
@@ -126,6 +145,6 @@ to the SDK embedding strategy and pins `query_*` retriever tools into the top-k
 
 ## Data & licensing
 
-The adapter adds **no data files**. Demos are derived at runtime from the
-samples the run already loads (`--m3-data`), which stay under VAKRA's
-CC BY-NC-SA terms (see `benchmarks/m3/data/NOTICE`).
+The adapter adds **no data files**. Demos are read at runtime from the demo
+source above (default: the bundled `data/small_train.zip`), which stays under
+VAKRA's CC BY-NC-SA terms (see `benchmarks/m3/data/NOTICE`).
