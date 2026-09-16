@@ -145,6 +145,7 @@ def _make_args_schema(
 def _is_text_observation_tool(tool_name: str) -> bool:
     return (
         tool_name in _TEXT_OBSERVATION_TOOL_NAMES
+        or tool_name.startswith("KB_search_")
         or tool_name.startswith(_TEXT_OBSERVATION_PREFIXES)
     )
 
