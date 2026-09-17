@@ -1,0 +1,280 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>AppWorld Eval Status</title>
+  <style>
+    :root {
+      --bg: #0f1419;
+      --surface: #1a2332;
+      --border: #2d3a4f;
+      --text: #e7ecf3;
+      --muted: #8b9cb3;
+      --accent: #3b82f6;
+      --ok: #22c55e;
+      --fail: #ef4444;
+      --warn: #f59e0b;
+    }
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+    body {
+      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+      background: var(--bg);
+      color: var(--text);
+      line-height: 1.5;
+      padding: 1.5rem;
+      max-width: 960px;
+      margin: 0 auto;
+    }
+    header {
+      display: flex;
+      justify-content: space-between;
+      align-items: flex-start;
+      gap: 1rem;
+      margin-bottom: 1.5rem;
+      flex-wrap: wrap;
+    }
+    h1 { font-size: 1.35rem; font-weight: 600; }
+    .badge {
+      display: inline-block;
+      padding: 0.2rem 0.65rem;
+      border-radius: 999px;
+      font-size: 0.75rem;
+      font-weight: 600;
+      text-transform: uppercase;
+      letter-spacing: 0.04em;
+    }
+    .badge-running { background: #1e3a5f; color: #93c5fd; }
+    .badge-completed { background: #14532d; color: #86efac; }
+    .badge-failed { background: #450a0a; color: #fca5a5; }
+    .badge-interrupted { background: #451a03; color: #fcd34d; }
+    .badge-idle { background: #374151; color: #d1d5db; }
+    .meta { color: var(--muted); font-size: 0.85rem; margin-top: 0.25rem; }
+    .grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(140px, 1fr));
+      gap: 0.75rem;
+      margin-bottom: 1.25rem;
+    }
+    .card {
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: 10px;
+      padding: 1rem;
+    }
+    .card label {
+      display: block;
+      font-size: 0.7rem;
+      text-transform: uppercase;
+      letter-spacing: 0.06em;
+      color: var(--muted);
+      margin-bottom: 0.25rem;
+    }
+    .card .value { font-size: 1.25rem; font-weight: 600; }
+    .progress-wrap { margin-bottom: 1.25rem; }
+    .progress-bar {
+      height: 10px;
+      background: var(--border);
+      border-radius: 999px;
+      overflow: hidden;
+      margin-top: 0.5rem;
+    }
+    .progress-fill {
+      height: 100%;
+      background: linear-gradient(90deg, var(--accent), #6366f1);
+      border-radius: 999px;
+      transition: width 0.4s ease;
+    }
+    .compare-banner {
+      background: #1e293b;
+      border: 1px solid var(--border);
+      border-left: 3px solid var(--accent);
+      border-radius: 8px;
+      padding: 0.75rem 1rem;
+      margin-bottom: 1.25rem;
+      font-size: 0.9rem;
+    }
+    .current {
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: 10px;
+      padding: 1rem;
+      margin-bottom: 1.25rem;
+    }
+    .current h2 { font-size: 0.85rem; color: var(--muted); margin-bottom: 0.5rem; }
+    .current .task-id { font-family: ui-monospace, monospace; font-size: 1.1rem; }
+    table {
+      width: 100%;
+      border-collapse: collapse;
+      font-size: 0.85rem;
+    }
+    th, td {
+      text-align: left;
+      padding: 0.5rem 0.75rem;
+      border-bottom: 1px solid var(--border);
+    }
+    th { color: var(--muted); font-weight: 500; font-size: 0.75rem; text-transform: uppercase; }
+    .ok { color: var(--ok); }
+    .bad { color: var(--fail); }
+    footer {
+      margin-top: 1.5rem;
+      color: var(--muted);
+      font-size: 0.75rem;
+      text-align: center;
+    }
+    .empty { color: var(--muted); font-style: italic; padding: 1rem 0; }
+  </style>
+</head>
+<body>
+  <header>
+    <div>
+      <h1>AppWorld Eval Status</h1>
+      <p class="meta" id="subtitle">Loading…</p>
+    </div>
+    <span class="badge badge-idle" id="status-badge">idle</span>
+  </header>
+
+  <div id="compare-banner" class="compare-banner" style="display:none"></div>
+
+  <div class="progress-wrap card">
+    <label>Task progress</label>
+    <div><span id="progress-text">—</span></div>
+    <div class="progress-bar"><div class="progress-fill" id="progress-fill" style="width:0%"></div></div>
+  </div>
+
+  <div class="grid">
+    <div class="card"><label>Passed</label><div class="value ok" id="passed">—</div></div>
+    <div class="card"><label>Failed</label><div class="value bad" id="failed">—</div></div>
+    <div class="card"><label>Pass rate</label><div class="value" id="pass-rate">—</div></div>
+    <div class="card"><label>Elapsed</label><div class="value" id="elapsed">—</div></div>
+  </div>
+
+  <div class="current" id="current-section" style="display:none">
+    <h2>Current task</h2>
+    <div class="task-id" id="current-task">—</div>
+    <p class="meta" id="current-step"></p>
+  </div>
+
+  <div class="card">
+    <label style="margin-bottom:0.75rem;display:block">Recent tasks</label>
+    <table>
+      <thead><tr><th>Task</th><th>Result</th><th>Match</th></tr></thead>
+      <tbody id="recent-body"><tr><td colspan="3" class="empty">No tasks yet</td></tr></tbody>
+    </table>
+  </div>
+
+  <footer>Auto-refreshes every 2s · <span id="updated">—</span></footer>
+
+  <script>
+    const badge = document.getElementById('status-badge');
+    const subtitle = document.getElementById('subtitle');
+
+    function fmtDuration(startedAt) {
+      if (!startedAt) return '—';
+      const start = new Date(startedAt);
+      const sec = Math.floor((Date.now() - start.getTime()) / 1000);
+      const h = Math.floor(sec / 3600);
+      const m = Math.floor((sec % 3600) / 60);
+      const s = sec % 60;
+      if (h) return `${h}h ${m}m ${s}s`;
+      if (m) return `${m}m ${s}s`;
+      return `${s}s`;
+    }
+
+    function pct(n, d) {
+      if (!d) return '—';
+      return `${Math.round((n / d) * 100)}%`;
+    }
+
+    function setBadge(status) {
+      badge.textContent = status;
+      badge.className = 'badge badge-' + (status || 'idle');
+    }
+
+    function render(data) {
+      const status = data.status || 'idle';
+      setBadge(status);
+
+      if (status === 'idle') {
+        subtitle.textContent = data.stale ? 'Last run stale (>5 min)' : 'No active run';
+        document.getElementById('progress-text').textContent = '—';
+        document.getElementById('progress-fill').style.width = '0%';
+        document.getElementById('passed').textContent = '—';
+        document.getElementById('failed').textContent = '—';
+        document.getElementById('pass-rate').textContent = '—';
+        document.getElementById('elapsed').textContent = '—';
+        document.getElementById('current-section').style.display = 'none';
+        document.getElementById('compare-banner').style.display = 'none';
+        document.getElementById('updated').textContent = data.updated_at || '—';
+        return;
+      }
+
+      const agent = data.agent || '—';
+      const model = data.model || '—';
+      const evalKey = data.eval_key || '—';
+      subtitle.textContent = `${agent} · ${model} · ${evalKey}`;
+
+      const done = data.task_completed || 0;
+      const total = data.task_total || 0;
+      document.getElementById('progress-text').textContent = `${done} / ${total} tasks`;
+      document.getElementById('progress-fill').style.width = total ? `${(done / total) * 100}%` : '0%';
+
+      const passed = data.passed || 0;
+      const failed = data.failed || 0;
+      document.getElementById('passed').textContent = passed;
+      document.getElementById('failed').textContent = failed;
+      document.getElementById('pass-rate').textContent = pct(passed, done);
+      document.getElementById('elapsed').textContent = fmtDuration(data.started_at);
+
+      const cmp = data.compare;
+      const cmpEl = document.getElementById('compare-banner');
+      if (cmp && cmp.active_config) {
+        cmpEl.style.display = 'block';
+        cmpEl.textContent = `Compare: ${cmp.active_config} — run ${cmp.run}/${cmp.runs_per_config} — overall ${cmp.overall_run}/${cmp.overall_total}`;
+      } else {
+        cmpEl.style.display = 'none';
+      }
+
+      const cur = data.current_task;
+      const curSec = document.getElementById('current-section');
+      if (cur && status === 'running') {
+        curSec.style.display = 'block';
+        document.getElementById('current-task').textContent = `[${cur.index}/${total}] ${cur.id}`;
+        const step = cur.step ? `Step ${cur.step}/${cur.max_steps || 12}` : 'Starting…';
+        document.getElementById('current-step').textContent = step;
+      } else {
+        curSec.style.display = 'none';
+      }
+
+      const tbody = document.getElementById('recent-body');
+      const recent = (data.recent || []).slice().reverse();
+      if (!recent.length) {
+        tbody.innerHTML = '<tr><td colspan="3" class="empty">No tasks yet</td></tr>';
+      } else {
+        tbody.innerHTML = recent.map(r => {
+          const ok = r.success;
+          const cls = ok ? 'ok' : 'bad';
+          const label = ok ? 'pass' : 'fail';
+          const mr = r.match_rate != null ? `${Math.round(r.match_rate * 100)}%` : '—';
+          return `<tr><td>${r.task_id || '—'}</td><td class="${cls}">${label}</td><td>${mr}</td></tr>`;
+        }).join('');
+      }
+
+      document.getElementById('updated').textContent = data.updated_at || '—';
+    }
+
+    async function poll() {
+      try {
+        const res = await fetch('/.eval_status.json?t=' + Date.now());
+        if (!res.ok) throw new Error('missing');
+        render(await res.json());
+      } catch {
+        render({ status: 'idle' });
+      }
+    }
+
+    poll();
+    setInterval(poll, 2000);
+  </script>
+</body>
+</html>

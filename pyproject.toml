@@ -76,6 +76,7 @@ cuga-oak-health = { git = "https://github.com/cuga-project/oak-bench", subdirect
 
 [project.scripts]
 cuga = "cuga.cli:app"
+eval-status = "benchmarks.helpers.eval_status:main"
 
 [dependency-groups]
 dev = [
@@ -97,6 +98,22 @@ groq = [
 
 sandbox = [
     "llm-sandbox>=0.1.3",
+]
+
+deepagents = [
+    "deepagents>=0.6",
+]
+
+# No `openclaw` or `hermes` extra. `openclaw>=2026.3` does not exist on PyPI
+# (the name resolves to an unrelated package capped at 2.0.2) and PyPI `hermes`
+# pins jsonschema<4, which conflicts with cuga/litellm. Declaring either made
+# `uv lock` fail outright for the whole project, not just for that extra.
+# Both adapters import their client lazily and raise an install hint when it is
+# absent, and both fall back to the shared eval LLM, so `--agent openclaw` and
+# `--agent hermes` still run without the package. Install a real client into a
+# separate venv if you have one.
+appworld-agents = [
+    "deepagents>=0.6",
 ]
 
 # Note: the `appworld` dependency group is added locally by ./setup_appworld.sh

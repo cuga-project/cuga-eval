@@ -32,7 +32,7 @@ for arg in "$@"; do
         echo "  --no-bundle                  Skip reproducibility bundle creation"
         echo "  --bundle-zip                 Create zip archive of bundle"
         echo "  --model-profile <name>       Model profile (for bundle metadata)"
-        echo "  --agent <name>               Agent to run (cuga, react, codeact; default: cuga)"
+        echo "  --agent <name>               Agent to run (cuga, react, codeact, deepagents, openclaw, hermes, stub; default: cuga)"
         echo "  --eval-key <key>             Task group key in eval_config.toml (e.g. test_med); recorded in bundle metadata"
         echo "  --leaderboard <prefix>       Tag this run for official AppWorld leaderboard submission (implies --sdk)"
         echo "  --force-retry                Re-run listed tasks even if a clean partial already exists"
@@ -90,8 +90,16 @@ done
 # abort with "unrecognized arguments" *after* the AppWorld and registry servers
 # have already booted. Reject it up front instead. Keyed on whether the flag was
 # *passed*, not on its value — `--leaderboard ""` must not slip past the guard.
+# The external adapters (appworld_eval_external.py) define neither flag either.
+is_external_agent() {
+    case "$1" in
+        deepagents|openclaw|hermes|stub) return 0 ;;
+        *) return 1 ;;
+    esac
+}
+
 for sdk_only in ${LEADERBOARD_REQUESTED:+--leaderboard} ${FORCE_RETRY:+--force-retry}; do
-    if [[ "${AGENT:-cuga}" == "codeact" || "${AGENT:-cuga}" == "react" ]]; then
+    if [[ "${AGENT:-cuga}" == "codeact" || "${AGENT:-cuga}" == "react" ]] || is_external_agent "${AGENT:-cuga}"; then
         echo "Error: ${sdk_only} is SDK-only (CUGA lite). --agent ${AGENT} does not accept ${sdk_only}." >&2
         echo "Drop --agent, or drop ${sdk_only}." >&2
         exit 2
@@ -110,6 +118,9 @@ build_eval_command() {
     elif [ "${AGENT:-cuga}" = "react" ]; then
         EVAL_CMD+=(benchmarks.appworld.appworld_eval_react --agent react)
         EVAL_LABEL="Using React agent (appworld_eval_react.py)"
+    elif is_external_agent "${AGENT:-cuga}"; then
+        EVAL_CMD+=(benchmarks.appworld.appworld_eval_external --agent "${AGENT}")
+        EVAL_LABEL="Using external agent ${AGENT} (appworld_eval_external.py)"
     elif [[ "$USE_SDK" == "true" ]]; then
         EVAL_CMD+=(benchmarks.appworld.eval_appworld_sdk)
         EVAL_LABEL="Using SDK evaluator (eval_appworld_sdk.py)"
