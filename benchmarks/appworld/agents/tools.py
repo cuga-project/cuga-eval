@@ -10,43 +10,26 @@ from typing import Any
 
 import httpx
 from cuga.backend.cuga_graph.nodes.cuga_lite.providers.combined import CombinedToolProvider
-from cuga.config import settings
 from loguru import logger
 
+# Re-exported, not reimplemented. These are the same objects eval_appworld_sdk.py
+# uses, so the external agents reach the registry at exactly the address CUGA
+# does. A local copy had already drifted: it omitted the `server_ports.registry_host`
+# branch, so any config that points the registry at a non-localhost host (a
+# container reaching a host registry, for instance) sent CUGA to the configured
+# host and the external agents to http://localhost:8001, where nothing answers.
+from benchmarks.appworld.utils.registry_auth import authenticate_apps, get_registry_base_url
 
-def get_registry_base_url() -> str:
-    registry_port = os.getenv("DYNACONF_SERVER_PORTS__REGISTRY")
-    if registry_port:
-        return f"http://localhost:{registry_port}"
-
-    server_ports = getattr(settings, "server_ports", None)
-    for attr_name in ("registry", "registry_url", "registry_port"):
-        port = getattr(server_ports, attr_name, None) if server_ports else None
-        if port:
-            return f"http://localhost:{port}"
-
-    return "http://localhost:8001"
+__all__ = [
+    "authenticate_apps",
+    "get_registry_base_url",
+]
 
 
 async def reset_registry() -> None:
     async with httpx.AsyncClient() as client:
         response = await client.get(f"{get_registry_base_url()}/api/reset", timeout=10.0)
         response.raise_for_status()
-
-
-async def authenticate_apps(app_names: list[str]) -> dict[str, Any]:
-    payload = {"apps": app_names}
-    async with httpx.AsyncClient() as client:
-        response = await client.post(
-            f"{get_registry_base_url()}/api/authenticate_apps",
-            json=payload,
-            timeout=15.0,
-        )
-        response.raise_for_status()
-        try:
-            return response.json()
-        except Exception:
-            return {"status_code": response.status_code, "text": response.text[:500]}
 
 
 async def authenticate_apps_for_task(world: Any) -> dict[str, Any]:
@@ -62,12 +45,28 @@ async def authenticate_apps_for_task(world: Any) -> dict[str, Any]:
 
 async def setup_appworld_tools(
     app_names: list[str] | None = None,
+    require_tools: bool = True,
 ) -> tuple[CombinedToolProvider, list[Any]]:
+    """Build the task's toolbox, the same way `setup_agent_with_tools` does.
+
+    `require_tools` mirrors the SDK path's guard (issue #148). Zero tools means
+    the registry could not reach the app API server, and an agent that cannot
+    act still finishes every task and still gets scored — so the run comes back
+    as a full set of plausible zeros rather than as a broken setup. Fail here
+    instead.
+    """
     tool_provider = CombinedToolProvider(app_names=app_names)
     await tool_provider.initialize()
     tools = await tool_provider.get_all_tools()
     scope = f"apps {app_names}" if app_names else "all apps"
     logger.info(f"Loaded {len(tools)} AppWorld tools from CombinedToolProvider ({scope})")
+    if require_tools and not tools:
+        raise RuntimeError(
+            f"CombinedToolProvider returned 0 tools for {scope} but AppWorld cannot run without "
+            "them. Likely cause: the registry could not reach the app API server at startup "
+            "(check the registry log for 'Failed to initialize server for ...'). "
+            "Aborting instead of running a toolless eval (issue #148)."
+        )
     return tool_provider, tools
 
 
