@@ -32,7 +32,7 @@ for arg in "$@"; do
         echo "  --no-bundle                  Skip reproducibility bundle creation"
         echo "  --bundle-zip                 Create zip archive of bundle"
         echo "  --model-profile <name>       Model profile (for bundle metadata)"
-        echo "  --agent <name>               Agent to run (cuga, react, codeact, deepagents, openclaw, hermes; default: cuga)"
+        echo "  --agent <name>               Agent to run (cuga, react, codeact, deepagents, openclaw, hermes, stub; default: cuga)"
         echo "  --eval-key <key>             Task group key in eval_config.toml (e.g. test_med); recorded in bundle metadata"
         echo "  --leaderboard <prefix>       Tag this run for official AppWorld leaderboard submission (implies --sdk)"
         echo "  --force-retry                Re-run listed tasks even if a clean partial already exists"
@@ -93,7 +93,7 @@ done
 # The external adapters (appworld_eval_external.py) define neither flag either.
 is_external_agent() {
     case "$1" in
-        deepagents|openclaw|hermes) return 0 ;;
+        deepagents|openclaw|hermes|stub) return 0 ;;
         *) return 1 ;;
     esac
 }

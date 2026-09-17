@@ -170,3 +170,43 @@ async def test_hermes_adapter_uses_tool_loop():
 def test_factory_unknown_agent_raises():
     with pytest.raises(ValueError, match="Unknown external agent"):
         create_appworld_agent("unknown", tools=[])
+
+
+async def test_stub_template_runs_a_tool_and_returns_an_answer():
+    """The copy-me template in stub.py must actually work end to end.
+
+    A template nobody runs rots. This drives StubAppWorldAgent with a scripted
+    model: one tool call, then a final answer. If this breaks, every adapter
+    copied from it starts broken too.
+    """
+    from benchmarks.appworld.agents.stub import StubAppWorldAgent
+
+    replies = iter(
+        [
+            '```json\n{"action": "tool", "tool_name": "supervisor_login", "args": {}}\n```',
+            "Final Answer: logged in",
+        ]
+    )
+
+    agent = StubAppWorldAgent(tools=[_MockTool("supervisor_login")], max_steps=4)
+    agent._llm = MagicMock(ainvoke=AsyncMock(side_effect=lambda *a, **k: MagicMock(content=next(replies))))
+
+    result = await agent.invoke(intent="log in", thread_id="t1", user_context="")
+
+    assert result.answer == "logged in"
+    assert [call["name"] for call in result.tool_calls] == ["supervisor_login"]
+    assert result.error is None
+
+
+async def test_stub_template_forwards_callbacks_to_the_model():
+    """Dropping the callbacks silently zeroes the agent's token and cost columns."""
+    from benchmarks.appworld.agents.stub import StubAppWorldAgent
+
+    ainvoke = AsyncMock(return_value=MagicMock(content="Final Answer: done"))
+    agent = StubAppWorldAgent(tools=[_MockTool("noop")], max_steps=2)
+    agent._llm = MagicMock(ainvoke=ainvoke)
+    sentinel = object()
+
+    await agent.invoke(intent="x", thread_id="t", config={"callbacks": [sentinel]})
+
+    assert ainvoke.await_args.kwargs["config"]["callbacks"] == [sentinel]

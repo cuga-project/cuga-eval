@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Smoke-test external agents (deepagents, openclaw, hermes) against configured LLM.
+"""Smoke-test external agents (stub, deepagents, openclaw, hermes) against configured LLM.
 
 No CUGA agent, no AppWorld servers, no MCP registry — only verifies that each
 adapter can call the model from .env (AGENT_SETTING_CONFIG + MODEL_NAME + keys).
@@ -128,12 +128,14 @@ async def smoke_agent(
 
 async def main() -> int:
     parser = argparse.ArgumentParser(
-        description="Smoke-test deepagents/openclaw/hermes against configured LLM (no CUGA/AppWorld)"
+        description="Smoke-test stub/deepagents/openclaw/hermes against configured LLM (no CUGA/AppWorld)"
     )
     parser.add_argument(
         "--agents",
-        default="deepagents,openclaw,hermes",
-        help=f"Comma-separated agents (default: deepagents,openclaw,hermes). Choices: {', '.join(sorted(EXTERNAL_AGENT_NAMES))}",
+        # `stub` first: it is the cheapest check that LLM config and the tool
+        # loop both work, so a failure there explains the others.
+        default="stub,deepagents,openclaw,hermes",
+        help=f"Comma-separated agents (default: stub,deepagents,openclaw,hermes). Choices: {', '.join(sorted(EXTERNAL_AGENT_NAMES))}",
     )
     parser.add_argument(
         "--native-sdk",

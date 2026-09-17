@@ -90,10 +90,49 @@ AppWorld supports multiple agent backends via `--agent`:
 - **`deepagents`** — [LangChain Deep Agents](https://docs.langchain.com/oss/python/deepagents/overview) with the same registry LangChain tools
 - **`openclaw`** — OpenClaw agent with LangChain tool bridge
 - **`hermes`** — Hermes client with ReAct tool loop over registry tools
+- **`stub`** — the template in `agents/stub.py`; a plain chat model on the shared tool loop. Not a framework — run it to check the harness, or copy it to add your own
 - **`react`** — pre-PR-31 baseline: `appworld_eval_react.py` (Python REPL via `world.execute()`)
 - **`codeact`** — `appworld_eval_codeact.py` with richer in-code workflow logic
 
-External agents (`deepagents`, `openclaw`, `hermes`) share the same AppWorld system prompt and MCP tool set as the CUGA SDK path for fair comparison.
+### What the external agents share with CUGA, and what they do not
+
+The external agents (`deepagents`, `openclaw`, `hermes`, `stub`) get their tools from
+the same `CombinedToolProvider` against the same registry as the CUGA SDK path, and
+reach it through the same `get_registry_base_url` / `authenticate_apps` helpers.
+`tests/test_tool_provider_parity.py` asserts that and fails if an adapter starts
+building its own tool list.
+
+Three differences are real and deliberate. Read any score comparison with them in mind:
+
+| | CUGA SDK path | External agents |
+|---|---|---|
+| Apps loaded | all apps; the agent locates tools itself via `find_tools` | only the apps the task declares, so cross-app tool selection is already solved |
+| System prompt | `APPWORLD_SDK_PROMPT` | `APPWORLD_AGENT_PROMPT` — same base, plus explicit filtering and pagination rules, which CUGA handles in code rather than in the prompt |
+| LLM client | `LLMManager` with CUGA's resolved model settings | `create_eval_llm`, which reads `AGENT_SETTING_CONFIG` + `MODEL_NAME` directly and supports only `settings.groq.toml` and `settings.openai.toml` |
+
+Both prompts live in `agents/base.py`, next to each other, so the gap shows up in a diff.
+
+### Adding another agent to the comparison
+
+Start from `agents/stub.py` — its module docstring is the step-by-step. In short:
+
+```bash
+# 1. Check the harness works before writing any agent code
+./benchmarks/appworld/eval.sh --agent stub --task 82e2fac_1
+
+# 2. Copy the template and implement one method (`_call_llm`)
+cp benchmarks/appworld/agents/stub.py benchmarks/appworld/agents/myagent.py
+
+# 3. Register it in agents/factory.py and in is_external_agent() in eval.sh
+
+# 4. Compare against the stub
+./benchmarks/appworld/eval.sh --agent myagent --task 82e2fac_1
+```
+
+If `--agent stub` scores and yours does not, the problem is in your adapter, not the
+harness. Keep tools coming from `setup_appworld_tools` and keep returning an
+`AppWorldInvokeResult` — the parity test enforces the first, and the evaluator reads
+`answer` and `tool_calls` off the second.
 
 ### External Agent Dependencies
 
@@ -126,7 +165,7 @@ uv sync --group deepagents
 ./benchmarks/appworld/smoke_external.sh
 
 # Single agent
-./benchmarks/appworld/smoke_external.sh --agents deepagents
+./benchmarks/appworld/smoke_external.sh --agents stub,deepagents
 
 # Try native OpenClaw/Hermes SDKs instead of eval LLM
 ./benchmarks/appworld/smoke_external.sh --native-sdk
@@ -225,7 +264,7 @@ Runs `eval.sh` multiple times and collects results into an evaluation bundle.
 |---|---|---|
 | `--runs N` | Number of runs per model/agent | `--runs 5` |
 | `--models M1,M2` | Comma-separated model profiles to compare | `--models gpt-oss,gpt4.1` |
-| `--agent AGENT` | Agent type (`cuga`, `react`, `codeact`, `deepagents`, `openclaw`, `hermes`) | `--agent deepagents` |
+| `--agent AGENT` | Agent type (`cuga`, `react`, `codeact`, `deepagents`, `openclaw`, `hermes`, `stub`) | `--agent deepagents` |
 | `--compare-agents` | Run `cuga`, `deepagents`, `openclaw`, and `hermes` and compare (CUGA uses SDK path) | `--compare-agents` |
 | `--dry-run` | Preview commands without executing | `--dry-run` |
 | `--no-bundle` | Skip evaluation bundle creation | `--no-bundle` |
@@ -376,7 +415,7 @@ absent task dirs; only `pack_leaderboard.sh` / `leaderboard pack` verify.
 | `--task ID` | Run a specific task | `--task 82e2fac_1` |
 | `--eval-key KEY` | Run a predefined task group from `eval_config.toml` | `--eval-key test_challenge_easy` |
 | `--sdk` | Use the SDK evaluator | `--sdk` |
-| `--agent AGENT` | Agent type (`cuga`, `react`, `codeact`, `deepagents`, `openclaw`, `hermes`) | `--agent deepagents` |
+| `--agent AGENT` | Agent type (`cuga`, `react`, `codeact`, `deepagents`, `openclaw`, `hermes`, `stub`) | `--agent deepagents` |
 | `--model-profile P` | Apply a model profile (`gpt-oss`, `gpt4o`, `gpt4.1`, `opus4.5`) | `--model-profile gpt4.1` |
 | `--specific-task-levels N` | Filter tasks by difficulty level (1, 2, 3) | `--specific-task-levels 1` |
 | `--no-bundle` | Skip evaluation bundle creation | `--no-bundle` |
