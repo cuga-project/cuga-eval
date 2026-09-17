@@ -51,8 +51,41 @@ DEFAULT_PROMPT_FILE = "root_cause_analysis.jinja"
 # ---------------------------------------------------------------------------
 
 
+def _parse_created_at(raw: str) -> datetime:
+    """Parse a bundle's ``created_at``, tolerating the legacy malformed form.
+
+    Bundles written before the timestamp fix (PR #162) carry
+    ``2026-03-12T19:02:30+00:00Z`` — an offset-bearing string with a redundant
+    ``Z`` appended, which ``fromisoformat`` rejects. Strip the trailing ``Z``
+    when an offset is already present; otherwise treat a bare ``Z`` as the UTC
+    designator.
+
+    Raises ``ValueError`` on a timezone-naive value. Such a value violates the
+    ``created_at`` UTC contract, and returning it would push a naive datetime
+    into the caller's ``created >= since_dt`` comparison, which raises
+    ``TypeError`` and aborts the whole run. Raising here instead routes it into
+    the caller's existing warn-and-include path, like every other unusable
+    ``created_at``.
+    """
+    text = raw.strip()
+    if text.endswith("Z"):
+        head = text[:-1]
+        text = head if ("+" in head[10:] or "-" in head[10:]) else head + "+00:00"
+    parsed = datetime.fromisoformat(text)
+    if parsed.tzinfo is None:
+        raise ValueError(f"created_at is timezone-naive (expected a UTC instant): {raw!r}")
+    return parsed
+
+
 def discover_bundles(benchmark: str, bundles_arg: list[str], since: str | None) -> list[Path]:
-    """Return bundle directories that match the filter criteria."""
+    """Return bundle directories that match the filter criteria.
+
+    Note: ``--since`` filtering reads ``metadata.json``'s ``created_at``, which
+    is UTC, while bundle *directory names* are stamped in local time. The two
+    differ by the host's offset — that is intentional (names are for humans,
+    ``created_at`` is the absolute instant), so don't infer the cutoff from
+    directory names.
+    """
     bundles_root = _project_root / "benchmarks" / benchmark / "evaluation_bundles"
     if not bundles_root.is_dir():
         print(f"Bundles root not found: {bundles_root}")
@@ -87,7 +120,7 @@ def discover_bundles(benchmark: str, bundles_arg: list[str], since: str | None) 
                 filtered.append(b)
                 continue
             try:
-                created = datetime.fromisoformat(created_raw.replace("Z", "+00:00"))
+                created = _parse_created_at(created_raw)
             except ValueError as e:
                 print(f"Warning: {b.name} has unparseable created_at {created_raw!r} — including it: {e}")
                 filtered.append(b)

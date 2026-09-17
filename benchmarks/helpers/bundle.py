@@ -9,10 +9,15 @@ Works for any benchmark — pass ``benchmark_dir`` to customise paths.
 import hashlib
 import json
 import os
+import re
 import shutil
 import subprocess
 from datetime import datetime, timezone
 from pathlib import Path
+
+from loguru import logger
+
+from benchmarks.helpers.incremental_results import atomic_write_json
 
 BUNDLE_VERSION = "2"
 
@@ -27,6 +32,7 @@ ALLOWED_ENV_VARS = [
     "MEMORY_ENABLED",
     "LANGFUSE_HOST",
     "BPO_LOG_API_CALLS",
+    "M3_VAKRA_LIVE_MCP",
 ]
 
 # Dynaconf overrides that affect CUGA behaviour
@@ -36,11 +42,54 @@ DYNACONF_PREFIXES = [
     "DYNACONF_FEATURES__",
     "DYNACONF_AGENT__",
     "DYNACONF_STORAGE__",
+    "DYNACONF_CONTEXT_SUMMARIZATION__",
+    "DYNACONF_EVOLVE__",
 ]
 
 # Resolve once: <project_root>/benchmarks/helpers -> <project_root>
 _HELPERS_DIR = Path(__file__).resolve().parent
 PROJECT_ROOT = _HELPERS_DIR.parent.parent
+
+
+def _bundle_timestamp() -> str:
+    """Local-time stamp for auto-generated bundle directory names.
+
+    Deliberately local, not UTC: every other artifact of the same run — the
+    ``RUN_ID`` exported by ``eval.sh``, the results JSON filename, the
+    trajectory directory — is stamped with local wall-clock time. A UTC bundle
+    name made a single run look like two runs an offset apart and sorted
+    bundles out of step with the results files they contain.
+
+    Machine-readable timestamps stay absolute; see :func:`_utc_now_iso`.
+    """
+    return datetime.now().strftime("%Y%m%d_%H%M%S")
+
+
+def _utc_now_iso() -> str:
+    """Valid ISO-8601 UTC instant for machine-readable metadata fields.
+
+    Absolute rather than local so bundles produced on machines in different
+    timezones stay comparable and orderable. ``isoformat()`` already emits the
+    ``+00:00`` offset — appending a ``Z`` on top of it (as this did before the
+    timestamp fix in PR #162) produced ``...+00:00Z``, which
+    ``datetime.fromisoformat`` rejects.
+    """
+    return datetime.now(timezone.utc).isoformat()
+
+
+def _sanitize_model_slug(model_name: str) -> str:
+    """Filesystem-safe label from a model name (e.g. google/gemma-4-31b → gemma-4-31b)."""
+    name = model_name.rsplit("/", 1)[-1].lower()
+    return re.sub(r"[^a-z0-9._-]", "_", name)[:64]
+
+
+def _bundle_profile_label(model_profile: str | None) -> str:
+    """Directory label for single-run bundles; honour --dotenv MODEL_NAME when set."""
+    use_dotenv = os.environ.get("USE_DOTENV", "").lower() == "true"
+    model_name = (os.environ.get("MODEL_NAME") or "").strip()
+    if use_dotenv and model_name:
+        return _sanitize_model_slug(model_name)
+    return model_profile or "default"
 
 
 def _load_benchmark_env(benchmark_name: str) -> None:
@@ -94,6 +143,27 @@ def _file_sha256(path: Path) -> str:
     return h.hexdigest()
 
 
+def _record_task_file(tf: Path, tasks_dir: Path | None) -> str | None:
+    """Copy a task file into ``tasks_dir`` (if given) and return its hash entry.
+
+    ``--m3-data`` runs pass a dataset *directory* as the task source. Copying a
+    whole corpus into every bundle is wasteful, so for directories we write a
+    ``<name>.source`` pointer file instead and record a ``dir:`` marker in place
+    of a content hash. Returns None when ``tf`` does not exist.
+    """
+    if not tf.exists():
+        return None
+    if tf.is_dir():
+        if tasks_dir is not None:
+            tasks_dir.mkdir(exist_ok=True)
+            (tasks_dir / f"{tf.name}.source").write_text(f"{tf.resolve()}\n")
+        return f"dir:{tf.resolve()}"
+    if tasks_dir is not None:
+        tasks_dir.mkdir(exist_ok=True)
+        shutil.copy2(tf, tasks_dir / tf.name)
+    return f"sha256:{_file_sha256(tf)}"
+
+
 # ---------------------------------------------------------------------------
 # Metadata collectors
 # ---------------------------------------------------------------------------
@@ -125,25 +195,59 @@ def collect_cuga_info(git_info: dict | None = None) -> dict:
     kicking off any eval.sh subprocess, and thread it through unchanged.
     """
     cuga_version = None
+    cuga_module_file = None
     try:
         import cuga
 
         cuga_version = getattr(cuga, "__version__", None)
+        cuga_module_file = getattr(cuga, "__file__", None)
     except ImportError:
         pass
 
     if git_info is not None:
         cuga_git = git_info
     else:
-        cuga_repo = os.environ.get("CUGA_REPO_PATH", os.path.expanduser("~/workspace/cuga-agent"))
-        cuga_repo_path = Path(cuga_repo)
+        # Prefer the live checkout: once `import cuga` succeeds, cuga.__file__
+        # points at the actual source tree regardless of where it lives (an
+        # editable install can sit anywhere), so ask git where its root is
+        # instead of guessing a fixed path. Only fall back to
+        # CUGA_REPO_PATH/~/workspace/cuga-agent if that fails (e.g. cuga
+        # installed as a non-editable wheel with no accessible .git).
+        cuga_repo_path = None
+        if cuga_module_file:
+            module_dir = Path(cuga_module_file).resolve().parent
+            toplevel = _run_git(["rev-parse", "--show-toplevel"], cwd=module_dir)
+            # --show-toplevel answers "which repo contains this directory", not
+            # "is this directory the source of this package" — a non-editable
+            # install under <cuga-eval>/.venv/.../site-packages/cuga resolves to
+            # cuga-eval's repo root, which would then silently record the wrong
+            # project's git state. Confirm the module dir is actually tracked by
+            # the repo before trusting it.
+            if (
+                toplevel
+                and _run_git(["ls-files", "--error-unmatch", str(module_dir)], cwd=toplevel) is not None
+            ):
+                cuga_repo_path = Path(toplevel)
+        if cuga_repo_path is None:
+            cuga_repo = os.environ.get("CUGA_REPO_PATH", os.path.expanduser("~/workspace/cuga-agent"))
+            candidate = Path(cuga_repo)
+            if candidate.exists():
+                cuga_repo_path = candidate
+
         cuga_git = {}
-        if cuga_repo_path.exists():
+        if cuga_repo_path is not None:
             cuga_git = {
                 "git_commit": _run_git(["rev-parse", "--short", "HEAD"], cwd=cuga_repo_path),
                 "git_branch": _run_git(["rev-parse", "--abbrev-ref", "HEAD"], cwd=cuga_repo_path),
                 "git_dirty": bool(_run_git(["status", "--short"], cwd=cuga_repo_path) or ""),
             }
+
+    if not cuga_git.get("git_commit"):
+        logger.warning(
+            "collect_cuga_info: could not resolve cuga-agent's git info (checked the live "
+            "'cuga' package location, then CUGA_REPO_PATH / ~/workspace/cuga-agent) — "
+            "this bundle's metadata.json will be missing cuga.git_commit/git_branch/git_dirty."
+        )
 
     return {
         "version": cuga_version,
@@ -203,7 +307,7 @@ def _write_run_env(bundle_dir: Path) -> None:
     config_dir.mkdir(exist_ok=True)
     lines = [
         "# Actual environment variables captured at runtime",
-        f"# Generated: {datetime.now(timezone.utc).isoformat()}Z",
+        f"# Generated: {_utc_now_iso()}",
         "",
     ]
     for key, value in sorted(env.items()):
@@ -284,8 +388,34 @@ def _copy_logs(bundle_dir: Path, log_files: list[str | Path] | None, dest_subdir
     return copied
 
 
+def _retry_after_seconds(err, default: float) -> float:
+    """Parse a ``Retry-After`` header (delta-seconds or HTTP-date) into seconds."""
+    try:
+        ra = err.headers.get("Retry-After") if err.headers else None
+    except Exception:
+        ra = None
+    if not ra:
+        return default
+    ra = ra.strip()
+    if ra.isdigit():
+        return float(ra)
+    try:
+        import time as _t
+        from email.utils import parsedate_to_datetime
+
+        dt = parsedate_to_datetime(ra)
+        if dt is not None:
+            return max(0.0, dt.timestamp() - _t.time())
+    except Exception:  # noqa: S110 — malformed Retry-After is expected/benign, fall back to default
+        pass
+    return default
+
+
 def _download_langfuse_traces(
-    bundle_dir: Path, result_files: list[str | Path], dest_subdir: str = "langfuse_traces"
+    bundle_dir: Path,
+    result_files: list[str | Path],
+    dest_subdir: str = "langfuse_traces",
+    skip_existing: bool = True,
 ) -> bool:
     """Download Langfuse trace data for all trace IDs found in result files.
 
@@ -355,6 +485,11 @@ def _download_langfuse_traces(
         out_file = dest / f"{safe_name}_{trace_id}.json"
         success = False
 
+        # Idempotency: a trace already on disk is never re-fetched. This makes
+        # resume/retry cheap and turns partial fetches into "just fetch the rest".
+        if skip_existing and out_file.exists():
+            continue
+
         for attempt in range(1, max_attempts + 1):
             req = urllib.request.Request(url, headers=req_headers)  # noqa: S310 — URL built from configured Langfuse host
             try:
@@ -366,15 +501,17 @@ def _download_langfuse_traces(
                 print(f"  Langfuse trace saved: {out_file.name}")
                 break
             except urllib.error.HTTPError as e:
-                if e.code == 404 and attempt < max_attempts:
+                # 404 = trace not yet flushed to Langfuse; 429 = rate limited
+                # (common when a Langfuse key is shared across people). Both are
+                # transient and worth retrying; 429 honors Retry-After when sent.
+                if e.code in (404, 429) and attempt < max_attempts:
+                    delay = _retry_after_seconds(e, retry_delay) if e.code == 429 else retry_delay
                     if attempt == 1:
-                        print(
-                            f"  Trace {trace_id} not yet available, "
-                            f"retrying (up to {max_attempts} attempts)..."
-                        )
-                    time.sleep(retry_delay)
+                        reason = "rate limited (429)" if e.code == 429 else "not yet available"
+                        print(f"  Trace {trace_id} {reason}, retrying (up to {max_attempts} attempts)...")
+                    time.sleep(delay)
                     continue
-                # 4xx/5xx other than 404 are typically permanent (e.g. 500
+                # 4xx/5xx other than 404/429 are typically permanent (e.g. 500
                 # "Observations in trace are too large"); don't retry.
                 print(f"  Warning: Failed to download Langfuse trace {trace_id}: {e}")
                 break
@@ -411,7 +548,7 @@ def _write_per_model_config(bundle_dir: Path, model_envs: dict, benchmark_dir: P
         settings_path = env_data.pop("settings_path", "")
         lines = [
             f"# Runtime environment for model profile: {model_name}",
-            f"# Generated: {datetime.now(timezone.utc).isoformat()}Z",
+            f"# Generated: {_utc_now_iso()}",
             "",
         ]
         for key, value in sorted(env_data.items()):
@@ -471,8 +608,8 @@ def assemble_bundle(
     if bundle_root is None:
         bundle_root = benchmark_dir / "evaluation_bundles"
 
-    timestamp = datetime.now(timezone.utc).strftime("%Y%m%d_%H%M%S")
-    profile_label = model_profile or "default"
+    timestamp = _bundle_timestamp()
+    profile_label = _bundle_profile_label(model_profile)
     bundle_dir = bundle_root / f"{timestamp}_{profile_label}"
     bundle_dir.mkdir(parents=True, exist_ok=True)
 
@@ -490,9 +627,9 @@ def assemble_bundle(
     task_file_hashes = {}
     for tf in task_files:
         tf = Path(tf)
-        if tf.exists():
-            shutil.copy2(tf, tasks_dir / tf.name)
-            task_file_hashes[tf.name] = f"sha256:{_file_sha256(tf)}"
+        entry = _record_task_file(tf, tasks_dir)
+        if entry is not None:
+            task_file_hashes[tf.name] = entry
 
     # Policies (only if the benchmark has them)
     _copy_policies(bundle_dir, policies_dir)
@@ -522,7 +659,7 @@ def assemble_bundle(
 
     metadata = {
         "bundle_version": BUNDLE_VERSION,
-        "created_at": datetime.now(timezone.utc).isoformat() + "Z",
+        "created_at": _utc_now_iso(),
         "benchmark": benchmark_name,
         "eval_repo": collect_repo_git_info(),
         "run": {
@@ -570,6 +707,7 @@ def assemble_compare_bundle(
     fetch_langfuse: bool = False,
     eval_key: str | None = None,
     cuga_git_info: dict | None = None,
+    bundle_dir_override: Path | None = None,
 ) -> Path:
     """Create a comparison-level bundle directory.
 
@@ -581,26 +719,37 @@ def assemble_compare_bundle(
     (``[[run1 logs], [run2 logs], ...]`` → ``runN/logs``) or a flat list
     (legacy / ``"shared"`` key → ``runs/<key>/logs``). Per-run grouping keeps
     each run's own console + registry log instead of only the last run's.
+
+    ``bundle_dir_override``, when given, is used verbatim instead of computing
+    a fresh timestamped directory name — used by workspace/experiment-mode
+    compare runs, where the bundle directory already exists (created upfront
+    by ``prepare_compare_experiment_workspace``) and must be finalized in
+    place rather than duplicated into a second, separate directory.
     """
     benchmark_dir = PROJECT_ROOT / "benchmarks" / benchmark_name
     if bundle_root is None:
         bundle_root = benchmark_dir / "evaluation_bundles"
 
-    timestamp = datetime.now(timezone.utc).strftime("%Y%m%d_%H%M%S")
-    models = sorted(set(k.split(":")[0] for k in config_results))
-    # Detect inner-dim variants (agent and/or policy mode) so the dir name
-    # reflects what was compared. Config keys are "model[:agent[:policy_mode]]".
-    agents = sorted({parts[1] for k in config_results if len(parts := k.split(":")) > 1 and parts[1]})
-    policy_modes = sorted({parts[2] for k in config_results if len(parts := k.split(":")) > 2 and parts[2]})
-    suffix_bits = ["_".join(models)]
-    if len(agents) > 1:
-        suffix_bits.append("_".join(agents))
-    if len(policy_modes) > 1:
-        suffix_bits.append("_vs_".join(policy_modes))  # e.g. "policies_vs_no-policies"
-    elif len(policy_modes) == 1 and policy_modes[0] == "no-policies":
-        suffix_bits.append("no-policies")
-    suffix = "_".join(suffix_bits)
-    bundle_dir = bundle_root / f"{timestamp}_compare_{suffix}"
+    if bundle_dir_override is not None:
+        bundle_dir = Path(bundle_dir_override)
+    else:
+        timestamp = _bundle_timestamp()
+        models = sorted(set(k.split(":")[0] for k in config_results))
+        # Detect inner-dim variants (agent and/or policy mode) so the dir name
+        # reflects what was compared. Config keys are "model[:agent[:policy_mode]]".
+        agents = sorted({parts[1] for k in config_results if len(parts := k.split(":")) > 1 and parts[1]})
+        policy_modes = sorted(
+            {parts[2] for k in config_results if len(parts := k.split(":")) > 2 and parts[2]}
+        )
+        suffix_bits = ["_".join(models)]
+        if len(agents) > 1:
+            suffix_bits.append("_".join(agents))
+        if len(policy_modes) > 1:
+            suffix_bits.append("_vs_".join(policy_modes))  # e.g. "policies_vs_no-policies"
+        elif len(policy_modes) == 1 and policy_modes[0] == "no-policies":
+            suffix_bits.append("no-policies")
+        suffix = "_".join(suffix_bits)
+        bundle_dir = bundle_root / f"{timestamp}_compare_{suffix}"
     bundle_dir.mkdir(parents=True, exist_ok=True)
 
     # Per-run results
@@ -616,13 +765,15 @@ def assemble_compare_bundle(
             shutil.copy2(fp, run_dir / fp.name)
 
     # Tasks
+    task_file_hashes = {}
     if task_files:
         tasks_dir = bundle_dir / "tasks"
         tasks_dir.mkdir(exist_ok=True)
         for tf in task_files:
             tf = Path(tf)
-            if tf.exists():
-                shutil.copy2(tf, tasks_dir / tf.name)
+            entry = _record_task_file(tf, tasks_dir)
+            if entry is not None:
+                task_file_hashes[tf.name] = entry
 
     # Policies
     _copy_policies(bundle_dir, policies_dir)
@@ -695,14 +846,6 @@ def assemble_compare_bundle(
     if report_content:
         (bundle_dir / "report.md").write_text(report_content)
 
-    # Compute task file hashes (same as single-run bundles)
-    task_file_hashes = {}
-    if task_files:
-        for tf in task_files:
-            tf = Path(tf)
-            if tf.exists():
-                task_file_hashes[tf.name] = f"sha256:{_file_sha256(tf)}"
-
     # Build per-model runtime config from model_envs if available
     models_config = {}
     if model_envs:
@@ -717,7 +860,7 @@ def assemble_compare_bundle(
 
     metadata = {
         "bundle_version": BUNDLE_VERSION,
-        "created_at": datetime.now(timezone.utc).isoformat() + "Z",
+        "created_at": _utc_now_iso(),
         "bundle_type": "comparison",
         "benchmark": benchmark_name,
         "eval_repo": collect_repo_git_info(),
@@ -744,6 +887,193 @@ def assemble_compare_bundle(
     }
 
     (bundle_dir / "metadata.json").write_text(json.dumps(metadata, indent=2, default=str) + "\n")
+    return bundle_dir
+
+
+def create_workspace_bundle(
+    bundle_dir: Path,
+    benchmark_name: str = "default",
+    *,
+    experiment_name: str | None = None,
+    args: dict | None = None,
+    model_profile: str | None = None,
+) -> Path:
+    """Create (or re-open) a bundle directory as a live workspace.
+
+    Called *before* the evaluator runs. Creates ``results/partial/`` up front so
+    the evaluator can write per-task results incrementally, and writes an initial
+    ``metadata.json`` marked ``"status": "in_progress"``. Idempotent: re-invoking
+    on an existing bundle (a ``--resume``) preserves ``created_at`` and
+    ``experiment_name`` and appends a new entry to ``resume_history``.
+    """
+    bundle_dir = Path(bundle_dir)
+    (bundle_dir / "results" / "partial").mkdir(parents=True, exist_ok=True)
+
+    now = _utc_now_iso()
+    meta_path = bundle_dir / "metadata.json"
+    metadata: dict = {}
+    if meta_path.exists():
+        try:
+            metadata = json.loads(meta_path.read_text())
+        except (json.JSONDecodeError, OSError):
+            metadata = {}
+
+    metadata.setdefault("bundle_version", BUNDLE_VERSION)
+    metadata.setdefault("created_at", now)
+    metadata["benchmark"] = benchmark_name
+    if experiment_name is not None:
+        metadata.setdefault("experiment_name", experiment_name)
+    metadata["status"] = "in_progress"
+    history = metadata.get("resume_history") or []
+    history.append(
+        {
+            "started_at": now,
+            "model_profile": model_profile,
+            "eval_key": (args or {}).get("eval_key"),
+        }
+    )
+    metadata["resume_history"] = history
+    if args:
+        run = metadata.get("run") or {}
+        run.update(
+            {
+                "agent": args.get("agent", run.get("agent", "cuga_sdk")),
+                # Fall back to the previously-recorded profile when this call
+                # doesn't supply one (e.g. a --resume-experiment invocation
+                # that omits --model-profile) instead of clobbering it with None.
+                "model_profile": model_profile if model_profile is not None else run.get("model_profile"),
+                "policies_enabled": not args.get("no_policies", False),
+                # Same fallback as model_profile: preserve the previously-recorded
+                # task_ids when this call (e.g. a --resume-experiment invocation
+                # without task filtering) doesn't supply any.
+                "task_ids": args.get("task_ids") if args.get("task_ids") is not None else run.get("task_ids"),
+                # Same fallback again: a --resume-experiment that omits
+                # --eval-key must not blank the key this workspace was run
+                # with. eval.sh reads it back to pick the official AppWorld
+                # evaluate; clobbering it to None made that fallback dead.
+                # The exact per-invocation value stays in resume_history.
+                "eval_key": args.get("eval_key") if args.get("eval_key") is not None else run.get("eval_key"),
+            }
+        )
+        metadata["run"] = run
+
+    atomic_write_json(meta_path, metadata)
+    return bundle_dir
+
+
+def finalize_workspace_bundle(
+    bundle_dir: Path,
+    benchmark_name: str = "default",
+    *,
+    task_files: list[str | Path] | None = None,
+    args: dict | None = None,
+    model_profile: str | None = None,
+    policies_dir: Path | None = None,
+    trajectory_dir: Path | None = None,
+    log_files: list[str | Path] | None = None,
+    fetch_langfuse: bool = False,
+    partial: bool = False,
+    cuga_git_info: dict | None = None,
+) -> Path:
+    """Finalize a workspace bundle after the evaluator finishes (or is resumed).
+
+    Idempotent and safe to re-run after ``--resume``: it only fills in what can't
+    be produced incrementally -- ``report.md``, Langfuse traces (with
+    ``skip_existing=True`` so a resume only fetches new traces), copied
+    task/policy/trajectory/log artifacts, and the full ``metadata.json`` -- then
+    flips the bundle status to ``completed`` (or ``partial``).
+    """
+    bundle_dir = Path(bundle_dir)
+    benchmark_dir = PROJECT_ROOT / "benchmarks" / benchmark_name
+    results_dir = bundle_dir / "results"
+    result_files = sorted(str(p) for p in results_dir.glob("*.json"))
+    args = args or {}
+
+    # Tasks
+    task_file_hashes: dict = {}
+    for tf in task_files or []:
+        tf = Path(tf)
+        entry = _record_task_file(tf, bundle_dir / "tasks")
+        if entry is not None:
+            task_file_hashes[tf.name] = entry
+
+    _copy_policies(bundle_dir, policies_dir)
+    _copy_trajectories(bundle_dir, trajectory_dir)
+    _traj_progress = bundle_dir / "trajectories" / ".progress"
+    if _traj_progress.exists():
+        shutil.copy2(_traj_progress, bundle_dir / ".progress")
+    _copy_logs(bundle_dir, log_files)
+
+    if fetch_langfuse and result_files:
+        _download_langfuse_traces(bundle_dir, result_files, skip_existing=True)
+
+    # Report (best-effort; a partial bundle should still report what it has)
+    if result_files:
+        try:
+            from benchmarks.helpers.compare_report import generate_eval_report
+
+            report = generate_eval_report(result_files[0])
+            (bundle_dir / "report.md").write_text(report)
+        except Exception as e:  # noqa: BLE001 — never let report gen fail finalization
+            print(f"  Warning: report generation failed: {e}")
+
+    _write_run_env(bundle_dir)
+    settings_file = _copy_cuga_settings(bundle_dir, benchmark_dir)
+
+    meta_path = bundle_dir / "metadata.json"
+    metadata: dict = {}
+    if meta_path.exists():
+        try:
+            metadata = json.loads(meta_path.read_text())
+        except (json.JSONDecodeError, OSError):
+            metadata = {}
+
+    now = _utc_now_iso()
+    metadata.setdefault("bundle_version", BUNDLE_VERSION)
+    metadata.setdefault("created_at", now)
+    metadata["benchmark"] = benchmark_name
+    metadata["finalized_at"] = now
+    metadata["eval_repo"] = collect_repo_git_info()
+    run = metadata.get("run") or {}
+    run.update(
+        {
+            "agent": args.get("agent", run.get("agent", "cuga_sdk")),
+            # Same fallback as create_workspace_bundle: don't clobber a
+            # previously-recorded profile when this finalize call (e.g. after
+            # a --resume-experiment that omitted --model-profile) doesn't
+            # supply one.
+            "model_profile": model_profile if model_profile is not None else run.get("model_profile"),
+            "policies_enabled": not args.get("no_policies", False),
+            "task_files": [str(Path(tf).name) for tf in (task_files or [])],
+            # Preserve rather than clobber, exactly as create_workspace_bundle
+            # does: finalize runs on every invocation, including a resume that
+            # supplied neither, and it runs *before* eval.sh reads eval_key back.
+            "task_ids": args.get("task_ids") if args.get("task_ids") is not None else run.get("task_ids"),
+            "eval_key": args.get("eval_key") if args.get("eval_key") is not None else run.get("eval_key"),
+        }
+    )
+    metadata["run"] = run
+    metadata["runtime_config"] = {
+        "env_vars": collect_environment(),
+        "settings_file": settings_file,
+        "model_profile": model_profile,
+    }
+    metadata["model"] = {
+        "model_name": os.environ.get("MODEL_NAME"),
+        "agent_setting_config": os.environ.get("AGENT_SETTING_CONFIG"),
+        "openai_base_url": os.environ.get("OPENAI_BASE_URL"),
+        "openai_api_version": os.environ.get("OPENAI_API_VERSION"),
+    }
+    metadata["cuga"] = collect_cuga_info(cuga_git_info)
+    metadata["policies"] = collect_policy_metadata(policies_dir)
+    metadata["environment"] = collect_environment()
+    metadata["ground_truth"] = {
+        "task_count": len(task_files or []),
+        "task_file_hashes": task_file_hashes,
+    }
+    metadata["status"] = "partial" if partial else "completed"
+
+    atomic_write_json(meta_path, metadata)
     return bundle_dir
 
 
@@ -841,13 +1171,47 @@ def cli():
         "in the cuga-agent repo at bundle-assembly time (after all runs finish), not what actually ran "
         "-- a real risk for multi-run comparisons if the checkout is shared with other work.",
     )
+    p_cmp.add_argument(
+        "--bundle-dir",
+        default=None,
+        help="Finalize in place into this existing directory instead of creating a new "
+        "timestamped one (workspace/experiment-mode compare runs).",
+    )
     p_cmp.add_argument("--zip", action="store_true")
+
+    # --- retry-langfuse (repair an existing bundle) ---
+    p_rl = sub.add_parser("retry-langfuse", help="Fetch missing Langfuse traces for an existing bundle")
+    p_rl.add_argument("--bundle-dir", required=True)
+    p_rl.add_argument("--benchmark", default=None, help="Override benchmark (else read from metadata)")
+
+    # --- regenerate-report (repair an existing bundle) ---
+    p_rr = sub.add_parser(
+        "regenerate-report", help="Regenerate report.md from an existing bundle's merged results"
+    )
+    p_rr.add_argument("--bundle-dir", required=True)
+    p_rr.add_argument("--benchmark", default=None, help="Override benchmark (else read from metadata)")
+
+    p_replay = sub.add_parser("replay", help="Reconstruct eval.sh argv from bundle metadata")
+    p_replay.add_argument("--bundle-dir", required=True)
+    p_replay.add_argument(
+        "--format",
+        choices=("argv", "shell", "json"),
+        default="shell",
+        help="Output format (default: shell comment + command)",
+    )
 
     args = parser.parse_args()
 
     # Reload benchmark env from disk (dotenv strips inline comments). Shell-sourced
     # vars from eval.sh may include trailing comment text in values.
-    _load_benchmark_env(args.benchmark)
+    benchmark_name = getattr(args, "benchmark", None)
+    if not benchmark_name and getattr(args, "bundle_dir", None):
+        try:
+            _meta = json.loads((Path(args.bundle_dir) / "metadata.json").read_text())
+            benchmark_name = _meta.get("benchmark")
+        except (json.JSONDecodeError, OSError):
+            benchmark_name = None
+    _load_benchmark_env(benchmark_name or "default")
 
     policies_dir = Path(args.policies_dir) if getattr(args, "policies_dir", None) else None
 
@@ -914,10 +1278,45 @@ def cli():
             fetch_langfuse=args.fetch_langfuse,
             eval_key=getattr(args, "eval_key", None),
             cuga_git_info=json.loads(args.cuga_git_info) if args.cuga_git_info else None,
+            bundle_dir_override=Path(args.bundle_dir) if getattr(args, "bundle_dir", None) else None,
         )
         print(f"Bundle created: {bundle_dir}")
         if args.zip:
             print(f"Bundle zipped: {zip_bundle(bundle_dir)}")
+
+    elif args.command == "retry-langfuse":
+        bundle_dir = Path(args.bundle_dir)
+        result_files = sorted(str(p) for p in (bundle_dir / "results").glob("*.json"))
+        if not result_files:
+            print(f"No merged result files under {bundle_dir / 'results'}")
+            return
+        ok = _download_langfuse_traces(bundle_dir, result_files, skip_existing=True)
+        print("Langfuse retry complete." if ok else "No new traces downloaded.")
+
+    elif args.command == "regenerate-report":
+        bundle_dir = Path(args.bundle_dir)
+        result_files = sorted(str(p) for p in (bundle_dir / "results").glob("*.json"))
+        if not result_files:
+            print(f"No merged result files under {bundle_dir / 'results'}")
+            return
+        from benchmarks.helpers.compare_report import generate_eval_report
+
+        report = generate_eval_report(result_files[0])
+        (bundle_dir / "report.md").write_text(report)
+        print(f"Report regenerated: {bundle_dir / 'report.md'}")
+
+    elif args.command == "replay":
+        from benchmarks.helpers.replay import cli_args_from_metadata, format_replay_command
+
+        bundle_dir = Path(args.bundle_dir)
+        meta_path = bundle_dir / "metadata.json"
+        metadata = json.loads(meta_path.read_text())
+        if args.format == "json":
+            print(json.dumps({"argv": cli_args_from_metadata(metadata)}, indent=2))
+        elif args.format == "argv":
+            print(" ".join(cli_args_from_metadata(metadata)), end="")
+        else:
+            print(format_replay_command(metadata))
 
 
 if __name__ == "__main__":

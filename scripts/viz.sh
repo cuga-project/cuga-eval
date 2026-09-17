@@ -26,4 +26,4 @@ source "$HELPERS_DIR/load_env.sh" "$BENCHMARK_NAME"
 echo ""
 echo "Running cuga viz..."
 cd "$PROJECT_ROOT"
-uv run cuga-viz run $CUGA_LOGGING_DIR/trajectory_data/
+uv run --no-sync cuga-viz run $CUGA_LOGGING_DIR/trajectory_data/

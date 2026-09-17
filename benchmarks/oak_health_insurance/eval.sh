@@ -22,51 +22,60 @@ fi
 # Early --help before any server startup
 for arg in "$@"; do
     if [[ "$arg" == "--help" || "$arg" == "-h" ]]; then
-        echo "Usage: ./eval.sh [--task TASK] [--difficulty LEVEL] [--no-bundle] [--bundle-zip] [--model-profile NAME]"
+        echo "Usage: ./eval.sh [--task TASK] [--difficulty LEVEL] [--no-policies] [--no-bundle] [--bundle-zip] [--model-profile NAME]"
         echo ""
         echo "Options:"
         echo "  --task TASK              Run a specific task by ID/name (e.g., 'approved_claims')"
         echo "  --difficulty LEVEL       Filter by difficulty level (easy, medium, hard)"
+        echo "  --no-policies            Skip loading oak policies"
         echo "  --no-bundle              Skip reproducibility bundle creation"
         echo "  --bundle-zip             Create zip archive of bundle"
         echo "  --model-profile <name>   Model profile (for bundle metadata)"
-        echo "  --no-policies            Disable CUGA policies (for baselining)"
         echo ""
         echo "Examples:"
-        echo "  ./eval.sh                        # Default evaluation"
+        echo "  ./eval.sh                         # Default evaluation"
         echo "  ./eval.sh --task approved_claims  # Single task"
         echo "  ./eval.sh --difficulty easy       # Filter by difficulty"
         exit 0
     fi
 done
 
-# Early --agent validation before any server/process side effects (fast-fail).
-# Oak only supports the CUGA agent. The full --agent parse happens later below;
-# this pre-scan only extracts the value early enough to reject invalid ones
-# before we start killing ports and spawning servers.
-_EARLY_AGENT=""
-_i=1
-for arg in "$@"; do
-    if [[ "$arg" == "--agent" ]]; then
-        _next=$((_i + 1))
-        _EARLY_AGENT="${!_next:-}"
-        break
-    fi
-    _i=$((_i + 1))
-done
-if [ -n "$_EARLY_AGENT" ] && [ "$_EARLY_AGENT" != "cuga" ]; then
-    echo -e "${RED:-}Error: oak_health_insurance only supports --agent cuga (got '$_EARLY_AGENT').${NC:-}"
-    exit 2
-fi
-unset _EARLY_AGENT _i _next
-
 FASTAPI_PORT=8090
-REGISTRY_PORT=8001
 FASTAPI_PID=""
 REGISTRY_PID=""
 
+# Parse flags before server startup so lifecycle commands short-circuit cleanly.
+PASSTHROUGH_ARGS=()
+while [[ $# -gt 0 ]]; do
+    case "$1" in
+        --no-bundle)   NO_BUNDLE=true;    shift ;;
+        --bundle-zip)  BUNDLE_ZIP=true;   shift ;;
+        --model-profile) MODEL_PROFILE="$2"; shift 2 ;;
+        --experiment)  EXPERIMENT="$2"; shift 2 ;;
+        --resume)      RESUME=true; shift ;;
+        --resume-experiment) RESUME_EXPERIMENT="$2"; shift 2 ;;
+        --background)  BACKGROUND=true; shift ;;
+        --stop)        STOP=true; shift ;;
+        --restart)     RESTART=true; shift ;;
+        --status)      STATUS=true; shift ;;
+        --agent)       AGENT="$2"; shift 2 ;;
+        --verbose|-v|--quiet|-q)  PASSTHROUGH_ARGS+=("$1"); shift ;;
+        *)             PASSTHROUGH_ARGS+=("$1"); shift ;;
+    esac
+done
+
+if [ -n "${AGENT:-}" ] && [ "$AGENT" != "cuga" ]; then
+    echo -e "${RED:-}Error: oak_health_insurance only supports --agent cuga (got '$AGENT').${NC:-}"
+    exit 2
+fi
+
+if handle_eval_lifecycle "oak_health_insurance" "$0" "${PASSTHROUGH_ARGS[@]}"; then
+    exit 0
+fi
+
 cleanup() {
     local exit_code=$?
+    finalize_run_state_on_exit "$exit_code"
     echo ""
     echo -e "${YELLOW:-}Cleaning up...${NC:-}"
     if [ "${SKIP_SERVER_CLEANUP:-false}" != "true" ]; then
@@ -81,6 +90,10 @@ cleanup() {
             wait "$REGISTRY_PID" 2>/dev/null || true
         fi
     fi
+    # RUN_MARKER (if created) is only used up to the LATEST_RESULT lookup right
+    # after the evaluator exits; clean it up here instead of a dedicated trap so
+    # it can't leak on SIGKILL/early-abort without clobbering this EXIT trap.
+    [ -n "${RUN_MARKER:-}" ] && rm -f "$RUN_MARKER"
     exit $exit_code
 }
 
@@ -90,6 +103,18 @@ cd "$PROJECT_ROOT"
 
 # Load environment
 source "$PROJECT_ROOT/benchmarks/helpers/load_env.sh" "oak_health_insurance"
+
+# Single registry port for shell helpers and Python (eval_bench / cuga-agent
+# both read DYNACONF_SERVER_PORTS__REGISTRY via settings.server_ports.registry).
+REGISTRY_PORT="${REGISTRY_PORT:-${DYNACONF_SERVER_PORTS__REGISTRY:-8001}}"
+export REGISTRY_PORT
+export DYNACONF_SERVER_PORTS__REGISTRY="$REGISTRY_PORT"
+
+# Apply --model-profile after load_env + arg parsing. common.sh is sourced
+# unconditionally above; hard-fail loudly if that ever stops being true
+# instead of silently skipping model-profile application.
+declare -F finalize_model_config >/dev/null || { echo "Error: common.sh not sourced (finalize_model_config unavailable)" >&2; exit 1; }
+finalize_model_config || exit 1
 
 # Capture console output to a log file for reproducibility bundles
 CONSOLE_LOG="/tmp/oak_console.log"
@@ -111,7 +136,7 @@ if [ "${SKIP_SERVER_START:-false}" != "true" ]; then
 
     echo -e "${YELLOW:-}Starting FastAPI server on port $FASTAPI_PORT...${NC:-}"
     # Oak app uses relative imports (from models import ...), must run from its directory
-    (cd "$SCRIPT_DIR" && uv run uvicorn main:app --port $FASTAPI_PORT) > /tmp/oak_fastapi.log 2>&1 &
+    (cd "$SCRIPT_DIR" && uv run --no-sync uvicorn main:app --port $FASTAPI_PORT) > /tmp/oak_fastapi.log 2>&1 &
     FASTAPI_PID=$!
 
     if wait_for_server "http://127.0.0.1:$FASTAPI_PORT/" "FastAPI server" 30; then
@@ -144,40 +169,77 @@ fi
 
 echo ""
 
-# Parse bundle / model-profile flags; forward everything else to Python
-PASSTHROUGH_ARGS=()
-while [[ $# -gt 0 ]]; do
-    case "$1" in
-        --no-bundle)   NO_BUNDLE=true;    shift ;;
-        --bundle-zip)  BUNDLE_ZIP=true;   shift ;;
-        --model-profile) MODEL_PROFILE="$2"; shift 2 ;;
-        --agent)       AGENT="$2"; shift 2 ;;
-        --verbose|-v|--quiet|-q)  PASSTHROUGH_ARGS+=("$1"); shift ;;
-        *)             PASSTHROUGH_ARGS+=("$1"); shift ;;
-    esac
-done
-
-if [ -n "${AGENT:-}" ] && [ "$AGENT" != "cuga" ]; then
-    echo -e "${RED:-}Error: oak_health_insurance only supports --agent cuga (got '$AGENT').${NC:-}"
-    exit 2
+if prepare_experiment_workspace "oak_health_insurance"; then
+    PASSTHROUGH_ARGS+=(--bundle-dir "$WORKSPACE_BUNDLE_DIR")
+    mark_run_state_started
 fi
 
 # Run evaluation
 echo -e "${YELLOW:-}Starting evaluation...${NC:-}"
-uv run python -m benchmarks.oak_health_insurance.eval_bench_sdk "${PASSTHROUGH_ARGS[@]}"
 
+# Unique per-process ID (timestamp + PID) so concurrent runs on this host never
+# collide, even if started in the same wall-clock second. Exported so the SDK
+# evaluator embeds it in its result filename (see save_evaluation_results).
+RUN_ID="$(date +%Y%m%d_%H%M%S)_$$"
+export EVAL_RUN_ID="$RUN_ID"
+
+# Marker whose mtime marks the start of THIS run, used only as a fallback if
+# for some reason the result file doesn't carry EVAL_RUN_ID. NOTE: mtime-newer
+# alone is not run-scoped — it can still pick up a concurrent sibling run's
+# report, not just a stale one. POSIX -newer is portable to BSD/macOS (unlike
+# -newermt). Mirrors the AppWorld harness.
+RUN_MARKER=$(mktemp "${TMPDIR:-/tmp}/oak_run_marker.XXXXXX")
+
+# Capture the evaluator's exit code instead of letting `set -e` + the ERR trap
+# abort here — an abort would skip both the bundle and the failure banner below
+# (the else branch was previously dead code).
+set +e
+uv run --no-sync python -m benchmarks.oak_health_insurance.eval_bench_sdk "${PASSTHROUGH_ARGS[@]}"
 EVAL_EXIT=$?
+set -e
+
+# Select only a result file produced by this run. Prefer an exact match on our
+# unique RUN_ID (true run-scoping, safe under concurrent runs); fall back to
+# mtime-newer-than-marker otherwise. (stderr is not redirected to /dev/null
+# here — a missing/unreadable results dir should surface as a real error, not
+# silently look like "no fresh result".)
+LATEST_RESULT=""
+if [ -d "$SCRIPT_DIR/results" ]; then
+    LATEST_RESULT=$(find "$SCRIPT_DIR/results" -name "oak_health_${RUN_ID}.json" -type f | sort | tail -1)
+    if [ -z "$LATEST_RESULT" ]; then
+        LATEST_RESULT=$(find "$SCRIPT_DIR/results" -name 'oak_health_*.json' -type f -newer "$RUN_MARKER" | sort | tail -1)
+    fi
+else
+    echo -e "${RED:-}✗ $SCRIPT_DIR/results does not exist — the evaluator never got as far as writing a report.${NC:-}" >&2
+fi
 
 if [ $EVAL_EXIT -eq 0 ]; then
     echo -e "${GREEN:-}✓${NC:-} Oak Health Insurance evaluation completed successfully"
 
+    # A clean exit MUST come with a fresh result from this run. Refuse to bundle
+    # otherwise: the old `ls -t | head -1` fallback silently bundled a previous
+    # run's report as if it were this run's results.
+    if [ -z "$LATEST_RESULT" ]; then
+        echo -e "${RED:-}✗ Evaluator exited 0 but wrote no fresh result file — refusing to bundle stale results.${NC:-}"
+        echo -e "${RED:-}  The evaluator was likely terminated before saving; check the console log above.${NC:-}"
+        exit 1
+    fi
+
     # Create reproducibility bundle unless skipped
     if [ "${NO_BUNDLE:-false}" != "true" ]; then
         echo ""
-        echo -e "${YELLOW:-}Creating reproducibility bundle...${NC:-}"
+        if [ -n "${WORKSPACE_BUNDLE_DIR:-}" ]; then
+            echo -e "${YELLOW:-}Finalizing experiment workspace...${NC:-}"
+            FIN_EXTRA=(--task-file "$SCRIPT_DIR/oak_health_test_suite_v1.json")
+            TRAJ_DIR=$(find_latest_trajectory "$SCRIPT_DIR/logging/trajectory_data")
+            if [ -n "$TRAJ_DIR" ]; then
+                FIN_EXTRA+=(--trajectory-dir "$TRAJ_DIR")
+            fi
+            FIN_EXTRA+=(--log-file /tmp/oak_fastapi.log --log-file /tmp/oak_registry.log --log-file "$CONSOLE_LOG")
+            finalize_experiment_workspace "oak_health_insurance" "${FIN_EXTRA[@]}"
+        else
+            echo -e "${YELLOW:-}Creating reproducibility bundle...${NC:-}"
 
-        LATEST_RESULT=$(ls -t "$SCRIPT_DIR/results"/oak_health_*.json 2>/dev/null | head -1)
-        if [ -n "$LATEST_RESULT" ]; then
             # Generate eval report
             REPORT_TMP=$(mktemp /tmp/oak_eval_report_XXXXXX)
             uv run --no-sync python -m benchmarks.helpers.compare_report eval \
@@ -202,7 +264,11 @@ if [ $EVAL_EXIT -eq 0 ]; then
             BUNDLE_ARGS+=(--log-files /tmp/oak_fastapi.log /tmp/oak_registry.log "$CONSOLE_LOG")
             # Download Langfuse traces if available
             BUNDLE_ARGS+=(--fetch-langfuse)
-            uv run --no-sync python -m benchmarks.helpers.bundle "${BUNDLE_ARGS[@]}"
+            BUNDLE_OUT=$(uv run --no-sync python -m benchmarks.helpers.bundle "${BUNDLE_ARGS[@]}" 2>&1 | tee /dev/stderr)
+            BUNDLE_PATH=$(echo "$BUNDLE_OUT" | sed -n 's/^Bundle created: //p' | tail -1)
+            if [ -n "$BUNDLE_PATH" ]; then
+                write_legacy_experiment_pointer "oak_health_insurance" "$BUNDLE_PATH"
+            fi
             rm -f "$REPORT_TMP"
         fi
     fi

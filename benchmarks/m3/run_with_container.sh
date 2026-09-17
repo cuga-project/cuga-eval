@@ -184,7 +184,7 @@ echo -e "${BLUE}Running M3 Evaluation${NC}"
 echo -e "${BLUE}========================================${NC}\n"
 
 cd ../..
-uv run python benchmarks/m3/eval_m3.py "$@"
+uv run --no-sync python benchmarks/m3/eval_m3.py "$@"
 
 EVAL_EXIT_CODE=$?
 

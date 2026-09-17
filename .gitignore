@@ -12,6 +12,8 @@ env/
 .cursor/*
 !.cursor/commands/
 !.cursor/commands/cuga-*.md
+!.cursor/skills/
+!.cursor/skills/**/
 .a5c/
 .serena/
 
@@ -49,6 +51,8 @@ milvus*
 # Benchmark-specific data
 benchmarks/appworld/appworld
 /appworld/
+# tau2-bench editable clone (added locally by setup_tau2.sh; never committed)
+benchmarks/tau2/tau2-bench
 
 # Results directories (all benchmarks)
 benchmarks/appworld/results/
@@ -84,6 +88,10 @@ analytics/trace_comparison_rules/config/*.conf
 !analytics/trace_comparison_rules/config/m3_all_trajectories.conf
 !analytics/trace_comparison_rules/config/n_pairs.conf
 
+# grepathy why-pack tool: local working state (.ai/grepathy/ — index, locks,
+# logs, sessions) plus its generated .ai/why/ output. Local-only; not committed.
+/.ai/
+
 # OS-specific
 .DS_Store
 .DS_Store?
@@ -102,3 +110,14 @@ benchmarks/m3/data/small_capability_*/
 # from VAKRA (IBM Research) and distributed under CC BY-NC-SA 4.0 — see
 # benchmarks/m3/data/LICENSE and benchmarks/m3/data/NOTICE.
 !benchmarks/m3/data/small_train.zip
+
+# Local run data and per-machine state. None of this was ignored before, so a
+# single `git add -A` swept 56k files into a PR. All of it either regenerates
+# or is specific to one machine, and all of it stays on disk untracked.
+benchmarks/appworld/parallel_runs/
+benchmarks/appworld/backups/
+benchmarks/appworld/cost_baseline.json
+scratch/
+
+# Generated mirror of .claude/skills/ plus migrated command stubs.
+.agents/

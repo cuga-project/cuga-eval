@@ -117,6 +117,34 @@ while [[ $# -gt 0 ]]; do
             MODEL_PROFILE="$2"
             shift 2
             ;;
+        --experiment)
+            EXPERIMENT="$2"
+            shift 2
+            ;;
+        --resume)
+            RESUME=true
+            shift
+            ;;
+        --resume-experiment)
+            RESUME_EXPERIMENT="$2"
+            shift 2
+            ;;
+        --background)
+            BACKGROUND=true
+            shift
+            ;;
+        --stop)
+            STOP=true
+            shift
+            ;;
+        --restart)
+            RESTART=true
+            shift
+            ;;
+        --status)
+            STATUS=true
+            shift
+            ;;
         --agent)
             AGENT="$2"
             shift 2
@@ -138,6 +166,9 @@ if [ "${AGENT:-cuga}" = "codeact" ]; then
     exit 2
 fi
 
+if handle_eval_lifecycle "m3" "$0" "${PASSTHROUGH_ARGS[@]}"; then
+    exit 0
+fi
 
 REGISTRY_PID=""
 
@@ -157,6 +188,46 @@ create_bundle() {
     BUNDLE_DONE=true
 
     echo ""
+    if [ -n "${WORKSPACE_BUNDLE_DIR:-}" ]; then
+        echo -e "${YELLOW:-}Finalizing experiment workspace...${NC:-}"
+
+        local task_file
+        if [ "$M3_DATA" = "true" ] && [ -n "$M3_DATA_PATH" ]; then
+            # Record the actual --m3-data source used for this run, not the
+            # hard-coded example corpus below (which this run didn't read from).
+            task_file="$M3_DATA_PATH"
+        elif [ "$MULTITURN" = "true" ]; then
+            task_file="$SCRIPT_DIR/data/olympics_multiturn.json"
+        else
+            task_file="$SCRIPT_DIR/data/hockey.json"
+        fi
+
+        local fin_extra=(--task-file "$task_file")
+        if [ "$NO_POLICIES" != "true" ]; then
+            fin_extra+=(--policies-dir "$POLICIES_DIR")
+        fi
+        local traj_dir
+        traj_dir=$(find_latest_trajectory "$SCRIPT_DIR/logging/trajectory_data")
+        if [ -n "$traj_dir" ]; then
+            fin_extra+=(--trajectory-dir "$traj_dir")
+        fi
+        local registry_log="$SCRIPT_DIR/registry_server.log"
+        if [ -f "$registry_log" ]; then
+            fin_extra+=(--log-file "$registry_log" --log-file "$CONSOLE_LOG")
+        else
+            fin_extra+=(--log-file /tmp/m3_registry.log --log-file "$CONSOLE_LOG")
+        fi
+        if [ "${PARTIAL_FINALIZE:-false}" = "true" ]; then
+            fin_extra+=(--partial)
+        fi
+
+        if ! finalize_experiment_workspace "m3" "${fin_extra[@]}"; then
+            echo -e "${YELLOW:-}Experiment workspace finalization reported errors.${NC:-}"
+            [ "${PARTIAL_FINALIZE:-false}" = "true" ] || return 1
+        fi
+        return 0
+    fi
+
     echo -e "${YELLOW:-}Creating reproducibility bundle...${NC:-}"
 
     # Find the most recent result file produced by *this* run (mtime newer
@@ -231,16 +302,28 @@ create_bundle() {
     # Download Langfuse traces if available
     bundle_args+=(--fetch-langfuse)
 
-    uv run --no-sync python -m benchmarks.helpers.bundle "${bundle_args[@]}" || \
+    local bundle_out
+    bundle_out=$(uv run --no-sync python -m benchmarks.helpers.bundle "${bundle_args[@]}" 2>&1 | tee /dev/stderr) || \
         echo -e "${YELLOW:-}Bundle creation reported errors (best-effort).${NC:-}"
 
     rm -f "$report_tmp"
+
+    local bundle_path
+    bundle_path=$(echo "$bundle_out" | sed -n 's/^Bundle created: //p' | tail -1)
+    if [ -n "$bundle_path" ]; then
+        write_legacy_experiment_pointer "m3" "$bundle_path"
+    fi
 }
 
 cleanup() {
     local exit_code=$?
+    finalize_run_state_on_exit "$exit_code"
     echo ""
     echo -e "${YELLOW:-}Cleaning up...${NC:-}"
+
+    if [ $exit_code -ne 0 ] && [ -n "${WORKSPACE_BUNDLE_DIR:-}" ]; then
+        PARTIAL_FINALIZE=true
+    fi
 
     # Best-effort bundle on interrupt/crash. Idempotent (no-op if already
     # created on the success path below). Wrapped in `|| true` so a bundle
@@ -264,18 +347,28 @@ cd "$PROJECT_ROOT"
 # Load environment
 source "$PROJECT_ROOT/benchmarks/helpers/load_env.sh" "m3"
 
+# Apply --model-profile after load_env + arg parsing. common.sh is sourced
+# unconditionally above; hard-fail loudly if that ever stops being true
+# instead of silently skipping model-profile application.
+declare -F finalize_model_config >/dev/null || { echo "Error: common.sh not sourced (finalize_model_config unavailable)" >&2; exit 1; }
+finalize_model_config || exit 1
+
 # Single registry port for shell helpers and Python (eval_m3 / cuga-agent both
 # read DYNACONF_SERVER_PORTS__REGISTRY via settings.server_ports.registry).
 REGISTRY_PORT="${REGISTRY_PORT:-${DYNACONF_SERVER_PORTS__REGISTRY:-8001}}"
 export REGISTRY_PORT
 export DYNACONF_SERVER_PORTS__REGISTRY="$REGISTRY_PORT"
 
+# Per-run token/timing receipt from CugaAgent.invoke() (cuga-agent#467),
+# preferred over the Langfuse HTTP fetch when present (cuga-eval#95).
+export DYNACONF_ADVANCED_FEATURES__RUN_RECEIPT=true
+
 # Capture the cuga-agent checkout's git state now, before the eval run starts
 # — not at bundle-assembly time (after the run finishes). If the checkout is
 # shared (e.g. someone switches branches in it for unrelated work) while a
 # long run is in flight, a live git query at the end would silently mislabel
 # the bundle with whatever happens to be checked out by then.
-CUGA_REPO_PATH_RESOLVED="${CUGA_REPO_PATH:-$HOME/workspace/cuga-agent}"
+CUGA_REPO_PATH_RESOLVED="$(resolve_cuga_repo_path)"
 CUGA_GIT_INFO_JSON=""
 if [ -d "$CUGA_REPO_PATH_RESOLVED" ]; then
     _cuga_commit=$(git -C "$CUGA_REPO_PATH_RESOLVED" rev-parse --short HEAD 2>/dev/null || echo "")
@@ -390,6 +483,11 @@ if [ "$NO_POLICIES" != "true" ] && [ -d "$POLICIES_DIR" ]; then
     fi
 fi
 
+if prepare_experiment_workspace "m3"; then
+    PASSTHROUGH_ARGS+=(--bundle-dir "$WORKSPACE_BUNDLE_DIR")
+    mark_run_state_started
+fi
+
 # Select eval script
 #
 # The evaluator may exit non-zero (task failures, agent crashes, etc.). With
@@ -408,7 +506,7 @@ if [ "$M3_DATA" = "true" ]; then
         else
             echo -e "${YELLOW:-}Running --m3-data evaluation with react agent...${NC:-}"
         fi
-        uv run python -m benchmarks.m3.eval_m3_react \
+        uv run --no-sync python -m benchmarks.m3.eval_m3_react \
             --m3-data "$M3_DATA_PATH" \
             "${EVAL_M3_EXTRA[@]}" \
             "${PASSTHROUGH_ARGS[@]}"
@@ -418,7 +516,7 @@ if [ "$M3_DATA" = "true" ]; then
         else
             echo -e "${YELLOW:-}Running --m3-data evaluation with cuga agent...${NC:-}"
         fi
-        uv run python -m benchmarks.m3.eval_m3 \
+        uv run --no-sync python -m benchmarks.m3.eval_m3 \
             --from-config "$SCRIPT_DIR/config/m3_registry_m3_data.yaml" \
             --m3-data "$M3_DATA_PATH" \
             "${EVAL_M3_EXTRA[@]}" \
@@ -430,14 +528,14 @@ elif [ "$MULTITURN" = "true" ]; then
         echo -e "${RED:-}Error: M3 multi-turn evaluation is not available for the react agent${NC:-}"
         exit 1
     else
-        uv run python -m benchmarks.m3.eval_m3_multiturn --from-config "$SCRIPT_DIR/config/m3_registry.yaml" "${EVAL_M3_EXTRA[@]}" "${PASSTHROUGH_ARGS[@]}"
+        uv run --no-sync python -m benchmarks.m3.eval_m3_multiturn --from-config "$SCRIPT_DIR/config/m3_registry.yaml" "${EVAL_M3_EXTRA[@]}" "${PASSTHROUGH_ARGS[@]}"
     fi
 else
     echo -e "${YELLOW:-}Running single-turn evaluation with agent ${AGENT:-cuga}...${NC:-}"
     if [ "${AGENT:-cuga}" = "react" ]; then
-        uv run python -m benchmarks.m3.eval_m3_react --from-config "$SCRIPT_DIR/config/m3_registry.yaml" "${EVAL_M3_EXTRA[@]}" "${PASSTHROUGH_ARGS[@]}"
+        uv run --no-sync python -m benchmarks.m3.eval_m3_react --from-config "$SCRIPT_DIR/config/m3_registry.yaml" "${EVAL_M3_EXTRA[@]}" "${PASSTHROUGH_ARGS[@]}"
     else
-        uv run python -m benchmarks.m3.eval_m3 --from-config "$SCRIPT_DIR/config/m3_registry.yaml" "${EVAL_M3_EXTRA[@]}" "${PASSTHROUGH_ARGS[@]}"
+        uv run --no-sync python -m benchmarks.m3.eval_m3 --from-config "$SCRIPT_DIR/config/m3_registry.yaml" "${EVAL_M3_EXTRA[@]}" "${PASSTHROUGH_ARGS[@]}"
     fi
 fi
 
@@ -450,6 +548,13 @@ if [ $EVAL_EXIT -eq 0 ]; then
     # Create reproducibility bundle (idempotent — cleanup trap also calls
     # this on interrupt/crash, see #91, #92).
     create_bundle
+elif [ $EVAL_EXIT -eq 3 ]; then
+    echo -e "${RED:-}✗ M3 evaluation aborted: docker environment failure detected (exit code: 3)${NC:-}"
+    if [ -n "${WORKSPACE_BUNDLE_DIR:-}" ]; then
+        echo -e "${YELLOW:-}Once the docker containers are healthy again, rerun this same command${NC:-}"
+        echo -e "${YELLOW:-}with --resume-experiment $(basename "$WORKSPACE_BUNDLE_DIR") appended to pick up where it stopped.${NC:-}"
+    fi
+    # cleanup trap will call create_bundle to salvage what we have.
 else
     echo -e "${RED:-}✗ M3 evaluation failed (exit code: $EVAL_EXIT)${NC:-}"
     # cleanup trap will call create_bundle to salvage what we have.

@@ -30,4 +30,4 @@ echo "✓ Configuration will be loaded by Python scripts"
 echo ""
 echo "Starting registry server..."
 cd "$PROJECT_ROOT"
-uv run registry
+uv run --no-sync registry

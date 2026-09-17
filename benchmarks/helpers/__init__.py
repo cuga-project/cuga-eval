@@ -1,10 +1,8 @@
 """Helper functions for SDK evaluation benchmarks."""
 
-from .config_loader import load_eval_config
 from .token_usage import TokenUsageCallback
 
 __all__ = [
-    "load_eval_config",
     "MetricsConfig",
     "TokenUsageCallback",
     "setup_agent_with_tools",

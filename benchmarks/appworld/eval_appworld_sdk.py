@@ -4,11 +4,15 @@ No policy loading — tools come from CombinedToolProvider via setup_agent_with_
 Task success is determined by AppWorld's harness (world.evaluate()), not keyword checks.
 """
 
+import os
 import sys
 from datetime import datetime
 from pathlib import Path
 
-_eval_run_timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
+# Prefer EVAL_RUN_ID (set by eval.sh, unique per process even within the same
+# wall-clock second) so concurrent runs on the same host never produce
+# same-named/same-mtime reports that a sibling run's `find` could pick up.
+_eval_run_timestamp = os.environ.get("EVAL_RUN_ID") or datetime.now().strftime("%Y%m%d_%H%M%S")
 
 project_root = Path(__file__).parent.parent.parent
 sys.path.insert(0, str(project_root))
@@ -25,7 +29,6 @@ load_eval_config("appworld")
 import argparse
 import asyncio
 import json
-import os
 import uuid
 from typing import Any, Dict, List, Optional
 
@@ -48,7 +51,13 @@ from cuga.backend.cuga_graph.utils.controller import AgentRunner
 from cuga.config import settings
 from cuga.sdk import CugaAgent
 
-from benchmarks.appworld.agents.base import APPWORLD_AGENT_PROMPT
+from benchmarks.appworld.agents.base import APPWORLD_SDK_PROMPT
+from benchmarks.appworld.leaderboard import (
+    LeaderboardError,
+    appworld_root,
+    plan_run,
+    store_leaderboard_metadata,
+)
 from benchmarks.appworld.utils.appworld_token_metrics import (
     apply_token_metrics,
     invoke_config_with_token_callback,
@@ -58,13 +67,18 @@ from benchmarks.appworld.utils.appworld_utils import (
     get_specific_task_levels,
     get_task_difficulty,
 )
+from benchmarks.appworld.utils.registry_auth import authenticate_apps, get_registry_base_url
 from benchmarks.helpers import (
     flush_langfuse,
     print_evaluation_summary,
     save_evaluation_results,
     setup_agent_with_tools,
 )
-from benchmarks.helpers.sdk_eval_helpers import _react_steps_from_invoke_result
+from benchmarks.helpers.sdk_eval_helpers import (
+    _react_steps_from_invoke_result,
+    preflight_llm,
+    receipt_fields_from_invoke_result,
+)
 from benchmarks.helpers.token_usage import TokenUsageCallback
 
 tracker = ActivityTracker()
@@ -72,17 +86,17 @@ var_manager = VariablesManager()
 
 
 def _task_ids_for_run(
-    task_id: Optional[str],
+    task_ids: Optional[List[str]],
     dataset_name: str,
     eval_key: Optional[str],
     from_dataset: bool,
 ) -> tuple[List[str], Optional[str]]:
-    """Resolve task IDs: single task, eval_config.toml group, or load_task_ids(dataset).
+    """Resolve task IDs: explicit ids, eval_config.toml group, or load_task_ids(dataset).
 
     Returns (task_ids, eval_group_name) where eval_group_name is set when tasks came from toml.
     """
-    if task_id:
-        return [task_id], None
+    if task_ids:
+        return list(task_ids), None
     if from_dataset:
         return load_task_ids(dataset_name), None
     key = eval_key or getattr(settings.eval_config, "eval_key", None)
@@ -95,6 +109,16 @@ def _task_ids_for_run(
             f"eval_config.toml has no task list for key {key!r}; falling back to dataset {dataset_name!r}"
         )
     return load_task_ids(dataset_name), None
+
+
+def count_selected_completed(results: List[Dict[str, Any]], selected_ids: List[str]) -> int:
+    """How many of ``selected_ids`` have a ``task_name`` row in ``results``.
+
+    ``results`` may also hold prior batches in the same workspace, so
+    ``len(results)`` is not a valid completion check for this run.
+    """
+    names = {r.get("task_name") for r in results if r.get("task_name") is not None}
+    return sum(1 for tid in selected_ids if tid in names)
 
 
 def _build_user_context(world: AppWorld) -> str:
@@ -126,6 +150,7 @@ async def invoke_and_score_appworld(
     difficulty: str,
     user_context: Optional[str],
     track_tool_calls: bool = True,
+    merge_tool_call_logs: bool = False,
 ) -> Dict[str, Any]:
     intent = world.task.instruction
     thread_id = f"appworld_sdk_{task_id}_{task_index}_{uuid.uuid4().hex[:8]}"
@@ -139,17 +164,19 @@ async def invoke_and_score_appworld(
     response = ""
     tool_calls: List[Any] = []
     err: Optional[str] = None
+    err_exc: Optional[BaseException] = None
     is_error = False
     invoked = False
     eval_dict: Dict[str, Any] = {}
     trace_id: Optional[str] = None
     _langfuse_metrics = None
+    _receipt_metrics = None
     invoke_result_holder: List[Any] = []
     token_callback = TokenUsageCallback()
     token_callback.reset()
 
     async def run_invoke(invoke_config: Optional[dict] = None) -> None:
-        nonlocal response, tool_calls, err, is_error, invoked
+        nonlocal response, tool_calls, err, err_exc, is_error, invoked, _receipt_metrics
         try:
             invoke_result = await agent.invoke(
                 [HumanMessage(content=intent)],
@@ -162,9 +189,11 @@ async def invoke_and_score_appworld(
             invoke_result_holder.append(invoke_result)
             response = invoke_result.answer
             tool_calls = list(invoke_result.tool_calls or []) if track_tool_calls else []
+            _receipt_metrics = receipt_fields_from_invoke_result(invoke_result)
             invoked = True
         except Exception as e:
             err = str(e)
+            err_exc = e
             is_error = True
             logger.error(f"Agent invoke failed: {e}")
 
@@ -172,6 +201,7 @@ async def invoke_and_score_appworld(
 
     def complete_and_eval() -> None:
         nonlocal harness_done, eval_dict
+        logs_dir = world.output_logs_directory
         _complete_task(world, response, is_error)
         evaluation = world.evaluate()
         eval_dict = evaluation_task_info(evaluation)
@@ -180,6 +210,22 @@ async def invoke_and_score_appworld(
         except Exception:  # noqa: S110 — cleanup is best-effort, swallowing is intentional
             pass
         harness_done = True
+        # Leaderboard runs only: rewriting the AppWorld logs is for submission
+        # bundles, so a routine train/dev run leaves environment_io.md and
+        # api_calls.jsonl exactly as world.execute wrote them.
+        if not merge_tool_call_logs:
+            return
+        # Registry HTTP calls never go through world.execute. Copy ToolCallTracker
+        # records into environment_io.md / api_calls.jsonl without re-running them.
+        # Logs are already on disk from execute() → save_logs().
+        try:
+            from benchmarks.appworld.interaction_logs import merge_tracker_into_appworld_logs
+
+            n = merge_tracker_into_appworld_logs(logs_dir, tool_calls)
+            if n:
+                logger.info(f"[APPWORLD-SDK] wrote {n} CUGA tool calls into AppWorld logs")
+        except Exception as log_exc:
+            logger.warning(f"[APPWORLD-SDK] could not merge tool calls into AppWorld logs: {log_exc}")
 
     if langfuse_handler:
         try:
@@ -220,11 +266,12 @@ async def invoke_and_score_appworld(
                 comment="Fraction of AppWorld tests passed",
             )
 
-            try:
-                _langfuse_metrics = await fetch_langfuse_metrics_for_trace(predefined_trace_id)
-            except Exception as langfuse_err:
-                logger.warning(f"Failed to fetch Langfuse metrics: {langfuse_err}")
-                _langfuse_metrics = None
+            if _receipt_metrics is None:
+                try:
+                    _langfuse_metrics = await fetch_langfuse_metrics_for_trace(predefined_trace_id)
+                except Exception as langfuse_err:
+                    logger.warning(f"Failed to fetch Langfuse metrics: {langfuse_err}")
+                    _langfuse_metrics = None
         except Exception as e:
             logger.warning(f"Langfuse trace failed: {e}")
             _langfuse_metrics = None
@@ -311,8 +358,10 @@ async def invoke_and_score_appworld(
         "appworld_evaluation": eval_dict,
     }
 
-    # Langfuse metrics when available; TokenUsageCallback always fills per-task token fields.
-    apply_token_metrics(result, token_callback, _langfuse_metrics)
+    # Token fields come from three sources of decreasing trust: the local
+    # TokenUsageCallback always fills them, Langfuse overrides where it has a
+    # value, and the SDK's own RunReceipt wins outright when present.
+    apply_token_metrics(result, token_callback, _langfuse_metrics, _receipt_metrics)
 
     agent_steps = None
     if invoke_result_holder:
@@ -322,6 +371,11 @@ async def invoke_and_score_appworld(
     if agent_steps is not None:
         result["steps"] = agent_steps
 
+    if err:
+        from benchmarks.helpers.content_filter import annotate_content_filter_failure
+
+        annotate_content_filter_failure(result, err, exc=err_exc, logger=logger, task_id=task_id)
+
     return result
 
 
@@ -329,19 +383,30 @@ class AppWorldSdkEvaluator:
     def __init__(
         self,
         dataset_name: str = "train",
-        task_id: Optional[str] = None,
+        task_ids: Optional[List[str]] = None,
         specific_task_levels: Optional[List[int]] = None,
         experiment_name: Optional[str] = None,
         environment_url: Optional[str] = None,
         apis_url: Optional[str] = None,
         eval_key: Optional[str] = None,
         from_dataset: bool = False,
+        bundle_dir: Optional[Path] = None,
+        resume_completed_ids: Optional[set] = None,
+        leaderboard_prefix: Optional[str] = None,
+        force_retry: bool = False,
     ):
         self.dataset_name = dataset_name
-        self.task_id = task_id
+        self.task_ids = task_ids
         self.specific_task_levels = specific_task_levels
         self.eval_key = eval_key
         self.from_dataset = from_dataset
+        self.bundle_dir = bundle_dir
+        self.resume_completed_ids = resume_completed_ids or set()
+        self.leaderboard_prefix = leaderboard_prefix
+        # Set from the resolved RunPlan in evaluate_all (covers resume, where
+        # --leaderboard is not repeated but the workspace metadata says so).
+        self.leaderboard_mode = False
+        self.force_retry = force_retry
         self.experiment_name = experiment_name or os.getenv(
             "APPWORLD_SDK_EXPERIMENT_NAME", "appworld_sdk_evaluation"
         )
@@ -350,11 +415,28 @@ class AppWorldSdkEvaluator:
         self.agent: Optional[CugaAgent] = None
         self.langfuse_handler: Optional[Any] = None
         self.results: List[Dict[str, Any]] = []
-        self.special_instructions: Optional[str] = APPWORLD_AGENT_PROMPT
+        # Bound from __init__, not inside evaluate_all(): if evaluate_all() raises
+        # before task discovery (e.g. bad --dataset), total_tasks must still be 0
+        # (not None) so the partial-run check in main() can't be silently
+        # disabled by a future refactor that catches exceptions inside evaluate_all().
+        self.total_tasks: int = 0
+        self.selected_task_ids: List[str] = []
+        # Lives in agents/base.py next to the external adapters' prompt so the
+        # two are diffable. This one is the SDK's; do not edit it to suit an
+        # adapter.
+        self.special_instructions: Optional[str] = APPWORLD_SDK_PROMPT
 
     async def setup(self):
+        # Prove the LLM answers before touching the agent. An unreachable
+        # gateway hangs rather than erroring, so without this every task times
+        # out on its first call and gets scored as if the agent had tried.
+        await preflight_llm()
+        # require_tools: AppWorld cannot run toolless — 0 tools means the registry
+        # failed to reach the app API server at startup; abort instead of burning
+        # the whole run (issue #148).
         self.agent, self.langfuse_handler = await setup_agent_with_tools(
-            special_instructions=self.special_instructions
+            special_instructions=self.special_instructions,
+            require_tools=True,
         )
         # Register a prompt-capture callback so the trajectory JSON files have
         # their `prompts` field populated.  The SDK path (CugaAgent.invoke) uses
@@ -404,7 +486,7 @@ class AppWorldSdkEvaluator:
         agent_runner = AgentRunner(browser_enabled=False)
 
         try:
-            requests.get("http://localhost:8001/api/reset", timeout=10)
+            requests.get(f"{get_registry_base_url()}/api/reset", timeout=10)
             await agent_runner.initialize_appworld_env()
 
             with AppWorld(
@@ -421,6 +503,58 @@ class AppWorldSdkEvaluator:
 
                 user_context = _build_user_context(world)
 
+                # Pre-authenticate every AppWorld app for this task so each app's
+                # access token — crucially file_system, which api_overrides
+                # auto-injects as file_system_access_token into cross-app
+                # receipt/attachment calls — is stored in the registry before the
+                # agent runs. Must happen AFTER AppWorld(...) opens (the task's
+                # supervisor must be live for the password lookup) and after the
+                # /api/reset above (which nulls the auth manager). Empty apps list
+                # = all configured apps; the registry skips apps it can't log into.
+                # Fail this task (not the whole suite) if auth transport fails, or
+                # if this task uses file_system and that app is not ok.
+                try:
+                    auth_result = await authenticate_apps([])
+                    logger.info(f"[APPWORLD-SDK] authenticate_apps: {auth_result}")
+                    fs_status = (auth_result.get("authenticated") or {}).get("file_system")
+                    if fs_status != "ok" and "file_system" in world.task.app_descriptions:
+                        raise RuntimeError(
+                            f"file_system authenticate_apps status={fs_status!r}, expected 'ok'"
+                        )
+                    elif fs_status != "ok":
+                        logger.error(
+                            f"[APPWORLD-SDK] file_system auth status={fs_status!r}; "
+                            "task does not use file_system, continuing"
+                        )
+                except Exception as auth_exc:
+                    err_msg = f"authenticate_apps failed: {auth_exc}"
+                    logger.error(f"[APPWORLD-SDK] {err_msg}")
+                    tracker.finish_task(
+                        intent=world.task.instruction,
+                        site="",
+                        task_id=task_id,
+                        eval=json.dumps({"error": err_msg}),
+                        score=0.0,
+                        agent_answer="",
+                        exception=True,
+                        num_steps=0,
+                    )
+                    tracker.collect_score(0.0)
+                    return {
+                        "task_name": task_id,
+                        "difficulty": difficulty,
+                        "intent": world.task.instruction,
+                        "success": False,
+                        "match_rate": 0.0,
+                        "response": "",
+                        "expected_keywords": [],
+                        "found_keywords": [],
+                        "missing_keywords": [],
+                        "tool_calls": [],
+                        "error": err_msg,
+                        "appworld_evaluation": {},
+                    }
+
                 def tracker_callback(result: Dict[str, Any], keyword_check: Dict[str, Any], intent: str):
                     agent_steps = result.get("steps")
                     if agent_steps is None:
@@ -436,14 +570,31 @@ class AppWorldSdkEvaluator:
                     )
                     score = float(result.get("match_rate", 0.0))
                     if result.get("error"):
+                        # Agent invoke errored, but AppWorld may still have graded the DB
+                        # state left behind. Keep match_rate when num_tests ran. Note:
+                        # result["success"] stays False while err is set, so compare-report
+                        # pass counts are unchanged; this only affects tracker/cuga-viz score.
+                        evaluated = bool(eval_info.get("num_tests"))
+                        error_score = score if evaluated else 0.0
+                        error_answer = result.get("response", "") if evaluated else ""
+                        err_preview = str(result.get("error") or "")[:300]
+                        logger.warning(
+                            f"[APPWORLD-SDK] task {task_id} errored: {err_preview!r} — "
+                            + (
+                                f"evaluation present, recording score={error_score}"
+                                if evaluated
+                                else "no evaluation, recording score=0.0"
+                            )
+                        )
                         tracker.finish_task(
                             intent=intent,
                             site="",
                             task_id=task_id,
                             eval=report_md,
-                            score=0.0,
-                            agent_answer="",
+                            score=error_score,
+                            agent_answer=error_answer,
                             exception=True,
+                            fail_category="errored_after_grading" if evaluated else None,
                             num_steps=agent_steps,
                             total_llm_calls=result.get("total_llm_calls", 0),
                             total_tokens=result.get("total_tokens", 0),
@@ -452,7 +603,9 @@ class AppWorldSdkEvaluator:
                             duration=result.get("full_execution_time", 0),
                             agent_v="",
                         )
-                        tracker.collect_score(0.0)
+                        if evaluated:
+                            tracker.collect_step(Step(name="EvaluationResult", data=report_md))
+                        tracker.collect_score(error_score)
                     else:
                         tracker.finish_task(
                             intent=intent,
@@ -481,6 +634,7 @@ class AppWorldSdkEvaluator:
                     task_index=task_index,
                     difficulty=difficulty,
                     user_context=user_context,
+                    merge_tool_call_logs=self.leaderboard_mode,
                 )
                 tracker_callback(merged, {}, world.task.instruction)
                 return merged
@@ -492,33 +646,93 @@ class AppWorldSdkEvaluator:
 
     async def evaluate_all(self):
         task_ids, eval_group = _task_ids_for_run(
-            self.task_id,
+            self.task_ids,
             self.dataset_name,
             self.eval_key,
             self.from_dataset,
         )
-        if self.task_id:
-            logger.info(f"Single task mode: {self.task_id}")
+        if self.task_ids:
+            logger.info(f"Single task mode: {self.task_ids}")
         elif eval_group:
             logger.info(f"Tasks from eval_config.toml (group {eval_group!r}): {len(task_ids)} tasks")
         else:
             logger.info(f"Dataset '{self.dataset_name}': {len(task_ids)} tasks")
 
-        if self.specific_task_levels and not self.task_id:
+        if self.specific_task_levels and not self.task_ids:
             task_ids = get_specific_task_levels(task_ids, self.specific_task_levels)
             logger.info(f"Filtered to levels {self.specific_task_levels}: {len(task_ids)} tasks")
+
+        plan = plan_run(
+            task_ids=task_ids,
+            eval_key=eval_group or self.eval_key,
+            leaderboard_prefix=self.leaderboard_prefix,
+            bundle_dir=self.bundle_dir,
+            completed_ids=set(self.resume_completed_ids),
+            force_retry=self.force_retry,
+            root=appworld_root(),
+            default_experiment_name=self.experiment_name,
+        )
+        self.experiment_name = plan.experiment_name
+        # Leaderboard mode is whatever the plan resolved — from --leaderboard on
+        # this invocation or from the workspace's stored leaderboard block on a
+        # resume. Gates the AppWorld interaction-log rewrite (submission-only).
+        self.leaderboard_mode = bool(plan.split and plan.prefix)
+        task_ids = list(plan.task_ids)
+        self.selected_task_ids = list(task_ids)
+        logger.info(
+            f"[APPWORLD-SDK] mode={plan.mode} experiment={plan.experiment_name} "
+            f"run={len(plan.task_ids)} skip={len(plan.skipped)}"
+        )
+        if plan.mode == "retry":
+            self.resume_completed_ids = set()
+        # Total intended for this run. Compared against how many of
+        # selected_task_ids appear in self.results — not len(self.results),
+        # which also holds prior batches in the same workspace.
+        self.total_tasks = len(task_ids)
 
         tracker.start_experiment(
             task_ids=task_ids,
             experiment_name=self.experiment_name,
             description="AppWorld SDK (CombinedToolProvider) evaluation",
         )
+        logger.info(f"[APPWORLD-SDK] cuga-viz experiment: {tracker.experiment_folder}")
+        if self.bundle_dir is not None and plan.split and plan.prefix:
+            store_leaderboard_metadata(
+                self.bundle_dir,
+                prefix=plan.prefix,
+                split=plan.split,
+                appworld_experiment=plan.experiment_name,
+                tracker_folder=tracker.experiment_folder,
+            )
 
         self.results = []
+        results_index: Dict[str, int] = {}  # task_name -> index (resume dedupe)
+        if self.bundle_dir is not None:
+            from benchmarks.helpers.incremental_results import load_all_partial_results
+
+            for r in load_all_partial_results(self.bundle_dir):
+                key = r.get("task_name")
+                if key is not None:
+                    results_index[key] = len(self.results)
+                self.results.append(r)
+
         for i, tid in enumerate(task_ids, 1):
+            if tid in self.resume_completed_ids:
+                logger.info(f"\n[{i}/{len(task_ids)}] Skipping already-completed task {tid}")
+                continue
             logger.info(f"\n[{i}/{len(task_ids)}] Task {tid}")
             result = await self.evaluate_task(tid, task_index=i)
-            self.results.append(result)
+            # AppWorld builds its own result dict (it doesn't route through
+            # evaluate_task_with_langfuse), so persist incrementally here.
+            if self.bundle_dir is not None:
+                from benchmarks.helpers.incremental_results import write_task_result_async
+
+                await write_task_result_async(self.bundle_dir, tid, result)
+            if tid in results_index:
+                self.results[results_index[tid]] = result
+            else:
+                results_index[tid] = len(self.results)
+                self.results.append(result)
             if i < len(task_ids):
                 await asyncio.sleep(0.5)
 
@@ -528,6 +742,12 @@ class AppWorldSdkEvaluator:
         print_evaluation_summary(self.results)
 
     def save_results(self, output_dir: Optional[str] = None):
+        if self.bundle_dir is not None:
+            from benchmarks.helpers.incremental_results import finalize_merged_results
+
+            return finalize_merged_results(
+                self.bundle_dir, prefix="appworld_sdk", run_timestamp=_eval_run_timestamp
+            )
         if output_dir is None:
             # Use experiments/outputs to match appworld_eval.py structure
             output_dir = Path(__file__).parent / "experiments" / "outputs"
@@ -559,7 +779,7 @@ async def main():
     parser.add_argument(
         "--dataset", default="train", help="Dataset name when using --from-dataset or as fallback"
     )
-    parser.add_argument("--task-id", default=None, help="Run a single task ID")
+    parser.add_argument("--task-id", nargs="+", default=None, help="Run one or more task IDs")
     parser.add_argument(
         "--eval-key",
         default=None,
@@ -592,6 +812,31 @@ async def main():
         default=None,
         help="Experiment name (default: eval group key, env, or appworld_sdk_evaluation)",
     )
+    parser.add_argument(
+        "--bundle-dir",
+        type=str,
+        default=None,
+        help="Bundle workspace directory for incremental, resumable results.",
+    )
+    parser.add_argument(
+        "--resume-task-ids",
+        type=str,
+        nargs="*",
+        default=None,
+        help="Task IDs to treat as already completed (skip). Usually computed by the shell layer.",
+    )
+    parser.add_argument(
+        "--leaderboard",
+        default=None,
+        metavar="PREFIX",
+        help="Leaderboard mode: AppWorld experiment becomes <PREFIX>_<split>; "
+        "split inferred from the task ids; persisted in the workspace",
+    )
+    parser.add_argument(
+        "--force-retry",
+        action="store_true",
+        help="Re-run every listed task even if its partial result is clean",
+    )
 
     from benchmarks.helpers.logging_args import add_log_level_args, apply_log_level
 
@@ -610,33 +855,81 @@ async def main():
     if experiment_name is None:
         experiment_name = "appworld_sdk_evaluation"
 
+    bundle_dir = Path(args.bundle_dir) if args.bundle_dir else None
+    resume_completed_ids: set = set()
+    if bundle_dir is not None:
+        from benchmarks.helpers.incremental_results import load_completed_task_ids
+
+        resume_completed_ids |= load_completed_task_ids(bundle_dir)
+    if args.resume_task_ids:
+        resume_completed_ids |= set(args.resume_task_ids)
+
     evaluator = AppWorldSdkEvaluator(
         dataset_name=args.dataset,
-        task_id=args.task_id,
+        task_ids=args.task_id,
         specific_task_levels=args.specific_task_levels,
         experiment_name=experiment_name,
         environment_url=args.environment_url,
         apis_url=args.apis_url,
         eval_key=args.eval_key,
         from_dataset=args.from_dataset,
+        bundle_dir=bundle_dir,
+        resume_completed_ids=resume_completed_ids,
+        leaderboard_prefix=args.leaderboard,
+        force_retry=args.force_retry,
     )
 
+    exit_code = 0
     try:
         await evaluator.setup()
         await evaluator.evaluate_all()
-        evaluator.print_summary()
-        evaluator.save_results()
     except KeyboardInterrupt:
         logger.warning("\nEvaluation interrupted by user")
-        if evaluator.results:
-            evaluator.print_summary()
-            evaluator.save_results()
+        exit_code = 130
+    except LeaderboardError as e:
+        logger.error(f"Leaderboard: {e}")
+        exit_code = 3
     except Exception as e:
         logger.error(f"Evaluation failed: {e}")
         import traceback
 
         traceback.print_exc()
-        sys.exit(1)
+        exit_code = 1
+    finally:
+        # Persist whatever completed — even on crash/interrupt — so partial
+        # results are recoverable instead of orphaned in the trajectory logs,
+        # and so the harness bundles this run's real (partial) data rather than
+        # falling back to a previous run's report.
+        results = getattr(evaluator, "results", None)
+        if results:
+            evaluator.print_summary()
+            try:
+                evaluator.save_results()
+            except Exception as e:
+                logger.error(f"Failed to save results: {e}")
+                # A clean run that cannot persist its report is not a success —
+                # don't let the process exit 0 with no durable result on disk.
+                if exit_code == 0:
+                    exit_code = 1
+        else:
+            logger.warning("No results to save")
+
+    # Fewer selected tasks than intended means the run stopped early. Report it
+    # as a failure so the harness does not present a partial run as a clean pass.
+    # Count only this run's ids: self.results also contains prior batches.
+    selected = getattr(evaluator, "selected_task_ids", None)
+    if selected is not None:
+        completed = count_selected_completed(getattr(evaluator, "results", []) or [], list(selected))
+        total = len(selected)
+    else:
+        total = getattr(evaluator, "total_tasks", None)
+        completed = len(getattr(evaluator, "results", []) or [])
+    if exit_code == 0 and total is not None and completed < total:
+        logger.error(f"Partial run: only {completed}/{total} tasks completed — marking as failed")
+        exit_code = 2
+
+    if exit_code:
+        sys.exit(exit_code)
 
 
 if __name__ == "__main__":

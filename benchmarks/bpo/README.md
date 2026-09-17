@@ -100,7 +100,37 @@ uv run python -m benchmarks.bpo.eval_bench_sdk --task task_1
 
 # Specific tasks only
 ./benchmarks/bpo/compare.sh --models gpt-oss --runs 2 --compare-policies --task-ids 1 2 3 4 5
+
+# Named resumable comparison (skips completed config/run pairs on resume)
+./benchmarks/bpo/compare.sh --experiment cmp --models gpt-oss,gpt4o --runs 3 --compare-policies
+./benchmarks/bpo/compare.sh --resume-experiment cmp
+./benchmarks/bpo/compare.sh --experiment cmp --status
 ```
+
+## Named experiments, resume & background
+
+Long runs can be named, interrupted, and resumed. Successful tasks are skipped on resume; failed tasks are re-attempted.
+
+```bash
+# Named workspace (creates evaluation_bundles/my-bpo-run/)
+./benchmarks/bpo/eval.sh --experiment my-bpo-run --task 1 2 3
+
+# Resume after crash or Ctrl-C
+./benchmarks/bpo/eval.sh --resume-experiment my-bpo-run
+
+# Background execution
+./benchmarks/bpo/eval.sh --experiment my-bpo-run --background
+./benchmarks/bpo/eval.sh --status
+./benchmarks/bpo/eval.sh --stop
+
+# Repair a bundle (Langfuse traces / report) without re-running eval
+uv run python -m benchmarks.helpers.bundle retry-langfuse \
+  --bundle-dir benchmarks/bpo/evaluation_bundles/my-bpo-run
+uv run python -m benchmarks.helpers.bundle replay \
+  --bundle-dir benchmarks/bpo/evaluation_bundles/my-bpo-run
+```
+
+See the [main README](../../README.md#named-experiments-resume-and-background-runs) for full flag reference.
 
 ## Configuration
 
@@ -148,6 +178,8 @@ Multi-run comparison reports include:
 ## Reproducibility Bundles
 
 Every evaluation run creates a self-contained bundle in `evaluation_bundles/` with metadata, results, tasks, policies, and config needed to audit or reproduce the run.
+
+Named experiments (`--experiment <name>`) use a live workspace under `evaluation_bundles/<name>/` with incremental `results/partial/` writes — see [Named experiments, resume & background](#named-experiments-resume--background) above and the [main README](../../README.md#named-experiments-resume-and-background-runs).
 
 ## Test Data
 

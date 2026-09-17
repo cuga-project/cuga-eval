@@ -16,4 +16,4 @@ source "$HELPERS_DIR/load_env.sh" "bpo"
 echo ""
 echo "Starting BPO FastAPI app on port 8095..."
 cd "$PROJECT_ROOT"
-uv run uvicorn benchmarks.bpo.main:app --reload --port 8095
+uv run --no-sync uvicorn benchmarks.bpo.main:app --reload --port 8095

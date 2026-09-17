@@ -16,4 +16,4 @@ source "$HELPERS_DIR/load_env.sh" "oak_health_insurance"
 echo ""
 echo "Starting FastAPI app..."
 cd "$SCRIPT_DIR"
-uv run uvicorn main:app --reload --port 8090
+uv run --no-sync uvicorn main:app --reload --port 8090

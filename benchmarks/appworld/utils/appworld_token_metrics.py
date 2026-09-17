@@ -23,10 +23,25 @@ def apply_token_metrics(
     result: Dict[str, Any],
     token_callback: TokenUsageCallback,
     langfuse_metrics: Any = None,
+    receipt_metrics: Optional[Dict[str, Any]] = None,
 ) -> None:
+    """Fill the token fields on ``result``, least to most authoritative.
+
+    Three sources can report the same numbers and they do not always agree:
+
+    1. ``token_callback`` — counted locally by this process. Always present, so
+       it is the base: a task never ends up with empty token fields.
+    2. ``langfuse_metrics`` — fetched from Langfuse, when a handler is attached.
+       Overrides the local count field by field, only where it has a value.
+    3. ``receipt_metrics`` — the SDK's own ``RunReceipt``
+       (``advanced_features.run_receipt``). The agent's own accounting, so it
+       wins outright over both (cuga-eval#95 / cuga-agent#467).
+    """
     result.update(token_callback.as_result_fields())
 
     if not langfuse_metrics:
+        if receipt_metrics:
+            result.update(receipt_metrics)
         return
 
     if getattr(langfuse_metrics, "total_tokens", 0):
@@ -46,3 +61,6 @@ def apply_token_metrics(
         result["llm_call_details"] = langfuse_metrics.llm_call_details
     if getattr(langfuse_metrics, "node_timings", None):
         result["node_timings"] = langfuse_metrics.node_timings
+
+    if receipt_metrics:
+        result.update(receipt_metrics)

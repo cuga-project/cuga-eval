@@ -163,6 +163,20 @@ def format_time_custom():
     return formatted_time
 
 
+def _get_registry_base_url() -> str:
+    registry_port = os.getenv("DYNACONF_SERVER_PORTS__REGISTRY")
+    if registry_port:
+        return f"http://localhost:{registry_port}"
+
+    server_ports = getattr(settings, "server_ports", None)
+    for attr_name in ("registry", "registry_url", "registry_port"):
+        port = getattr(server_ports, attr_name, None) if server_ports else None
+        if port:
+            return f"http://localhost:{port}"
+
+    return "http://localhost:8001"
+
+
 async def run_agent_on_task(
     task_id: str,
     experiment_name: str = "api_cuga_agent",
@@ -231,7 +245,7 @@ async def run_agent_on_task(
             # current datetime added to pi:
             tracker.pi += f"current_datetime: {tracker.current_date}"
 
-            requests.get("http://localhost:8001/api/reset", timeout=10)
+            requests.get(f"{_get_registry_base_url()}/api/reset", timeout=10)
             await agent_runner.initialize_appworld_env()
 
             _lf_ctx = (

@@ -16,6 +16,7 @@ This repository contains:
 | **[Oak Health Insurance](benchmarks/oak_health_insurance/README.md)** | Healthcare insurance application with claims, coverage, and benefits tasks | Healthcare |
 | **[M3](benchmarks/m3/README.md)** | Multi-hop question answering using hockey domain data | Knowledge Retrieval |
 | **[AppWorld](benchmarks/appworld/README.md)** | Complex web application automation and task completion | Web Automation |
+| **[tau2-bench (τ²)](benchmarks/tau2/README.md)** | Multi-turn customer-service benchmark (airline/retail/telecom) with user simulator and env-state scoring | Customer Service |
 
 ---
 
@@ -57,7 +58,7 @@ source .venv/bin/activate  # On Windows: .venv\Scripts\activate
 uv sync
 ```
 
-This installs the base dependencies needed for all benchmarks except AppWorld.
+This installs the base dependencies needed for all benchmarks except AppWorld and tau2 — each of those has a one-time setup step (see below).
 
 ### 4. Configure environment variables
 ```bash
@@ -83,7 +84,7 @@ LANGFUSE_HOST="https://us.cloud.langfuse.com"
 
 ### 5. Per-benchmark setup
 
-Steps 1–4 above (clone, `setup_cuga.sh`, `uv venv && uv sync`, `.env`) are enough to run **BPO** and **Oak Health Insurance** out of the box. **M3** and **AppWorld** each need one extra setup step. The four subsections below are independent — run only the ones for benchmarks you actually want to use.
+Steps 1–4 above (clone, `setup_cuga.sh`, `uv venv && uv sync`, `.env`) are enough to run **BPO** and **Oak Health Insurance** out of the box. **M3**, **AppWorld**, and **tau2 (τ²)** each need one extra setup step. The five subsections below are independent — run only the ones for benchmarks you actually want to use.
 
 At-a-glance:
 
@@ -93,6 +94,7 @@ At-a-glance:
 | Oak Health Insurance | None — base `uv sync` is enough | – |
 | M3 | Yes (one-time) | `./setup_m3.sh` |
 | AppWorld | Yes (one-time) | `git lfs install && ./setup_appworld.sh` |
+| tau2-bench (τ²) | Yes (one-time) | `bash setup_tau2.sh && uv sync --group tau2` |
 
 #### BPO — no extra setup
 
@@ -146,6 +148,25 @@ After setup:
   since the group is opt-in. Re-add it any time with `uv sync --group appworld`.
 
 See [`benchmarks/appworld/README.md`](benchmarks/appworld/README.md) for full details.
+
+#### tau2-bench (τ²) Setup
+
+If you plan to run the tau2 benchmark:
+
+```bash
+# Clones tau2-bench (pinned), registers it as an editable dependency in the
+# `tau2` group, and verifies the benchmark data.
+bash setup_tau2.sh
+
+# Install the tau2 group.
+uv sync --group tau2
+```
+
+Like AppWorld, `setup_tau2.sh` writes `[tool.uv.sources]` / `[dependency-groups].tau2`
+entries into your **local** `pyproject.toml` and `uv.lock` — these are intentional and
+should **not** be committed. τ² runs entirely in-process (no servers to start).
+
+See [`benchmarks/tau2/README.md`](benchmarks/tau2/README.md) for full details.
 
 #### Running multiple benchmarks
 
@@ -376,6 +397,13 @@ Flags accepted by every `eval.sh` (and forwarded by every `compare.sh`):
 | `--dotenv` | After applying the model profile, re-read `.env` and force-export every variable it contains. `.env` values override the profile. If no `--model-profile` is given, defaults to `gpt-oss` as the base. In `compare.sh` this forces a single model, so it cannot be combined with a multi-model `--models a,b,…` list (the run would compare a model against itself). |
 | `--no-bundle` | Skip reproducibility bundle creation. |
 | `--bundle-zip` | Zip the bundle for sharing. |
+| `--experiment <name>` | Use a **named, resumable** workspace at `evaluation_bundles/<name>` (instead of a timestamped post-hoc bundle). Creates the workspace before the run starts and writes per-task partial results incrementally. |
+| `--resume` | Resume the experiment named in `.last_experiment` (written at the start of every run). |
+| `--resume-experiment <name>` | Resume a specific named experiment. |
+| `--background` | Re-exec the eval in the background (`nohup`); requires `--experiment`, `--resume`, or `--resume-experiment`. Writes `run_state.json` in the bundle dir. |
+| `--status` | Print run status from `run_state.json` (and partial-task counts). Exits without starting servers. |
+| `--stop` | Send SIGTERM to the background run recorded in `run_state.json`. |
+| `--restart` | `--stop` then resume in the background (requires an experiment name or `--resume`). |
 
 Benchmark-specific flags:
 
@@ -392,6 +420,8 @@ Benchmark-specific flags:
 
 Every `eval.sh` and `compare.sh` run automatically creates a **reproducibility bundle** — a self-contained directory with all metadata, results, tasks, and (for BPO) policies needed to audit or reproduce the run.
 
+Legacy (unnamed) runs still produce timestamped bundles post-hoc, exactly as before. Named experiments use a **live workspace** model instead (see below).
+
 ```bash
 # Bundle is created automatically after each eval/compare run
 ./benchmarks/bpo/eval.sh --task 1 2
@@ -406,7 +436,82 @@ Every `eval.sh` and `compare.sh` run automatically creates a **reproducibility b
 ./benchmarks/appworld/compare.sh --models gpt-oss,gpt4o --runs 2 --task 82e2fac_1 --bundle-zip
 ```
 
-Bundle structure (single-run):
+#### Named experiments, resume, and background runs
+
+Give a run a stable name so you can interrupt it and pick up where you left off. Named workspaces live at `benchmarks/{benchmark}/evaluation_bundles/<name>/` (no timestamp prefix).
+
+```bash
+# Start a named experiment
+./scripts/eval.sh --benchmark bpo --experiment my-run --task 1 2 3
+
+# After a crash or Ctrl-C — resume (retries failed tasks, skips successful ones)
+./scripts/eval.sh --benchmark bpo --resume-experiment my-run
+
+# Or resume whatever ran last (.last_experiment pointer)
+./scripts/eval.sh --benchmark bpo --resume
+
+# Run in the background and check on it later
+./scripts/eval.sh --benchmark bpo --experiment my-run --background
+./scripts/eval.sh --benchmark bpo --status
+./scripts/eval.sh --benchmark bpo --stop
+./scripts/eval.sh --benchmark bpo --restart --resume-experiment my-run
+```
+
+**Resume semantics:** tasks that **completed successfully** are skipped; tasks that **failed** (transient errors, timeouts) are **re-attempted** on every resume. Each task's latest result is stored in `results/partial/<task_id>.json`.
+
+**AppWorld note:** named experiments require the SDK evaluator — `eval.sh` auto-enables `--sdk` when experiment flags are used.
+
+**Compare resume:** multi-run comparisons can be named and resumed too. Already-finished `(config, run)` pairs are skipped; partial ones are re-invoked with `--resume-experiment`.
+
+```bash
+./scripts/compare.sh --benchmark bpo --experiment cmp --models gpt-oss,gpt4o --runs 3
+# interrupted…
+./scripts/compare.sh --benchmark bpo --resume-experiment cmp
+./scripts/compare.sh --benchmark bpo --experiment cmp --status
+```
+
+Each `(config, run)` pair gets its own sub-experiment (e.g. `cmp__gpt-oss_cuga_policies__r2`) so individual eval runs inside a comparison remain resumable.
+
+#### Bundle repair and metadata replay
+
+When bundle assembly or Langfuse trace download fails after the eval itself succeeded:
+
+```bash
+# Re-fetch missing Langfuse traces (skips files already on disk; retries 429s)
+uv run python -m benchmarks.helpers.bundle retry-langfuse \
+  --bundle-dir benchmarks/bpo/evaluation_bundles/my-run
+
+# Regenerate report.md from current merged results
+uv run python -m benchmarks.helpers.bundle regenerate-report \
+  --bundle-dir benchmarks/bpo/evaluation_bundles/my-run
+
+# Or use the convenience wrapper
+python scripts/create_eval_bundle.py --bundle-dir benchmarks/bpo/evaluation_bundles/my-run
+```
+
+Reconstruct the CLI args that produced a bundle:
+
+```bash
+uv run python -m benchmarks.helpers.bundle replay \
+  --bundle-dir benchmarks/bpo/evaluation_bundles/my-run
+```
+
+Bundle structure (named experiment workspace, in progress or completed):
+```
+my-run/
+├── metadata.json          # status: in_progress | completed | partial
+├── run_state.json         # pid, status, task counts (background runs)
+├── compare_state.json     # compare progress (compare experiments only)
+├── results/
+│   ├── partial/           # one JSON file per task (written incrementally)
+│   └── bpo_*.json           # merged results (after finalize)
+├── config/
+├── tasks/
+├── logs/
+└── policies/              # (BPO only)
+```
+
+Bundle structure (legacy single-run):
 ```
 20260311_201832_gpt-oss/
 ├── metadata.json          # Git info, model config, timestamps
@@ -439,7 +544,11 @@ Bundles are stored in `benchmarks/{benchmark}/evaluation_bundles/` and are git-i
 
 #### Resilience: bundles and partial results on interrupt or crash
 
-M3's `eval.sh`/`compare.sh` salvage a best-effort bundle even when a run is interrupted (**Ctrl-C**) or crashes mid-flight, instead of silently losing everything collected so far:
+Named experiments write each task's result to `results/partial/` as it completes, so a kill mid-run preserves everything finished so far. Resuming merges partials and continues with the remaining (and previously-failed) tasks.
+
+All benchmarks' evaluators also converge crash/ interrupt handling onto the on-disk partials (not just the in-memory list), so a task finished moments before a crash is not lost even under concurrent batch execution (M3 config mode).
+
+M3's legacy (unnamed) `eval.sh`/`compare.sh` path additionally salvages a best-effort bundle when interrupted:
 
 - **Partial result files**: if the evaluator is interrupted or hits an unexpected exception mid-run, it saves whatever task results were already collected to `benchmarks/m3/results/m3_config_partial_*.json` (or `m3_config_no_gt_partial_*.json` with `--no-ground-truth`), distinguishable from complete-run files by the `partial` prefix.
 - **Bundle on exit**: `create_bundle`/`create_compare_bundle` are idempotent and run from both the success path and the script's `cleanup` trap (`trap cleanup EXIT INT TERM ERR`), so a bundle is produced exactly once whether the run finishes normally, is interrupted, or crashes — picking up the freshest result file written during that run.
@@ -516,6 +625,18 @@ When Langfuse is enabled, evaluations collect:
 - `generation_timings` - Token generation timing data
 - `full_execution_time` - Total execution time
 - `total_cache_input_tokens` - Cached token usage
+
+For m3 and the SDK appworld path, this is now the fallback: the eval tool
+reads a `RunReceipt` directly from the agent instead (no Langfuse round-trip),
+which additionally breaks tokens down into `input_tokens`, `output_tokens`,
+`cache_read_tokens`, `reasoning_tokens`, plus `tool_call_count`, `llm_time_s`,
+`tool_time_s`, and `wall_time_s`. `total_cost`, `node_timings`,
+`llm_call_details`, and `generation_timings` have no receipt equivalent and
+are not populated when the receipt path is used (the Langfuse fetch above is
+skipped entirely in that case). Note also that `full_execution_time` changes
+basis on the receipt path: it's `agent.invoke()` wall time rather than a
+Langfuse trace-span duration, so the Duration column isn't directly
+comparable between a bundle from before this change and one from after.
 
 For more details, see the Langfuse sections in individual benchmark READMEs.
 

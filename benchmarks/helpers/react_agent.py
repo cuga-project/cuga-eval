@@ -428,8 +428,16 @@ class GenericReactAgent:
 
 async def setup_react_agent_with_tools(
     special_instructions: Optional[str] = None,
+    require_tools: bool = False,
 ) -> tuple[GenericReactAgent, Optional[Any]]:
-    """Set up the generic ReAct agent with existing benchmark tools/Langfuse callback."""
+    """Set up the generic ReAct agent with existing benchmark tools/Langfuse callback.
+
+    Args:
+        special_instructions: Optional special instructions for the agent
+        require_tools: Fail fast if the tool provider yields zero tools. Enable for
+            benchmarks that cannot run without tools (e.g. AppWorld) — see
+            sdk_eval_helpers.setup_agent_with_tools (issue #148).
+    """
     from .sdk_eval_helpers import setup_langfuse
 
     logger.info("Setting up generic ReAct evaluator...")
@@ -438,6 +446,13 @@ async def setup_react_agent_with_tools(
     await tool_provider.initialize()
     all_tools = await tool_provider.get_all_tools()
     logger.info(f"Loaded {len(all_tools)} tools for ReAct agent")
+    if require_tools and not all_tools:
+        raise RuntimeError(
+            "Tool provider returned 0 tools but this benchmark requires tools. "
+            "Likely cause: the registry could not reach the app API server at startup "
+            "(check the registry log for 'Failed to initialize server for ...'). "
+            "Aborting instead of running a toolless eval (issue #148)."
+        )
 
     langfuse_handler = setup_langfuse()
     if langfuse_handler:

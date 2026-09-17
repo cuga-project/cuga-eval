@@ -88,6 +88,47 @@ def _default_trajectory_dir(benchmark: str) -> Path | None:
     return _find_latest_trajectory(traj_root)
 
 
+def _repair_bundle_dir(bundle_dir: Path, benchmark: str | None, no_langfuse: bool, no_report: bool) -> int:
+    """Repair/refresh an existing bundle directory in place.
+
+    Dispatches to the ``retry-langfuse`` and ``regenerate-report`` bundle
+    subcommands, both idempotent (they only add what's missing / overwrite the
+    report), so this is safe to re-run against a partial or completed bundle.
+    """
+    if not bundle_dir.is_dir():
+        print(f"Bundle directory not found: {bundle_dir}", file=sys.stderr)
+        return 1
+
+    results_dir = bundle_dir / "results"
+    if not any(results_dir.glob("*.json")):
+        print(f"No merged result files under {results_dir}", file=sys.stderr)
+        return 1
+
+    common = [sys.executable, "-m", "benchmarks.helpers.bundle"]
+    bench_args = ["--benchmark", benchmark] if benchmark else []
+
+    if not no_langfuse:
+        cmd = [*common, "retry-langfuse", "--bundle-dir", str(bundle_dir), *bench_args]
+        print("Running:", " ".join(cmd))
+        try:
+            subprocess.run(cmd, cwd=PROJECT_ROOT, check=True)
+        except subprocess.CalledProcessError as e:
+            print(f"retry-langfuse failed (exit {e.returncode})", file=sys.stderr)
+            return 1
+
+    if not no_report:
+        cmd = [*common, "regenerate-report", "--bundle-dir", str(bundle_dir), *bench_args]
+        print("Running:", " ".join(cmd))
+        try:
+            subprocess.run(cmd, cwd=PROJECT_ROOT, check=True)
+        except subprocess.CalledProcessError as e:
+            print(f"regenerate-report failed (exit {e.returncode})", file=sys.stderr)
+            return 1
+
+    print(f"Bundle repaired: {bundle_dir}")
+    return 0
+
+
 def _generate_report(result_file: Path) -> Path | None:
     report_tmp = Path(tempfile.mkstemp(prefix=f"{result_file.stem}_report_", suffix=".md")[1])
     cmd = [
@@ -114,8 +155,8 @@ def main() -> int:
     )
     parser.add_argument(
         "--benchmark",
-        default="m3",
-        help="Benchmark name (default: m3)",
+        default=None,
+        help="Benchmark name (default: m3; in --bundle-dir mode, read from metadata when omitted)",
     )
     parser.add_argument(
         "--result-file",
@@ -127,6 +168,12 @@ def main() -> int:
         "--latest",
         action="store_true",
         help="Use the most recent result file under benchmarks/<benchmark>/results/",
+    )
+    parser.add_argument(
+        "--bundle-dir",
+        default=None,
+        help="Repair/refresh an existing bundle directory in place (retry Langfuse "
+        "traces + regenerate report) instead of building a new bundle from result files.",
     )
     parser.add_argument(
         "--task-file",
@@ -150,6 +197,22 @@ def main() -> int:
     parser.add_argument("--no-langfuse", action="store_true", help="Skip Langfuse trace download")
     parser.add_argument("--zip", action="store_true", help="Also create a zip archive")
     args = parser.parse_args()
+
+    # Repair/refresh mode: operate on an existing bundle directory in place.
+    if args.bundle_dir:
+        if args.latest or args.result_files:
+            parser.error("--bundle-dir cannot be combined with --latest/--result-file")
+        if args.zip:
+            parser.error("--bundle-dir does not support --zip yet; zip the directory manually if needed")
+        return _repair_bundle_dir(
+            Path(args.bundle_dir).resolve(),
+            benchmark=args.benchmark,
+            no_langfuse=args.no_langfuse,
+            no_report=args.no_report,
+        )
+
+    benchmark = args.benchmark or "m3"
+    args.benchmark = benchmark
 
     if args.latest and args.result_files:
         parser.error("Use either --latest or --result-file, not both")

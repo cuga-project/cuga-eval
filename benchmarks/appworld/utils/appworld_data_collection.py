@@ -9,6 +9,8 @@ from dataclasses import asdict, dataclass, field
 from pathlib import Path
 from typing import Any, Dict, List, Optional
 
+from benchmarks.helpers.content_filter import classify_exception, failure_reason_from_exceptions
+
 # Configure logging for the experiment manager
 logging.basicConfig(level=logging.INFO, format='%(asctime)s - %(name)s - %(levelname)s - %(message)s')
 experiment_logger = logging.getLogger("experiment_manager")
@@ -38,6 +40,7 @@ class TaskResult:
     full_execution_time: float = 0.0
     api_calls: int = 0
     total_cache_input_tokens: int = 0
+    failure_reason: Optional[str] = None
 
     def to_dict(self) -> Dict[str, Any]:
         """Convert the TaskResult to a dictionary for JSON serialization."""
@@ -67,6 +70,9 @@ class TaskResult:
 
     def add_exception(self, exception: Exception, context: str = "") -> None:
         """Add an exception to the task result."""
+        reason = classify_exception(exception)
+        if reason and not self.failure_reason:
+            self.failure_reason = reason
         self.exceptions.append(
             {
                 "type": type(exception).__name__,
@@ -256,12 +262,14 @@ class ExperimentManager:
             task_result: The task result to add to the summary
         """
         task_id = task_result.task_id
+        failure_reason = task_result.failure_reason or failure_reason_from_exceptions(task_result.exceptions)
         # Add task result to summary
         self.summary_report["task_results"][task_id] = {
             "success": task_result.success,
             "steps": task_result.steps,
             "duration": task_result.duration,
             "exceptions_count": len(task_result.exceptions),
+            "failure_reason": failure_reason,
             "difficulty": task_result.metadata.get("difficulty", "unknown"),
             "api_calls": task_result.api_calls,
             "total_llm_calls": task_result.total_llm_calls,

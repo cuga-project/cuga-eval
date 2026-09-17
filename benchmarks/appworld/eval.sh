@@ -33,6 +33,11 @@ for arg in "$@"; do
         echo "  --bundle-zip                 Create zip archive of bundle"
         echo "  --model-profile <name>       Model profile (for bundle metadata)"
         echo "  --agent <name>               Agent to run (cuga, react, codeact, deepagents, openclaw, hermes; default: cuga)"
+        echo "  --eval-key <key>             Task group key in eval_config.toml (e.g. test_med); recorded in bundle metadata"
+        echo "  --leaderboard <prefix>       Tag this run for official AppWorld leaderboard submission (implies --sdk)"
+        echo "  --force-retry                Re-run listed tasks even if a clean partial already exists"
+        echo "  --dry-run                    Print the evaluator command that would run and exit without starting servers"
+        echo "  --status                     Show run status; also prints leaderboard status when the workspace has a leaderboard block"
         echo ""
         echo "Examples:"
         echo "  ./eval.sh                          # Default evaluation (cuga)"
@@ -47,10 +52,110 @@ done
 
 APPWORLD_PID=""
 REGISTRY_PID=""
-REGISTRY_PORT=8001
+APPWORLD_MCP_EXPANDED=""
+
+# Parse bundle / model-profile / sdk flags before any server startup so
+# --status / --stop / --background can short-circuit without side effects.
+USE_SDK=false
+PASSTHROUGH_ARGS=()
+while [[ $# -gt 0 ]]; do
+    case "$1" in
+        --no-bundle)   NO_BUNDLE=true;    shift ;;
+        --bundle-zip)  BUNDLE_ZIP=true;   shift ;;
+        --sdk)         USE_SDK=true;      shift ;;
+        --model-profile) MODEL_PROFILE="$2"; shift 2 ;;
+        --eval-key)    EVAL_KEY="$2"; PASSTHROUGH_ARGS+=(--eval-key "$2"); shift 2 ;;
+        --experiment)  EXPERIMENT="$2"; shift 2 ;;
+        --resume)      RESUME=true; shift ;;
+        --resume-experiment) RESUME_EXPERIMENT="$2"; shift 2 ;;
+        --background)  BACKGROUND=true; shift ;;
+        --stop)        STOP=true; shift ;;
+        --restart)     RESTART=true; shift ;;
+        --status)      STATUS=true; shift ;;
+        --agent)       AGENT="$2"; shift 2 ;;
+        --leaderboard) LEADERBOARD="$2"; LEADERBOARD_REQUESTED=true; PASSTHROUGH_ARGS+=(--leaderboard "$2"); USE_SDK=true; shift 2 ;;
+        --force-retry) FORCE_RETRY=true; PASSTHROUGH_ARGS+=(--force-retry); USE_SDK=true; shift ;;
+        --dry-run)     DRY_RUN=true; shift ;;
+        --verbose|-v|--quiet|-q)  PASSTHROUGH_ARGS+=("$1"); shift ;;
+        --task)        PASSTHROUGH_ARGS+=("--task-id"); shift
+                       while [[ $# -gt 0 && ! "$1" =~ ^-- ]]; do
+                           PASSTHROUGH_ARGS+=("$1"); shift
+                       done ;;
+        *)             PASSTHROUGH_ARGS+=("$1"); shift ;;
+    esac
+done
+
+# --leaderboard and --force-retry are defined only by eval_appworld_sdk.py. The
+# other evaluators use argparse.parse_args(), so passing either through would
+# abort with "unrecognized arguments" *after* the AppWorld and registry servers
+# have already booted. Reject it up front instead. Keyed on whether the flag was
+# *passed*, not on its value — `--leaderboard ""` must not slip past the guard.
+# The external adapters (appworld_eval_external.py) define neither flag either.
+is_external_agent() {
+    case "$1" in
+        deepagents|openclaw|hermes) return 0 ;;
+        *) return 1 ;;
+    esac
+}
+
+for sdk_only in ${LEADERBOARD_REQUESTED:+--leaderboard} ${FORCE_RETRY:+--force-retry}; do
+    if [[ "${AGENT:-cuga}" == "codeact" || "${AGENT:-cuga}" == "react" ]] || is_external_agent "${AGENT:-cuga}"; then
+        echo "Error: ${sdk_only} is SDK-only (CUGA lite). --agent ${AGENT} does not accept ${sdk_only}." >&2
+        echo "Drop --agent, or drop ${sdk_only}." >&2
+        exit 2
+    fi
+done
+
+# Single source of truth for the evaluator command. Both --dry-run and the live
+# run below call this, so what --dry-run prints is exactly what would execute —
+# the two used to be separate copies and had already drifted on the --agent flags.
+# Sets EVAL_CMD (array) and EVAL_LABEL. Reads AGENT, USE_SDK, PASSTHROUGH_ARGS.
+build_eval_command() {
+    EVAL_CMD=(uv run --no-sync python -m)
+    if [ "${AGENT:-cuga}" = "codeact" ]; then
+        EVAL_CMD+=(benchmarks.appworld.appworld_eval_codeact --agent codeact)
+        EVAL_LABEL="Using CodeAct agent (appworld_eval_codeact.py)"
+    elif [ "${AGENT:-cuga}" = "react" ]; then
+        EVAL_CMD+=(benchmarks.appworld.appworld_eval_react --agent react)
+        EVAL_LABEL="Using React agent (appworld_eval_react.py)"
+    elif is_external_agent "${AGENT:-cuga}"; then
+        EVAL_CMD+=(benchmarks.appworld.appworld_eval_external --agent "${AGENT}")
+        EVAL_LABEL="Using external agent ${AGENT} (appworld_eval_external.py)"
+    elif [[ "$USE_SDK" == "true" ]]; then
+        EVAL_CMD+=(benchmarks.appworld.eval_appworld_sdk)
+        EVAL_LABEL="Using SDK evaluator (eval_appworld_sdk.py)"
+    else
+        EVAL_CMD+=(benchmarks.appworld.appworld_eval --agent "${AGENT:-cuga}")
+        EVAL_LABEL="Using default evaluator (appworld_eval.py)"
+    fi
+    EVAL_CMD+=("${PASSTHROUGH_ARGS[@]+"${PASSTHROUGH_ARGS[@]}"}")
+}
+
+if [[ "${DRY_RUN:-false}" == "true" ]]; then
+    # Named experiments / resume use the SDK evaluator on the live path
+    # (see experiment_workspace_requested below). Apply the same rule here
+    # so --dry-run --experiment prints the module that would actually run.
+    if experiment_workspace_requested && [[ "${NO_BUNDLE:-false}" != "true" ]]; then
+        USE_SDK=true
+    fi
+    build_eval_command
+    echo "DISPATCH: ${EVAL_CMD[*]}"
+    exit 0
+fi
+
+if [[ "${STATUS:-false}" == "true" ]]; then
+    if bd=$(resolve_lifecycle_bundle_dir "appworld" 2>/dev/null) && grep -q '"leaderboard"' "$bd/metadata.json" 2>/dev/null; then
+        uv run --no-sync python -m benchmarks.appworld.leaderboard status --bundle-dir "$bd" || echo -e "${YELLOW:-}Warning: leaderboard status failed (see above)${NC:-}"
+    fi
+fi
+
+if handle_eval_lifecycle "appworld" "$0" "${PASSTHROUGH_ARGS[@]}"; then
+    exit 0
+fi
 
 cleanup() {
     local exit_code=$?
+    finalize_run_state_on_exit "$exit_code"
     echo ""
     echo -e "${YELLOW:-}Cleaning up...${NC:-}"
     if [ "${SKIP_SERVER_CLEANUP:-false}" != "true" ]; then
@@ -64,7 +169,17 @@ cleanup() {
             kill "$REGISTRY_PID" 2>/dev/null || true
             wait "$REGISTRY_PID" 2>/dev/null || true
         fi
+        # Killing $APPWORLD_PID does not reap its server children (`appworld
+        # serve env` / `appworld serve apis` — the latter observed listening on
+        # 9111 hours after its parent died, #148). Reap by port as a backstop.
+        kill_port_processes "$APPWORLD_ENV_PORT" "$APPWORLD_APIS_PORT"
     fi
+    # RUN_MARKER (if created) is only used up to the LATEST_RESULT lookup right
+    # after the evaluator exits; clean it up here instead of a dedicated trap so
+    # it can't leak on SIGKILL/early-abort without clobbering this EXIT trap.
+    [ -n "${RUN_MARKER:-}" ] && rm -f "$RUN_MARKER"
+    # Per-run expanded MCP servers config (only created for non-default APIS ports).
+    [ -n "${APPWORLD_MCP_EXPANDED:-}" ] && rm -f "$APPWORLD_MCP_EXPANDED"
     exit $exit_code
 }
 
@@ -75,9 +190,45 @@ cd "$PROJECT_ROOT"
 # Load environment
 source "$PROJECT_ROOT/benchmarks/helpers/load_env.sh" "appworld"
 
+# Single registry/environment ports for shell helpers and Python (appworld_eval
+# / cuga-agent both read these via settings.server_ports.{registry,environment_url}).
+# Override with REGISTRY_PORT / APPWORLD_ENV_PORT or the DYNACONF_ vars directly.
+REGISTRY_PORT="${REGISTRY_PORT:-${DYNACONF_SERVER_PORTS__REGISTRY:-8001}}"
+export REGISTRY_PORT
+export DYNACONF_SERVER_PORTS__REGISTRY="$REGISTRY_PORT"
+APPWORLD_ENV_PORT="${APPWORLD_ENV_PORT:-${DYNACONF_SERVER_PORTS__ENVIRONMENT_URL:-8000}}"
+export APPWORLD_ENV_PORT
+export DYNACONF_SERVER_PORTS__ENVIRONMENT_URL="$APPWORLD_ENV_PORT"
+APPWORLD_APIS_PORT="${APPWORLD_APIS_PORT:-${DYNACONF_SERVER_PORTS__APIS_URL:-9111}}"
+export APPWORLD_APIS_PORT
+export DYNACONF_SERVER_PORTS__APIS_URL="$APPWORLD_APIS_PORT"
+
+# Per-run token/timing receipt from CugaAgent.invoke() (cuga-agent#467).
+# Only the --sdk evaluator (eval_appworld_sdk.py) calls agent.invoke() and can
+# use it; the default graph-based appworld_eval.py ignores it harmlessly.
+export DYNACONF_ADVANCED_FEATURES__RUN_RECEIPT=true
+
 # Capture console output to a log file for reproducibility bundles
 CONSOLE_LOG="/tmp/appworld_console.log"
 exec > >(tee "$CONSOLE_LOG") 2>&1
+
+# mcp_servers_appworld.yaml hard-codes the app API server as localhost:9111 (one
+# per registered app), so overriding APPWORLD_APIS_PORT alone moves the server but
+# leaves the registry fetching tool specs from 9111 — it then loads 0 tools and the
+# run aborts (#113). When a non-default port is in use, expand the config into a
+# per-run temp copy with the real port and point MCP_SERVERS_FILE at it. This
+# mirrors benchmarks/m3/eval_m3.py, which expands its registry YAML per run.
+# (Done after the exec/tee above so the confirmation echo below lands in
+# CONSOLE_LOG and is captured by reproducibility bundles, not just the terminal.)
+if [ "$APPWORLD_APIS_PORT" != "9111" ]; then
+    APPWORLD_MCP_SRC="$SCRIPT_DIR/mcp_servers_appworld.yaml"
+    if [ -f "$APPWORLD_MCP_SRC" ]; then
+        APPWORLD_MCP_EXPANDED="$(mktemp "${TMPDIR:-/tmp}/appworld_mcp_servers.XXXXXX")"
+        sed "s#localhost:9111#localhost:${APPWORLD_APIS_PORT}#g" "$APPWORLD_MCP_SRC" > "$APPWORLD_MCP_EXPANDED"
+        export MCP_SERVERS_FILE="$APPWORLD_MCP_EXPANDED"
+        echo -e "${GREEN:-}✓${NC:-} Templated MCP servers config for APIS port ${APPWORLD_APIS_PORT}"
+    fi
+fi
 
 echo -e "${BLUE:-}╔════════════════════════════════════════════════════════════╗${NC:-}"
 echo -e "${BLUE:-}║  AppWorld Benchmark Evaluation                             ║${NC:-}"
@@ -86,15 +237,44 @@ echo ""
 
 # Start servers unless SKIP_SERVER_START is set
 if [ "${SKIP_SERVER_START:-false}" != "true" ]; then
+    # Reap only ORPHANED AppWorld servers: a port that is held but does not
+    # answer is a hung leftover from an aborted run (an `appworld serve apis`
+    # child has been observed outliving its parent for hours, #148). A port
+    # whose server still answers is left alone — compare.sh deliberately reuses
+    # live servers across runs (SKIP_SERVER_CLEANUP), and killing them here
+    # would re-pay the slow API-server boot on every run.
+    reap_unresponsive_port() {
+        local port=$1 url=$2 name=$3
+        if port_in_use "$port" 2>/dev/null && ! curl -s --max-time 5 "$url" > /dev/null 2>&1; then
+            echo -e "${YELLOW:-}Port $port held by an unresponsive $name — reaping orphan${NC:-}"
+            kill_port_processes "$port"
+            sleep 1
+        fi
+    }
+    reap_unresponsive_port "$APPWORLD_ENV_PORT" "http://127.0.0.1:$APPWORLD_ENV_PORT/" "AppWorld"
+    reap_unresponsive_port "$APPWORLD_APIS_PORT" "http://127.0.0.1:$APPWORLD_APIS_PORT/" "AppWorld API server"
+
     # Start AppWorld
     echo -e "${YELLOW:-}Starting AppWorld...${NC:-}"
     uv run --no-sync cuga start appworld > /tmp/appworld.log 2>&1 &
     APPWORLD_PID=$!
 
-    if wait_for_server "http://127.0.0.1:8000/" "AppWorld" 90; then
+    if wait_for_server "http://127.0.0.1:$APPWORLD_ENV_PORT/" "AppWorld" 90; then
         echo -e "${GREEN:-}✓${NC:-} AppWorld started (PID: $APPWORLD_PID)"
     else
         echo -e "${RED:-}Error: AppWorld failed to start${NC:-}"
+        cat /tmp/appworld.log | tail -20
+        exit 1
+    fi
+
+    # Also wait for the API server: it boots after the environment server and
+    # takes longer (it builds every app's routes). The registry fetches each
+    # app's openapi.json from it at init and does NOT retry — waiting only for
+    # the env server leaves a race where the registry loads 0 tools (#148).
+    if wait_for_server "http://127.0.0.1:$APPWORLD_APIS_PORT/" "AppWorld API server" 120; then
+        echo -e "${GREEN:-}✓${NC:-} AppWorld API server ready (port $APPWORLD_APIS_PORT)"
+    else
+        echo -e "${RED:-}Error: AppWorld API server failed to start${NC:-}"
         cat /tmp/appworld.log | tail -20
         exit 1
     fi
@@ -120,88 +300,157 @@ fi
 
 echo ""
 
-# Parse bundle / model-profile / sdk flags; forward everything else to Python
-# --task is the standard interface; mapped to --task-id for the AppWorld Python CLI.
-USE_SDK=false
-PASSTHROUGH_ARGS=()
-while [[ $# -gt 0 ]]; do
-    case "$1" in
-        --no-bundle)   NO_BUNDLE=true;    shift ;;
-        --bundle-zip)  BUNDLE_ZIP=true;   shift ;;
-        --sdk)         USE_SDK=true;      shift ;;
-        --model-profile) MODEL_PROFILE="$2"; shift 2 ;;
-        --agent)       AGENT="$2"; shift 2 ;;
-        --verbose|-v|--quiet|-q)  PASSTHROUGH_ARGS+=("$1"); shift ;;
-        --task)        PASSTHROUGH_ARGS+=("--task-id"); shift
-                       while [[ $# -gt 0 && ! "$1" =~ ^-- ]]; do
-                           PASSTHROUGH_ARGS+=("$1"); shift
-                       done ;;
-        *)             PASSTHROUGH_ARGS+=("$1"); shift ;;
-    esac
-done
+if experiment_workspace_requested && [[ "${NO_BUNDLE:-false}" != "true" ]]; then
+    if [[ "$USE_SDK" != "true" ]]; then
+        echo -e "${YELLOW:-}Note: experiment workspace requires the SDK evaluator; enabling --sdk${NC:-}"
+        USE_SDK=true
+    fi
+fi
+
+if prepare_experiment_workspace "appworld"; then
+    PASSTHROUGH_ARGS+=(--bundle-dir "$WORKSPACE_BUNDLE_DIR")
+    mark_run_state_started
+fi
+
+if [[ -n "${LEADERBOARD_REQUESTED:-}" && -z "${WORKSPACE_BUNDLE_DIR:-}" ]]; then
+    echo -e "${YELLOW:-}Warning: --leaderboard without --experiment/--resume-experiment: no workspace, so resume, retry keys and the official evaluate are unavailable for this run${NC:-}"
+fi
+
+# Apply --model-profile after load_env + arg parsing. common.sh is sourced
+# unconditionally above; hard-fail loudly if that ever stops being true
+# instead of silently skipping model-profile application.
+declare -F finalize_model_config >/dev/null || { echo "Error: common.sh not sourced (finalize_model_config unavailable)" >&2; exit 1; }
+finalize_model_config || exit 1
 
 # Run evaluation
 echo -e "${YELLOW:-}Starting evaluation with agent ${AGENT:-cuga}...${NC:-}"
-if [ "${AGENT:-cuga}" = "codeact" ]; then
-    echo -e "${BLUE:-}Using CodeAct agent (appworld_eval_codeact.py)${NC:-}"
-    uv run --no-sync python -m benchmarks.appworld.appworld_eval_codeact --agent codeact "${PASSTHROUGH_ARGS[@]}"
-elif [ "${AGENT:-cuga}" = "react" ]; then
-    echo -e "${BLUE:-}Using React agent (appworld_eval_react.py)${NC:-}"
-    uv run --no-sync python -m benchmarks.appworld.appworld_eval_react --agent react "${PASSTHROUGH_ARGS[@]}"
-elif [ "${AGENT:-cuga}" = "deepagents" ] || [ "${AGENT:-cuga}" = "openclaw" ] || [ "${AGENT:-cuga}" = "hermes" ]; then
-    echo -e "${BLUE:-}Using external agent ${AGENT} (appworld_eval_external.py)${NC:-}"
-    uv run --no-sync python -m benchmarks.appworld.appworld_eval_external --agent "${AGENT}" "${PASSTHROUGH_ARGS[@]}"
-elif [[ "$USE_SDK" == "true" ]] || [ "${AGENT:-cuga}" = "cuga" ]; then
-    echo -e "${BLUE:-}Using SDK evaluator (eval_appworld_sdk.py)${NC:-}"
-    uv run --no-sync python -m benchmarks.appworld.eval_appworld_sdk "${PASSTHROUGH_ARGS[@]}"
-else
-    echo -e "${BLUE:-}Using default evaluator (appworld_eval.py)${NC:-}"
-    uv run --no-sync python -m benchmarks.appworld.appworld_eval --agent "${AGENT:-cuga}" "${PASSTHROUGH_ARGS[@]}"
-fi
 
+# Unique per-process ID (timestamp + PID) so concurrent runs on this host never
+# collide, even if started in the same wall-clock second. Exported so the SDK
+# evaluator embeds it in its result filename (see save_evaluation_results).
+RUN_ID="$(date +%Y%m%d_%H%M%S)_$$"
+export EVAL_RUN_ID="$RUN_ID"
+
+# Marker whose mtime marks the start of THIS run, used as a fallback for
+# evaluators that don't embed EVAL_RUN_ID in their output filename (the
+# non-SDK cuga/codeact/react evaluators, which use ExperimentManager, not
+# save_evaluation_results). POSIX -newer is portable to BSD/macOS (unlike
+# GNU-only -newermt). NOTE: mtime-newer alone is not run-scoped — it can still
+# pick up a concurrent sibling run's report, not just a stale one; it's kept
+# only as a safety net for the paths that don't have a real per-run ID.
+RUN_MARKER=$(mktemp "${TMPDIR:-/tmp}/appworld_run_marker.XXXXXX")
+
+# Capture the evaluator's exit code instead of letting `set -e` abort here — an
+# abort would skip both bundling and the failure banner below.
+set +e
+build_eval_command
+echo -e "${BLUE:-}${EVAL_LABEL}${NC:-}"
+"${EVAL_CMD[@]}"
 EVAL_EXIT=$?
+set -e
+
+# Select ONLY a report produced by this run. Prefer an exact match on our
+# unique RUN_ID (true run-scoping, safe under concurrent runs); fall back to
+# mtime-newer-than-marker for evaluators that don't embed EVAL_RUN_ID.
+# (stderr is not redirected to /dev/null here — a missing/unreadable output
+# dir should surface as a real error, not silently look like "no fresh result".)
+LATEST_RESULT=""
+if [ -d "$SCRIPT_DIR/experiments/outputs" ]; then
+    LATEST_RESULT=$(find "$SCRIPT_DIR/experiments/outputs" -name "*_${RUN_ID}_final_report.json" -type f | sort | tail -1)
+    if [ -z "$LATEST_RESULT" ]; then
+        LATEST_RESULT=$(find "$SCRIPT_DIR/experiments/outputs" -name "*_final_report.json" -type f -newer "$RUN_MARKER" | sort | tail -1)
+    fi
+else
+    echo -e "${RED:-}✗ $SCRIPT_DIR/experiments/outputs does not exist — the evaluator never got as far as writing a report.${NC:-}" >&2
+fi
 
 if [ $EVAL_EXIT -eq 0 ]; then
     echo -e "${GREEN:-}✓${NC:-} AppWorld evaluation completed successfully"
-
-    # Create reproducibility bundle unless skipped
-    if [ "${NO_BUNDLE:-false}" != "true" ]; then
-        echo ""
-        echo -e "${YELLOW:-}Creating reproducibility bundle...${NC:-}"
-
-        # Find the most recent experiment result
-        LATEST_RESULT=$(find "$SCRIPT_DIR/experiments/outputs" -name "*_final_report.json" -type f 2>/dev/null | sort | tail -1)
-        if [ -n "$LATEST_RESULT" ]; then
-            # Generate eval report
-            REPORT_TMP=$(mktemp /tmp/appworld_eval_report_XXXXXX)
-            uv run --no-sync python -m benchmarks.helpers.compare_report eval \
-                --result-file "$LATEST_RESULT" --output "$REPORT_TMP"
-
-            BUNDLE_ARGS=(assemble --benchmark appworld
-                --result-files "$LATEST_RESULT"
-                --task-files "$SCRIPT_DIR/eval_config.toml"
-                --report "$REPORT_TMP")
-            if [ -n "$MODEL_PROFILE" ]; then
-                BUNDLE_ARGS+=(--model-profile "$MODEL_PROFILE")
-            fi
-            if [ "${BUNDLE_ZIP:-false}" = "true" ]; then
-                BUNDLE_ARGS+=(--zip)
-            fi
-            # Include cuga trajectories
-            TRAJ_DIR=$(find_latest_trajectory "$SCRIPT_DIR/logging/trajectory_data")
-            if [ -n "$TRAJ_DIR" ]; then
-                BUNDLE_ARGS+=(--trajectory-dir "$TRAJ_DIR")
-            fi
-            # Include server and console logs
-            BUNDLE_ARGS+=(--log-files /tmp/appworld.log /tmp/appworld_registry.log "$CONSOLE_LOG")
-            # Download Langfuse traces if available
-            BUNDLE_ARGS+=(--fetch-langfuse)
-            uv run --no-sync python -m benchmarks.helpers.bundle "${BUNDLE_ARGS[@]}"
-            rm -f "$REPORT_TMP"
-        fi
-    fi
 else
     echo -e "${RED:-}✗ AppWorld evaluation failed (exit code: $EVAL_EXIT)${NC:-}"
+fi
+
+# A clean exit MUST come with a fresh report from this run. If it does not,
+# refuse to bundle: the old `find | sort | tail -1` fallback silently bundled a
+# previous run's report as if it were this run's results.
+if [ $EVAL_EXIT -eq 0 ] && [ -z "$LATEST_RESULT" ]; then
+    echo -e "${RED:-}✗ Evaluator exited 0 but wrote no fresh result report — refusing to bundle stale results.${NC:-}"
+    echo -e "${RED:-}  The evaluator process was likely terminated before saving; check the console log above.${NC:-}"
+    exit 1
+fi
+
+# Bundle whenever this run produced a report. A partial report from a non-zero
+# exit is still bundled for forensics, but EVAL_EXIT is preserved so the run is
+# not mistaken for a clean pass.
+if [ -n "$LATEST_RESULT" ] && [ "${NO_BUNDLE:-false}" != "true" ]; then
+    echo ""
+    if [ -n "${WORKSPACE_BUNDLE_DIR:-}" ]; then
+        echo -e "${YELLOW:-}Finalizing experiment workspace...${NC:-}"
+        FIN_EXTRA=(--task-file "$SCRIPT_DIR/eval_config.toml")
+        TRAJ_DIR=$(find_latest_trajectory "$SCRIPT_DIR/logging/trajectory_data")
+        if [ -n "$TRAJ_DIR" ]; then
+            FIN_EXTRA+=(--trajectory-dir "$TRAJ_DIR")
+        fi
+        FIN_EXTRA+=(--log-file /tmp/appworld.log --log-file /tmp/appworld_registry.log --log-file "$CONSOLE_LOG")
+        finalize_experiment_workspace "appworld" "${FIN_EXTRA[@]}"
+
+        # Run AFTER finalize: finalize_workspace_bundle regenerates
+        # <workspace>/report.md from scratch (generate_eval_report), so a
+        # section appended before finalize would be overwritten.
+        if [ $EVAL_EXIT -eq 0 ] && grep -q '"leaderboard"' "$WORKSPACE_BUNDLE_DIR/metadata.json" 2>/dev/null; then
+            AW_EXP=$(uv run --no-sync python -c "import json,sys;print(json.load(open(sys.argv[1]))['leaderboard']['appworld_experiment'])" "$WORKSPACE_BUNDLE_DIR/metadata.json" 2>/dev/null) || AW_EXP=""
+            # Fall back to the eval_key this run recorded in metadata, so a
+            # resume that finishes without repeating --eval-key still writes
+            # appworld_official.json and the report.md section.
+            OFFICIAL_KEY="${EVAL_KEY:-}"
+            if [[ -z "$OFFICIAL_KEY" ]]; then
+                OFFICIAL_KEY=$(uv run --no-sync python -c "import json,sys;m=json.load(open(sys.argv[1]));print((m.get('run') or {}).get('eval_key') or '')" "$WORKSPACE_BUNDLE_DIR/metadata.json" 2>/dev/null) || OFFICIAL_KEY=""
+            fi
+            if [[ -z "$AW_EXP" ]]; then
+                echo -e "${YELLOW:-}Warning: could not read leaderboard.appworld_experiment from metadata.json; skipping official evaluate${NC:-}"
+            elif [[ -n "$OFFICIAL_KEY" ]]; then
+                echo -e "${YELLOW:-}Official AppWorld evaluate for key ${OFFICIAL_KEY}...${NC:-}"
+                uv run --no-sync python -m benchmarks.appworld.leaderboard evaluate "$AW_EXP" --key "$OFFICIAL_KEY" --bundle-dir "$WORKSPACE_BUNDLE_DIR" || echo -e "${YELLOW:-}Warning: official evaluate failed (see above)${NC:-}"
+            else
+                echo -e "${YELLOW:-}Note: no --eval-key for this run and none recorded in metadata.json; skipping the official evaluate.${NC:-}"
+                echo -e "${YELLOW:-}      Run it manually: uv run --no-sync python -m benchmarks.appworld.leaderboard evaluate ${AW_EXP} --split <split> --bundle-dir ${WORKSPACE_BUNDLE_DIR}${NC:-}"
+            fi
+        fi
+    else
+        echo -e "${YELLOW:-}Creating reproducibility bundle...${NC:-}"
+
+        # Generate eval report
+        REPORT_TMP=$(mktemp /tmp/appworld_eval_report_XXXXXX)
+        uv run --no-sync python -m benchmarks.helpers.compare_report eval \
+            --result-file "$LATEST_RESULT" --output "$REPORT_TMP"
+
+        BUNDLE_ARGS=(assemble --benchmark appworld
+            --result-files "$LATEST_RESULT"
+            --task-files "$SCRIPT_DIR/eval_config.toml"
+            --report "$REPORT_TMP")
+        if [ -n "$MODEL_PROFILE" ]; then
+            BUNDLE_ARGS+=(--model-profile "$MODEL_PROFILE")
+        fi
+        [[ -n "${EVAL_KEY:-}" ]] && BUNDLE_ARGS+=(--eval-key "$EVAL_KEY")
+        if [ "${BUNDLE_ZIP:-false}" = "true" ]; then
+            BUNDLE_ARGS+=(--zip)
+        fi
+        # Include cuga trajectories
+        TRAJ_DIR=$(find_latest_trajectory "$SCRIPT_DIR/logging/trajectory_data")
+        if [ -n "$TRAJ_DIR" ]; then
+            BUNDLE_ARGS+=(--trajectory-dir "$TRAJ_DIR")
+        fi
+        # Include server and console logs
+        BUNDLE_ARGS+=(--log-files /tmp/appworld.log /tmp/appworld_registry.log "$CONSOLE_LOG")
+        # Download Langfuse traces if available
+        BUNDLE_ARGS+=(--fetch-langfuse)
+        BUNDLE_OUT=$(uv run --no-sync python -m benchmarks.helpers.bundle "${BUNDLE_ARGS[@]}" 2>&1 | tee /dev/stderr)
+        BUNDLE_PATH=$(echo "$BUNDLE_OUT" | sed -n 's/^Bundle created: //p' | tail -1)
+        if [ -n "$BUNDLE_PATH" ]; then
+            write_legacy_experiment_pointer "appworld" "$BUNDLE_PATH"
+        fi
+        rm -f "$REPORT_TMP"
+    fi
 fi
 
 exit $EVAL_EXIT

@@ -203,4 +203,4 @@ def test_real_eval_sh_propagates_failing_evaluator_exit(tmp_path: Path) -> None:
 
     uv_invocations = uv_log.read_text().splitlines()
     assert len(uv_invocations) == 1, f"expected exactly one uv invocation, got: {uv_invocations}"
-    assert uv_invocations[0].startswith("run python -m benchmarks.m3.eval_m3 "), uv_invocations[0]
+    assert uv_invocations[0].startswith("run --no-sync python -m benchmarks.m3.eval_m3 "), uv_invocations[0]

@@ -17,11 +17,15 @@ Enhanced metrics (opt-in via metrics_config):
 
 import asyncio
 import json
+import os
 import uuid
 from pathlib import Path
 from typing import Any, Callable, Dict, List, Optional, TypedDict
 
 from loguru import logger
+
+from benchmarks.helpers.content_filter import annotate_content_filter_failure
+from benchmarks.helpers.incremental_results import write_task_result_async
 
 
 class MetricsConfig(TypedDict, total=False):
@@ -282,12 +286,17 @@ def _langfuse_trace_root_log_message(agent: Any) -> str:
 async def setup_agent_with_tools(
     special_instructions: Optional[str] = None,
     extra_callbacks: Optional[List[Any]] = None,
+    require_tools: bool = False,
 ) -> tuple[CugaAgent, Optional[Any]]:
     """Set up CugaAgent with tools and Langfuse tracing.
 
     Args:
         special_instructions: Optional special instructions to pass to the agent
         extra_callbacks: Optional additional LangChain callbacks (e.g. TokenUsageCallback)
+        require_tools: Fail fast if the tool provider yields zero tools. Enable for
+            benchmarks that cannot run without tools (e.g. AppWorld) — an empty
+            toolbox there means a broken registry/API-server startup, and running
+            anyway burns the whole eval on an agent that cannot act (issue #148).
 
     Returns:
         Tuple of (agent, langfuse_handler)
@@ -298,6 +307,13 @@ async def setup_agent_with_tools(
     await tool_provider.initialize()
     all_tools = await tool_provider.get_all_tools()
     logger.info(f"Loaded {len(all_tools)} tools")
+    if require_tools and not all_tools:
+        raise RuntimeError(
+            "Tool provider returned 0 tools but this benchmark requires tools. "
+            "Likely cause: the registry could not reach the app API server at startup "
+            "(check the registry log for 'Failed to initialize server for ...'). "
+            "Aborting instead of running a toolless eval (issue #148)."
+        )
 
     langfuse_handler = setup_langfuse()
     if langfuse_handler:
@@ -318,6 +334,79 @@ async def setup_agent_with_tools(
     logger.info(f"   Agent created with {len(callbacks)} callback(s)")
 
     return agent, langfuse_handler
+
+
+async def preflight_llm(timeout: Optional[float] = None) -> None:
+    """Send a throwaway "hi" to the configured LLM before an eval starts.
+
+    An unreachable gateway (VPN down, wrong base URL, wrong model name) does not
+    raise — it hangs. Every task then burns llm_http_timeout x retries on its
+    first call and records whatever score an agent that never acted happens to
+    get, so the run looks like a real (bad) result instead of a broken setup.
+    One upfront call turns that into an immediate, readable failure.
+
+    Raises:
+        RuntimeError: the LLM did not answer. Never raises for a slow-but-live
+            endpoint that answers within the timeout.
+    """
+    import time
+
+    from cuga.backend.llm.models import LLMManager
+    from cuga.config import settings
+    from langchain_core.messages import HumanMessage
+
+    model = LLMManager().get_model(settings.agent.code.model)
+    # request_timeout is the value cuga already resolved from
+    # CUGA_LLM_HTTP_TIMEOUT / LLM_HTTP_TIMEOUT / connections.llm_http_timeout,
+    # so the preflight waits exactly as long as a real call would — but only
+    # once, where a real call retries.
+    budget = timeout or float(getattr(model, "request_timeout", None) or 60)
+    name = getattr(model, "model_name", None) or "(unknown)"
+    endpoint = getattr(model, "openai_api_base", None) or os.getenv("OPENAI_BASE_URL") or "(provider default)"
+
+    logger.info("─" * 60)
+    logger.info("🔌 LLM preflight")
+    logger.info(f"   model:    {name}")
+    logger.info(f"   endpoint: {endpoint}")
+    logger.info(f'   sending "hi" (timeout {budget:.0f}s)...')
+
+    started = time.monotonic()
+    try:
+        reply = await asyncio.wait_for(model.ainvoke([HumanMessage(content="hi")]), timeout=budget)
+    except Exception as exc:  # noqa: BLE001 — every failure mode is the same verdict
+        elapsed = time.monotonic() - started
+        reason = "no response" if isinstance(exc, asyncio.TimeoutError) else f"{type(exc).__name__}: {exc}"
+        logger.error(f"   ❌ failed after {elapsed:.1f}s — {reason}")
+        logger.error("─" * 60)
+        raise RuntimeError(
+            f"LLM preflight failed after {elapsed:.1f}s ({reason}).\n"
+            f"  model:    {name}\n"
+            f"  endpoint: {endpoint}\n"
+            "A hang here usually means the endpoint is unreachable, not that the model is slow:\n"
+            "  - VPN not connected (internal gateways like *.vpc-int.res.ibm.com need it)\n"
+            "  - OPENAI_BASE_URL / OPENAI_API_KEY wrong or expired\n"
+            "  - MODEL_NAME not served by this gateway (check GET <base_url>/v1/models)\n"
+            "Aborting instead of running the eval against a dead endpoint."
+        ) from exc
+
+    elapsed = time.monotonic() - started
+    text = " ".join(str(getattr(reply, "content", reply) or "").split())[:60]
+    if not text:
+        # 200 with an empty body is what some proxies return when the requested
+        # model is not served: the endpoint is up, the model is not. Treat it
+        # as a failed preflight — "reachable" has to mean "answers".
+        logger.error(f"   ❌ empty response after {elapsed:.1f}s")
+        logger.error("─" * 60)
+        raise RuntimeError(
+            f"LLM preflight got an empty response after {elapsed:.1f}s.\n"
+            f"  model:    {name}\n"
+            f"  endpoint: {endpoint}\n"
+            "The endpoint answered but returned no content — usually MODEL_NAME is not\n"
+            "served by this gateway (check GET <base_url>/v1/models).\n"
+            "Aborting instead of running the eval against a model that returns nothing."
+        )
+    logger.info(f'   ✅ reachable in {elapsed:.1f}s — "{text}"')
+    logger.info("─" * 60)
 
 
 def _langfuse_callback_handler_class():
@@ -537,6 +626,127 @@ async def fetch_langfuse_metrics_for_trace(trace_id: str) -> Any:
                     )
                     break
     return metrics
+
+
+def receipt_fields_from_invoke_result(invoke_result: Any) -> Optional[Dict[str, Any]]:
+    """Flatten ``InvokeResult.receipt`` (cuga-agent's RunReceipt) into result fields.
+
+    Returns None when the caller's cuga-agent build didn't attach a receipt —
+    ``advanced_features.run_receipt`` is off (the default), or the installed
+    cuga-agent predates it (cuga-agent#467). Callers use that None-ness as the
+    signal to fall back to the existing Langfuse-fetch path.
+
+    Reuses total_tokens / total_llm_calls / total_cache_input_tokens so every
+    existing aggregator (compare_report.py) needs no branching on where the
+    numbers came from; the remaining keys have no Langfuse-path equivalent.
+    """
+    receipt = getattr(invoke_result, "receipt", None)
+    if receipt is None:
+        return None
+    tool_timings = getattr(receipt, "tool_timings", None) or []
+    return {
+        "token_source": "receipt",
+        "total_tokens": getattr(receipt, "total_tokens", 0) or 0,
+        "total_llm_calls": getattr(receipt, "llm_calls", 0) or 0,
+        "total_cache_input_tokens": getattr(receipt, "cache_read_tokens", 0) or 0,
+        "input_tokens": getattr(receipt, "input_tokens", 0) or 0,
+        "output_tokens": getattr(receipt, "output_tokens", 0) or 0,
+        "cache_read_tokens": getattr(receipt, "cache_read_tokens", 0) or 0,
+        "reasoning_tokens": getattr(receipt, "reasoning_tokens", 0) or 0,
+        "tool_call_count": getattr(receipt, "tool_call_count", 0) or 0,
+        "llm_time_s": getattr(receipt, "llm_time_s", 0.0) or 0.0,
+        "tool_time_s": getattr(receipt, "tool_time_s", 0.0) or 0.0,
+        "wall_time_s": getattr(receipt, "wall_time_s", 0.0) or 0.0,
+        # Basis differs from the Langfuse path: this is agent.invoke() wall
+        # time, not Langfuse trace-span duration. Both feed the same Duration
+        # column in compare.sh, so a bundle from before this PR isn't directly
+        # comparable on that column to one from after (Sergey review, PR #182).
+        "full_execution_time": getattr(receipt, "wall_time_s", 0.0) or 0.0,
+        "models": list(getattr(receipt, "models", None) or []),
+        "slowest_tool": getattr(receipt, "slowest_tool", None),
+        "tool_timings": [tt.model_dump() if hasattr(tt, "model_dump") else tt for tt in tool_timings],
+    }
+
+
+_RECEIPT_SUM_KEYS = (
+    "total_tokens",
+    "total_llm_calls",
+    "total_cache_input_tokens",
+    "input_tokens",
+    "output_tokens",
+    "cache_read_tokens",
+    "reasoning_tokens",
+    "tool_call_count",
+    "llm_time_s",
+    "tool_time_s",
+    "wall_time_s",
+    "full_execution_time",
+)
+
+
+class _ReceiptAccumulationFailed:
+    """Sentinel distinct from None: a prior multi-turn step lacked a receipt,
+    so this task's receipt total is permanently invalid. Using a dedicated
+    sentinel (rather than reusing None for both "not started" and "gave up")
+    prevents a later turn's receipt from wrongly resurrecting a partial total
+    — see cuga-eval#182 CodeRabbit review.
+    """
+
+
+_RECEIPT_ACCUMULATION_FAILED = _ReceiptAccumulationFailed()
+
+
+def _accumulate_receipt_metrics(
+    acc: Optional[Dict[str, Any]], invoke_result: Any
+) -> Optional[Dict[str, Any]]:
+    """Fold one multi-turn step's receipt into a running total.
+
+    A fresh RunMetricsCollector is attached per ``agent.invoke()`` call
+    (cuga-agent#467), so a multi-turn task needs to sum across turns itself.
+    Once any turn lacks a receipt, permanently gives up (returns the
+    ``_RECEIPT_ACCUMULATION_FAILED`` sentinel forever after) rather than
+    returning to ``None`` — a later turn having a receipt again must never
+    resurrect a partial total from only the turns seen after the gap. Callers
+    treat anything that is not a ``dict`` (``None`` or the sentinel) as "no
+    valid receipt for this task."
+    """
+    if acc is _RECEIPT_ACCUMULATION_FAILED:
+        return _RECEIPT_ACCUMULATION_FAILED
+    fields = receipt_fields_from_invoke_result(invoke_result)
+    if fields is None:
+        return _RECEIPT_ACCUMULATION_FAILED
+    if acc is None:
+        acc = {
+            key: (0.0 if key.endswith("_s") or key == "full_execution_time" else 0)
+            for key in _RECEIPT_SUM_KEYS
+        }
+        acc["token_source"] = "receipt"  # noqa: S105
+        acc["models"] = []
+        acc["tool_timings"] = []
+        acc["slowest_tool"] = None
+    for key in _RECEIPT_SUM_KEYS:
+        acc[key] += fields[key]
+    for model in fields["models"]:
+        if model not in acc["models"]:
+            acc["models"].append(model)
+    # Merge by tool name (mirroring cuga-agent's build_run_receipt) rather
+    # than a flat extend: a tool called once per turn would otherwise get one
+    # entry per turn, so ranking by a single entry's total_ms could pick a
+    # tool called once for 150ms over one called 3x for 100ms each (300ms
+    # total) (Sergey review, PR #182).
+    by_name = {t["name"]: dict(t) for t in acc["tool_timings"]}
+    for tt in fields["tool_timings"]:
+        name = tt["name"]
+        if name in by_name:
+            by_name[name]["calls"] += tt.get("calls", 0)
+            by_name[name]["total_ms"] += tt.get("total_ms", 0)
+        else:
+            by_name[name] = dict(tt)
+    acc["tool_timings"] = list(by_name.values())
+    acc["slowest_tool"] = (
+        max(acc["tool_timings"], key=lambda t: t.get("total_ms", 0))["name"] if acc["tool_timings"] else None
+    )
+    return acc
 
 
 def setup_langfuse():
@@ -815,6 +1025,8 @@ async def evaluate_task_with_langfuse(
     tracker_callback: Optional[Callable[[Dict[str, Any], Dict[str, Any], str], None]] = None,
     track_tool_calls: bool = True,
     metrics_config: Optional[MetricsConfig] = None,
+    bundle_dir: Optional[Path] = None,
+    bundle_domain: Optional[str] = None,
 ) -> Dict[str, Any]:
     """Evaluate a single task with optional Langfuse tracing and enhanced metrics.
 
@@ -828,6 +1040,12 @@ async def evaluate_task_with_langfuse(
         track_tool_calls: Whether to track tool calls (default: True)
         metrics_config: Optional configuration for enhanced metrics (similarity, LLM judge, final score).
                        When None, only keyword matching is performed (backwards compatible).
+        bundle_dir: When set, the task result (success or failure) is written
+                    incrementally to <bundle_dir>/results/partial/ so an
+                    interrupted run can be resumed. When None, behavior is
+                    identical to the legacy path (no incremental persistence).
+        bundle_domain: Optional domain component for the partial filename
+                    (m3 config-mode only, where one task spans several domains).
 
     Returns:
         Evaluation result dictionary with:
@@ -854,6 +1072,7 @@ async def evaluate_task_with_langfuse(
         keyword_check_result = None
         tool_calls = []
         _langfuse_metrics = None
+        _receipt_metrics = None
         predefined_trace_id = None
 
         if should_trace_langfuse_task(langfuse_handler):
@@ -879,6 +1098,7 @@ async def evaluate_task_with_langfuse(
                     track_tool_calls=track_tool_calls,
                     lf_config=lf_config,
                 )
+                _receipt_metrics = receipt_fields_from_invoke_result(invoke_result)
                 if isinstance(agent, GenericReactAgent) and predefined_trace_id:
                     record_harness_trace_output(
                         langfuse,
@@ -922,11 +1142,12 @@ async def evaluate_task_with_langfuse(
                     comment="Overall task success: True if all keywords found, otherwise False",
                 )
 
-                try:
-                    _langfuse_metrics = await fetch_langfuse_metrics_for_trace(predefined_trace_id)
-                except Exception as langfuse_err:
-                    logger.warning(f"Failed to fetch Langfuse metrics: {langfuse_err}")
-                    _langfuse_metrics = None
+                if _receipt_metrics is None:
+                    try:
+                        _langfuse_metrics = await fetch_langfuse_metrics_for_trace(predefined_trace_id)
+                    except Exception as langfuse_err:
+                        logger.warning(f"Failed to fetch Langfuse metrics: {langfuse_err}")
+                        _langfuse_metrics = None
 
             except Exception as e:
                 logger.warning(f"Failed to start Langfuse trace: {e}")
@@ -937,6 +1158,7 @@ async def evaluate_task_with_langfuse(
                     user_context=user_context or "",
                     track_tool_calls=track_tool_calls,
                 )
+                _receipt_metrics = receipt_fields_from_invoke_result(invoke_result)
                 # Handle both string and object return types
                 response = invoke_result.answer if hasattr(invoke_result, 'answer') else invoke_result
                 keyword_check_result = check_keywords(response, expected_keywords)
@@ -947,6 +1169,7 @@ async def evaluate_task_with_langfuse(
                 user_context=user_context or "",
                 track_tool_calls=track_tool_calls,
             )
+            _receipt_metrics = receipt_fields_from_invoke_result(invoke_result)
             # Handle both string and object return types
             response = invoke_result.answer if hasattr(invoke_result, 'answer') else invoke_result
             keyword_check_result = check_keywords(response, expected_keywords)
@@ -1064,7 +1287,9 @@ async def evaluate_task_with_langfuse(
 
         if predefined_trace_id:
             result["trace_id"] = predefined_trace_id
-        if _langfuse_metrics:
+        if _receipt_metrics:
+            result.update(_receipt_metrics)
+        elif _langfuse_metrics:
             result["total_tokens"] = _langfuse_metrics.total_tokens
             result["total_llm_calls"] = _langfuse_metrics.total_llm_calls
             result["total_cost"] = _langfuse_metrics.total_cost
@@ -1270,6 +1495,17 @@ async def evaluate_task_with_langfuse(
         if tracker_callback:
             tracker_callback(result, keyword_check, intent)
 
+        if bundle_dir is not None:
+            # Best-effort: a persistence failure here (disk full, permissions,
+            # too many open files under concurrent batches) must not propagate
+            # into the enclosing except-block below, which would misreport this
+            # successful task as failed and overwrite its partial file with a
+            # fabricated error result.
+            try:
+                await write_task_result_async(bundle_dir, task_name, result, domain=bundle_domain)
+            except Exception as persist_err:
+                logger.warning(f"Failed to persist incremental result for {task_name}: {persist_err}")
+
         return result
 
     except Exception as e:
@@ -1292,9 +1528,16 @@ async def evaluate_task_with_langfuse(
             "tool_calls": [],
             "error": str(e),
         }
+        annotate_content_filter_failure(error_result, str(e), exc=e, logger=logger, task_id=task_name)
 
         if tracker_callback:
             tracker_callback(error_result, {"match_rate": 0.0, "all_found": False}, intent)
+
+        if bundle_dir is not None:
+            try:
+                await write_task_result_async(bundle_dir, task_name, error_result, domain=bundle_domain)
+            except Exception as persist_err:
+                logger.warning(f"Failed to persist incremental error result for {task_name}: {persist_err}")
 
         return error_result
 
@@ -1347,6 +1590,7 @@ async def evaluate_multiturn_task_with_langfuse(
         all_tool_calls = []
         final_response = None
         _langfuse_metrics = None
+        _receipt_metrics = None
         predefined_trace_id = None
         total_react_steps = 0
 
@@ -1379,6 +1623,7 @@ async def evaluate_multiturn_task_with_langfuse(
                         lf_config=lf_config,
                     )
                     total_react_steps = _accumulate_react_steps(total_react_steps, invoke_result)
+                    _receipt_metrics = _accumulate_receipt_metrics(_receipt_metrics, invoke_result)
                     result_state = invoke_result.answer
                     turn_tool_calls = invoke_result.tool_calls or []
                     all_tool_calls.extend([(turn_idx, tc) for tc in turn_tool_calls])
@@ -1472,14 +1717,23 @@ async def evaluate_multiturn_task_with_langfuse(
                     },
                 )
 
-                try:
-                    _langfuse_metrics = await fetch_langfuse_metrics_for_trace(predefined_trace_id)
-                except Exception as langfuse_err:
-                    logger.warning(f"Failed to fetch Langfuse metrics: {langfuse_err}")
-                    _langfuse_metrics = None
+                if not isinstance(_receipt_metrics, dict):
+                    try:
+                        _langfuse_metrics = await fetch_langfuse_metrics_for_trace(predefined_trace_id)
+                    except Exception as langfuse_err:
+                        logger.warning(f"Failed to fetch Langfuse metrics: {langfuse_err}")
+                        _langfuse_metrics = None
 
             except Exception as e:
                 logger.warning(f"Langfuse tracing failed: {e}")
+                # The try block above may have partially accumulated these
+                # (some turns ran before Langfuse failed); this fallback
+                # replays every turn from scratch, so reset first or the
+                # replayed turns double-count on top of the partial totals.
+                total_react_steps = 0
+                _receipt_metrics = None
+                all_responses = []
+                all_tool_calls = []
                 for turn_idx, turn in enumerate(turns, 1):
                     query = turn.get("query", "")
                     logger.info(f"\n[Turn {turn_idx}/{num_turns}] Query: {query}")
@@ -1493,6 +1747,7 @@ async def evaluate_multiturn_task_with_langfuse(
                         track_tool_calls=track_tool_calls,
                     )
                     total_react_steps = _accumulate_react_steps(total_react_steps, invoke_result)
+                    _receipt_metrics = _accumulate_receipt_metrics(_receipt_metrics, invoke_result)
                     result_state = invoke_result.answer
                     turn_tool_calls = invoke_result.tool_calls or []
                     all_tool_calls.extend([(turn_idx, tc) for tc in turn_tool_calls])
@@ -1548,6 +1803,7 @@ async def evaluate_multiturn_task_with_langfuse(
                     track_tool_calls=track_tool_calls,
                 )
                 total_react_steps = _accumulate_react_steps(total_react_steps, invoke_result)
+                _receipt_metrics = _accumulate_receipt_metrics(_receipt_metrics, invoke_result)
                 result_state = invoke_result.answer
                 turn_tool_calls = invoke_result.tool_calls or []
                 all_tool_calls.extend([(turn_idx, tc) for tc in turn_tool_calls])
@@ -1623,7 +1879,9 @@ async def evaluate_multiturn_task_with_langfuse(
 
         if predefined_trace_id:
             result["trace_id"] = predefined_trace_id
-        if _langfuse_metrics:
+        if isinstance(_receipt_metrics, dict):
+            result.update(_receipt_metrics)
+        elif _langfuse_metrics:
             result["total_tokens"] = _langfuse_metrics.total_tokens
             result["total_llm_calls"] = _langfuse_metrics.total_llm_calls
             result["total_cost"] = _langfuse_metrics.total_cost
@@ -1689,6 +1947,8 @@ async def evaluate_multiturn_task_with_langfuse(
 
         if task_metadata:
             error_result.update(task_metadata)
+
+        annotate_content_filter_failure(error_result, str(e), exc=e, logger=logger, task_id=task_name)
 
         if tracker_callback:
             tracker_callback(
@@ -1901,17 +2161,20 @@ def save_evaluation_results(
         results: List of evaluation result dictionaries
         output_dir: Output directory path
         prefix: Filename prefix (e.g., "multiturn", "evaluation")
-        run_timestamp: If set, used for filename and metrics (e.g. process start time); otherwise now.
+        run_timestamp: If set, used for filename and metrics (e.g. process start time); otherwise
+            the EVAL_RUN_ID env var (set by eval.sh, unique per process even within the same
+            second) if present; otherwise now.
 
     Returns:
         Path to the saved results file
     """
+    import os
     from datetime import datetime
 
     output_dir = Path(output_dir)
     output_dir.mkdir(parents=True, exist_ok=True)
 
-    timestamp = run_timestamp if run_timestamp else datetime.now().strftime("%Y%m%d_%H%M%S")
+    timestamp = run_timestamp or os.environ.get("EVAL_RUN_ID") or datetime.now().strftime("%Y%m%d_%H%M%S")
 
     def serialize_tool_calls(obj):
         if hasattr(obj, 'model_dump'):
@@ -1981,9 +2244,17 @@ def save_evaluation_results(
 
 async def setup_react_agent_for_evaluation(
     special_instructions: Optional[str] = None,
+    require_tools: bool = False,
 ) -> tuple[GenericReactAgent, Optional[Any]]:
-    """Set up the generic ReAct agent with tools and optional Langfuse."""
-    return await setup_react_agent_with_tools(special_instructions=special_instructions)
+    """Set up the generic ReAct agent with tools and optional Langfuse.
+
+    Args:
+        special_instructions: Optional special instructions for the agent
+        require_tools: Fail fast on an empty toolbox (see setup_agent_with_tools, #148)
+    """
+    return await setup_react_agent_with_tools(
+        special_instructions=special_instructions, require_tools=require_tools
+    )
 
 
 async def evaluate_task_with_langfuse_react(
@@ -1995,6 +2266,8 @@ async def evaluate_task_with_langfuse_react(
     tracker_callback: Optional[Callable[[Dict[str, Any], Dict[str, Any], str], None]] = None,
     track_tool_calls: bool = True,
     metrics_config: Optional[MetricsConfig] = None,
+    bundle_dir: Optional[Path] = None,
+    bundle_domain: Optional[str] = None,
 ) -> Dict[str, Any]:
     """ReAct single-turn eval; Langfuse callbacks are passed per LLM call, not via ``config``."""
     return await evaluate_task_with_langfuse(
@@ -2006,6 +2279,8 @@ async def evaluate_task_with_langfuse_react(
         tracker_callback=tracker_callback,
         track_tool_calls=track_tool_calls,
         metrics_config=metrics_config,
+        bundle_dir=bundle_dir,
+        bundle_domain=bundle_domain,
     )
 
 
