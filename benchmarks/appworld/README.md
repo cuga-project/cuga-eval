@@ -114,7 +114,8 @@ Both prompts live in `agents/base.py`, next to each other, so the gap shows up i
 
 ### Adding another agent to the comparison
 
-Start from `agents/stub.py` — its module docstring is the step-by-step. In short:
+See **[QUICKSTART-NEW-AGENT.md](QUICKSTART-NEW-AGENT.md)** for the whole path from clone to
+compare. In short:
 
 ```bash
 # 1. Check the harness works before writing any agent code
