@@ -5,7 +5,7 @@ This folder contains the scripts used to set up and run PR-triggered regression 
 ## Files
 
 - `setup-pr-regression-workflow.sh`: bootstraps the self-hosted GitHub Actions runner VM.
-- `run-pr-regression-eval.sh`: parses `/run-pr-eval` PR comments and runs the requested benchmark using the `cuga-eval/scripts/eval.sh` script.
+- `run-pr-regression-eval.sh`: consumes validated `/run-pr-eval` parameters and runs the requested benchmark using the `cuga-eval/scripts/eval.sh` script.
 
 ## Setup The PR Regression Flow
 
@@ -112,10 +112,10 @@ Provider defaults used by `run-pr-regression-eval.sh`:
 Create a comment on a pull request in `cuga-agent`:
 
 ```text
-/run-pr-eval
+/run-pr-eval sha=<PR_HEAD_SHA>
 ```
 
-By default, this runs:
+The `sha` value must be the current 40-character PR head commit SHA. The workflow validates it before checkout and does not forward it to the evaluation process. By default, the forwarded evaluation runs:
 
 - `benchmark=appworld`
 - `agent=react`
@@ -130,72 +130,101 @@ For `provider=litellm`, the default model changes to `aws/gpt-oss-120b` unless `
 
 The command accepts whitespace-separated `key=value` parameters:
 
+- `sha`: required by the GitHub workflow; must be the current 40-character PR head SHA.
 - `model_name`: model name to evaluate.
 - `task_id`: one task ID, or comma-separated task IDs.
 - `task_ids`: alias for `task_id`.
+- `eval_key`: AppWorld task group from `benchmarks/appworld/eval_config.toml`, such as `test_easy`, `test_med`, or `test_hard`.
 - `benchmark`: `appworld` or `m3`; defaults to `appworld`.
 - `num_tasks`: positive integer; defaults to `4`.
 - `agent`: `react`, `cuga`, or `codeact`; defaults to `react`.
 - `provider`: `rits` or `litellm`; defaults to `rits`.
 
-Unsupported parameters cause the workflow to fail early with a list of supported parameters.
+Unsupported parameters cause the workflow or runner script to fail early with a list of supported parameters.
+
+The workflow parser tolerates spaces around `=`, markdown code ticks, mixed-case values for `agent`, `benchmark`, and `provider`, and spaces after commas in task lists. For example, `provider = litellm` and `task_id = 9aae7da_1, 365e0a3_1` are accepted. The runner script also accepts sanitized CLI-style arguments such as `--benchmark appworld --agent react --provider rits`.
+
+Useful AppWorld `eval_key` values:
+
+- `test_easy`
+- `test_med`
+- `test_hard`
+- `test_challenge_easy`
+- `test_challenge_med`
+- `test_challenge_hard`
+- `test_normal_easy`
+- `test_normal_med`
+- `test_normal_hard`
 
 ## Examples
 
 Run the default AppWorld React-agent evaluation on RITS:
 
 ```text
-/run-pr-eval
+/run-pr-eval sha=<PR_HEAD_SHA>
 ```
 
 Run one AppWorld task with the React agent on RITS:
 
 ```text
-/run-pr-eval provider=rits agent=react benchmark=appworld task_id=9aae7da_1 num_tasks=1
+/run-pr-eval sha=<PR_HEAD_SHA> provider=rits agent=react benchmark=appworld task_id=9aae7da_1 num_tasks=1
 ```
 
 Run one AppWorld task with the CUGA agent on LiteLLM:
 
 ```text
-/run-pr-eval provider=litellm agent=cuga benchmark=appworld task_id=9aae7da_1 num_tasks=1
+/run-pr-eval sha=<PR_HEAD_SHA> provider=litellm agent=cuga benchmark=appworld task_id=9aae7da_1 num_tasks=1
 ```
 
 Run AppWorld with two explicit tasks:
 
 ```text
-/run-pr-eval benchmark=appworld task_id=9aae7da_1,365e0a3_1 num_tasks=2
+/run-pr-eval sha=<PR_HEAD_SHA> benchmark=appworld task_id=9aae7da_1,365e0a3_1 num_tasks=2
+```
+
+Run AppWorld easy tasks from `eval_config.toml`:
+
+```text
+/run-pr-eval sha=<PR_HEAD_SHA> benchmark=appworld eval_key=test_easy
+```
+
+Run AppWorld medium tasks from `eval_config.toml`:
+
+```text
+/run-pr-eval sha=<PR_HEAD_SHA> benchmark=appworld eval_key=test_med
+```
+
+Run AppWorld hard tasks from `eval_config.toml`:
+
+```text
+/run-pr-eval sha=<PR_HEAD_SHA> benchmark=appworld eval_key=test_hard
 ```
 
 Run M3 with the default React agent:
 
 ```text
-/run-pr-eval benchmark=m3 num_tasks=1
+/run-pr-eval sha=<PR_HEAD_SHA> benchmark=m3 num_tasks=1
 ```
 
 Run M3 with the CUGA agent and LiteLLM:
 
 ```text
-/run-pr-eval benchmark=m3 agent=cuga provider=litellm num_tasks=1
+/run-pr-eval sha=<PR_HEAD_SHA> benchmark=m3 agent=cuga provider=litellm num_tasks=1
 ```
 
 Override the model:
 
 ```text
-/run-pr-eval provider=litellm agent=cuga benchmark=appworld model_name=aws/glm-5 task_id=9aae7da_1 num_tasks=1
+/run-pr-eval sha=<PR_HEAD_SHA> provider=litellm agent=cuga benchmark=appworld model_name=aws/glm-5 task_id=9aae7da_1 num_tasks=1
 ```
 
 ## Output
 
-The workflow posts a PR comment containing collapsible sections for:
+The workflow posts a PR comment containing:
 
-- requested parameters;
-- run metadata;
-- evaluation configuration;
-- evaluation report;
-- run summary.
+- trusted run metadata;
+- requested command and SHA;
+- the evaluation report markdown emitted by the PR regression runner;
+- a link to the uploaded workflow artifact.
 
-The full output is also uploaded as a GitHub Actions artifact and saved on the VM under:
-
-```text
-~/pr-regression-testing/logs/
-```
+The full output is also uploaded as a GitHub Actions artifact. During the workflow run, logs are written under the checked-out workspace in `pr-eval-logs/`.

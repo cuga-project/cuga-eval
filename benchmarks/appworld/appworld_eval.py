@@ -470,14 +470,21 @@ def _print_appworld_summary(report: dict):
     success_rate = report.get("success_rate", 0)
     avg_steps = report.get("avg_steps", 0)
     avg_duration = report.get("avg_duration", 0)
+    for_pr_comment = os.getenv("PR_EVAL_FOR_PR_COMMENT", "").lower() in ("true", "1", "yes")
 
-    print("\n" + "=" * 80)
-    print("EVALUATION COMPLETE")
-    print("=" * 80)
+    if for_pr_comment:
+        print("######## REPORT START ########")
+        print("## EVALUATION COMPLETE")
+    else:
+        print("\n" + "=" * 80)
+        print("EVALUATION COMPLETE")
+        print("=" * 80)
     print(f"Total Tasks: {total}")
     print(f"Completed: {completed}/{total} ({success_rate:.1%})")
     print(f"Avg Steps: {avg_steps:.2f}")
     print(f"Avg Duration: {avg_duration:.2f}s")
+    if for_pr_comment:
+        print("######## REPORT END ########")
 
 
 async def main():

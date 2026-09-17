@@ -290,7 +290,7 @@ echo "Layout:"
 echo "  ${ROOT_DIR}/"
 echo "  ├── cuga-agent/"
 echo "  ├── cuga-eval/"
-echo "  │   └── scripts/run-eval.sh"
+echo "  │   └── scripts/pr-regression-testing/run-pr-regression-eval.sh"
 echo "  └── github-runner/"
 echo "      └── _work/"
 echo
@@ -306,3 +306,6 @@ echo "  runs-on: [self-hosted, linux, ${RUNNER_LABELS}]"
 echo
 echo "Workflow script:"
 echo "  bash \"${RUN_EVAL_SCRIPT}\" \"\${COMMENT_BODY}\""
+echo
+echo "PR command format:"
+echo "  /run-pr-eval sha=<current-pr-head-sha> benchmark=appworld provider=rits agent=react"

@@ -63,7 +63,21 @@ AGENT="${AGENT:-$DEFAULT_AGENT}"
 PROVIDER="${PROVIDER:-$DEFAULT_PROVIDER}"
 MODEL_NAME_FROM_COMMENT=false
 
+usage_error() {
+  local message="$1"
+  echo "ERROR: ${message}"
+  echo "Supported parameters: model_name, task_id, task_ids, eval_key, benchmark, num_tasks, agent, provider, sha"
+  close_details
+  echo "######## REPORT END ########"
+  exit 2
+}
+
 # Parse whitespace-separated key=value parameters from the PR comment.
+# Common comment formatting is normalized first, so these are equivalent:
+#   provider=litellm
+#   provider = litellm
+#   provider= litellm
+#   provider =litellm
 # Supported aliases:
 #   model_name=...
 #   task_id=id1,id2
@@ -73,11 +87,90 @@ MODEL_NAME_FROM_COMMENT=false
 #   num_tasks=...
 #   agent=react|cuga|codeact
 #   provider=rits|litellm
-COMMENT_BODY="${1:-}"
+COMMAND_TOKENS=()
+if [[ $# -gt 0 ]]; then
+  while [[ $# -gt 0 ]]; do
+    case "$1" in
+      /run-pr-eval)
+        shift
+        ;;
+      --model-name|--model_name)
+        [[ -n "${2:-}" && "${2:-}" != --* ]] || {
+          echo "######## REPORT START ########"
+          open_details "Requested parameters"
+          usage_error "$1 requires a value."
+        }
+        COMMAND_TOKENS+=("model_name=$2")
+        shift 2
+        ;;
+      --task-id|--task-ids|--task|--tasks)
+        [[ -n "${2:-}" && "${2:-}" != --* ]] || {
+          echo "######## REPORT START ########"
+          open_details "Requested parameters"
+          usage_error "$1 requires a value."
+        }
+        COMMAND_TOKENS+=("task_ids=$2")
+        shift 2
+        ;;
+      --eval-key|--eval_key)
+        [[ -n "${2:-}" && "${2:-}" != --* ]] || {
+          echo "######## REPORT START ########"
+          open_details "Requested parameters"
+          usage_error "$1 requires a value."
+        }
+        COMMAND_TOKENS+=("eval_key=$2")
+        shift 2
+        ;;
+      --benchmark|--num-tasks|--num_tasks|--agent|--agent-type|--agent_type|--provider|--sha)
+        key="${1#--}"
+        key="${key//-/_}"
+        [[ -n "${2:-}" && "${2:-}" != --* ]] || {
+          echo "######## REPORT START ########"
+          open_details "Requested parameters"
+          usage_error "$1 requires a value."
+        }
+        COMMAND_TOKENS+=("${key}=$2")
+        shift 2
+        ;;
+      *=*)
+        COMMAND_TOKENS+=("$1")
+        shift
+        ;;
+      *)
+        if [[ $# -eq 1 && "$1" == *"/run-pr-eval"* ]]; then
+          COMMENT_BODY="$1"
+          shift
+        else
+          echo "######## REPORT START ########"
+          open_details "Requested parameters"
+          usage_error "Unsupported argument: $1"
+        fi
+        ;;
+    esac
+  done
+fi
 
-# Remove Windows carriage returns and newlines.
+if [[ ${#COMMAND_TOKENS[@]} -gt 0 ]]; then
+  COMMENT_BODY="/run-pr-eval ${COMMAND_TOKENS[*]}"
+else
+  COMMENT_BODY="${COMMENT_BODY:-}"
+fi
+
+# Remove Windows carriage returns, newlines, tabs, and markdown code ticks.
 COMMENT_BODY="${COMMENT_BODY//$'\r'/ }"
 COMMENT_BODY="${COMMENT_BODY//$'\n'/ }"
+COMMENT_BODY="${COMMENT_BODY//$'\t'/ }"
+COMMENT_BODY="${COMMENT_BODY//\`/ }"
+if [[ "${COMMENT_BODY}" == *"/run-pr-eval"* ]]; then
+  COMMENT_BODY="/run-pr-eval ${COMMENT_BODY#*/run-pr-eval}"
+fi
+
+# Normalize spaces around "=" for supported keys, and tolerate spaces after
+# commas in comma-separated values such as task_id=a, b.
+COMMENT_BODY="$(
+  printf '%s' "${COMMENT_BODY}" |
+    sed -E 's/(^|[[:space:]])(model_name|task_id|task_ids|eval_key|eval-key|benchmark|num_tasks|agent|agent_type|provider|sha)[[:space:]]*=[[:space:]]*/\1\2=/g; s/,[[:space:]]+/,/g'
+)"
 
 read -r -a TOKENS <<< "${COMMENT_BODY}"
 echo "######## REPORT START ########"
@@ -117,31 +210,28 @@ for token in "${TOKENS[@]}"; do
       PROVIDER="${token#provider=}"
       ;;
 
+    sha=*)
+      ;;
+
     "")
       ;;
 
     *)
-      echo "ERROR: Unsupported parameter: ${token}"
-      echo "Supported parameters: model_name, task_id, task_ids, eval_key, benchmark, num_tasks, agent, provider"
-      close_details
-      echo "######## REPORT END ########"
-      exit 2
+      usage_error "Unsupported parameter: ${token}"
       ;;
   esac
 done
 
 if [[ -z "${MODEL_NAME}" ]]; then
-  echo "ERROR: model_name cannot be empty."
-  close_details
-  echo "######## REPORT END ########"
-  exit 2
+  usage_error "model_name cannot be empty."
 fi
 
-if [[ ! "${NUM_TASKS}" =~ ^[0-9]+$ ]] || [[ "${NUM_TASKS}" -lt 1 ]]; then
-  echo "ERROR: num_tasks must be a positive integer."
-  close_details
-  echo "######## REPORT END ########"
-  exit 2
+if [[ ! "${NUM_TASKS}" =~ ^[0-9]+$ ]]; then
+  usage_error "num_tasks must be a positive integer."
+fi
+NUM_TASKS=$((10#${NUM_TASKS}))
+if (( NUM_TASKS < 1 )); then
+  usage_error "num_tasks must be a positive integer."
 fi
 
 AGENT="$(printf '%s' "${AGENT}" | tr '[:upper:]' '[:lower:]')"
@@ -269,6 +359,7 @@ fi
 export AGENT_SETTING_CONFIG
 export DYNACONF_ADVANCED_FEATURES__LANGFUSE_TRACING="${DYNACONF_ADVANCED_FEATURES__LANGFUSE_TRACING:-false}"
 export MODEL_NAME
+export PR_EVAL_FOR_PR_COMMENT="${PR_EVAL_FOR_PR_COMMENT:-true}"
 
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 if [[ -z "${EVAL_REPO:-}" ]]; then
