@@ -177,6 +177,14 @@ def _get_registry_base_url() -> str:
     return "http://localhost:8001"
 
 
+def _is_langfuse_tracing_enabled() -> bool:
+    env_value = os.getenv("DYNACONF_ADVANCED_FEATURES__LANGFUSE_TRACING")
+    if env_value is not None:
+        return env_value.strip().lower() in {"1", "true", "yes", "on"}
+
+    return bool(getattr(getattr(settings, "advanced_features", None), "langfuse_tracing", False))
+
+
 async def run_agent_on_task(
     task_id: str,
     experiment_name: str = "api_cuga_agent",
@@ -217,7 +225,7 @@ async def run_agent_on_task(
     # Without this, LangfuseCallbackHandler creates a new root trace for every
     # agent_loop_obj.run() call in the controller while-loop.
     _langfuse = None
-    if _LANGFUSE_AVAILABLE and _get_langfuse_client is not None:
+    if _is_langfuse_tracing_enabled() and _LANGFUSE_AVAILABLE and _get_langfuse_client is not None:
         try:
             _langfuse = _get_langfuse_client()
             _run_uid = uuid.uuid4().hex[:8]
@@ -335,8 +343,9 @@ async def run_agent_on_task(
 
         langfuse_data = None
         # Extract Langfuse data if trace_id is available
-        langfuse_handler = LangfuseTraceHandler(langfuse_trace_id)
-        langfuse_data = await langfuse_handler.get_langfuse_data()
+        if langfuse_trace_id:
+            langfuse_handler = LangfuseTraceHandler(langfuse_trace_id)
+            langfuse_data = await langfuse_handler.get_langfuse_data()
         if langfuse_trace_id:
             task_result.trace_id = langfuse_trace_id
         if langfuse_data:
@@ -469,14 +478,21 @@ def _print_appworld_summary(report: dict):
     success_rate = report.get("success_rate", 0)
     avg_steps = report.get("avg_steps", 0)
     avg_duration = report.get("avg_duration", 0)
+    for_pr_comment = os.getenv("PR_EVAL_FOR_PR_COMMENT", "").lower() in ("true", "1", "yes")
 
-    print("\n" + "=" * 80)
-    print("EVALUATION COMPLETE")
-    print("=" * 80)
+    if for_pr_comment:
+        print("######## REPORT START ########")
+        print("## EVALUATION COMPLETE")
+    else:
+        print("\n" + "=" * 80)
+        print("EVALUATION COMPLETE")
+        print("=" * 80)
     print(f"Total Tasks: {total}")
     print(f"Completed: {completed}/{total} ({success_rate:.1%})")
     print(f"Avg Steps: {avg_steps:.2f}")
     print(f"Avg Duration: {avg_duration:.2f}s")
+    if for_pr_comment:
+        print("######## REPORT END ########")
 
 
 async def main():

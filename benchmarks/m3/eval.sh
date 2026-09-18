@@ -263,8 +263,11 @@ create_bundle() {
     # want the bundle, so don't let `set -e` abort here).
     local report_tmp
     report_tmp=$(mktemp /tmp/m3_eval_report_XXXXXX)
-    uv run --no-sync python -m benchmarks.helpers.compare_report eval \
-        --result-file "$latest_result" --output "$report_tmp" || \
+    local report_args=(eval --result-file "$latest_result" --output "$report_tmp")
+    if [[ "${PR_EVAL_FOR_PR_COMMENT:-false}" == "true" ]]; then
+        report_args+=(--for-pr-comment --stdout-markdown)
+    fi
+    uv run --no-sync python -m benchmarks.helpers.compare_report "${report_args[@]}" || \
         echo -e "${YELLOW:-}Report generation failed — bundling without report.${NC:-}"
 
     local bundle_args=(assemble --benchmark m3
