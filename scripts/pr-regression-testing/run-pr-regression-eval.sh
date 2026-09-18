@@ -8,6 +8,58 @@ log() {
   printf '[%s] %s\n' "$(date -u +"%Y-%m-%d %H:%M:%S UTC")" "$*"
 }
 
+extract_report_blocks() {
+  local input_path="$1"
+  local output_path="$2"
+
+  if [[ ! -f "${input_path}" ]]; then
+    echo "No evaluation output artifact was available." > "${output_path}"
+    return 0
+  fi
+
+  awk '
+    $0 == "######## REPORT START ########" {
+      in_report = 1
+      block = ""
+      next
+    }
+    $0 == "######## REPORT END ########" {
+      if (in_report) {
+        sub(/^[[:space:]]+/, "", block)
+        sub(/[[:space:]]+$/, "", block)
+        if (length(block) > 0) {
+          if (printed) {
+            print ""
+            print ""
+          }
+          print block
+          printed = 1
+        }
+      }
+      in_report = 0
+      block = ""
+      next
+    }
+    in_report {
+      block = block $0 "\n"
+    }
+    END {
+      if (!printed) {
+        print "No report section found between REPORT START and REPORT END markers."
+      }
+    }
+  ' "${input_path}" > "${output_path}"
+}
+
+if [[ "${1:-}" == "--extract-report" ]]; then
+  if [[ $# -ne 3 ]]; then
+    echo "Usage: $0 --extract-report <raw-output-path> <report-output-path>" >&2
+    exit 2
+  fi
+  extract_report_blocks "$2" "$3"
+  exit 0
+fi
+
 open_details() {
   local title="$1"
   echo "<details>"
