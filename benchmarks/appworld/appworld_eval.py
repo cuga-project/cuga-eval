@@ -177,6 +177,14 @@ def _get_registry_base_url() -> str:
     return "http://localhost:8001"
 
 
+def _is_langfuse_tracing_enabled() -> bool:
+    env_value = os.getenv("DYNACONF_ADVANCED_FEATURES__LANGFUSE_TRACING")
+    if env_value is not None:
+        return env_value.strip().lower() in {"1", "true", "yes", "on"}
+
+    return bool(getattr(getattr(settings, "advanced_features", None), "langfuse_tracing", False))
+
+
 async def run_agent_on_task(
     task_id: str,
     experiment_name: str = "api_cuga_agent",
@@ -217,7 +225,7 @@ async def run_agent_on_task(
     # Without this, LangfuseCallbackHandler creates a new root trace for every
     # agent_loop_obj.run() call in the controller while-loop.
     _langfuse = None
-    if _LANGFUSE_AVAILABLE and _get_langfuse_client is not None:
+    if _is_langfuse_tracing_enabled() and _LANGFUSE_AVAILABLE and _get_langfuse_client is not None:
         try:
             _langfuse = _get_langfuse_client()
             _run_uid = uuid.uuid4().hex[:8]
