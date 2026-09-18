@@ -19,11 +19,11 @@ from dataclasses import dataclass, field
 from pathlib import Path
 from typing import Any, Optional
 
-from langchain_openai import ChatOpenAI
 from cuga.backend.cuga_graph.nodes.cuga_lite.providers.combined import (
     CombinedToolProvider,
 )
 from langchain_core.messages import HumanMessage
+from langchain_openai import ChatOpenAI
 from loguru import logger
 
 TOOL_BLOCK_RE = re.compile(r"```json\s*(.*?)\s*```", re.DOTALL | re.IGNORECASE)

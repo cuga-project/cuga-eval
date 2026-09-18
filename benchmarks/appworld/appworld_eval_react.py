@@ -33,7 +33,6 @@ from dataclasses import dataclass
 from datetime import datetime
 from typing import Any, Optional
 
-import httpx
 from appworld import AppWorld, load_task_ids  # pyright: ignore[reportAttributeAccessIssue]
 from cuga.backend.activity_tracker.tracker import ActivityTracker, Step
 from cuga.backend.cuga_graph.state.agent_state import VariablesManager
