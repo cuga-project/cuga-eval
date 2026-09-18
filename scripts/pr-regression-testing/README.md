@@ -93,19 +93,19 @@ Settings -> Secrets and variables -> Actions
 Required secrets:
 
 - `RITS_API_KEY`: required for `provider=rits`.
-- `LITE_LLM_KEY`: required for `provider=litellm`, unless `OPENAI_API_KEY` is set instead.
-- `OPENAI_API_KEY`: optional fallback key for OpenAI-compatible/LiteLLM flows.
+- `LITE_LLM_KEY`: preferred secret for `provider=litellm`; the workflow injects it into `OPENAI_API_KEY`.
+- `OPENAI_API_KEY`: optional fallback secret for `provider=litellm` when `LITE_LLM_KEY` is not set.
 
 Optional repository variables:
 
 - `MODEL_NAME`: default model override used by the workflow environment.
-- `OPENAI_BASE_URL`: default OpenAI-compatible endpoint override.
-- `LITE_LLM_URL`: LiteLLM endpoint override. If omitted, `provider=litellm` defaults to `https://ete-litellm.ai-models.vpc-int.res.ibm.com/`.
+- `RITS_BASE_URL`: RITS endpoint override for `provider=rits`.
+- `LITELLM_BASE_URL`: LiteLLM endpoint override for `provider=litellm`.
 
 Provider defaults used by `run-pr-regression-eval.sh`:
 
-- `provider=rits` uses `RITS_API_KEY` and defaults `OPENAI_BASE_URL` to `https://inference-3scale-apicast-production.apps.rits.fmaas.res.ibm.com/gpt-oss-120b-a100`.
-- `provider=litellm` uses `LITE_LLM_KEY` first, then `OPENAI_API_KEY`; it uses `LITE_LLM_URL` first, then `OPENAI_BASE_URL`, then `https://ete-litellm.ai-models.vpc-int.res.ibm.com/`. Unless `model_name` is explicitly set in the PR comment, it uses `aws/gpt-oss-120b`.
+- `provider=rits` selects `settings.rits.toml`, requires `RITS_API_KEY`, and passes `RITS_BASE_URL` to `models.py`.
+- `provider=litellm` selects `settings.litellm.toml` for the CUGA agent or `settings.openai.toml` for non-CUGA agents, requires `OPENAI_API_KEY`, and passes `OPENAI_BASE_URL` to `models.py`. Unless `model_name` is explicitly set in the PR comment, it uses `aws/gpt-oss-120b`.
 
 ## Run PR Evaluations
 

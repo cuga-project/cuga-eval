@@ -100,6 +100,8 @@ trap on_exit EXIT
 
 DEFAULT_MODEL_NAME="openai/gpt-oss-120b-a100"
 DEFAULT_LITELLM_MODEL_NAME="aws/gpt-oss-120b"
+DEFAULT_RITS_BASE_URL="https://inference-3scale-apicast-production.apps.rits.fmaas.res.ibm.com/gpt-oss-120b-a100/v1"
+DEFAULT_LITELLM_BASE_URL="https://ete-litellm.ai-models.vpc-int.res.ibm.com/"
 DEFAULT_APPWORLD_TASK_IDS="9aae7da_1 365e0a3_1 eb5ad85_1 5e27cd7_1"
 DEFAULT_BENCHMARK="appworld"
 DEFAULT_NUM_TASKS="4"
@@ -329,6 +331,8 @@ case "${PROVIDER}" in
       echo "######## REPORT END ########"
       exit 2
     fi
+    RITS_BASE_URL="${RITS_BASE_URL:-${DEFAULT_RITS_BASE_URL}}"
+    export RITS_API_KEY RITS_BASE_URL
     ;;
   litellm)
     if [[ "${AGENT}" == "cuga" ]]; then
@@ -339,16 +343,15 @@ case "${PROVIDER}" in
     if [[ "${MODEL_NAME_FROM_COMMENT}" == "false" ]]; then
       MODEL_NAME="${DEFAULT_LITELLM_MODEL_NAME}"
     fi
-    OPENAI_BASE_URL="${LITE_LLM_URL:-${OPENAI_BASE_URL:-https://ete-litellm.ai-models.vpc-int.res.ibm.com/}}"
-    OPENAI_API_KEY="${LITE_LLM_KEY:-${OPENAI_API_KEY:-}}"
+    OPENAI_BASE_URL="${OPENAI_BASE_URL:-${DEFAULT_LITELLM_BASE_URL}}"
     if [[ -z "${OPENAI_API_KEY:-}" ]]; then
-      echo "ERROR: LITE_LLM_KEY or OPENAI_API_KEY is required when provider=litellm."
+      echo "ERROR: OPENAI_API_KEY is required when provider=litellm."
       close_details
       echo "######## REPORT END ########"
       exit 2
     fi
     if [[ -z "${OPENAI_BASE_URL:-}" ]]; then
-      echo "ERROR: LITE_LLM_URL or OPENAI_BASE_URL is required when provider=litellm."
+      echo "ERROR: OPENAI_BASE_URL is required when provider=litellm."
       close_details
       echo "######## REPORT END ########"
       exit 2
@@ -362,17 +365,6 @@ case "${PROVIDER}" in
     exit 2
     ;;
 esac
-
-if [[ "${PROVIDER}" == "rits" ]]; then
-  export OPENAI_BASE_URL="${OPENAI_BASE_URL:-https://inference-3scale-apicast-production.apps.rits.fmaas.res.ibm.com/gpt-oss-120b-a100}"
-  if [[ -z "${RITS_BASE_URL:-}" ]]; then
-    RITS_BASE_URL="${OPENAI_BASE_URL%/}"
-    [[ "${RITS_BASE_URL}" == */v1 ]] || RITS_BASE_URL="${RITS_BASE_URL}/v1"
-    export RITS_BASE_URL
-  fi
-else
-  :
-fi
 
 if [[ -z "${TASK_IDS}" && -z "${EVAL_KEY}" && "${BENCHMARK}" == "appworld" ]]; then
   TASK_IDS="${DEFAULT_APPWORLD_TASK_IDS}"
