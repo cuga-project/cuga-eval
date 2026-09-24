@@ -185,3 +185,26 @@ async def test_non_pydantic_result_mutated_in_place():
     out = await agent.invoke("q")
     assert out.answer == "x"
     assert out.tool_calls == []
+
+
+async def test_function_calling_preset_sets_the_fc_configurable_keys():
+    agent, inner, _ = _agent(PRESETS["cap2"], [_Result(answer="7")])
+    await agent.invoke("q", config={"configurable": {"thread_id": "th"}})
+    conf = inner.calls[0].config["configurable"]
+    assert conf["cuga_lite_execution_mode"] == "function_calling"
+    assert conf["cuga_lite_bind_tools_mode"] == "all"
+    assert conf["cuga_lite_bind_tools_max_count"] == 0
+    assert conf["thread_id"] == "th"  # caller's configurable preserved
+
+
+async def test_codeact_mode_leaves_the_execution_keys_alone():
+    from dataclasses import replace
+
+    cfg = replace(PRESETS["cap2"], execution_mode="codeact")  # the CodeAct arm of an A/B
+    agent, inner, _ = _agent(cfg, [_Result(answer="7")])
+    await agent.invoke("q")
+    conf = inner.calls[0].config["configurable"]
+    assert not [k for k in conf if k.startswith(("cuga_lite_execution_mode", "cuga_lite_bind_tools"))]
+    agent4, inner4, _ = _agent(PRESETS["cap4_v3wx"], [_Result(answer="I can not answer.")])
+    await agent4.invoke("q")
+    assert "cuga_lite_execution_mode" not in inner4.calls[0].config["configurable"]  # V3WX is CodeAct

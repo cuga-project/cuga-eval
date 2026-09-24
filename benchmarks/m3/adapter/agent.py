@@ -19,7 +19,7 @@ from typing import Any, List, Optional
 from langchain_core.messages import HumanMessage
 from loguru import logger
 
-from benchmarks.m3.adapter.config import AdapterConfig, TaskContext
+from benchmarks.m3.adapter.config import AdapterConfig, TaskContext, execution_mode_configurable
 from benchmarks.m3.adapter.demos import DemoIndex, build_demo_index, select_prose_pairs
 from benchmarks.m3.adapter.final_answer import make_final_answer_fn
 from benchmarks.m3.adapter.guards import run_answer_pipeline
@@ -155,6 +155,10 @@ class VakraAdapterAgent:
             if pairs:
                 conf["mcp_few_shot_examples"] = pairs
                 conf.setdefault("cuga_lite_enable_few_shots", True)
+
+        # Execution mode (VAKRA_CUGA_FC): native function calling binds the
+        # scoped / shortlisted toolset as tools instead of CodeAct code blocks.
+        conf.update(execution_mode_configurable(cfg))
 
         run_config["configurable"] = conf
 

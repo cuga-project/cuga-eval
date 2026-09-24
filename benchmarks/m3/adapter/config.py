@@ -31,6 +31,19 @@ MINILM_MODEL = "sentence-transformers/all-MiniLM-L6-v2"
 
 ENV_PREFIX = "M3_ADAPTER_"
 
+EXECUTION_MODES = ("codeact", "function_calling")
+
+#: Configurable keys that switch CugaLite to native function calling
+#: (cuga-agent#777: ``cuga_lite_execution_mode`` in model_runtime_profile.py, the
+#: bind_tools mode/cap in bind_tools/cap.py). Verified on that branch before it
+#: merged — re-check the names once it lands. ``bind_tools_max_count=0`` lifts the
+#: provider-safe bind cap so the whole (scoped / shortlisted) toolset is bound.
+FUNCTION_CALLING_CONFIGURABLE: Mapping[str, object] = {
+    "cuga_lite_execution_mode": "function_calling",
+    "cuga_lite_bind_tools_mode": "all",
+    "cuga_lite_bind_tools_max_count": 0,
+}
+
 
 @dataclass(frozen=True)
 class AdapterConfig:
@@ -77,12 +90,16 @@ class AdapterConfig:
     # --- demos source (never the split under evaluation; see demos.load_demo_corpus) ---
     demo_data: Optional[str] = None  # M3_ADAPTER_DEMO_DATA / --demo-data; None = bundled data/small_train.zip
 
+    # --- execution mode (VAKRA_CUGA_FC; caps 1-3 presets use FC, cap4/V3WX is CodeAct) ---
+    execution_mode: str = "codeact"  # "codeact" | "function_calling" (native FC: cuga-agent#777)
+
 
 PRESETS: dict[str, AdapterConfig] = {
     "off": AdapterConfig(),
     "cap1": AdapterConfig(
         preset="cap1",
         enabled=True,
+        execution_mode="function_calling",
         capability=1,
         gates=True,
         answer_contract=True,
@@ -97,6 +114,7 @@ PRESETS: dict[str, AdapterConfig] = {
     "cap2": AdapterConfig(
         preset="cap2",
         enabled=True,
+        execution_mode="function_calling",
         capability=2,
         gates=True,
         answer_contract=True,
@@ -110,6 +128,7 @@ PRESETS: dict[str, AdapterConfig] = {
     "cap3": AdapterConfig(
         preset="cap3",
         enabled=True,
+        execution_mode="function_calling",
         capability=3,
         gates=True,
         answer_contract=True,
@@ -210,4 +229,20 @@ def resolve_adapter_config(
         overrides["capability"] = capability
     if demo_data:
         overrides["demo_data"] = demo_data
-    return replace(cfg, **overrides) if overrides else cfg
+    cfg = replace(cfg, **overrides) if overrides else cfg
+    if cfg.execution_mode not in EXECUTION_MODES:
+        raise ValueError(f"{ENV_PREFIX}EXECUTION_MODE={cfg.execution_mode!r} is not one of {EXECUTION_MODES}")
+    return cfg
+
+
+def execution_mode_configurable(cfg: AdapterConfig) -> dict:
+    """Per-invoke ``configurable`` entries for the preset's execution mode.
+
+    ``function_calling`` sets the three FC keys; ``codeact`` sets nothing, so the
+    CodeAct arm of an FC A/B is exactly the run that was validated (CUGA's own
+    default). On a cuga main that predates native FC the keys are ignored and the
+    run stays CodeAct.
+    """
+    if cfg.execution_mode == "function_calling":
+        return dict(FUNCTION_CALLING_CONFIGURABLE)
+    return {}
