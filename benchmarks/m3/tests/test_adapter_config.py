@@ -7,6 +7,7 @@ from benchmarks.m3.adapter.config import (
     MINILM_MODEL,
     PRESETS,
     AdapterConfig,
+    execution_mode_configurable,
     resolve_adapter_config,
 )
 
@@ -131,3 +132,27 @@ def test_optional_int_env_override_resets_to_none_and_rejects_negatives():
         resolve_adapter_config("cap2", env={f"{ENV_PREFIX}DEMOS_K": "-2"})
     with pytest.raises(ValueError, match="not an integer"):
         resolve_adapter_config("cap2", env={f"{ENV_PREFIX}DEMOS_K": "none"})  # plain int: no reset
+
+
+# ---------------------------- execution mode --------------------------------
+
+
+def test_execution_mode_presets_and_override():
+    for name in ("cap1", "cap2", "cap3"):
+        assert PRESETS[name].execution_mode == "function_calling"  # VAKRA_CUGA_FC
+    assert PRESETS["cap4_v3wx"].execution_mode == "codeact"  # V3WX ran CodeAct
+    assert PRESETS["off"].execution_mode == "codeact"
+    cfg = resolve_adapter_config("cap2", env={f"{ENV_PREFIX}EXECUTION_MODE": "codeact"})
+    assert cfg.execution_mode == "codeact"  # the CodeAct arm of an FC A/B
+    with pytest.raises(ValueError, match="EXECUTION_MODE"):
+        resolve_adapter_config("cap2", env={f"{ENV_PREFIX}EXECUTION_MODE": "react"})
+
+
+def test_execution_mode_configurable_mapping():
+    assert execution_mode_configurable(PRESETS["cap3"]) == {
+        "cuga_lite_execution_mode": "function_calling",
+        "cuga_lite_bind_tools_mode": "all",
+        "cuga_lite_bind_tools_max_count": 0,
+    }
+    assert execution_mode_configurable(PRESETS["cap4_v3wx"]) == {}
+    assert execution_mode_configurable(AdapterConfig()) == {}

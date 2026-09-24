@@ -10,6 +10,7 @@ changed; everything goes through public SDK surfaces:
 | `CugaAgent(final_answer=...)` | deterministic answer function: harmony-token strip + judge-shape canonicalization |
 | `CugaAgent(shortlister=Shortlister(...))` | the exact validated shortlisting: MiniLM embedding, top-k bounded, retriever pinning (custom strategy by dotted path) |
 | `configurable["mcp_few_shot_examples"]` | k similar solved train examples as chat pairs (prose demos) |
+| `configurable["cuga_lite_execution_mode"]` (+ bind_tools mode/cap) | native function-calling execution mode for caps 1-3 (cuga-agent#777; see [Execution mode](#execution-mode-function-calling)) |
 | a `ToolProviderInterface` wrapper | tool-call recording (evidence for the guards), runaway cap, cap4 policy tool scoping. Sits *inside* CUGA's ToolGuard decorator (ToolGuard stays outermost: positional-arg normalization, policy storage), accepts exactly what the raw tools accept, and keeps the `tool.func` metadata (`_response_schemas`, `_param_constraints`) so the rendered tool docs match a plain run |
 
 Default preset **`off`** builds a plain `CugaAgent` with exactly today's
@@ -66,6 +67,7 @@ the cap4 "V3WX" run config for capability 4).
 | `tool_cap` | — | — | — | 16 | `VAKRA_CUGA_TOOL_CAP` |
 | `shortlist_top_k` | 128 | 128 | 128 | 40 | `--top-k-tools` |
 | `shortlist_pin_retrievers` | — | — | — | ✅ | (vakra shortlister pinned `query_*`) |
+| `execution_mode` | function_calling | function_calling | function_calling | codeact | `VAKRA_CUGA_FC` |
 | `use_policy_system` | ✅ | ✅ | ✅ | ❌ | cap4 supplies policy via instructions |
 
 Override any field with `M3_ADAPTER_<FIELD>` (upper-cased field name), e.g.
@@ -101,6 +103,20 @@ through untouched). The cap4 preset uses the dotted-path strategy
 to the SDK embedding strategy and pins `query_*` retriever tools into the top-k
 (vakra fidelity).
 
+## Execution mode (function calling)
+
+`execution_mode` maps `VAKRA_CUGA_FC`: the validated caps 1-3 runs used CUGA's
+native function-calling execution mode, cap4 (V3WX) ran CodeAct. With
+`function_calling` the adapter sets, per invoke, `cuga_lite_execution_mode="function_calling"`,
+`cuga_lite_bind_tools_mode="all"` and `cuga_lite_bind_tools_max_count=0` (no bind
+cap: the whole scoped / shortlisted toolset is bound as tools). With `codeact` it
+sets nothing, so that arm of an A/B is exactly the validated CodeAct run.
+Override per run with `M3_ADAPTER_EXECUTION_MODE=codeact|function_calling`.
+
+Native FC lands in cuga-agent with cuga-agent#777. The key names above were
+verified on that branch and must be re-checked once it merges; on a cuga main
+without it the keys are ignored and the run stays CodeAct.
+
 ## Demos
 
 `demos` (caps 1-3) injects `demos_k` solved examples per query through
@@ -133,8 +149,9 @@ unless `--demo-data` points at one. Any load failure degrades to "no demos".
 
 ## Not ported (and why)
 
-- **Function calling** (`VAKRA_CUGA_FC`): no native function-calling execution
-  mode exists in cuga main; the adapter runs the standard CodeAct mode.
+- **Function calling** (`VAKRA_CUGA_FC`) is mapped (see
+  [Execution mode](#execution-mode-function-calling)) but only takes effect once
+  cuga-agent#777 is merged.
 - **`stepwise_struct`**: relied on a module that only existed in a vendored
   CUGA tree.
 - Experimental flags never in a submitted config: `TOOLFINDER`,
