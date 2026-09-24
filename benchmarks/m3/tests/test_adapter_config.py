@@ -152,7 +152,8 @@ def test_execution_mode_configurable_mapping():
     assert execution_mode_configurable(PRESETS["cap3"]) == {
         "cuga_lite_execution_mode": "function_calling",
         "cuga_lite_bind_tools_mode": "all",
-        "cuga_lite_bind_tools_max_count": 0,
     }
+    # the bind cap is a cuga *settings* knob (BIND_CAP_ENV), never a configurable key
+    assert "cuga_lite_bind_tools_max_count" not in execution_mode_configurable(PRESETS["cap3"])
     assert execution_mode_configurable(PRESETS["cap4_v3wx"]) == {}
     assert execution_mode_configurable(AdapterConfig()) == {}

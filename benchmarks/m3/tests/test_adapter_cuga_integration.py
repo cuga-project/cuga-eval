@@ -6,6 +6,8 @@ constructor builds, ToolGuard's metadata copy and guarded-tool cache, prompt-doc
 parity for wrapped tools, and positional-arg normalization through ToolGuard.
 """
 
+from types import SimpleNamespace
+
 import pytest
 from langchain_core.language_models.fake_chat_models import FakeListChatModel
 from langchain_core.tools import StructuredTool
@@ -147,3 +149,19 @@ def test_wrap_existing_agent_nests_inside_the_real_toolguard():
         plain.tool_provider, policy_storage=sentinel
     )  # what the SDK's policy manager does
     assert outer.policy_storage is sentinel
+
+
+def test_fc_configurable_keys_resolve_in_this_cuga_checkout():
+    """Re-verifies the native-FC key names (cuga-agent#777) whenever the checkout has them."""
+    mrp = pytest.importorskip("cuga.backend.cuga_graph.nodes.cuga_lite.model_runtime_profile")
+    if not hasattr(mrp, "resolve_execution_mode"):
+        pytest.skip("this cuga checkout has no native function-calling mode (cuga-agent#777)")
+    from cuga.backend.cuga_graph.nodes.cuga_lite.adapter.graph_adapter import AgentGraphAdapter
+
+    from benchmarks.m3.adapter.config import FUNCTION_CALLING_CONFIGURABLE
+
+    fc = dict(FUNCTION_CALLING_CONFIGURABLE)
+    assert mrp.resolve_execution_mode(fc) == "function_calling"
+    assert mrp.resolve_execution_mode({}) == "codeact"  # the codeact arm relies on cuga's default
+    stub = SimpleNamespace(_runtime_model_name=lambda configurable: None)
+    assert AgentGraphAdapter._resolved_bind_mode(stub, fc) == "all"

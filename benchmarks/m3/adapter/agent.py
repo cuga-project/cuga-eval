@@ -19,7 +19,13 @@ from typing import Any, List, Optional
 from langchain_core.messages import HumanMessage
 from loguru import logger
 
-from benchmarks.m3.adapter.config import AdapterConfig, TaskContext, execution_mode_configurable
+from benchmarks.m3.adapter.config import (
+    BIND_CAP_ENV,
+    BIND_CAP_SETTING,
+    AdapterConfig,
+    TaskContext,
+    execution_mode_configurable,
+)
 from benchmarks.m3.adapter.demos import DemoIndex, build_demo_index, select_prose_pairs
 from benchmarks.m3.adapter.final_answer import make_final_answer_fn
 from benchmarks.m3.adapter.guards import run_answer_pipeline
@@ -193,6 +199,28 @@ class VakraAdapterAgent:
             return result
 
 
+def _warn_if_bind_cap_active(cfg: AdapterConfig) -> None:
+    """FC binds every scoped tool, and cuga's provider-safe bind cap (a settings
+    knob, default 128) raises at bind time instead of truncating — warn when an
+    FC preset runs with the cap still active."""
+    if cfg.execution_mode != "function_calling":
+        return
+    try:
+        from cuga.config import settings  # noqa: PLC0415
+
+        cap = int(getattr(settings.advanced_features, BIND_CAP_SETTING, 128))
+    except Exception:  # noqa: BLE001  (settings unavailable: nothing to check)
+        return
+    if cap > 0:
+        logger.warning(
+            "[m3-adapter] execution_mode=function_calling with {}={} (settings): a domain with more "
+            "bound tools than that fails at bind time. Export {}=0 (m3.env) to lift the cap.",
+            BIND_CAP_SETTING,
+            cap,
+            BIND_CAP_ENV,
+        )
+
+
 def build_m3_agent(
     *,
     tool_provider: Any,
@@ -219,6 +247,7 @@ def build_m3_agent(
             tool_provider=tool_provider, special_instructions=special_instructions, **base_kwargs
         )
 
+    _warn_if_bind_cap_active(config)
     provider = RecordingScopedToolProvider(tool_provider, tool_cap=config.tool_cap)
     shortlister = build_shortlister(config)
     if shortlister is not None:
@@ -274,6 +303,7 @@ def wrap_existing_agent(agent: Any, config: AdapterConfig, demo_corpus: Optional
     """
     if not config.enabled:
         return agent
+    _warn_if_bind_cap_active(config)
     outer = getattr(agent, "tool_provider", None)
     toolguard_cls = _toolguard_provider_class()
     if outer is None:

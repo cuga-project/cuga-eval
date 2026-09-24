@@ -33,16 +33,19 @@ ENV_PREFIX = "M3_ADAPTER_"
 
 EXECUTION_MODES = ("codeact", "function_calling")
 
-#: Configurable keys that switch CugaLite to native function calling
-#: (cuga-agent#777: ``cuga_lite_execution_mode`` in model_runtime_profile.py, the
-#: bind_tools mode/cap in bind_tools/cap.py). Verified on that branch before it
-#: merged — re-check the names once it lands. ``bind_tools_max_count=0`` lifts the
-#: provider-safe bind cap so the whole (scoped / shortlisted) toolset is bound.
+#: Configurable keys that switch CugaLite to native function calling (cuga-agent#777:
+#: ``cuga_lite_execution_mode`` resolved in model_runtime_profile.py, the bind mode in
+#: graph_adapter._resolved_bind_mode). Verified on that branch before it merged —
+#: re-check once it lands (tests/test_adapter_cuga_integration.py does, when the
+#: checkout has native FC). The provider-safe bind cap is NOT configurable-driven:
+#: it is the settings key below (bind_tools/cap.py), so FC runs need
+#: ``BIND_CAP_ENV=0`` in the environment (m3.env); the agent factory warns otherwise.
 FUNCTION_CALLING_CONFIGURABLE: Mapping[str, object] = {
     "cuga_lite_execution_mode": "function_calling",
     "cuga_lite_bind_tools_mode": "all",
-    "cuga_lite_bind_tools_max_count": 0,
 }
+BIND_CAP_SETTING = "cuga_lite_bind_tools_max_count"  # settings.advanced_features.<this>, default 128
+BIND_CAP_ENV = "DYNACONF_ADVANCED_FEATURES__CUGA_LITE_BIND_TOOLS_MAX_COUNT"
 
 
 @dataclass(frozen=True)
