@@ -331,6 +331,12 @@ case "${PROVIDER}" in
       echo "######## REPORT END ########"
       exit 2
     fi
+    if [[ "${MODEL_NAME_FROM_COMMENT}" == "true" && -z "${RITS_BASE_URL:-}" ]]; then
+      echo "ERROR: provider=rits model_name overrides require RITS_BASE_URL to avoid mismatched model endpoints."
+      close_details
+      echo "######## REPORT END ########"
+      exit 2
+    fi
     RITS_BASE_URL="${RITS_BASE_URL:-${DEFAULT_RITS_BASE_URL}}"
     export RITS_API_KEY RITS_BASE_URL
     ;;

@@ -100,12 +100,13 @@ Optional repository variables:
 
 - `MODEL_NAME`: default model override used by the workflow environment.
 - `RITS_BASE_URL`: RITS endpoint override for `provider=rits`.
-- `LITELLM_BASE_URL`: LiteLLM endpoint override for `provider=litellm`.
+- `LITELLM_BASE_URL`: LiteLLM endpoint override for `provider=litellm`; the workflow injects it into `OPENAI_BASE_URL`.
 
 Provider defaults used by `run-pr-regression-eval.sh`:
 
 - `provider=rits` selects `settings.rits.toml`, requires `RITS_API_KEY`, and passes `RITS_BASE_URL` to `models.py`.
 - `provider=litellm` selects `settings.litellm.toml` for the CUGA agent or `settings.openai.toml` for non-CUGA agents, requires `OPENAI_API_KEY`, and passes `OPENAI_BASE_URL` to `models.py`. Unless `model_name` is explicitly set in the PR comment, it uses `aws/gpt-oss-120b`.
+- For `provider=rits`, overriding `model_name` in the PR command requires `RITS_BASE_URL` to be configured so the model name and endpoint cannot silently diverge.
 
 ## Run PR Evaluations
 

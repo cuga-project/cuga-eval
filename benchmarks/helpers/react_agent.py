@@ -23,8 +23,15 @@ from cuga.backend.cuga_graph.nodes.cuga_lite.providers.combined import (
     CombinedToolProvider,
 )
 from langchain_core.messages import HumanMessage
-from langchain_openai import ChatOpenAI
 from loguru import logger
+
+try:
+    from langchain_openai import ChatOpenAI as _ChatOpenAI
+except ImportError as exc:
+    _ChatOpenAI = None
+    _CHAT_OPENAI_IMPORT_ERROR = exc
+else:
+    _CHAT_OPENAI_IMPORT_ERROR = None
 
 TOOL_BLOCK_RE = re.compile(r"```json\s*(.*?)\s*```", re.DOTALL | re.IGNORECASE)
 PROMPT_ROLE_RE = re.compile(r"(USER|ASSISTANT|SYSTEM):\n", re.IGNORECASE)
@@ -45,10 +52,20 @@ class ReactInvokeResult:
     react_steps: int = 0
 
 
-class ChatRits(ChatOpenAI):
+def _require_chat_openai():
+    if _ChatOpenAI is None:
+        raise RuntimeError(
+            "langchain-openai is required for React agent with OpenAI-compatible or RITS providers. "
+            "Install with: pip install langchain-openai"
+        ) from _CHAT_OPENAI_IMPORT_ERROR
+    return _ChatOpenAI
+
+
+class ChatRits(_ChatOpenAI if _ChatOpenAI is not None else object):
     """RITS chat model integration using langchain-openai."""
 
     def __init__(self, config: dict[str, Any]):
+        _require_chat_openai()
         model_name = config.get("model_name", "openai/gpt-oss-120b-a100")
         end_point = (
             config.get("end_point")
@@ -201,7 +218,7 @@ class GenericReactAgent:
                 llm_kwargs["http_async_client"] = httpx.AsyncClient(verify=False)  # noqa: S501  # nosec B501 — same
                 logger.info("SSL verification disabled for ChatOpenAI")
 
-            return ChatOpenAI(**llm_kwargs)
+            return _require_chat_openai()(**llm_kwargs)
 
         elif settings_config in ("settings.rits.toml", "settings.rits.proxy.toml"):
             api_base = os.getenv("RITS_BASE_URL") or os.getenv("LITE_LLM_URL") or os.getenv("OPENAI_BASE_URL")
