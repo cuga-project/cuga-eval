@@ -107,15 +107,28 @@ to the SDK embedding strategy and pins `query_*` retriever tools into the top-k
 
 `execution_mode` maps `VAKRA_CUGA_FC`: the validated caps 1-3 runs used CUGA's
 native function-calling execution mode, cap4 (V3WX) ran CodeAct. With
-`function_calling` the adapter sets, per invoke, `cuga_lite_execution_mode="function_calling"`,
-`cuga_lite_bind_tools_mode="all"` and `cuga_lite_bind_tools_max_count=0` (no bind
-cap: the whole scoped / shortlisted toolset is bound as tools). With `codeact` it
-sets nothing, so that arm of an A/B is exactly the validated CodeAct run.
-Override per run with `M3_ADAPTER_EXECUTION_MODE=codeact|function_calling`.
+`function_calling` the adapter sets, per invoke, `cuga_lite_execution_mode="function_calling"`
+and `cuga_lite_bind_tools_mode="all"` (bind the whole scoped / shortlisted toolset
+as tools). With `codeact` it sets nothing, so that arm of an A/B is exactly the
+validated CodeAct run. Override per run with
+`M3_ADAPTER_EXECUTION_MODE=codeact|function_calling`.
+
+The provider-safe bind cap is a *settings* knob, not a configurable one:
+`advanced_features.cuga_lite_bind_tools_max_count` (default 128) raises at bind
+time instead of truncating, so FC runs need
+`DYNACONF_ADVANCED_FEATURES__CUGA_LITE_BIND_TOOLS_MAX_COUNT=0` in the environment
+(`m3.env`); the adapter logs a warning when an FC preset runs with the cap active.
+FC refuses to start when an enabled *tool-approval* policy exists (M3 loads
+playbooks, tool guides and an output formatter only, so this does not apply) or
+when the policy system cannot be queried — a run that stops with
+"Function-calling mode could not verify whether a tool-approval policy exists"
+means the policy system was not initialised for that agent.
 
 Native FC lands in cuga-agent with cuga-agent#777. The key names above were
-verified on that branch and must be re-checked once it merges; on a cuga main
-without it the keys are ignored and the run stays CodeAct.
+verified on that branch and must be re-checked once it merges
+(`tests/test_adapter_cuga_integration.py` does so automatically when the cuga
+checkout has native FC); on a cuga main without it the keys are ignored and the
+run stays CodeAct.
 
 ## Demos
 

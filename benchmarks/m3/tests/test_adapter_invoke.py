@@ -193,7 +193,7 @@ async def test_function_calling_preset_sets_the_fc_configurable_keys():
     conf = inner.calls[0].config["configurable"]
     assert conf["cuga_lite_execution_mode"] == "function_calling"
     assert conf["cuga_lite_bind_tools_mode"] == "all"
-    assert conf["cuga_lite_bind_tools_max_count"] == 0
+    assert "cuga_lite_bind_tools_max_count" not in conf  # settings knob, not configurable
     assert conf["thread_id"] == "th"  # caller's configurable preserved
 
 
