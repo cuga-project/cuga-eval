@@ -48,7 +48,13 @@ def _iter_calls(gold_turn: Any):
 
 
 def _format_call(call: dict) -> str:
-    args = dict(call.get("arguments") or {})
+    raw = call.get("arguments") or {}
+    if isinstance(raw, str):  # some corpora serialize the arguments as a JSON string
+        try:
+            raw = json.loads(raw)
+        except ValueError:
+            raw = {"_raw": raw}
+    args = dict(raw) if isinstance(raw, dict) else {"_raw": raw}  # odd shapes stay visible, never raise
     args.pop("database_path", None)  # authoring-machine path, irrelevant noise
     compact = {k: (str(v)[:60] + "…" if len(str(v)) > 60 else v) for k, v in args.items()}
     return f"{call.get('name')}({json.dumps(compact, ensure_ascii=False, default=str)})"
@@ -89,8 +95,8 @@ def build_demo_index(samples: Optional[List[dict]]) -> Optional[DemoIndex]:
         answers = expected.get("answer_per_turn") or []
         for i, turn in enumerate(turns):
             query = (turn or {}).get("query")
-            if not query:
-                continue
+            if not isinstance(query, str) or not query.strip():
+                continue  # select_prose_pairs / the embedder need real text
             calls = list(_iter_calls(gold[i] if i < len(gold) else None))
             if not calls:
                 continue

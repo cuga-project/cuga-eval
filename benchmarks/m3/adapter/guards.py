@@ -116,10 +116,11 @@ async def run_answer_pipeline(
             if correction is None:
                 break
             logger.info("[m3-adapter gate] retrying with correction (same thread)")
-            result = await invoke_round(correction)
-            if getattr(result, "error", None):
-                logger.warning("[m3-adapter gate] retry errored; stopping gate loop")
+            follow_up = await invoke_round(correction)
+            if getattr(follow_up, "error", None):
+                logger.warning("[m3-adapter gate] retry errored; keeping the pre-retry draft")
                 break
+            result = follow_up
 
     answer = getattr(result, "answer", "")
     if not isinstance(answer, str):

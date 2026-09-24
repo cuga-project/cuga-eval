@@ -71,6 +71,9 @@ the cap4 "V3WX" run config for capability 4).
 Override any field with `M3_ADAPTER_<FIELD>` (upper-cased field name), e.g.
 `M3_ADAPTER_SELF_VERIFY=off`, `M3_ADAPTER_TOOL_CAP=32`,
 `M3_ADAPTER_DEMOS_K=3`. Booleans accept `1/on/true/yes` and `0/off/false/no`.
+Optional integer knobs (`tool_cap`, `shortlist_top_k`, `capability`) accept
+`none`/`null`/empty to reset — `M3_ADAPTER_TOOL_CAP=none` removes the cap,
+whereas `0` blocks every tool call; negative integers are rejected.
 
 ## Answer pipeline (exact validated order)
 

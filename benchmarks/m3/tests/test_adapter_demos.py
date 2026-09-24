@@ -195,3 +195,16 @@ def test_load_demo_corpus_same_source_as_eval_warns_but_loads(tmp_path):
         logger.remove(handle)
     assert out  # train-split runs are legitimate; the run is warned, not refused
     assert any("evaluated data" in m for m in messages)
+
+
+def test_format_call_tolerates_non_dict_arguments():
+    assert '"a": 1' in _format_call({"name": "t", "arguments": '{"a": 1}'})  # JSON string
+    assert "_raw" in _format_call({"name": "t", "arguments": "not json"})
+    assert "_raw" in _format_call({"name": "t", "arguments": [1, 2]})
+    assert _format_call({"name": "t", "arguments": None}) == "t({})"
+
+
+def test_build_index_skips_non_string_queries():
+    assert build_demo_index([_sample(query=123), _sample(query="   ")]) is None
+    index = build_demo_index([_sample(query=123), _sample(query="Real question?")])
+    assert index is not None and [e["query"] for e in index.entries] == ["Real question?"]

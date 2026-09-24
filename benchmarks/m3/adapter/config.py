@@ -194,10 +194,16 @@ def resolve_adapter_config(
         if f.type in ("bool", bool):
             overrides[f.name] = _parse_bool(raw, key)
         elif f.type in ("Optional[int]", "int", int):
+            if f.type == "Optional[int]" and raw.strip().lower() in ("", "none", "null"):
+                overrides[f.name] = None  # e.g. M3_ADAPTER_TOOL_CAP=none lifts the cap (0 blocks every call)
+                continue
             try:
-                overrides[f.name] = int(raw)
+                value = int(raw)
             except ValueError as exc:
                 raise ValueError(f"{key}={raw!r} is not an integer") from exc
+            if value < 0:
+                raise ValueError(f"{key}={raw!r} must be >= 0")
+            overrides[f.name] = value
         else:
             overrides[f.name] = raw
     if capability is not None:

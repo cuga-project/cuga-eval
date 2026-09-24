@@ -63,8 +63,22 @@ async def test_gates_stop_on_error_result():
         calls.append(correction)
         return _result("", error="boom")
 
-    await run_answer_pipeline(invoke_round, _result(""), cfg, TaskContext(), [OK_CALL])
+    out = await run_answer_pipeline(invoke_round, _result(""), cfg, TaskContext(), [OK_CALL])
     assert len(calls) == 1  # error aborts the loop despite still-empty answer
+    assert out == ""
+
+
+async def test_gate_retry_error_keeps_the_pre_retry_draft():
+    cfg = PRESETS["cap3"]
+    calls = []
+
+    async def invoke_round(correction):
+        calls.append(correction)
+        return _result("", error="boom")
+
+    out = await run_answer_pipeline(invoke_round, _result("Approximately 42"), cfg, TaskContext(), [OK_CALL])
+    assert len(calls) == 1
+    assert out == "Approximately 42"  # the errored retry does not wipe the hedged draft
 
 
 async def test_hedged_answer_triggers_restate_correction():

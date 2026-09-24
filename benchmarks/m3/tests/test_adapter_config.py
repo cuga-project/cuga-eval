@@ -116,3 +116,18 @@ def test_capability_argument_wins():
 def test_default_shortlist_model_is_the_validated_minilm():
     assert AdapterConfig().shortlist_model == MINILM_MODEL
     assert "all-MiniLM-L6-v2" in MINILM_MODEL
+
+
+def test_optional_int_env_override_resets_to_none_and_rejects_negatives():
+    cfg = resolve_adapter_config("cap4_v3wx", env={f"{ENV_PREFIX}TOOL_CAP": "none"})
+    assert cfg.tool_cap is None  # uncapped; 0 would block every tool call
+    assert resolve_adapter_config("cap4_v3wx", env={f"{ENV_PREFIX}TOOL_CAP": ""}).tool_cap is None
+    assert (
+        resolve_adapter_config("cap2", env={f"{ENV_PREFIX}SHORTLIST_TOP_K": "null"}).shortlist_top_k is None
+    )
+    with pytest.raises(ValueError, match=">= 0"):
+        resolve_adapter_config("cap4_v3wx", env={f"{ENV_PREFIX}TOOL_CAP": "-1"})
+    with pytest.raises(ValueError, match=">= 0"):
+        resolve_adapter_config("cap2", env={f"{ENV_PREFIX}DEMOS_K": "-2"})
+    with pytest.raises(ValueError, match="not an integer"):
+        resolve_adapter_config("cap2", env={f"{ENV_PREFIX}DEMOS_K": "none"})  # plain int: no reset
