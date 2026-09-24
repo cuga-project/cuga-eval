@@ -410,10 +410,11 @@ if [ $EVAL_EXIT_CODE -eq 0 ]; then
             # Generate eval report
             REPORT_TMP=$(mktemp /tmp/bpo_eval_report_XXXXXX)
             REPORT_ARGS=(eval --result-file "$LATEST_RESULT" --output "$REPORT_TMP")
-            if [[ "${PR_EVAL_FOR_PR_COMMENT:-false}" == "true" ]]; then
-                REPORT_ARGS+=(--for-pr-comment --stdout-markdown)
-            fi
             uv run --no-sync python -m benchmarks.helpers.compare_report "${REPORT_ARGS[@]}"
+            if [[ "${PR_EVAL_FOR_PR_COMMENT:-false}" == "true" ]]; then
+                uv run --no-sync python -m benchmarks.helpers.compare_report \
+                    eval --result-file "$LATEST_RESULT" --for-pr-comment --stdout-markdown
+            fi
 
             BUNDLE_ARGS=(assemble --benchmark bpo
                 --result-files "$LATEST_RESULT"
