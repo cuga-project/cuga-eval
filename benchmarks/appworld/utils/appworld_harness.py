@@ -115,6 +115,16 @@ async def invoke_and_score_appworld_agent(
 
     def complete_and_eval() -> None:
         nonlocal harness_done, eval_dict
+        # Log only after invocation; reference answers never enter agent context.
+        ground_truth = getattr(world.task, "ground_truth", None)
+        missing_answer = object()
+        ground_truth_answer = getattr(ground_truth, "answer", missing_answer)
+        if ground_truth_answer is missing_answer:
+            logger.info(f"AppWorld task {task_id} | Ground truth answer (raw): <unavailable>")
+        else:
+            logger.info(f"AppWorld task {task_id} | Ground truth answer (raw): {ground_truth_answer!r}")
+        logger.info(f"AppWorld task {task_id} | Predicted answer (raw): {raw_response!r}")
+        logger.info(f"AppWorld task {task_id} | Predicted answer (submitted): {response!r}")
         complete_task(world, response, is_error)
         evaluation = world.evaluate()
         eval_dict = evaluation_task_info(evaluation)
