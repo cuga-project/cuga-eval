@@ -43,6 +43,10 @@ bash benchmarks/m3/parity/run_parity.sh --subset parity_cap3_20 --fc 1          
 bash benchmarks/m3/parity/run_parity.sh --subset parity_cap2_30 --dry-run                # print the commands only
 ```
 
+Keys: `PARITY_KEY=2` (or 3) makes `env.sh` read the `LITELLM_PROXY_API_BASE_2` /
+`LITELLM_PROXY_API_KEY_2` slot of `~/git/appworld/.env` — use it when a key's
+budget is exhausted.
+
 `run_parity.sh` = `source env.sh <T>` → `preflight.sh` (containers, vendor
 symlink, both venvs, both CUGA checkouts, FC availability, proxy probe — a
 non-200/429 probe, or a 429 whose body says *Budget has been exceeded*, means
