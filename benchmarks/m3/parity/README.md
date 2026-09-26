@@ -45,7 +45,9 @@ bash benchmarks/m3/parity/run_parity.sh --subset parity_cap2_30 --dry-run       
 
 `run_parity.sh` = `source env.sh <T>` → `preflight.sh` (containers, vendor
 symlink, both venvs, both CUGA checkouts, FC availability, proxy probe — a
-non-200/429 probe means STOP) → the arms → `rescore.sh` → `compare.py`, which
+non-200/429 probe, or a 429 whose body says *Budget has been exceeded*, means
+STOP: nothing will score; a plain 429 is just the ~1 request/key rate limit) →
+the arms → `rescore.sh` → `compare.py`, which
 writes `runs/<run_id>/REPORT.md`. Every arm records `meta.json` (commits, dirty
 counts, flags, temperature). Arms and the rescoring resume on re-run.
 

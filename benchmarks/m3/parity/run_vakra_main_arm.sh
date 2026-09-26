@@ -46,12 +46,18 @@ esac
 env | grep -E '^(VAKRA_|DYNACONF_)' | sort > "$OUT/flags.txt"
 
 wait_proxy() {
-    local ok=0 code
+    local ok=0 code body
+    body=$(mktemp)
     while [ $ok -lt 2 ]; do
-        code=$(curl -s -m 20 -o /dev/null -w "%{http_code}" "$PARITY_B1/v1/chat/completions" -H "Authorization: Bearer $OPENAI_API_KEY" \
+        code=$(curl -s -m 20 -o "$body" -w "%{http_code}" "$PARITY_B1/v1/chat/completions" -H "Authorization: Bearer $OPENAI_API_KEY" \
             -H "Content-Type: application/json" -d "{\"model\":\"$MODEL\",\"messages\":[{\"role\":\"user\",\"content\":\"hi\"}],\"max_completion_tokens\":8,\"reasoning_effort\":\"low\"}")
+        if grep -qi "budget has been exceeded" "$body" 2>/dev/null; then
+            echo "[$ARM] proxy=$code BUDGET EXHAUSTED — aborting the arm (ask for a budget reset / another key)" | tee -a "$OUT/console.log"
+            rm -f "$body"; exit 3
+        fi
         case "$code" in 200|429) ok=$((ok+1)); sleep 2;; *) echo "[$ARM] proxy=$code, waiting 120s" | tee -a "$OUT/console.log"; ok=0; sleep 120;; esac
     done
+    rm -f "$body"
 }
 restart_ctr() {
     docker restart "$1" >/dev/null 2>&1
