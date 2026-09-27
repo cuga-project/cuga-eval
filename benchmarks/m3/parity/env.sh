@@ -39,6 +39,9 @@ export JUDGE_MODEL_NAME="$PARITY_MODEL" JUDGE_BASE_URL="$_b1" JUDGE_BACKEND=lite
 # the other stack's judge (vendor evaluator appends /v1 itself)
 export JUDGE_MODEL="$PARITY_MODEL" JUDGE_ENDPOINT="$_b1"
 export DYNACONF_ADVANCED_FEATURES__LANGFUSE_TRACING=false
+# eval.sh's helpers (benchmarks/helpers/common.sh) call bare `uv run`, which re-resolves uv.lock against
+# whatever ../cuga-agent has checked out; keep the lockfile untouched during kit runs.
+export UV_FROZEN=1
 
 _src="$CUGA_AGENT_DIR/src/cuga/configurations/models/settings.openai.toml"
 _dst="$_parity_dir/.local/settings.openai.temp${PARITY_TEMPERATURE}.toml"
