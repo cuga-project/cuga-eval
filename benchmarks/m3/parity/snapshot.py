@@ -42,14 +42,30 @@ def _filter_records(records: Iterable[Dict[str, Any]], keep: set) -> List[Dict[s
 
 
 def snapshot_cuga_eval(
-    manifest: Dict[str, Any], results_dir: Path, since: float, out_dir: Path
+    manifest: Dict[str, Any],
+    results_dir: Path,
+    since: float,
+    out_dir: Path,
+    domains: Optional[List[str]] = None,
 ) -> Dict[str, Any]:
-    """Copy this stack's predictions + native results for one arm. Returns a summary dict."""
+    """Copy this stack's predictions + native results for one arm. Returns a summary dict.
+
+    With ``domains`` only those domains are collected and the native scores are
+    *merged* into any existing ``native_scores.json`` — that is what lets an arm
+    run and resume domain by domain.
+    """
     out_dir = Path(out_dir)
     pred_out = out_dir / "prediction"
     pred_out.mkdir(parents=True, exist_ok=True)
-    summary: Dict[str, Any] = {"predictions": {}, "missing_prediction_files": [], "native_results": None}
-    for domain, ids in manifest["ids_by_domain"].items():
+    wanted_domains = [d for d in (domains or manifest["ids_by_domain"]) if d in manifest["ids_by_domain"]]
+    summary: Dict[str, Any] = {
+        "domains": wanted_domains,
+        "predictions": {},
+        "missing_prediction_files": [],
+        "native_results": None,
+    }
+    for domain in wanted_domains:
+        ids = manifest["ids_by_domain"][domain]
         src = Path(results_dir) / "_vakra" / "prediction" / f"{domain}.json"
         if not src.exists() or src.stat().st_mtime < since:
             summary["missing_prediction_files"].append(domain)
@@ -61,9 +77,12 @@ def snapshot_cuga_eval(
     candidates = [p for p in Path(results_dir).glob("m3_config_*.json") if p.stat().st_mtime >= since]
     if candidates:
         newest = max(candidates, key=lambda p: p.stat().st_mtime)
-        shutil.copy2(newest, out_dir / "native_results.json")
-        wanted = {u.lower() for u in manifest_uuids(manifest)}
-        native: Dict[str, Any] = {}
+        label = "-".join(wanted_domains) if domains else "all"
+        shutil.copy2(newest, out_dir / f"native_results.{label}.json")
+        wanted = {u.lower() for d in wanted_domains for u in manifest["ids_by_domain"][d]}
+        scores_path = out_dir / "native_scores.json"
+        native: Dict[str, Any] = load_json(scores_path) if scores_path.exists() else {}
+        added = 0
         for rec in load_json(newest).get("results", []):
             uuid = str(rec.get("sample_id") or rec.get("uuid") or rec.get("name") or "")
             if uuid.lower() in wanted:
@@ -72,8 +91,9 @@ def snapshot_cuga_eval(
                     "match_rate": rec.get("match_rate"),
                     "vakra": rec.get("vakra"),
                 }
-        (out_dir / "native_scores.json").write_text(json.dumps(native, indent=1, ensure_ascii=False))
-        summary["native_results"] = {"file": newest.name, "n": len(native)}
+                added += 1
+        scores_path.write_text(json.dumps(native, indent=1, ensure_ascii=False))
+        summary["native_results"] = {"file": newest.name, "n_new": added, "n_total": len(native)}
     return summary
 
 
@@ -147,6 +167,7 @@ def main(argv: Optional[List[str]] = None) -> int:
     s.add_argument("--results-dir", required=True, type=Path)
     s.add_argument("--since", required=True, type=float, help="epoch seconds when the arm started")
     s.add_argument("--out", required=True, type=Path)
+    s.add_argument("--domains", nargs="+", default=None, help="only these domains (merges native scores)")
 
     r = sub.add_parser("remap", help="rewrite prediction uuids zip -> other repo")
     r.add_argument("--map", required=True, type=Path)
@@ -160,7 +181,9 @@ def main(argv: Optional[List[str]] = None) -> int:
 
     args = parser.parse_args(argv)
     if args.cmd == "snapshot-cuga-eval":
-        summary = snapshot_cuga_eval(load_json(args.manifest), args.results_dir, args.since, args.out)
+        summary = snapshot_cuga_eval(
+            load_json(args.manifest), args.results_dir, args.since, args.out, domains=args.domains
+        )
     elif args.cmd == "remap":
         summary = remap_predictions(args.pred_dir, load_json(args.map), args.out)
     else:

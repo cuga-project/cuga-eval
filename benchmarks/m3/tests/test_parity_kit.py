@@ -224,3 +224,33 @@ def test_dry_run_prints_the_pipeline():
         and "run_cuga_eval_arm.sh x parity_cap2_30 cap2" in out
     )
     assert "run_vakra_main_arm.sh x parity_cap2_30 fc_canon" in out and "rescore.sh x parity_cap2_30" in out
+
+
+def test_snapshot_per_domain_resume_merges_native_scores(tmp_path):
+    results = tmp_path / "results"
+    (results / "_vakra" / "prediction").mkdir(parents=True)
+    manifest = {"ids_by_domain": {"hockey": ["A-1"], "books": ["B-1"]}}
+    arm = tmp_path / "arm"
+    (results / "_vakra" / "prediction" / "hockey.json").write_text(json.dumps([_pred("A-1")]))
+    (results / "m3_config_20990101_000001.json").write_text(
+        json.dumps({"metrics": {}, "results": [{"sample_id": "A-1", "domain": "hockey", "success": True}]})
+    )
+    s1 = snapshot.snapshot_cuga_eval(manifest, results, since=0, out_dir=arm, domains=["hockey"])
+    assert s1["domains"] == ["hockey"] and s1["missing_prediction_files"] == []
+    # a later run for the second domain must merge, not clobber, the first domain's scores
+    (results / "_vakra" / "prediction" / "books.json").write_text(json.dumps([_pred("B-1")]))
+    (results / "m3_config_20990101_000002.json").write_text(
+        json.dumps({"metrics": {}, "results": [{"sample_id": "B-1", "domain": "books", "success": False}]})
+    )
+    s2 = snapshot.snapshot_cuga_eval(manifest, results, since=0, out_dir=arm, domains=["books"])
+    native = json.loads((arm / "native_scores.json").read_text())
+    assert (
+        set(native) == {"A-1", "B-1"}
+        and native["A-1"]["success"] is True
+        and native["B-1"]["success"] is False
+    )
+    assert s2["native_results"]["n_total"] == 2
+    assert sorted(p.name for p in arm.glob("native_results.*.json")) == [
+        "native_results.books.json",
+        "native_results.hockey.json",
+    ]
