@@ -53,7 +53,10 @@ non-200/429 probe, or a 429 whose body says *Budget has been exceeded*, means
 STOP: nothing will score; a plain 429 is just the ~1 request/key rate limit) →
 the arms → `rescore.sh` → `compare.py`, which
 writes `runs/<run_id>/REPORT.md`. Every arm records `meta.json` (commits, dirty
-counts, flags, temperature). Arms and the rescoring resume on re-run.
+counts, flags, temperature). Everything resumes on re-run with the same
+`--run-id`: cuga-eval arms run domain by domain and skip domains that already
+have a prediction file (an eval.sh exit 3 — containers/daemon down — stops the
+arm at once), vakra-main arms skip finished domains, rescoring recomputes.
 
 Pieces can be run alone after `source benchmarks/m3/parity/env.sh`:
 `run_cuga_eval_arm.sh <run> <subset> <preset>`, `run_vakra_main_arm.sh <run>
