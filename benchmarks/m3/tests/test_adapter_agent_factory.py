@@ -197,3 +197,26 @@ def test_wrap_existing_agent_nests_inside_toolguard(fake_cuga):
     assert guard.base_provider.tool_cap == 16
     assert wrapped._provider is guard.base_provider  # the guards read the same sink
     assert guard.invalidations == 1  # guarded-tool cache dropped (keyed by raw tool id)
+
+
+def test_enabled_preset_prewarms_the_embedding_backend(fake_cuga, monkeypatch):
+    """First shortlist call must already rank with MiniLM: the SDK's lazy background load
+    would otherwise serve the first task of every domain with its LLM fallback."""
+    fake_cuga(_FakeCugaAgent)
+    calls = []
+    emb = ModuleType("cuga.backend.cuga_graph.nodes.cuga_lite.shortlister.embedding")
+    emb.prewarm = lambda provider, model: calls.append((provider, model)) or True
+    monkeypatch.setitem(sys.modules, emb.__name__, emb)
+    from benchmarks.m3.adapter.agent import build_m3_agent
+
+    build_m3_agent(tool_provider=object(), config=PRESETS["cap2"])
+    assert calls == [("local", PRESETS["cap2"].shortlist_model)]
+
+
+def test_missing_prewarm_api_does_not_break_construction(fake_cuga):
+    fake_cuga(_FakeCugaAgent)  # installs no shortlister.embedding module
+    from benchmarks.m3.adapter.agent import build_m3_agent
+    from benchmarks.m3.adapter.shortlist import prewarm_embedding_backend
+
+    assert prewarm_embedding_backend(PRESETS["cap2"]) is None
+    assert build_m3_agent(tool_provider=object(), config=PRESETS["cap3"])._inner.shortlister.top_k == 128

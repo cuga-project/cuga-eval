@@ -17,6 +17,8 @@ from __future__ import annotations
 
 from typing import Any, Optional
 
+from loguru import logger
+
 from benchmarks.m3.adapter.config import AdapterConfig
 from benchmarks.m3.adapter.scope import is_retriever
 
@@ -75,12 +77,46 @@ class MiniLMPinnedStrategy:
         return ShortlistResult(candidates=merged, notes=result.notes)
 
 
+EMBEDDING_PROVIDER = "local"  # sentence-transformers in-process, like the validated runs
+
+
+def prewarm_embedding_backend(cfg: AdapterConfig) -> Optional[bool]:
+    """Load the MiniLM backend now, so the very first shortlist call already ranks with it.
+
+    The SDK loads embedding backends lazily in the background and serves a call
+    that arrives before the load finished with its ``llm`` fallback. In the M3
+    eval every domain is a fresh process, so without this the first task of every
+    domain would be shortlisted by an LLM instead of the validated cosine ranking.
+    Returns True/False for loaded/failed, None when the SDK exposes no prewarm.
+    """
+    try:
+        from cuga.backend.cuga_graph.nodes.cuga_lite.shortlister.embedding import prewarm  # noqa: PLC0415
+    except Exception:  # noqa: BLE001  (fake/partial cuga in tests, older checkouts)
+        return None
+    try:
+        loaded = bool(prewarm(EMBEDDING_PROVIDER, cfg.shortlist_model))
+    except Exception as exc:  # noqa: BLE001  (never fail agent construction over a warm-up)
+        logger.warning(
+            "[m3-adapter shortlist] embedding prewarm raised ({}); first call may use the LLM fallback", exc
+        )
+        return False
+    if not loaded:
+        logger.warning(
+            "[m3-adapter shortlist] embedding backend {}:{} did not load; the SDK will shortlist with its LLM "
+            "fallback — not the validated MiniLM ranking",
+            EMBEDDING_PROVIDER,
+            cfg.shortlist_model,
+        )
+    return loaded
+
+
 def build_shortlister(cfg: AdapterConfig) -> Optional[Any]:
     """Build the SDK ``Shortlister`` for a preset (None when no top-k is set).
 
     ``threshold=top_k`` engages the cosine stage only above top_k candidates —
     at or below it the catalog passes through untouched, which is exactly the
-    validated runs' "top-k 128 => effectively no trimming" semantics.
+    validated runs' "top-k 128 => effectively no trimming" semantics. The
+    embedding backend is pre-warmed here (see ``prewarm_embedding_backend``).
     """
     if not cfg.shortlist_top_k:
         return None
@@ -88,10 +124,11 @@ def build_shortlister(cfg: AdapterConfig) -> Optional[Any]:
     # package top level; cuga.sdk only names it under TYPE_CHECKING.
     from cuga.backend.cuga_graph.nodes.cuga_lite.shortlister import Shortlister  # noqa: PLC0415
 
+    prewarm_embedding_backend(cfg)
     return Shortlister(
         strategy=PINNED_STRATEGY_PATH if cfg.shortlist_pin_retrievers else "embedding",
         embedding_model=cfg.shortlist_model,
-        embedding_provider="local",
+        embedding_provider=EMBEDDING_PROVIDER,
         top_k=cfg.shortlist_top_k,
         threshold=cfg.shortlist_top_k,
         min_score=0.0,
