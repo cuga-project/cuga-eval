@@ -21,6 +21,25 @@ def test_is_retriever():
     assert not is_retriever("get_players")
 
 
+def test_is_retriever_sees_through_the_registry_app_prefix():
+    """cuga's registry names MCP tools `<app>_<tool>`: the cap4 retriever `query_hockey` arrives
+    as `hockey_query_hockey`. Missing it would make a retriever_only policy scope strip every tool."""
+    assert is_retriever("hockey_query_hockey")
+    assert is_retriever("capability_4_multiturn_query_hockey")
+    assert not is_retriever("hockey_get_players_by_position")
+    assert not is_retriever("professional_basketball_get_players_award_year")
+
+
+async def test_scope_keeps_registry_prefixed_retrievers():
+    provider = RecordingScopedToolProvider(
+        _FakeProvider([_tool("hockey_get_players"), _tool("hockey_query_hockey")])
+    )
+    provider.scope = "retriever_only"
+    assert [t.name for t in await provider.get_all_tools()] == ["hockey_query_hockey"]
+    provider.scope = "no_retriever"
+    assert [t.name for t in await provider.get_all_tools()] == ["hockey_get_players"]
+
+
 async def test_resolve_scope_absolute_rules():
     assert await resolve_scope("Do not use document retrievers for this task.", "q") == "no_retriever"
     assert (

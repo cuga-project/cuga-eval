@@ -25,8 +25,15 @@ _COND_RULE_RE = re.compile(
 )
 
 
+#: VAKRA document retrievers are the MCP tools named ``query_<domain>``. cuga's registry
+#: exposes MCP tools as ``<app>_<tool>``, so in cuga-eval the marker usually follows an app
+#: prefix (``hockey_query_hockey``). No VAKRA API tool name contains "query" (checked against
+#: all 7,580 cap2/cap3 tools), so matching it after a prefix does not misfire.
+_RETRIEVER_RE = re.compile(r"(?:^|_)query_[A-Za-z0-9_]+$")
+
+
 def is_retriever(name: str) -> bool:
-    return name.startswith("query_") or "retriev" in name.lower()
+    return bool(_RETRIEVER_RE.search(name)) or "retriev" in name.lower()
 
 
 async def _classify_topic_match(query: str, topic: str, desc: str, llm_ainvoke: Optional[LlmAinvoke]) -> bool:
