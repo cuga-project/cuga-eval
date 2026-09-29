@@ -64,18 +64,27 @@ else
 fi
 
 # --- proxy (agent + judge) ---------------------------------------------------------
-_body=$(mktemp)
-_code=$(curl -s -m 25 -o "$_body" -w "%{http_code}" "$PARITY_B1/v1/chat/completions" \
-    -H "Authorization: Bearer $OPENAI_API_KEY" -H "Content-Type: application/json" \
-    -d "{\"model\":\"$PARITY_MODEL\",\"messages\":[{\"role\":\"user\",\"content\":\"hi\"}],\"max_completion_tokens\":8,\"reasoning_effort\":\"low\"}")
+# The proxies flap (seen: 401 -> connection failure -> 200 within minutes), so retry before
+# failing, and name the failure: budget exhausted / key rejected / unreachable.
+_body=$(mktemp); _code=000
+for _try in 1 2 3; do
+    _code=$(curl -s -m 25 -o "$_body" -w "%{http_code}" "$PARITY_B1/v1/chat/completions" \
+        -H "Authorization: Bearer $OPENAI_API_KEY" -H "Content-Type: application/json" \
+        -d "{\"model\":\"$PARITY_MODEL\",\"messages\":[{\"role\":\"user\",\"content\":\"hi\"}],\"max_completion_tokens\":8,\"reasoning_effort\":\"low\"}")
+    grep -qi "budget has been exceeded" "$_body" 2>/dev/null && break
+    case "$_code" in 200|429) break;; esac
+    [ "$_try" -lt 3 ] && sleep 10
+done
 # A plain 429 is the proxy's ~1 request/key rate limit (fine, the runners wait);
 # a 429 whose body says the key's budget is exhausted blocks every call.
 if grep -qi "budget has been exceeded" "$_body" 2>/dev/null; then
-    bad "proxy probe: HTTP $_code — the key's BUDGET IS EXHAUSTED ('Budget has been exceeded'); every agent/judge call will fail. STOP and ask for a budget reset or another key"
+    bad "proxy probe (key slot ${PARITY_KEY:-1}): HTTP $_code — BUDGET EXHAUSTED ('Budget has been exceeded'); every agent/judge call will fail. STOP and ask for a budget reset or another key (PARITY_KEY=N)"
 else
     case "$_code" in
-        200|429) ok "proxy probe for $PARITY_MODEL: HTTP $_code";;
-        *) bad "proxy probe returned HTTP ${_code:-000} — STOP: VPN/proxy is down; do not try to fix it here";;
+        200|429) ok "proxy probe for $PARITY_MODEL (key slot ${PARITY_KEY:-1}): HTTP $_code";;
+        401|403) bad "proxy probe (key slot ${PARITY_KEY:-1}): HTTP $_code after 3 tries — KEY REJECTED (expired/revoked/not allowed). STOP and ask for a working key";;
+        000) bad "proxy probe (key slot ${PARITY_KEY:-1}): no connection after 3 tries — proxy or VPN unreachable. STOP; do not try to fix VPN/network here";;
+        *) bad "proxy probe (key slot ${PARITY_KEY:-1}): HTTP $_code after 3 tries — STOP and check the proxy";;
     esac
 fi
 rm -f "$_body"
