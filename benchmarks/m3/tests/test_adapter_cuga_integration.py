@@ -165,3 +165,63 @@ def test_fc_configurable_keys_resolve_in_this_cuga_checkout():
     assert mrp.resolve_execution_mode({}) == "codeact"  # the codeact arm relies on cuga's default
     stub = SimpleNamespace(_runtime_model_name=lambda configurable: None)
     assert AgentGraphAdapter._resolved_bind_mode(stub, fc) == "all"
+
+
+async def test_fc_preset_binds_the_top_128_minilm_ranked_tools_of_a_large_domain():
+    """Campaign fidelity for native FC (active once the cuga checkout has cuga-agent#777):
+    a 200-tool domain is bound as the 128 most query-similar tools — the adapter's MiniLM
+    ranking at the bind_cap seam — never whole, never via find_tools."""
+    mrp = pytest.importorskip("cuga.backend.cuga_graph.nodes.cuga_lite.model_runtime_profile")
+    if not hasattr(mrp, "resolve_execution_mode"):
+        pytest.skip("this cuga checkout has no native function-calling mode (cuga-agent#777)")
+    import itertools
+
+    from cuga.backend.cuga_graph.nodes.cuga_lite.shortlister.embedding import is_ready
+    from cuga.config import settings
+    from langchain_core.language_models.fake_chat_models import GenericFakeChatModel
+    from langchain_core.messages import AIMessage
+
+    if int(getattr(settings.advanced_features, "cuga_lite_bind_tools_max_count", 128)) != 128:
+        pytest.skip("bind cap overridden in this environment")
+    bound_sets = []
+
+    class _RecordingFake(GenericFakeChatModel):
+        def bind_tools(self, tools, **kwargs):
+            bound_sets.append([getattr(t, "name", None) or t.get("name") for t in tools])
+            return self.model_copy()  # FC treats `bound is active_model` as "nothing bound"
+
+    def _tools(prefix, topic, n):
+        async def f(year: int = 0):
+            return {"value": 1}
+
+        return [
+            StructuredTool(
+                name=f"{prefix}_{i}",
+                description=f"{topic} number {i} for a year",
+                args_schema=_Args,
+                coroutine=f,
+            )
+            for i in range(n)
+        ]
+
+    relevant = _tools("beer_factory_get_metric", "Get the beer factory production metric", 100)
+    unrelated = _tools("weather_get_reading", "Get the weather station humidity reading", 100)
+    agent = build_m3_agent(
+        tool_provider=DirectLangChainToolsProvider(tools=relevant + unrelated),
+        config=PRESETS["cap3"],
+        model=_RecordingFake(messages=itertools.cycle([AIMessage(content="42")])),
+        auto_load_policies=False,
+        filesystem_sync=False,
+    )
+    if not is_ready("local", PRESETS["cap3"].shortlist_model):
+        pytest.skip("MiniLM backend not available in this environment")
+    result = await agent.invoke(
+        "Which beer factory production metric was highest in 1999?", thread_id="fc-bind"
+    )
+    assert result.answer == "42"
+    assert bound_sets, "FC never bound tools"
+    bound = bound_sets[0]
+    assert len(bound) == 128 and "find_tools" not in bound
+    assert {t.name for t in relevant} <= set(
+        bound
+    )  # MiniLM kept every relevant tool; the cut hit the unrelated ones

@@ -114,10 +114,14 @@ validated CodeAct run. Override per run with
 `M3_ADAPTER_EXECUTION_MODE=codeact|function_calling`.
 
 The provider-safe bind cap is a *settings* knob, not a configurable one:
-`advanced_features.cuga_lite_bind_tools_max_count` (default 128) raises at bind
-time instead of truncating, so FC runs need
-`DYNACONF_ADVANCED_FEATURES__CUGA_LITE_BIND_TOOLS_MAX_COUNT=0` in the environment
-(`m3.env`); the adapter logs a warning when an FC preset runs with the cap active.
+`advanced_features.cuga_lite_bind_tools_max_count`, default 128. **Leave it at the
+default.** When a domain has more tools than that (M3 domains have 106–283), cuga's
+bind-time shortlister — which reads the adapter's `Shortlister` config at the
+`bind_cap` seam, i.e. MiniLM cosine — reduces the bound set to the top 128. That is
+what the validated runs bound (their own MiniLM shortlister kept the top 128 per
+utterance). Setting the cap to 0 binds whole domains: never validated, and
+OpenAI-class providers reject more than 128 tools per request; the adapter logs a
+warning when the cap is disabled or raised.
 FC refuses to start when an enabled *tool-approval* policy exists (M3 loads
 playbooks, tool guides and an output formatter only, so this does not apply) or
 when the policy system cannot be queried — a run that stops with

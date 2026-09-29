@@ -220,3 +220,34 @@ def test_missing_prewarm_api_does_not_break_construction(fake_cuga):
 
     assert prewarm_embedding_backend(PRESETS["cap2"]) is None
     assert build_m3_agent(tool_provider=object(), config=PRESETS["cap3"])._inner.shortlister.top_k == 128
+
+
+@pytest.mark.parametrize(
+    ("preset", "cap", "warns"),
+    [
+        ("cap3", 128, False),
+        ("cap3", 64, False),
+        ("cap3", 0, True),
+        ("cap3", 256, True),
+        ("cap4_v3wx", 0, False),
+    ],
+)
+def test_fc_bind_cap_warning_fires_only_when_whole_domains_would_be_bound(
+    fake_cuga, monkeypatch, preset, cap, warns
+):
+    """Default cap (128) = what the validated runs bound; 0 or a raised cap binds whole domains."""
+    from loguru import logger
+
+    fake_cuga(_FakeCugaAgent)
+    cfg_mod = ModuleType("cuga.config")
+    cfg_mod.settings = SimpleNamespace(advanced_features=SimpleNamespace(cuga_lite_bind_tools_max_count=cap))
+    monkeypatch.setitem(sys.modules, "cuga.config", cfg_mod)
+    from benchmarks.m3.adapter.agent import build_m3_agent
+
+    messages = []
+    handle = logger.add(lambda m: messages.append(str(m)), level="WARNING")
+    try:
+        build_m3_agent(tool_provider=object(), config=PRESETS[preset])  # cap4_v3wx is CodeAct: never warns
+    finally:
+        logger.remove(handle)
+    assert any("large domains get bound whole" in m for m in messages) is warns

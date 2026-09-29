@@ -37,15 +37,18 @@ EXECUTION_MODES = ("codeact", "function_calling")
 #: ``cuga_lite_execution_mode`` resolved in model_runtime_profile.py, the bind mode in
 #: graph_adapter._resolved_bind_mode). Verified on that branch before it merged —
 #: re-check once it lands (tests/test_adapter_cuga_integration.py does, when the
-#: checkout has native FC). The provider-safe bind cap is NOT configurable-driven:
-#: it is the settings key below (bind_tools/cap.py), so FC runs need
-#: ``BIND_CAP_ENV=0`` in the environment (m3.env); the agent factory warns otherwise.
+#: checkout has native FC). The provider-safe bind cap is NOT configurable-driven: it is
+#: the settings key below (bind_tools/cap.py). Leave it at its default (128): above it the
+#: bind-time shortlister — which reads the adapter's ``Shortlister`` (MiniLM) at the
+#: ``bind_cap`` seam — reduces a large domain to the top 128, which is what the validated
+#: runs bound. The factory warns when the cap is disabled (0) or raised.
 FUNCTION_CALLING_CONFIGURABLE: Mapping[str, object] = {
     "cuga_lite_execution_mode": "function_calling",
     "cuga_lite_bind_tools_mode": "all",
 }
 BIND_CAP_SETTING = "cuga_lite_bind_tools_max_count"  # settings.advanced_features.<this>, default 128
 BIND_CAP_ENV = "DYNACONF_ADVANCED_FEATURES__CUGA_LITE_BIND_TOOLS_MAX_COUNT"
+CAMPAIGN_BIND_CAP = 128  # the validated runs bound at most this many MiniLM-ranked tools per call
 
 
 @dataclass(frozen=True)

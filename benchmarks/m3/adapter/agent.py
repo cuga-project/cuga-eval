@@ -22,6 +22,7 @@ from loguru import logger
 from benchmarks.m3.adapter.config import (
     BIND_CAP_ENV,
     BIND_CAP_SETTING,
+    CAMPAIGN_BIND_CAP,
     AdapterConfig,
     TaskContext,
     execution_mode_configurable,
@@ -199,24 +200,29 @@ class VakraAdapterAgent:
             return result
 
 
-def _warn_if_bind_cap_active(cfg: AdapterConfig) -> None:
-    """FC binds every scoped tool, and cuga's provider-safe bind cap (a settings
-    knob, default 128) raises at bind time instead of truncating — warn when an
-    FC preset runs with the cap still active."""
+def _warn_if_bind_cap_unsafe(cfg: AdapterConfig) -> None:
+    """FC binds the scoped toolset natively. The validated runs never bound more than
+    ``CAMPAIGN_BIND_CAP`` tools (their MiniLM shortlister kept the top 128 per utterance),
+    and cuga's settings cap at its default reproduces that: above it the bind-time
+    shortlister — the adapter's MiniLM config — reduces the domain to the top 128. A
+    disabled (0) or raised cap binds whole domains (M3 has up to ~280 tools): never
+    validated, and OpenAI-class providers reject more than 128 tools per request."""
     if cfg.execution_mode != "function_calling":
         return
     try:
         from cuga.config import settings  # noqa: PLC0415
 
-        cap = int(getattr(settings.advanced_features, BIND_CAP_SETTING, 128))
+        cap = int(getattr(settings.advanced_features, BIND_CAP_SETTING, CAMPAIGN_BIND_CAP))
     except Exception:  # noqa: BLE001  (settings unavailable: nothing to check)
         return
-    if cap > 0:
+    if cap <= 0 or cap > CAMPAIGN_BIND_CAP:
         logger.warning(
-            "[m3-adapter] execution_mode=function_calling with {}={} (settings): a domain with more "
-            "bound tools than that fails at bind time. Export {}=0 (m3.env) to lift the cap.",
+            "[m3-adapter] execution_mode=function_calling with {}={} (settings): large domains get bound whole "
+            "— the validated runs bound at most {} MiniLM-ranked tools, and OpenAI-class providers reject more "
+            "than 128. Unset {} to restore the default.",
             BIND_CAP_SETTING,
             cap,
+            CAMPAIGN_BIND_CAP,
             BIND_CAP_ENV,
         )
 
@@ -247,7 +253,7 @@ def build_m3_agent(
             tool_provider=tool_provider, special_instructions=special_instructions, **base_kwargs
         )
 
-    _warn_if_bind_cap_active(config)
+    _warn_if_bind_cap_unsafe(config)
     provider = RecordingScopedToolProvider(tool_provider, tool_cap=config.tool_cap)
     shortlister = build_shortlister(config)
     if shortlister is not None:
@@ -303,7 +309,7 @@ def wrap_existing_agent(agent: Any, config: AdapterConfig, demo_corpus: Optional
     """
     if not config.enabled:
         return agent
-    _warn_if_bind_cap_active(config)
+    _warn_if_bind_cap_unsafe(config)
     outer = getattr(agent, "tool_provider", None)
     toolguard_cls = _toolguard_provider_class()
     if outer is None:
