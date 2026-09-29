@@ -9,6 +9,7 @@ them task by task:
 | `cuga_eval_cap2` / `cuga_eval_cap3` | this repo | cuga main + `benchmarks/m3/adapter` preset |
 | `vakra_main_base` | `~/git/appworld/vakra-main` | its `cuga_v2` adapter with every `VAKRA_CUGA_*` flag unset, over **its own CUGA checkout** |
 | `vakra_main_fc_canon` | `~/git/appworld/vakra-main` | the submitted `fc_canon` recipe (`cuga_runs/fc_canon_test.sh`), FC only with `--fc 1` |
+| `<any arm>_fc` | either | the same arm with native function calling on (`cuga_eval_cap3_fc`, `vakra_main_fc_canon_fc`, even `cuga_eval_off_fc`) |
 
 Same model and judge on both sides (`azure/gpt-oss-120b` through the proxy in
 `~/git/appworld/.env`, never printed), same temperature (default **1.0**, the
@@ -30,6 +31,7 @@ subsets are mapped by normalized first-turn query text
 | `parity_smoke_hockey` | 1 | 1 | off 0 → cap2 1 |
 | `parity_cap2_30` | 30 (10 domains × 3) | 28 | off **30.0%** → cap2 **63.3%** |
 | `parity_cap3_20` | 20 (10 domains × 2) | 19 | off **20.0%** → cap3 **35.0%** |
+| `parity_smoke_cap3` | 1 (beer_factory) | 1 | off 0 → cap3 1 (FC smoke) |
 
 Campaign train numbers for the same recipes: cap2 62.6, cap3 56.7 **with FC**
 (35 without); test: cap2 56.3, cap3 45.0.
@@ -42,6 +44,25 @@ bash benchmarks/m3/parity/run_parity.sh --subset parity_cap2_30                 
 bash benchmarks/m3/parity/run_parity.sh --subset parity_cap3_20 --fc 1                   # once cuga-agent#777 is in ../cuga-agent
 bash benchmarks/m3/parity/run_parity.sh --subset parity_cap2_30 --dry-run                # print the commands only
 ```
+
+`--fc-ab` runs the function-calling gate in one run and one report: arms
+`cuga_eval_<preset>`, `cuga_eval_<preset>_fc`, `vakra_main_fc_canon`,
+`vakra_main_fc_canon_fc`. The report's **FC effect** section gives FC off → on per
+recipe (Δ, tasks gained/lost), on both stacks.
+
+### Landing day (cuga-agent#777 merged)
+
+1. `git -C ../cuga-agent checkout main && git -C ../cuga-agent pull`
+2. `uv run --frozen pytest benchmarks/m3/tests -m "sanity or regression"` — the FC
+   key-name test and the FC-binding test (a 200-tool domain must bind exactly the
+   128 MiniLM-ranked tools) stop skipping on an FC checkout; both must pass.
+3. `bash benchmarks/m3/parity/run_parity.sh --subset parity_smoke_cap3 --fc-ab --temperature 0.1`
+   (1 task × 4 arms, ~10 min: the live FC path on both stacks).
+4. The gate: `bash benchmarks/m3/parity/run_parity.sh --subset parity_cap3_20 --fc-ab`
+   (~2–2.5 h at temperature 1.0). Campaign expectation: cap3 CodeAct → FC ≈ 35 → 55
+   on train (vakra-main measured 44.6 → 56.7).
+5. Leave `cuga_lite_bind_tools_max_count` at its default (128) — see
+   `benchmarks/m3/ADAPTER.md`, *Execution mode*.
 
 Keys: `PARITY_KEY=2` (or 3) makes `env.sh` read the `LITELLM_PROXY_API_BASE_2` /
 `LITELLM_PROXY_API_KEY_2` slot of `~/git/appworld/.env` — use it when a key's

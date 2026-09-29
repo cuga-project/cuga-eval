@@ -14,17 +14,27 @@ RUN_ID="${1:?run_id}"; SUBSET="${2:?subset}"; PRESET="${3:?preset}"; shift 3
 MAN="$PARITY_DIR/manifests/$SUBSET.json"; [ -f "$MAN" ] || { echo "no manifest $MAN" >&2; exit 2; }
 TASK_ID=$(python3 -c "import json;print(json.load(open('$MAN'))['task_id'])")
 DOMS=$(python3 -c "import json;print(' '.join(json.load(open('$MAN'))['ids_by_domain']))")
-ARM="cuga_eval_${PRESET}"; OUT="$PARITY_DIR/runs/$RUN_ID/$ARM"; mkdir -p "$OUT/prediction"
+FC="${PARITY_FC:-0}"
+ARM="cuga_eval_${PRESET}"; [ "$FC" = "1" ] && ARM="${ARM}_fc"
+OUT="$PARITY_DIR/runs/$RUN_ID/$ARM"; mkdir -p "$OUT/prediction"
 ARM_START=$(date +%s); FINAL_RC=0
 
-BASE_ARGS=(--m3-data "$ROOT/benchmarks/m3/data/small_train.zip" --capability "m3_task_$TASK_ID" --eval-key "$SUBSET" --no-policies --no-bundle)
-if [ "$PRESET" != "off" ]; then
-    BASE_ARGS+=(--adapter-preset "$PRESET")
-    # honoured by the adapter's FC pre-stage branch, ignored (no such field) on the PR branch
-    if [ "${PARITY_FC:-0}" = "1" ]; then export M3_ADAPTER_EXECUTION_MODE=function_calling; else export M3_ADAPTER_EXECUTION_MODE=codeact; fi
+# Execution mode. The settings key reaches every agent (also the plain `off` one); the
+# adapter's execution_mode sets the per-invoke keys for presets. Non-FC arms must UNSET the
+# settings key: cuga resolves configurable > model profile > settings, and a CodeAct preset
+# sets nothing per invoke.
+if [ "$FC" = "1" ]; then
+    export DYNACONF_ADVANCED_FEATURES__CUGA_LITE_EXECUTION_MODE=function_calling
+    export M3_ADAPTER_EXECUTION_MODE=function_calling
+else
+    unset DYNACONF_ADVANCED_FEATURES__CUGA_LITE_EXECUTION_MODE
+    export M3_ADAPTER_EXECUTION_MODE=codeact
 fi
+
+BASE_ARGS=(--m3-data "$ROOT/benchmarks/m3/data/small_train.zip" --capability "m3_task_$TASK_ID" --eval-key "$SUBSET" --no-policies --no-bundle)
+[ "$PRESET" != "off" ] && BASE_ARGS+=(--adapter-preset "$PRESET")
 echo "bash benchmarks/m3/eval.sh ${BASE_ARGS[*]} --domain <domain> $*" > "$OUT/command.txt"
-echo "[$ARM] start $(date '+%F %T')  temperature=$PARITY_TEMPERATURE model=$PARITY_MODEL fc=${PARITY_FC:-0} domains: $DOMS" | tee -a "$OUT/console.log"
+echo "[$ARM] start $(date '+%F %T')  temperature=$PARITY_TEMPERATURE model=$PARITY_MODEL fc=$FC domains: $DOMS" | tee -a "$OUT/console.log"
 
 for dom in $DOMS; do
     if [ -f "$OUT/prediction/$dom.json" ]; then
@@ -56,7 +66,7 @@ python3 - "$OUT" <<PY
 import json, sys
 json.dump({
     "arm": "$ARM", "stack": "cuga-eval", "subset": "$SUBSET", "task_id": $TASK_ID, "adapter_preset": "$PRESET",
-    "execution_mode": "${M3_ADAPTER_EXECUTION_MODE:-n/a}", "policies": "off", "temperature": "$PARITY_TEMPERATURE",
+    "execution_mode": "${M3_ADAPTER_EXECUTION_MODE:-n/a}", "fc": "$FC", "policies": "off", "temperature": "$PARITY_TEMPERATURE",
     "model": "$PARITY_MODEL", "models_toml": "$AGENT_SETTING_CONFIG",
     "cuga_eval": {"branch": "$AB", "commit": "$AC", "dirty_files": "$AD"},
     "cuga_agent": {"branch": "$CB", "commit": "$CC", "dirty_files": "$CD"},

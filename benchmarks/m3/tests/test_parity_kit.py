@@ -16,7 +16,7 @@ pytestmark = pytest.mark.sanity
 PARITY = Path(__file__).resolve().parents[1] / "parity"
 MANIFESTS = PARITY / "manifests"
 ZIP = Path(__file__).resolve().parents[1] / "data" / "small_train.zip"
-SUBSETS = ("parity_smoke_hockey", "parity_cap2_30", "parity_cap3_20")
+SUBSETS = ("parity_smoke_hockey", "parity_cap2_30", "parity_cap3_20", "parity_smoke_cap3")
 BASH = shutil.which("bash") or "/bin/bash"
 
 
@@ -72,6 +72,9 @@ def test_expected_subset_sizes():
     assert _manifest("parity_cap2_30")["n"] == 30 and len(_uuid_map("parity_cap2_30")["zip_to_vakra"]) == 28
     assert _manifest("parity_cap3_20")["n"] == 20 and len(_uuid_map("parity_cap3_20")["zip_to_vakra"]) == 19
     assert _manifest("parity_smoke_hockey")["ids_by_domain"] == {"hockey": ["308738b8195d-5bd16a8893c5"]}
+    assert (
+        _manifest("parity_smoke_cap3")["n"] == 1 and len(_uuid_map("parity_smoke_cap3")["zip_to_vakra"]) == 1
+    )
 
 
 # --------------------------------- models -----------------------------------
@@ -254,3 +257,48 @@ def test_snapshot_per_domain_resume_merges_native_scores(tmp_path):
         "native_results.books.json",
         "native_results.hockey.json",
     ]
+
+
+def test_fc_ab_dry_run_pairs_each_recipe_with_its_fc_arm():
+    out = subprocess.run(  # noqa: S603  (fixed, trusted args)
+        [
+            BASH,
+            str(PARITY / "run_parity.sh"),
+            "--subset",
+            "parity_cap3_20",
+            "--fc-ab",
+            "--dry-run",
+            "--run-id",
+            "x",
+        ],
+        check=True,
+        capture_output=True,
+        text=True,
+    ).stdout
+    assert "PARITY_FC=0 bash" in out and "run_cuga_eval_arm.sh x parity_cap3_20 cap3" in out
+    assert "PARITY_FC=1 bash" in out and out.count("run_cuga_eval_arm.sh x parity_cap3_20 cap3") == 2
+    assert out.count("run_vakra_main_arm.sh x parity_cap3_20 fc_canon") == 2
+
+
+def test_report_has_an_fc_effect_row_for_each_recipe_pair(tmp_path):
+    run = tmp_path / "run"
+    for arm, fc, scores in (
+        ("cuga_eval_cap3", "0", {"V-1": 0.0, "V-2": 1.0}),
+        ("cuga_eval_cap3_fc", "1", {"V-1": 1.0, "V-2": 1.0}),
+    ):
+        d = run / arm
+        d.mkdir(parents=True)
+        (d / "meta.json").write_text(json.dumps({"stack": "cuga-eval", "adapter_preset": "cap3", "fc": fc}))
+        (d / "vendor_results.json").write_text(json.dumps(_vendor(scores)))
+    manifest = {"n": 2, "ids_by_domain": {"hockey": ["A-1", "A-2"]}}
+    um = {
+        "zip_to_vakra": {
+            "A-1": {"vakra_uuid": "V-1", "domain": "hockey"},
+            "A-2": {"vakra_uuid": "V-2", "domain": "hockey"},
+        },
+        "unmatched": [],
+    }
+    report = compare.render_report("s", manifest, um, compare.load_run(run, manifest, um))
+    assert "| cuga_eval_cap3_fc | cuga-eval | cap3 +FC |" in report
+    assert "## FC effect" in report
+    assert "| cuga_eval_cap3 |  50.0% | 100.0% | 2 | +50.0pt | 1 | 0 |" in report

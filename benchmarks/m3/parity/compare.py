@@ -71,6 +71,17 @@ def noise_note(n: int, delta_pts: Optional[float]) -> str:
     return "noise-level (" + ", ".join(notes) + ")" if notes else "above noise"
 
 
+def is_fc(meta: Dict[str, Any]) -> bool:
+    """An arm ran native function calling (cuga-eval: fc=1 / execution_mode; vakra-main: fc=1)."""
+    return str(meta.get("fc", "0")) == "1" or meta.get("execution_mode") == "function_calling"
+
+
+def fc_pairs(arm_names: List[str]) -> List[Tuple[str, str]]:
+    """(X, X_fc) pairs present in a run — the same recipe with FC off and on."""
+    names = set(arm_names)
+    return [(n, n + "_fc") for n in arm_names if not n.endswith("_fc") and n + "_fc" in names]
+
+
 def _pct(rate: Optional[float]) -> str:
     return "  n/a" if rate is None else f"{100 * rate:5.1f}%"
 
@@ -123,7 +134,7 @@ def render_report(
         meta = arm.get("meta", {})
         p, n, r = pass_rate(arm.get("vendor", {}))
         pn, nn, rn = pass_rate(arm.get("native", {}))
-        recipe = meta.get("adapter_preset") or meta.get("recipe") or "?"
+        recipe = (meta.get("adapter_preset") or meta.get("recipe") or "?") + (" +FC" if is_fc(meta) else "")
         cuga = meta.get("cuga_agent") or meta.get("cuga_checkout") or {}
         commit = f"{cuga.get('branch', '?')}@{cuga.get('commit', '?')}" + (
             f" (+{cuga.get('dirty_files')} dirty)"
@@ -175,6 +186,24 @@ def render_report(
             lines.append(
                 f"| {a} | {b} | {ag['n_common']} | {ag['agree']} ({_pct(ag['agree_rate']).strip()}) | {len(ag['only_a'])} | {len(ag['only_b'])} | "
                 f"{'n/a' if delta is None else f'{delta:+.1f}pt'} | {noise_note(ag['n_common'], delta)} |"
+            )
+
+    pairs_fc = fc_pairs(list(arms))
+    if pairs_fc:
+        lines += ["", "## FC effect (same recipe, native function calling off → on; vendor judge)", ""]
+        lines.append("| recipe arm | FC off | FC on | common | Δ(on−off) | gained | lost | verdict |")
+        lines.append("|---|---|---|---|---|---|---|---|")
+        for off_name, on_name in pairs_fc:
+            off_sc, on_sc = arms[off_name].get("vendor", {}), arms[on_name].get("vendor", {})
+            ag = agreement(on_sc, off_sc)
+            common = ag["both_pass"] + ag["both_fail"] + ag["only_a"] + ag["only_b"]
+            _, _, r_on = pass_rate({u: on_sc[u] for u in common})
+            _, _, r_off = pass_rate({u: off_sc[u] for u in common})
+            delta = None if r_on is None or r_off is None else 100 * (r_on - r_off)
+            lines.append(
+                f"| {off_name} | {_pct(r_off)} | {_pct(r_on)} | {ag['n_common']} | "
+                f"{'n/a' if delta is None else f'{delta:+.1f}pt'} | {len(ag['only_a'])} | {len(ag['only_b'])} | "
+                f"{noise_note(ag['n_common'], delta)} |"
             )
 
     if ref.get("pass_by_uuid"):

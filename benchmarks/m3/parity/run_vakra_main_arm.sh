@@ -19,7 +19,8 @@ VAKRA_MAIN="${VAKRA_MAIN:-$HOME/git/appworld/vakra-main}"
 MODEL="${PARITY_MODEL:-azure/gpt-oss-120b}"; T="${PARITY_TEMPERATURE:-1.0}"
 TASK_ID=$(python3 -c "import json;print(json.load(open('$MAP'))['task_id'])")
 CAPDIR=$(python3 -c "import json;print(json.load(open('$MAP'))['capability_dir'])")
-ARM="vakra_main_${ARMNAME}"; OUT="$PARITY_DIR/runs/$RUN_ID/$ARM"; RAW="$OUT/raw"; mkdir -p "$RAW" "$OUT/prediction"
+ARM="vakra_main_${ARMNAME}"; [ "${PARITY_FC:-0}" = "1" ] && ARM="${ARM}_fc"
+OUT="$PARITY_DIR/runs/$RUN_ID/$ARM"; RAW="$OUT/raw"; mkdir -p "$RAW" "$OUT/prediction"
 START=$(date +%s)
 
 cd "$VAKRA_MAIN" || exit 2
@@ -38,11 +39,12 @@ case "$ARMNAME" in
                VAKRA_CUGA_BLUFF_MAP=1 VAKRA_CUGA_DEMOS=1 VAKRA_CUGA_DEMOS_MODE=prose VAKRA_DEMOS_K=2 \
                DYNACONF_ADVANCED_FEATURES__FINAL_ANSWER_CANONICALIZE=true
         [ "$TASK_ID" = "1" ] && export VAKRA_RELIST_AFTER_SWITCH=1 VAKRA_CUGA_CAP1_PROTOCOL=1
-        [ "${PARITY_FC:-0}" = "1" ] && export VAKRA_CUGA_FC=1
         [ -n "${PARITY_VAKRA_EXTRA_FLAGS:-}" ] && for kv in $PARITY_VAKRA_EXTRA_FLAGS; do export "$kv"; done
         ;;
     *) echo "arm must be base|fc_canon" >&2; exit 2;;
 esac
+# FC is independent of the recipe (their cuga_clean_agent reads VAKRA_CUGA_FC on its own)
+[ "${PARITY_FC:-0}" = "1" ] && export VAKRA_CUGA_FC=1
 env | grep -E '^(VAKRA_|DYNACONF_)' | sort > "$OUT/flags.txt"
 
 wait_proxy() {
