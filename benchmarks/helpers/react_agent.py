@@ -25,6 +25,14 @@ from cuga.backend.cuga_graph.nodes.cuga_lite.providers.combined import (
 from langchain_core.messages import HumanMessage
 from loguru import logger
 
+try:
+    from langchain_openai import ChatOpenAI as _ChatOpenAI
+except ImportError as exc:
+    _ChatOpenAI = None
+    _CHAT_OPENAI_IMPORT_ERROR = exc
+else:
+    _CHAT_OPENAI_IMPORT_ERROR = None
+
 TOOL_BLOCK_RE = re.compile(r"```json\s*(.*?)\s*```", re.DOTALL | re.IGNORECASE)
 PROMPT_ROLE_RE = re.compile(r"(USER|ASSISTANT|SYSTEM):\n", re.IGNORECASE)
 PROMPT_PATH = Path(__file__).with_name("react_agent_prompt.txt")
@@ -42,6 +50,43 @@ class ReactInvokeResult:
     tool_calls: list[dict[str, Any]] = field(default_factory=list)
     raw_messages: list[dict[str, str]] = field(default_factory=list)
     react_steps: int = 0
+
+
+def _require_chat_openai():
+    if _ChatOpenAI is None:
+        raise RuntimeError(
+            "langchain-openai is required for React agent with OpenAI-compatible or RITS providers. "
+            "Install with: pip install langchain-openai"
+        ) from _CHAT_OPENAI_IMPORT_ERROR
+    return _ChatOpenAI
+
+
+class ChatRits(_ChatOpenAI if _ChatOpenAI is not None else object):
+    """RITS chat model integration using langchain-openai."""
+
+    def __init__(self, config: dict[str, Any]):
+        _require_chat_openai()
+        model_name = config.get("model_name", "openai/gpt-oss-120b-a100")
+        end_point = (
+            config.get("end_point")
+            or "https://inference-3scale-apicast-production.apps.rits.fmaas.res.ibm.com/gpt-oss-120b-a100"
+        )
+        rits_api_key = config.get("api_key") or os.getenv("RITS_API_KEY")
+        if rits_api_key is None:
+            raise ValueError("RITS_API_KEY is required for settings.rits.toml")
+
+        params = config.get("params", {})
+        base_url = end_point.rstrip("/")
+        if not base_url.endswith("/v1"):
+            base_url = f"{base_url}/v1"
+        rits_config: dict[str, Any] = {
+            "model": model_name,
+            "api_key": "/",
+            "default_headers": {"RITS_API_KEY": rits_api_key},
+            "base_url": base_url,
+        }
+        rits_config.update(params)
+        super().__init__(**rits_config)
 
 
 class GenericReactAgent:
@@ -149,14 +194,6 @@ class GenericReactAgent:
             )
 
         elif settings_config == "settings.openai.toml":
-            try:
-                from langchain_openai import ChatOpenAI
-            except ImportError as exc:
-                raise RuntimeError(
-                    "langchain-openai is required for React agent with OpenAI. "
-                    "Install with: pip install langchain-openai"
-                ) from exc
-
             disable_ssl = os.getenv("CUGA_DISABLE_SSL", "").lower() in ("true", "1", "yes")
             ssl_verify = (
                 os.getenv("OPENAI_SSL_VERIFY", "true").lower() not in ("false", "0", "no") and not disable_ssl
@@ -181,12 +218,20 @@ class GenericReactAgent:
                 llm_kwargs["http_async_client"] = httpx.AsyncClient(verify=False)  # noqa: S501  # nosec B501 — same
                 logger.info("SSL verification disabled for ChatOpenAI")
 
-            return ChatOpenAI(**llm_kwargs)
+            return _require_chat_openai()(**llm_kwargs)
+
+        elif settings_config in ("settings.rits.toml", "settings.rits.proxy.toml"):
+            api_base = os.getenv("RITS_BASE_URL") or os.getenv("LITE_LLM_URL") or os.getenv("OPENAI_BASE_URL")
+            api_key = os.getenv("RITS_API_KEY") or os.getenv("LITE_LLM_KEY") or os.getenv("OPENAI_API_KEY")
+            model_name = os.getenv("MODEL_NAME") or self.model or "openai/gpt-oss-120b-a100"
+            logger.info(f"RITS config: model={model_name}, api_base={api_base}, api_key_present={bool(api_key)}")
+            return ChatRits(config={"model_name": model_name, "end_point": api_base, "api_key": api_key})
 
         else:
             raise RuntimeError(
                 "Unsupported AGENT_SETTING_CONFIG for React agent. "
-                "Expected 'settings.groq.toml' or 'settings.openai.toml'."
+                "Expected 'settings.groq.toml', 'settings.openai.toml', "
+                "'settings.rits.toml', or 'settings.rits.proxy.toml'."
             )
 
     def _get_llm(self) -> Any:
