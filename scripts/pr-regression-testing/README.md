@@ -125,6 +125,8 @@ The `sha` value must be the current 40-character PR head commit SHA. The workflo
 - `num_tasks=4`
 - default AppWorld task IDs: `9aae7da_1 365e0a3_1 eb5ad85_1 5e27cd7_1`
 
+AppWorld PR evaluations with `agent=cuga` are run with the AppWorld SDK evaluator (`--sdk`).
+
 For `provider=litellm`, the default model changes to `aws/gpt-oss-120b` unless `model_name` is explicitly provided.
 
 ## Command Parameters
