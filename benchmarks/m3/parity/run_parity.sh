@@ -72,9 +72,11 @@ fi
 source "$PARITY_DIR/env.sh" "$TEMP" || exit 1
 [ "$SKIP_PRE" = "1" ] || bash "$PARITY_DIR/preflight.sh" "$(python3 -c "import json;print(json.load(open('$MAN'))['task_id'])")" || exit 1
 mkdir -p "$PARITY_DIR/runs/$RUN_ID"
-# Subsets defined on vakra-main data: materialize the converted local copy once (gitignored).
+# Subsets defined on vakra-main data: (re)materialize this manifest's domains in the converted local
+# copy (gitignored). Always run — it is cheap, and a copy built for another subset (e.g. a smoke) may
+# lack this one's domains.
 LOCAL_DATA=$(python3 -c "import json;v=json.load(open('$MAN')).get('m3_data','');print(v[6:] if v.startswith('local:') else '')")
-if [ -n "$LOCAL_DATA" ] && [ ! -d "$PARITY_DIR/.local/$LOCAL_DATA" ]; then
+if [ -n "$LOCAL_DATA" ]; then
     (cd "$ROOT" && uv run --frozen python -m benchmarks.m3.parity.prepare_vakra_train --manifest "$MAN" --vakra-main "$VAKRA_MAIN" --out "$PARITY_DIR/.local/$LOCAL_DATA") || exit 1
 fi
 # The campaign's own recorded predictions, rescored today next to the live arms (judge-drift control).
