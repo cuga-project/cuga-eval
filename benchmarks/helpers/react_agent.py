@@ -224,7 +224,9 @@ class GenericReactAgent:
             api_base = os.getenv("RITS_BASE_URL") or os.getenv("LITE_LLM_URL") or os.getenv("OPENAI_BASE_URL")
             api_key = os.getenv("RITS_API_KEY") or os.getenv("LITE_LLM_KEY") or os.getenv("OPENAI_API_KEY")
             model_name = os.getenv("MODEL_NAME") or self.model or "openai/gpt-oss-120b-a100"
-            logger.info(f"RITS config: model={model_name}, api_base={api_base}, api_key_present={bool(api_key)}")
+            logger.info(
+                f"RITS config: model={model_name}, api_base={api_base}, api_key_present={bool(api_key)}"
+            )
             return ChatRits(config={"model_name": model_name, "end_point": api_base, "api_key": api_key})
 
         else:
