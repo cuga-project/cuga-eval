@@ -498,7 +498,9 @@ EVAL_ARGS=(
 )
 
 if [[ "${BENCHMARK}" == "appworld" ]]; then
-  EVAL_ARGS+=(--sdk)
+  if [[ "${AGENT}" == "cuga" ]]; then
+    EVAL_ARGS+=(--sdk)
+  fi
   if [[ -n "${EVAL_KEY}" ]]; then
     EVAL_ARGS+=(--eval-key "${EVAL_KEY}")
   fi
