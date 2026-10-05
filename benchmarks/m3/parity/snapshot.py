@@ -106,6 +106,12 @@ def snapshot_cuga_eval(
         summary["predictions"][domain] = {"expected": len(ids), "found": len(kept)}
 
     candidates = [p for p in Path(results_dir).glob("m3_config_*.json") if p.stat().st_mtime >= since]
+    if candidates and manifest.get("no_ground_truth"):
+        # predictions-only mode has no in-run judge: keep the raw results, record no native scores
+        newest = max(candidates, key=lambda p: p.stat().st_mtime)
+        label = "-".join(wanted_domains) if domains else "all"
+        shutil.copy2(newest, out_dir / f"native_results.{label}.json")
+        candidates = []
     if candidates:
         newest = max(candidates, key=lambda p: p.stat().st_mtime)
         label = "-".join(wanted_domains) if domains else "all"

@@ -134,6 +134,8 @@ def render_report(
         pn, nn, rn = pass_rate(arm.get("native", {}))
         recipe = (meta.get("adapter_preset") or meta.get("recipe") or "?") + (" +FC" if is_fc(meta) else "")
         cuga = meta.get("cuga_agent") or meta.get("cuga_checkout") or {}
+        if not cuga and meta.get("source"):
+            cuga = {"branch": "recorded", "commit": meta["source"].split(" (")[0], "dirty_files": "0"}
         commit = f"{cuga.get('branch', '?')}@{cuga.get('commit', '?')}" + (
             f" (+{cuga.get('dirty_files')} dirty)"
             if str(cuga.get("dirty_files", "0")) not in ("0", "")
