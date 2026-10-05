@@ -119,10 +119,8 @@ def render_report(
     )
     ref = manifest.get("reference", {})
     if ref:
-        lines.append(
-            f"Reference ({ref.get('description', '')}): off {100 * ref['pass_rate']['off']:.1f}% / "
-            f"on {100 * ref['pass_rate']['on']:.1f}%."
-        )
+        rates = " / ".join(f"{k} {100 * v:.1f}%" for k, v in ref.get("pass_rate", {}).items())
+        lines.append(f"Reference ({ref.get('description', '')}): {rates}.")
     lines += [
         "",
         "## Arms",
@@ -209,16 +207,19 @@ def render_report(
     if ref.get("pass_by_uuid"):
         lines += [
             "",
-            "## Against the 2026-09-10 reference (this stack's native judge then; vendor judge now)",
+            "## Against the manifest reference (per task; reference flags as recorded, vendor judge now)",
             "",
         ]
         lines.append("| arm | reference arm | common | agree | Δ(now−ref) | verdict |")
         lines.append("|---|---|---|---|---|---|")
         for name, arm in arms.items():
-            preset = (arm.get("meta") or {}).get("adapter_preset")
-            if preset is None:
+            meta = arm.get("meta") or {}
+            recipe = meta.get("adapter_preset") or meta.get("recipe")
+            if recipe is None:
                 continue
-            ref_arm = "off" if preset == "off" else "on"
+            ref_arm = "off" if recipe in ("off", "base") else "on"
+            if ref_arm not in ref["pass_by_uuid"]:
+                continue
             ref_scores = {u: (1.0 if v else 0.0) for u, v in ref["pass_by_uuid"][ref_arm].items()}
             ag = agreement(arm.get("vendor", {}), ref_scores)
             _, _, r_now = pass_rate(

@@ -31,8 +31,21 @@ else
     export M3_ADAPTER_EXECUTION_MODE=codeact
 fi
 
-BASE_ARGS=(--m3-data "$ROOT/benchmarks/m3/data/small_train.zip" --capability "m3_task_$TASK_ID" --eval-key "$SUBSET" --no-policies --no-bundle)
+# Data + demo source from the manifest: default the bundled small_train.zip; "local:<name>" means
+# parity/.local/<name> (vakra-main train data converted by prepare_vakra_train.py; gitignored).
+read -r M3DATA DEMODATA NOGT <<<"$(python3 - "$MAN" "$PARITY_DIR" "$ROOT" <<'PY'
+import json, sys
+m, parity, root = json.load(open(sys.argv[1])), sys.argv[2], sys.argv[3]
+res = lambda v: f"{parity}/.local/{v[6:]}" if v.startswith("local:") else v
+print(res(m.get("m3_data") or f"{root}/benchmarks/m3/data/small_train.zip"), res(m.get("demo_data") or "-"), "1" if m.get("no_ground_truth") else "0")
+PY
+)"
+[ -e "$M3DATA" ] || { echo "data source $M3DATA missing — run: uv run --frozen python -m benchmarks.m3.parity.prepare_vakra_train --manifest $MAN --vakra-main \$VAKRA_MAIN --out <dir>" >&2; exit 2; }
+BASE_ARGS=(--m3-data "$M3DATA" --capability "m3_task_$TASK_ID" --eval-key "$SUBSET" --no-policies --no-bundle)
+# predictions only: eval_m3's ground-truth mode only runs the registry YAML's small_train domains
+[ "$NOGT" = "1" ] && BASE_ARGS+=(--no-ground-truth)
 [ "$PRESET" != "off" ] && BASE_ARGS+=(--adapter-preset "$PRESET")
+[ "$PRESET" != "off" ] && [ "$DEMODATA" != "-" ] && BASE_ARGS+=(--demo-data "$DEMODATA")
 echo "bash benchmarks/m3/eval.sh ${BASE_ARGS[*]} --domain <domain> $*" > "$OUT/command.txt"
 echo "[$ARM] start $(date '+%F %T')  temperature=$PARITY_TEMPERATURE model=$PARITY_MODEL fc=$FC domains: $DOMS" | tee -a "$OUT/console.log"
 

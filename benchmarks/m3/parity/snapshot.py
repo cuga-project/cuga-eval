@@ -41,6 +41,35 @@ def _filter_records(records: Iterable[Dict[str, Any]], keep: set) -> List[Dict[s
     return [r for r in records if str(r.get("uuid", "")).lower() in keep]
 
 
+def strip_registry_prefix(records: Iterable[Dict[str, Any]], domain: str) -> List[Dict[str, Any]]:
+    """Predicted tool names ``<domain>_<tool>`` -> ``<tool>`` (the live MCP name).
+
+    cuga's registry names tools ``<app>_<tool>`` and in eval_m3 the app is the
+    domain. In ground-truth mode the in-run scorer rewrites names to the live MCP
+    names before writing predictions; predictions-only mode writes them raw, and the
+    vendor evaluator's live replay needs the MCP names. Copies; names without the
+    prefix are left as they are.
+    """
+    prefix = f"{domain}_"
+
+    def _fix(call: Any) -> Any:
+        if isinstance(call, list):
+            return [_fix(c) for c in call]
+        if isinstance(call, dict) and str(call.get("name", "")).startswith(prefix):
+            return {**call, "name": call["name"][len(prefix) :]}
+        return call
+
+    out = []
+    for rec in records:
+        turns = []
+        for turn in rec.get("output") or []:
+            seq = dict(turn.get("sequence") or {})
+            seq["tool_call"] = [_fix(c) for c in seq.get("tool_call") or []]
+            turns.append({**turn, "sequence": seq})
+        out.append({**rec, "output": turns})
+    return out
+
+
 def snapshot_cuga_eval(
     manifest: Dict[str, Any],
     results_dir: Path,
@@ -71,6 +100,8 @@ def snapshot_cuga_eval(
             summary["missing_prediction_files"].append(domain)
             continue
         kept = _filter_records(load_json(src), {i.lower() for i in ids})
+        if manifest.get("no_ground_truth"):
+            kept = strip_registry_prefix(kept, domain)
         (pred_out / f"{domain}.json").write_text(json.dumps(kept, indent=1, ensure_ascii=False))
         summary["predictions"][domain] = {"expected": len(ids), "found": len(kept)}
 
@@ -153,6 +184,33 @@ def build_gt_subset(uuid_map: Dict[str, Any], vakra_gt_dir: Path, out_dir: Path)
     return counts
 
 
+def campaign_recorded_arm(manifest: Dict[str, Any], vakra_main: Path, out_dir: Path) -> Dict[str, Any]:
+    """The campaign's own recorded predictions as a pseudo-arm, so they are rescored
+    with today's evaluator and judge next to the live arms (judge-drift control)."""
+    rel = manifest["campaign_predictions"]
+    src = Path(vakra_main) / rel
+    out_dir = Path(out_dir)
+    (out_dir / "prediction").mkdir(parents=True, exist_ok=True)
+    counts: Dict[str, int] = {}
+    for domain, ids in manifest["ids_by_domain"].items():
+        f = src / f"{domain}.json"
+        if not f.exists():
+            continue
+        kept = _filter_records(load_json(f), {i.lower() for i in ids})
+        (out_dir / "prediction" / f"{domain}.json").write_text(json.dumps(kept, indent=1, ensure_ascii=False))
+        counts[domain] = len(kept)
+    meta = {
+        "arm": out_dir.name,
+        "stack": "vakra-main",
+        "recipe": "fc_canon",
+        "fc": "1",
+        "source": f"recorded campaign predictions ({rel}), rescored now",
+        "subset": manifest.get("subset"),
+    }
+    (out_dir / "meta.json").write_text(json.dumps(meta, indent=1))
+    return {"domains": len(counts), "items": sum(counts.values())}
+
+
 # ---------------------------------------------------------------------------
 # CLI
 # ---------------------------------------------------------------------------
@@ -179,7 +237,17 @@ def main(argv: Optional[List[str]] = None) -> int:
     g.add_argument("--vakra-gt", required=True, type=Path)
     g.add_argument("--out", required=True, type=Path)
 
+    c = sub.add_parser("campaign-recorded", help="the campaign's recorded predictions as a pseudo-arm")
+    c.add_argument("--manifest", required=True, type=Path)
+    c.add_argument("--vakra-main", required=True, type=Path)
+    c.add_argument("--out", required=True, type=Path)
+
     args = parser.parse_args(argv)
+    if args.cmd == "campaign-recorded":
+        print(
+            json.dumps(campaign_recorded_arm(load_json(args.manifest), args.vakra_main, args.out), indent=1)
+        )
+        return 0
     if args.cmd == "snapshot-cuga-eval":
         summary = snapshot_cuga_eval(
             load_json(args.manifest), args.results_dir, args.since, args.out, domains=args.domains

@@ -32,6 +32,8 @@ subsets are mapped by normalized first-turn query text
 | `parity_cap2_30` | 30 (10 domains × 3) | 28 | off **30.0%** → cap2 **63.3%** |
 | `parity_cap3_20` | 20 (10 domains × 2) | 19 | off **20.0%** → cap3 **35.0%** |
 | `parity_smoke_cap3` | 1 (beer_factory) | 1 | off 0 → cap3 1 (FC smoke) |
+| `parity_est3_cap3` | 120 (22 domains) | 120 (vakra-main uuids) | **the campaign's cap3 train scorecard**: 68/120 = 56.7% (fc_canon + FC, 2026-08-18) |
+| `parity_est3_smoke` | 2 | 2 | plumbing check for the est3 path |
 
 Campaign train numbers for the same recipes: cap2 62.6, cap3 56.7 **with FC**
 (35 without); test: cap2 56.3, cap3 45.0.
@@ -49,6 +51,34 @@ bash benchmarks/m3/parity/run_parity.sh --subset parity_cap2_30 --dry-run       
 `cuga_eval_<preset>`, `cuga_eval_<preset>_fc`, `vakra_main_fc_canon`,
 `vakra_main_fc_canon_fc`. The report's **FC effect** section gives FC off → on per
 recipe (Δ, tasks gained/lost), on both stacks.
+
+### Apples to apples with the VAKRA campaign (`parity_est3_cap3`)
+
+`est3` is exactly the sample behind the campaign's cap3 train number (56.7%), and
+the run reproduces its protocol: same 120 tasks, `fc_canon` + FC recipe,
+`azure/gpt-oss-120b` agent and judge through the proxy, temperature 1.0,
+policies off, the vendor evaluator, and on vakra-main 8-item chunks with a
+container restart before each (as `cuga_runs/cap_estimate.sh` did).
+
+- The tasks come from vakra-main's `data/train`, converted once into
+  `parity/.local/vakra_train/` (gitignored — VAKRA data is never committed) by
+  `prepare_vakra_train.py`. The same copy feeds the adapter's prose demos, as the
+  campaign drew demos from the train domain files.
+- cuga-eval runs it in predictions-only mode (`--no-ground-truth`): ground-truth
+  mode only runs the registry YAML's small_train domains. The snapshot strips the
+  registry's `<domain>_` tool prefix so the evaluator can replay the calls live.
+- Arms (defaults): `cuga_eval_cap3_fc` (cuga + adapter) and
+  `vakra_main_fc_canon_fc` (the campaign stack, rerun today), plus
+  `vakra_main_campaign_recorded` — the campaign's own Aug-18 predictions,
+  rescored today, which isolates judge/proxy drift from stack differences.
+- Read the report's per-task section against the reference (the campaign's
+  recorded outcomes): recorded-vs-rescored agreement is the judge's own
+  noise floor.
+
+```bash
+bash benchmarks/m3/parity/run_parity.sh --subset parity_est3_smoke    # ~10 min plumbing check
+bash benchmarks/m3/parity/run_parity.sh --subset parity_est3_cap3     # ~5-6 h, all three arms
+```
 
 ### Landing day (cuga-agent#777 merged)
 

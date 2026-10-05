@@ -34,7 +34,8 @@ PRESET=$(python3 -c "import json;print(json.load(open('$MAN'))['adapter_preset']
 if [ "$FC_AB" = "1" ]; then
     ARMS="cuga_eval_${PRESET},cuga_eval_${PRESET}_fc,vakra_main_fc_canon,vakra_main_fc_canon_fc"
 fi
-[ -n "$ARMS" ] || ARMS="cuga_eval_off,cuga_eval_${PRESET},vakra_main_base,vakra_main_fc_canon"
+MAN_ARMS=$(python3 -c "import json;print(json.load(open('$MAN')).get('default_arms',''))")
+[ -n "$ARMS" ] || ARMS="${MAN_ARMS:-cuga_eval_off,cuga_eval_${PRESET},vakra_main_base,vakra_main_fc_canon}"
 TAG="fc${FC}"; [ "$FC_AB" = "1" ] && TAG="fcab"
 [ -n "$RUN_ID" ] || RUN_ID="$(date +%Y%m%d_%H%M%S)_${SUBSET}_t${TEMP}_${TAG}"
 # arm -> "script base fc": a trailing _fc forces function calling for that arm
@@ -71,6 +72,16 @@ fi
 source "$PARITY_DIR/env.sh" "$TEMP" || exit 1
 [ "$SKIP_PRE" = "1" ] || bash "$PARITY_DIR/preflight.sh" "$(python3 -c "import json;print(json.load(open('$MAN'))['task_id'])")" || exit 1
 mkdir -p "$PARITY_DIR/runs/$RUN_ID"
+# Subsets defined on vakra-main data: materialize the converted local copy once (gitignored).
+LOCAL_DATA=$(python3 -c "import json;v=json.load(open('$MAN')).get('m3_data','');print(v[6:] if v.startswith('local:') else '')")
+if [ -n "$LOCAL_DATA" ] && [ ! -d "$PARITY_DIR/.local/$LOCAL_DATA" ]; then
+    (cd "$ROOT" && uv run --frozen python -m benchmarks.m3.parity.prepare_vakra_train --manifest "$MAN" --vakra-main "$VAKRA_MAIN" --out "$PARITY_DIR/.local/$LOCAL_DATA") || exit 1
+fi
+# The campaign's own recorded predictions, rescored today next to the live arms (judge-drift control).
+if python3 -c "import json,sys;sys.exit(0 if json.load(open('$MAN')).get('campaign_predictions') else 1)"; then
+    [ -d "$PARITY_DIR/runs/$RUN_ID/vakra_main_campaign_recorded" ] || (cd "$ROOT" && uv run --frozen python -m benchmarks.m3.parity.snapshot campaign-recorded \
+        --manifest "$MAN" --vakra-main "$VAKRA_MAIN" --out "$PARITY_DIR/runs/$RUN_ID/vakra_main_campaign_recorded")
+fi
 if [ "$RESCORE_ONLY" != "1" ]; then
     for a in ${ARMS//,/ }; do
         read -r _s _b _f <<<"$(arm_plan "$a")"

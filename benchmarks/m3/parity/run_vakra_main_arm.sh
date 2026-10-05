@@ -16,7 +16,7 @@ RUN_ID="${1:?run_id}"; SUBSET="${2:?subset}"; ARMNAME="${3:?base|fc_canon}"
 [ -n "${PARITY_B1:-}" ] || { echo "source benchmarks/m3/parity/env.sh first" >&2; exit 2; }
 MAP="$PARITY_DIR/manifests/uuid_map_$SUBSET.json"; [ -f "$MAP" ] || { echo "no uuid map $MAP" >&2; exit 2; }
 VAKRA_MAIN="${VAKRA_MAIN:-$HOME/git/appworld/vakra-main}"
-MODEL="${PARITY_MODEL:-azure/gpt-oss-120b}"; T="${PARITY_TEMPERATURE:-1.0}"
+MODEL="${PARITY_MODEL:-azure/gpt-oss-120b}"; T="${PARITY_TEMPERATURE:-1.0}"; CHUNK="${PARITY_VAKRA_CHUNK:-8}"
 TASK_ID=$(python3 -c "import json;print(json.load(open('$MAP'))['task_id'])")
 CAPDIR=$(python3 -c "import json;print(json.load(open('$MAP'))['capability_dir'])")
 ARM="vakra_main_${ARMNAME}"; [ "${PARITY_FC:-0}" = "1" ] && ARM="${ARM}_fc"
@@ -77,17 +77,42 @@ PY
 echo "[$ARM] start $(date '+%F %T') domains: $DOMS  temperature=$T model=$MODEL fc=${PARITY_FC:-0}" | tee -a "$OUT/console.log"
 for dom in $DOMS; do
     BOUT="$RAW/$dom"; mkdir -p "$BOUT"
-    if [ -f "$BOUT/$dom.json" ]; then
-        echo "[$ARM] $dom already done (resume)" | tee -a "$OUT/console.log"
-    else
-        restart_ctr "$CAPDIR"; wait_proxy
-        echo "[$ARM] $dom start $(date '+%T')" | tee -a "$OUT/console.log"
-        VAKRA_RETRY_UUIDS_FILE="$RAW/uuids_$dom.json" PYTHONPATH="$VAKRA_MAIN" .venv-cuga/bin/python benchmark_runner.py \
-            --capability_id "$TASK_ID" --domain "$dom" --restart --mcp-config benchmark/mcp_connection_config.yaml \
-            --provider litellm --model "$MODEL" --temperature "$T" --top-k-tools 128 --output "$BOUT/" >> "$OUT/console.log" 2>&1 \
-            || echo "[$ARM] $dom runner exit $?" | tee -a "$OUT/console.log"
+    if [ -f "$OUT/prediction/$dom.json" ]; then
+        echo "[$ARM] $dom already done (resume)" | tee -a "$OUT/console.log"; continue
     fi
-    [ -f "$BOUT/$dom.json" ] && cp "$BOUT/$dom.json" "$OUT/prediction/$dom.json"
+    echo "[$ARM] $dom start $(date '+%T')" | tee -a "$OUT/console.log"
+    # Campaign protocol (cuga_runs/cap_estimate.sh): items in chunks of CHUNK, a fresh container
+    # restart before each chunk; chunk outputs are merged into one domain file.
+    NCH=$(python3 - "$RAW/uuids_$dom.json" "$BOUT" "$CHUNK" <<'PY'
+import json, sys
+ids, bout, k = json.load(open(sys.argv[1])), sys.argv[2], int(sys.argv[3])
+chunks = [ids[i:i + k] for i in range(0, len(ids), k)]
+for b, c in enumerate(chunks):
+    json.dump(c, open(f"{bout}/b{b}.json", "w"))
+print(len(chunks))
+PY
+)
+    for b in $(seq 0 $((NCH - 1))); do
+        mkdir -p "$BOUT/b$b"
+        [ -f "$BOUT/b$b/$dom.json" ] && continue
+        restart_ctr "$CAPDIR"; wait_proxy
+        VAKRA_RETRY_UUIDS_FILE="$BOUT/b$b.json" PYTHONPATH="$VAKRA_MAIN" .venv-cuga/bin/python benchmark_runner.py \
+            --capability_id "$TASK_ID" --domain "$dom" --restart --mcp-config benchmark/mcp_connection_config.yaml \
+            --provider litellm --model "$MODEL" --temperature "$T" --top-k-tools 128 --output "$BOUT/b$b/" >> "$OUT/console.log" 2>&1 \
+            || echo "[$ARM] $dom chunk $b runner exit $?" | tee -a "$OUT/console.log"
+    done
+    python3 - "$BOUT" "$dom" "$OUT/prediction" <<'PY'
+import glob, json, sys
+bout, dom, out = sys.argv[1:4]
+merged = []
+for f in sorted(glob.glob(f"{bout}/b*/{dom}.json")):
+    try:
+        merged += json.load(open(f))
+    except Exception:
+        pass
+if merged:
+    json.dump(merged, open(f"{out}/{dom}.json", "w"), indent=1)
+PY
 done
 restart_ctr "$CAPDIR"
 END=$(date +%s)

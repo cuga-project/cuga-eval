@@ -16,7 +16,14 @@ pytestmark = pytest.mark.sanity
 PARITY = Path(__file__).resolve().parents[1] / "parity"
 MANIFESTS = PARITY / "manifests"
 ZIP = Path(__file__).resolve().parents[1] / "data" / "small_train.zip"
-SUBSETS = ("parity_smoke_hockey", "parity_cap2_30", "parity_cap3_20", "parity_smoke_cap3")
+SUBSETS = (
+    "parity_smoke_hockey",
+    "parity_cap2_30",
+    "parity_cap3_20",
+    "parity_smoke_cap3",
+    "parity_est3_cap3",
+    "parity_est3_smoke",
+)
 BASH = shutil.which("bash") or "/bin/bash"
 
 
@@ -37,15 +44,17 @@ def _zip_uuids(capdir, domain):
 
 
 @pytest.mark.parametrize("name", SUBSETS)
-def test_manifest_ids_are_unique_complete_and_in_the_bundled_zip(name):
+def test_manifest_ids_are_unique_complete_and_in_their_data_source(name):
     m = _manifest(name)
     ids = snapshot.manifest_uuids(m)
     assert m["n"] == len(ids) == len(set(ids))
-    for domain, dom_ids in m["ids_by_domain"].items():
-        assert set(dom_ids) <= _zip_uuids(m["capability_dir"], domain), (
-            f"{name}/{domain}: id not in small_train.zip"
-        )
-    for arm in ("off", "on"):
+    if not str(m.get("m3_data", "")).startswith("local:"):  # zip-sourced subsets: ids live in the bundled zip
+        for domain, dom_ids in m["ids_by_domain"].items():
+            assert set(dom_ids) <= _zip_uuids(m["capability_dir"], domain), (
+                f"{name}/{domain}: id not in small_train.zip"
+            )
+    assert m["reference"]["pass_by_uuid"], "a reference needs at least one arm"
+    for arm in m["reference"]["pass_by_uuid"]:
         flags = m["reference"]["pass_by_uuid"][arm]
         assert set(flags) == set(ids)
         assert abs(sum(flags.values()) / len(ids) - m["reference"]["pass_rate"][arm]) < 0.01
@@ -302,3 +311,109 @@ def test_report_has_an_fc_effect_row_for_each_recipe_pair(tmp_path):
     assert "| cuga_eval_cap3_fc | cuga-eval | cap3 +FC |" in report
     assert "## FC effect" in report
     assert "| cuga_eval_cap3 |  50.0% | 100.0% | 2 | +50.0pt | 1 | 0 |" in report
+
+
+# ------------------------- vakra-main-sourced subsets -------------------------
+
+
+def test_est3_is_the_campaign_cap3_scorecard_sample():
+    m = _manifest("parity_est3_cap3")
+    assert m["n"] == 120 and len(m["ids_by_domain"]) == 22
+    assert m["no_ground_truth"] is True and m["m3_data"] == m["demo_data"] == "local:vakra_train"
+    assert sum(m["reference"]["pass_by_uuid"]["on"].values()) == 68  # the campaign's 56.7%
+    um = _uuid_map("parity_est3_cap3")
+    assert all(k == v["vakra_uuid"] for k, v in um["zip_to_vakra"].items())  # defined in vakra-main uuids
+
+
+def test_prepare_converts_vakra_output_to_the_loader_layout(tmp_path):
+    from benchmarks.m3.m3_data_loader import M3DataLoader
+    from benchmarks.m3.parity import prepare_vakra_train
+
+    capdir = "capability_3_multihop_reasoning"
+    src = tmp_path / "vakra" / "data" / "train" / capdir
+    (src / "input").mkdir(parents=True)
+    (src / "output").mkdir(parents=True)
+    turn = {"turn_id": 0, "query": "q?"}
+    (src / "input" / "dom.json").write_text(
+        json.dumps([{"uuid": "u-1", "domain": "dom", "num_turns": 1, "dialogue": {"turns": [turn]}}])
+    )
+    seq = {"tool_call": [{"name": "get_x", "arguments": {"a": 1}}], "tool_response": [{"x": 2}]}
+    (src / "output" / "dom.json").write_text(
+        json.dumps([{"uuid": "u-1", "domain": "dom", "output": [{**turn, "answer": "2", "sequence": seq}]}])
+    )
+    counts = prepare_vakra_train.prepare(tmp_path / "vakra", capdir, ["dom"], tmp_path / "out")
+    assert counts == {"dom": 1}
+    sample = M3DataLoader(tmp_path / "out").load_domain(3, "dom")[0]  # the converted copy loads with its GT
+    assert sample["sample_id"] == "u-1"
+    assert sample["expected_output"]["gold_sequence"][0][0]["name"] == "get_x"
+    assert sample["expected_output"]["answer_per_turn"] == ["2"]
+
+
+def test_strip_registry_prefix_only_touches_the_domain_prefix():
+    rec = {
+        "uuid": "u",
+        "output": [
+            {
+                "sequence": {
+                    "tool_call": [
+                        {"name": "hockey_get_x"},
+                        [{"name": "hockey_get_y"}],
+                        {"name": "find_tools"},
+                    ]
+                }
+            }
+        ],
+    }
+    out = snapshot.strip_registry_prefix([rec], "hockey")[0]
+    calls = out["output"][0]["sequence"]["tool_call"]
+    assert calls[0]["name"] == "get_x" and calls[1][0]["name"] == "get_y" and calls[2]["name"] == "find_tools"
+    assert rec["output"][0]["sequence"]["tool_call"][0]["name"] == "hockey_get_x"  # input not mutated
+
+
+def test_campaign_recorded_arm_filters_to_the_manifest(tmp_path):
+    pred = tmp_path / "vakra" / "output" / "est3_treat"
+    pred.mkdir(parents=True)
+    (pred / "dom.json").write_text(json.dumps([_pred("u-1"), _pred("u-9")]))
+    manifest = {"subset": "s", "campaign_predictions": "output/est3_treat", "ids_by_domain": {"dom": ["u-1"]}}
+    summary = snapshot.campaign_recorded_arm(manifest, tmp_path / "vakra", tmp_path / "arm")
+    assert summary == {"domains": 1, "items": 1}
+    assert [r["uuid"] for r in json.loads((tmp_path / "arm" / "prediction" / "dom.json").read_text())] == [
+        "u-1"
+    ]
+    meta = json.loads((tmp_path / "arm" / "meta.json").read_text())
+    assert meta["stack"] == "vakra-main" and meta["fc"] == "1"
+
+
+def test_report_handles_a_reference_with_only_an_on_arm(tmp_path):
+    run = tmp_path / "run"
+    for arm, meta in (
+        ("cuga_eval_cap3_fc", {"adapter_preset": "cap3", "fc": "1"}),
+        ("vakra_main_campaign_recorded", {"recipe": "fc_canon", "fc": "1"}),
+    ):
+        (run / arm).mkdir(parents=True)
+        (run / arm / "meta.json").write_text(json.dumps({"stack": "x", **meta}))
+        (run / arm / "vendor_results.json").write_text(json.dumps(_vendor({"V-1": 1.0})))
+    manifest = {
+        "n": 1,
+        "ids_by_domain": {"d": ["V-1"]},
+        "reference": {
+            "description": "campaign",
+            "pass_rate": {"on": 1.0},
+            "pass_by_uuid": {"on": {"V-1": True}},
+        },
+    }
+    um = {"zip_to_vakra": {"V-1": {"vakra_uuid": "V-1", "domain": "d"}}, "unmatched": []}
+    report = compare.render_report("s", manifest, um, compare.load_run(run, manifest, um))
+    assert "Reference (campaign): on 100.0%." in report
+    assert "| vakra_main_campaign_recorded | on | 1 | 1 (100.0%)" in report
+
+
+def test_est3_dry_run_uses_the_manifest_default_arms():
+    out = subprocess.run(  # noqa: S603  (fixed, trusted args)
+        [BASH, str(PARITY / "run_parity.sh"), "--subset", "parity_est3_cap3", "--dry-run", "--run-id", "x"],
+        check=True,
+        capture_output=True,
+        text=True,
+    ).stdout
+    assert "PARITY_FC=1 bash" in out and "run_cuga_eval_arm.sh x parity_est3_cap3 cap3" in out
+    assert "run_vakra_main_arm.sh x parity_est3_cap3 fc_canon" in out
