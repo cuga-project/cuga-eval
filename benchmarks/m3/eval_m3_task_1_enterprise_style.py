@@ -222,6 +222,7 @@ async def run_benchmark_for_domain_with_retry(
     agent_timeout: int = 300,
     max_retries: int = 3,
     adapter_cfg: Optional[AdapterConfig] = None,
+    switch_timeout: Optional[float] = None,
 ) -> List[Dict[str, Any]]:
     """Run benchmark with automatic reconnection on connection failures."""
     all_results = []
@@ -241,6 +242,7 @@ async def run_benchmark_for_domain_with_retry(
             max_samples=None,
             agent_timeout=agent_timeout,
             adapter_cfg=adapter_cfg,
+            switch_timeout=switch_timeout,
         )
 
         all_results.extend(batch_results)  # Append results from this batch
@@ -266,6 +268,7 @@ async def run_benchmark_for_domain_single_connection(
     max_samples: Optional[int] = None,
     agent_timeout: int = 300,
     adapter_cfg: Optional[AdapterConfig] = None,
+    switch_timeout: Optional[float] = None,
 ) -> List[Dict[str, Any]]:
     """
     Run benchmark for a single domain using persistent stdio connection.
@@ -282,6 +285,7 @@ async def run_benchmark_for_domain_single_connection(
         config: DirectMCPConfig for MCP connection
         max_samples: Maximum number of samples to process
         agent_timeout: Timeout in seconds for each agent invocation
+        switch_timeout: Timeout in seconds for each universe switch (None = no limit)
 
     Returns:
         List of result dictionaries
@@ -384,7 +388,11 @@ async def run_benchmark_for_domain_single_connection(
                 try:
                     # STEP 1: Explicitly call get_data to switch universe
                     logger.info(f"  🔄 Switching to universe: {uuid}")
-                    data_result = await get_data_tool.ainvoke({"tool_universe_id": uuid})
+                    switch = get_data_tool.ainvoke({"tool_universe_id": uuid})
+                    # VAKRA campaign: UNIVERSE_SWITCH_TIMEOUT_SECONDS (150 main pass, 200 recovery)
+                    data_result = await (
+                        asyncio.wait_for(switch, timeout=switch_timeout) if switch_timeout else switch
+                    )
 
                     # Parse the result
                     parsed_data = json.loads(data_result)
@@ -669,6 +677,18 @@ def save_ground_truth_format(results: List[Dict], output_dir: Path) -> Path:
     return experiment_dir
 
 
+def parse_item_ids(spec: Optional[str]) -> Optional[set]:
+    """``--item-ids`` value -> a set of uuids (None = every item)."""
+    if not spec:
+        return None
+    if spec.startswith("@"):
+        text = Path(spec[1:]).read_text().strip()
+        ids = json.loads(text) if text.startswith("[") else text.split()
+    else:
+        ids = spec.split(",")
+    return {str(i).strip() for i in ids if str(i).strip()}
+
+
 async def main():
     parser = argparse.ArgumentParser(description="M3 Task 1 Evaluation (Enterprise Benchmark Style)")
     parser.add_argument(
@@ -708,6 +728,18 @@ async def main():
         type=int,
         default=300,
         help="Agent timeout in seconds (default: 300)",
+    )
+    parser.add_argument(
+        "--item-ids",
+        default=None,
+        help="Only these item uuids: comma-separated, or @file (JSON list or one uuid per line). "
+        "Used by the cap1 recovery pass (benchmarks/m3/cap1_recover.py).",
+    )
+    parser.add_argument(
+        "--switch-timeout",
+        type=float,
+        default=None,
+        help="Seconds allowed for each universe switch (get_data); default: no limit",
     )
     parser.add_argument(
         "--adapter-preset",
@@ -757,6 +789,7 @@ async def main():
         domains = [f.stem for f in json_files if not f.stem.endswith("_multiturn")]
 
     logger.info(f"Processing {len(domains)} domain(s): {domains}")
+    item_ids = parse_item_ids(args.item_ids)
 
     # Process each domain
     all_results = []
@@ -786,6 +819,10 @@ async def main():
                 }
             )
 
+        if item_ids is not None:
+            items = [i for i in items if i["uuid"] in item_ids]
+            if not items:
+                continue
         logger.info(f"\nLoaded {len(items)} items for domain '{domain}'")
 
         # Create MCP config for this domain
@@ -805,6 +842,7 @@ async def main():
             max_samples=args.max_samples,
             agent_timeout=args.agent_timeout,
             adapter_cfg=adapter_cfg,
+            switch_timeout=args.switch_timeout,
         )
 
         all_results.extend(domain_results)
