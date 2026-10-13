@@ -32,6 +32,7 @@ MINILM_MODEL = "sentence-transformers/all-MiniLM-L6-v2"
 ENV_PREFIX = "M3_ADAPTER_"
 
 EXECUTION_MODES = ("codeact", "function_calling")
+STEP_DISCIPLINES = ("off", "one_tool_per_step")  # cuga-agent#777 model_runtime_profile.py
 
 #: Configurable keys that switch CugaLite to native function calling (cuga-agent#777:
 #: ``cuga_lite_execution_mode`` resolved in model_runtime_profile.py, the bind mode in
@@ -49,6 +50,29 @@ FUNCTION_CALLING_CONFIGURABLE: Mapping[str, object] = {
 BIND_CAP_SETTING = "cuga_lite_bind_tools_max_count"  # settings.advanced_features.<this>, default 128
 BIND_CAP_ENV = "DYNACONF_ADVANCED_FEATURES__CUGA_LITE_BIND_TOOLS_MAX_COUNT"
 CAMPAIGN_BIND_CAP = 128  # the validated runs bound at most this many MiniLM-ranked tools per call
+
+#: CUGA settings the campaign ran with that differ from what ``benchmarks/m3/config/m3.env`` sets
+#: for every m3 run. The campaign's CUGA (main @cc8f9197 + private FC code) used its settings.toml
+#: defaults for these; m3.env flips them on. ``force_autonomous_mode`` adds an autonomy line to the
+#: FC and CodeAct prompts; the other two only act on CodeAct turns. Pinned in-process at agent
+#: build time by the presets that reproduce the campaign runtime (see ``cuga_settings``).
+CAMPAIGN_CUGA_SETTINGS = (
+    "advanced_features.force_autonomous_mode=false,"
+    "advanced_features.reflection_enabled=false,"
+    "advanced_features.cuga_lite_nl_auto_continue=false"
+)
+#: cap4 ran CodeAct, where CUGA's own sandbox timeout (settings default 30 s; m3.env: 90) applied.
+CAMPAIGN_CODEACT_SETTINGS = CAMPAIGN_CUGA_SETTINGS + ",advanced_features.sandbox_execution_timeout=30"
+CAMPAIGN_MAX_STEPS = 70  # cuga_lite_max_steps default; VAKRA_CUGA_MAX_STEPS=40 was never read by cuga_v2
+CAMPAIGN_LLM_TIMEOUT = 150  # LITELLM_REQUEST_TIMEOUT_SECONDS in cap_estimate.sh / fc_canon(_proto)_test.sh
+CAMPAIGN_AGENT_TIMEOUT = 220  # AGENT_TIMEOUT_SECONDS: per-item wall clock in the same scripts
+CAP4_LLM_TIMEOUT = 600  # cap4_test.sh sets none: LiteLLM's default request timeout
+CAP4_AGENT_TIMEOUT = 300  # cap4_test.sh sets none: benchmark_runner.py's AGENT_TIMEOUT_SECONDS default
+CAMPAIGN_RUNAWAY_TOOL_CAP = 100  # cuga_clean_agent.py RUNAWAY_TOOL_CAP default (VAKRA_CUGA_TOOL_CAP unset)
+CAMPAIGN_TEMPERATURE = 1.0  # --temperature 1.0 on every run; the passed model drove every CUGA call
+#: The model blocks CUGA reads sampling settings from (configurations/models/settings.*.toml).
+MODEL_ROLES = ("planner", "chat", "final_answer", "code", "qa", "action")
+SHORTLIST_STRATEGIES = ("sdk", "campaign")
 
 
 @dataclass(frozen=True)
@@ -88,16 +112,63 @@ class AdapterConfig:
     # --- shortlisting (SDK Shortlister; exact VAKRA model) ---
     shortlist_top_k: Optional[int] = None  # --top-k-tools (128 caps 1-3, 40 cap4)
     shortlist_model: str = MINILM_MODEL
-    shortlist_pin_retrievers: bool = False  # vakra ToolShortlister pinned query_* tools (cap4)
+    shortlist_pin_retrievers: bool = False  # "sdk" strategy: pin query_* tools (the campaign always did)
+    # "sdk": CUGA's embedding strategy (embeds name + description + params + returns);
+    # "campaign": vakra-main ToolShortlister as an SDK strategy ("name: description", query_* pinned)
+    shortlist_strategy: str = "sdk"
 
     # --- harness behavior ---
-    use_policy_system: bool = True  # False => the eval skips _load_m3_policies (cap4 preset)
+    use_policy_system: bool = True  # False => the eval clears the policy DB and loads nothing
 
     # --- demos source (never the split under evaluation; see demos.load_demo_corpus) ---
     demo_data: Optional[str] = None  # M3_ADAPTER_DEMO_DATA / --demo-data; None = bundled data/small_train.zip
 
     # --- execution mode (VAKRA_CUGA_FC; caps 1-3 presets use FC, cap4/V3WX is CodeAct) ---
     execution_mode: str = "codeact"  # "codeact" | "function_calling" (native FC: cuga-agent#777)
+
+    # --- campaign runtime (what the campaign's own CUGA ran with, beyond the VAKRA_* flags) ---
+    # Its private FC code hard-coded a system preamble (cuga-agent-main graph_adapter.py
+    # _FC_SYSTEM_PREAMBLE). cuga-agent#777 ships the same text, with two lines behind opt-in
+    # knobs and the answer-format line dropped; these fields restore all three.
+    fc_step_discipline: str = "off"  # configurable cuga_lite_step_discipline ("one_tool_per_step")
+    fc_prompt_fragments: str = ""  # configurable cuga_lite_fc_prompt_fragments, comma-separated
+    fc_answer_format: bool = False  # the preamble's answer-format line (no #777 knob; adapter text)
+    harness_instructions: bool = True  # False => the eval's own special_instructions are not passed
+    expose_all_tools: bool = False  # no find_tools wall (campaign: shortlisting_tool_threshold = count+1)
+    max_steps: Optional[int] = None  # configurable cuga_lite_max_steps (campaign: 70)
+    llm_http_timeout: Optional[int] = None  # settings connections.llm_http_timeout, seconds (campaign: 150)
+    agent_timeout: Optional[int] = None  # per-task wall clock, seconds (campaign AGENT_TIMEOUT_SECONDS: 220)
+    demo_bound_names: bool = False  # demo chains name tools as bound (registry: <domain>_<tool>)
+    bare_tool_names: bool = False  # bind registry tools under their bare MCP names (no <domain>_ prefix)
+    model_temperature: Optional[float] = None  # pinned on every CUGA model block (campaign: 1.0)
+    cuga_settings: str = ""  # "dotted.key=value,..." pinned in-process before the agent is built
+
+
+#: What every campaign run shared (VAKRA_CAMPAIGN_CONFIG.md §1): the model at temperature 1.0 drove
+#: every call, tools were bound under their bare MCP names and ranked by the campaign's own
+#: shortlister, no find_tools step, CUGA's default 70 steps, and CUGA's policy system off.
+_CAMPAIGN_SHARED = dict(
+    harness_instructions=False,
+    expose_all_tools=True,
+    max_steps=CAMPAIGN_MAX_STEPS,
+    model_temperature=CAMPAIGN_TEMPERATURE,
+    bare_tool_names=True,
+    shortlist_strategy="campaign",
+    use_policy_system=False,
+)
+
+#: The fc_canon runtime (caps 1-3: cap_estimate.sh, fc_canon_test.sh, fc_canon_proto_test.sh).
+_FC_CANON_RUNTIME = dict(
+    _CAMPAIGN_SHARED,
+    fc_step_discipline="one_tool_per_step",
+    fc_prompt_fragments="evidence_first",
+    fc_answer_format=True,
+    llm_http_timeout=CAMPAIGN_LLM_TIMEOUT,
+    agent_timeout=CAMPAIGN_AGENT_TIMEOUT,
+    tool_cap=CAMPAIGN_RUNAWAY_TOOL_CAP,
+    demo_bound_names=True,
+    cuga_settings=CAMPAIGN_CUGA_SETTINGS,
+)
 
 
 PRESETS: dict[str, AdapterConfig] = {
@@ -116,6 +187,7 @@ PRESETS: dict[str, AdapterConfig] = {
         cap1_protocol=True,
         relist_after_switch=True,
         shortlist_top_k=128,
+        **_FC_CANON_RUNTIME,  # the official cap1 run: fc_canon_proto_test.sh (protocol + re-list)
     ),
     "cap2": AdapterConfig(
         preset="cap2",
@@ -128,8 +200,11 @@ PRESETS: dict[str, AdapterConfig] = {
         bluff_map=True,
         canonicalize=True,
         demos=True,
-        cap2_verbatim=True,
+        # VAKRA_CUGA_CAP2_VERBATIM was not part of fc_canon: cap_estimate.sh (est2, the cap2
+        # train scorecard) never sets it and fc_canon_test.sh unsets it.
+        cap2_verbatim=False,
         shortlist_top_k=128,
+        **_FC_CANON_RUNTIME,
     ),
     "cap3": AdapterConfig(
         preset="cap3",
@@ -143,6 +218,7 @@ PRESETS: dict[str, AdapterConfig] = {
         canonicalize=True,
         demos=True,
         shortlist_top_k=128,
+        **_FC_CANON_RUNTIME,
     ),
     "cap4_v3wx": AdapterConfig(
         preset="cap4_v3wx",
@@ -158,7 +234,11 @@ PRESETS: dict[str, AdapterConfig] = {
         tool_cap=16,
         shortlist_top_k=40,
         shortlist_pin_retrievers=True,
-        use_policy_system=False,
+        # cap4_test.sh: CodeAct, no timeouts set (runner/LiteLLM defaults), CUGA settings defaults
+        **_CAMPAIGN_SHARED,
+        llm_http_timeout=CAP4_LLM_TIMEOUT,
+        agent_timeout=CAP4_AGENT_TIMEOUT,
+        cuga_settings=CAMPAIGN_CODEACT_SETTINGS,
     ),
 }
 
@@ -229,6 +309,14 @@ def resolve_adapter_config(
             if value < 0:
                 raise ValueError(f"{key}={raw!r} must be >= 0")
             overrides[f.name] = value
+        elif f.type in ("Optional[float]", "float", float):
+            if f.type == "Optional[float]" and raw.strip().lower() in ("", "none", "null"):
+                overrides[f.name] = None
+                continue
+            try:
+                overrides[f.name] = float(raw)
+            except ValueError as exc:
+                raise ValueError(f"{key}={raw!r} is not a number") from exc
         else:
             overrides[f.name] = raw
     if capability is not None:
@@ -238,6 +326,15 @@ def resolve_adapter_config(
     cfg = replace(cfg, **overrides) if overrides else cfg
     if cfg.execution_mode not in EXECUTION_MODES:
         raise ValueError(f"{ENV_PREFIX}EXECUTION_MODE={cfg.execution_mode!r} is not one of {EXECUTION_MODES}")
+    if cfg.fc_step_discipline not in STEP_DISCIPLINES:
+        raise ValueError(
+            f"{ENV_PREFIX}FC_STEP_DISCIPLINE={cfg.fc_step_discipline!r} is not one of {STEP_DISCIPLINES}"
+        )
+    if cfg.shortlist_strategy not in SHORTLIST_STRATEGIES:
+        raise ValueError(
+            f"{ENV_PREFIX}SHORTLIST_STRATEGY={cfg.shortlist_strategy!r} is not one of {SHORTLIST_STRATEGIES}"
+        )
+    parse_cuga_settings(cfg.cuga_settings)  # fail fast on a malformed pin list
     return cfg
 
 
@@ -252,3 +349,62 @@ def execution_mode_configurable(cfg: AdapterConfig) -> dict:
     if cfg.execution_mode == "function_calling":
         return dict(FUNCTION_CALLING_CONFIGURABLE)
     return {}
+
+
+def runtime_configurable(cfg: AdapterConfig) -> dict:
+    """Per-invoke ``configurable`` entries for the campaign-runtime fields.
+
+    The two FC prompt knobs only exist on the function-calling path, so a CodeAct
+    run sends neither. Unset fields send nothing (CUGA's settings apply).
+    """
+    conf: dict = {}
+    if cfg.execution_mode == "function_calling":
+        if cfg.fc_step_discipline != "off":
+            conf["cuga_lite_step_discipline"] = cfg.fc_step_discipline
+        fragments = [f.strip() for f in cfg.fc_prompt_fragments.split(",") if f.strip()]
+        if fragments:
+            conf["cuga_lite_fc_prompt_fragments"] = fragments
+    if cfg.expose_all_tools:
+        conf["shortlisting_tool_threshold"] = 10**6
+    if cfg.max_steps:
+        conf["cuga_lite_max_steps"] = cfg.max_steps
+    return conf
+
+
+def _coerce_setting(raw: str):
+    low = raw.strip().lower()
+    if low in _TRUE:
+        return True
+    if low in _FALSE:
+        return False
+    try:
+        return int(raw)
+    except ValueError:
+        return raw.strip()
+
+
+def parse_cuga_settings(spec: str) -> list[tuple[str, object]]:
+    """``"a.b=false,c.d=150"`` -> ``[("a.b", False), ("c.d", 150)]`` (booleans and ints coerced)."""
+    pins: list[tuple[str, object]] = []
+    for item in (p.strip() for p in spec.split(",")):
+        if not item:
+            continue
+        key, sep, value = item.partition("=")
+        if not sep or not key.strip() or "." not in key:
+            raise ValueError(f"{ENV_PREFIX}CUGA_SETTINGS entry {item!r} is not 'section.key=value'")
+        pins.append((key.strip(), _coerce_setting(value)))
+    return pins
+
+
+def cuga_setting_pins(cfg: AdapterConfig) -> list[tuple[str, object]]:
+    """Every settings pin the config asks for: ``cuga_settings``, the LLM timeout, the temperature.
+
+    The temperature goes on every model block CUGA builds models from, so the run samples at the
+    campaign's temperature whatever models TOML is loaded (a block that does not exist is skipped).
+    """
+    pins = parse_cuga_settings(cfg.cuga_settings)
+    if cfg.llm_http_timeout:
+        pins.append(("connections.llm_http_timeout", cfg.llm_http_timeout))
+    if cfg.model_temperature is not None:
+        pins += [(f"agent.{role}.model.temperature", cfg.model_temperature) for role in MODEL_ROLES]
+    return pins

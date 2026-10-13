@@ -96,6 +96,22 @@ def merge_call_args(args: tuple, kwargs: Dict[str, Any], param_names: List[str])
     return merged
 
 
+def bare_tool_name(tool: Any) -> str:
+    """The tool's MCP name: the registry's ``<app>_<tool>`` minus the stamped ``_app_name`` prefix.
+
+    The registry provider stamps ``_app_name`` on the tool or its entry points (in the m3
+    eval the app is the domain). Tools without it — direct MCP tools, as cap1 binds them —
+    already carry their bare name and are returned unchanged.
+    """
+    name = getattr(tool, "name", "") or ""
+    for target in (tool, getattr(tool, "func", None), getattr(tool, "coroutine", None)):
+        app = getattr(target, "_app_name", None) if target is not None else None
+        if app:
+            prefix = f"{app}_"
+            return name[len(prefix) :] if name.startswith(prefix) and len(name) > len(prefix) else name
+    return name
+
+
 def _copy_metadata(tool: Any, *targets: Any) -> None:
     """Re-attach CUGA's function-level metadata (func first, then coroutine, then the tool)."""
     sources = [getattr(tool, "func", None), getattr(tool, "coroutine", None), tool]
@@ -111,10 +127,12 @@ def _copy_metadata(tool: Any, *targets: Any) -> None:
 class RecordingScopedToolProvider:
     """ToolProviderInterface wrapper: record calls, cap runaways, apply scope."""
 
-    def __init__(self, base_provider: Any, tool_cap: Optional[int] = None):
-        self._wrapped: Dict[str, Tuple[Any, StructuredTool]] = {}  # name -> (raw tool, wrapper)
+    def __init__(self, base_provider: Any, tool_cap: Optional[int] = None, bare_names: bool = False):
+        # name -> (raw tool, exposed name, wrapper)
+        self._wrapped: Dict[str, Tuple[Any, str, StructuredTool]] = {}
         self._base_provider = base_provider
         self.tool_cap = tool_cap
+        self.bare_names = bare_names  # expose registry tools under their MCP names (the campaign's)
         self.recorded_calls: List[dict] = []  # cleared by the agent wrapper per task
         self.scope: str = "all"  # set by the agent wrapper per invoke
 
@@ -154,19 +172,25 @@ class RecordingScopedToolProvider:
             tools = [t for t in tools if is_retriever(t.name)]
         elif self.scope == "no_retriever":
             tools = [t for t in tools if not is_retriever(t.name)]
-        return [self._wrap_cached(t) for t in tools]
+        exposed = [t.name for t in tools]
+        if self.bare_names:
+            bare = [bare_tool_name(t) for t in tools]
+            # two registry tools that share a bare name keep their registry names
+            exposed = [b if bare.count(b) == 1 else t.name for b, t in zip(bare, tools)]
+        return [self._wrap_cached(t, name) for t, name in zip(tools, exposed)]
 
-    def _wrap_cached(self, tool: StructuredTool) -> StructuredTool:
+    def _wrap_cached(self, tool: StructuredTool, exposed: Optional[str] = None) -> StructuredTool:
         """Stable wrapper identity per raw tool object; re-wrap only when the provider hands out a new one."""
+        exposed = exposed or tool.name
         entry = self._wrapped.get(tool.name)
-        if entry is not None and entry[0] is tool:
-            return entry[1]
-        wrapped = self._record(tool)
-        self._wrapped[tool.name] = (tool, wrapped)
+        if entry is not None and entry[0] is tool and entry[1] == exposed:
+            return entry[2]
+        wrapped = self._record(tool, exposed)
+        self._wrapped[tool.name] = (tool, exposed, wrapped)
         return wrapped
 
-    def _record(self, tool: StructuredTool) -> StructuredTool:
-        """Wrap a tool so each call is appended to ``recorded_calls``."""
+    def _record(self, tool: StructuredTool, exposed: Optional[str] = None) -> StructuredTool:
+        """Wrap a tool so each call is appended to ``recorded_calls`` (bound as ``exposed``)."""
         inner_coro = getattr(tool, "coroutine", None)
         inner_func = getattr(tool, "func", None)
         if inner_coro is None and inner_func is None:  # BaseTool subclass exposing only _run/_arun
@@ -177,7 +201,7 @@ class RecordingScopedToolProvider:
         param_names = param_names_of(tool)
         sink = self.recorded_calls
         cap = self.tool_cap
-        name = tool.name
+        name = exposed or tool.name
 
         async def recording_coro(*args, **kwargs):
             if cap is not None and len(sink) >= cap:
@@ -218,5 +242,9 @@ class RecordingScopedToolProvider:
         _copy_metadata(tool, recording_coro, recording_func)
 
         # model_copy keeps metadata/response_format/return_direct (and any
-        # attributes set on the tool object itself) intact.
-        return tool.model_copy(update={"coroutine": recording_coro, "func": recording_func})
+        # attributes set on the tool object itself) intact. The call itself goes
+        # straight to the raw tool's entry point, so renaming never re-routes it.
+        update: Dict[str, Any] = {"coroutine": recording_coro, "func": recording_func}
+        if name != tool.name:
+            update["name"] = name
+        return tool.model_copy(update=update)

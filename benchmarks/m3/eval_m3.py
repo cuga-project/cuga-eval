@@ -1656,7 +1656,10 @@ async def evaluate_single_task(
             )
             evaluator.agent = build_m3_agent(
                 tool_provider=filtered_provider,  # Only sees this domain's tools
-                special_instructions=_build_m3_special_instructions(),
+                # Presets that reproduce the campaign runtime bring their own instructions.
+                special_instructions=(
+                    _build_m3_special_instructions() if adapter_cfg.harness_instructions else None
+                ),
                 config=adapter_cfg,
                 # Demos come from an explicit train source (--demo-data), never from
                 # the samples under evaluation; warns when the two coincide.
@@ -1679,16 +1682,15 @@ async def evaluate_single_task(
             # Load CUGA policies for this per-domain agent (mirrors benchmarks/bpo
             # eval_bench_sdk.py). The source of truth is benchmarks/m3/policies/*.md;
             # eval.sh compiles them to policies.json before invoking us.
-            # Adapter presets that supply policy handling via special_instructions
-            # (cap4_v3wx) skip the policy-DB load.
+            # Adapter presets run with CUGA's policy system off, as the campaign did
+            # (DYNACONF_POLICY__ENABLED=false): the policy DB is cleared and nothing loaded.
             if adapter_cfg.use_policy_system:
                 await _load_m3_policies(
                     evaluator.agent, policies_enabled=not getattr(args, "no_policies", False)
                 )
             else:
-                logger.info(
-                    "[m3-adapter] preset supplies policy via special_instructions; skipping policy DB load"
-                )
+                logger.info("[m3-adapter] preset runs without CUGA policies; clearing the policy DB")
+                await _load_m3_policies(evaluator.agent, policies_enabled=False)
 
             # DEBUG: Verify agent can see tools (check filtered provider)
             try:

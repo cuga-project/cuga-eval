@@ -26,6 +26,15 @@ ANSWER_CONTRACT = (
     "exactly IMPOSSIBLE."
 )
 
+# The last FINAL-ANSWER line of the campaign's FC system preamble (cuga-agent-main
+# graph_adapter._FC_SYSTEM_PREAMBLE), verbatim. cuga-agent#777's fc_prompt.jinja2 carries every
+# other preamble line (two behind the step-discipline / evidence_first knobs) but not this one.
+FC_ANSWER_FORMAT_LINE = (
+    "- Match the answer format shown in the examples (e.g. [[value]] for a single value, "
+    "[[a], [b]] for several). Output only that answer — no explanation, no restating the "
+    "question, and never repeat the value."
+)
+
 # VAKRA_CUGA_CAP1_PROTOCOL — canonical-chain guidance for handle-based data tools.
 CAP1_PROTOCOL = (
     "CHAIN PROTOCOL (mandatory): Solve by a SHORT canonical chain of data tools: "
@@ -118,8 +127,12 @@ def compose_instruction_block(cfg: AdapterConfig, ctx: TaskContext) -> str:
     DISCIPLINE -> CONTRACT -> CAP1 handle+protocol -> CAP2 verbatim rule.
     (``VERBATIM_RULE`` is appended by the agent wrapper only after a policy
     scope resolves to retriever_only — it is deliberately not composed here.)
+    In function-calling mode the campaign's answer-format line comes first, so it
+    lands right under the FC prompt's FINAL ANSWER section as in the campaign.
     """
     parts: list[str] = []
+    if cfg.fc_answer_format and cfg.execution_mode == "function_calling":
+        parts.append(FC_ANSWER_FORMAT_LINE)
     if ctx.additional_instructions:
         parts.append(ctx.additional_instructions)
     if cfg.discipline:

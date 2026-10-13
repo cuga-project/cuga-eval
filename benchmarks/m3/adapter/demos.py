@@ -18,7 +18,7 @@ from __future__ import annotations
 
 import json
 from pathlib import Path
-from typing import Any, Callable, List, Optional, Union
+from typing import Any, Callable, Iterable, List, Optional, Union
 
 from loguru import logger
 
@@ -47,7 +47,26 @@ def _iter_calls(gold_turn: Any):
                     yield sub
 
 
-def _format_call(call: dict) -> str:
+def bound_tool_namer(tool_names: Iterable[str]) -> Callable[[str], str]:
+    """Map a corpus tool name to the name the agent is bound with.
+
+    Demo chains carry the environment's raw tool names; a registry-backed provider
+    exposes the same tools as ``<domain>_<tool>``. A raw name maps to the bound name
+    equal to it or ending in ``_<raw>`` (the shortest such name — the plain domain
+    prefix — when several match); a name with no match is left as is.
+    """
+    names = sorted(set(tool_names), key=len)
+
+    def namer(raw: str) -> str:
+        for name in names:
+            if name == raw or name.endswith("_" + raw):
+                return name
+        return raw
+
+    return namer
+
+
+def _format_call(call: dict, namer: Optional[Callable[[str], str]] = None) -> str:
     raw = call.get("arguments") or {}
     if isinstance(raw, str):  # some corpora serialize the arguments as a JSON string
         try:
@@ -57,7 +76,10 @@ def _format_call(call: dict) -> str:
     args = dict(raw) if isinstance(raw, dict) else {"_raw": raw}  # odd shapes stay visible, never raise
     args.pop("database_path", None)  # authoring-machine path, irrelevant noise
     compact = {k: (str(v)[:60] + "…" if len(str(v)) > 60 else v) for k, v in args.items()}
-    return f"{call.get('name')}({json.dumps(compact, ensure_ascii=False, default=str)})"
+    name = call.get("name")
+    if namer is not None and isinstance(name, str):
+        name = namer(name)
+    return f"{name}({json.dumps(compact, ensure_ascii=False, default=str)})"
 
 
 class DemoIndex:
@@ -107,8 +129,13 @@ def build_demo_index(samples: Optional[List[dict]]) -> Optional[DemoIndex]:
     return DemoIndex(entries)
 
 
-def select_prose_pairs(index: Optional[DemoIndex], query: str, k: int) -> List[dict]:
-    """Top-k similar solved examples as ``mcp_few_shot_examples`` chat pairs."""
+def select_prose_pairs(
+    index: Optional[DemoIndex], query: str, k: int, namer: Optional[Callable[[str], str]] = None
+) -> List[dict]:
+    """Top-k similar solved examples as ``mcp_few_shot_examples`` chat pairs.
+
+    ``namer`` (see :func:`bound_tool_namer`) renames chain tools to the bound names.
+    """
     if index is None or k <= 0 or not index.entries:
         return []
     try:
@@ -131,7 +158,7 @@ def select_prose_pairs(index: Optional[DemoIndex], query: str, k: int) -> List[d
         e = index.entries[int(i)]
         if e["query"].strip() == query.strip():
             continue  # self-leak guard: never use a task as its own demo
-        chain = " -> ".join(_format_call(c) for c in e["calls"][:6])
+        chain = " -> ".join(_format_call(c, namer) for c in e["calls"][:6])
         pairs.append({"role": "user", "content": e["query"]})
         pairs.append(
             {

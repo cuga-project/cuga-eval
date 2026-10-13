@@ -1,14 +1,22 @@
 """Adapter config: presets match the validated flag sets; env precedence; parsing."""
 
+from dataclasses import replace
+
 import pytest
 
 from benchmarks.m3.adapter.config import (
+    CAMPAIGN_CODEACT_SETTINGS,
+    CAMPAIGN_CUGA_SETTINGS,
     ENV_PREFIX,
     MINILM_MODEL,
+    MODEL_ROLES,
     PRESETS,
     AdapterConfig,
+    cuga_setting_pins,
     execution_mode_configurable,
+    parse_cuga_settings,
     resolve_adapter_config,
+    runtime_configurable,
 )
 
 pytestmark = pytest.mark.sanity
@@ -44,21 +52,149 @@ def test_off_preset_is_fully_disabled():
     assert cfg.tool_cap is None and cfg.shortlist_top_k is None
 
 
-def test_caps123_presets_match_fc_canon_flag_set():
-    """Provenance: vakra-main cuga_runs/fc_canon_test.sh (minus function-calling)."""
-    for name, cap in (("cap1", 1), ("cap2", 2), ("cap3", 3)):
-        cfg = PRESETS[name]
-        assert cfg.enabled and cfg.capability == cap
-        assert cfg.gates and cfg.answer_contract and cfg.normalize and cfg.bluff_map
-        assert cfg.canonicalize and cfg.demos and cfg.demos_k == 2
-        assert cfg.shortlist_top_k == 128
-        assert cfg.use_policy_system is True
-        # cap4-only behaviors stay off
-        assert not (cfg.discipline or cfg.scope or cfg.evidence_gate or cfg.support_check)
-        assert not (cfg.self_verify or cfg.refusal_norm) and cfg.tool_cap is None
-    assert PRESETS["cap1"].cap1_protocol and PRESETS["cap1"].relist_after_switch
-    assert not PRESETS["cap2"].cap1_protocol and PRESETS["cap2"].cap2_verbatim
-    assert not PRESETS["cap3"].cap1_protocol and not PRESETS["cap3"].cap2_verbatim
+#: Every campaign setting the presets reproduce, per preset, with where the campaign set it.
+#: Sources (vakra-main/cuga_runs): cap_estimate.sh (est2/est3 train scorecards), fc_canon_test.sh
+#: (caps 2-3 test), fc_canon_proto_test.sh (the official cap1 run), cap4_test.sh (V3WX); defaults
+#: from agents/cuga_clean_agent.py, benchmark_runner.py and the campaign's CUGA settings.toml.
+_FC_CANON = {
+    "gates": True,  # VAKRA_CUGA_GATES=1 (+GATES_CAPS=<cap>)
+    "max_gate_rounds": 2,
+    "answer_contract": True,  # VAKRA_CUGA_CONTRACT=1
+    "normalize": True,  # VAKRA_CUGA_NORMALIZE=1
+    "bluff_map": True,  # VAKRA_CUGA_BLUFF_MAP=1
+    "canonicalize": True,  # DYNACONF_ADVANCED_FEATURES__FINAL_ANSWER_CANONICALIZE=true
+    "demos": True,  # VAKRA_CUGA_DEMOS=1 VAKRA_CUGA_DEMOS_MODE=prose
+    "demos_k": 2,  # VAKRA_DEMOS_K=2
+    "shortlist_top_k": 128,  # --top-k-tools 128
+    "shortlist_strategy": "campaign",  # agents/components/tool_shortlister.py
+    "execution_mode": "function_calling",  # VAKRA_CUGA_FC=1
+    "fc_step_discipline": "one_tool_per_step",  # campaign FC preamble
+    "fc_prompt_fragments": "evidence_first",  # campaign FC preamble
+    "fc_answer_format": True,  # campaign FC preamble (answer-format line)
+    "harness_instructions": False,  # the campaign had no eval_m3.py riders
+    "expose_all_tools": True,  # shortlisting_tool_threshold = shortlisted + 1
+    "max_steps": 70,  # CUGA default; VAKRA_CUGA_MAX_STEPS=40 was never read
+    "llm_http_timeout": 150,  # LITELLM_REQUEST_TIMEOUT_SECONDS=150
+    "agent_timeout": 220,  # AGENT_TIMEOUT_SECONDS=220
+    "tool_cap": 100,  # RUNAWAY_TOOL_CAP default (VAKRA_CUGA_TOOL_CAP unset)
+    "model_temperature": 1.0,  # --temperature 1.0
+    "bare_tool_names": True,  # MCPToolWrapper names, no <app>_ prefix
+    "demo_bound_names": True,
+    "use_policy_system": False,  # DYNACONF_POLICY__ENABLED=false
+    "cuga_settings": CAMPAIGN_CUGA_SETTINGS,  # autonomy / reflection / NL auto-continue off
+    # cap4-only behaviors stay off
+    "discipline": False,
+    "scope": False,
+    "evidence_gate": False,
+    "support_check": False,
+    "self_verify": False,
+    "refusal_norm": False,
+}
+CAMPAIGN_PRESETS = {
+    "cap1": dict(_FC_CANON, capability=1, cap1_protocol=True, relist_after_switch=True, cap2_verbatim=False),
+    # VAKRA_CUGA_CAP2_VERBATIM: never set by cap_estimate.sh (est2), unset by fc_canon_test.sh
+    "cap2": dict(
+        _FC_CANON, capability=2, cap1_protocol=False, relist_after_switch=False, cap2_verbatim=False
+    ),
+    "cap3": dict(
+        _FC_CANON, capability=3, cap1_protocol=False, relist_after_switch=False, cap2_verbatim=False
+    ),
+    "cap4_v3wx": {
+        "capability": 4,
+        "discipline": True,  # VAKRA_V2_DISCIPLINE=1
+        "scope": True,  # VAKRA_V2_SCOPE=1
+        "verbatim_on_retriever_scope": True,  # VAKRA_V2_VERBATIM=1
+        "evidence_gate": True,  # VAKRA_V2_EVIDENCE_GATE=1
+        "support_check": True,  # VAKRA_V2_SUPPORT_CHECK=1
+        "self_verify": True,  # VAKRA_V2_SELF_VERIFY=1
+        "refusal_norm": True,  # VAKRA_CUGA_REFUSAL_NORM=1
+        "tool_cap": 16,  # VAKRA_CUGA_TOOL_CAP=16
+        "shortlist_top_k": 40,  # --top-k-tools 40
+        "shortlist_strategy": "campaign",
+        "execution_mode": "codeact",  # no VAKRA_CUGA_FC
+        "gates": False,
+        "demos": False,
+        "canonicalize": False,
+        "answer_contract": False,
+        "harness_instructions": False,
+        "expose_all_tools": True,
+        "max_steps": 70,
+        "llm_http_timeout": 600,  # unset -> LiteLLM default
+        "agent_timeout": 300,  # unset -> benchmark_runner.py default
+        "model_temperature": 1.0,
+        "bare_tool_names": True,
+        "use_policy_system": False,
+        "cuga_settings": CAMPAIGN_CODEACT_SETTINGS,  # + sandbox_execution_timeout=30 (CodeAct)
+    },
+}
+
+
+@pytest.mark.parametrize("name", sorted(CAMPAIGN_PRESETS))
+def test_preset_reproduces_every_campaign_setting(name):
+    cfg = PRESETS[name]
+    assert cfg.enabled and cfg.preset == name
+    mismatches = {k: (getattr(cfg, k), v) for k, v in CAMPAIGN_PRESETS[name].items() if getattr(cfg, k) != v}
+    assert not mismatches, f"{name}: (preset, campaign) differ for {mismatches}"
+
+
+def test_off_preset_reproduces_nothing():
+    off = PRESETS["off"]
+    assert off.harness_instructions and off.use_policy_system and not off.expose_all_tools
+    assert off.max_steps is off.agent_timeout is off.llm_http_timeout is off.model_temperature is None
+    assert off.cuga_settings == "" and off.shortlist_strategy == "sdk" and not off.bare_tool_names
+    assert off.tool_cap is None
+
+
+def test_runtime_configurable_maps_fields_to_cuga_keys():
+    assert runtime_configurable(PRESETS["cap3"]) == {
+        "cuga_lite_step_discipline": "one_tool_per_step",
+        "cuga_lite_fc_prompt_fragments": ["evidence_first"],
+        "shortlisting_tool_threshold": 10**6,
+        "cuga_lite_max_steps": 70,
+    }
+    # the FC prompt knobs exist only on the function-calling path
+    codeact = replace(PRESETS["cap3"], execution_mode="codeact")
+    assert runtime_configurable(codeact) == {"shortlisting_tool_threshold": 10**6, "cuga_lite_max_steps": 70}
+    assert runtime_configurable(PRESETS["cap4_v3wx"]) == {
+        "shortlisting_tool_threshold": 10**6,
+        "cuga_lite_max_steps": 70,
+    }
+    assert runtime_configurable(PRESETS["off"]) == {}
+
+
+def test_cuga_settings_parse_coerce_and_fail_fast():
+    assert parse_cuga_settings("a.b=false, c.d=150 ,e.f=x") == [("a.b", False), ("c.d", 150), ("e.f", "x")]
+    assert parse_cuga_settings("") == []
+    for bad in ("nodot=1", "a.b", "=1"):
+        with pytest.raises(ValueError):
+            parse_cuga_settings(bad)
+    pins = dict(cuga_setting_pins(PRESETS["cap3"]))
+    assert pins["advanced_features.force_autonomous_mode"] is False
+    assert pins["connections.llm_http_timeout"] == 150
+    assert {pins[f"agent.{r}.model.temperature"] for r in MODEL_ROLES} == {1.0}
+    cap4 = dict(cuga_setting_pins(PRESETS["cap4_v3wx"]))
+    assert (
+        cap4["advanced_features.sandbox_execution_timeout"] == 30
+        and cap4["connections.llm_http_timeout"] == 600
+    )
+    assert cuga_setting_pins(PRESETS["off"]) == []
+    with pytest.raises(ValueError):
+        resolve_adapter_config("cap3", env={"M3_ADAPTER_CUGA_SETTINGS": "broken"})
+    with pytest.raises(ValueError):
+        resolve_adapter_config("cap3", env={"M3_ADAPTER_FC_STEP_DISCIPLINE": "two_per_step"})
+    with pytest.raises(ValueError):
+        resolve_adapter_config("cap3", env={"M3_ADAPTER_SHORTLIST_STRATEGY": "bm25"})
+
+
+def test_float_overrides_parse_and_reset():
+    assert (
+        resolve_adapter_config("cap3", env={"M3_ADAPTER_MODEL_TEMPERATURE": "0.5"}).model_temperature == 0.5
+    )
+    assert (
+        resolve_adapter_config("cap3", env={"M3_ADAPTER_MODEL_TEMPERATURE": "none"}).model_temperature is None
+    )
+    with pytest.raises(ValueError):
+        resolve_adapter_config("cap3", env={"M3_ADAPTER_MODEL_TEMPERATURE": "warm"})
 
 
 def test_cap4_v3wx_preset_matches_v3wx_flag_set():

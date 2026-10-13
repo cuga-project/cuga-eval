@@ -24,6 +24,7 @@ __all__ = [
     "TaskContext",
     "resolve_adapter_config",
     "load_demo_corpus",
+    "apply_cuga_settings",
     "build_m3_agent",
     "wrap_existing_agent",
 ]
@@ -32,7 +33,7 @@ __all__ = [
 def __getattr__(name: str):
     # Lazy re-exports: keep `from benchmarks.m3.adapter import resolve_adapter_config`
     # cuga-free while still offering the factories from the package root.
-    if name in ("build_m3_agent", "wrap_existing_agent"):
+    if name in ("apply_cuga_settings", "build_m3_agent", "wrap_existing_agent"):
         from benchmarks.m3.adapter import agent as _agent
 
         return getattr(_agent, name)

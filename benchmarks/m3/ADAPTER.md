@@ -43,8 +43,8 @@ Presets with few-shot demos (cap1-3) read their corpus from `--demo-data` /
 ## Presets
 
 Each field maps 1:1 to a flag from the validated VAKRA submission runs
-(provenance: vakra-main `cuga_runs/fc_canon_test.sh` for capabilities 1-3,
-the cap4 "V3WX" run config for capability 4).
+(provenance: vakra-main `cuga_runs/cap_estimate.sh` / `fc_canon_test.sh` for
+capabilities 1-3, the cap4 "V3WX" run config for capability 4).
 
 | field | cap1 | cap2 | cap3 | cap4_v3wx | originating flag |
 |---|---|---|---|---|---|
@@ -56,7 +56,7 @@ the cap4 "V3WX" run config for capability 4).
 | `demos` (prose, `demos_k=2`) | ✅ | ✅ | ✅ | — | `VAKRA_CUGA_DEMOS(_MODE=prose)` |
 | `cap1_protocol` (handle/`data_label`) | ✅ | — | — | — | `VAKRA_CUGA_CAP1_PROTOCOL` |
 | `relist_after_switch` | ✅ | — | — | — | `VAKRA_RELIST_AFTER_SWITCH` |
-| `cap2_verbatim` (rule + extraction) | — | ✅ | — | — | `VAKRA_CUGA_CAP2_VERBATIM` |
+| `cap2_verbatim` (rule + extraction) | — | — | — | — | `VAKRA_CUGA_CAP2_VERBATIM` (not in fc_canon) |
 | `discipline` | — | — | — | ✅ | `VAKRA_V2_DISCIPLINE` |
 | `scope` (policy tool scoping) | — | — | — | ✅ | `VAKRA_V2_SCOPE` |
 | `verbatim_on_retriever_scope` | — | — | — | ✅ | `VAKRA_V2_VERBATIM` |
@@ -66,14 +66,55 @@ the cap4 "V3WX" run config for capability 4).
 | `refusal_norm` | — | — | — | ✅ | `VAKRA_CUGA_REFUSAL_NORM` |
 | `tool_cap` | — | — | — | 16 | `VAKRA_CUGA_TOOL_CAP` |
 | `shortlist_top_k` | 128 | 128 | 128 | 40 | `--top-k-tools` |
-| `shortlist_pin_retrievers` | — | — | — | ✅ | (vakra shortlister pinned `query_*`) |
+| `shortlist_pin_retrievers` | — | — | — | ✅ | `sdk` strategy only (the `campaign` strategy always pins `query_*`) |
 | `execution_mode` | function_calling | function_calling | function_calling | codeact | `VAKRA_CUGA_FC` |
-| `use_policy_system` | ✅ | ✅ | ✅ | ❌ | cap4 supplies policy via instructions |
+| `use_policy_system` | ❌ | ❌ | ❌ | ❌ | campaign: `DYNACONF_POLICY__ENABLED=false` (policy DB cleared) |
+
+### Campaign runtime
+
+The `VAKRA_*` flags were not the whole configuration: the campaign ran CUGA main
+@cc8f9197 plus private function-calling code, and its runner fixed several runtime
+values. These fields reproduce that runtime on CUGA main, as configuration only.
+`tests/test_adapter_config.py::CAMPAIGN_PRESETS` asserts every value below.
+
+| field | caps 1-3 | cap4_v3wx | campaign source |
+|---|---|---|---|
+| `fc_step_discipline` | `one_tool_per_step` | — | FC preamble "exactly ONE tool call at a time" → configurable `cuga_lite_step_discipline` |
+| `fc_prompt_fragments` | `evidence_first` | — | FC preamble "MUST call at least one tool… never guess" → configurable `cuga_lite_fc_prompt_fragments` |
+| `fc_answer_format` | ✅ | — | FC preamble answer-format line, which cuga-agent#777 does not ship (adapter text, FC mode only) |
+| `harness_instructions` | ❌ | ❌ | the campaign never had eval_m3.py's CodeAct / "Never refuse" / "Evidence: … Answer: …" riders |
+| `expose_all_tools` | ✅ | ✅ | `shortlisting_tool_threshold = shortlisted + 1` per invoke (no find_tools step) |
+| `max_steps` | 70 | 70 | CUGA's default (`VAKRA_CUGA_MAX_STEPS=40` was never read by cuga_v2); m3.env sets 35 |
+| `llm_http_timeout` | 150 | 600 | `LITELLM_REQUEST_TIMEOUT_SECONDS=150`; cap4 set none (LiteLLM's 600) |
+| `agent_timeout` | 220 | 300 | `AGENT_TIMEOUT_SECONDS=220`; cap4 set none (benchmark_runner's 300) |
+| `tool_cap` | 100 | 16 | `RUNAWAY_TOOL_CAP` default; cap4 `VAKRA_CUGA_TOOL_CAP=16` |
+| `model_temperature` | 1.0 | 1.0 | `--temperature 1.0`; pinned on every CUGA model block, whatever models TOML is loaded |
+| `bare_tool_names` | ✅ | ✅ | tools bound under their MCP names (the registry's `<domain>_` prefix removed) |
+| `shortlist_strategy` | `campaign` | `campaign` | `agents/components/tool_shortlister.py`: `"name: description"`, plain MiniLM cosine, `query_*` pinned |
+| `use_policy_system` | ❌ | ❌ | `DYNACONF_POLICY__ENABLED=false`: the eval clears the policy DB and loads nothing |
+| `demo_bound_names` | ✅ | — | demo chains name tools as bound (a no-op with bare names) |
+| `cuga_settings` | autonomy, reflection, NL auto-continue off | same + `sandbox_execution_timeout=30` | CUGA settings.toml defaults the campaign ran with; m3.env changes them |
+
+`cuga_settings` is a comma-separated `section.key=value` list pinned in-process
+before the agent is built (booleans and integers coerced). The parity kit's
+`variants/pre_parity.env` turns every field above back off (the adapter as it ran
+on 2026-10-12); `variants/stage1.env` keeps the first round (FC preamble through
+`cuga_settings`) and reverts the second (bare names, campaign shortlister, tool
+cap, temperature pin, policy clearing).
+
+Known remaining differences: the campaign's LLM client retried 5 times (CUGA's
+OpenAI client: 2, no setting) and sent no `max_tokens` (CUGA: 16000 from the
+models TOML). It rebuilt CUGA per question with the shortlisted subset, where the
+SDK shortlister reduces the tools at bind time (same ranking, different
+mechanism). Tool descriptions come from the registry rather than the MCP wrapper.
+`cuga_mode` (`accurate` in m3.env, `balanced` in the campaign) selects mode keys
+the lite/FC path never reads.
 
 Override any field with `M3_ADAPTER_<FIELD>` (upper-cased field name), e.g.
 `M3_ADAPTER_SELF_VERIFY=off`, `M3_ADAPTER_TOOL_CAP=32`,
 `M3_ADAPTER_DEMOS_K=3`. Booleans accept `1/on/true/yes` and `0/off/false/no`.
-Optional integer knobs (`tool_cap`, `shortlist_top_k`, `capability`) accept
+Optional integer knobs (`tool_cap`, `shortlist_top_k`, `capability`, `max_steps`,
+`llm_http_timeout`, `agent_timeout`) and `model_temperature` accept
 `none`/`null`/empty to reset — `M3_ADAPTER_TOOL_CAP=none` removes the cap,
 whereas `0` blocks every tool call; negative integers are rejected.
 
@@ -160,9 +201,9 @@ unless `--demo-data` points at one. Any load failure degrades to "no demos".
   agent before the turns run — verbatim passthrough into
   `special_instructions`, plus deterministic tool scoping (`scope`): absolute
   retriever-only/no-retriever rules prune the toolset directly; conditional
-  rules topic-classify the query first (one cheap LLM call). The
-  `cap4_v3wx` preset also skips the policy-DB load (`use_policy_system=False`)
-  — policy handling comes from the instructions/scoping instead.
+  rules topic-classify the query first (one cheap LLM call). Like every
+  preset, `cap4_v3wx` runs with CUGA's policy DB cleared (`use_policy_system=False`);
+  policy handling comes from the instructions/scoping instead.
 
 ## Not ported (and why)
 

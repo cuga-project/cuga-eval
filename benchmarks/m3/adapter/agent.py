@@ -13,8 +13,9 @@ agent, so no helper code changes.
 
 from __future__ import annotations
 
+import asyncio
 import inspect
-from typing import Any, List, Optional
+from typing import Any, Callable, List, Optional
 
 from langchain_core.messages import HumanMessage
 from loguru import logger
@@ -25,9 +26,11 @@ from benchmarks.m3.adapter.config import (
     CAMPAIGN_BIND_CAP,
     AdapterConfig,
     TaskContext,
+    cuga_setting_pins,
     execution_mode_configurable,
+    runtime_configurable,
 )
-from benchmarks.m3.adapter.demos import DemoIndex, build_demo_index, select_prose_pairs
+from benchmarks.m3.adapter.demos import DemoIndex, bound_tool_namer, build_demo_index, select_prose_pairs
 from benchmarks.m3.adapter.final_answer import make_final_answer_fn
 from benchmarks.m3.adapter.guards import run_answer_pipeline
 from benchmarks.m3.adapter.instructions import VERBATIM_RULE, compose_instruction_block
@@ -82,6 +85,8 @@ class VakraAdapterAgent:
         self._final_answer_installed = final_answer_installed
         self._ctx = TaskContext()
         self._llm_model = None
+        self._namer: Optional[Callable[[str], str]] = None
+        self._namer_source: Any = None  # the base provider the namer was built from
 
     def __getattr__(self, name: str) -> Any:  # .policies, .tool_provider, .initialize, ...
         return getattr(self._inner, name)
@@ -129,7 +134,37 @@ class VakraAdapterAgent:
         response = await self._llm_model.ainvoke([HumanMessage(content=prompt)])
         return _text_of(getattr(response, "content", response))
 
+    async def _demo_namer(self) -> Optional[Callable[[str], str]]:
+        """Corpus tool name -> bound name, rebuilt when the base provider changes (cap1 re-list)."""
+        base = self._provider.base_provider
+        if self._namer is None or self._namer_source is not base:
+            try:
+                tools = await base.get_all_tools()  # names only: no recording wrappers needed
+            except Exception as exc:  # noqa: BLE001  (demos are best-effort; keep the raw names)
+                logger.warning("[m3-adapter demos] could not list tools for demo names ({})", exc)
+                return None
+            self._namer = bound_tool_namer(t.name for t in tools)
+            self._namer_source = base
+        return self._namer
+
     async def invoke(
+        self, message: Any = None, thread_id: Optional[str] = None, config: Optional[dict] = None, **kwargs
+    ) -> Any:
+        """One task turn; ``agent_timeout`` caps its wall clock like the campaign's runner did.
+
+        A timed-out turn raises ``TimeoutError``: the eval records the task as failed with an
+        empty response — what the campaign's benchmark_runner wrote for a timed-out item.
+        """
+        timeout = self._cfg.agent_timeout
+        if not timeout:
+            return await self._invoke(message, thread_id, config, **kwargs)
+        try:
+            return await asyncio.wait_for(self._invoke(message, thread_id, config, **kwargs), timeout=timeout)
+        except asyncio.TimeoutError as exc:
+            logger.warning("[m3-adapter] task exceeded agent_timeout={}s; cancelled", timeout)
+            raise TimeoutError(f"agent_timeout {timeout}s exceeded") from exc
+
+    async def _invoke(
         self, message: Any = None, thread_id: Optional[str] = None, config: Optional[dict] = None, **kwargs
     ) -> Any:
         cfg = self._cfg
@@ -158,7 +193,9 @@ class VakraAdapterAgent:
             conf["special_instructions"] = _join(conf.get("special_instructions", ""), block)
 
         if cfg.demos and self._demo_index is not None:
-            pairs = select_prose_pairs(self._demo_index, query, cfg.demos_k)
+            # bare tool names already match the corpus names; the namer maps them to registry names
+            namer = await self._demo_namer() if cfg.demo_bound_names and not cfg.bare_tool_names else None
+            pairs = select_prose_pairs(self._demo_index, query, cfg.demos_k, namer)
             if pairs:
                 conf["mcp_few_shot_examples"] = pairs
                 conf.setdefault("cuga_lite_enable_few_shots", True)
@@ -166,6 +203,8 @@ class VakraAdapterAgent:
         # Execution mode (VAKRA_CUGA_FC): native function calling binds the
         # scoped / shortlisted toolset as tools instead of CodeAct code blocks.
         conf.update(execution_mode_configurable(cfg))
+        # Campaign runtime: FC prompt knobs, no find_tools wall, step budget.
+        conf.update(runtime_configurable(cfg))
 
         run_config["configurable"] = conf
 
@@ -227,6 +266,30 @@ def _warn_if_bind_cap_unsafe(cfg: AdapterConfig) -> None:
         )
 
 
+def apply_cuga_settings(cfg: AdapterConfig) -> None:
+    """Pin the config's CUGA settings in-process (``cuga_settings`` + ``llm_http_timeout``).
+
+    Process-wide by design: one eval process runs one adapter config. Must run before
+    the agent builds its model (the LLM timeout is read when the client is created).
+    """
+    pins = cuga_setting_pins(cfg)
+    if not pins:
+        return
+    from cuga.config import settings  # noqa: PLC0415
+
+    setter, getter = getattr(settings, "set", None), getattr(settings, "get", None)
+    if not callable(setter):
+        logger.warning("[m3-adapter] cuga settings cannot be pinned here; not applied: {}", pins)
+        return
+    for key, value in pins:
+        parent = key.rsplit(".", 1)[0]
+        if key.startswith("agent.") and callable(getter) and getter(parent) is None:
+            continue  # a model block this CUGA does not define: nothing to sample with
+        before = getter(key) if callable(getter) else None
+        setter(key, value)
+        logger.info("[m3-adapter] pinned cuga setting {}={!r} (was {!r})", key, value, before)
+
+
 def build_m3_agent(
     *,
     tool_provider: Any,
@@ -254,7 +317,10 @@ def build_m3_agent(
         )
 
     _warn_if_bind_cap_unsafe(config)
-    provider = RecordingScopedToolProvider(tool_provider, tool_cap=config.tool_cap)
+    apply_cuga_settings(config)
+    provider = RecordingScopedToolProvider(
+        tool_provider, tool_cap=config.tool_cap, bare_names=config.bare_tool_names
+    )
     shortlister = build_shortlister(config)
     if shortlister is not None:
         base_kwargs["shortlister"] = shortlister
@@ -310,6 +376,7 @@ def wrap_existing_agent(agent: Any, config: AdapterConfig, demo_corpus: Optional
     if not config.enabled:
         return agent
     _warn_if_bind_cap_unsafe(config)
+    apply_cuga_settings(config)  # prompt-time settings still apply; an already-built model keeps its timeout
     outer = getattr(agent, "tool_provider", None)
     toolguard_cls = _toolguard_provider_class()
     if outer is None:
@@ -317,15 +384,21 @@ def wrap_existing_agent(agent: Any, config: AdapterConfig, demo_corpus: Optional
             "[m3-adapter] wrapped agent exposes no tool_provider; evidence-based guards "
             "will see zero recorded calls"
         )
-        provider = RecordingScopedToolProvider(None, tool_cap=config.tool_cap)
+        provider = RecordingScopedToolProvider(
+            None, tool_cap=config.tool_cap, bare_names=config.bare_tool_names
+        )
     elif toolguard_cls is not None and isinstance(outer, toolguard_cls):
-        provider = RecordingScopedToolProvider(outer.base_provider, tool_cap=config.tool_cap)
+        provider = RecordingScopedToolProvider(
+            outer.base_provider, tool_cap=config.tool_cap, bare_names=config.bare_tool_names
+        )
         outer.base_provider = provider
         invalidate = getattr(outer, "invalidate_toolguard_runtime", None)
         if callable(invalidate):
             invalidate()  # guarded-tool cache is keyed by raw tool id; the raw tools just changed
     else:
-        provider = RecordingScopedToolProvider(outer, tool_cap=config.tool_cap)
+        provider = RecordingScopedToolProvider(
+            outer, tool_cap=config.tool_cap, bare_names=config.bare_tool_names
+        )
         agent.tool_provider = provider
     demo_index = build_demo_index(demo_corpus) if (config.demos and demo_corpus) else None
     logger.info(

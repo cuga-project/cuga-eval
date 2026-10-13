@@ -1,5 +1,7 @@
 """Instruction composition: per-preset blocks, order, cap1 handle info."""
 
+from dataclasses import replace
+
 import pytest
 
 from benchmarks.m3.adapter.config import PRESETS, AdapterConfig, TaskContext
@@ -7,6 +9,7 @@ from benchmarks.m3.adapter.instructions import (
     ANSWER_DISCIPLINE,
     CAP1_PROTOCOL,
     CAP2_VERBATIM_RULE,
+    FC_ANSWER_FORMAT_LINE,
     build_handle_info,
     compose_instruction_block,
 )
@@ -64,8 +67,31 @@ def test_cap1_protocol_without_handle_still_composes():
 
 
 def test_cap2_rule_only_for_capability_2():
-    assert CAP2_VERBATIM_RULE in compose_instruction_block(PRESETS["cap2"], TaskContext())
-    assert CAP2_VERBATIM_RULE not in compose_instruction_block(PRESETS["cap3"], TaskContext())
+    # Off in the cap2 preset (not part of fc_canon); the rule still composes when enabled.
+    assert CAP2_VERBATIM_RULE not in compose_instruction_block(PRESETS["cap2"], TaskContext())
+    cap2_verbatim = replace(PRESETS["cap2"], cap2_verbatim=True)
+    assert CAP2_VERBATIM_RULE in compose_instruction_block(cap2_verbatim, TaskContext())
+    cap3_verbatim = replace(PRESETS["cap3"], cap2_verbatim=True)
+    assert CAP2_VERBATIM_RULE not in compose_instruction_block(cap3_verbatim, TaskContext())
+
+
+def test_fc_answer_format_line_leads_the_block_in_function_calling_only():
+    block = compose_instruction_block(PRESETS["cap3"], TaskContext())
+    assert block.startswith(FC_ANSWER_FORMAT_LINE)
+    codeact = replace(PRESETS["cap3"], execution_mode="codeact")
+    assert FC_ANSWER_FORMAT_LINE not in compose_instruction_block(codeact, TaskContext())
+    assert FC_ANSWER_FORMAT_LINE not in compose_instruction_block(
+        replace(PRESETS["cap3"], fc_answer_format=False), TaskContext()
+    )
+
+
+def test_fc_answer_format_line_is_the_campaign_preamble_text():
+    # Verbatim from cuga-agent-main graph_adapter._FC_SYSTEM_PREAMBLE (the campaign's FC code).
+    assert FC_ANSWER_FORMAT_LINE == (
+        "- Match the answer format shown in the examples (e.g. [[value]] for a single value, "
+        "[[a], [b]] for several). Output only that answer — no explanation, no restating the "
+        "question, and never repeat the value."
+    )
 
 
 def test_handle_info_degrades_gracefully():

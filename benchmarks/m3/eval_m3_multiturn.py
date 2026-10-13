@@ -66,7 +66,12 @@ from benchmarks.helpers import (
 
 # VAKRA adapter: configured-CUGA wrapper (default preset "off" = no wrapping,
 # unchanged behavior; see benchmarks/m3/ADAPTER.md).
-from benchmarks.m3.adapter import AdapterConfig, resolve_adapter_config, wrap_existing_agent
+from benchmarks.m3.adapter import (
+    AdapterConfig,
+    apply_cuga_settings,
+    resolve_adapter_config,
+    wrap_existing_agent,
+)
 
 tracker = ActivityTracker()
 var_manager = VariablesManager()
@@ -89,6 +94,8 @@ class M3MultiTurnEvaluator:
     async def setup(self, policies: Optional[List] = None, adapter_cfg: Optional["AdapterConfig"] = None):
         """Set up the agent with tools and policies."""
         special_instructions = ""
+        if adapter_cfg is not None and adapter_cfg.enabled:
+            apply_cuga_settings(adapter_cfg)  # before the agent builds its model (timeout, temperature)
         self.agent, self.langfuse_handler = await setup_agent_with_tools(
             special_instructions=special_instructions
         )
