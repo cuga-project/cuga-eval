@@ -2,6 +2,8 @@
 # One parity arm on THIS stack (cuga main + cuga-eval adapter), domain by domain, resumable.
 # usage: run_cuga_eval_arm.sh <run_id> <subset> <preset: off|cap1|cap2|cap3> [extra eval.sh args...]
 # Requires: source benchmarks/m3/parity/env.sh (and a PASSing preflight).
+# PARITY_FC=1 adds native function calling (arm suffix _fc); PARITY_VARIANT=<name> applies
+# variants/<name>.env on top of the preset (arm suffix @<name>).
 # For every domain of the subset: eval.sh over the subset's eval-key restricted to that
 # domain, policies OFF (the campaign ran DYNACONF_POLICY__ENABLED=false), then a snapshot
 # into parity/runs/<run_id>/cuga_eval_<preset>/. A domain whose prediction file already
@@ -14,8 +16,15 @@ RUN_ID="${1:?run_id}"; SUBSET="${2:?subset}"; PRESET="${3:?preset}"; shift 3
 MAN="$PARITY_DIR/manifests/$SUBSET.json"; [ -f "$MAN" ] || { echo "no manifest $MAN" >&2; exit 2; }
 TASK_ID=$(python3 -c "import json;print(json.load(open('$MAN'))['task_id'])")
 DOMS=$(python3 -c "import json;print(' '.join(json.load(open('$MAN'))['ids_by_domain']))")
+CONTAINER=$(python3 -c "import json;print(json.load(open('$MAN'))['capability_dir'])")
 FC="${PARITY_FC:-0}"
+VARIANT="${PARITY_VARIANT:-}"
 ARM="cuga_eval_${PRESET}"; [ "$FC" = "1" ] && ARM="${ARM}_fc"
+if [ -n "$VARIANT" ]; then
+    VFILE="$PARITY_DIR/variants/$VARIANT.env"; [ -f "$VFILE" ] || { echo "no variant $VFILE" >&2; exit 2; }
+    set -a; source "$VFILE"; set +a   # M3_ADAPTER_* overrides of the preset
+    ARM="${ARM}@${VARIANT}"
+fi
 OUT="$PARITY_DIR/runs/$RUN_ID/$ARM"; mkdir -p "$OUT/prediction"
 ARM_START=$(date +%s); FINAL_RC=0
 
@@ -47,12 +56,34 @@ BASE_ARGS=(--m3-data "$M3DATA" --capability "m3_task_$TASK_ID" --eval-key "$SUBS
 [ "$PRESET" != "off" ] && BASE_ARGS+=(--adapter-preset "$PRESET")
 [ "$PRESET" != "off" ] && [ "$DEMODATA" != "-" ] && BASE_ARGS+=(--demo-data "$DEMODATA")
 echo "bash benchmarks/m3/eval.sh ${BASE_ARGS[*]} --domain <domain> $*" > "$OUT/command.txt"
+[ -n "$VARIANT" ] && grep -E '^M3_ADAPTER_' "$VFILE" | sed "s/^/variant $VARIANT: /" >> "$OUT/command.txt"
 echo "[$ARM] start $(date '+%F %T')  temperature=$PARITY_TEMPERATURE model=$PARITY_MODEL fc=$FC domains: $DOMS" | tee -a "$OUT/console.log"
+
+# Campaign hygiene (cap_estimate.sh did both before every 8-item batch): a fresh task container
+# and a live proxy. Transient proxy blips are waited out; a proxy still down after ~10 min stops
+# the arm (resumable) instead of failing every remaining task.
+restart_ctr() { docker restart "$1" >/dev/null 2>&1; for _ in $(seq 1 20); do docker logs --tail 3 "$1" 2>&1 | grep -q "ready for exec" && break; sleep 3; done; sleep 2; }
+proxy_up() {
+    local code try
+    for try in $(seq 1 10); do
+        code=$(curl -s -m 25 -o /dev/null -w "%{http_code}" "$PARITY_B1/v1/chat/completions" \
+            -H "Authorization: Bearer $API_KEY" -H "Content-Type: application/json" \
+            -d "{\"model\":\"$PARITY_MODEL\",\"messages\":[{\"role\":\"user\",\"content\":\"hi\"}],\"max_completion_tokens\":8,\"reasoning_effort\":\"low\"}")
+        case "$code" in 200|429) return 0;; esac
+        echo "[$ARM] proxy probe HTTP $code (try $try/10) — waiting 60s" | tee -a "$OUT/console.log"; sleep 60
+    done
+    return 1
+}
 
 for dom in $DOMS; do
     if [ -f "$OUT/prediction/$dom.json" ]; then
         echo "[$ARM] $dom already done (resume)" | tee -a "$OUT/console.log"; continue
     fi
+    if ! proxy_up; then
+        echo "[$ARM] proxy still down before $dom — stopping this arm; re-run the same run_id to resume" | tee -a "$OUT/console.log"
+        FINAL_RC=3; break
+    fi
+    restart_ctr "$CONTAINER"
     if lsof -nP -iTCP:"${REGISTRY_PORT:-8001}" -sTCP:LISTEN >/dev/null 2>&1; then
         echo "[$ARM] registry port ${REGISTRY_PORT:-8001} still busy before $dom — waiting 30s" | tee -a "$OUT/console.log"; sleep 30
     fi
@@ -79,6 +110,7 @@ python3 - "$OUT" <<PY
 import json, sys
 json.dump({
     "arm": "$ARM", "stack": "cuga-eval", "subset": "$SUBSET", "task_id": $TASK_ID, "adapter_preset": "$PRESET",
+    "variant": "$VARIANT",
     "execution_mode": "${M3_ADAPTER_EXECUTION_MODE:-n/a}", "fc": "$FC", "policies": "off", "temperature": "$PARITY_TEMPERATURE",
     "model": "$PARITY_MODEL", "models_toml": "$AGENT_SETTING_CONFIG",
     "cuga_eval": {"branch": "$AB", "commit": "$AC", "dirty_files": "$AD"},

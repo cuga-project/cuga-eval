@@ -82,6 +82,23 @@ def fc_pairs(arm_names: List[str]) -> List[Tuple[str, str]]:
     return [(n, n + "_fc") for n in arm_names if not n.endswith("_fc") and n + "_fc" in names]
 
 
+def variant_pairs(arm_names: List[str]) -> List[Tuple[str, str]]:
+    """(X@variant, X) pairs present in a run — a variant against the preset as shipped."""
+    names = set(arm_names)
+    return [(n, n.split("@", 1)[0]) for n in arm_names if "@" in n and n.split("@", 1)[0] in names]
+
+
+def _paired_delta(
+    a: Dict[str, float], b: Dict[str, float]
+) -> Tuple[Dict[str, Any], Optional[float], Optional[float]]:
+    """Agreement of a vs b plus both pass rates over their common tasks."""
+    ag = agreement(a, b)
+    common = ag["both_pass"] + ag["both_fail"] + ag["only_a"] + ag["only_b"]
+    _, _, ra = pass_rate({u: a[u] for u in common})
+    _, _, rb = pass_rate({u: b[u] for u in common})
+    return ag, ra, rb
+
+
 def _pct(rate: Optional[float]) -> str:
     return "  n/a" if rate is None else f"{100 * rate:5.1f}%"
 
@@ -97,8 +114,12 @@ def load_run(run_dir: Path, manifest: Dict[str, Any], uuid_map: Dict[str, Any]) 
         }
         vr = arm_dir / "vendor_results.json"
         if vr.exists():
-            raw = vendor_scores(load_json(vr))
+            results = load_json(vr)
+            raw = vendor_scores(results)
             arm["vendor"] = {vakra_to_zip.get(u, u): s for u, s in raw.items()}
+            blocks = (results.get("domains") or {}).values()
+            arm["unscored"] = [u for b in blocks for u in b.get("unscored_uuids") or []]
+            arm["missing"] = [u for b in blocks for u in b.get("missing_prediction_uuids") or []]
         ns = arm_dir / "native_scores.json"
         if ns.exists():
             arm["native"] = {u: (1.0 if v.get("success") else 0.0) for u, v in load_json(ns).items()}
@@ -133,6 +154,7 @@ def render_report(
         p, n, r = pass_rate(arm.get("vendor", {}))
         pn, nn, rn = pass_rate(arm.get("native", {}))
         recipe = (meta.get("adapter_preset") or meta.get("recipe") or "?") + (" +FC" if is_fc(meta) else "")
+        recipe += f" @{meta['variant']}" if meta.get("variant") else ""
         cuga = meta.get("cuga_agent") or meta.get("cuga_checkout") or {}
         if not cuga and meta.get("source"):
             cuga = {"branch": "recorded", "commit": meta["source"].split(" (")[0], "dirty_files": "0"}
@@ -145,6 +167,19 @@ def render_report(
         lines.append(
             f"| {name} | {meta.get('stack', '?')} | {recipe} | {n} | {_pct(r)} ({p}/{n}) | {native} | {commit} |"
         )
+
+    gaps = [(n, len(a.get("unscored") or []), len(a.get("missing") or [])) for n, a in arms.items()]
+    gaps = [g for g in gaps if g[1] or g[2]]
+    if gaps:
+        lines += [
+            "",
+            "Left out of the pass rates above (as the campaign's scorer left them out): "
+            + "; ".join(
+                f"{n}: {u} unscored (scoring failed after its retry), {m} without a prediction"
+                for n, u, m in gaps
+            )
+            + ".",
+        ]
 
     lines += ["", "## Per-domain vendor pass (passed/n)", ""]
     domains = sorted(manifest["ids_by_domain"])
@@ -206,6 +241,24 @@ def render_report(
                 f"{noise_note(ag['n_common'], delta)} |"
             )
 
+    pairs_variant = variant_pairs(list(arms))
+    if pairs_variant:
+        lines += ["", "## Variant effect (variant → preset as shipped, same tasks; vendor judge)", ""]
+        lines.append(
+            "| shipped arm | variant arm | variant | shipped | common | Δ(shipped−variant) | gained | lost | verdict |"
+        )
+        lines.append("|---|---|---|---|---|---|---|---|---|")
+        for var_name, base_name in pairs_variant:
+            ag, r_base, r_var = _paired_delta(
+                arms[base_name].get("vendor", {}), arms[var_name].get("vendor", {})
+            )
+            delta = None if r_base is None or r_var is None else 100 * (r_base - r_var)
+            lines.append(
+                f"| {base_name} | {var_name} | {_pct(r_var)} | {_pct(r_base)} | {ag['n_common']} | "
+                f"{'n/a' if delta is None else f'{delta:+.1f}pt'} | {len(ag['only_a'])} | {len(ag['only_b'])} | "
+                f"{noise_note(ag['n_common'], delta)} |"
+            )
+
     if ref.get("pass_by_uuid"):
         lines += [
             "",
@@ -219,20 +272,23 @@ def render_report(
             recipe = meta.get("adapter_preset") or meta.get("recipe")
             if recipe is None:
                 continue
-            ref_arm = "off" if recipe in ("off", "base") else "on"
-            if ref_arm not in ref["pass_by_uuid"]:
-                continue
-            ref_scores = {u: (1.0 if v else 0.0) for u, v in ref["pass_by_uuid"][ref_arm].items()}
-            ag = agreement(arm.get("vendor", {}), ref_scores)
-            _, _, r_now = pass_rate(
-                {u: arm["vendor"][u] for u in set(arm.get("vendor", {})) & set(ref_scores)}
+            # baseline arms compare with the recorded baseline; adapter arms with every recorded recipe
+            ref_arms = (
+                ["off"] if recipe in ("off", "base") else [k for k in ref["pass_by_uuid"] if k != "off"]
             )
-            _, _, r_ref = pass_rate({u: ref_scores[u] for u in set(arm.get("vendor", {})) & set(ref_scores)})
-            delta = None if r_now is None or r_ref is None else 100 * (r_now - r_ref)
-            lines.append(
-                f"| {name} | {ref_arm} | {ag['n_common']} | {ag['agree']} ({_pct(ag['agree_rate']).strip()}) | "
-                f"{'n/a' if delta is None else f'{delta:+.1f}pt'} | {noise_note(ag['n_common'], delta)} |"
-            )
+            for ref_arm in ref_arms:
+                if ref_arm not in ref["pass_by_uuid"]:
+                    continue
+                ref_scores = {u: (1.0 if v else 0.0) for u, v in ref["pass_by_uuid"][ref_arm].items()}
+                ag = agreement(arm.get("vendor", {}), ref_scores)
+                both = set(arm.get("vendor", {})) & set(ref_scores)
+                _, _, r_now = pass_rate({u: arm["vendor"][u] for u in both})
+                _, _, r_ref = pass_rate({u: ref_scores[u] for u in both})
+                delta = None if r_now is None or r_ref is None else 100 * (r_now - r_ref)
+                lines.append(
+                    f"| {name} | {ref_arm} | {ag['n_common']} | {ag['agree']} ({_pct(ag['agree_rate']).strip()}) | "
+                    f"{'n/a' if delta is None else f'{delta:+.1f}pt'} | {noise_note(ag['n_common'], delta)} |"
+                )
 
     unmatched = uuid_map.get("unmatched") or []
     if unmatched:

@@ -8,7 +8,9 @@
 #          [--fc-ab]   # arms = <preset>, <preset>_fc, fc_canon, fc_canon_fc: the FC on/off gate, both stacks, one report
 #          [--temperature 1.0] [--fc 0|1] [--run-id ID] [--skip-preflight] [--rescore-only] [--dry-run]
 # An arm name ending in _fc runs with native function calling regardless of --fc
-# (e.g. cuga_eval_cap3_fc, vakra_main_fc_canon_fc, cuga_eval_off_fc).
+# (e.g. cuga_eval_cap3_fc, vakra_main_fc_canon_fc, cuga_eval_off_fc). A cuga_eval arm may end in
+# @<variant> to apply variants/<variant>.env (adapter overrides), e.g. cuga_eval_cap3_fc@pre_parity.
+# Reference subsets (parity_est3_ref30, parity_est2_ref30) default to that A/B: before vs after.
 # Anchors (see README.md): smoke off=0 / cap2=1; cap2_30 off 30.0% / cap2 63.3%; cap3_20 off 20.0% / cap3 35.0%.
 set -uo pipefail
 PARITY_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"; ROOT="$(cd "$PARITY_DIR/../../.." && pwd)"
@@ -38,20 +40,23 @@ MAN_ARMS=$(python3 -c "import json;print(json.load(open('$MAN')).get('default_ar
 [ -n "$ARMS" ] || ARMS="${MAN_ARMS:-cuga_eval_off,cuga_eval_${PRESET},vakra_main_base,vakra_main_fc_canon}"
 TAG="fc${FC}"; [ "$FC_AB" = "1" ] && TAG="fcab"
 [ -n "$RUN_ID" ] || RUN_ID="$(date +%Y%m%d_%H%M%S)_${SUBSET}_t${TEMP}_${TAG}"
-# arm -> "script base fc": a trailing _fc forces function calling for that arm
+# arm -> "script base fc variant": a trailing _fc forces function calling for that arm; an
+# @<variant> suffix (cuga_eval arms only) applies the overrides in variants/<variant>.env.
 arm_plan() {
-    local a="$1" fc="$FC"
+    local a="$1" fc="$FC" v="-"
+    case "$a" in *@*) v="${a#*@}"; a="${a%%@*}";; esac
     case "$a" in *_fc) fc=1; a="${a%_fc}";; esac
     case "$a" in
-        cuga_eval_*) echo "run_cuga_eval_arm.sh ${a#cuga_eval_} $fc";;
-        vakra_main_*) echo "run_vakra_main_arm.sh ${a#vakra_main_} $fc";;
+        cuga_eval_*) echo "run_cuga_eval_arm.sh ${a#cuga_eval_} $fc $v";;
+        vakra_main_*) [ "$v" = "-" ] && echo "run_vakra_main_arm.sh ${a#vakra_main_} $fc -" || echo "unknown";;
         *) echo "unknown";;
     esac
 }
 ANY_FC="$FC"
 for a in ${ARMS//,/ }; do
-    read -r _s _b _f <<<"$(arm_plan "$a")"
+    read -r _s _b _f _v <<<"$(arm_plan "$a")"
     [ "$_s" = "unknown" ] && { echo "unknown arm $a" >&2; exit 2; }
+    [ "$_v" != "-" ] && [ ! -f "$PARITY_DIR/variants/$_v.env" ] && { echo "unknown variant $_v (see variants/)" >&2; exit 2; }
     [ "$_f" = "1" ] && ANY_FC=1
 done
 export PARITY_FC="$ANY_FC"   # preflight: require native FC when any arm uses it
@@ -61,8 +66,9 @@ if [ "$DRY" = "1" ]; then
     echo "source $PARITY_DIR/env.sh $TEMP"
     echo "bash $PARITY_DIR/preflight.sh"
     for a in ${ARMS//,/ }; do
-        read -r _s _b _f <<<"$(arm_plan "$a")"
-        echo "PARITY_FC=$_f bash $PARITY_DIR/$_s $RUN_ID $SUBSET $_b"
+        read -r _s _b _f _v <<<"$(arm_plan "$a")"
+        _vp=""; [ "$_v" != "-" ] && _vp=" PARITY_VARIANT=$_v"
+        echo "PARITY_FC=$_f$_vp bash $PARITY_DIR/$_s $RUN_ID $SUBSET $_b"
     done
     echo "bash $PARITY_DIR/rescore.sh $RUN_ID $SUBSET"
     echo "uv run --frozen python -m benchmarks.m3.parity.compare --run $PARITY_DIR/runs/$RUN_ID --subset $SUBSET"
@@ -86,8 +92,9 @@ if python3 -c "import json,sys;sys.exit(0 if json.load(open('$MAN')).get('campai
 fi
 if [ "$RESCORE_ONLY" != "1" ]; then
     for a in ${ARMS//,/ }; do
-        read -r _s _b _f <<<"$(arm_plan "$a")"
-        PARITY_FC="$_f" bash "$PARITY_DIR/$_s" "$RUN_ID" "$SUBSET" "$_b" || echo "arm $a exited non-zero (continuing)"
+        read -r _s _b _f _v <<<"$(arm_plan "$a")"
+        PARITY_FC="$_f" PARITY_VARIANT="${_v#-}" bash "$PARITY_DIR/$_s" "$RUN_ID" "$SUBSET" "$_b" \
+            || echo "arm $a exited non-zero (continuing)"
     done
 fi
 bash "$PARITY_DIR/rescore.sh" "$RUN_ID" "$SUBSET" || echo "rescore reported errors (see rescore.log files)"

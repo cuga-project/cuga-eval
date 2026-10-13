@@ -34,6 +34,8 @@ subsets are mapped by normalized first-turn query text
 | `parity_smoke_cap3` | 1 (beer_factory) | 1 | off 0 → cap3 1 (FC smoke) |
 | `parity_est3_cap3` | 120 (22 domains) | 120 (vakra-main uuids) | **the campaign's cap3 train scorecard**: 68/120 = 56.7% (fc_canon + FC, 2026-08-18) |
 | `parity_est3_smoke` | 2 | 2 | plumbing check for the est3 path |
+| `parity_est3_ref30` | 30 (18 domains) | 30 (vakra-main uuids) | **cap3 reference**: 30 est3 tasks, campaign recorded 17/30 = 56.7% (its CodeAct + stepwise run: 51.7%) |
+| `parity_est2_ref30` | 30 (30 domains) | 30 (vakra-main uuids) | **cap2 reference**: 30 est2 tasks, campaign recorded 19/30 = 63.3% (scorecard 62.6%) |
 
 Campaign train numbers for the same recipes: cap2 62.6, cap3 56.7 **with FC**
 (35 without); test: cap2 56.3, cap3 45.0.
@@ -79,6 +81,60 @@ container restart before each (as `cuga_runs/cap_estimate.sh` did).
 bash benchmarks/m3/parity/run_parity.sh --subset parity_est3_smoke    # ~10 min plumbing check
 bash benchmarks/m3/parity/run_parity.sh --subset parity_est3_cap3     # ~5-6 h, all three arms
 ```
+
+### Reference benchmarks (`parity_est3_ref30`, `parity_est2_ref30`)
+
+Small, fixed slices of the campaign's own scorecard samples, built by
+`make_reference.py`: stratified by the campaign's recorded outcome, so each keeps
+its scorecard's pass rate, and spread across domains. Each manifest carries the
+recorded per-task verdicts, and the campaign's recorded predictions are rescored
+next to the live arms. Any adapter change can be judged task by task against the
+campaign at ~30 tasks per arm instead of 120.
+
+Default arms are the campaign-runtime A/B: `cuga_eval_<cap>_fc@pre_parity` (the
+adapter as it ran on 2026-10-12, via `variants/pre_parity.env`) against
+`cuga_eval_<cap>_fc` (the presets as shipped). The report's **Variant effect**
+section gives the paired delta; **Against the manifest reference** compares each
+arm with the campaign's recorded verdicts, task by task.
+
+```bash
+bash benchmarks/m3/parity/run_parity.sh --subset parity_est3_ref30                 # ~2 h: A/B + recorded
+bash benchmarks/m3/parity/run_parity.sh --subset parity_est3_ref30 --arms cuga_eval_cap3_fc,vakra_main_fc_canon_fc
+```
+
+Arm syntax: `cuga_eval_<preset>[_fc][@<variant>]`, where `<variant>` names a
+file in `variants/` holding `M3_ADAPTER_<FIELD>` overrides:
+
+- `pre_parity`: the adapter as it ran on 2026-10-12, before any campaign-runtime field.
+- `stage1`: the first round of campaign-runtime fields, without the second round
+  (bare tool names, the campaign's shortlister, tool cap 100, temperature pin,
+  policy clearing). Run it against the shipped preset to measure the second round:
+  `--arms cuga_eval_cap3_fc@stage1,cuga_eval_cap3_fc`.
+
+### cap1 recovery pass
+
+The official cap1 run re-ran its empty answers twice, in batches of 4 with a fresh
+container each time, at a 300 s LLM timeout, 400 s per item and 200 s per universe
+switch. Empties fell from 12.8% to 3.5%. `benchmarks/m3/cap1_recover.py` replays
+that protocol on a cap1 run's results file and rewrites the submission files:
+
+```bash
+uv run --frozen python -m benchmarks.m3.cap1_recover --results <main run>/m3_task1_enterprise_incremental_<ts>.json \
+    --output <dir> --container capability_1_bi_apis --adapter-preset cap1
+```
+
+For the main pass, the `cap1` preset already caps each item at 220 s; keep the
+runner's own `--agent-timeout` above that (default 300) and pass
+`--switch-timeout 150`, the campaign's universe-switch default.
+
+Scoring follows the campaign's protocol (`rescore_chunked.py`, a port of
+`cuga_runs/score_chunk_cap.py`): chunks of 5 tasks, each in its own evaluator
+process after a fresh container restart, with a 300 s timeout and one retry. A
+chunk that still fails is listed as `unscored_uuids` in `vendor_results.json`.
+`PARITY_RESCORE_CHUNKED=0` restores one evaluator run per arm. The cuga-eval arm
+also restarts the task container and probes the proxy before every domain, as
+`cap_estimate.sh` did before each batch. A proxy still down after ~10 minutes
+stops the arm, which can be resumed.
 
 ### Landing day (cuga-agent#777 merged)
 

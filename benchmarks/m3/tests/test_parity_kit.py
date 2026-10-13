@@ -23,6 +23,8 @@ SUBSETS = (
     "parity_smoke_cap3",
     "parity_est3_cap3",
     "parity_est3_smoke",
+    "parity_est3_ref30",
+    "parity_est2_ref30",
 )
 BASH = shutil.which("bash") or "/bin/bash"
 
@@ -56,8 +58,9 @@ def test_manifest_ids_are_unique_complete_and_in_their_data_source(name):
     assert m["reference"]["pass_by_uuid"], "a reference needs at least one arm"
     for arm in m["reference"]["pass_by_uuid"]:
         flags = m["reference"]["pass_by_uuid"][arm]
-        assert set(flags) == set(ids)
-        assert abs(sum(flags.values()) / len(ids) - m["reference"]["pass_rate"][arm]) < 0.01
+        # the headline arms cover every task; a secondary recorded run may miss a few
+        assert set(flags) == set(ids) if arm in ("on", "off") else set(flags) <= set(ids)
+        assert abs(sum(flags.values()) / len(flags) - m["reference"]["pass_rate"][arm]) < 0.01
 
 
 @pytest.mark.parametrize("name", SUBSETS)
@@ -417,3 +420,181 @@ def test_est3_dry_run_uses_the_manifest_default_arms():
     ).stdout
     assert "PARITY_FC=1 bash" in out and "run_cuga_eval_arm.sh x parity_est3_cap3 cap3" in out
     assert "run_vakra_main_arm.sh x parity_est3_cap3 fc_canon" in out
+
+
+# ------------------------- reference subsets / variants / chunked scoring -------------------------
+
+
+def test_reference_selection_keeps_the_pass_rate_spreads_domains_and_is_deterministic():
+    from benchmarks.m3.parity.make_reference import select
+
+    items = [(f"d{d}-{i}", f"d{d}", (d + i) % 3 != 0) for d in range(10) for i in range(12)]
+    rate = sum(p for *_, p in items) / len(items)
+    picked = select(items, 30, seed=0)
+    assert len(picked) == 30 and len(set(picked)) == 30
+    assert sum(p for *_, p in picked) == round(30 * rate)  # outcome quota
+    per_domain = {}
+    for _, d, _ in picked:
+        per_domain[d] = per_domain.get(d, 0) + 1
+    assert max(per_domain.values()) <= 3  # ceil(30 / 10)
+    assert select(items, 30, seed=0) == picked and select(items, 30, seed=1) != picked
+
+
+@pytest.mark.parametrize("name,cap,n_pass", [("parity_est3_ref30", 3, 17), ("parity_est2_ref30", 2, 19)])
+def test_reference_subsets_are_slices_of_the_campaign_scorecards(name, cap, n_pass):
+    m, um = _manifest(name), _uuid_map(name)
+    ids = [u for us in m["ids_by_domain"].values() for u in us]
+    assert m["n"] == len(ids) == 30 and m["task_id"] == cap and m["no_ground_truth"] is True
+    assert m["campaign_predictions"] == f"output/est{cap}_treat"
+    assert sum(m["reference"]["pass_by_uuid"]["on"].values()) == n_pass  # the scorecard's rate, kept
+    assert set(m["reference"]["pass_by_uuid"]["on"]) == set(ids)
+    assert m["default_arms"] == f"cuga_eval_cap{cap}_fc@pre_parity,cuga_eval_cap{cap}_fc"
+    assert all(k == v["vakra_uuid"] for k, v in um["zip_to_vakra"].items()) and set(
+        um["zip_to_vakra"]
+    ) == set(ids)
+
+
+def test_est3_reference_ids_come_from_the_full_est3_manifest():
+    full = _manifest("parity_est3_cap3")["reference"]["pass_by_uuid"]["on"]
+    ref = _manifest("parity_est3_ref30")["reference"]["pass_by_uuid"]["on"]
+    assert set(ref) <= set(full) and all(full[u] == v for u, v in ref.items())
+
+
+def test_variant_arms_dry_run_and_unknown_variant_is_rejected():
+    out = subprocess.run(  # noqa: S603  (fixed, trusted args)
+        [BASH, str(PARITY / "run_parity.sh"), "--subset", "parity_est3_ref30", "--dry-run", "--run-id", "x"],
+        check=True,
+        capture_output=True,
+        text=True,
+    ).stdout
+    assert "PARITY_FC=1 PARITY_VARIANT=pre_parity bash" in out
+    assert "PARITY_FC=1 bash" in out  # the shipped preset: no variant
+    assert out.count("run_cuga_eval_arm.sh x parity_est3_ref30 cap3") == 2
+    bad = subprocess.run(  # noqa: S603
+        [BASH, str(PARITY / "run_parity.sh"), "--subset", "parity_est3_ref30", "--arms", "cuga_eval_cap3_fc@nope",
+         "--dry-run", "--run-id", "x"],
+        capture_output=True,
+        text=True,
+    )  # fmt: skip
+    assert bad.returncode == 2 and "unknown variant nope" in bad.stderr
+
+
+def test_pre_parity_variant_restores_the_gate_config():
+    from benchmarks.m3.adapter.config import cuga_setting_pins, resolve_adapter_config, runtime_configurable
+
+    env = {}
+    for line in (PARITY / "variants" / "pre_parity.env").read_text().splitlines():
+        if line and not line.startswith("#"):
+            k, _, v = line.partition("=")
+            env[k] = v
+    cfg = resolve_adapter_config("cap3", env=env)
+    assert runtime_configurable(cfg) == {} and cuga_setting_pins(cfg) == []
+    assert cfg.harness_instructions and not cfg.fc_answer_format and cfg.agent_timeout is None
+    assert resolve_adapter_config("cap2", env=env).cap2_verbatim is True
+
+
+def test_report_has_a_variant_effect_row_and_rows_per_reference_recipe(tmp_path):
+    run = tmp_path / "run"
+    for arm, variant, scores in (
+        ("cuga_eval_cap3_fc@pre_parity", "pre_parity", {"V-1": 0.0, "V-2": 1.0}),
+        ("cuga_eval_cap3_fc", "", {"V-1": 1.0, "V-2": 1.0}),
+    ):
+        d = run / arm
+        d.mkdir(parents=True)
+        meta = {"stack": "cuga-eval", "adapter_preset": "cap3", "fc": "1", "variant": variant}
+        (d / "meta.json").write_text(json.dumps(meta))
+        (d / "vendor_results.json").write_text(json.dumps(_vendor(scores)))
+    manifest = {
+        "n": 2,
+        "ids_by_domain": {"hockey": ["V-1", "V-2"]},
+        "reference": {
+            "pass_rate": {"on": 0.5, "codeact_stepwise": 0.0},
+            "pass_by_uuid": {
+                "on": {"V-1": True, "V-2": False},
+                "codeact_stepwise": {"V-1": False, "V-2": False},
+            },
+        },
+    }
+    um = {"zip_to_vakra": {u: {"vakra_uuid": u, "domain": "hockey"} for u in ("V-1", "V-2")}, "unmatched": []}
+    report = compare.render_report("s", manifest, um, compare.load_run(run, manifest, um))
+    assert "| cuga_eval_cap3_fc@pre_parity | cuga-eval | cap3 +FC @pre_parity |" in report
+    assert "## Variant effect" in report
+    assert (
+        "| cuga_eval_cap3_fc | cuga_eval_cap3_fc@pre_parity |  50.0% | 100.0% | 2 | +50.0pt | 1 | 0 |"
+        in report
+    )
+    assert "| cuga_eval_cap3_fc | on |" in report and "| cuga_eval_cap3_fc | codeact_stepwise |" in report
+
+
+def _chunk_fixture(tmp_path, n=12, missing=()):
+    gt, pred = tmp_path / "gt", tmp_path / "pred"
+    gt.mkdir()
+    pred.mkdir()
+    uuids = [f"V-{i}" for i in range(n)]
+    (gt / "hockey.json").write_text(json.dumps([{"uuid": u} for u in uuids]))
+    (pred / "hockey.json").write_text(json.dumps([{"uuid": u} for u in uuids if u not in missing]))
+    return gt, pred, uuids
+
+
+def test_chunked_scoring_runs_chunks_of_five_and_merges_dialogues(tmp_path):
+    from benchmarks.m3.parity import rescore_chunked
+
+    gt, pred, uuids = _chunk_fixture(tmp_path, missing={"V-11"})
+    calls, restarts = [], []
+
+    def evaluate(g, p, out):
+        part = [r["uuid"] for r in json.loads((p / "hockey.json").read_text())]
+        calls.append(part)
+        dialogues = [{"uuid": u, "score": 1.0 if u.endswith(("0", "2")) else 0.0} for u in part]
+        out.write_text(json.dumps({"domains": {"hockey": {"dialogues": dialogues}}}))
+        return True
+
+    block = rescore_chunked.score_domain(
+        "hockey", gt, pred, tmp_path / "work", evaluate, lambda: restarts.append(1)
+    )
+    assert [len(c) for c in calls] == [5, 5, 1] and len(restarts) == 3  # fresh container per chunk
+    assert block["missing_prediction_uuids"] == ["V-11"] and block["n_paired"] == 11
+    merged = rescore_chunked.merge("cap", gt, pred, [block])
+    assert merged["summary"]["n_samples"] == 11 and merged["summary"]["n_unscored"] == 0
+    assert compare.vendor_scores(merged)["V-10"] == 1.0  # compare.py reads the merged file
+
+
+def test_chunked_scoring_retries_then_reports_a_wedged_chunk_as_unscored(tmp_path):
+    from benchmarks.m3.parity import rescore_chunked
+
+    gt, pred, uuids = _chunk_fixture(tmp_path, n=7)
+    attempts = []
+
+    def evaluate(g, p, out):
+        part = [r["uuid"] for r in json.loads((p / "hockey.json").read_text())]
+        attempts.append(part[0])
+        if part[0] == "V-0":  # the first chunk wedges every time
+            return False
+        out.write_text(
+            json.dumps({"domains": {"hockey": {"dialogues": [{"uuid": u, "score": 1.0} for u in part]}}})
+        )
+        return True
+
+    block = rescore_chunked.score_domain(
+        "hockey", gt, pred, tmp_path / "w", evaluate, lambda: None, retries=1
+    )
+    assert attempts == ["V-0", "V-0", "V-5"]  # one retry for the wedged chunk
+    assert block["unscored_uuids"] == uuids[:5] and block["n_paired"] == 2
+
+
+def test_report_lists_tasks_left_out_of_the_pass_rates(tmp_path):
+    run = tmp_path / "run"
+    d = run / "cuga_eval_cap3_fc"
+    d.mkdir(parents=True)
+    (d / "meta.json").write_text(json.dumps({"stack": "cuga-eval", "adapter_preset": "cap3", "fc": "1"}))
+    vr = _vendor({"V-1": 1.0})
+    vr["domains"]["hockey"].update(unscored_uuids=["V-2"], missing_prediction_uuids=["V-3"])
+    (d / "vendor_results.json").write_text(json.dumps(vr))
+    manifest = {"n": 3, "ids_by_domain": {"hockey": ["V-1", "V-2", "V-3"]}}
+    um = {
+        "zip_to_vakra": {u: {"vakra_uuid": u, "domain": "hockey"} for u in ("V-1", "V-2", "V-3")},
+        "unmatched": [],
+    }
+    report = compare.render_report("s", manifest, um, compare.load_run(run, manifest, um))
+    assert "cuga_eval_cap3_fc: 1 unscored (scoring failed after its retry), 1 without a prediction" in report
+    assert "| cuga_eval_cap3_fc | cuga-eval | cap3 +FC | 1 | 100.0% (1/1) |" in report
