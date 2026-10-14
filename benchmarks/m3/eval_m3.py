@@ -1963,12 +1963,16 @@ async def start_registry_server(
         # port here — this is a genuinely machine-wide kill. Log loudly rather
         # than silently sweeping: a concurrent job's registry landing on either
         # pattern is disruptive and worth surfacing in the logs.
-        logger.warning(
-            "⚠️  Sweeping ALL 'uv run registry' / 'fastapi.*registry' processes on this "
-            "machine (port-unscoped legacy patterns) — will disrupt any concurrent eval run."
-        )
-        subprocess.run(["pkill", "-9", "-f", "uv run registry"], capture_output=True)  # noqa: S607 — relies on PATH for shell tools
-        subprocess.run(["pkill", "-9", "-f", "fastapi.*registry"], capture_output=True)  # noqa: S607 — same
+        # On a shared machine those patterns match OTHER sessions' registries (e.g. a
+        # `fastapi dev .../registry/...` server), so the sweep is opt-in; the port-scoped
+        # kill below always runs and clears a stale registry on this run's own port.
+        if os.environ.get("M3_REGISTRY_SWEEP", "0") == "1":
+            logger.warning(
+                "⚠️  Sweeping ALL 'uv run registry' / 'fastapi.*registry' processes on this "
+                "machine (port-unscoped legacy patterns) — will disrupt any concurrent eval run."
+            )
+            subprocess.run(["pkill", "-9", "-f", "uv run registry"], capture_output=True)  # noqa: S607 — relies on PATH for shell tools
+            subprocess.run(["pkill", "-9", "-f", "fastapi.*registry"], capture_output=True)  # noqa: S607 — same
         # More specific pattern to avoid killing this script
         _pkill_registry_on_port(registry_port)
         await asyncio.sleep(1)  # Give time for processes to die
