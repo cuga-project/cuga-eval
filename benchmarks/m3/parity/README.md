@@ -40,6 +40,25 @@ subsets are mapped by normalized first-turn query text
 Campaign train numbers for the same recipes: cap2 62.6, cap3 56.7 **with FC**
 (35 without); test: cap2 56.3, cap3 45.0.
 
+## Isolation from other sessions (read first)
+
+The cuga-agent repo's main checkout and cuga-eval's `.venv` are shared with other
+sessions, which switch branches, re-sync and even re-lock at any time. Any of those
+silently changes the CUGA a run imports (it happened mid-run on 2026-10-13). The kit
+therefore runs in a private setup:
+
+- `bash benchmarks/m3/parity/setup_pinned_cuga.sh <commit>` builds a linked
+  worktree `../cuga-agent-parity` detached at `<commit>`, plus a kit-only venv
+  (`parity/.local/venv`, synced from the committed `uv.lock`) with that worktree
+  installed editable. Re-run it with a new commit to move to another CUGA.
+- `env.sh` points every kit command at that venv (`UV_PROJECT_ENVIRONMENT`,
+  `UV_NO_SYNC=1`). It also picks the kit's own registry port (18001 and up,
+  `PARITY_REGISTRY_PORT` pins one), because `eval.sh` kills whatever holds its
+  registry port and other sessions use the 80xx range.
+- `preflight.sh` fails when CUGA comes from the main checkout
+  (`cuga_identity.py`), and every cuga-eval arm stops before a domain whose CUGA
+  differs from the one it started with.
+
 ## Run
 
 ```bash

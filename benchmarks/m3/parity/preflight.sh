@@ -27,10 +27,10 @@ fi
 [ -f "$ROOT/benchmarks/m3/data/small_train.zip" ] && ok "small_train.zip present" || bad "benchmarks/m3/data/small_train.zip missing"
 read -r _repo _c _b _d _main <<<"$(cd "$ROOT" && uv run --frozen python -m benchmarks.m3.parity.cuga_identity --line 2>/dev/null)"
 if [ -n "${_repo:-}" ] && [ "$_repo" != "-" ]; then
-    info "cuga (this stack): imported from $_repo — $_b@$_c dirty_files=$_d"
+    info "cuga (this stack): imported from $_repo — $_b@$_c dirty_files=$_d (venv: ${UV_PROJECT_ENVIRONMENT:-.venv})"
     [ "$_d" = "0" ] || info "  ^ dirty checkout: the parity report will carry this; prefer a clean pinned commit"
     if [ "$_main" = "1" ] && [ "${PARITY_ALLOW_SHARED_CUGA:-0}" != "1" ]; then
-        bad "CUGA is imported from the repo's main checkout ($_repo), where other sessions switch branches mid-run. Pin one: git -C $_repo worktree add --detach ~/git/cuga-agent-parity <commit> && uv pip install --python .venv/bin/python --no-deps -e ~/git/cuga-agent-parity (PARITY_ALLOW_SHARED_CUGA=1 overrides)"
+        bad "CUGA is imported from the repo's main checkout ($_repo), where other sessions switch branches mid-run. Pin one: bash benchmarks/m3/parity/setup_pinned_cuga.sh <commit> (PARITY_ALLOW_SHARED_CUGA=1 overrides)"
     else
         ok "cuga is a pinned checkout (not the shared main worktree)"
     fi

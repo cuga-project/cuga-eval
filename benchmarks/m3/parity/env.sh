@@ -12,9 +12,25 @@ export PARITY_DIR="$_parity_dir"
 export PARITY_ROOT="$_root"
 export PARITY_APPWORLD_ENV="${PARITY_APPWORLD_ENV:-$HOME/git/appworld/.env}"
 export VAKRA_MAIN="${VAKRA_MAIN:-$HOME/git/appworld/vakra-main}"
-# Never let `uv run` re-sync .venv: it may import CUGA from a pinned worktree rather than the
-# lockfile's ../cuga-agent — the shared main checkout other sessions switch branches in.
+# Run in the kit's own venv (setup_pinned_cuga.sh), never the shared .venv: other sessions
+# re-sync that one, and the lockfile's ../cuga-agent is a checkout they switch branches in.
+# UV_NO_SYNC keeps `uv run` from re-syncing the kit venv back to that checkout.
 export UV_FROZEN=1 UV_NO_SYNC=1
+export PARITY_VENV="${PARITY_VENV:-$_parity_dir/.local/venv}"
+# The kit's own registry port: eval.sh KILLS whatever listens on its registry port, and other
+# sessions/projects run registries in the 80xx range (8001 default, 8011...). Default to a high
+# port and move to the next free one; PARITY_REGISTRY_PORT pins it.
+_port="${PARITY_REGISTRY_PORT:-18001}"
+if [ -z "${PARITY_REGISTRY_PORT:-}" ]; then
+    while lsof -nP -iTCP:"$_port" -sTCP:LISTEN >/dev/null 2>&1; do _port=$((_port + 1)); done
+fi
+export REGISTRY_PORT="$_port"
+if [ -x "$PARITY_VENV/bin/python" ]; then
+    export UV_PROJECT_ENVIRONMENT="$PARITY_VENV"
+    unset VIRTUAL_ENV
+else
+    echo "parity/env.sh: no kit venv at $PARITY_VENV — run: bash benchmarks/m3/parity/setup_pinned_cuga.sh <commit>" >&2
+fi
 # The checkout this environment really imports (cuga_identity.py), not a guessed path.
 _cuga_repo="$(cd "$_root" && uv run --frozen python -m benchmarks.m3.parity.cuga_identity --line 2>/dev/null | cut -d' ' -f1)"
 [ "$_cuga_repo" = "-" ] && _cuga_repo=""
