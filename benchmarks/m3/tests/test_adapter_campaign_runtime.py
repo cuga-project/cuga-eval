@@ -186,7 +186,7 @@ def test_apply_cuga_settings_is_a_noop_for_off_and_tolerates_unpinnable_settings
 
 async def test_with_bare_tool_names_demos_keep_the_corpus_names():
     inner = _Inner()
-    cfg = replace(PRESETS["cap3"], agent_timeout=None)  # bare names: corpus names == bound names
+    cfg = replace(PRESETS["cap3"], agent_timeout=None, bare_tool_names=True)  # corpus names == bound names
     agent = _agent(cfg, inner, names=["books_get_language"], demo_index=_stub_index())
     await agent.invoke("Which book?")
     assert (

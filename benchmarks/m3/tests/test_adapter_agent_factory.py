@@ -124,7 +124,7 @@ def test_enabled_preset_wraps_provider_and_sets_sdk_kwargs(fake_cuga):
     fake_cuga(_FakeCugaAgent)
     from benchmarks.m3.adapter.agent import VakraAdapterAgent, build_m3_agent
     from benchmarks.m3.adapter.recording import RecordingScopedToolProvider
-    from benchmarks.m3.adapter.shortlist import CAMPAIGN_STRATEGY_PATH
+    from benchmarks.m3.adapter.shortlist import PINNED_STRATEGY_PATH
 
     provider = object()
     agent = build_m3_agent(tool_provider=provider, special_instructions="rider", config=PRESETS["cap4_v3wx"])
@@ -135,31 +135,27 @@ def test_enabled_preset_wraps_provider_and_sets_sdk_kwargs(fake_cuga):
     assert inner.tool_provider.tool_cap == 16
     assert inner.special_instructions == "rider"  # constructor rider preserved
     assert callable(inner.final_answer)  # #621 path used
-    assert inner.tool_provider.bare_names is True  # the campaign bound bare MCP names
-    assert inner.shortlister.strategy == CAMPAIGN_STRATEGY_PATH
+    assert inner.tool_provider.bare_names is False  # registry names (measured better than bare)
+    assert inner.shortlister.strategy == PINNED_STRATEGY_PATH
     assert inner.shortlister.top_k == 40 and inner.shortlister.threshold == 40
     assert inner.shortlister.min_score == 0.0 and inner.shortlister.query_weight == 1.0
 
 
-def test_caps123_shortlister_is_the_campaign_strategy_and_preloads_minilm(fake_cuga, _no_sentence_model):
+def test_caps123_presets_use_the_sdk_strategy_and_the_campaign_one_preloads_minilm(
+    fake_cuga, _no_sentence_model
+):
     fake_cuga(_FakeCugaAgent)
     from benchmarks.m3.adapter.agent import build_m3_agent
     from benchmarks.m3.adapter.shortlist import CAMPAIGN_STRATEGY_PATH
 
     agent = build_m3_agent(tool_provider=object(), config=PRESETS["cap2"])
-    inner = agent._inner
-    assert inner.shortlister.strategy == CAMPAIGN_STRATEGY_PATH
-    assert inner.shortlister.top_k == 128
-    assert "all-MiniLM-L6-v2" in inner.shortlister.embedding_model
+    assert agent._inner.shortlister.strategy == "embedding" and agent._inner.shortlister.top_k == 128
+    assert "all-MiniLM-L6-v2" in agent._inner.shortlister.embedding_model
+    campaign = build_m3_agent(
+        tool_provider=object(), config=replace(PRESETS["cap2"], shortlist_strategy="campaign")
+    )
+    assert campaign._inner.shortlister.strategy == CAMPAIGN_STRATEGY_PATH
     assert _no_sentence_model == [PRESETS["cap2"].shortlist_model]  # loaded at build, not on task 1
-
-
-def test_sdk_shortlist_strategy_uses_plain_embedding(fake_cuga):
-    fake_cuga(_FakeCugaAgent)
-    from benchmarks.m3.adapter.agent import build_m3_agent
-
-    agent = build_m3_agent(tool_provider=object(), config=replace(PRESETS["cap2"], shortlist_strategy="sdk"))
-    assert agent._inner.shortlister.strategy == "embedding"
 
 
 def test_pre_621_sdk_degrades_to_post_invoke_final_answer(fake_cuga):
@@ -229,7 +225,7 @@ def test_enabled_preset_prewarms_the_embedding_backend(fake_cuga, monkeypatch):
     monkeypatch.setitem(sys.modules, emb.__name__, emb)
     from benchmarks.m3.adapter.agent import build_m3_agent
 
-    build_m3_agent(tool_provider=object(), config=replace(PRESETS["cap2"], shortlist_strategy="sdk"))
+    build_m3_agent(tool_provider=object(), config=PRESETS["cap2"])
     assert calls == [("local", PRESETS["cap2"].shortlist_model)]
 
 

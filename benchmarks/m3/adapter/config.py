@@ -73,6 +73,7 @@ CAMPAIGN_TEMPERATURE = 1.0  # --temperature 1.0 on every run; the passed model d
 #: The model blocks CUGA reads sampling settings from (configurations/models/settings.*.toml).
 MODEL_ROLES = ("planner", "chat", "final_answer", "code", "qa", "action")
 SHORTLIST_STRATEGIES = ("sdk", "campaign")
+FACT_CHECK_MODES = ("off", "verify", "verify_and_retry")
 
 
 @dataclass(frozen=True)
@@ -143,18 +144,35 @@ class AdapterConfig:
     model_temperature: Optional[float] = None  # pinned on every CUGA model block (campaign: 1.0)
     cuga_settings: str = ""  # "dotted.key=value,..." pinned in-process before the agent is built
 
+    # --- improvements beyond the campaign's submitted configs (each A/B-gated) ---
+    # Retries on the SAME thread (the checkpointer appends the follow-up turn):
+    require_tool_rounds: int = (
+        0  # VAKRA_CUGA_REQUIRE_TOOL(_ROUNDS): factual answer, 0 successful calls -> force a tool
+    )
+    retry_unattempted_refusal: bool = False  # also force a tool when a give-up came with no tool call at all
+    refusal_recovery_rounds: int = (
+        0  # give-up although tools returned data -> "extract the value from the results"
+    )
+    # Task-level retry (fresh thread) when the turn dies on the LLM transport (proxy drop, 5xx, timeout):
+    infra_retries: int = 0
+    # LLM fact-check of the draft against the recorded tool results:
+    # "off" | "verify" (OK / CORRECTED: <answer>) | "verify_and_retry" (+ MISSING: <need> -> one re-ask)
+    fact_check: str = "off"
+
 
 #: What every campaign run shared (VAKRA_CAMPAIGN_CONFIG.md §1): the model at temperature 1.0 drove
-#: every call, tools were bound under their bare MCP names and ranked by the campaign's own
-#: shortlister, no find_tools step, CUGA's default 70 steps, and CUGA's policy system off.
+#: every call, no find_tools step, CUGA's default 70 steps, and CUGA's policy system off. Two
+#: deliberate departures: tools keep their registry names and the SDK shortlister (the campaign's
+#: bare names + own shortlister scored 50.0% vs 60.0% on the est3 dev set, 2026-10-14 — the
+#: ``campaign_tools`` parity variant re-tests them), and a turn that dies on the LLM transport is
+#: re-run once (the campaign re-ran empties only for cap1, in separate recovery passes).
 _CAMPAIGN_SHARED = dict(
     harness_instructions=False,
     expose_all_tools=True,
     max_steps=CAMPAIGN_MAX_STEPS,
     model_temperature=CAMPAIGN_TEMPERATURE,
-    bare_tool_names=True,
-    shortlist_strategy="campaign",
     use_policy_system=False,
+    infra_retries=1,
 )
 
 #: The fc_canon runtime (caps 1-3: cap_estimate.sh, fc_canon_test.sh, fc_canon_proto_test.sh).
@@ -334,6 +352,8 @@ def resolve_adapter_config(
         raise ValueError(
             f"{ENV_PREFIX}SHORTLIST_STRATEGY={cfg.shortlist_strategy!r} is not one of {SHORTLIST_STRATEGIES}"
         )
+    if cfg.fact_check not in FACT_CHECK_MODES:
+        raise ValueError(f"{ENV_PREFIX}FACT_CHECK={cfg.fact_check!r} is not one of {FACT_CHECK_MODES}")
     parse_cuga_settings(cfg.cuga_settings)  # fail fast on a malformed pin list
     return cfg
 

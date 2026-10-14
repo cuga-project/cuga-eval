@@ -62,6 +62,35 @@ def _last_user_text(message: Any) -> str:
     return _text_of(getattr(message, "content", message))
 
 
+#: Exception class names (anywhere in the cause chain) that mean the LLM transport failed —
+#: the turn itself may be fine on a retry. Our own agent_timeout TimeoutError is not one of them.
+TRANSIENT_ERRORS = frozenset(
+    {
+        "APIConnectionError",
+        "APITimeoutError",
+        "InternalServerError",
+        "ServiceUnavailableError",
+        "RateLimitError",
+        "ConnectError",
+        "ConnectTimeout",
+        "ReadTimeout",
+        "ReadError",
+        "RemoteProtocolError",
+    }
+)
+
+
+def is_transient_error(exc: BaseException) -> bool:
+    seen = set()
+    cur: Optional[BaseException] = exc
+    while cur is not None and id(cur) not in seen:
+        seen.add(id(cur))
+        if type(cur).__name__ in TRANSIENT_ERRORS or "connection error" in str(cur).lower():
+            return True
+        cur = cur.__cause__ or cur.__context__
+    return False
+
+
 def _join(a: str, b: str) -> str:
     return "\n\n".join(p for p in (a, b) if p)
 
@@ -154,7 +183,33 @@ class VakraAdapterAgent:
 
         A timed-out turn raises ``TimeoutError``: the eval records the task as failed with an
         empty response — what the campaign's benchmark_runner wrote for a timed-out item.
+        With ``infra_retries``, a turn that dies on the LLM transport (connection drop, 5xx,
+        request timeout) is re-run from scratch on a fresh thread; the agent timeout is not
+        retried.
         """
+        attempts = 1 + max(0, self._cfg.infra_retries)
+        for attempt in range(attempts):
+            tid, conf = thread_id, config
+            if attempt and thread_id:
+                tid = f"{thread_id}-retry{attempt}"
+                if config and "thread_id" in (config.get("configurable") or {}):
+                    conf = {**config, "configurable": {**config["configurable"], "thread_id": tid}}
+            try:
+                return await self._timed_invoke(message, tid, conf, **kwargs)
+            except Exception as exc:
+                if attempt + 1 >= attempts or not is_transient_error(exc):
+                    raise
+                logger.warning(
+                    "[m3-adapter] transient failure ({}); re-running the task on a fresh thread ({}/{})",
+                    type(exc).__name__,
+                    attempt + 1,
+                    attempts - 1,
+                )
+        raise AssertionError("unreachable")  # pragma: no cover
+
+    async def _timed_invoke(
+        self, message: Any = None, thread_id: Optional[str] = None, config: Optional[dict] = None, **kwargs
+    ) -> Any:
         timeout = self._cfg.agent_timeout
         if not timeout:
             return await self._invoke(message, thread_id, config, **kwargs)
@@ -230,6 +285,7 @@ class VakraAdapterAgent:
             self._provider.recorded_calls,
             self._llm_ainvoke,
             final_answer_installed=self._final_answer_installed,
+            question=query,
         )
         try:
             return result.model_copy(update={"answer": answer, "tool_calls": all_tool_calls})

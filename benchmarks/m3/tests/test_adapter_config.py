@@ -66,7 +66,8 @@ _FC_CANON = {
     "demos": True,  # VAKRA_CUGA_DEMOS=1 VAKRA_CUGA_DEMOS_MODE=prose
     "demos_k": 2,  # VAKRA_DEMOS_K=2
     "shortlist_top_k": 128,  # --top-k-tools 128
-    "shortlist_strategy": "campaign",  # agents/components/tool_shortlister.py
+    # deliberate departure: SDK shortlister + registry names (campaign's: 50.0% vs 60.0%, est3 dev set)
+    "shortlist_strategy": "sdk",
     "execution_mode": "function_calling",  # VAKRA_CUGA_FC=1
     "fc_step_discipline": "one_tool_per_step",  # campaign FC preamble
     "fc_prompt_fragments": "evidence_first",  # campaign FC preamble
@@ -78,7 +79,8 @@ _FC_CANON = {
     "agent_timeout": 220,  # AGENT_TIMEOUT_SECONDS=220
     "tool_cap": 100,  # RUNAWAY_TOOL_CAP default (VAKRA_CUGA_TOOL_CAP unset)
     "model_temperature": 1.0,  # --temperature 1.0
-    "bare_tool_names": True,  # MCPToolWrapper names, no <app>_ prefix
+    "bare_tool_names": False,  # deliberate departure (see shortlist_strategy)
+    "infra_retries": 1,  # beyond the campaign: re-run a turn that died on the LLM transport
     "demo_bound_names": True,
     "use_policy_system": False,  # DYNACONF_POLICY__ENABLED=false
     "cuga_settings": CAMPAIGN_CUGA_SETTINGS,  # autonomy / reflection / NL auto-continue off
@@ -110,7 +112,8 @@ CAMPAIGN_PRESETS = {
         "refusal_norm": True,  # VAKRA_CUGA_REFUSAL_NORM=1
         "tool_cap": 16,  # VAKRA_CUGA_TOOL_CAP=16
         "shortlist_top_k": 40,  # --top-k-tools 40
-        "shortlist_strategy": "campaign",
+        "shortlist_strategy": "sdk",
+        "shortlist_pin_retrievers": True,
         "execution_mode": "codeact",  # no VAKRA_CUGA_FC
         "gates": False,
         "demos": False,
@@ -122,7 +125,8 @@ CAMPAIGN_PRESETS = {
         "llm_http_timeout": 600,  # unset -> LiteLLM default
         "agent_timeout": 300,  # unset -> benchmark_runner.py default
         "model_temperature": 1.0,
-        "bare_tool_names": True,
+        "bare_tool_names": False,
+        "infra_retries": 1,
         "use_policy_system": False,
         "cuga_settings": CAMPAIGN_CODEACT_SETTINGS,  # + sandbox_execution_timeout=30 (CodeAct)
     },
@@ -142,7 +146,8 @@ def test_off_preset_reproduces_nothing():
     assert off.harness_instructions and off.use_policy_system and not off.expose_all_tools
     assert off.max_steps is off.agent_timeout is off.llm_http_timeout is off.model_temperature is None
     assert off.cuga_settings == "" and off.shortlist_strategy == "sdk" and not off.bare_tool_names
-    assert off.tool_cap is None
+    assert off.tool_cap is None and off.infra_retries == 0
+    assert off.require_tool_rounds == off.refusal_recovery_rounds == 0 and off.fact_check == "off"
 
 
 def test_runtime_configurable_maps_fields_to_cuga_keys():

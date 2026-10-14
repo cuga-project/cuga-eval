@@ -8,14 +8,20 @@ order is EXACTLY the validated adapter's:
     support_check -> self_verify -> cap2 value extraction -> normalize ->
     bluff_map
 
+Beyond the campaign's submitted configs, three opt-in steps run right after the
+gate retries: require-tool (the campaign's VAKRA_CUGA_REQUIRE_TOOL, its soft2
+mechanism), refusal recovery, and an LLM fact-check of the draft against the
+recorded tool results.
+
 Each step is preset-gated; with everything off the pipeline returns the
 stripped answer unchanged.
 """
 
 from __future__ import annotations
 
+import json
 import re
-from typing import Awaitable, Callable, List, Optional
+from typing import Awaitable, Callable, List, Optional, Tuple
 
 from loguru import logger
 
@@ -63,6 +69,63 @@ _SELF_VERIFY_PROMPT = (
 )
 
 
+#: VAKRA_CUGA_REQUIRE_TOOL's correction, verbatim (vakra-main agents/cuga_clean_agent.py).
+REQUIRE_TOOL_CORRECTION = (
+    "Your previous answer used no tool results, so it is not grounded in real data. "
+    "You MUST call at least one relevant tool to obtain the actual value, then give the "
+    "final answer based strictly on that tool's output. Call the appropriate tool now."
+)
+
+REFUSAL_RECOVERY_CORRECTION = (
+    "The tools you called already returned data relevant to the question. Re-read those tool "
+    "results and extract the requested value from them, then give the final answer. Only if "
+    "they truly do not contain it, call the tool that would return it before answering."
+)
+
+_FACT_CHECK_PROMPT = (
+    "You are checking an agent's final answer against the tool results it obtained.\n\n"
+    "Question:\n{question}\n\nTool calls and their results, in order:\n{calls}\n\n"
+    "Draft answer:\n{answer}\n\n"
+    "Reply with exactly one line:\n"
+    "OK — if the draft answer is supported by the tool results and answers the question.\n"
+    "CORRECTED: <answer> — if the tool results contain the right answer but the draft states it "
+    "wrongly (wrong value or item, incomplete list, extra or missing elements). Use only values "
+    "that appear in the tool results; give the bare value(s), no explanation.\n"
+    "MISSING: <what is still needed> — if the tool results do not contain what the question asks."
+)
+FACT_CHECK_RETRY = (
+    "Your answer is not supported by the tool results yet: {need} Call the tool(s) needed to "
+    "obtain it, then give the final answer based strictly on their output."
+)
+FACT_CHECK_MAX_CALLS = 20  # the judge reads the last 20 tool responses; so does the checker
+FACT_CHECK_RESULT_CHARS = 1500
+
+
+def format_tool_evidence(recorded_calls: List[dict]) -> str:
+    """The recorded calls as numbered ``tool(args) -> result`` lines (last 20, results truncated)."""
+    lines = []
+    for i, c in enumerate(recorded_calls[-FACT_CHECK_MAX_CALLS:], start=1):
+        args = json.dumps(c.get("arguments") or {}, ensure_ascii=False, default=str)[:300]
+        result = str(c.get("result", ""))[:FACT_CHECK_RESULT_CHARS]
+        lines.append(f"{i}. {c.get('tool_name')}({args}) -> {result}")
+    return "\n".join(lines)
+
+
+def parse_fact_check(verdict: str) -> Tuple[str, str]:
+    """``("OK"|"CORRECTED"|"MISSING", payload)``; anything unparseable counts as OK."""
+    for line in (verdict or "").strip().splitlines():
+        line = line.strip().strip("*`").strip()
+        if not line:
+            continue
+        head, _, rest = line.partition(":")
+        key = head.strip().strip("*`").strip().upper()
+        payload = rest.strip().strip("*`").strip()  # tolerate markdown bold around the label
+        if key in ("CORRECTED", "MISSING") and payload:
+            return key, payload
+        return "OK", ""
+    return "OK", ""
+
+
 def simple_gate_correction(final_text: str) -> Optional[str]:
     """Non-LLM answer gates: empty answer and hedged answers."""
     text = (final_text or "").strip()
@@ -97,6 +160,7 @@ async def run_answer_pipeline(
     llm_ainvoke: Optional[Callable[[str], Awaitable[str]]] = None,
     *,
     final_answer_installed: bool = True,
+    question: str = "",
 ) -> str:
     """Apply the validated answer pipeline; returns the final answer string.
 
@@ -122,10 +186,64 @@ async def run_answer_pipeline(
                 break
             result = follow_up
 
-    answer = getattr(result, "answer", "")
-    if not isinstance(answer, str):
-        answer = str(answer or "")
-    answer = strip_channel_tokens(answer)
+    def draft_of(res) -> str:
+        return strip_channel_tokens(str(getattr(res, "answer", "") or ""))
+
+    async def retry(correction: str, tag: str):
+        logger.info("[m3-adapter {}] retrying with correction (same thread)", tag)
+        follow_up = await invoke_round(correction)
+        if getattr(follow_up, "error", None):
+            logger.warning("[m3-adapter {}] retry errored; keeping the pre-retry draft", tag)
+            return None
+        return follow_up
+
+    # 1b. Ground-before-answer (VAKRA_CUGA_REQUIRE_TOOL): a draft backed by ZERO successful
+    # tool calls is re-asked to call a tool. Like the campaign, a give-up is left alone —
+    # unless retry_unattempted_refusal and no tool was even tried.
+    for _ in range(cfg.require_tool_rounds):
+        draft = draft_of(result)
+        if not draft.strip() or _successful_calls(recorded_calls):
+            break
+        if is_giveup(draft) and not (cfg.retry_unattempted_refusal and not recorded_calls):
+            break
+        follow_up = await retry(REQUIRE_TOOL_CORRECTION, "require-tool")
+        if follow_up is None:
+            break
+        result = follow_up
+
+    # 1c. Refusal recovery: a give-up although tools returned data.
+    for _ in range(cfg.refusal_recovery_rounds):
+        if not is_giveup(draft_of(result)) or not _successful_calls(recorded_calls):
+            break
+        follow_up = await retry(REFUSAL_RECOVERY_CORRECTION, "refusal-recovery")
+        if follow_up is None:
+            break
+        result = follow_up
+
+    answer = draft_of(result)
+
+    # 1d. Fact-check: one LLM pass over the recorded tool results. CORRECTED replaces the draft
+    # (values from the tool results only); MISSING re-asks once in verify_and_retry mode.
+    if cfg.fact_check != "off" and llm_ainvoke is not None:
+        if answer.strip() and not is_giveup(answer) and _successful_calls(recorded_calls):
+            prompt = _FACT_CHECK_PROMPT.format(
+                question=question or "(see the tool calls)",
+                calls=format_tool_evidence(recorded_calls),
+                answer=answer[:4000],
+            )
+            try:
+                kind, payload = parse_fact_check(await llm_ainvoke(prompt))
+            except Exception as exc:  # noqa: BLE001  (the checker is best-effort)
+                logger.warning("[m3-adapter fact-check] failed ({}); keeping the draft", exc)
+                kind, payload = "OK", ""
+            logger.info("[m3-adapter fact-check] {}{}", kind, f": {payload[:120]}" if payload else "")
+            if kind == "CORRECTED":
+                answer = canonicalize_final_answer(payload) if cfg.canonicalize else payload
+            elif kind == "MISSING" and cfg.fact_check == "verify_and_retry":
+                follow_up = await retry(FACT_CHECK_RETRY.format(need=payload), "fact-check")
+                if follow_up is not None:
+                    result = follow_up
+                    answer = draft_of(result)
 
     # Fallback for agents built without the in-graph final_answer function
     # (e.g. a pre-built agent wrapped after construction): apply the same
