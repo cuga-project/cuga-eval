@@ -97,6 +97,23 @@ run_cap1_domain() {
     return "$rc"
 }
 
+# cap4 runs eval_m3 directly (eval.sh --multiturn is broken) through eval_m3_cap4.py, the
+# campaign's protocol: one agent call per item with the earlier turns' gold answers as history.
+# m3.env is loaded the way eval.sh loads it (never overriding what is already exported), with the
+# kit's own registry port and CUGA's policy system off.
+run_cap4_domain() {
+    local dom="$1" rc
+    local args=(--from-config "$PARITY_DIR/m3_registry_cap4.yaml" --m3-data "$M3DATA" --capability m3_task_4
+        --eval-key "$SUBSET" --no-ground-truth --no-policies --domain "$dom")
+    [ "$PRESET" != "off" ] && args+=(--adapter-preset "$PRESET")
+    [ "$PRESET" != "off" ] && [ "$DEMODATA" != "-" ] && args+=(--demo-data "$DEMODATA")
+    (cd "$ROOT" && export DYNACONF_SERVER_PORTS__REGISTRY="$REGISTRY_PORT" DYNACONF_POLICY__ENABLED=false \
+        && source benchmarks/helpers/load_env.sh m3 >/dev/null \
+        && uv run --frozen python -m benchmarks.m3.parity.eval_m3_cap4 "${args[@]}") 2>&1 | tee -a "$OUT/console.log"
+    rc=${PIPESTATUS[0]}
+    return "$rc"
+}
+
 # The CUGA this arm runs; checked again before every domain. A change (branch switch, new
 # commit, edits) stops the arm — the 2026-10-13 stage-2 run lost half an arm to one.
 cuga_id() { (cd "$ROOT" && uv run --frozen python -m benchmarks.m3.parity.cuga_identity --line 2>/dev/null); }
@@ -124,8 +141,12 @@ for dom in $DOMS; do
     if [ "$TASK_ID" = "1" ]; then
         run_cap1_domain "$dom"; RC=$?
     else
-        (cd "$ROOT" && bash benchmarks/m3/eval.sh "${BASE_ARGS[@]}" --domain "$dom" "$@") 2>&1 | tee -a "$OUT/console.log"
-        RC=${PIPESTATUS[0]}
+        if [ "$TASK_ID" = "4" ]; then
+            run_cap4_domain "$dom"; RC=$?
+        else
+            (cd "$ROOT" && bash benchmarks/m3/eval.sh "${BASE_ARGS[@]}" --domain "$dom" "$@") 2>&1 | tee -a "$OUT/console.log"
+            RC=${PIPESTATUS[0]}
+        fi
         (cd "$ROOT" && uv run --frozen python -m benchmarks.m3.parity.snapshot snapshot-cuga-eval \
             --manifest "$MAN" --results-dir "$ROOT/benchmarks/m3/results" --since "$DOM_START" --out "$OUT" --domains "$dom") | tee -a "$OUT/snapshot.jsonl"
     fi

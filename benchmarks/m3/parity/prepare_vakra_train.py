@@ -35,8 +35,12 @@ def convert_output_record(rec: Dict[str, Any]) -> Dict[str, Any]:
     }
 
 
-def prepare(vakra_main: Path, capability_dir: str, domains: List[str], out: Path) -> Dict[str, int]:
-    src = Path(vakra_main) / "data" / "train" / capability_dir
+def prepare(
+    vakra_main: Path, capability_dir: str, domains: List[str], out: Path, train_data: str = ""
+) -> Dict[str, int]:
+    """``train_data``: the source dir relative to vakra-main (default ``data/train/<capability_dir>``;
+    cap4's train set lives in ``cap4_train/data``)."""
+    src = Path(vakra_main) / (train_data or f"data/train/{capability_dir}")
     dst = Path(out) / capability_dir
     (dst / "input").mkdir(parents=True, exist_ok=True)
     (dst / "output").mkdir(parents=True, exist_ok=True)
@@ -58,7 +62,13 @@ def main(argv: List[str] | None = None) -> int:
     parser.add_argument("--out", required=True, type=Path)
     args = parser.parse_args(argv)
     m = json.loads(args.manifest.read_text())
-    counts = prepare(args.vakra_main, m["capability_dir"], list(m["ids_by_domain"]), args.out)
+    counts = prepare(
+        args.vakra_main,
+        m["capability_dir"],
+        list(m["ids_by_domain"]),
+        args.out,
+        m.get("vakra_train_data", ""),
+    )
     print(json.dumps({"out": str(args.out), "domains": len(counts), "items": sum(counts.values())}))
     return 0
 

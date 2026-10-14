@@ -70,6 +70,12 @@ def strip_registry_prefix(records: Iterable[Dict[str, Any]], domain: str) -> Lis
     return out
 
 
+def last_turn_only(records: Iterable[Dict[str, Any]]) -> List[Dict[str, Any]]:
+    """cap4: keep each record's last predicted turn — the vendor evaluator scores only the last
+    turn and asserts exactly one predicted turn per dialogue."""
+    return [{**r, "output": (r.get("output") or [])[-1:]} for r in records]
+
+
 def snapshot_cuga_eval(
     manifest: Dict[str, Any],
     results_dir: Path,
@@ -102,6 +108,8 @@ def snapshot_cuga_eval(
         kept = _filter_records(load_json(src), {i.lower() for i in ids})
         if manifest.get("no_ground_truth"):
             kept = strip_registry_prefix(kept, domain)
+        if manifest.get("task_id") == 4:
+            kept = last_turn_only(kept)
         (pred_out / f"{domain}.json").write_text(json.dumps(kept, indent=1, ensure_ascii=False))
         summary["predictions"][domain] = {"expected": len(ids), "found": len(kept)}
 

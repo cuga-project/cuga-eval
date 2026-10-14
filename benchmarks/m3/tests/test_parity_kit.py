@@ -660,3 +660,82 @@ def test_every_variant_resolves_on_its_presets(variant):
             env[k] = v
     for preset in ("cap1", "cap2", "cap3", "cap4_v3wx"):
         resolve_adapter_config(preset, env=env)  # raises on a malformed or unknown value
+
+
+# ------------------------------------------------------------------------- cap4
+
+
+def test_cap4_campaign_history_uses_the_gold_answers_of_earlier_turns():
+    from benchmarks.m3.parity.eval_m3_cap4 import campaign_history
+
+    turns = [
+        {"turn_id": 0, "query": "q1", "answer": "a1"},
+        {"turn_id": 1, "query": "q2", "answer": ["a2"]},
+        {"turn_id": 2, "query": "q3"},
+    ]
+    hist = campaign_history(turns)
+    assert [(m.type, m.content) for m in hist] == [
+        ("human", "q1"),
+        ("ai", "a1"),
+        ("human", "q2"),
+        ("ai", "['a2']"),
+    ]
+    assert campaign_history(turns[-1:]) == []
+
+
+async def test_cap4_runs_only_the_last_turn_with_the_history_prepended(monkeypatch):
+    from langchain_core.messages import HumanMessage
+
+    from benchmarks.m3.parity import eval_m3_cap4
+
+    seen = {}
+
+    async def fake_original(agent, turns, *args, **kwargs):
+        seen["turns"] = turns
+        await agent.invoke([HumanMessage(content=turns[-1]["query"])], thread_id="t")
+        return {"all_responses": [{"turn": 1, "response": "x"}]}
+
+    class _Agent:
+        async def invoke(self, message, **kwargs):
+            seen["messages"] = [m.content for m in message]
+            return None
+
+    monkeypatch.setattr(eval_m3_cap4, "_original_multiturn", fake_original)
+    turns = [{"turn_id": 0, "query": "q1", "answer": "a1"}, {"turn_id": 1, "query": "q2"}]
+    result = await eval_m3_cap4.last_turn_with_campaign_history(agent=_Agent(), turns=turns, task_name="s")
+    assert seen["turns"] == turns[-1:] and seen["messages"] == ["q1", "a1", "q2"]
+    assert result["all_responses"][0]["turn"] == 2  # eval_m3 writes turn_id 1: the last GT turn
+
+
+def test_snapshot_keeps_only_the_last_predicted_turn_for_cap4():
+    recs = [{"uuid": "u", "output": [{"turn_id": 0}, {"turn_id": 1}]}]
+    assert snapshot.last_turn_only(recs) == [{"uuid": "u", "output": [{"turn_id": 1}]}]
+
+
+def test_prepare_reads_the_manifest_train_data_path(tmp_path):
+    from benchmarks.m3.parity import prepare_vakra_train
+
+    src = tmp_path / "vm" / "cap4_train" / "data"
+    for sub, body in (
+        ("input", [{"uuid": "u", "dialogue": {"turns": []}}]),
+        ("output", [{"uuid": "u", "output": []}]),
+    ):
+        (src / sub).mkdir(parents=True)
+        (src / sub / "hockey.json").write_text(json.dumps(body))
+    counts = prepare_vakra_train.prepare(
+        tmp_path / "vm", "capability_4_multiturn", ["hockey"], tmp_path / "out", "cap4_train/data"
+    )
+    assert counts == {"hockey": 1}
+    assert (tmp_path / "out" / "capability_4_multiturn" / "output" / "hockey.json").exists()
+
+
+def test_cap4_dry_run_plans_its_arms():
+    out = subprocess.run(  # noqa: S603  (fixed, trusted args)
+        [BASH, str(PARITY / "run_parity.sh"), "--subset", "parity_est4_ref30", "--arms",
+         "cuga_eval_cap4_v3wx,cuga_eval_cap4_v3wx@soft2", "--dry-run", "--run-id", "x"],
+        check=True,
+        capture_output=True,
+        text=True,
+    ).stdout  # fmt: skip
+    assert "PARITY_FC=0 bash" in out and "PARITY_FC=0 PARITY_VARIANT=soft2 bash" in out
+    assert out.count("run_cuga_eval_arm.sh x parity_est4_ref30 cap4_v3wx") == 2

@@ -14,12 +14,19 @@ VAKRA_MAIN="${VAKRA_MAIN:-$HOME/git/appworld/vakra-main}"
 RUN="$PARITY_DIR/runs/$RUN_ID"; MAP="$PARITY_DIR/manifests/uuid_map_$SUBSET.json"; MAN="$PARITY_DIR/manifests/$SUBSET.json"
 TASK_ID=$(python3 -c "import json;print(json.load(open('$MAP'))['task_id'])")
 CAPDIR=$(python3 -c "import json;print(json.load(open('$MAP'))['capability_dir'])")
-case "$TASK_ID" in 1) CAPNAME=capability_bi_apis;; 2) CAPNAME=capability_dashboard_apis;; 3) CAPNAME=capability_multihop_reasoning;; *) echo "unsupported task $TASK_ID" >&2; exit 2;; esac
+CHUNK=5   # score_chunk_cap.py; the campaign scored cap4 in chunks of 4 (cap4_train/score_cap4.py)
+case "$TASK_ID" in
+    1) CAPNAME=capability_bi_apis;; 2) CAPNAME=capability_dashboard_apis;; 3) CAPNAME=capability_multihop_reasoning;;
+    4) CAPNAME=capability_multiturn; CHUNK=4;;
+    *) echo "unsupported task $TASK_ID" >&2; exit 2;;
+esac
+# where the subset's train data lives in vakra-main (cap4's is cap4_train/data, not data/train/)
+TRAIN_DATA=$(python3 -c "import json;m=json.load(open('$MAN'));print(m.get('vakra_train_data') or 'data/train/$CAPDIR')")
 DOMS=$(python3 -c "import json;print(' '.join(sorted(json.load(open('$MAN'))['ids_by_domain'])))")
 export API_KEY="${API_KEY:?}" JUDGE_ENDPOINT="$PARITY_B1" JUDGE_MODEL="${PARITY_MODEL:-azure/gpt-oss-120b}"
 
 GT="$RUN/gt"
-(cd "$ROOT" && uv run --frozen python -m benchmarks.m3.parity.snapshot gt-subset --map "$MAP" --vakra-gt "$VAKRA_MAIN/data/train/$CAPDIR/output" --out "$GT") | tee "$RUN/gt_subset.json"
+(cd "$ROOT" && uv run --frozen python -m benchmarks.m3.parity.snapshot gt-subset --map "$MAP" --vakra-gt "$VAKRA_MAIN/$TRAIN_DATA/output" --out "$GT") | tee "$RUN/gt_subset.json"
 restart_ctr() { docker restart "$1" >/dev/null 2>&1; for _ in $(seq 1 15); do docker logs --tail 3 "$1" 2>&1 | grep -q "ready for exec" && break; sleep 3; done; sleep 2; }
 
 RC=0
@@ -37,7 +44,7 @@ for ARMDIR in "$RUN"/cuga_eval_* "$RUN"/vakra_main_*; do
     echo "[$ARM] vendor evaluator start $(date '+%T')" | tee -a "$ARMDIR/rescore.log"
     if [ "${PARITY_RESCORE_CHUNKED:-1}" = "1" ]; then
         # the campaign's protocol: chunks of 5, fresh container + 300s timeout per chunk
-        (cd "$ROOT" && uv run --frozen python -m benchmarks.m3.parity.rescore_chunked --vakra-main "$VAKRA_MAIN" \
+        (cd "$ROOT" && uv run --frozen python -m benchmarks.m3.parity.rescore_chunked --vakra-main "$VAKRA_MAIN" --chunk "$CHUNK" \
             --capability-name "$CAPNAME" --container "$CAPDIR" --gt-root "$GT" --pred-root "$PRED" \
             --out "$ARMDIR/vendor_results.json" --work "$ARMDIR/rescore_chunks" --domains $DOMS) >> "$ARMDIR/rescore.log" 2>&1 \
             || { echo "[$ARM] chunked scoring left unscored items (see rescore.log)" | tee -a "$ARMDIR/rescore.log"; RC=1; }
