@@ -20,9 +20,13 @@ CONTAINER=$(python3 -c "import json;print(json.load(open('$MAN'))['capability_di
 FC="${PARITY_FC:-0}"
 VARIANT="${PARITY_VARIANT:-}"
 ARM="cuga_eval_${PRESET}"; [ "$FC" = "1" ] && ARM="${ARM}_fc"
+VFILES=()
 if [ -n "$VARIANT" ]; then
-    VFILE="$PARITY_DIR/variants/$VARIANT.env"; [ -f "$VFILE" ] || { echo "no variant $VFILE" >&2; exit 2; }
-    set -a; source "$VFILE"; set +a   # M3_ADAPTER_* overrides of the preset
+    for _p in ${VARIANT//+/ }; do   # stacked variants apply left to right
+        VFILE="$PARITY_DIR/variants/$_p.env"; [ -f "$VFILE" ] || { echo "no variant $VFILE" >&2; exit 2; }
+        set -a; source "$VFILE"; set +a   # M3_ADAPTER_* overrides of the preset
+        VFILES+=("$VFILE")
+    done
     ARM="${ARM}@${VARIANT}"
 fi
 OUT="$PARITY_DIR/runs/$RUN_ID/$ARM"; mkdir -p "$OUT/prediction"
@@ -56,7 +60,7 @@ BASE_ARGS=(--m3-data "$M3DATA" --capability "m3_task_$TASK_ID" --eval-key "$SUBS
 [ "$PRESET" != "off" ] && BASE_ARGS+=(--adapter-preset "$PRESET")
 [ "$PRESET" != "off" ] && [ "$DEMODATA" != "-" ] && BASE_ARGS+=(--demo-data "$DEMODATA")
 echo "bash benchmarks/m3/eval.sh ${BASE_ARGS[*]} --domain <domain> $*" > "$OUT/command.txt"
-[ -n "$VARIANT" ] && grep -E '^M3_ADAPTER_' "$VFILE" | sed "s/^/variant $VARIANT: /" >> "$OUT/command.txt"
+for VFILE in ${VFILES[@]+"${VFILES[@]}"}; do grep -E '^M3_ADAPTER_' "$VFILE" | sed "s|^|variant $(basename "$VFILE" .env): |" >> "$OUT/command.txt"; done
 echo "[$ARM] start $(date '+%F %T')  temperature=$PARITY_TEMPERATURE model=$PARITY_MODEL fc=$FC domains: $DOMS" | tee -a "$OUT/console.log"
 
 # Campaign hygiene (cap_estimate.sh did both before every 8-item batch): a fresh task container
@@ -73,6 +77,24 @@ proxy_up() {
         echo "[$ARM] proxy probe HTTP $code (try $try/10) — waiting 60s" | tee -a "$OUT/console.log"; sleep 60
     done
     return 1
+}
+
+# cap1 has its own harness (eval_m3_task_1_enterprise_style.py: direct MCP to the container and a
+# universe switch per item, no registry): run it on the manifest's items for the domain with the
+# campaign's main-pass universe-switch timeout (150 s); its submission file is the prediction file.
+CAP1_INPUT="$VAKRA_MAIN/$(python3 -c "import json;print(json.load(open('$MAN')).get('vakra_train_data','data/train/capability_1_bi_apis'))")/input"
+run_cap1_domain() {
+    local dom="$1" raw="$OUT/raw/$1" ids latest rc
+    ids=$(python3 -c "import json,sys;print(','.join(json.load(open(sys.argv[1]))['ids_by_domain'][sys.argv[2]]))" "$MAN" "$dom")
+    mkdir -p "$raw"
+    local args=(--container "$CONTAINER" --domain "$dom" --item-ids "$ids" --switch-timeout 150 --output "$raw")
+    [ "$PRESET" != "off" ] && args+=(--adapter-preset "$PRESET")
+    [ "$PRESET" != "off" ] && [ "$DEMODATA" != "-" ] && args+=(--demo-data "$DEMODATA")
+    (cd "$ROOT" && M3_DATA_DIR="$CAP1_INPUT" uv run --frozen python benchmarks/m3/eval_m3_task_1_enterprise_style.py "${args[@]}") 2>&1 | tee -a "$OUT/console.log"
+    rc=${PIPESTATUS[0]}
+    latest=$(ls -td "$raw"/*/task_1 2>/dev/null | head -1)
+    if [ -n "$latest" ] && [ -f "$latest/$dom.json" ]; then cp "$latest/$dom.json" "$OUT/prediction/$dom.json"; fi
+    return "$rc"
 }
 
 # The CUGA this arm runs; checked again before every domain. A change (branch switch, new
@@ -99,10 +121,14 @@ for dom in $DOMS; do
     fi
     DOM_START=$(date +%s)
     echo "[$ARM] $dom start $(date '+%T')" | tee -a "$OUT/console.log"
-    (cd "$ROOT" && bash benchmarks/m3/eval.sh "${BASE_ARGS[@]}" --domain "$dom" "$@") 2>&1 | tee -a "$OUT/console.log"
-    RC=${PIPESTATUS[0]}
-    (cd "$ROOT" && uv run --frozen python -m benchmarks.m3.parity.snapshot snapshot-cuga-eval \
-        --manifest "$MAN" --results-dir "$ROOT/benchmarks/m3/results" --since "$DOM_START" --out "$OUT" --domains "$dom") | tee -a "$OUT/snapshot.jsonl"
+    if [ "$TASK_ID" = "1" ]; then
+        run_cap1_domain "$dom"; RC=$?
+    else
+        (cd "$ROOT" && bash benchmarks/m3/eval.sh "${BASE_ARGS[@]}" --domain "$dom" "$@") 2>&1 | tee -a "$OUT/console.log"
+        RC=${PIPESTATUS[0]}
+        (cd "$ROOT" && uv run --frozen python -m benchmarks.m3.parity.snapshot snapshot-cuga-eval \
+            --manifest "$MAN" --results-dir "$ROOT/benchmarks/m3/results" --since "$DOM_START" --out "$OUT" --domains "$dom") | tee -a "$OUT/snapshot.jsonl"
+    fi
     echo "[$ARM] $dom done rc=$RC in $(( $(date +%s) - DOM_START ))s" | tee -a "$OUT/console.log"
     if [ "$RC" = "3" ]; then
         echo "[$ARM] environment failure at $dom (containers/daemon) — stopping this arm; re-run the same run_id to resume" | tee -a "$OUT/console.log"

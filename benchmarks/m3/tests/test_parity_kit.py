@@ -25,6 +25,9 @@ SUBSETS = (
     "parity_est3_smoke",
     "parity_est3_ref30",
     "parity_est2_ref30",
+    "parity_est1_ref30",
+    "parity_est1_smoke",
+    "parity_est4_ref30",
 )
 BASH = shutil.which("bash") or "/bin/bash"
 
@@ -624,3 +627,36 @@ def test_cuga_identity_tells_the_shared_main_checkout_from_a_pinned_worktree(tmp
     assert (
         cuga_identity.identity(str(tmp_path / "pinned" / "src" / "cuga"))["dirty"] == 1
     )  # edits change the id
+
+
+def test_stacked_variants_dry_run_and_each_part_must_exist():
+    out = subprocess.run(  # noqa: S603  (fixed, trusted args)
+        [BASH, str(PARITY / "run_parity.sh"), "--subset", "parity_est3_ref30", "--arms",
+         "cuga_eval_cap3_fc@stage1+require_tool,cuga_eval_cap3_fc@stage1", "--dry-run", "--run-id", "x"],
+        check=True,
+        capture_output=True,
+        text=True,
+    ).stdout  # fmt: skip
+    assert "PARITY_FC=1 PARITY_VARIANT=stage1+require_tool bash" in out
+    assert "PARITY_FC=1 PARITY_VARIANT=stage1 bash" in out
+    bad = subprocess.run(  # noqa: S603
+        [BASH, str(PARITY / "run_parity.sh"), "--subset", "parity_est3_ref30", "--arms",
+         "cuga_eval_cap3_fc@stage1+nope", "--dry-run", "--run-id", "x"],
+        capture_output=True,
+        text=True,
+    )  # fmt: skip
+    assert bad.returncode == 2 and "unknown variant nope" in bad.stderr
+
+
+@pytest.mark.parametrize("variant", sorted(p.stem for p in (PARITY / "variants").glob("*.env")))
+def test_every_variant_resolves_on_its_presets(variant):
+    from benchmarks.m3.adapter.config import resolve_adapter_config
+
+    env = {}
+    for line in (PARITY / "variants" / f"{variant}.env").read_text().splitlines():
+        if line and not line.startswith("#"):
+            k, _, v = line.partition("=")
+            assert k.startswith("M3_ADAPTER_"), f"{variant}: {k}"
+            env[k] = v
+    for preset in ("cap1", "cap2", "cap3", "cap4_v3wx"):
+        resolve_adapter_config(preset, env=env)  # raises on a malformed or unknown value

@@ -41,7 +41,8 @@ MAN_ARMS=$(python3 -c "import json;print(json.load(open('$MAN')).get('default_ar
 TAG="fc${FC}"; [ "$FC_AB" = "1" ] && TAG="fcab"
 [ -n "$RUN_ID" ] || RUN_ID="$(date +%Y%m%d_%H%M%S)_${SUBSET}_t${TEMP}_${TAG}"
 # arm -> "script base fc variant": a trailing _fc forces function calling for that arm; an
-# @<variant> suffix (cuga_eval arms only) applies the overrides in variants/<variant>.env.
+# @<variant> suffix (cuga_eval arms only) applies the overrides in variants/<variant>.env;
+# variants stack with '+' (@stage1+require_tool applies stage1.env, then require_tool.env).
 arm_plan() {
     local a="$1" fc="$FC" v="-"
     case "$a" in *@*) v="${a#*@}"; a="${a%%@*}";; esac
@@ -56,7 +57,11 @@ ANY_FC="$FC"
 for a in ${ARMS//,/ }; do
     read -r _s _b _f _v <<<"$(arm_plan "$a")"
     [ "$_s" = "unknown" ] && { echo "unknown arm $a" >&2; exit 2; }
-    [ "$_v" != "-" ] && [ ! -f "$PARITY_DIR/variants/$_v.env" ] && { echo "unknown variant $_v (see variants/)" >&2; exit 2; }
+    if [ "$_v" != "-" ]; then
+        for _p in ${_v//+/ }; do   # variants stack: @a+b applies a.env then b.env
+            [ -f "$PARITY_DIR/variants/$_p.env" ] || { echo "unknown variant $_p (see variants/)" >&2; exit 2; }
+        done
+    fi
     [ "$_f" = "1" ] && ANY_FC=1
 done
 export PARITY_FC="$ANY_FC"   # preflight: require native FC when any arm uses it
