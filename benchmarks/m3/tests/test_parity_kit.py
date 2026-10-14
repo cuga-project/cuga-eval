@@ -599,7 +599,10 @@ def test_report_lists_tasks_left_out_of_the_pass_rates(tmp_path):
         "unmatched": [],
     }
     report = compare.render_report("s", manifest, um, compare.load_run(run, manifest, um))
-    assert "cuga_eval_cap3_fc: 1 unscored (scoring failed after its retry), 1 without a prediction" in report
+    assert (
+        "cuga_eval_cap3_fc: 1 unscored (scoring or the judge failed after its retry), 1 without a prediction"
+        in report
+    )
     assert "| cuga_eval_cap3_fc | cuga-eval | cap3 +FC | 1 | 100.0% (1/1) |" in report
 
 
@@ -739,3 +742,27 @@ def test_cap4_dry_run_plans_its_arms():
     ).stdout  # fmt: skip
     assert "PARITY_FC=0 bash" in out and "PARITY_FC=0 PARITY_VARIANT=soft2 bash" in out
     assert out.count("run_cuga_eval_arm.sh x parity_est4_ref30 cap4_v3wx") == 2
+
+
+def test_chunked_scoring_retries_judge_errors_and_never_counts_them_as_failures(tmp_path):
+    from benchmarks.m3.parity import rescore_chunked
+
+    gt, pred, uuids = _chunk_fixture(tmp_path, n=3)
+    attempts = []
+
+    def evaluate(g, p, out):
+        attempts.append(1)
+        bad = {"per_turn": [{"metadata": {"score_explanation": {"answer": "Judge Error {e}."}}}]}
+        dialogues = [{"uuid": "V-0", "score": 1.0}, {"uuid": "V-1", "score": 0.0, "details": bad}]
+        if len(attempts) > 1:  # the retry still errors on V-1, V-2 is fine
+            dialogues.append({"uuid": "V-2", "score": 0.0})
+        out.write_text(json.dumps({"domains": {"hockey": {"dialogues": dialogues}}}))
+        return True
+
+    block = rescore_chunked.score_domain(
+        "hockey", gt, pred, tmp_path / "w", evaluate, lambda: None, retries=1
+    )
+    assert len(attempts) == 2  # judge errors triggered one retry
+    assert block["judge_error_uuids"] == ["V-1"] and [d["uuid"] for d in block["dialogues"]] == ["V-0", "V-2"]
+    merged = rescore_chunked.merge("cap", gt, pred, [block])
+    assert merged["summary"]["n_judge_errors"] == 1 and merged["summary"]["n_samples"] == 2

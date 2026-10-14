@@ -118,7 +118,11 @@ def load_run(run_dir: Path, manifest: Dict[str, Any], uuid_map: Dict[str, Any]) 
             raw = vendor_scores(results)
             arm["vendor"] = {vakra_to_zip.get(u, u): s for u, s in raw.items()}
             blocks = (results.get("domains") or {}).values()
-            arm["unscored"] = [u for b in blocks for u in b.get("unscored_uuids") or []]
+            arm["unscored"] = [
+                u
+                for b in blocks
+                for u in (b.get("unscored_uuids") or []) + (b.get("judge_error_uuids") or [])
+            ]
             arm["missing"] = [u for b in blocks for u in b.get("missing_prediction_uuids") or []]
         ns = arm_dir / "native_scores.json"
         if ns.exists():
@@ -175,7 +179,7 @@ def render_report(
             "",
             "Left out of the pass rates above (as the campaign's scorer left them out): "
             + "; ".join(
-                f"{n}: {u} unscored (scoring failed after its retry), {m} without a prediction"
+                f"{n}: {u} unscored (scoring or the judge failed after its retry), {m} without a prediction"
                 for n, u, m in gaps
             )
             + ".",

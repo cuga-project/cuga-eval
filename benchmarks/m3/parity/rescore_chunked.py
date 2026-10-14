@@ -76,6 +76,11 @@ def run_evaluator(
     return rc == 0 and out.exists()
 
 
+def has_judge_error(dialogue: Dict[str, Any]) -> bool:
+    """The vendor judge reports an exception as an explanation ("Judge Error ...") with score 0."""
+    return "Judge Error" in json.dumps(dialogue.get("details") or {}, default=str)
+
+
 def _load_list(path: Path) -> List[Dict[str, Any]]:
     if not path.exists():
         return []
@@ -105,6 +110,7 @@ def score_domain(
         "missing_prediction_uuids": [u for u in uuids if u not in preds],
         "extra_prediction_uuids": sorted(set(preds) - set(uuids)),
         "unscored_uuids": [],
+        "judge_error_uuids": [],
         "dialogues": [],
     }
     scorable = [u for u in uuids if u in preds]
@@ -117,21 +123,34 @@ def score_domain(
         (cdir / "gt" / f"{domain}.json").write_text(json.dumps([gt_by[u] for u in part]))
         (cdir / "pred" / f"{domain}.json").write_text(json.dumps([preds[u] for u in part]))
         out = cdir / "results.json"
+        dialogues: List[Dict[str, Any]] = []
         ok = False
         for attempt in range(1 + retries):
             out.unlink(missing_ok=True)
             restart()
-            if evaluate(cdir / "gt", cdir / "pred", out):
-                ok = True
+            if not evaluate(cdir / "gt", cdir / "pred", out):
+                print(f"  {domain} chunk {ci // chunk}: attempt {attempt + 1} failed", flush=True)
+                continue
+            ok = True
+            res = json.loads(out.read_text())
+            dialogues = ((res.get("domains") or {}).get(domain) or {}).get("dialogues") or []
+            if not any(has_judge_error(d) for d in dialogues) or attempt == retries:
                 break
-            print(f"  {domain} chunk {ci // chunk}: attempt {attempt + 1} failed", flush=True)
+            print(
+                f"  {domain} chunk {ci // chunk}: judge errors on attempt {attempt + 1}; retrying", flush=True
+            )
         if not ok:
             block["unscored_uuids"] += part
             continue
-        res = json.loads(out.read_text())
-        dialogues = ((res.get("domains") or {}).get(domain) or {}).get("dialogues") or []
-        block["dialogues"] += dialogues
-        print(f"  {domain} chunk {ci // chunk}: {len(dialogues)}/{len(part)} scored", flush=True)
+        # A judge call that raised is not a verdict: never let it count as a failed task.
+        errored = [d for d in dialogues if has_judge_error(d)]
+        block["judge_error_uuids"] += [str(d.get("uuid")) for d in errored]
+        block["dialogues"] += [d for d in dialogues if not has_judge_error(d)]
+        print(
+            f"  {domain} chunk {ci // chunk}: {len(dialogues) - len(errored)}/{len(part)} scored"
+            + (f", {len(errored)} judge errors" if errored else ""),
+            flush=True,
+        )
     block["n_paired"] = len(block["dialogues"])
     return block
 
@@ -153,6 +172,7 @@ def merge(
             "mean_dialogue_score": (sum(scores) / len(scores)) if scores else None,
             "n_missing_predictions": sum(len(b["missing_prediction_uuids"]) for b in blocks),
             "n_unscored": sum(len(b["unscored_uuids"]) for b in blocks),
+            "n_judge_errors": sum(len(b.get("judge_error_uuids") or []) for b in blocks),
         },
         "chunking": {
             "chunk": CHUNK,
@@ -199,9 +219,10 @@ def main(argv: Optional[List[str]] = None) -> int:
     a.out.write_text(json.dumps(merged, indent=1))
     s = merged["summary"]
     print(
-        f"scored {s['n_samples']} ({s['n_correct']} pass), unscored {s['n_unscored']}, missing {s['n_missing_predictions']}"
+        f"scored {s['n_samples']} ({s['n_correct']} pass), unscored {s['n_unscored']}, "
+        f"judge errors {s['n_judge_errors']}, missing {s['n_missing_predictions']}"
     )
-    return 0 if s["n_unscored"] == 0 else 1
+    return 0 if s["n_unscored"] == 0 and s["n_judge_errors"] == 0 else 1
 
 
 if __name__ == "__main__":

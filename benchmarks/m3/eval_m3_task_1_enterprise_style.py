@@ -875,7 +875,10 @@ async def main():
         logger.info(f"\n{'=' * 60}")
         logger.info("OVERALL SUMMARY")
         logger.info(f"{'=' * 60}\n")
-        print_evaluation_summary(all_results)
+        try:
+            print_evaluation_summary(all_results)
+        except (KeyError, TypeError) as exc:  # timed-out items lack the keyword fields; results are saved
+            logger.warning(f"Evaluation summary skipped ({exc!r}); results were saved above")
 
         # Save results
         output_dir = Path(args.output) if args.output else Path(__file__).parent / "results"
