@@ -75,9 +75,19 @@ proxy_up() {
     return 1
 }
 
+# The CUGA this arm runs; checked again before every domain. A change (branch switch, new
+# commit, edits) stops the arm — the 2026-10-13 stage-2 run lost half an arm to one.
+cuga_id() { (cd "$ROOT" && uv run --frozen python -m benchmarks.m3.parity.cuga_identity --line 2>/dev/null); }
+CUGA_ID0="$(cuga_id)"
+echo "[$ARM] cuga: $CUGA_ID0" | tee -a "$OUT/console.log"
+
 for dom in $DOMS; do
     if [ -f "$OUT/prediction/$dom.json" ]; then
         echo "[$ARM] $dom already done (resume)" | tee -a "$OUT/console.log"; continue
+    fi
+    if [ "$(cuga_id)" != "$CUGA_ID0" ]; then
+        echo "[$ARM] CUGA changed since the arm started ($CUGA_ID0 -> $(cuga_id)) — stopping this arm" | tee -a "$OUT/console.log"
+        FINAL_RC=3; break
     fi
     if ! proxy_up; then
         echo "[$ARM] proxy still down before $dom — stopping this arm; re-run the same run_id to resume" | tee -a "$OUT/console.log"

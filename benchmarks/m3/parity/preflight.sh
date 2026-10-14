@@ -25,12 +25,17 @@ fi
 # --- this stack --------------------------------------------------------------
 [ -L "$ROOT/vendor/vakra" ] || [ -d "$ROOT/vendor/vakra" ] && ok "vendor/vakra -> $(readlink "$ROOT/vendor/vakra" 2>/dev/null || echo dir)" || bad "vendor/vakra missing (ln -sfn $VAKRA_MAIN vendor/vakra)"
 [ -f "$ROOT/benchmarks/m3/data/small_train.zip" ] && ok "small_train.zip present" || bad "benchmarks/m3/data/small_train.zip missing"
-if [ -d "$CUGA_AGENT_DIR/.git" ]; then
-    _b=$(git -C "$CUGA_AGENT_DIR" rev-parse --abbrev-ref HEAD); _c=$(git -C "$CUGA_AGENT_DIR" rev-parse --short HEAD); _d=$(git -C "$CUGA_AGENT_DIR" status --porcelain | wc -l | tr -d ' ')
-    info "cuga-agent (this stack): $_b@$_c dirty_files=$_d"
-    [ "$_d" = "0" ] || info "  ^ dirty checkout: the parity report will carry this; prefer a clean origin/main (or the merged FC commit)"
+read -r _repo _c _b _d _main <<<"$(cd "$ROOT" && uv run --frozen python -m benchmarks.m3.parity.cuga_identity --line 2>/dev/null)"
+if [ -n "${_repo:-}" ] && [ "$_repo" != "-" ]; then
+    info "cuga (this stack): imported from $_repo — $_b@$_c dirty_files=$_d"
+    [ "$_d" = "0" ] || info "  ^ dirty checkout: the parity report will carry this; prefer a clean pinned commit"
+    if [ "$_main" = "1" ] && [ "${PARITY_ALLOW_SHARED_CUGA:-0}" != "1" ]; then
+        bad "CUGA is imported from the repo's main checkout ($_repo), where other sessions switch branches mid-run. Pin one: git -C $_repo worktree add --detach ~/git/cuga-agent-parity <commit> && uv pip install --python .venv/bin/python --no-deps -e ~/git/cuga-agent-parity (PARITY_ALLOW_SHARED_CUGA=1 overrides)"
+    else
+        ok "cuga is a pinned checkout (not the shared main worktree)"
+    fi
 else
-    bad "cuga-agent checkout not found at $CUGA_AGENT_DIR"
+    bad "cannot locate the cuga package this environment imports"
 fi
 _fc=$(cd "$ROOT" && uv run --frozen python - <<'PY' 2>/dev/null
 import importlib

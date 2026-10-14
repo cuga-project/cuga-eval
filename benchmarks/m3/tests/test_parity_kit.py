@@ -598,3 +598,29 @@ def test_report_lists_tasks_left_out_of_the_pass_rates(tmp_path):
     report = compare.render_report("s", manifest, um, compare.load_run(run, manifest, um))
     assert "cuga_eval_cap3_fc: 1 unscored (scoring failed after its retry), 1 without a prediction" in report
     assert "| cuga_eval_cap3_fc | cuga-eval | cap3 +FC | 1 | 100.0% (1/1) |" in report
+
+
+def _git_cmd(*args, cwd):
+    subprocess.run(["git", *args], cwd=cwd, check=True, capture_output=True)  # noqa: S603, S607
+
+
+def test_cuga_identity_tells_the_shared_main_checkout_from_a_pinned_worktree(tmp_path):
+    from benchmarks.m3.parity import cuga_identity
+
+    main = tmp_path / "cuga-agent"
+    (main / "src" / "cuga").mkdir(parents=True)
+    (main / "src" / "cuga" / "__init__.py").write_text("")
+    _git_cmd("init", "-q", cwd=main)
+    _git_cmd("-c", "user.name=t", "-c", "user.email=t@t", "add", ".", cwd=main)
+    _git_cmd("-c", "user.name=t", "-c", "user.email=t@t", "commit", "-qm", "c", cwd=main)
+    _git_cmd("worktree", "add", "-q", "--detach", str(tmp_path / "pinned"), "HEAD", cwd=main)
+
+    shared = cuga_identity.identity(str(main / "src" / "cuga"))
+    pinned = cuga_identity.identity(str(tmp_path / "pinned" / "src" / "cuga"))
+    assert shared["main_worktree"] is True and pinned["main_worktree"] is False
+    assert shared["commit"] == pinned["commit"] and pinned["dirty"] == 0
+    assert cuga_identity.as_line(pinned).endswith(f"{pinned['commit']} HEAD 0 0")
+    (tmp_path / "pinned" / "src" / "cuga" / "x.py").write_text("")
+    assert (
+        cuga_identity.identity(str(tmp_path / "pinned" / "src" / "cuga"))["dirty"] == 1
+    )  # edits change the id

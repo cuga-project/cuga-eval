@@ -12,7 +12,13 @@ export PARITY_DIR="$_parity_dir"
 export PARITY_ROOT="$_root"
 export PARITY_APPWORLD_ENV="${PARITY_APPWORLD_ENV:-$HOME/git/appworld/.env}"
 export VAKRA_MAIN="${VAKRA_MAIN:-$HOME/git/appworld/vakra-main}"
-export CUGA_AGENT_DIR="${CUGA_AGENT_DIR:-${CUGA_REPO_PATH:-$_root/../cuga-agent}}"
+# Never let `uv run` re-sync .venv: it may import CUGA from a pinned worktree rather than the
+# lockfile's ../cuga-agent — the shared main checkout other sessions switch branches in.
+export UV_FROZEN=1 UV_NO_SYNC=1
+# The checkout this environment really imports (cuga_identity.py), not a guessed path.
+_cuga_repo="$(cd "$_root" && uv run --frozen python -m benchmarks.m3.parity.cuga_identity --line 2>/dev/null | cut -d' ' -f1)"
+[ "$_cuga_repo" = "-" ] && _cuga_repo=""
+export CUGA_AGENT_DIR="${_cuga_repo:-${CUGA_AGENT_DIR:-${CUGA_REPO_PATH:-$_root/../cuga-agent}}}"
 export PARITY_TEMPERATURE="${1:-${PARITY_TEMPERATURE:-1.0}}"
 [ -n "${PARITY_MODEL:-}" ] && export PARITY_MODEL_SET=1
 export PARITY_MODEL="${PARITY_MODEL:-azure/gpt-oss-120b}"
