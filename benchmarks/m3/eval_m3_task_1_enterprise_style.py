@@ -100,6 +100,8 @@ async def wrap_tool_with_tracking(tool, app_name: str = "mcp_server"):
 
     # Create wrapped function
     async def tracked_func(**kwargs):
+        # The recorded chain is replayed verbatim by the evaluator, so record exactly what is sent
+        kwargs = drop_null_args(kwargs)
         start_time = time.time()
         result = None
         error_msg = None
@@ -136,11 +138,93 @@ async def wrap_tool_with_tracking(tool, app_name: str = "mcp_server"):
     return tool
 
 
+def drop_null_args(arguments: Dict[str, Any]) -> Dict[str, Any]:
+    """Omit arguments the model left null, so the server applies its own defaults.
+
+    The VAKRA tool models forbid null for typed fields; a recorded ``limit: null``
+    fails input validation when the evaluator replays the chain.
+    """
+    return {k: v for k, v in arguments.items() if v is not None}
+
+
+_JSON_TYPES = {"string": str, "integer": int, "number": float, "boolean": bool, "array": list, "object": dict}
+
+
+def _python_type_of(prop_info: Dict[str, Any]) -> Any:
+    """JSON-schema property -> Python type, as VAKRA's MCPToolWrapper maps it."""
+    if "anyOf" in prop_info:
+        return Any
+    if "enum" in prop_info:
+        return str
+    json_type = prop_info.get("type")
+    if json_type is None or isinstance(json_type, list):
+        return Any
+    return _JSON_TYPES.get(json_type, Any)
+
+
+def args_model_from_schema(tool_name: str, input_schema: Optional[Dict[str, Any]]) -> type:
+    """Pydantic args model for an MCP tool: the schema's types, defaults and enum values.
+
+    Mirrors VAKRA's ``MCPToolWrapper._convert_json_schema_to_pydantic`` (the campaign's
+    tool binding), so the model sees the same parameter types and defaults.
+    """
+    from pydantic import Field, create_model
+
+    schema = input_schema if isinstance(input_schema, dict) else {}
+    required = schema.get("required", [])
+    fields: Dict[str, Any] = {}
+    for prop_name, prop_info in (schema.get("properties") or {}).items():
+        python_type = _python_type_of(prop_info)
+        description = prop_info.get("description", "")
+        if prop_info.get("enum"):
+            description = f"{description} Allowed values: {', '.join(map(str, prop_info['enum']))}".strip()
+        default = prop_info.get("default", ...)
+        if prop_name in required and default is ...:
+            fields[prop_name] = (python_type, Field(..., description=description))
+        else:
+            fields[prop_name] = (
+                Optional[python_type],
+                Field(default=None if default is ... else default, description=description),
+            )
+    return create_model(f"{tool_name}_Input", **fields)
+
+
+def mcp_structured_tool(session, mcp_tool):
+    """LangChain tool for ONE MCP tool.
+
+    Built in its own scope so every closure binds this tool's name: a loop-level closure
+    shares the loop variable, and every call then runs the LAST listed tool (get_data).
+    """
+    from langchain_core.tools import StructuredTool
+
+    tool_name = mcp_tool.name
+
+    async def tool_func(**kwargs):
+        """Call MCP tool via session."""
+        result = await session.call_tool(tool_name, kwargs)
+        # Extract content from MCP response
+        if hasattr(result, 'content') and result.content:
+            content_items = result.content
+            if isinstance(content_items, list) and content_items:
+                first_item = content_items[0]
+                if hasattr(first_item, 'text'):
+                    return first_item.text
+                elif isinstance(first_item, dict) and 'text' in first_item:
+                    return first_item['text']
+            return str(content_items)
+        return str(result)
+
+    return StructuredTool(
+        name=tool_name,
+        description=mcp_tool.description or f"Tool: {tool_name}",
+        func=lambda **kw: asyncio.run(tool_func(**kw)),  # Sync wrapper
+        coroutine=tool_func,  # Async version
+        args_schema=args_model_from_schema(tool_name, getattr(mcp_tool, "inputSchema", None)),
+    )
+
+
 async def get_tools_from_session(session) -> List:
     """Extract LangChain-compatible tools from MCP session."""
-    from langchain_core.tools import StructuredTool
-    from pydantic import BaseModel, Field
-
     # List available tools from MCP server
     tools_response = await session.list_tools()
     mcp_tools = tools_response.tools if hasattr(tools_response, 'tools') else []
@@ -150,62 +234,7 @@ async def get_tools_from_session(session) -> List:
     # Convert MCP tools to LangChain tools
     langchain_tools = []
     for mcp_tool in mcp_tools:
-        tool_name = mcp_tool.name
-        tool_description = mcp_tool.description or f"Tool: {tool_name}"
-
-        # Create dynamic Pydantic model for tool input
-        input_schema = mcp_tool.inputSchema if hasattr(mcp_tool, 'inputSchema') else {}
-        properties = input_schema.get("properties", {})
-        required = input_schema.get("required", [])
-
-        # Build field definitions with proper annotations
-        fields = {}
-        annotations = {}
-        for prop_name, prop_info in properties.items():
-            field_type = str  # Default to string
-            field_description = prop_info.get("description", "")
-            is_required = prop_name in required
-
-            # Add type annotation
-            if is_required:
-                annotations[prop_name] = field_type
-                fields[prop_name] = Field(..., description=field_description)
-            else:
-                annotations[prop_name] = Optional[field_type]
-                fields[prop_name] = Field(None, description=field_description)
-
-        # Add __annotations__ to fields dict
-        fields['__annotations__'] = annotations
-
-        # Create dynamic model
-        InputModel = type(f"{tool_name}_Input", (BaseModel,), fields)
-
-        # Create async function that calls MCP tool
-        async def tool_func(**kwargs):
-            """Call MCP tool via session."""
-            nonlocal session, tool_name
-            result = await session.call_tool(tool_name, kwargs)
-
-            # Extract content from MCP response
-            if hasattr(result, 'content') and result.content:
-                content_items = result.content
-                if isinstance(content_items, list) and content_items:
-                    first_item = content_items[0]
-                    if hasattr(first_item, 'text'):
-                        return first_item.text
-                    elif isinstance(first_item, dict) and 'text' in first_item:
-                        return first_item['text']
-                return str(content_items)
-            return str(result)
-
-        # Create LangChain StructuredTool
-        lc_tool = StructuredTool(
-            name=tool_name,
-            description=tool_description,
-            func=lambda **kw: asyncio.run(tool_func(**kw)),  # Sync wrapper
-            coroutine=tool_func,  # Async version
-            args_schema=InputModel,
-        )
+        lc_tool = mcp_structured_tool(session, mcp_tool)
 
         # Wrap tool with tracking
         tracked_tool = await wrap_tool_with_tracking(lc_tool, app_name="mcp_server")
