@@ -107,7 +107,8 @@ run_cap4_domain() {
         --eval-key "$SUBSET" --no-ground-truth --no-policies --domain "$dom")
     [ "$PRESET" != "off" ] && args+=(--adapter-preset "$PRESET")
     [ "$PRESET" != "off" ] && [ "$DEMODATA" != "-" ] && args+=(--demo-data "$DEMODATA")
-    (cd "$ROOT" && export DYNACONF_SERVER_PORTS__REGISTRY="$REGISTRY_PORT" DYNACONF_POLICY__ENABLED=false \
+    # load_env.sh reads unset variables (eval.sh runs without set -u): relax -u in this subshell only
+    (cd "$ROOT" && set +u && export DYNACONF_SERVER_PORTS__REGISTRY="$REGISTRY_PORT" DYNACONF_POLICY__ENABLED=false \
         && source benchmarks/helpers/load_env.sh m3 >/dev/null \
         && uv run --frozen python -m benchmarks.m3.parity.eval_m3_cap4 "${args[@]}") 2>&1 | tee -a "$OUT/console.log"
     rc=${PIPESTATUS[0]}
