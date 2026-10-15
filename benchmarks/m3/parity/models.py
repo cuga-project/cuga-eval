@@ -11,6 +11,7 @@ keeps an absolute path as-is).
 from __future__ import annotations
 
 import argparse
+import os
 import re
 import sys
 from pathlib import Path
@@ -38,7 +39,10 @@ def write_temperature_variant(src: Path, dst: Path, temperature: float) -> int:
         out.append(line)
     dst = Path(dst)
     dst.parent.mkdir(parents=True, exist_ok=True)
-    dst.write_text("\n".join(out) + "\n")
+    # atomic: concurrent runs share this file, and an agent may load it while another run rewrites it
+    tmp = dst.with_name(f"{dst.name}.{os.getpid()}.tmp")
+    tmp.write_text("\n".join(out) + "\n")
+    os.replace(tmp, dst)
     return rewritten
 
 
