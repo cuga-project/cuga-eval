@@ -29,6 +29,8 @@ SUBSETS = (
     "parity_est1_smoke",
     "parity_est4_ref30",
     "parity_est4_smoke",
+    "parity_est3_fresh30",
+    "parity_est1_smoke3",
 )
 BASH = shutil.which("bash") or "/bin/bash"
 
@@ -462,6 +464,34 @@ def test_est3_reference_ids_come_from_the_full_est3_manifest():
     full = _manifest("parity_est3_cap3")["reference"]["pass_by_uuid"]["on"]
     ref = _manifest("parity_est3_ref30")["reference"]["pass_by_uuid"]["on"]
     assert set(ref) <= set(full) and all(full[u] == v for u, v in ref.items())
+
+
+def test_fresh_est3_slice_is_disjoint_from_the_first_and_keeps_the_rate():
+    full = _manifest("parity_est3_cap3")["reference"]["pass_by_uuid"]["on"]
+    ref = _manifest("parity_est3_ref30")["reference"]["pass_by_uuid"]["on"]
+    fresh = _manifest("parity_est3_fresh30")
+    flags = fresh["reference"]["pass_by_uuid"]["on"]
+    assert len(flags) == 30 and not set(flags) & set(ref) and set(flags) <= set(full)
+    assert sum(flags.values()) == 17 and all(full[u] == v for u, v in flags.items())
+    assert fresh["selection"]["excluding"] == ["parity_est3_ref30"]
+
+
+def test_exclude_leaves_the_excluded_items_out_of_the_pool(monkeypatch, tmp_path):
+    from benchmarks.m3.parity import make_reference as mr
+
+    items = {f"d{d}": [f"u{d}-{i}" for i in range(4)] for d in range(5)}
+    (tmp_path / "sample.json").write_text(json.dumps(items))
+    monkeypatch.setitem(mr.SOURCES, 3, {**mr.SOURCES[3], "sample": "sample.json", "scores": "scores"})
+    monkeypatch.setattr(mr, "load_verdicts", lambda _p: {u: True for us in items.values() for u in us})
+    first, _ = mr.build(3, 8, "a", tmp_path)
+    first_ids = [u for us in first["ids_by_domain"].values() for u in us]
+    second, um = mr.build(3, 8, "b", tmp_path, exclude={"a": first_ids})
+    second_ids = [u for us in second["ids_by_domain"].values() for u in us]
+    assert (
+        len(second_ids) == 8
+        and not set(second_ids) & set(first_ids)
+        and set(um["zip_to_vakra"]) == set(second_ids)
+    )
 
 
 def test_variant_arms_dry_run_and_unknown_variant_is_rejected():

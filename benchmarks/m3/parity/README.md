@@ -35,7 +35,14 @@ subsets are mapped by normalized first-turn query text
 | `parity_est3_cap3` | 120 (22 domains) | 120 (vakra-main uuids) | **the campaign's cap3 train scorecard**: 68/120 = 56.7% (fc_canon + FC, 2026-08-18) |
 | `parity_est3_smoke` | 2 | 2 | plumbing check for the est3 path |
 | `parity_est3_ref30` | 30 (18 domains) | 30 (vakra-main uuids) | **cap3 reference**: 30 est3 tasks, campaign recorded 17/30 = 56.7% (its CodeAct + stepwise run: 51.7%) |
+| `parity_est3_fresh30` | 30 (18 domains) | 30 (vakra-main uuids) | **cap3 confirmation set**: 30 more est3 tasks, disjoint from `parity_est3_ref30` (`make_reference.py --exclude-subset`), campaign recorded 17/30 = 56.7% |
 | `parity_est2_ref30` | 30 (30 domains) | 30 (vakra-main uuids) | **cap2 reference**: 30 est2 tasks, campaign recorded 19/30 = 63.3% (scorecard 62.6%) |
+| `parity_est1_ref30` | 30 (22 domains) | 30 (vakra-main uuids) | **cap1 reference**: 30 est1 tasks, campaign recorded 17/30 = 56.7% (scorecard 56.3%) |
+| `parity_est1_smoke3` | 3 | 3 | cap1 tool-binding smoke (2 selection-tool tasks, 1 slot-filling); campaign 3/3 rescored |
+
+cap1 runs made before commit `1b993f8` do not measure the agent: the cap1 runner sent every
+tool call to `get_data`. To check a cap1 arm, grep its `console.log` for `call_tool:`; the
+names must match the recorded chain.
 
 Campaign train numbers for the same recipes: cap2 62.6, cap3 56.7 **with FC**
 (35 without); test: cap2 56.3, cap3 45.0.

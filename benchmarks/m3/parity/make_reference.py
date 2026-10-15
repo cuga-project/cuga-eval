@@ -13,6 +13,7 @@ subset is defined in vakra-main uuids) and prints the ``eval_config.toml`` line.
 benchmark data is written — ids and pass flags only.
 
 usage: uv run --frozen python -m benchmarks.m3.parity.make_reference --cap 3 --n 30 --name parity_est3_ref30
+       ... --name parity_est3_fresh30 --exclude-subset parity_est3_ref30   # a disjoint second slice
 """
 
 from __future__ import annotations
@@ -128,12 +129,17 @@ def build(
     seed: int = 0,
     extra: Optional[Dict[str, str]] = None,
     default_arms: Optional[str] = None,
+    exclude: Optional[Dict[str, List[str]]] = None,
 ):
+    """``exclude``: {subset name: its ids}; those items are left out of the pool (a disjoint slice)."""
     src = SOURCES[cap]
     capdir, preset, recorded_pct = src["capdir"], src["preset"], src["recorded"]
     by_dom = json.loads((vakra_main / src["sample"]).read_text())
     verdicts = load_verdicts(vakra_main / src["scores"])
-    items = [(u, d, verdicts[u]) for d, us in by_dom.items() for u in us if u in verdicts]
+    excluded = {u for ids in (exclude or {}).values() for u in ids}
+    items = [
+        (u, d, verdicts[u]) for d, us in by_dom.items() for u in us if u in verdicts and u not in excluded
+    ]
     chosen = sorted(select(items, n, seed), key=lambda it: (it[1], it[0]))
     ids_by_domain: Dict[str, List[str]] = {}
     for u, d, _ in chosen:
@@ -164,6 +170,7 @@ def build(
             "method": "stratified by the campaign's recorded outcome (pass rate preserved), "
             "spread across domains, sha1(seed:uuid) order",
             "seed": seed,
+            **({"excluding": sorted(exclude)} if exclude else {}),
         },
         "reference": {
             "description": f"VAKRA campaign cap{cap} train scorecard ({recorded_pct}% on all {len(items)} items): "
@@ -207,10 +214,32 @@ def main(argv: Optional[List[str]] = None) -> int:
         "e.g. codeact_stepwise=cuga_runs/gateStruct_score_treat or soft2=cap4_train/scores/full_soft2",
     )
     parser.add_argument("--default-arms", default=None, help="the manifest's default arms (comma-separated)")
+    parser.add_argument(
+        "--exclude-subset",
+        action="append",
+        default=[],
+        metavar="NAME",
+        help="leave out the items of manifests/<NAME>.json (repeatable): a slice disjoint from it",
+    )
     args = parser.parse_args(argv)
     extra = dict(x.split("=", 1) for x in args.extra_reference)
+    exclude = {
+        name: [
+            u
+            for us in json.loads((MANIFESTS / f"{name}.json").read_text())["ids_by_domain"].values()
+            for u in us
+        ]
+        for name in args.exclude_subset
+    }
     manifest, uuid_map = build(
-        args.cap, args.n, args.name, args.vakra_main, args.seed, extra, default_arms=args.default_arms
+        args.cap,
+        args.n,
+        args.name,
+        args.vakra_main,
+        args.seed,
+        extra,
+        default_arms=args.default_arms,
+        exclude=exclude,
     )
     (MANIFESTS / f"{args.name}.json").write_text(json.dumps(manifest, indent=1) + "\n")
     (MANIFESTS / f"uuid_map_{args.name}.json").write_text(json.dumps(uuid_map, indent=1) + "\n")
