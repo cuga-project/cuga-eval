@@ -92,10 +92,28 @@ def looks_like_failure(text: str) -> bool:
 # scores 0. Strip only a TRAILING clause; a "Source" mid-answer is content.
 _SOURCE_SUFFIX_RE = re.compile(r"[\s.]*\bSources?\s*:\s*[^.:]{1,200}\.?\s*$", re.IGNORECASE)
 
+# The VAKRA tool servers return ASCII-escaped JSON, and the model sometimes copies a value
+# verbatim as a JSON escape ("\u00e9", six characters) where the ground truth has the character.
+_U_SURROGATE_PAIR_RE = re.compile(r"\\u([dD][89abAB][0-9a-fA-F]{2})\\u([dD][c-fC-F][0-9a-fA-F]{2})")
+_U_ESCAPE_RE = re.compile(r"\\u([0-9a-fA-F]{4})")  # JSON's lowercase \u only, not Python's \U00XXXXXX
+
+
+def decode_unicode_escapes(text: str) -> str:
+    """Literal ``\\uXXXX`` escapes (incl. surrogate pairs) -> the characters; lone surrogates stay."""
+    if "\\u" not in text:
+        return text
+    t = _U_SURROGATE_PAIR_RE.sub(
+        lambda m: chr(0x10000 + ((int(m.group(1), 16) - 0xD800) << 10) + (int(m.group(2), 16) - 0xDC00)), text
+    )
+    return _U_ESCAPE_RE.sub(
+        lambda m: m.group(0) if 0xD800 <= int(m.group(1), 16) <= 0xDFFF else chr(int(m.group(1), 16)), t
+    )
+
 
 def normalize_answer(text: str) -> str:
     """Deterministic, judge-aligned cleanup of the final answer string.
 
+    - decodes literal ``\\uXXXX`` escapes copied from the tools' ASCII-escaped JSON
     - strips markdown emphasis and surrounding quotes/backticks
     - drops a trailing "Source: ..." citation clause (judge counts it as an
       unsupported claim)
@@ -103,7 +121,7 @@ def normalize_answer(text: str) -> str:
     - drops stray IMPOSSIBLE tokens when real content is present
     - never touches non-numeric content beyond the cleanups above
     """
-    t = (text or "").strip()
+    t = decode_unicode_escapes((text or "").strip())
     t = re.sub(r"[*_`]{1,3}", "", t).strip()
     desourced = _SOURCE_SUFFIX_RE.sub("", t).strip()
     if desourced:  # keep the citation only when it is all there is

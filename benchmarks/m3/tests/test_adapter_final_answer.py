@@ -94,6 +94,15 @@ def test_make_final_answer_fn_honors_canonicalize_flag():
     assert on("I can not answer.") == "I can not answer."
 
 
+def test_normalize_decodes_unicode_escapes_copied_from_tool_json():
+    assert normalize_answer("\\u9b45\\u65cf, MX3") == "\u9b45\u65cf, MX3"
+    assert normalize_answer("Jos\\u00e9 Mourinho") == "Jos\u00e9 Mourinho"
+    assert normalize_answer("\\ud83d\\ude00 ok") == "\U0001f600 ok"  # surrogate pair
+    assert normalize_answer("\\ud83d alone") == "\\ud83d alone"  # lone surrogate left as-is
+    assert normalize_answer("C:\\users\\x") == "C:\\users\\x"  # not an escape
+    assert normalize_answer("already 魅族") == "already 魅族"
+
+
 def test_normalize_strips_trailing_source_citation():
     assert normalize_answer("Charles. Source: hockey_get_players_by_position_no_shoot_catch.") == "Charles"
     assert normalize_answer("42. Sources: tool_a, tool_b") == "42"
