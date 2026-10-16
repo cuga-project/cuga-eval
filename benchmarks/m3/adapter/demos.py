@@ -17,8 +17,9 @@ dependency); with no usable corpus the feature degrades to a no-op.
 from __future__ import annotations
 
 import json
+from collections import Counter
 from pathlib import Path
-from typing import Any, Callable, Iterable, List, Optional, Union
+from typing import Any, Callable, Dict, Iterable, List, Optional, Union
 
 from loguru import logger
 
@@ -129,6 +130,51 @@ def build_demo_index(samples: Optional[List[dict]]) -> Optional[DemoIndex]:
     return DemoIndex(entries)
 
 
+class ParamValueIndex:
+    """The argument values the domain's solved examples passed, per parameter name.
+
+    The data's value conventions (codes like ``'F'``/``'W'``, ``'2y all'``, LIKE patterns,
+    fractions) are invisible in the tool schemas; other questions' gold calls show them.
+    """
+
+    MAX_VALUE_CHARS = 60
+
+    def __init__(self, entries: List[dict]):
+        self._rows: List[tuple] = []  # (question, parameter, value)
+        for entry in entries:
+            question = str(entry.get("query") or "").strip()
+            for call in entry.get("calls") or []:
+                args = call.get("arguments") or {}
+                if isinstance(args, str):
+                    try:
+                        args = json.loads(args)
+                    except ValueError:
+                        continue
+                if not isinstance(args, dict):
+                    continue
+                for param, value in args.items():
+                    if param == "database_path" or value is None or isinstance(value, (dict, list)):
+                        continue
+                    text = str(value).strip()
+                    if text and len(text) <= self.MAX_VALUE_CHARS:
+                        self._rows.append((question, param, text))
+
+    def examples(self, params: Iterable[str], exclude_query: str = "", k: int = 6) -> Dict[str, List[str]]:
+        """``{param: up to k values, most used first}``, never from the question being asked."""
+        asked = (exclude_query or "").strip()
+        out: Dict[str, List[str]] = {}
+        for param in params:
+            counts = Counter(v for q, p, v in self._rows if p == param and q != asked)
+            if counts:
+                out[param] = [v for v, _ in counts.most_common(k)]
+        return out
+
+
+def build_param_value_index(samples: Optional[List[dict]]) -> Optional[ParamValueIndex]:
+    index = build_demo_index(samples)
+    return ParamValueIndex(index.entries) if index is not None else None
+
+
 def select_prose_pairs(
     index: Optional[DemoIndex], query: str, k: int, namer: Optional[Callable[[str], str]] = None
 ) -> List[dict]:
@@ -215,7 +261,7 @@ def load_demo_corpus(
     demo source *is* the evaluated data the run is warned; that is acceptable
     only for train-split smoke runs. Every failure degrades to "no demos".
     """
-    if not cfg.demos:
+    if not (cfg.demos or cfg.param_value_examples):
         return None
     source = resolve_demo_source(cfg.demo_data)
     if eval_source is not None and _same_path(source, eval_source):

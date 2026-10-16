@@ -167,6 +167,9 @@ class AdapterConfig:
     # A call that returns no rows gets a note: the argument values may not match the database's
     # format (codes, abbreviations, fractions, LIKE patterns) -> retry with stored-format values.
     empty_result_hint: bool = False
+    # With the note, up to this many values other solved examples of the domain (the demo corpus,
+    # never the asked question) passed for the same parameter names, e.g. cohort: '2y all'. 0 = off.
+    param_value_examples: int = 0
 
 
 #: What every campaign run shared (VAKRA_CAMPAIGN_CONFIG.md §1): the model at temperature 1.0 drove

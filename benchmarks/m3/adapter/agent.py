@@ -30,7 +30,14 @@ from benchmarks.m3.adapter.config import (
     execution_mode_configurable,
     runtime_configurable,
 )
-from benchmarks.m3.adapter.demos import DemoIndex, bound_tool_namer, build_demo_index, select_prose_pairs
+from benchmarks.m3.adapter.demos import (
+    DemoIndex,
+    ParamValueIndex,
+    bound_tool_namer,
+    build_demo_index,
+    build_param_value_index,
+    select_prose_pairs,
+)
 from benchmarks.m3.adapter.final_answer import make_final_answer_fn
 from benchmarks.m3.adapter.guards import run_answer_pipeline
 from benchmarks.m3.adapter.instructions import VERBATIM_RULE, compose_instruction_block
@@ -106,11 +113,13 @@ class VakraAdapterAgent:
         demo_index: Optional[DemoIndex] = None,
         *,
         final_answer_installed: bool = True,
+        value_index: Optional[ParamValueIndex] = None,
     ):
         self._inner = inner
         self._cfg = cfg
         self._provider = provider
         self._demo_index = demo_index
+        self._value_index = value_index
         self._final_answer_installed = final_answer_installed
         self._ctx = TaskContext()
         self._llm_model = None
@@ -119,6 +128,14 @@ class VakraAdapterAgent:
 
     def __getattr__(self, name: str) -> Any:  # .policies, .tool_provider, .initialize, ...
         return getattr(self._inner, name)
+
+    def _value_examples_for(self, query: str) -> Optional[Callable[[List[str]], dict]]:
+        """Per-task lookup for the empty-result hint: never the asked question's own values."""
+        k = self._cfg.param_value_examples
+        index = self._value_index
+        if not (k and index is not None and self._cfg.empty_result_hint):
+            return None
+        return lambda params: index.examples(params, exclude_query=query, k=k)
 
     # ------------------------------------------------------------------
     # Runner-facing hooks
@@ -232,6 +249,7 @@ class VakraAdapterAgent:
         # cap4 deterministic policy scoping (one cheap LLM call for conditional rules).
         ctx.last_scope = "all"
         self._provider.scope = "all"
+        self._provider.value_examples = self._value_examples_for(query)
         if cfg.scope and ctx.additional_instructions:
             scope = await resolve_scope(ctx.additional_instructions, query, self._llm_ainvoke)
             ctx.last_scope = scope
@@ -404,11 +422,19 @@ def build_m3_agent(
 
     inner = CugaAgent(tool_provider=provider, special_instructions=special_instructions, **base_kwargs)
     demo_index = build_demo_index(demo_corpus) if (config.demos and demo_corpus) else None
+    value_index = (
+        build_param_value_index(demo_corpus) if (config.param_value_examples and demo_corpus) else None
+    )
     if config.demos and demo_index is None:
         logger.info("[m3-adapter] demos enabled but no usable corpus — running without demos")
     logger.info("[m3-adapter] preset '{}' active (capability {})", config.preset, config.capability)
     return VakraAdapterAgent(
-        inner, config, provider, demo_index, final_answer_installed=final_answer_installed
+        inner,
+        config,
+        provider,
+        demo_index,
+        final_answer_installed=final_answer_installed,
+        value_index=value_index,
     )
 
 
@@ -460,7 +486,12 @@ def wrap_existing_agent(agent: Any, config: AdapterConfig, demo_corpus: Optional
         provider = recording_provider(outer, config)
         agent.tool_provider = provider
     demo_index = build_demo_index(demo_corpus) if (config.demos and demo_corpus) else None
+    value_index = (
+        build_param_value_index(demo_corpus) if (config.param_value_examples and demo_corpus) else None
+    )
     logger.info(
         "[m3-adapter] preset '{}' wrapped existing agent (capability {})", config.preset, config.capability
     )
-    return VakraAdapterAgent(agent, config, provider, demo_index, final_answer_installed=False)
+    return VakraAdapterAgent(
+        agent, config, provider, demo_index, final_answer_installed=False, value_index=value_index
+    )

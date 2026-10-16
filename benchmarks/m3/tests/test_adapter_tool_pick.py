@@ -167,3 +167,81 @@ async def test_empty_result_hint_reaches_the_agent_but_not_the_record():
         assert (isinstance(listed, str) and listed.endswith(EMPTY_RESULT_HINT)) is list_hinted
     plain = RecordingScopedToolProvider(_Reg())
     assert await (await plain.get_all_tools())[0].ainvoke({"code": "CA"}) == "[]"  # off by default
+
+
+def _corpus():
+    def sample(query, calls):
+        return {
+            "dialogue": {"turns": [{"query": query}]},
+            "expected_output": {"gold_sequence": [{"tool_call": calls}], "answer_per_turn": ["x"]},
+        }
+
+    return [
+        sample("asked question?", [{"name": "get_site", "arguments": {"cohort": "SELF", "race": "W"}}]),
+        sample(
+            "other one?",
+            [{"name": "get_a", "arguments": {"cohort": "2y all", "race": "A", "database_path": "/x"}}],
+        ),
+        sample("another?", [{"name": "get_b", "arguments": {"cohort": "2y all", "rows": [1], "year": None}}]),
+        sample("third?", [{"name": "get_c", "arguments": {"cohort": "4y other", "note": "z" * 80}}]),
+    ]
+
+
+def test_param_value_index_never_shows_the_asked_question_and_skips_unusable_values():
+    from benchmarks.m3.adapter.demos import build_param_value_index
+
+    index = build_param_value_index(_corpus())
+    got = index.examples(
+        ["cohort", "race", "rows", "year", "note", "database_path"], exclude_query="asked question?"
+    )
+    assert got == {"cohort": ["2y all", "4y other"], "race": ["A"]}  # SELF / W come only from the asked one
+    assert index.examples(["cohort"], exclude_query="asked question?", k=1) == {"cohort": ["2y all"]}
+
+
+async def test_empty_result_hint_lists_the_example_values_of_the_called_tools_parameters():
+    async def run(cohort: str = "", race: str = "") -> str:
+        return "[]"
+
+    tool = StructuredTool.from_function(coroutine=run, name="d_get_site", description="site")
+
+    class _Reg:
+        async def get_all_tools(self):
+            return [tool]
+
+    provider = RecordingScopedToolProvider(_Reg(), empty_result_hint=True)
+    provider.value_examples = lambda params: {"cohort": ["2y all", "4y other"], "race": []}
+    reply = await (await provider.get_all_tools())[0].ainvoke({"cohort": "2-year"})
+    assert reply.endswith("for these parameters: cohort: '2y all', '4y other'.")
+
+
+def test_agent_value_lookup_is_per_task_and_needs_both_options():
+    from benchmarks.m3.adapter.agent import VakraAdapterAgent
+    from benchmarks.m3.adapter.demos import build_param_value_index
+
+    index = build_param_value_index(_corpus())
+    on = replace(PRESETS["cap2"], empty_result_hint=True, param_value_examples=3)
+    agent = VakraAdapterAgent(object(), on, RecordingScopedToolProvider(None), value_index=index)
+    assert agent._value_examples_for("asked question?")(["race"]) == {"race": ["A"]}
+    for cfg in (replace(on, param_value_examples=0), replace(on, empty_result_hint=False)):
+        assert (
+            VakraAdapterAgent(
+                object(), cfg, RecordingScopedToolProvider(None), value_index=index
+            )._value_examples_for("q")
+            is None
+        )
+
+
+def test_demo_corpus_loads_for_value_examples_even_with_demos_off(tmp_path):
+    from benchmarks.m3.adapter.demos import load_demo_corpus
+
+    class _Loader:
+        def __init__(self, source):
+            pass
+
+        def load_domain(self, task_id, domain):
+            return _corpus()
+
+    off = replace(PRESETS["cap2"], demos=False, param_value_examples=0, demo_data=str(tmp_path))
+    assert load_demo_corpus(off, task_id=2, domain="d", loader_factory=_Loader) is None
+    on = replace(off, param_value_examples=4)
+    assert len(load_demo_corpus(on, task_id=2, domain="d", loader_factory=_Loader)) == 4

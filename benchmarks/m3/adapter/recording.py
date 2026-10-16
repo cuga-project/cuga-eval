@@ -38,7 +38,7 @@ from __future__ import annotations
 import asyncio
 import functools
 import json
-from typing import Any, Dict, List, Optional, Tuple
+from typing import Any, Callable, Dict, List, Optional, Tuple
 
 from langchain_core.tools import StructuredTool
 
@@ -157,9 +157,17 @@ def is_empty_result(result: Any) -> bool:
     return _is_empty_value(result)
 
 
-def with_empty_result_hint(result: Any) -> str:
+def with_empty_result_hint(result: Any, examples: Optional[Dict[str, List[str]]] = None) -> str:
+    """The raw result, the hint, and (when known) values other questions passed for these parameters."""
     text = result if isinstance(result, str) else json.dumps(result, default=str)
-    return f"{text}\n\n{EMPTY_RESULT_HINT}"
+    hint = EMPTY_RESULT_HINT
+    if examples:
+        listed = "; ".join(
+            f"{p}: " + ", ".join(repr(v) for v in vals) for p, vals in examples.items() if vals
+        )
+        if listed:
+            hint += f" Values other questions on this database passed for these parameters: {listed}."
+    return f"{text}\n\n{hint}"
 
 
 class RecordingScopedToolProvider:
@@ -183,6 +191,8 @@ class RecordingScopedToolProvider:
         # function calling serializes every result to message text; CodeAct code may iterate it).
         self.empty_result_hint = empty_result_hint
         self.hint_non_string_results = hint_non_string_results
+        # Per task (set by the agent wrapper): parameter names -> example values for the hint.
+        self.value_examples: Optional[Callable[[List[str]], Dict[str, List[str]]]] = None
         self.recorded_calls: List[dict] = []  # cleared by the agent wrapper per task
         self.scope: str = "all"  # set by the agent wrapper per invoke
 
@@ -254,6 +264,7 @@ class RecordingScopedToolProvider:
         name = exposed or tool.name
         hint_empty = self.empty_result_hint
         hint_any_type = self.hint_non_string_results
+        provider = self
 
         async def recording_coro(*args, **kwargs):
             if cap is not None and len(sink) >= cap:
@@ -271,7 +282,9 @@ class RecordingScopedToolProvider:
                     result = await loop.run_in_executor(None, functools.partial(inner_func, **call_kwargs))
                 record["result"] = str(result)[:RESULT_MAX_CHARS]
                 if hint_empty and (isinstance(result, str) or hint_any_type) and is_empty_result(result):
-                    return with_empty_result_hint(result)
+                    lookup = provider.value_examples  # read per call: it is set per task
+                    examples = lookup(list(param_names or call_kwargs)) if lookup is not None else None
+                    return with_empty_result_hint(result, examples)
                 return result
             except Exception as exc:
                 record["result"] = f"Error: {exc}"
