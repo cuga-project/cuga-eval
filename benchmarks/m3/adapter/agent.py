@@ -43,7 +43,13 @@ from benchmarks.m3.adapter.guards import run_answer_pipeline
 from benchmarks.m3.adapter.instructions import VERBATIM_RULE, compose_instruction_block
 from benchmarks.m3.adapter.recording import RecordingScopedToolProvider
 from benchmarks.m3.adapter.scope import resolve_scope
-from benchmarks.m3.adapter.shortlist import build_shortlister
+from benchmarks.m3.adapter.shortlist import (
+    build_shortlister,
+    campaign_rank,
+    conversation_history,
+    encode_texts,
+    pick_turn_tools,
+)
 
 
 def _text_of(content: Any) -> str:
@@ -170,6 +176,39 @@ class VakraAdapterAgent:
 
     # ------------------------------------------------------------------
 
+    async def _turn_tools(self, query: str, message: Any) -> Optional[set]:
+        """The tool names the agent may see this turn (None = all).
+
+        ``prefilter_top_k``: the campaign's per-utterance top-k. ``tool_pick`` outside native function
+        calling: the conversation-aware pick (FC picks at bind time, through the shortlister instead).
+        """
+        cfg = self._cfg
+        codeact_pick = cfg.tool_pick and cfg.execution_mode != "function_calling"
+        base = self._provider.base_provider
+        if not (cfg.prefilter_top_k or codeact_pick) or base is None or not query.strip():
+            return None
+        try:
+            tools = list(await base.get_all_tools())
+            if codeact_pick:
+                history = conversation_history(message)
+                names = await pick_turn_tools(
+                    query, history, self._ctx.additional_instructions, tools, cfg, self._llm_ainvoke
+                )
+            else:
+                ranked = await asyncio.to_thread(
+                    campaign_rank,
+                    query,
+                    tools,
+                    cfg.prefilter_top_k,
+                    lambda texts: encode_texts(cfg.shortlist_model, texts),
+                )
+                names = [t.name for t, _, _ in ranked]
+                logger.info("[m3-adapter prefilter] {} of {} tools exposed this turn", len(names), len(tools))
+            return set(names)
+        except Exception as exc:  # noqa: BLE001  (fall back to the full catalog, never fail the turn)
+            logger.warning("[m3-adapter prefilter] failed ({}); exposing every tool this turn", exc)
+            return None
+
     async def _llm_ainvoke(self, prompt: str) -> str:
         """One-off LLM call for scope classification / self-verify (lazy model)."""
         if self._llm_model is None:
@@ -250,6 +289,7 @@ class VakraAdapterAgent:
         ctx.last_scope = "all"
         self._provider.scope = "all"
         self._provider.value_examples = self._value_examples_for(query)
+        self._provider.allowed = await self._turn_tools(query, message)
         if cfg.scope and ctx.additional_instructions:
             scope = await resolve_scope(ctx.additional_instructions, query, self._llm_ainvoke)
             ctx.last_scope = scope

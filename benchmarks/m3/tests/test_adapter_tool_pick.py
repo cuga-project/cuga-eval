@@ -245,3 +245,130 @@ def test_demo_corpus_loads_for_value_examples_even_with_demos_off(tmp_path):
     assert load_demo_corpus(off, task_id=2, domain="d", loader_factory=_Loader) is None
     on = replace(off, param_value_examples=4)
     assert len(load_demo_corpus(on, task_id=2, domain="d", loader_factory=_Loader)) == 4
+
+
+# ---------------- per-turn tool set (CodeAct: campaign top-k prefilter, conversation-aware pick) ----------------
+
+
+def _fake_encode(model_name, texts):  # deterministic bag-of-letters vectors: no model download
+    import numpy as np
+
+    return np.array(
+        [[t.lower().count(c) + 0.01 for c in "abcdefghijklmnopqrstuvwxyz_"] for t in texts], dtype=float
+    )
+
+
+def _registry(names):
+    async def run(**kwargs):
+        return "[]"
+
+    return [
+        StructuredTool.from_function(coroutine=run, name=n, description=f"{n.replace('_', ' ')} tool")
+        for n in names
+    ]
+
+
+CAT = ["d_get_sales_by_state", "d_get_population", "d_get_zip_codes", "d_get_area_code", "query_d_docs"]
+
+
+async def test_provider_allowed_filters_before_the_policy_scope():
+    tools = _registry(CAT)
+
+    class _Reg:
+        async def get_all_tools(self):
+            return tools
+
+    provider = RecordingScopedToolProvider(_Reg())
+    provider.allowed = {"d_get_population", "query_d_docs"}
+    assert [t.name for t in await provider.get_all_tools()] == ["d_get_population", "query_d_docs"]
+    provider.scope = "no_retriever"
+    assert [t.name for t in await provider.get_all_tools()] == ["d_get_population"]
+    provider.allowed, provider.scope = None, "all"
+    assert len(await provider.get_all_tools()) == len(CAT)
+
+
+def test_conversation_history_drops_the_latest_user_turn():
+    from langchain_core.messages import AIMessage, HumanMessage
+
+    from benchmarks.m3.adapter.shortlist import conversation_history
+
+    msgs = [HumanMessage(content="q1"), AIMessage(content="a" * 500), HumanMessage(content="q2")]
+    text = conversation_history(msgs, max_answer_chars=5)
+    assert text == "User: q1\nAssistant: aaaaa" and conversation_history("plain") == "(none)"
+
+
+async def test_pick_turn_tools_exposes_pick_runner_up_fill_and_the_retrievers(monkeypatch):
+    import benchmarks.m3.adapter.shortlist as sl
+
+    monkeypatch.setattr(sl, "_encode", _fake_encode)
+    cfg = replace(PRESETS["cap4_v3wx"], tool_pick=True, tool_pick_pool=5, tool_pick_bind=3)
+    seen = {}
+
+    async def llm(prompt):
+        seen["prompt"] = prompt
+        return '{"tool": "d_get_zip_codes", "runner_up": "d_get_area_code"}'
+
+    names = await sl.pick_turn_tools("zip codes?", "User: q1", "use APIs only", _registry(CAT), cfg, llm)
+    assert (
+        names[:2] == ["d_get_zip_codes", "d_get_area_code"]
+        and len(names) == 4
+        and names[-1] == "query_d_docs"
+    )
+    assert "Policy: use APIs only" in seen["prompt"] and "Latest question: zip codes?" in seen["prompt"]
+
+    async def bad(prompt):
+        return "no idea"
+
+    fallback = await sl.pick_turn_tools("zip codes?", "(none)", "", _registry(CAT), cfg, bad)
+    assert len(fallback) == 4 and "query_d_docs" in fallback  # cosine order kept, retrievers still exposed
+
+
+async def test_turn_tools_prefilter_pick_off_and_failure(monkeypatch):
+    import benchmarks.m3.adapter.shortlist as sl
+    from benchmarks.m3.adapter.agent import VakraAdapterAgent
+
+    monkeypatch.setattr(sl, "_encode", _fake_encode)
+    tools = _registry(CAT)
+
+    class _Reg:
+        async def get_all_tools(self):
+            return tools
+
+    def agent(cfg):
+        a = VakraAdapterAgent(object(), cfg, RecordingScopedToolProvider(_Reg()))
+
+        async def llm(prompt):
+            return '{"tool": "d_get_population"}'
+
+        a._llm_ainvoke = llm
+        return a
+
+    base = PRESETS["cap4_v3wx"]
+    assert await agent(base)._turn_tools("population?", None) is None  # off: the full catalog
+    top = await agent(replace(base, prefilter_top_k=3))._turn_tools("population?", None)
+    assert len(top) == 3 and "query_d_docs" in top  # the campaign's top-k, retriever pinned
+    picked = await agent(replace(base, tool_pick=True, tool_pick_pool=5, tool_pick_bind=1))._turn_tools(
+        "population?", None
+    )
+    assert picked == {"d_get_population", "query_d_docs"}
+    fc = replace(base, tool_pick=True, execution_mode="function_calling")
+    assert await agent(fc)._turn_tools("population?", None) is None  # FC picks at bind time instead
+
+    class _Broken:
+        async def get_all_tools(self):
+            raise RuntimeError("registry down")
+
+    broken = VakraAdapterAgent(
+        object(), replace(base, prefilter_top_k=3), RecordingScopedToolProvider(_Broken())
+    )
+    assert await broken._turn_tools("population?", None) is None
+
+
+def test_bind_cap_and_pick_shortlister_only_in_function_calling(monkeypatch):
+    import benchmarks.m3.adapter.shortlist as sl
+
+    monkeypatch.setattr(sl, "prewarm_embedding_backend", lambda cfg: True)
+    codeact = replace(PRESETS["cap4_v3wx"], tool_pick=True)
+    assert not any(k.endswith(BIND_CAP_SETTING) for k, _ in cuga_setting_pins(codeact))
+    shortlister = build_shortlister(codeact)
+    assert shortlister is None or shortlister.strategy != PICK_STRATEGY_PATH

@@ -193,6 +193,8 @@ class RecordingScopedToolProvider:
         self.hint_non_string_results = hint_non_string_results
         # Per task (set by the agent wrapper): parameter names -> example values for the hint.
         self.value_examples: Optional[Callable[[List[str]], Dict[str, List[str]]]] = None
+        # Per user turn (set by the agent wrapper): raw tool names the agent may see; None = all.
+        self.allowed: Optional[set] = None
         self.recorded_calls: List[dict] = []  # cleared by the agent wrapper per task
         self.scope: str = "all"  # set by the agent wrapper per invoke
 
@@ -228,6 +230,8 @@ class RecordingScopedToolProvider:
     # ------------------------------------------------------------------
 
     def _apply(self, tools: List[StructuredTool]) -> List[StructuredTool]:
+        if self.allowed is not None:  # the per-turn prefilter, applied before the policy scope
+            tools = [t for t in tools if t.name in self.allowed]
         if self.scope == "retriever_only":
             tools = [t for t in tools if is_retriever(t.name)]
         elif self.scope == "no_retriever":

@@ -170,6 +170,11 @@ class AdapterConfig:
     # With the note, up to this many values other solved examples of the domain (the demo corpus,
     # never the asked question) passed for the same parameter names, e.g. cohort: '2y all'. 0 = off.
     param_value_examples: int = 0
+    # Per user turn, expose ONLY the top-K tools to the agent (the campaign's ranking: MiniLM over
+    # "name: description" on the latest user turn, query_* retrievers pinned). The campaign rebuilt
+    # CUGA per utterance with its top-k (40 for cap4); in CodeAct mode CUGA itself never narrows the
+    # catalog (expose_all_tools lifts the find_tools wall), so without this the agent sees every tool.
+    prefilter_top_k: Optional[int] = None
 
 
 #: What every campaign run shared (VAKRA_CAMPAIGN_CONFIG.md §1): the model at temperature 1.0 drove
@@ -440,7 +445,7 @@ def cuga_setting_pins(cfg: AdapterConfig) -> list[tuple[str, object]]:
     campaign's temperature whatever models TOML is loaded (a block that does not exist is skipped).
     """
     pins = parse_cuga_settings(cfg.cuga_settings)
-    if cfg.tool_pick:  # the bind cap is what makes CUGA call the shortlister and bind only its top-k
+    if cfg.tool_pick and cfg.execution_mode == "function_calling":  # FC: the bind cap calls the shortlister
         pins.append((f"advanced_features.{BIND_CAP_SETTING}", cfg.tool_pick_bind))
     if cfg.llm_http_timeout:
         pins.append(("connections.llm_http_timeout", cfg.llm_http_timeout))

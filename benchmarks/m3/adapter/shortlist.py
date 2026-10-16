@@ -104,6 +104,11 @@ def _encode(model_name: str, texts: list):
     return np.array([_ST_VECTORS[(model_name, t)] for t in texts])
 
 
+def encode_texts(model_name: str, texts: list):
+    """Memoized MiniLM embeddings (the campaign's shortlister encoder)."""
+    return _encode(model_name, texts)
+
+
 def campaign_rank(query: str, tools: list, top_k: int, encode) -> list:
     """vakra-main ``ToolShortlister.shortlist`` (agents/components/tool_shortlister.py), as written.
 
@@ -336,6 +341,89 @@ class CosinePickStrategy:
         )
 
 
+TOOL_PICK_CONVERSATION_PROMPT = """You choose the ONE API call that answers the user's latest question in a conversation.
+
+The APIs below were each generated from one specific database query (or search a document collection), so a
+single API usually answers the whole question: its name and description encode the question's filters,
+aggregation and ordering. The latest question may refer to earlier turns; resolve those references first.
+Respect the policy, if any.
+
+Policy: {policy}
+
+Conversation so far:
+{history}
+
+Latest question: {query}
+
+Candidate APIs:
+{candidates}
+
+Reply with JSON only: {{"tool": "<api name>", "runner_up": "<api name>"}}"""
+
+
+def conversation_history(message: Any, max_answer_chars: int = 300) -> str:
+    """The turns before the latest user turn, as ``User:`` / ``Assistant:`` lines."""
+    if not isinstance(message, list):
+        return "(none)"
+    turns = list(message)
+    for i in range(len(turns) - 1, -1, -1):  # drop the latest user turn: it is the question
+        if getattr(turns[i], "type", "") == "human":
+            turns = turns[:i]
+            break
+    lines = []
+    for m in turns:
+        role = "User" if getattr(m, "type", "") == "human" else "Assistant"
+        text = _message_text(m)
+        lines.append(f"{role}: {text if role == 'User' else text[:max_answer_chars]}")
+    return "\n".join(lines) or "(none)"
+
+
+async def pick_turn_tools(
+    query: str, history: str, policy: str, tools: list, cfg: AdapterConfig, llm_ainvoke
+) -> list:
+    """Tool names to expose this turn: [pick, runner-up, cosine fill] up to ``tool_pick_bind``, plus retrievers.
+
+    The candidates are the campaign's ranking (``campaign_rank``: retrievers pinned, then cosine) cut to
+    ``tool_pick_pool``; one LLM call picks with the conversation and the policy. Retrievers stay exposed
+    (the campaign always pinned them; the policy scope may still remove them). An invalid pick keeps
+    the cosine order.
+    """
+    import asyncio  # noqa: PLC0415
+
+    from benchmarks.m3.adapter.recording import bare_tool_name  # noqa: PLC0415
+
+    ranked = await asyncio.to_thread(
+        campaign_rank, query, tools, cfg.tool_pick_pool, lambda texts: _encode(cfg.shortlist_model, texts)
+    )
+    candidates = [t for t, _, _ in ranked]
+    names = [t.name for t in candidates]
+    prompt = TOOL_PICK_CONVERSATION_PROMPT.format(
+        policy=(policy or "none").strip()[:1500],
+        history=history,
+        query=query,
+        candidates="\n".join(render_tool_for_pick(t) for t in candidates),
+    )
+    try:
+        pick, runner_up = parse_tool_pick(await llm_ainvoke(prompt), names)
+    except Exception as exc:  # noqa: BLE001  (never fail the turn over the pick)
+        logger.warning("[m3-adapter tool-pick] pick call failed ({}); keeping the cosine order", exc)
+        pick, runner_up = None, None
+    retrievers = [t.name for t in tools if bare_tool_name(t).startswith("query_")]
+    head = [n for n in (pick, runner_up) if n]
+    rest = [n for n in names if n not in head and n not in retrievers]
+    exposed = (head + rest)[: cfg.tool_pick_bind]
+    logger.info(
+        "[m3-adapter tool-pick] {} tools -> pool {} -> pick {} (runner-up {}); exposing {} + {} retrievers",
+        len(tools),
+        len(candidates),
+        pick,
+        runner_up,
+        exposed,
+        len(retrievers),
+    )
+    return exposed + [r for r in retrievers if r not in exposed]
+
+
 EMBEDDING_PROVIDER = "local"  # sentence-transformers in-process, like the validated runs
 
 
@@ -377,13 +465,14 @@ def build_shortlister(cfg: AdapterConfig) -> Optional[Any]:
     validated runs' "top-k 128 => effectively no trimming" semantics. The
     embedding backend is pre-warmed here (see ``prewarm_embedding_backend``).
     """
-    if not cfg.shortlist_top_k and not cfg.tool_pick:
+    fc_pick = cfg.tool_pick and cfg.execution_mode == "function_calling"  # CodeAct picks per turn (agent.py)
+    if not cfg.shortlist_top_k and not fc_pick:
         return None
     # Lazy: cuga optional at import time. `Shortlister` is re-exported at the
     # package top level; cuga.sdk only names it under TYPE_CHECKING.
     from cuga.backend.cuga_graph.nodes.cuga_lite.shortlister import Shortlister  # noqa: PLC0415
 
-    if cfg.tool_pick:
+    if fc_pick:
         # top_k/threshold = the bind count, so the strategy runs for every catalog above it; the
         # bind cap (pinned to the same number, config.cuga_setting_pins) makes CUGA ask for it.
         prewarm_embedding_backend(cfg)
