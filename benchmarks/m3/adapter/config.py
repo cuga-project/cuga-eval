@@ -158,6 +158,15 @@ class AdapterConfig:
     # LLM fact-check of the draft against the recorded tool results:
     # "off" | "verify" (OK / CORRECTED: <answer>) | "verify_and_retry" (+ MISSING: <need> -> one re-ask)
     fact_check: str = "off"
+    # Two-stage tool narrowing (single-tool tasks, cap2): cosine top-``tool_pick_pool``, then one LLM
+    # call picks THE tool; only the first ``tool_pick_bind`` of [pick, runner-up, cosine order] are
+    # bound (the bind cap). Offline on est2_ref30: gold tool picked 29/30 vs the agent's 79% first call.
+    tool_pick: bool = False
+    tool_pick_pool: int = 32
+    tool_pick_bind: int = 3
+    # A call that returns no rows gets a note: the argument values may not match the database's
+    # format (codes, abbreviations, fractions, LIKE patterns) -> retry with stored-format values.
+    empty_result_hint: bool = False
 
 
 #: What every campaign run shared (VAKRA_CAMPAIGN_CONFIG.md §1): the model at temperature 1.0 drove
@@ -354,6 +363,11 @@ def resolve_adapter_config(
         )
     if cfg.fact_check not in FACT_CHECK_MODES:
         raise ValueError(f"{ENV_PREFIX}FACT_CHECK={cfg.fact_check!r} is not one of {FACT_CHECK_MODES}")
+    if cfg.tool_pick and not 1 <= cfg.tool_pick_bind <= cfg.tool_pick_pool:
+        raise ValueError(
+            f"{ENV_PREFIX}TOOL_PICK_BIND={cfg.tool_pick_bind} must be between 1 and "
+            f"{ENV_PREFIX}TOOL_PICK_POOL={cfg.tool_pick_pool}"
+        )
     parse_cuga_settings(cfg.cuga_settings)  # fail fast on a malformed pin list
     return cfg
 
@@ -423,6 +437,8 @@ def cuga_setting_pins(cfg: AdapterConfig) -> list[tuple[str, object]]:
     campaign's temperature whatever models TOML is loaded (a block that does not exist is skipped).
     """
     pins = parse_cuga_settings(cfg.cuga_settings)
+    if cfg.tool_pick:  # the bind cap is what makes CUGA call the shortlister and bind only its top-k
+        pins.append((f"advanced_features.{BIND_CAP_SETTING}", cfg.tool_pick_bind))
     if cfg.llm_http_timeout:
         pins.append(("connections.llm_http_timeout", cfg.llm_http_timeout))
     if cfg.model_temperature is not None:

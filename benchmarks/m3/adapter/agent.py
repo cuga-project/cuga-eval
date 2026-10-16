@@ -295,6 +295,17 @@ class VakraAdapterAgent:
             return result
 
 
+def recording_provider(base_provider: Any, cfg: AdapterConfig) -> RecordingScopedToolProvider:
+    """The recording wrapper with the config's cap, naming and empty-result hint."""
+    return RecordingScopedToolProvider(
+        base_provider,
+        tool_cap=cfg.tool_cap,
+        bare_names=cfg.bare_tool_names,
+        empty_result_hint=cfg.empty_result_hint,
+        hint_non_string_results=cfg.execution_mode == "function_calling",
+    )
+
+
 def _warn_if_bind_cap_unsafe(cfg: AdapterConfig) -> None:
     """FC binds the scoped toolset natively. The validated runs never bound more than
     ``CAMPAIGN_BIND_CAP`` tools (their MiniLM shortlister kept the top 128 per utterance),
@@ -374,9 +385,7 @@ def build_m3_agent(
 
     _warn_if_bind_cap_unsafe(config)
     apply_cuga_settings(config)
-    provider = RecordingScopedToolProvider(
-        tool_provider, tool_cap=config.tool_cap, bare_names=config.bare_tool_names
-    )
+    provider = recording_provider(tool_provider, config)
     shortlister = build_shortlister(config)
     if shortlister is not None:
         base_kwargs["shortlister"] = shortlister
@@ -440,21 +449,15 @@ def wrap_existing_agent(agent: Any, config: AdapterConfig, demo_corpus: Optional
             "[m3-adapter] wrapped agent exposes no tool_provider; evidence-based guards "
             "will see zero recorded calls"
         )
-        provider = RecordingScopedToolProvider(
-            None, tool_cap=config.tool_cap, bare_names=config.bare_tool_names
-        )
+        provider = recording_provider(None, config)
     elif toolguard_cls is not None and isinstance(outer, toolguard_cls):
-        provider = RecordingScopedToolProvider(
-            outer.base_provider, tool_cap=config.tool_cap, bare_names=config.bare_tool_names
-        )
+        provider = recording_provider(outer.base_provider, config)
         outer.base_provider = provider
         invalidate = getattr(outer, "invalidate_toolguard_runtime", None)
         if callable(invalidate):
             invalidate()  # guarded-tool cache is keyed by raw tool id; the raw tools just changed
     else:
-        provider = RecordingScopedToolProvider(
-            outer, tool_cap=config.tool_cap, bare_names=config.bare_tool_names
-        )
+        provider = recording_provider(outer, config)
         agent.tool_provider = provider
     demo_index = build_demo_index(demo_corpus) if (config.demos and demo_corpus) else None
     logger.info(

@@ -31,6 +31,7 @@ SUBSETS = (
     "parity_est4_smoke",
     "parity_est3_fresh30",
     "parity_est1_smoke3",
+    "parity_est2_smoke2",
 )
 BASH = shutil.which("bash") or "/bin/bash"
 

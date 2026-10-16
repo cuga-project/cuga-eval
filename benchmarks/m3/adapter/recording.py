@@ -37,6 +37,7 @@ from __future__ import annotations
 
 import asyncio
 import functools
+import json
 from typing import Any, Dict, List, Optional, Tuple
 
 from langchain_core.tools import StructuredTool
@@ -124,15 +125,64 @@ def _copy_metadata(tool: Any, *targets: Any) -> None:
                 break
 
 
+#: Appended to a call's result when it returned no rows (``AdapterConfig.empty_result_hint``).
+EMPTY_RESULT_HINT = (
+    "NOTE: this call returned no rows. If the question implies there should be results, the argument "
+    "values probably do not match how the database stores them: a code or abbreviation instead of the "
+    "full word (or the reverse), a fraction instead of a percentage, the exact stored spelling of a name, "
+    "or an SQL LIKE pattern for partial matches. Call the tool again with the values in the stored format."
+)
+
+
+def _is_empty_value(value: Any) -> bool:
+    if value is None:
+        return True
+    if isinstance(value, (list, tuple)):
+        return all(_is_empty_value(v) for v in value)  # [] , [[]], [[None]]
+    if isinstance(value, dict):
+        return all(_is_empty_value(v) for v in value.values())
+    return False
+
+
+def is_empty_result(result: Any) -> bool:
+    """No rows: None, an empty container, or containers of nothing (``[[]]``, ``[[null]]``). A 0 is a value."""
+    if isinstance(result, str):
+        text = result.strip()
+        if text in ("", "None"):
+            return True
+        try:
+            result = json.loads(text)
+        except ValueError:
+            return False
+    return _is_empty_value(result)
+
+
+def with_empty_result_hint(result: Any) -> str:
+    text = result if isinstance(result, str) else json.dumps(result, default=str)
+    return f"{text}\n\n{EMPTY_RESULT_HINT}"
+
+
 class RecordingScopedToolProvider:
     """ToolProviderInterface wrapper: record calls, cap runaways, apply scope."""
 
-    def __init__(self, base_provider: Any, tool_cap: Optional[int] = None, bare_names: bool = False):
+    def __init__(
+        self,
+        base_provider: Any,
+        tool_cap: Optional[int] = None,
+        bare_names: bool = False,
+        empty_result_hint: bool = False,
+        hint_non_string_results: bool = False,
+    ):
         # name -> (raw tool, exposed name, wrapper)
         self._wrapped: Dict[str, Tuple[Any, str, StructuredTool]] = {}
         self._base_provider = base_provider
         self.tool_cap = tool_cap
         self.bare_names = bare_names  # expose registry tools under their MCP names (the campaign's)
+        # The agent sees EMPTY_RESULT_HINT after a no-rows result (the record keeps the raw result).
+        # Non-string results are only rewritten as text when the caller says that is safe (native
+        # function calling serializes every result to message text; CodeAct code may iterate it).
+        self.empty_result_hint = empty_result_hint
+        self.hint_non_string_results = hint_non_string_results
         self.recorded_calls: List[dict] = []  # cleared by the agent wrapper per task
         self.scope: str = "all"  # set by the agent wrapper per invoke
 
@@ -202,6 +252,8 @@ class RecordingScopedToolProvider:
         sink = self.recorded_calls
         cap = self.tool_cap
         name = exposed or tool.name
+        hint_empty = self.empty_result_hint
+        hint_any_type = self.hint_non_string_results
 
         async def recording_coro(*args, **kwargs):
             if cap is not None and len(sink) >= cap:
@@ -218,6 +270,8 @@ class RecordingScopedToolProvider:
                     loop = asyncio.get_running_loop()
                     result = await loop.run_in_executor(None, functools.partial(inner_func, **call_kwargs))
                 record["result"] = str(result)[:RESULT_MAX_CHARS]
+                if hint_empty and (isinstance(result, str) or hint_any_type) and is_empty_result(result):
+                    return with_empty_result_hint(result)
                 return result
             except Exception as exc:
                 record["result"] = f"Error: {exc}"

@@ -175,6 +175,167 @@ class CampaignMiniLMStrategy:
         )
 
 
+#: Dotted path for the two-stage tool pick (see ``CosinePickStrategy``).
+PICK_STRATEGY_PATH = "benchmarks.m3.adapter.shortlist.CosinePickStrategy"
+
+TOOL_PICK_PROMPT = """You choose the ONE API call that answers a user's question.
+
+The APIs below were each generated from one specific database query, so a single API usually answers
+the whole question at once: its name and description encode the question's filters, aggregation and
+ordering. Prefer the one API whose description matches the WHOLE question over combining generic APIs.
+Read parameter descriptions carefully and fill the arguments exactly as the API expects them.
+
+Question: {query}
+
+Candidate APIs:
+{candidates}
+
+Reply with JSON only: {{"tool": "<api name>", "arguments": {{...}}, "runner_up": "<api name>"}}"""
+
+
+def render_tool_for_pick(tool: Any) -> str:
+    """``- name: description`` plus every parameter's type and description."""
+    props: dict = {}
+    schema = getattr(tool, "args_schema", None)
+    try:
+        if schema is not None and hasattr(schema, "model_json_schema"):
+            props = schema.model_json_schema().get("properties") or {}
+        elif isinstance(schema, dict):
+            props = schema.get("properties") or {}
+    except Exception:  # noqa: BLE001  (render without parameters rather than fail the pick)
+        props = {}
+    params = "; ".join(f"{p} ({s.get('type', 'any')}): {s.get('description', '')}" for p, s in props.items())
+    return (
+        f"- {tool.name}: {(getattr(tool, 'description', '') or '').strip()}\n  parameters: {params or 'none'}"
+    )
+
+
+def _message_text(message: Any) -> str:
+    content = getattr(message, "content", message)
+    if isinstance(content, list):  # content blocks
+        return "".join(b.get("text", "") if isinstance(b, dict) else str(b) for b in content)
+    return str(content or "")
+
+
+def parse_tool_pick(text: str, names: list) -> tuple:
+    """``(pick, runner_up)`` from the picker's JSON reply; names not among the candidates -> None.
+
+    A bare name (no ``<domain>_`` prefix) matches the one candidate it suffixes.
+    """
+    import json  # noqa: PLC0415
+    import re  # noqa: PLC0415
+
+    match = re.search(r"\{.*\}", text or "", re.S)
+    try:
+        data = json.loads(match.group(0)) if match else {}
+    except ValueError:
+        data = {}
+
+    def resolve(value: Any) -> Optional[str]:
+        if not isinstance(value, str) or not value.strip():
+            return None
+        value = value.strip()
+        if value in names:
+            return value
+        suffixed = [n for n in names if n.endswith("_" + value)]
+        return suffixed[0] if len(suffixed) == 1 else None
+
+    pick = resolve(data.get("tool"))
+    runner_up = resolve(data.get("runner_up"))
+    return pick, (runner_up if runner_up != pick else None)
+
+
+class CosinePickStrategy:
+    """Two-stage tool narrowing as an SDK strategy (``Shortlister(strategy=<dotted path>)``).
+
+    Stage 1 ranks the catalog by cosine similarity with the SDK's own embedding strategy (the
+    configured model and text) and keeps the top ``pool``. Stage 2 asks the run's model, in one
+    call, for the single API that answers the whole question, plus a runner-up. Returns
+    ``[pick, runner_up, remaining cosine order]``; the bind cap keeps the first few. One pick per
+    (query, catalog) per process: the bind cap re-shortlists on every model call of a task.
+    A failed or unparsable pick falls back to the cosine order.
+    """
+
+    name = "m3_cosine_pick"
+    pool = 32  # cosine width (build_shortlister sets it from AdapterConfig.tool_pick_pool)
+    _picks: dict = {}  # (query, catalog names) -> ranked names
+
+    def __init__(self, plan: Any = None):
+        self._plan = plan
+        self._inner = None
+
+    def _embedding(self):
+        if self._inner is None:
+            from cuga.backend.cuga_graph.nodes.cuga_lite.shortlister.embedding import (  # noqa: PLC0415
+                EmbeddingShortlister,
+            )
+
+            plan = self._plan
+            self._inner = EmbeddingShortlister(
+                model_name=getattr(plan, "embedding_model", None),
+                provider=getattr(plan, "embedding_provider", None),
+                query_weight=getattr(plan, "query_weight", None),
+                min_score=getattr(plan, "min_score", None),
+            )
+        return self._inner
+
+    async def _cosine_order(self, request) -> list:
+        import dataclasses  # noqa: PLC0415
+
+        width = min(self.pool, len(request.tools))
+        result = await self._embedding().shortlist(
+            dataclasses.replace(request, top_k=width, max_results=None)
+        )
+        return [c.name for c in result.candidates][:width]
+
+    async def _pick(self, query: str, candidates: list, llm: Any) -> tuple:
+        if llm is None:
+            return None, None
+        prompt = TOOL_PICK_PROMPT.format(
+            query=query, candidates="\n".join(render_tool_for_pick(t) for t in candidates)
+        )
+        reply = await llm.ainvoke(prompt)
+        return parse_tool_pick(_message_text(reply), [t.name for t in candidates])
+
+    async def shortlist(self, request):
+        from cuga.backend.cuga_graph.nodes.cuga_lite.shortlister.base import (  # noqa: PLC0415
+            ShortlistCandidate,
+            ShortlistResult,
+        )
+
+        tools = list(request.tools or [])
+        query = (request.query or "").strip()
+        key = (query, tuple(sorted(t.name for t in tools)))
+        ranked = self._picks.get(key)
+        if ranked is None:
+            cosine = await self._cosine_order(request)
+            by_name = {t.name: t for t in tools}
+            pool = [by_name[n] for n in cosine if n in by_name]
+            try:
+                pick, runner_up = await self._pick(query, pool, request.llm)
+            except Exception as exc:  # noqa: BLE001  (never fail the model call over the pick)
+                logger.warning("[m3-adapter tool-pick] pick call failed ({}); keeping the cosine order", exc)
+                pick, runner_up = None, None
+            head = [n for n in (pick, runner_up) if n]
+            ranked = head + [n for n in cosine if n not in head]
+            self._picks[key] = ranked
+            logger.info(
+                "[m3-adapter tool-pick] {} tools -> cosine top {} -> pick {} (runner-up {}){}",
+                len(tools),
+                len(pool),
+                pick,
+                runner_up,
+                "" if pick else " — no valid pick, cosine order kept",
+            )
+        top_k = request.top_k or len(ranked)
+        return ShortlistResult(
+            candidates=[
+                ShortlistCandidate(name=n, score=float(len(ranked) - i), reasoning="tool pick")
+                for i, n in enumerate(ranked[:top_k])
+            ]
+        )
+
+
 EMBEDDING_PROVIDER = "local"  # sentence-transformers in-process, like the validated runs
 
 
@@ -216,12 +377,26 @@ def build_shortlister(cfg: AdapterConfig) -> Optional[Any]:
     validated runs' "top-k 128 => effectively no trimming" semantics. The
     embedding backend is pre-warmed here (see ``prewarm_embedding_backend``).
     """
-    if not cfg.shortlist_top_k:
+    if not cfg.shortlist_top_k and not cfg.tool_pick:
         return None
     # Lazy: cuga optional at import time. `Shortlister` is re-exported at the
     # package top level; cuga.sdk only names it under TYPE_CHECKING.
     from cuga.backend.cuga_graph.nodes.cuga_lite.shortlister import Shortlister  # noqa: PLC0415
 
+    if cfg.tool_pick:
+        # top_k/threshold = the bind count, so the strategy runs for every catalog above it; the
+        # bind cap (pinned to the same number, config.cuga_setting_pins) makes CUGA ask for it.
+        prewarm_embedding_backend(cfg)
+        CosinePickStrategy.pool = cfg.tool_pick_pool
+        return Shortlister(
+            strategy=PICK_STRATEGY_PATH,
+            embedding_model=cfg.shortlist_model,
+            embedding_provider=EMBEDDING_PROVIDER,
+            top_k=cfg.tool_pick_bind,
+            threshold=cfg.tool_pick_bind,
+            min_score=0.0,
+            query_weight=1.0,
+        )
     if cfg.shortlist_strategy == "campaign":
         try:
             _sentence_model(cfg.shortlist_model)  # load now: the first task must rank like the rest
