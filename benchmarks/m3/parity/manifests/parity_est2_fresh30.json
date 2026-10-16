@@ -1,0 +1,157 @@
+{
+ "subset": "parity_est2_fresh30",
+ "task_id": 2,
+ "capability_dir": "capability_2_dashboard_apis",
+ "adapter_preset": "cap2",
+ "data_source": "vakra-main data/train/capability_2_dashboard_apis (a slice of the campaign's cap2 train scorecard), converted locally by prepare_vakra_train.py",
+ "vakra_train_data": "data/train/capability_2_dashboard_apis",
+ "m3_data": "local:vakra_train",
+ "demo_data": "local:vakra_train",
+ "no_ground_truth": true,
+ "campaign_predictions": "output/est2_treat",
+ "default_arms": "cuga_eval_cap2_fc,cuga_eval_cap2_fc@tool_pick+require_tool_plus,cuga_eval_cap2_fc@tool_pick+require_tool_plus+value_examples",
+ "n": 30,
+ "selection": {
+  "from": "vakra-main cuga_runs/est2_sample_by_dom.json (85 scored items)",
+  "method": "stratified by the campaign's recorded outcome (pass rate preserved), spread across domains, sha1(seed:uuid) order",
+  "seed": 0,
+  "excluding": [
+   "parity_est2_ref30"
+  ]
+ },
+ "reference": {
+  "description": "VAKRA campaign cap2 train scorecard (62.6% on all 85 items): fc_canon + FC (cap_estimate.sh 2), temperature 1.0, judge azure/gpt-oss-120b via the proxy. Per-item verdicts as recorded.",
+  "source_runs": {
+   "on": "vakra-main cuga_runs/est2_score_treat"
+  },
+  "pass_rate": {
+   "on": 0.6333333333333333
+  },
+  "pass_by_uuid": {
+   "on": {
+    "d80c9bf910f1-0169afb91576": false,
+    "1b288c5c6dc9-fb1a93f9ff08": true,
+    "840942187214-0280aa0dd581": true,
+    "a823e527d383-ba1b38361abe": true,
+    "10050cfaf017-dcef4751c181": true,
+    "6e317bcd6839-3be9554e6b5e": true,
+    "1f58b1e965af-5bff078e7c66": true,
+    "1960f609e439-3022dc385561": false,
+    "06e387dae8db-7666f524d2f0": false,
+    "ec134bf7bda5-4be609b4fb49": true,
+    "34a533dfd727-14a3452db407": false,
+    "6d05804bb8d7-8ff0cf38a831": true,
+    "3683085b75b9-fbd926908b14": false,
+    "308738b8195d-ad857dfbbf44": false,
+    "d0d7be63ebc2-9c6a7feacdca": true,
+    "3608e5ae1d0e-842ac40d3330": false,
+    "e71440999ce8-3d9b0dfed23b": false,
+    "bda6fb7cb839-c0fb05e68632": true,
+    "398991009da1-772308c5ff9a": false,
+    "55b7e50368aa-86200b7954af": false,
+    "31d9743578dc-fa1103a2e43e": true,
+    "5caddc4c49de-b83f7822439b": true,
+    "d14bbb0be92d-d6d31aa62cf2": true,
+    "ee275d64dafc-f771aac81b97": true,
+    "4bbb5c2b3439-810b6ec11486": true,
+    "ac8f8d8803cd-9375fe4fc490": false,
+    "fe971e7f850a-796a99132dea": true,
+    "bc9218680ed5-6a2859bd78e9": true,
+    "35a1befb81d1-32af5b55a3c2": true,
+    "adba6c0ec8a8-2ff8ea49fdf7": true
+   }
+  }
+ },
+ "ids_by_domain": {
+  "address": [
+   "d80c9bf910f1-0169afb91576"
+  ],
+  "airline": [
+   "1b288c5c6dc9-fb1a93f9ff08"
+  ],
+  "authors": [
+   "840942187214-0280aa0dd581"
+  ],
+  "beer_factory": [
+   "a823e527d383-ba1b38361abe"
+  ],
+  "bike_share_1": [
+   "10050cfaf017-dcef4751c181"
+  ],
+  "books": [
+   "6e317bcd6839-3be9554e6b5e"
+  ],
+  "cars": [
+   "1f58b1e965af-5bff078e7c66"
+  ],
+  "codebase_comments": [
+   "1960f609e439-3022dc385561"
+  ],
+  "coinmarketcap": [
+   "06e387dae8db-7666f524d2f0"
+  ],
+  "cookbook": [
+   "ec134bf7bda5-4be609b4fb49"
+  ],
+  "disney": [
+   "34a533dfd727-14a3452db407"
+  ],
+  "european_football_1": [
+   "6d05804bb8d7-8ff0cf38a831"
+  ],
+  "food_inspection": [
+   "3683085b75b9-fbd926908b14"
+  ],
+  "hockey": [
+   "308738b8195d-ad857dfbbf44"
+  ],
+  "ice_hockey_draft": [
+   "d0d7be63ebc2-9c6a7feacdca"
+  ],
+  "image_and_language": [
+   "3608e5ae1d0e-842ac40d3330"
+  ],
+  "law_episode": [
+   "e71440999ce8-3d9b0dfed23b"
+  ],
+  "mental_health_survey": [
+   "bda6fb7cb839-c0fb05e68632"
+  ],
+  "menu": [
+   "398991009da1-772308c5ff9a"
+  ],
+  "mondial_geo": [
+   "55b7e50368aa-86200b7954af"
+  ],
+  "movie_platform": [
+   "31d9743578dc-fa1103a2e43e"
+  ],
+  "olympics": [
+   "5caddc4c49de-b83f7822439b"
+  ],
+  "professional_basketball": [
+   "d14bbb0be92d-d6d31aa62cf2"
+  ],
+  "restaurant": [
+   "ee275d64dafc-f771aac81b97"
+  ],
+  "sales_in_weather": [
+   "4bbb5c2b3439-810b6ec11486"
+  ],
+  "shakespeare": [
+   "ac8f8d8803cd-9375fe4fc490"
+  ],
+  "soccer_2016": [
+   "fe971e7f850a-796a99132dea"
+  ],
+  "student_loan": [
+   "bc9218680ed5-6a2859bd78e9"
+  ],
+  "talkingdata": [
+   "35a1befb81d1-32af5b55a3c2"
+  ],
+  "university": [
+   "adba6c0ec8a8-2ff8ea49fdf7"
+  ]
+ }
+}
