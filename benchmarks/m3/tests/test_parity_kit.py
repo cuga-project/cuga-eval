@@ -741,6 +741,19 @@ async def test_cap4_runs_only_the_last_turn_with_the_history_prepended(monkeypat
     assert result["all_responses"][0]["turn"] == 2  # eval_m3 writes turn_id 1: the last GT turn
 
 
+async def test_cap4_failed_call_still_predicts_the_last_turn_empty(monkeypatch):
+    from benchmarks.m3.parity import eval_m3_cap4
+
+    async def timed_out(agent, turns, *args, **kwargs):  # the helper's error path: no all_responses
+        return {"response": "", "success": False, "error": "agent_timeout 300s exceeded"}
+
+    monkeypatch.setattr(eval_m3_cap4, "_original_multiturn", timed_out)
+    turns = [{"turn_id": 0, "query": "q1", "answer": "a1"}, {"turn_id": 1, "query": "q2"}]
+    result = await eval_m3_cap4.last_turn_with_campaign_history(agent=object(), turns=turns, task_name="s")
+    assert result["all_responses"] == [{"turn": 2, "query": "q2", "response": "", "tool_calls": []}]
+    assert result["error"] == "agent_timeout 300s exceeded"  # the failure itself is kept
+
+
 def test_snapshot_keeps_only_the_last_predicted_turn_for_cap4():
     recs = [{"uuid": "u", "output": [{"turn_id": 0}, {"turn_id": 1}]}]
     assert snapshot.last_turn_only(recs) == [{"uuid": "u", "output": [{"turn_id": 1}]}]

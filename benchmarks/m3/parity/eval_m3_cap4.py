@@ -56,7 +56,14 @@ async def last_turn_with_campaign_history(agent: Any, turns: List[Dict[str, Any]
     result = await _original_multiturn(
         HistoryAgent(agent, campaign_history(turns)), turns[-1:], *args, **kwargs
     )
-    for response in result.get("all_responses") or []:
+    if not result.get("all_responses"):
+        # A timed-out or failed call returns no turns, and eval_m3 then writes turn_id 0. The
+        # evaluator scores the LAST turn and cannot pair a turn-0 prediction with it: the item
+        # went unscored instead of failing. An empty last turn scores 0, as the campaign's did.
+        result["all_responses"] = [
+            {"turn": len(turns), "query": turns[-1].get("query", ""), "response": "", "tool_calls": []}
+        ]
+    for response in result["all_responses"]:
         response["turn"] = len(turns)  # eval_m3 writes turn_id = turn - 1: the last turn's id
     return result
 
