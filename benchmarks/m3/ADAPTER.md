@@ -29,7 +29,7 @@ uv run python benchmarks/m3/eval_m3_task_1_enterprise_style.py \
      --container capability_1_bi_apis --domain movie --adapter-preset cap1
 
 # capability 4 (multiturn runner)
-uv run python -m benchmarks.m3.eval_m3_multiturn --adapter-preset cap4_v3wx
+uv run python -m benchmarks.m3.eval_m3_multiturn --adapter-preset cap4
 ```
 
 Or set `M3_ADAPTER_PRESET=<preset>` in the environment — `benchmarks/m3/config/m3.env`
@@ -39,6 +39,25 @@ Precedence: CLI flag > `M3_ADAPTER_PRESET` > `off`.
 Presets with few-shot demos (cap1-3) read their corpus from `--demo-data` /
 `M3_ADAPTER_DEMO_DATA` (default: the bundled `data/small_train.zip`) — see
 [Demos](#demos).
+
+## Defaults
+
+`cap1`–`cap4` are the defaults: the campaign's submitted config per capability, plus only the
+changes that won paired A/Bs on two disjoint 30-task train slices each. The parity kit
+(`benchmarks/m3/parity/`) ran them with the official judge at temperature 1.0, against the
+campaign's own recorded answers re-scored in the same session. The campaign's configs stay
+available for parity runs as `cap2_campaign`, `cap3_campaign` and `cap4_v3wx`; `cap1` is unchanged.
+
+| preset | = campaign config + | evidence (train slices, pass rate) |
+|---|---|---|
+| `cap1` | — | 60.0% vs campaign answers 56.7% |
+| `cap2` | `tool_pick`, `require_tool_rounds=2` + `retry_unattempted_refusal`, `empty_result_hint` + `param_value_examples=6` | est2_ref30 66.7 → 76.7 (pick + retry); est2_fresh30 48.3 → 69.0 (campaign answers 70.0 / 65.5) |
+| `cap3` | `fact_check="verify_and_retry"` | est3_ref30 50.0 → 60.0; est3_fresh30 43.3 → 56.7 (campaign 53.6 / 56.7) |
+| `cap4` | soft2 (`evidence_gate`, `support_check`, `self_verify` off; `require_tool_rounds=2`) + `fact_check="verify_and_retry"` | est4_ref30 66.7 vs V3WX answers 46.7 |
+
+Tried and not adopted: `fact_check` on cap1 and cap2 (neutral); `cap2_verbatim` (no gain); for
+cap4, the campaign's per-turn top-40 (`prefilter_top_k=40`: 56.7 vs 66.7 with every tool) and the
+conversation-aware `tool_pick` (63.3); a tool-set pick for cap3 (offline: no better than the agent).
 
 ## Presets
 

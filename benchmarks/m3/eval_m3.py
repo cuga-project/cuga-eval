@@ -97,7 +97,7 @@ from benchmarks.helpers.sdk_eval_helpers import (
 
 # VAKRA adapter: configured-CUGA construction seam (default preset "off" = a
 # plain CugaAgent with today's exact kwargs; see benchmarks/m3/ADAPTER.md).
-from benchmarks.m3.adapter import build_m3_agent, load_demo_corpus, resolve_adapter_config
+from benchmarks.m3.adapter import PRESETS, build_m3_agent, load_demo_corpus, resolve_adapter_config
 from benchmarks.m3.container_health import (
     EnvironmentFailureError,
     EnvironmentFailureStreakTracker,
@@ -3434,7 +3434,7 @@ Examples:
     parser.add_argument(
         "--adapter-preset",
         type=str,
-        choices=["off", "cap1", "cap2", "cap3", "cap4_v3wx"],
+        choices=list(PRESETS),
         default=None,
         help=(
             "VAKRA adapter preset (configured CUGA; see benchmarks/m3/ADAPTER.md). "

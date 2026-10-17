@@ -398,7 +398,7 @@ uv run python eval_m3.py --from-config config/m3_registry.yaml --batch-size 20
 The benchmark-validated VAKRA behaviors (instruction blocks, answer guards,
 canonicalization, shortlisting, demos, cap4 policy scoping) are available as a
 **configurable adapter over an unmodified CugaAgent** — select a preset with
-`--adapter-preset {cap1,cap2,cap3,cap4_v3wx}` (or `M3_ADAPTER_PRESET`).
+`--adapter-preset {cap1,cap2,cap3,cap4}` (campaign configs: `cap2_campaign`, `cap3_campaign`, `cap4_v3wx`) (or `M3_ADAPTER_PRESET`).
 Default `off` = current behavior, unchanged. Full preset/knob reference:
 [`benchmarks/m3/ADAPTER.md`](ADAPTER.md).
 

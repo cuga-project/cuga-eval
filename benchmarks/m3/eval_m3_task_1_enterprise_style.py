@@ -64,7 +64,13 @@ from benchmarks.helpers import (
 
 # VAKRA adapter: configured-CUGA construction seam (default preset "off" = a
 # plain CugaAgent, unchanged behavior; see benchmarks/m3/ADAPTER.md).
-from benchmarks.m3.adapter import AdapterConfig, build_m3_agent, load_demo_corpus, resolve_adapter_config
+from benchmarks.m3.adapter import (
+    PRESETS,
+    AdapterConfig,
+    build_m3_agent,
+    load_demo_corpus,
+    resolve_adapter_config,
+)
 
 # Import MCP client utilities
 from benchmarks.m3.direct_mcp_client import (
@@ -773,7 +779,7 @@ async def main():
     parser.add_argument(
         "--adapter-preset",
         type=str,
-        choices=["off", "cap1", "cap2", "cap3", "cap4_v3wx"],
+        choices=list(PRESETS),
         default=None,
         help=(
             "VAKRA adapter preset (configured CUGA; see benchmarks/m3/ADAPTER.md). "

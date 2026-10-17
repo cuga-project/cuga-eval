@@ -206,6 +206,61 @@ _FC_CANON_RUNTIME = dict(
 )
 
 
+#: The campaign's submitted configs, kept for parity runs (cap1's is also the default).
+_CAP2_CAMPAIGN = AdapterConfig(
+    preset="cap2_campaign",
+    enabled=True,
+    execution_mode="function_calling",
+    capability=2,
+    gates=True,
+    answer_contract=True,
+    normalize=True,
+    bluff_map=True,
+    canonicalize=True,
+    demos=True,
+    # VAKRA_CUGA_CAP2_VERBATIM was not part of fc_canon: cap_estimate.sh (est2, the cap2
+    # train scorecard) never sets it and fc_canon_test.sh unsets it.
+    cap2_verbatim=False,
+    shortlist_top_k=128,
+    **_FC_CANON_RUNTIME,
+)
+
+_CAP3_CAMPAIGN = AdapterConfig(
+    preset="cap3_campaign",
+    enabled=True,
+    execution_mode="function_calling",
+    capability=3,
+    gates=True,
+    answer_contract=True,
+    normalize=True,
+    bluff_map=True,
+    canonicalize=True,
+    demos=True,
+    shortlist_top_k=128,
+    **_FC_CANON_RUNTIME,
+)
+
+_CAP4_V3WX = AdapterConfig(
+    preset="cap4_v3wx",
+    enabled=True,
+    capability=4,
+    discipline=True,
+    scope=True,
+    verbatim_on_retriever_scope=True,
+    evidence_gate=True,
+    support_check=True,
+    self_verify=True,
+    refusal_norm=True,
+    tool_cap=16,
+    shortlist_top_k=40,
+    shortlist_pin_retrievers=True,
+    # cap4_test.sh: CodeAct, no timeouts set (runner/LiteLLM defaults), CUGA settings defaults
+    **_CAMPAIGN_SHARED,
+    llm_http_timeout=CAP4_LLM_TIMEOUT,
+    agent_timeout=CAP4_AGENT_TIMEOUT,
+    cuga_settings=CAMPAIGN_CODEACT_SETTINGS,
+)
+
 PRESETS: dict[str, AdapterConfig] = {
     "off": AdapterConfig(),
     "cap1": AdapterConfig(
@@ -224,57 +279,32 @@ PRESETS: dict[str, AdapterConfig] = {
         shortlist_top_k=128,
         **_FC_CANON_RUNTIME,  # the official cap1 run: fc_canon_proto_test.sh (protocol + re-list)
     ),
-    "cap2": AdapterConfig(
+    # Defaults: the campaign configs plus the changes that won paired A/Bs on two disjoint
+    # train slices each (parity kit, 2026-10-15/17; benchmarks/m3/ADAPTER.md "Defaults").
+    "cap2": replace(
+        _CAP2_CAMPAIGN,
         preset="cap2",
-        enabled=True,
-        execution_mode="function_calling",
-        capability=2,
-        gates=True,
-        answer_contract=True,
-        normalize=True,
-        bluff_map=True,
-        canonicalize=True,
-        demos=True,
-        # VAKRA_CUGA_CAP2_VERBATIM was not part of fc_canon: cap_estimate.sh (est2, the cap2
-        # train scorecard) never sets it and fc_canon_test.sh unsets it.
-        cap2_verbatim=False,
-        shortlist_top_k=128,
-        **_FC_CANON_RUNTIME,
+        tool_pick=True,  # cosine top-32 -> one LLM pick -> bind 3 (+10 / +17 pts)
+        require_tool_rounds=2,  # a give-up with no tool call is re-asked (the pick binds few tools)
+        retry_unattempted_refusal=True,
+        empty_result_hint=True,  # no rows -> the data's value conventions (+3.5 pts)
+        param_value_examples=6,
     ),
-    "cap3": AdapterConfig(
-        preset="cap3",
-        enabled=True,
-        execution_mode="function_calling",
-        capability=3,
-        gates=True,
-        answer_contract=True,
-        normalize=True,
-        bluff_map=True,
-        canonicalize=True,
-        demos=True,
-        shortlist_top_k=128,
-        **_FC_CANON_RUNTIME,
+    "cap3": replace(_CAP3_CAMPAIGN, preset="cap3", fact_check="verify_and_retry"),  # +10 / +13 pts
+    "cap4": replace(
+        _CAP4_V3WX,
+        preset="cap4",
+        # soft2 (the campaign's best unsubmitted cap4 config): the three refusal guards off,
+        # REQUIRE_TOOL with 2 rounds; plus the fact-check retry (66.7% vs V3WX answers 46.7%).
+        evidence_gate=False,
+        support_check=False,
+        self_verify=False,
+        require_tool_rounds=2,
+        fact_check="verify_and_retry",
     ),
-    "cap4_v3wx": AdapterConfig(
-        preset="cap4_v3wx",
-        enabled=True,
-        capability=4,
-        discipline=True,
-        scope=True,
-        verbatim_on_retriever_scope=True,
-        evidence_gate=True,
-        support_check=True,
-        self_verify=True,
-        refusal_norm=True,
-        tool_cap=16,
-        shortlist_top_k=40,
-        shortlist_pin_retrievers=True,
-        # cap4_test.sh: CodeAct, no timeouts set (runner/LiteLLM defaults), CUGA settings defaults
-        **_CAMPAIGN_SHARED,
-        llm_http_timeout=CAP4_LLM_TIMEOUT,
-        agent_timeout=CAP4_AGENT_TIMEOUT,
-        cuga_settings=CAMPAIGN_CODEACT_SETTINGS,
-    ),
+    "cap2_campaign": _CAP2_CAMPAIGN,
+    "cap3_campaign": _CAP3_CAMPAIGN,
+    "cap4_v3wx": _CAP4_V3WX,
 }
 
 

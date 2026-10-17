@@ -95,10 +95,10 @@ _FC_CANON = {
 CAMPAIGN_PRESETS = {
     "cap1": dict(_FC_CANON, capability=1, cap1_protocol=True, relist_after_switch=True, cap2_verbatim=False),
     # VAKRA_CUGA_CAP2_VERBATIM: never set by cap_estimate.sh (est2), unset by fc_canon_test.sh
-    "cap2": dict(
+    "cap2_campaign": dict(
         _FC_CANON, capability=2, cap1_protocol=False, relist_after_switch=False, cap2_verbatim=False
     ),
-    "cap3": dict(
+    "cap3_campaign": dict(
         _FC_CANON, capability=3, cap1_protocol=False, relist_after_switch=False, cap2_verbatim=False
     ),
     "cap4_v3wx": {
@@ -298,3 +298,28 @@ def test_execution_mode_configurable_mapping():
     assert "cuga_lite_bind_tools_max_count" not in execution_mode_configurable(PRESETS["cap3"])
     assert execution_mode_configurable(PRESETS["cap4_v3wx"]) == {}
     assert execution_mode_configurable(AdapterConfig()) == {}
+
+
+def test_defaults_are_the_campaign_configs_plus_the_ab_winners():
+    """cap1 is the campaign's config; cap2-cap4 add only what won paired A/Bs (ADAPTER.md "Defaults")."""
+    assert PRESETS["cap2"] == replace(
+        PRESETS["cap2_campaign"],
+        preset="cap2",
+        tool_pick=True,
+        require_tool_rounds=2,
+        retry_unattempted_refusal=True,
+        empty_result_hint=True,
+        param_value_examples=6,
+    )
+    assert PRESETS["cap3"] == replace(PRESETS["cap3_campaign"], preset="cap3", fact_check="verify_and_retry")
+    assert PRESETS["cap4"] == replace(
+        PRESETS["cap4_v3wx"],
+        preset="cap4",
+        evidence_gate=False,
+        support_check=False,
+        self_verify=False,
+        require_tool_rounds=2,
+        fact_check="verify_and_retry",
+    )
+    assert PRESETS["cap4"].prefilter_top_k is None and not PRESETS["cap4"].tool_pick  # all tools beat top-40
+    assert {"cap2_campaign", "cap3_campaign", "cap4_v3wx"} <= set(PRESETS)

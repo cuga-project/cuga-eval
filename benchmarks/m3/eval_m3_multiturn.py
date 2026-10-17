@@ -67,6 +67,7 @@ from benchmarks.helpers import (
 # VAKRA adapter: configured-CUGA wrapper (default preset "off" = no wrapping,
 # unchanged behavior; see benchmarks/m3/ADAPTER.md).
 from benchmarks.m3.adapter import (
+    PRESETS,
     AdapterConfig,
     apply_cuga_settings,
     resolve_adapter_config,
@@ -252,11 +253,11 @@ async def main():
     parser.add_argument(
         "--adapter-preset",
         type=str,
-        choices=["off", "cap1", "cap2", "cap3", "cap4_v3wx"],
+        choices=list(PRESETS),
         default=None,
         help=(
             "VAKRA adapter preset (configured CUGA; see benchmarks/m3/ADAPTER.md). "
-            "For this multiturn runner the documented value is 'cap4_v3wx'. "
+            "For this multiturn runner the documented value is 'cap4' ('cap4_v3wx': the campaign's V3WX). "
             "Default: M3_ADAPTER_PRESET env var, else 'off' (current behavior)."
         ),
     )

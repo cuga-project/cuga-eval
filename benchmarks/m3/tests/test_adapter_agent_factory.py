@@ -148,14 +148,14 @@ def test_caps123_presets_use_the_sdk_strategy_and_the_campaign_one_preloads_mini
     from benchmarks.m3.adapter.agent import build_m3_agent
     from benchmarks.m3.adapter.shortlist import CAMPAIGN_STRATEGY_PATH
 
-    agent = build_m3_agent(tool_provider=object(), config=PRESETS["cap2"])
+    agent = build_m3_agent(tool_provider=object(), config=PRESETS["cap2_campaign"])
     assert agent._inner.shortlister.strategy == "embedding" and agent._inner.shortlister.top_k == 128
     assert "all-MiniLM-L6-v2" in agent._inner.shortlister.embedding_model
     campaign = build_m3_agent(
-        tool_provider=object(), config=replace(PRESETS["cap2"], shortlist_strategy="campaign")
+        tool_provider=object(), config=replace(PRESETS["cap2_campaign"], shortlist_strategy="campaign")
     )
     assert campaign._inner.shortlister.strategy == CAMPAIGN_STRATEGY_PATH
-    assert _no_sentence_model == [PRESETS["cap2"].shortlist_model]  # loaded at build, not on task 1
+    assert _no_sentence_model == [PRESETS["cap2_campaign"].shortlist_model]  # loaded at build, not on task 1
 
 
 def test_pre_621_sdk_degrades_to_post_invoke_final_answer(fake_cuga):

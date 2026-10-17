@@ -33,7 +33,7 @@ def test_tool_pick_config_env_validation_and_bind_cap_pin():
     assert cfg.tool_pick and cfg.tool_pick_pool == 32 and cfg.tool_pick_bind == 2
     assert (f"advanced_features.{BIND_CAP_SETTING}", 2) in cuga_setting_pins(cfg)
     assert not any(
-        k.endswith(BIND_CAP_SETTING) for k, _ in cuga_setting_pins(PRESETS["cap2"])
+        k.endswith(BIND_CAP_SETTING) for k, _ in cuga_setting_pins(PRESETS["cap2_campaign"])
     )  # off: cap untouched
     with pytest.raises(ValueError, match="TOOL_PICK_BIND"):
         resolve_adapter_config("cap2", env={"M3_ADAPTER_TOOL_PICK": "1", "M3_ADAPTER_TOOL_PICK_BIND": "40"})
