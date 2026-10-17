@@ -158,6 +158,9 @@ class AdapterConfig:
     # LLM fact-check of the draft against the recorded tool results:
     # "off" | "verify" (OK / CORRECTED: <answer>) | "verify_and_retry" (+ MISSING: <need> -> one re-ask)
     fact_check: str = "off"
+    # One LLM pass rewrites the final draft as only the requested value(s), copied from the tool
+    # results (prose answers dilute the correctness match and add claims the groundedness judge checks).
+    answer_distill: bool = False
     # Two-stage tool narrowing (single-tool tasks, cap2): cosine top-``tool_pick_pool``, then one LLM
     # call picks THE tool; only the first ``tool_pick_bind`` of [pick, runner-up, cosine order] are
     # bound (the bind cap). Offline on est2_ref30: gold tool picked 29/30 vs the agent's 79% first call.

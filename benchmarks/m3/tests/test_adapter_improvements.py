@@ -236,3 +236,38 @@ def test_transient_errors_are_recognized_through_the_cause_chain():
         assert is_transient_error(outer)
     assert not is_transient_error(ValueError("bad input"))
     assert not is_transient_error(TimeoutError("agent_timeout 220s exceeded"))
+
+
+# ------------------------------------------------------------------ answer distillation
+
+
+async def test_answer_distill_rewrites_a_prose_draft_to_the_value():
+    prompts = []
+    invoke_round, sent = _rounds()
+    out = await run_answer_pipeline(
+        invoke_round,
+        _result("The total number of flights on that day was 42 according to the data."),
+        AdapterConfig(answer_distill=True),
+        TaskContext(),
+        [OK_CALL],
+        _checker("42", prompts),
+        question="How many flights?",
+    )
+    assert out == "42" and sent == []
+    assert "How many flights?" in prompts[0] and 'get_x({"id": 1}) -> {"x": 42}' in prompts[0]
+
+
+async def test_answer_distill_leaves_refusals_unevidenced_drafts_and_failures_alone():
+    cfg = AdapterConfig(answer_distill=True)
+    for draft, calls, reply in (
+        ("I can not answer.", [OK_CALL], "42"),  # a refusal is not rewritten
+        ("42 flights", [], "42"),  # no tool evidence
+        ("42 flights", [OK_CALL], RuntimeError("proxy down")),  # the distiller failed
+        ("42 flights", [OK_CALL], "I can not answer."),  # the distiller gave up
+        ("42 flights", [OK_CALL], "  "),  # empty rewrite
+    ):
+        invoke_round, _ = _rounds()
+        out = await run_answer_pipeline(
+            invoke_round, _result(draft), cfg, TaskContext(), calls, _checker(reply)
+        )
+        assert out == draft

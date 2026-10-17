@@ -101,6 +101,23 @@ FACT_CHECK_MAX_CALLS = 20  # the judge reads the last 20 tool responses; so does
 FACT_CHECK_RESULT_CHARS = 1500
 
 
+_DISTILL_PROMPT = """You turn an assistant's draft answer into the final answer to the user's question.
+
+Question: {question}
+
+Tool results the assistant obtained:
+{calls}
+
+Draft answer:
+{answer}
+
+Write ONLY the answer: the value or values the question asks for, copied exactly as the tool results show
+them (same spelling, full precision, every requested item, in the order the tools returned them). No
+explanation, no restating the question, no units or labels unless the question asks for them. If the
+question asks for several things, give all of them, separated by commas. If the draft's value does not
+appear in the tool results, keep the draft's value. Reply with the answer only."""
+
+
 def format_tool_evidence(recorded_calls: List[dict]) -> str:
     """The recorded calls as numbered ``tool(args) -> result`` lines (last 20, results truncated)."""
     lines = []
@@ -244,6 +261,24 @@ async def run_answer_pipeline(
                 if follow_up is not None:
                     result = follow_up
                     answer = draft_of(result)
+
+    # 1e. Answer distillation: the draft rewritten as only the requested value(s), copied from the
+    # tool results. Refusals, empty drafts and drafts without tool evidence are left alone.
+    if cfg.answer_distill and llm_ainvoke is not None:
+        if answer.strip() and not is_giveup(answer) and _successful_calls(recorded_calls):
+            prompt = _DISTILL_PROMPT.format(
+                question=question or "(see the tool calls)",
+                calls=format_tool_evidence(recorded_calls),
+                answer=answer[:4000],
+            )
+            try:
+                distilled = strip_channel_tokens(str(await llm_ainvoke(prompt) or "")).strip()
+            except Exception as exc:  # noqa: BLE001  (best-effort; never lose the draft)
+                logger.warning("[m3-adapter distill] failed ({}); keeping the draft", exc)
+                distilled = ""
+            if distilled and not is_giveup(distilled):
+                logger.info("[m3-adapter distill] {!r} -> {!r}", answer[:80], distilled[:80])
+                answer = distilled
 
     # Fallback for agents built without the in-graph final_answer function
     # (e.g. a pre-built agent wrapped after construction): apply the same
