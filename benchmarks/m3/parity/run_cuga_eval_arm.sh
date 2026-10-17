@@ -88,6 +88,9 @@ run_cap1_domain() {
     ids=$(python3 -c "import json,sys;print(','.join(json.load(open(sys.argv[1]))['ids_by_domain'][sys.argv[2]]))" "$MAN" "$dom")
     mkdir -p "$raw"
     local args=(--container "$CONTAINER" --domain "$dom" --item-ids "$ids" --switch-timeout 150 --output "$raw")
+    # The runner's own per-item limit (default 300s) must outlast the adapter's agent_timeout,
+    # or a variant that raises the agent limit (variants/t400.env) is cut off by the runner.
+    [ -n "${M3_ADAPTER_AGENT_TIMEOUT:-}" ] && args+=(--agent-timeout "$((M3_ADAPTER_AGENT_TIMEOUT + 60))")
     [ "$PRESET" != "off" ] && args+=(--adapter-preset "$PRESET")
     [ "$PRESET" != "off" ] && [ "$DEMODATA" != "-" ] && args+=(--demo-data "$DEMODATA")
     (cd "$ROOT" && M3_DATA_DIR="$CAP1_INPUT" uv run --frozen python benchmarks/m3/eval_m3_task_1_enterprise_style.py "${args[@]}") 2>&1 | tee -a "$OUT/console.log"
