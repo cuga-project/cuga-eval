@@ -269,8 +269,6 @@ async def run_answer_pipeline(
         for _ in range(cfg.max_gate_rounds):
             draft = strip_channel_tokens(str(getattr(result, "answer", "") or ""))
             correction = simple_gate_correction(draft)
-            if correction is None and cfg.plan_text_gate and looks_like_plan_text(draft):
-                correction = PLAN_TEXT_CORRECTION
             if correction is None:
                 break
             logger.info("[m3-adapter gate] retrying with correction (same thread)")
@@ -338,6 +336,17 @@ async def run_answer_pipeline(
                 if follow_up is not None:
                     result = follow_up
                     answer = draft_of(result)
+
+    # 1d1. Plan-text check, after every re-ask above: a draft that is the model's working notes ("We
+    # need ...") is sent back; any re-ask can end that way (FC ends on a reply without tool calls).
+    if cfg.plan_text_gate:
+        for _ in range(cfg.max_gate_rounds):
+            if not looks_like_plan_text(answer):
+                break
+            follow_up = await retry(PLAN_TEXT_CORRECTION, "plan-text")
+            if follow_up is None:
+                break
+            result, answer = follow_up, draft_of(follow_up)
 
     # 1d2. Values check (deterministic): a draft stating a value no tool returned (and the question
     # does not state) is re-asked once. A re-ask that ends empty or in a give-up keeps the draft.

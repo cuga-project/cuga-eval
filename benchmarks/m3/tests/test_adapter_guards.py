@@ -208,7 +208,7 @@ def test_looks_like_plan_text():
     assert not any(looks_like_plan_text(a) for a in ANSWERS)
 
 
-async def test_plan_text_gate_reasks_working_notes_only_when_enabled():
+async def test_plan_text_check_reasks_working_notes_only_when_enabled():
     on = replace(PRESETS["cap2"], plan_text_gate=True)
     invoke_round, sent = _rounds("1")
     out = await run_answer_pipeline(invoke_round, _result(PLAN_DRAFTS[2]), on, TaskContext(), [OK_CALL])
@@ -216,7 +216,33 @@ async def test_plan_text_gate_reasks_working_notes_only_when_enabled():
     invoke_round, sent = _rounds("1")
     assert await run_answer_pipeline(invoke_round, _result("42"), on, TaskContext(), [OK_CALL]) == "42"
     assert sent == []  # a real answer is left alone
-    for cfg in (PRESETS["cap2"], replace(on, gates=False)):  # off by default; needs the gates
-        invoke_round, sent = _rounds("1")
-        await run_answer_pipeline(invoke_round, _result(PLAN_DRAFTS[2]), cfg, TaskContext(), [OK_CALL])
-        assert PLAN_TEXT_CORRECTION not in sent
+    invoke_round, sent = _rounds("1")
+    await run_answer_pipeline(
+        invoke_round, _result(PLAN_DRAFTS[2]), PRESETS["cap2"], TaskContext(), [OK_CALL]
+    )
+    assert PLAN_TEXT_CORRECTION not in sent  # off by default
+
+
+async def test_plan_text_check_catches_notes_produced_by_an_earlier_reask():
+    """r9 cap2 mental_health_survey: the require-tool re-ask came back as working notes and was submitted."""
+    on = replace(PRESETS["cap2"], plan_text_gate=True)
+    calls = []
+
+    async def invoke_round(correction):
+        sent.append(correction)
+        calls.append(OK_CALL)  # the re-ask made a successful call ...
+        return _result(
+            PLAN_DRAFTS[2] if len(sent) == 1 else "5.476529160739687"
+        )  # ... then answered in notes
+
+    sent = []
+    out = await run_answer_pipeline(invoke_round, _result("42"), on, TaskContext(), calls)
+    assert sent[0].startswith("Your previous answer used no tool results") and sent[1] == PLAN_TEXT_CORRECTION
+    assert out == "5.476529160739687"
+
+
+async def test_plan_text_check_is_bounded():
+    on = replace(PRESETS["cap2"], plan_text_gate=True, max_gate_rounds=2)
+    invoke_round, sent = _rounds(PLAN_DRAFTS[0], PLAN_DRAFTS[1], "never asked")
+    out = await run_answer_pipeline(invoke_round, _result(PLAN_DRAFTS[2]), on, TaskContext(), [OK_CALL])
+    assert sent == [PLAN_TEXT_CORRECTION] * 2 and out.startswith("We need to get the answer")  # 2 rounds, then kept

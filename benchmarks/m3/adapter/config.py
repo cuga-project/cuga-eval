@@ -165,8 +165,8 @@ class AdapterConfig:
     # Deterministic values check: a draft stating a value (number, name, list item) that appears in
     # no tool result and not in the question is sent back once, asking for the tool-returned values.
     values_check_rounds: int = 0
-    # Gate (with ``gates``): a draft that is the model's working notes ("We need ...", "Let's call ...")
-    # instead of an answer is sent back like an empty one. FC ends on any reply without tool calls.
+    # After every re-ask: a draft that is the model's working notes ("We need ...", "Let's call ...")
+    # instead of an answer is sent back (up to max_gate_rounds). FC ends on any reply without tool calls.
     plan_text_gate: bool = False
     # Two-stage tool narrowing (single-tool tasks, cap2): cosine top-``tool_pick_pool``, then one LLM
     # call picks THE tool; only the first ``tool_pick_bind`` of [pick, runner-up, cosine order] are
