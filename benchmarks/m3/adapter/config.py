@@ -162,6 +162,9 @@ class AdapterConfig:
     # One LLM pass rewrites the final draft as only the requested value(s), copied from the tool
     # results (prose answers dilute the correctness match and add claims the groundedness judge checks).
     answer_distill: bool = False
+    # Deterministic values check: a draft stating a value (number, name, list item) that appears in
+    # no tool result and not in the question is sent back once, asking for the tool-returned values.
+    values_check_rounds: int = 0
     # Two-stage tool narrowing (single-tool tasks, cap2): cosine top-``tool_pick_pool``, then one LLM
     # call picks THE tool; only the first ``tool_pick_bind`` of [pick, runner-up, cosine order] are
     # bound (the bind cap). Offline on est2_ref30: gold tool picked 29/30 vs the agent's 79% first call.

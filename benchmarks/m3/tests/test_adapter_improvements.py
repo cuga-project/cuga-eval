@@ -10,11 +10,13 @@ from benchmarks.m3.adapter.guards import (
     FACT_CHECK_MAX_CALLS,
     REFUSAL_RECOVERY_CORRECTION,
     REQUIRE_TOOL_CORRECTION,
+    VALUES_CHECK_CORRECTION,
     format_tool_evidence,
     parse_fact_check,
     run_answer_pipeline,
+    unsupported_values,
 )
-from benchmarks.m3.adapter.recording import RecordingScopedToolProvider
+from benchmarks.m3.adapter.recording import RESULT_MAX_CHARS, RecordingScopedToolProvider
 
 pytestmark = pytest.mark.sanity
 
@@ -271,3 +273,59 @@ async def test_answer_distill_leaves_refusals_unevidenced_drafts_and_failures_al
             invoke_round, _result(draft), cfg, TaskContext(), calls, _checker(reply)
         )
         assert out == draft
+
+
+# ------------------------------------------------------------------ values check
+
+COURSES = (
+    "{'course_levels': ['Level_300', 'Level_400', 'Level_400']} {'count': 27} {'avg': 651.7844451569706}"
+)
+
+
+def test_unsupported_values_finds_what_no_tool_returned():
+    q = "How many courses does professor 331 teach since 2003?"
+    assert unsupported_values("5", q + COURSES) == ["5"]  # counted by the model, not returned by a tool
+    assert unsupported_values("27", q + COURSES) == []
+    assert unsupported_values("651.78", q + COURSES) == []  # a rounding of a returned value
+    assert unsupported_values("65178.44", q + COURSES) == ["65178.44"]  # rescaled: not a returned value
+    assert unsupported_values("331, 2003", q + COURSES) == []  # values the question states
+    assert unsupported_values("Level_300, Level_500", q + COURSES) == ["Level_500"]
+    assert unsupported_values("27 courses", q + COURSES) == []  # a unit around a returned number
+    assert unsupported_values("Yes", q + COURSES) == []  # yes/no is derived by nature
+    sentence = "The professor with the most courses is Douglas Christie with 27 courses in total."
+    assert unsupported_values(sentence, q + COURSES) == ["Douglas Christie"]
+    assert unsupported_values("1,234", "{'n': 1234}") == []  # thousands separators
+
+
+async def test_values_check_sends_an_unreturned_value_back_once():
+    calls = [{"tool_name": "get_count", "arguments": {"p": 1}, "result": "{'count': 27}"}]
+    invoke_round, sent = _rounds("27")
+    out = await run_answer_pipeline(
+        invoke_round,
+        _result("5"),
+        AdapterConfig(values_check_rounds=1),
+        TaskContext(),
+        calls,
+        question="How many?",
+    )
+    assert out == "27"
+    assert sent == [VALUES_CHECK_CORRECTION.format(values="5", it="it")]
+
+
+async def test_values_check_keeps_the_draft_when_the_reask_gives_up_and_skips_what_it_cannot_judge():
+    calls = [{"tool_name": "get_count", "arguments": {}, "result": "{'count': 27}"}]
+    cfg = AdapterConfig(values_check_rounds=1)
+    for reply in ("I can not answer.", ""):
+        invoke_round, sent = _rounds(reply)
+        assert await run_answer_pipeline(invoke_round, _result("5"), cfg, TaskContext(), calls) == "5"
+        assert len(sent) == 1
+    big = [{"tool_name": "get_rows", "arguments": {}, "result": "x" * RESULT_MAX_CHARS}]
+    for draft, evidence in (("27", calls), ("I can not answer.", calls), ("5", []), ("5", big)):
+        invoke_round, sent = _rounds("27")
+        assert await run_answer_pipeline(invoke_round, _result(draft), cfg, TaskContext(), evidence) == draft
+        assert sent == []  # supported, a refusal, no tool evidence, or a truncated result
+    invoke_round, sent = _rounds("27")
+    off = AdapterConfig()
+    assert (
+        await run_answer_pipeline(invoke_round, _result("5"), off, TaskContext(), calls) == "5" and sent == []
+    )

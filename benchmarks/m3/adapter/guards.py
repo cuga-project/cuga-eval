@@ -8,10 +8,11 @@ order is EXACTLY the validated adapter's:
     support_check -> self_verify -> cap2 value extraction -> normalize ->
     bluff_map
 
-Beyond the campaign's submitted configs, three opt-in steps run right after the
-gate retries: require-tool (the campaign's VAKRA_CUGA_REQUIRE_TOOL, its soft2
-mechanism), refusal recovery, and an LLM fact-check of the draft against the
-recorded tool results.
+Beyond the campaign's submitted configs, opt-in steps run right after the gate
+retries: require-tool (the campaign's VAKRA_CUGA_REQUIRE_TOOL, its soft2
+mechanism), refusal recovery, an LLM fact-check of the draft against the
+recorded tool results, and a deterministic values check (a value no tool
+returned is re-asked).
 
 Each step is preset-gated; with everything off the pipeline returns the
 stripped answer unchanged.
@@ -35,6 +36,7 @@ from benchmarks.m3.adapter.final_answer import (
     normalize_answer,
     strip_channel_tokens,
 )
+from benchmarks.m3.adapter.recording import RESULT_MAX_CHARS
 
 _HEDGE_RE = re.compile(
     r"\bhowever\b|\bbut note\b|\bapproximately\b|\bnot (?:entirely )?sure\b|"
@@ -99,6 +101,61 @@ FACT_CHECK_RETRY = (
 )
 FACT_CHECK_MAX_CALLS = 20  # the judge reads the last 20 tool responses; so does the checker
 FACT_CHECK_RESULT_CHARS = 1500
+
+VALUES_CHECK_CORRECTION = (
+    "Your answer states {values}, but no tool result contains {it}. The final answer must use values "
+    "exactly as the tools returned them. Call the tool that returns the value the question asks for "
+    "(check that its arguments are right), then give the final answer based strictly on its output."
+)
+
+_NUM_RE = re.compile(r"-?\d+(?:\.\d+)?")
+_THOUSANDS_RE = re.compile(r"(?<=\d),(?=\d{3}\b)")
+_NAME_RE = re.compile(r"\b[A-Z][a-zA-Z'\-]+(?:\s+[A-Z][a-zA-Z'\-]+)*")
+_DERIVED_OK = {"yes", "no", "true", "false"}
+
+
+def _norm_evidence(text: str) -> str:
+    text = _THOUSANDS_RE.sub("", str(text).lower())
+    return re.sub(r"\s+", " ", re.sub(r"[\"'`\[\]{}()\\]", " ", text))
+
+
+def _number_supported(token: str, evidence_numbers: List[float]) -> bool:
+    """``token`` equals, or is a rounding of, a number in the evidence (651.78 for 651.7844...)."""
+    decimals = len(token.split(".")[1]) if "." in token else 0
+    x, tol = float(token), 0.5 * 10 ** (-decimals) + 1e-12
+    return any(abs(x - y) <= tol for y in evidence_numbers)
+
+
+def unsupported_values(answer: str, evidence: str) -> List[str]:
+    """The answer's values found nowhere in ``evidence`` (the question + the tool results).
+
+    Each comma/semicolon/line item of the answer is a value: a number must equal (or round) a number
+    in the evidence, a short item must appear in it verbatim (case-insensitive); in a sentence only its
+    numbers and capitalized names are checked. Yes/no answers are derived by nature and pass.
+    """
+    ev = _norm_evidence(evidence)
+    ev_numbers = [float(t) for t in _NUM_RE.findall(_THOUSANDS_RE.sub("", str(evidence)))]
+    missing: List[str] = []
+    for item in re.split(r"[,;\n]", _THOUSANDS_RE.sub("", answer or "")):
+        item = item.strip().strip(".*`'\"[](){} ")
+        if not item or item.lower() in _DERIVED_OK:
+            continue
+        if _NUM_RE.fullmatch(item):
+            if not _number_supported(item, ev_numbers):
+                missing.append(item)
+        elif len(item.split()) <= 6:
+            if len(item) >= 3 and _norm_evidence(item).strip() not in ev:
+                numbers = _NUM_RE.findall(item)  # "44 players": the number carries the value
+                if not numbers or not all(_number_supported(n, ev_numbers) for n in numbers):
+                    missing.append(item)
+        else:
+            missing += [n for n in _NUM_RE.findall(item) if not _number_supported(n, ev_numbers)]
+            missing += [
+                n
+                for n in _NAME_RE.findall(item)
+                if len(n) > 3 and n not in _STOPWORDS and n.lower() not in ev
+            ]
+    return list(dict.fromkeys(missing))
 
 
 _DISTILL_PROMPT = """You turn an assistant's draft answer into the final answer to the user's question.
@@ -261,6 +318,30 @@ async def run_answer_pipeline(
                 if follow_up is not None:
                     result = follow_up
                     answer = draft_of(result)
+
+    # 1d2. Values check (deterministic): a draft stating a value no tool returned (and the question
+    # does not state) is re-asked once. A re-ask that ends empty or in a give-up keeps the draft.
+    # Skipped when a result was cut at RESULT_MAX_CHARS: the evidence would be incomplete.
+    for _ in range(cfg.values_check_rounds):
+        successful = _successful_calls(recorded_calls)
+        if not answer.strip() or is_giveup(answer) or not successful:
+            break
+        if any(len(str(c.get("result", ""))) >= RESULT_MAX_CHARS for c in successful):
+            break
+        evidence = " ".join([question] + [str(c.get("result", "")) for c in successful])
+        missing = unsupported_values(answer, evidence)
+        if not missing:
+            break
+        shown = ", ".join(missing[:6])
+        logger.info("[m3-adapter values-check] not in any tool result: {}", shown[:200])
+        follow_up = await retry(
+            VALUES_CHECK_CORRECTION.format(values=shown, it="it" if len(missing) == 1 else "them"),
+            "values-check",
+        )
+        new_answer = draft_of(follow_up) if follow_up is not None else ""
+        if not new_answer.strip() or is_giveup(new_answer):
+            break
+        result, answer = follow_up, new_answer
 
     # 1e. Answer distillation: the draft rewritten as only the requested value(s), copied from the
     # tool results. Refusals, empty drafts and drafts without tool evidence are left alone.
