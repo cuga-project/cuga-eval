@@ -51,7 +51,7 @@ available for parity runs as `cap2_campaign`, `cap3_campaign` and `cap4_v3wx`; `
 | preset | = campaign config + | evidence (train slices, pass rate) |
 |---|---|---|
 | `cap1` | — | 60.0% vs campaign answers 56.7% |
-| `cap2` | `tool_pick`, `require_tool_rounds=2` + `retry_unattempted_refusal`, `empty_result_hint` + `param_value_examples=6` | est2_ref30 66.7 → 76.7 (pick + retry); est2_fresh30 48.3 → 69.0 (campaign answers 70.0 / 65.5) |
+| `cap2` | `tool_pick` (pool 48 → pick + LLM ranking → bind 10, the pick named: `tool_pick_pool=48`, `tool_pick_bind=10`, `tool_pick_fill="llm"`, `tool_pick_hint`), `require_tool_rounds=2` + `retry_unattempted_refusal`, `empty_result_hint` + `param_value_examples=6` | est2_ref30 66.7 → 76.7 (pick + retry); est2_fresh30 48.3 → 69.0 (campaign answers 70.0 / 65.5); bind 10 ties bind 3 on 60 tasks (69.5 / 69.5) and keeps the gold tool bound when the pick misses |
 | `cap3` | `fact_check="verify_and_retry"` | est3_ref30 50.0 → 60.0; est3_fresh30 43.3 → 56.7 (campaign 53.6 / 56.7) |
 | `cap4` | soft2 (`evidence_gate`, `support_check`, `self_verify` off; `require_tool_rounds=2`) + `fact_check="verify_and_retry"` | est4_ref30 66.7 vs V3WX answers 46.7 |
 

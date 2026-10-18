@@ -306,6 +306,10 @@ def test_defaults_are_the_campaign_configs_plus_the_ab_winners():
         PRESETS["cap2_campaign"],
         preset="cap2",
         tool_pick=True,
+        tool_pick_pool=48,  # safeguard C: pool 48 -> pick + LLM ranking -> bind 10, pick named
+        tool_pick_bind=10,
+        tool_pick_fill="llm",
+        tool_pick_hint=True,
         require_tool_rounds=2,
         retry_unattempted_refusal=True,
         empty_result_hint=True,

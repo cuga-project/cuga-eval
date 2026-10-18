@@ -30,13 +30,13 @@ def test_tool_pick_config_env_validation_and_bind_cap_pin():
     cfg = resolve_adapter_config(
         "cap2", env={"M3_ADAPTER_TOOL_PICK": "true", "M3_ADAPTER_TOOL_PICK_BIND": "2"}
     )
-    assert cfg.tool_pick and cfg.tool_pick_pool == 32 and cfg.tool_pick_bind == 2
+    assert cfg.tool_pick and cfg.tool_pick_pool == 48 and cfg.tool_pick_bind == 2
     assert (f"advanced_features.{BIND_CAP_SETTING}", 2) in cuga_setting_pins(cfg)
     assert not any(
         k.endswith(BIND_CAP_SETTING) for k, _ in cuga_setting_pins(PRESETS["cap2_campaign"])
     )  # off: cap untouched
     with pytest.raises(ValueError, match="TOOL_PICK_BIND"):
-        resolve_adapter_config("cap2", env={"M3_ADAPTER_TOOL_PICK": "1", "M3_ADAPTER_TOOL_PICK_BIND": "40"})
+        resolve_adapter_config("cap2", env={"M3_ADAPTER_TOOL_PICK": "1", "M3_ADAPTER_TOOL_PICK_BIND": "64"})
 
 
 def test_parse_tool_pick_validates_names_and_resolves_bare_ones():
@@ -88,6 +88,11 @@ def _request(llm, query="q?", top_k=3):
 def strategy(monkeypatch):
     monkeypatch.setattr(CosinePickStrategy, "_picks", {})
     monkeypatch.setattr(CosinePickStrategy, "pool", 4)
+    # class-level settings are set by build_shortlister from the preset: pin the bind-3 mechanics here
+    monkeypatch.setattr(CosinePickStrategy, "bind", 3)
+    monkeypatch.setattr(CosinePickStrategy, "widen", 0)
+    monkeypatch.setattr(CosinePickStrategy, "fill", "cosine")
+    monkeypatch.setattr(CosinePickStrategy, "_widened", set())
     s = CosinePickStrategy()
 
     async def cosine(request):  # cosine order: e, d, c, b (a is cut by the pool of 4)
@@ -476,7 +481,8 @@ async def test_prepick_is_reused_by_the_bind_time_call(strategy, monkeypatch):
         return '{"tool": "d_get_d"}'
 
     tools = _request(None).tools
-    assert await sl.prepick_tool("q?", tools, PRESETS["cap2"], llm_text) == "d_get_d"
+    cfg = replace(PRESETS["cap2"], tool_pick_fill="cosine")  # one LLM call: the pick
+    assert await sl.prepick_tool("q?", tools, cfg, llm_text) == "d_get_d"
     later = await sl.CosinePickStrategy().shortlist(
         _request(_LLM("{}"))
     )  # CUGA's call: same question, same catalog
@@ -484,8 +490,8 @@ async def test_prepick_is_reused_by_the_bind_time_call(strategy, monkeypatch):
 
 
 def test_widen_and_fill_config_validation_and_bind_cap():
-    cfg = resolve_adapter_config("cap2", env={"M3_ADAPTER_TOOL_PICK_WIDEN": "10"})
-    assert dict(cuga_setting_pins(cfg))[f"advanced_features.{BIND_CAP_SETTING}"] == 10
+    cfg = resolve_adapter_config("cap2", env={"M3_ADAPTER_TOOL_PICK_WIDEN": "20"})
+    assert dict(cuga_setting_pins(cfg))[f"advanced_features.{BIND_CAP_SETTING}"] == 20
     for bad in (
         {"M3_ADAPTER_TOOL_PICK_WIDEN": "2"},
         {"M3_ADAPTER_TOOL_PICK_WIDEN": "64"},

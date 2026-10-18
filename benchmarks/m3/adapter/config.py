@@ -298,7 +298,13 @@ PRESETS: dict[str, AdapterConfig] = {
     "cap2": replace(
         _CAP2_CAMPAIGN,
         preset="cap2",
-        tool_pick=True,  # cosine top-32 -> one LLM pick -> bind 3 (+10 / +17 pts)
+        tool_pick=True,  # cosine top-k -> one LLM pick -> bind few (+10 / +17 pts at pool 32 / bind 3)
+        # pool 48 -> pick + LLM ranking -> bind 10, the pick named in the instructions: ties bind 3 on
+        # 60 tasks (69.5% each) and keeps the gold tool bound when a harder test question defeats the pick.
+        tool_pick_pool=48,
+        tool_pick_bind=10,
+        tool_pick_fill="llm",
+        tool_pick_hint=True,
         require_tool_rounds=2,  # a give-up with no tool call is re-asked (the pick binds few tools)
         retry_unattempted_refusal=True,
         empty_result_hint=True,  # no rows -> the data's value conventions (+3.5 pts)
