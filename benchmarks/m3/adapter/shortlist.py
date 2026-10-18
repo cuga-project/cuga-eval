@@ -198,6 +198,34 @@ Candidate APIs:
 Reply with JSON only: {{"tool": "<api name>", "arguments": {{...}}, "runner_up": "<api name>"}}"""
 
 
+TOOL_RANK_PROMPT = """You rank the API calls that could answer a user's question.
+
+The APIs below were each generated from one specific database query, so a single API usually answers the
+whole question at once: its name and description encode the question's filters, aggregation and ordering.
+Rank the candidates by how likely each one ALONE answers the WHOLE question, most likely first.
+
+Question: {query}
+
+Candidate APIs:
+{candidates}
+
+Reply with JSON only: {{"ranked": ["<api name>", ...]}} — the {n} most likely APIs, best first."""
+
+
+def parse_tool_ranking(text: str, names: list) -> list:
+    """The ``ranked`` list of the reply, candidates only, in order, without repeats."""
+    import json  # noqa: PLC0415
+    import re  # noqa: PLC0415
+
+    match = re.search(r"\{.*\}", text or "", re.S)
+    try:
+        data = json.loads(match.group(0)) if match else {}
+    except ValueError:
+        data = {}
+    known = set(names)
+    return list(dict.fromkeys(n for n in (data.get("ranked") or []) if isinstance(n, str) and n in known))
+
+
 def render_tool_for_pick(tool: Any) -> str:
     """``- name: description`` plus every parameter's type and description."""
     props: dict = {}
@@ -262,8 +290,26 @@ class CosinePickStrategy:
     """
 
     name = "m3_cosine_pick"
-    pool = 32  # cosine width (build_shortlister sets it from AdapterConfig.tool_pick_pool)
+    # Process-wide settings (build_shortlister copies them from the AdapterConfig).
+    pool = 32  # cosine width
+    bind = 0  # tools returned per model call (0 = as many as CUGA asks for)
+    widen = 0  # tools returned once the task has failed (0 = never widen)
+    fill = "cosine"  # what follows [pick, runner-up]: "cosine" order or an LLM ranking ("llm")
     _picks: dict = {}  # (query, catalog names) -> ranked names
+    _widened: set = set()  # questions whose task has failed: later model calls bind `widen` tools
+
+    @classmethod
+    def mark_failure(cls, query: str) -> None:
+        """A call returned nothing / failed, or the answer checks re-ask: bind the wider set from now on."""
+        if cls.widen and query.strip() and query.strip() not in cls._widened:
+            cls._widened.add(query.strip())
+            logger.info(
+                "[m3-adapter tool-pick] failure in this task: later model calls bind {} tools", cls.widen
+            )
+
+    @classmethod
+    def reset(cls, query: str) -> None:
+        cls._widened.discard(query.strip())
 
     def __init__(self, plan: Any = None):
         self._plan = plan
@@ -302,6 +348,15 @@ class CosinePickStrategy:
         reply = await llm.ainvoke(prompt)
         return parse_tool_pick(_message_text(reply), [t.name for t in candidates])
 
+    async def _llm_rank(self, query: str, candidates: list, llm: Any, n: int) -> list:
+        """A second LLM call: the candidates ranked by how likely each alone answers the question."""
+        if llm is None or n <= 0:
+            return []
+        prompt = TOOL_RANK_PROMPT.format(
+            query=query, n=n, candidates="\n".join(render_tool_for_pick(t) for t in candidates)
+        )
+        return parse_tool_ranking(_message_text(await llm.ainvoke(prompt)), [t.name for t in candidates])
+
     async def shortlist(self, request):
         from cuga.backend.cuga_graph.nodes.cuga_lite.shortlister.base import (  # noqa: PLC0415
             ShortlistCandidate,
@@ -322,7 +377,14 @@ class CosinePickStrategy:
                 logger.warning("[m3-adapter tool-pick] pick call failed ({}); keeping the cosine order", exc)
                 pick, runner_up = None, None
             head = [n for n in (pick, runner_up) if n]
-            ranked = head + [n for n in cosine if n not in head]
+            middle: list = []
+            if self.fill == "llm":
+                try:
+                    middle = await self._llm_rank(query, pool, request.llm, max(self.bind, self.widen))
+                except Exception as exc:  # noqa: BLE001
+                    logger.warning("[m3-adapter tool-pick] ranking call failed ({}); filling by cosine", exc)
+            middle = [n for n in middle if n not in head]
+            ranked = list(dict.fromkeys(head + middle + [n for n in cosine if n not in head]))
             self._picks[key] = ranked
             logger.info(
                 "[m3-adapter tool-pick] {} tools -> cosine top {} -> pick {} (runner-up {}){}",
@@ -333,12 +395,46 @@ class CosinePickStrategy:
                 "" if pick else " — no valid pick, cosine order kept",
             )
         top_k = request.top_k or len(ranked)
+        count = self.widen if (self.widen and query in self._widened) else self.bind
+        if count:
+            top_k = min(top_k, count)
         return ShortlistResult(
             candidates=[
                 ShortlistCandidate(name=n, score=float(len(ranked) - i), reasoning="tool pick")
                 for i, n in enumerate(ranked[:top_k])
             ]
         )
+
+
+class PromptLLM:
+    """``ainvoke(prompt)`` over a prompt -> text coroutine (the adapter's own LLM helper)."""
+
+    def __init__(self, fn):
+        self._fn = fn
+
+    async def ainvoke(self, prompt: Any) -> str:
+        return await self._fn(prompt)
+
+
+async def prepick_tool(query: str, tools: list, cfg: AdapterConfig, llm_ainvoke) -> Optional[str]:
+    """Run the FC pick before the agent does (for ``tool_pick_hint``); CUGA's bind-time call reuses it.
+
+    The cache key is (question, catalog names): the same tools CUGA's bind cap will rank.
+    """
+    from types import SimpleNamespace  # noqa: PLC0415
+
+    from cuga.backend.cuga_graph.nodes.cuga_lite.shortlister.base import ShortlistRequest  # noqa: PLC0415
+
+    plan = SimpleNamespace(
+        embedding_model=cfg.shortlist_model,
+        embedding_provider=EMBEDDING_PROVIDER,
+        query_weight=1.0,
+        min_score=0.0,
+    )
+    result = await CosinePickStrategy(plan=plan).shortlist(
+        ShortlistRequest(query=query, tools=list(tools), apps=[], top_k=None, llm=PromptLLM(llm_ainvoke))
+    )
+    return result.candidates[0].name if result.candidates else None
 
 
 TOOL_PICK_CONVERSATION_PROMPT = """You choose the ONE API call that answers the user's latest question in a conversation.
@@ -476,13 +572,19 @@ def build_shortlister(cfg: AdapterConfig) -> Optional[Any]:
         # top_k/threshold = the bind count, so the strategy runs for every catalog above it; the
         # bind cap (pinned to the same number, config.cuga_setting_pins) makes CUGA ask for it.
         prewarm_embedding_backend(cfg)
+        cap = max(
+            cfg.tool_pick_bind, cfg.tool_pick_widen
+        )  # the strategy returns `bind`, or `widen` after a failure
         CosinePickStrategy.pool = cfg.tool_pick_pool
+        CosinePickStrategy.bind = cfg.tool_pick_bind
+        CosinePickStrategy.widen = cfg.tool_pick_widen
+        CosinePickStrategy.fill = cfg.tool_pick_fill
         return Shortlister(
             strategy=PICK_STRATEGY_PATH,
             embedding_model=cfg.shortlist_model,
             embedding_provider=EMBEDDING_PROVIDER,
-            top_k=cfg.tool_pick_bind,
-            threshold=cfg.tool_pick_bind,
+            top_k=cap,
+            threshold=cap,
             min_score=0.0,
             query_weight=1.0,
         )

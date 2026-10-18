@@ -372,3 +372,124 @@ def test_bind_cap_and_pick_shortlister_only_in_function_calling(monkeypatch):
     assert not any(k.endswith(BIND_CAP_SETTING) for k, _ in cuga_setting_pins(codeact))
     shortlister = build_shortlister(codeact)
     assert shortlister is None or shortlister.strategy != PICK_STRATEGY_PATH
+
+
+# ---------------- FC pick: widen on failure, LLM fill, pre-pick hint ----------------
+
+
+async def test_widen_after_a_failure_and_reset(strategy, monkeypatch):
+    monkeypatch.setattr(CosinePickStrategy, "bind", 2)
+    monkeypatch.setattr(CosinePickStrategy, "widen", 4)
+    monkeypatch.setattr(CosinePickStrategy, "_widened", set())
+    llm = _LLM('{"tool": "d_get_c", "runner_up": "d_get_b"}')
+    names = lambda r: [c.name for c in r.candidates]  # noqa: E731
+    assert names(await strategy.shortlist(_request(llm, top_k=4))) == ["d_get_c", "d_get_b"]
+    CosinePickStrategy.mark_failure("q?")
+    assert names(await strategy.shortlist(_request(llm, top_k=4))) == [
+        "d_get_c",
+        "d_get_b",
+        "d_get_e",
+        "d_get_d",
+    ]
+    CosinePickStrategy.reset("q?")
+    assert len((await strategy.shortlist(_request(llm, top_k=4))).candidates) == 2 and llm.calls == 1
+
+
+async def test_llm_fill_ranks_what_follows_the_pick(strategy, monkeypatch):
+    monkeypatch.setattr(CosinePickStrategy, "fill", "llm")
+    monkeypatch.setattr(CosinePickStrategy, "bind", 4)
+
+    class _Two:
+        calls = 0
+
+        async def ainvoke(self, prompt):
+            _Two.calls += 1
+            if "ONE API" in prompt:
+                return SimpleNamespace(content='{"tool": "d_get_c", "runner_up": "d_get_e"}')
+            return SimpleNamespace(content='{"ranked": ["d_get_c", "d_get_b", "invented", "d_get_d"]}')
+
+    got = [c.name for c in (await strategy.shortlist(_request(_Two(), top_k=4))).candidates]
+    assert got == ["d_get_c", "d_get_e", "d_get_b", "d_get_d"] and _Two.calls == 2
+
+
+async def test_failure_hook_fires_on_no_rows_errors_and_raises_only():
+    async def run(code: str = "") -> object:
+        if code == "boom":
+            raise RuntimeError("down")
+        return {"ok": "[[3]]", "none": "[]", "err": '{"error": "bad value"}', "text": "Error: missing"}[code]
+
+    tool = StructuredTool.from_function(coroutine=run, name="d_get_x", description="x")
+
+    class _Reg:
+        async def get_all_tools(self):
+            return [tool]
+
+    provider = RecordingScopedToolProvider(_Reg())
+    fired = []
+    provider.on_failure = lambda: fired.append(1)
+    wrapped = (await provider.get_all_tools())[0]
+    await wrapped.ainvoke({"code": "ok"})
+    assert fired == []
+    for code in ("none", "err", "text"):
+        await wrapped.ainvoke({"code": code})
+    with pytest.raises(Exception):
+        await wrapped.ainvoke({"code": "boom"})
+    assert len(fired) == 4
+
+
+async def test_tool_pick_hint_names_the_prepick_and_is_silent_on_failure(monkeypatch):
+    import benchmarks.m3.adapter.agent as ag
+    from benchmarks.m3.adapter.agent import TOOL_PICK_HINT, VakraAdapterAgent
+
+    class _Reg:
+        async def get_all_tools(self):
+            return _registry(["d_get_a"])
+
+    agent = VakraAdapterAgent(
+        object(), replace(PRESETS["cap2"], tool_pick_hint=True), RecordingScopedToolProvider(_Reg())
+    )
+
+    async def pick(query, tools, cfg, llm):
+        return "d_get_a"
+
+    monkeypatch.setattr(ag, "prepick_tool", pick)
+    assert await agent._tool_pick_hint("q?") == TOOL_PICK_HINT.format(tool="d_get_a")
+
+    async def broken(query, tools, cfg, llm):
+        raise RuntimeError("embedding backend down")
+
+    monkeypatch.setattr(ag, "prepick_tool", broken)
+    assert await agent._tool_pick_hint("q?") == ""
+
+
+async def test_prepick_is_reused_by_the_bind_time_call(strategy, monkeypatch):
+    import benchmarks.m3.adapter.shortlist as sl
+
+    async def cosine(self, request):
+        return ["d_get_e", "d_get_d", "d_get_c", "d_get_b"]
+
+    monkeypatch.setattr(sl.CosinePickStrategy, "_cosine_order", cosine)
+    calls = []
+
+    async def llm_text(prompt):
+        calls.append(prompt)
+        return '{"tool": "d_get_d"}'
+
+    tools = _request(None).tools
+    assert await sl.prepick_tool("q?", tools, PRESETS["cap2"], llm_text) == "d_get_d"
+    later = await sl.CosinePickStrategy().shortlist(
+        _request(_LLM("{}"))
+    )  # CUGA's call: same question, same catalog
+    assert later.candidates[0].name == "d_get_d" and len(calls) == 1
+
+
+def test_widen_and_fill_config_validation_and_bind_cap():
+    cfg = resolve_adapter_config("cap2", env={"M3_ADAPTER_TOOL_PICK_WIDEN": "10"})
+    assert dict(cuga_setting_pins(cfg))[f"advanced_features.{BIND_CAP_SETTING}"] == 10
+    for bad in (
+        {"M3_ADAPTER_TOOL_PICK_WIDEN": "2"},
+        {"M3_ADAPTER_TOOL_PICK_WIDEN": "64"},
+        {"M3_ADAPTER_TOOL_PICK_FILL": "random"},
+    ):
+        with pytest.raises(ValueError):
+            resolve_adapter_config("cap2", env=bad)

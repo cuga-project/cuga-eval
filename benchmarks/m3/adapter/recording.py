@@ -157,6 +157,16 @@ def is_empty_result(result: Any) -> bool:
     return _is_empty_value(result)
 
 
+def looks_like_error(result: Any) -> bool:
+    """A tool that reports a failure in its result instead of raising: ``Error: ...`` / ``{"error": ...}``."""
+    if isinstance(result, dict):
+        return "error" in result and len(result) <= 2
+    if isinstance(result, str):
+        head = result.lstrip()[:40].lower()
+        return head.startswith(("error", '{"error"', "{'error'"))
+    return False
+
+
 def with_empty_result_hint(result: Any, examples: Optional[Dict[str, List[str]]] = None) -> str:
     """The raw result, the hint, and (when known) values other questions passed for these parameters."""
     text = result if isinstance(result, str) else json.dumps(result, default=str)
@@ -195,6 +205,8 @@ class RecordingScopedToolProvider:
         self.value_examples: Optional[Callable[[List[str]], Dict[str, List[str]]]] = None
         # Per user turn (set by the agent wrapper): raw tool names the agent may see; None = all.
         self.allowed: Optional[set] = None
+        # Per task (set by the agent wrapper): called when a call returns no rows or fails.
+        self.on_failure: Optional[Callable[[], None]] = None
         self.recorded_calls: List[dict] = []  # cleared by the agent wrapper per task
         self.scope: str = "all"  # set by the agent wrapper per invoke
 
@@ -285,6 +297,8 @@ class RecordingScopedToolProvider:
                     loop = asyncio.get_running_loop()
                     result = await loop.run_in_executor(None, functools.partial(inner_func, **call_kwargs))
                 record["result"] = str(result)[:RESULT_MAX_CHARS]
+                if provider.on_failure is not None and (is_empty_result(result) or looks_like_error(result)):
+                    provider.on_failure()
                 if hint_empty and (isinstance(result, str) or hint_any_type) and is_empty_result(result):
                     lookup = provider.value_examples  # read per call: it is set per task
                     examples = lookup(list(param_names or call_kwargs)) if lookup is not None else None
@@ -292,6 +306,8 @@ class RecordingScopedToolProvider:
                 return result
             except Exception as exc:
                 record["result"] = f"Error: {exc}"
+                if provider.on_failure is not None:
+                    provider.on_failure()
                 raise
 
         def recording_func(*args, **kwargs):

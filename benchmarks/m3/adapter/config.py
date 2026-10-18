@@ -74,6 +74,7 @@ CAMPAIGN_TEMPERATURE = 1.0  # --temperature 1.0 on every run; the passed model d
 MODEL_ROLES = ("planner", "chat", "final_answer", "code", "qa", "action")
 SHORTLIST_STRATEGIES = ("sdk", "campaign")
 FACT_CHECK_MODES = ("off", "verify", "verify_and_retry")
+TOOL_PICK_FILLS = ("cosine", "llm")
 
 
 @dataclass(frozen=True)
@@ -167,6 +168,13 @@ class AdapterConfig:
     tool_pick: bool = False
     tool_pick_pool: int = 32
     tool_pick_bind: int = 3
+    # FC tool pick, further options. widen: after a failure in the task (a call returned no rows or
+    # failed, or the answer checks re-ask), later model calls bind this many tools instead (0 = never).
+    # fill: what follows [pick, runner-up] in the bound list — "cosine" order, or a second LLM call's
+    # ranking ("llm"). hint: the adapter picks before the call and names the pick in the instructions.
+    tool_pick_widen: int = 0
+    tool_pick_fill: str = "cosine"
+    tool_pick_hint: bool = False
     # A call that returns no rows gets a note: the argument values may not match the database's
     # format (codes, abbreviations, fractions, LIKE patterns) -> retry with stored-format values.
     empty_result_hint: bool = False
@@ -404,6 +412,16 @@ def resolve_adapter_config(
         )
     if cfg.fact_check not in FACT_CHECK_MODES:
         raise ValueError(f"{ENV_PREFIX}FACT_CHECK={cfg.fact_check!r} is not one of {FACT_CHECK_MODES}")
+    if cfg.tool_pick_fill not in TOOL_PICK_FILLS:
+        raise ValueError(f"{ENV_PREFIX}TOOL_PICK_FILL={cfg.tool_pick_fill!r} is not one of {TOOL_PICK_FILLS}")
+    if (
+        cfg.tool_pick
+        and cfg.tool_pick_widen
+        and not cfg.tool_pick_bind < cfg.tool_pick_widen <= cfg.tool_pick_pool
+    ):
+        raise ValueError(
+            f"{ENV_PREFIX}TOOL_PICK_WIDEN={cfg.tool_pick_widen} must be above TOOL_PICK_BIND and at most TOOL_PICK_POOL"
+        )
     if cfg.tool_pick and not 1 <= cfg.tool_pick_bind <= cfg.tool_pick_pool:
         raise ValueError(
             f"{ENV_PREFIX}TOOL_PICK_BIND={cfg.tool_pick_bind} must be between 1 and "
@@ -479,7 +497,7 @@ def cuga_setting_pins(cfg: AdapterConfig) -> list[tuple[str, object]]:
     """
     pins = parse_cuga_settings(cfg.cuga_settings)
     if cfg.tool_pick and cfg.execution_mode == "function_calling":  # FC: the bind cap calls the shortlister
-        pins.append((f"advanced_features.{BIND_CAP_SETTING}", cfg.tool_pick_bind))
+        pins.append((f"advanced_features.{BIND_CAP_SETTING}", max(cfg.tool_pick_bind, cfg.tool_pick_widen)))
     if cfg.llm_http_timeout:
         pins.append(("connections.llm_http_timeout", cfg.llm_http_timeout))
     if cfg.model_temperature is not None:

@@ -44,11 +44,19 @@ from benchmarks.m3.adapter.instructions import VERBATIM_RULE, compose_instructio
 from benchmarks.m3.adapter.recording import RecordingScopedToolProvider
 from benchmarks.m3.adapter.scope import resolve_scope
 from benchmarks.m3.adapter.shortlist import (
+    CosinePickStrategy,
     build_shortlister,
     campaign_rank,
     conversation_history,
     encode_texts,
     pick_turn_tools,
+    prepick_tool,
+)
+
+#: Instruction line for ``tool_pick_hint``: the pre-selected API, named.
+TOOL_PICK_HINT = (
+    "TOOL HINT: a pre-selection over this domain's APIs found `{tool}` the most likely to answer this "
+    "question on its own. Call it first unless its description clearly does not fit the question."
 )
 
 
@@ -209,6 +217,16 @@ class VakraAdapterAgent:
             logger.warning("[m3-adapter prefilter] failed ({}); exposing every tool this turn", exc)
             return None
 
+    async def _tool_pick_hint(self, query: str) -> str:
+        """Pick before the call and name the pick (``tool_pick_hint``); empty when the pick failed."""
+        try:
+            tools = list(await self._provider.get_all_tools())
+            pick = await prepick_tool(query, tools, self._cfg, self._llm_ainvoke) if tools else None
+        except Exception as exc:  # noqa: BLE001  (the hint is optional)
+            logger.warning("[m3-adapter tool-pick] pre-pick failed ({}); no hint", exc)
+            return ""
+        return TOOL_PICK_HINT.format(tool=pick) if pick else ""
+
     async def _llm_ainvoke(self, prompt: str) -> str:
         """One-off LLM call for scope classification / self-verify (lazy model)."""
         if self._llm_model is None:
@@ -290,6 +308,10 @@ class VakraAdapterAgent:
         self._provider.scope = "all"
         self._provider.value_examples = self._value_examples_for(query)
         self._provider.allowed = await self._turn_tools(query, message)
+        widen = cfg.tool_pick and cfg.tool_pick_widen and cfg.execution_mode == "function_calling"
+        if widen:
+            CosinePickStrategy.reset(query)
+        self._provider.on_failure = (lambda: CosinePickStrategy.mark_failure(query)) if widen else None
         if cfg.scope and ctx.additional_instructions:
             scope = await resolve_scope(ctx.additional_instructions, query, self._llm_ainvoke)
             ctx.last_scope = scope
@@ -304,6 +326,10 @@ class VakraAdapterAgent:
             block = _join(block, VERBATIM_RULE)
         if block:
             conf["special_instructions"] = _join(conf.get("special_instructions", ""), block)
+        if cfg.tool_pick and cfg.tool_pick_hint and cfg.execution_mode == "function_calling":
+            hint = await self._tool_pick_hint(query)
+            if hint:
+                conf["special_instructions"] = _join(conf.get("special_instructions", ""), hint)
 
         if cfg.demos and self._demo_index is not None:
             # bare tool names already match the corpus names; the namer maps them to registry names
@@ -326,6 +352,8 @@ class VakraAdapterAgent:
         effective_thread = getattr(result, "thread_id", None) or thread_id
 
         async def invoke_round(correction: str):
+            if widen:  # the answer checks re-ask: something went wrong, show the wider tool set
+                CosinePickStrategy.mark_failure(query)
             follow_up = await self._inner.invoke(
                 [HumanMessage(content=correction)],
                 thread_id=effective_thread,
