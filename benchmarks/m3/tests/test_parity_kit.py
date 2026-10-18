@@ -337,6 +337,16 @@ def test_est3_is_the_campaign_cap3_scorecard_sample():
     assert all(k == v["vakra_uuid"] for k, v in um["zip_to_vakra"].items())  # defined in vakra-main uuids
 
 
+def test_validation_manifests_are_the_campaign_scorecards_and_held_out():
+    est2 = _manifest("parity_est2_cap2")  # the whole est2 sample (115 of its 120 items carry a verdict)
+    assert est2["n"] == 115 and len(est2["ids_by_domain"]) == 35
+    assert round(100 * sum(est2["reference"]["pass_by_uuid"]["on"].values()) / est2["n"], 1) == 62.6
+    val4 = _manifest("parity_est4_val120")  # cap4 validation: none of the 30 items the defaults were tuned on
+    tuned = {u for ids in _manifest("parity_est4_ref30")["ids_by_domain"].values() for u in ids}
+    held = {u for ids in val4["ids_by_domain"].values() for u in ids}
+    assert val4["n"] == len(held) == 120 and not held & tuned
+
+
 def test_prepare_converts_vakra_output_to_the_loader_layout(tmp_path):
     from benchmarks.m3.m3_data_loader import M3DataLoader
     from benchmarks.m3.parity import prepare_vakra_train
