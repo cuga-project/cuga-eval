@@ -7,7 +7,12 @@ import pytest
 
 from benchmarks.m3.adapter.config import PRESETS, AdapterConfig, TaskContext
 from benchmarks.m3.adapter.final_answer import REFUSAL
-from benchmarks.m3.adapter.guards import run_answer_pipeline, simple_gate_correction
+from benchmarks.m3.adapter.guards import (
+    PLAN_TEXT_CORRECTION,
+    looks_like_plan_text,
+    run_answer_pipeline,
+    simple_gate_correction,
+)
 
 pytestmark = pytest.mark.sanity
 
@@ -177,3 +182,41 @@ async def test_canonicalize_fallback_when_final_answer_not_installed():
         invoke_round, _result("[[42]]"), cfg, TaskContext(), [], final_answer_installed=True
     )
     assert out2 == "[[42]]"  # in-graph function already did it; no double-processing
+
+
+# The plan-text answers the audit found (recorded cap1/cap2 drafts), and answers that are not plan text.
+PLAN_DRAFTS = [
+    "We need youngest player who ever won Rookie of the Year. That is smallest birthDate (most recent).",
+    "We need to get the answer. We must actually call tools to get data. Let's attempt to call get_data.",
+    'We need: "How many people did not enjoy the finale episode?" Not enjoy likely means low rating.',
+    "Let's call the count tool with professor 331.",
+    "I will now call compute_data_max on the filtered data.",
+]
+ANSWERS = [
+    "42",
+    "Lisa Murkowski",
+    "SC0, Scotland, SC1, Scotland",
+    "I can not answer.",
+    "The average is 651.78",
+    "Needles and Pins",
+    "Weekly need: 3 boxes",
+]
+
+
+def test_looks_like_plan_text():
+    assert all(looks_like_plan_text(d) for d in PLAN_DRAFTS)
+    assert not any(looks_like_plan_text(a) for a in ANSWERS)
+
+
+async def test_plan_text_gate_reasks_working_notes_only_when_enabled():
+    on = replace(PRESETS["cap2"], plan_text_gate=True)
+    invoke_round, sent = _rounds("1")
+    out = await run_answer_pipeline(invoke_round, _result(PLAN_DRAFTS[2]), on, TaskContext(), [OK_CALL])
+    assert out == "1" and sent == [PLAN_TEXT_CORRECTION]
+    invoke_round, sent = _rounds("1")
+    assert await run_answer_pipeline(invoke_round, _result("42"), on, TaskContext(), [OK_CALL]) == "42"
+    assert sent == []  # a real answer is left alone
+    for cfg in (PRESETS["cap2"], replace(on, gates=False)):  # off by default; needs the gates
+        invoke_round, sent = _rounds("1")
+        await run_answer_pipeline(invoke_round, _result(PLAN_DRAFTS[2]), cfg, TaskContext(), [OK_CALL])
+        assert PLAN_TEXT_CORRECTION not in sent

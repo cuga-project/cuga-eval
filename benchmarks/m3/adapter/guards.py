@@ -217,6 +217,24 @@ def simple_gate_correction(final_text: str) -> Optional[str]:
     return None
 
 
+#: Openings of a draft that is the model's working notes, not an answer (FC ends on any reply without
+#: tool calls). Offline on 417 recorded answers: 5 matches, all of them failed answers.
+_PLAN_TEXT_RE = re.compile(
+    r"^\s*(?:we need|we should|we must|let'?s|i need|i will|i'll|need to|now (?:call|we)|first,? (?:we|i)|to answer)\b",
+    re.IGNORECASE,
+)
+PLAN_TEXT_CORRECTION = (
+    "That reply is your working notes, not the final answer. Finish the task: if a value is still missing, "
+    "call the tool that returns it now; then reply with only the final answer — the bare value(s) or the "
+    "COMPLETE list, no explanation."
+)
+
+
+def looks_like_plan_text(final_text: str) -> bool:
+    """The draft opens like reasoning about what to do next ("We need ...", "Let's call ...")."""
+    return bool(_PLAN_TEXT_RE.match(final_text or ""))
+
+
 def _successful_calls(recorded_calls: List[dict]) -> List[dict]:
     return [c for c in recorded_calls if not str(c.get("result", "")).startswith("Error:")]
 
@@ -251,6 +269,8 @@ async def run_answer_pipeline(
         for _ in range(cfg.max_gate_rounds):
             draft = strip_channel_tokens(str(getattr(result, "answer", "") or ""))
             correction = simple_gate_correction(draft)
+            if correction is None and cfg.plan_text_gate and looks_like_plan_text(draft):
+                correction = PLAN_TEXT_CORRECTION
             if correction is None:
                 break
             logger.info("[m3-adapter gate] retrying with correction (same thread)")

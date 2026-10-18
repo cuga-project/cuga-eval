@@ -165,6 +165,9 @@ class AdapterConfig:
     # Deterministic values check: a draft stating a value (number, name, list item) that appears in
     # no tool result and not in the question is sent back once, asking for the tool-returned values.
     values_check_rounds: int = 0
+    # Gate (with ``gates``): a draft that is the model's working notes ("We need ...", "Let's call ...")
+    # instead of an answer is sent back like an empty one. FC ends on any reply without tool calls.
+    plan_text_gate: bool = False
     # Two-stage tool narrowing (single-tool tasks, cap2): cosine top-``tool_pick_pool``, then one LLM
     # call picks THE tool; only the first ``tool_pick_bind`` of [pick, runner-up, cosine order] are
     # bound (the bind cap). Offline on est2_ref30: gold tool picked 29/30 vs the agent's 79% first call.
