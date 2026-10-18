@@ -6,7 +6,7 @@ import pytest
 from langchain_core.tools import StructuredTool
 from pydantic import BaseModel
 
-from benchmarks.m3.adapter.recording import RecordingScopedToolProvider
+from benchmarks.m3.adapter.recording import RecordingScopedToolProvider, is_api_timeout
 from benchmarks.m3.adapter.scope import is_retriever, resolve_scope
 
 pytestmark = pytest.mark.sanity
@@ -270,3 +270,85 @@ async def test_wrapped_tools_are_memoized_per_raw_tool():
     assert swapped is not first and swapped is not renewed
     assert await swapped.coroutine(x=1) == "ok:1"  # and still records through the new wrapper
     assert provider.recorded_calls[-1]["tool_name"] == "get_a"
+
+
+# ----------------------------- tool-server timeouts ---------------------------
+
+
+def _scripted_tool(name, replies):
+    """A tool that returns (or raises) the scripted replies in order; ``calls`` counts the calls."""
+    calls = []
+
+    async def coro(x: int = 0):
+        reply = replies[min(len(calls), len(replies) - 1)]
+        calls.append(x)
+        if isinstance(reply, BaseException):
+            raise reply
+        return reply
+
+    return StructuredTool(name=name, description=name, args_schema=_Args, coroutine=coro), calls
+
+
+def test_is_api_timeout():
+    assert is_api_timeout("Error calling API: ")
+    assert is_api_timeout("Error calling API:")
+    assert is_api_timeout("Error calling API: timed out")
+    assert is_api_timeout("Error calling API: ReadTimeout")
+    assert not is_api_timeout("Error calling API: Client error '404 Not Found' for url 'http://x'")
+    assert not is_api_timeout("Error: bad arguments")
+    assert not is_api_timeout("note: Error calling API: ")
+    assert not is_api_timeout({"error": "Error calling API: "})
+    assert not is_api_timeout("[[42]]")
+
+
+async def test_a_tool_server_timeout_is_retried_until_the_api_answers():
+    """A cold-database API times out on the tool server (30 s) and answers on a repeat:
+    the agent sees the rows, and the call is recorded once with them."""
+    tool, calls = _scripted_tool("get_a", ["Error calling API: ", "Error calling API: ", "[[90895834]]"])
+    provider = RecordingScopedToolProvider(_FakeProvider([tool]))
+    wrapped = (await provider.get_all_tools())[0]
+    assert await wrapped.coroutine(x=4) == "[[90895834]]"
+    assert calls == [4, 4, 4]
+    assert provider.recorded_calls == [
+        {"tool_name": "get_a", "arguments": {"x": 4}, "result": "[[90895834]]"}
+    ]
+
+
+async def test_timeout_retries_stop_at_the_limit_and_other_errors_are_not_retried():
+    tool, calls = _scripted_tool("get_a", ["Error calling API: "])
+    provider = RecordingScopedToolProvider(_FakeProvider([tool]))
+    failures = []
+    provider.on_failure = lambda: failures.append(1)
+    wrapped = (await provider.get_all_tools())[0]
+    assert await wrapped.coroutine(x=1) == "Error calling API: "
+    assert len(calls) == 3 and failures == [1]  # 1 + API_TIMEOUT_RETRIES, then the agent sees the error
+
+    for reply in ("Error calling API: Client error '404 Not Found'", "Error: bad arguments", "[]"):
+        tool, calls = _scripted_tool("get_b", [reply])
+        provider = RecordingScopedToolProvider(_FakeProvider([tool]))
+        wrapped = (await provider.get_all_tools())[0]
+        assert await wrapped.coroutine(x=1) == reply
+        assert len(calls) == 1
+
+    tool, calls = _scripted_tool("get_c", ["Error calling API: ", "[[1]]"])
+    provider = RecordingScopedToolProvider(_FakeProvider([tool]))
+    provider.api_timeout_retries = 0
+    assert await (await provider.get_all_tools())[0].coroutine(x=1) == "Error calling API: "
+    assert len(calls) == 1
+
+
+async def test_cuga_tool_timeout_is_retried_and_the_last_one_raises():
+    tool, calls = _scripted_tool(
+        "get_a", [TimeoutError("Tool call 'get_a' timed out after 30 seconds"), "[[7]]"]
+    )
+    provider = RecordingScopedToolProvider(_FakeProvider([tool]), tool_cap=1)
+    wrapped = (await provider.get_all_tools())[0]
+    assert await wrapped.coroutine(x=1) == "[[7]]"
+    assert len(calls) == 2 and len(provider.recorded_calls) == 1  # retries are not extra agent calls
+
+    tool, calls = _scripted_tool("get_b", [TimeoutError("timed out")])
+    provider = RecordingScopedToolProvider(_FakeProvider([tool]))
+    with pytest.raises(TimeoutError):
+        await (await provider.get_all_tools())[0].coroutine(x=1)
+    assert len(calls) == 3
+    assert provider.recorded_calls[0]["result"].startswith("Error:")

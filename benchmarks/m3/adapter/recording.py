@@ -10,7 +10,9 @@ FilteredToolProvider, DirectLangChainToolsProvider...) so that:
    ``tool_cap`` calls (the model reads it and answers from data already
    retrieved — different, deliberately, from CUGA's terminal per-run cap);
 3. a mutable ``scope`` predicate filters retriever/non-retriever tools for the
-   cap4 policy scoping.
+   cap4 policy scoping;
+4. a call the benchmark's tool server timed out on (its 30 s limit on a cold
+   database) is retried before the agent sees the error.
 
 CUGA re-fetches tools from the provider at every invoke (prepare node), so
 mutating ``scope`` or swapping ``base_provider`` takes effect on the next
@@ -41,6 +43,7 @@ import json
 from typing import Any, Callable, Dict, List, Optional, Tuple
 
 from langchain_core.tools import StructuredTool
+from loguru import logger
 
 from benchmarks.m3.adapter.scope import is_retriever
 
@@ -167,6 +170,24 @@ def looks_like_error(result: Any) -> bool:
     return False
 
 
+#: Retries for a call the tool server timed out on. The VAKRA servers give up on an API after 30 s
+#: and answer ``Error calling API: `` (httpx's ReadTimeout has no message); the slow APIs are slow
+#: only while their database is cold, and the server keeps the query running, so a repeat answers
+#: (a movie_platform lookup: >30 s cold, then 19 s, then 1.3 s).
+API_TIMEOUT_RETRIES = 2
+
+
+def is_api_timeout(result: Any) -> bool:
+    """The tool server's timeout reply: ``Error calling API:`` with no message, or one saying it timed out."""
+    if not isinstance(result, str):
+        return False
+    head, sep, rest = result.strip().partition("Error calling API:")
+    if head or not sep:
+        return False
+    rest = rest.strip().lower()
+    return not rest or "timed out" in rest or "timeout" in rest
+
+
 def with_empty_result_hint(result: Any, examples: Optional[Dict[str, List[str]]] = None) -> str:
     """The raw result, the hint, and (when known) values other questions passed for these parameters."""
     text = result if isinstance(result, str) else json.dumps(result, default=str)
@@ -207,6 +228,7 @@ class RecordingScopedToolProvider:
         self.allowed: Optional[set] = None
         # Per task (set by the agent wrapper): called when a call returns no rows or fails.
         self.on_failure: Optional[Callable[[], None]] = None
+        self.api_timeout_retries = API_TIMEOUT_RETRIES
         self.recorded_calls: List[dict] = []  # cleared by the agent wrapper per task
         self.scope: str = "all"  # set by the agent wrapper per invoke
 
@@ -282,6 +304,25 @@ class RecordingScopedToolProvider:
         hint_any_type = self.hint_non_string_results
         provider = self
 
+        async def call_inner(call_kwargs: Dict[str, Any]) -> Any:
+            retries = provider.api_timeout_retries
+            for attempt in range(retries + 1):
+                try:
+                    if inner_coro is not None:
+                        result = await inner_coro(**call_kwargs)
+                    else:  # sync-only tool: off the event loop, like CUGA's make_tool_awaitable
+                        loop = asyncio.get_running_loop()
+                        result = await loop.run_in_executor(
+                            None, functools.partial(inner_func, **call_kwargs)
+                        )
+                except (TimeoutError, asyncio.TimeoutError):  # cuga's own tool-call timeout
+                    if attempt == retries:
+                        raise
+                else:
+                    if attempt == retries or not is_api_timeout(result):
+                        return result
+                logger.info("[m3-adapter] {} timed out; retrying ({}/{})", name, attempt + 1, retries)
+
         async def recording_coro(*args, **kwargs):
             if cap is not None and len(sink) >= cap:
                 raise RuntimeError(
@@ -291,11 +332,7 @@ class RecordingScopedToolProvider:
             record = {"tool_name": name, "arguments": dict(call_kwargs), "result": ""}
             sink.append(record)
             try:
-                if inner_coro is not None:
-                    result = await inner_coro(**call_kwargs)
-                else:  # sync-only tool: off the event loop, like CUGA's make_tool_awaitable
-                    loop = asyncio.get_running_loop()
-                    result = await loop.run_in_executor(None, functools.partial(inner_func, **call_kwargs))
+                result = await call_inner(call_kwargs)
                 record["result"] = str(result)[:RESULT_MAX_CHARS]
                 if provider.on_failure is not None and (is_empty_result(result) or looks_like_error(result)):
                     provider.on_failure()

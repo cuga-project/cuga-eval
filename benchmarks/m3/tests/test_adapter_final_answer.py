@@ -108,6 +108,21 @@ def test_normalize_strips_trailing_source_citation():
     assert normalize_answer("42. Sources: tool_a, tool_b") == "42"
     # mid-answer "Source" is content, not a citation
     assert normalize_answer("The Source of the Nile") == "The Source of the Nile"
-    # citation-only answers are preserved, never emptied (underscores go via the
-    # ported markdown-emphasis strip, as in the original normalizer)
-    assert normalize_answer("Source: tool_a.") == "Source: toola"
+    # citation-only answers are preserved, never emptied
+    assert normalize_answer("Source: tool_a.") == "Source: tool_a"
+
+
+def test_markdown_strip_keeps_underscores_inside_values():
+    """An underscore between letters is part of a value, not emphasis: stripping it turned
+    "udp_protocol" into "udpprotocol" and the groundedness judge failed the answer for it."""
+    assert normalize_answer("udp_protocol, first_name") == "udp_protocol, first_name"
+    assert normalize_answer("Ma\u00eetre_d, x__y, 2019_20") == "Ma\u00eetre_d, x__y, 2019_20"
+    assert normalize_answer("_italic_ and __bold__ and **x** and `code`") == "italic and bold and x and code"
+    assert canonicalize_final_answer('[["udp_protocol"], ["net"]]') == "udp_protocol, net"
+    assert canonicalize_final_answer("**udp_protocol**") == "udp_protocol"
+
+
+def test_canonicalize_drops_escaped_quotes_with_their_backslash():
+    """JSON written as text (``\\"KIM KI-DUK, ranked\\"``) lost only its quotes and kept the backslashes."""
+    raw = '[[\\"KIM KI-DUK, ranked\\"], [\\"MICHAEL POWELL, ranked\\"]]'
+    assert canonicalize_final_answer(raw) == "KIM KI-DUK, ranked, MICHAEL POWELL, ranked"

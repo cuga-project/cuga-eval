@@ -110,11 +110,30 @@ def decode_unicode_escapes(text: str) -> str:
     )
 
 
+#: Markdown emphasis / code markers. A run of underscores between two letters or digits is part of a
+#: value (``udp_protocol``), not emphasis: removing it changed the value and the judge caught it.
+_EMPHASIS_RE = re.compile(r"[*`]{1,3}|_+")
+
+
+def strip_markdown_emphasis(text: str) -> str:
+    """Drop ``*`` / backtick / ``_`` emphasis markers; keep underscores inside words."""
+
+    def _drop(m: re.Match) -> str:
+        if m.group(0)[0] == "_":
+            before = text[m.start() - 1] if m.start() else ""
+            after = text[m.end()] if m.end() < len(text) else ""
+            if before.isalnum() and after.isalnum():
+                return m.group(0)
+        return ""
+
+    return _EMPHASIS_RE.sub(_drop, text)
+
+
 def normalize_answer(text: str) -> str:
     """Deterministic, judge-aligned cleanup of the final answer string.
 
     - decodes literal ``\\uXXXX`` escapes copied from the tools' ASCII-escaped JSON
-    - strips markdown emphasis and surrounding quotes/backticks
+    - strips markdown emphasis (not underscores inside values) and surrounding quotes/backticks
     - drops a trailing "Source: ..." citation clause (judge counts it as an
       unsupported claim)
     - collapses float-formatted integers (36526.0 -> 36526), incl. inside lists
@@ -122,7 +141,7 @@ def normalize_answer(text: str) -> str:
     - never touches non-numeric content beyond the cleanups above
     """
     t = decode_unicode_escapes((text or "").strip())
-    t = re.sub(r"[*_`]{1,3}", "", t).strip()
+    t = strip_markdown_emphasis(t).strip()
     desourced = _SOURCE_SUFFIX_RE.sub("", t).strip()
     if desourced:  # keep the citation only when it is all there is
         t = desourced
@@ -174,7 +193,6 @@ def extract_values_answer(text: str) -> str:
 # advanced_features.final_answer_canonicalize, which is not in cuga main).
 # ---------------------------------------------------------------------------
 
-_MD_RE = re.compile(r"[*_`]{1,3}")
 _ANSWER_LABEL_RE = re.compile(r"^\s*(?:final\s+)?answer\s*[:=]\s*", re.I)
 _BRACKET_GROUP_RE = re.compile(r"\[\[.*?\]\]", re.S)
 _PLACEHOLDER_RE = re.compile(r"^\[\[[\s?\-–—.​\xa0]*\]\]$")
@@ -199,7 +217,7 @@ def _strip_to_bare(t: str) -> Optional[str]:
         t = (good[-1] if good else groups[-1]).strip()
     if "[[" not in t and "]]" not in t:
         return None
-    s = t
+    s = t.replace('\\"', '"')  # escaped quotes (JSON written as text): the backslash went with the quote
     s = re.sub(r"\]\s*,\s*\[", ", ", s)  # row separators "],[" -> ", "
     s = s.replace("[", "").replace("]", "")  # drop remaining brackets
     s = re.sub(r'"\s*,\s*"', ", ", s)  # quoted-cell separators
@@ -221,7 +239,7 @@ def canonicalize_final_answer(text: str, *, bare: bool = True) -> str:
     t = text.strip()
     if not t:
         return t
-    t = _MD_RE.sub("", t).strip()
+    t = strip_markdown_emphasis(t).strip()
     t = _ANSWER_LABEL_RE.sub("", t).strip()
     if _is_refusal(t):  # leave refusals untouched
         return t

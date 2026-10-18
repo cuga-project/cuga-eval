@@ -382,6 +382,61 @@ def test_strip_registry_prefix_only_touches_the_domain_prefix():
     assert rec["output"][0]["sequence"]["tool_call"][0]["name"] == "hockey_get_x"  # input not mutated
 
 
+def _calls_rec(uuid, *names):
+    return {
+        "uuid": uuid,
+        "domain": "hockey",
+        "output": [
+            {
+                "turn_id": 0,
+                "query": "q",
+                "answer": "a",
+                "sequence": {"tool_call": [{"name": n} for n in names]},
+            }
+        ],
+    }
+
+
+def test_restore_live_tool_names_fixes_only_case_differences():
+    """cuga's registry lowercases tool names; the evaluator's replay needs the live spelling."""
+    rec = _calls_rec("u", "get_goalies_with_null_shootcatch", "get_players", "not_live", "get_dup")
+    live = ["get_goalies_with_null_shootCatch", "get_players", "get_Dup", "get_DUP"]
+    out, fixed = snapshot.restore_live_tool_names([rec], live)
+    names = [c["name"] for c in out[0]["output"][0]["sequence"]["tool_call"]]
+    # one fix; exact and unknown names untouched; a case-ambiguous name left alone
+    assert names == ["get_goalies_with_null_shootCatch", "get_players", "not_live", "get_dup"]
+    assert fixed == 1
+    assert rec["output"][0]["sequence"]["tool_call"][0]["name"] == "get_goalies_with_null_shootcatch"
+
+
+def test_snapshot_restores_live_tool_names_in_predictions_only_mode(tmp_path):
+    results = tmp_path / "results"
+    (results / "_vakra" / "prediction").mkdir(parents=True)
+    raw = [_calls_rec("A-1", "hockey_get_goalies_with_null_shootcatch", "hockey_get_players")]
+    (results / "_vakra" / "prediction" / "hockey.json").write_text(json.dumps(raw))
+    manifest = {"ids_by_domain": {"hockey": ["A-1"]}, "no_ground_truth": True, "task_id": 2}
+    asked = []
+
+    def live(domain):
+        asked.append(domain)
+        return ["get_goalies_with_null_shootCatch", "get_players"]
+
+    summary = snapshot.snapshot_cuga_eval(
+        manifest, results, since=0, out_dir=tmp_path / "arm", live_names=live
+    )
+    pred = json.loads((tmp_path / "arm" / "prediction" / "hockey.json").read_text())
+    names = [c["name"] for c in pred[0]["output"][0]["sequence"]["tool_call"]]
+    assert names == ["get_goalies_with_null_shootCatch", "get_players"] and asked == ["hockey"]
+    assert summary["tool_names_restored"] == {"hockey": 1}
+    # unreachable servers keep the prefix-stripped names
+    summary = snapshot.snapshot_cuga_eval(
+        manifest, results, since=0, out_dir=tmp_path / "arm2", live_names=lambda d: None
+    )
+    pred = json.loads((tmp_path / "arm2" / "prediction" / "hockey.json").read_text())
+    assert pred[0]["output"][0]["sequence"]["tool_call"][0]["name"] == "get_goalies_with_null_shootcatch"
+    assert "tool_names_restored" not in summary
+
+
 def test_campaign_recorded_arm_filters_to_the_manifest(tmp_path):
     pred = tmp_path / "vakra" / "output" / "est3_treat"
     pred.mkdir(parents=True)

@@ -11,7 +11,7 @@ changed; everything goes through public SDK surfaces:
 | `CugaAgent(shortlister=Shortlister(...))` | the exact validated shortlisting: MiniLM embedding, top-k bounded, retriever pinning (custom strategy by dotted path) |
 | `configurable["mcp_few_shot_examples"]` | k similar solved train examples as chat pairs (prose demos) |
 | `configurable["cuga_lite_execution_mode"]` (+ bind_tools mode/cap) | native function-calling execution mode for caps 1-3 (cuga-agent#777; see [Execution mode](#execution-mode-function-calling)) |
-| a `ToolProviderInterface` wrapper | tool-call recording (evidence for the guards), runaway cap, cap4 policy tool scoping. Sits *inside* CUGA's ToolGuard decorator (ToolGuard stays outermost: positional-arg normalization, policy storage), accepts exactly what the raw tools accept, and keeps the `tool.func` metadata (`_response_schemas`, `_param_constraints`) so the rendered tool docs match a plain run |
+| a `ToolProviderInterface` wrapper | tool-call recording (evidence for the guards), runaway cap, cap4 policy tool scoping, and up to 2 retries of a call the benchmark's tool server timed out on (its 30 s limit; slow APIs answer once their database is warm). Sits *inside* CUGA's ToolGuard decorator (ToolGuard stays outermost: positional-arg normalization, policy storage), accepts exactly what the raw tools accept, and keeps the `tool.func` metadata (`_response_schemas`, `_param_constraints`) so the rendered tool docs match a plain run |
 
 Default preset **`off`** builds a plain `CugaAgent` with exactly today's
 kwargs — current behavior, byte-identical (asserted by
@@ -156,7 +156,7 @@ adapter post-invoke:
   4. support_check          (retriever scope) answer tokens ⊄ evidence → refusal
   5. self_verify            (retriever scope) quote-or-refuse LLM check
   6. cap2 value extraction  {"count": 0} → 0
-  7. normalize              markdown/float/IMPOSSIBLE cleanup
+  7. normalize              markdown/float/IMPOSSIBLE cleanup (underscores inside values are kept)
   8. bluff_map              failure-looking AND unsupported → refusal
 ```
 

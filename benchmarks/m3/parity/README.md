@@ -96,7 +96,10 @@ container restart before each (as `cuga_runs/cap_estimate.sh` did).
   campaign drew demos from the train domain files.
 - cuga-eval runs it in predictions-only mode (`--no-ground-truth`): ground-truth
   mode only runs the registry YAML's small_train domains. The snapshot strips the
-  registry's `<domain>_` tool prefix so the evaluator can replay the calls live.
+  registry's `<domain>_` tool prefix so the evaluator can replay the calls live, and
+  restores the capitals cuga's registry lowercased (`..._shootcatch` → `..._shootCatch`)
+  from the domain's live MCP tool list (`--no-live-names` skips it). A submission built
+  from predictions-only files needs both steps.
 - Arms (defaults): `cuga_eval_cap3_fc` (cuga + adapter) and
   `vakra_main_fc_canon_fc` (the campaign stack, rerun today), plus
   `vakra_main_campaign_recorded` — the campaign's own Aug-18 predictions,

@@ -5,7 +5,9 @@ Sub-commands:
 * ``snapshot-cuga-eval`` — after an ``eval.sh`` arm: copy this stack's Vakra
   prediction files (``results/_vakra/prediction/<domain>.json``, written by the
   in-run scorer with live tool names) filtered to the manifest's uuids, plus the
-  run's ``m3_config_*.json`` and its per-uuid native pass flags.
+  run's ``m3_config_*.json`` and its per-uuid native pass flags. In
+  predictions-only mode it maps the raw tool names to the live MCP names itself
+  (the one step that imports the harness scorer, lazily, to list them).
 * ``remap`` — rewrite prediction uuids from the bundled-zip ids to the other
   repo's ids (``manifests/uuid_map_*.json``) so one evaluator + one ground truth
   can score every arm.
@@ -21,7 +23,7 @@ import json
 import shutil
 import sys
 from pathlib import Path
-from typing import Any, Dict, Iterable, List, Optional, Tuple
+from typing import Any, Callable, Dict, Iterable, List, Optional, Tuple
 
 
 def load_json(path: Path) -> Any:
@@ -70,6 +72,60 @@ def strip_registry_prefix(records: Iterable[Dict[str, Any]], domain: str) -> Lis
     return out
 
 
+def restore_live_tool_names(
+    records: Iterable[Dict[str, Any]], live_names: List[str]
+) -> Tuple[List[Dict[str, Any]], int]:
+    """Predicted tool names -> the live MCP spelling when they differ from it only by case.
+
+    cuga's registry lowercases tool names, so a call to ``..._shootCatch`` is recorded as
+    ``..._shootcatch`` and the vendor evaluator's replay finds no such tool. Run after
+    :func:`strip_registry_prefix`. Live names that differ only by case are left alone.
+    Copies; returns the records and the number of names rewritten.
+    """
+    live = set(live_names)
+    by_lower: Dict[str, List[str]] = {}
+    for n in live_names:
+        by_lower.setdefault(n.lower(), []).append(n)
+    fixed = 0
+
+    def _fix(call: Any) -> Any:
+        nonlocal fixed
+        if isinstance(call, list):
+            return [_fix(c) for c in call]
+        if not isinstance(call, dict):
+            return call
+        name = str(call.get("name", ""))
+        candidates = by_lower.get(name.lower(), [])
+        if name in live or len(candidates) != 1:
+            return call
+        fixed += 1
+        return {**call, "name": candidates[0]}
+
+    out = []
+    for rec in records:
+        turns = []
+        for turn in rec.get("output") or []:
+            seq = dict(turn.get("sequence") or {})
+            seq["tool_call"] = [_fix(c) for c in seq.get("tool_call") or []]
+            turns.append({**turn, "sequence": seq})
+        out.append({**rec, "output": turns})
+    return out, fixed
+
+
+def live_tool_names_from_mcp(task_id: Any, domain: str) -> Optional[List[str]]:
+    """A domain's live MCP tool names (one short session); None, with a note on stderr, when unreachable."""
+    try:
+        import asyncio
+
+        from benchmarks.m3 import m3_vakra_score
+
+        capability = m3_vakra_score.capability_name_for_task_id(task_id)
+        return asyncio.run(m3_vakra_score.list_live_tool_names(capability, domain))
+    except Exception as exc:  # noqa: BLE001 — the snapshot must never fail on this
+        print(f"[snapshot] live tool names for {domain} unavailable ({exc}); names kept", file=sys.stderr)
+        return None
+
+
 def last_turn_only(records: Iterable[Dict[str, Any]]) -> List[Dict[str, Any]]:
     """cap4: keep each record's last predicted turn — the vendor evaluator scores only the last
     turn and asserts exactly one predicted turn per dialogue."""
@@ -82,12 +138,15 @@ def snapshot_cuga_eval(
     since: float,
     out_dir: Path,
     domains: Optional[List[str]] = None,
+    live_names: Optional[Callable[[str], Optional[List[str]]]] = None,
 ) -> Dict[str, Any]:
     """Copy this stack's predictions + native results for one arm. Returns a summary dict.
 
     With ``domains`` only those domains are collected and the native scores are
     *merged* into any existing ``native_scores.json`` — that is what lets an arm
-    run and resume domain by domain.
+    run and resume domain by domain. ``live_names(domain)`` (predictions-only mode)
+    returns the domain's live MCP tool names, used to restore the case cuga's
+    registry dropped from predicted names.
     """
     out_dir = Path(out_dir)
     pred_out = out_dir / "prediction"
@@ -108,6 +167,11 @@ def snapshot_cuga_eval(
         kept = _filter_records(load_json(src), {i.lower() for i in ids})
         if manifest.get("no_ground_truth"):
             kept = strip_registry_prefix(kept, domain)
+            names = live_names(domain) if live_names is not None else None
+            if names:
+                kept, n_fixed = restore_live_tool_names(kept, names)
+                if n_fixed:
+                    summary.setdefault("tool_names_restored", {})[domain] = n_fixed
         if manifest.get("task_id") == 4:
             kept = last_turn_only(kept)
         (pred_out / f"{domain}.json").write_text(json.dumps(kept, indent=1, ensure_ascii=False))
@@ -240,6 +304,11 @@ def main(argv: Optional[List[str]] = None) -> int:
     s.add_argument("--since", required=True, type=float, help="epoch seconds when the arm started")
     s.add_argument("--out", required=True, type=Path)
     s.add_argument("--domains", nargs="+", default=None, help="only these domains (merges native scores)")
+    s.add_argument(
+        "--no-live-names",
+        action="store_true",
+        help="skip restoring tool-name case from the live MCP servers (predictions-only mode)",
+    )
 
     r = sub.add_parser("remap", help="rewrite prediction uuids zip -> other repo")
     r.add_argument("--map", required=True, type=Path)
@@ -263,8 +332,12 @@ def main(argv: Optional[List[str]] = None) -> int:
         )
         return 0
     if args.cmd == "snapshot-cuga-eval":
+        manifest = load_json(args.manifest)
+        live = (
+            None if args.no_live_names else (lambda d: live_tool_names_from_mcp(manifest.get("task_id"), d))
+        )
         summary = snapshot_cuga_eval(
-            load_json(args.manifest), args.results_dir, args.since, args.out, domains=args.domains
+            manifest, args.results_dir, args.since, args.out, domains=args.domains, live_names=live
         )
     elif args.cmd == "remap":
         summary = remap_predictions(args.pred_dir, load_json(args.map), args.out)
