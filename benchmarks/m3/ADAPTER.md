@@ -65,6 +65,10 @@ Tried and not adopted:
   conversation-aware `tool_pick` (63.3); `answer_distill` (60.0 vs 66.7).
 - cap1: a 400s `agent_timeout` changed nothing on a healthy key (0/30 items reach 220s). It is insurance
   against a stalling proxy for full runs, together with the empty-answer recovery pass (`cap1_recover.py`).
+- `values_check_rounds` (send back a value no tool returned) on cap1 and cap3: it never fired on cap1, and
+  on cap3 it fired 3 times in 30 tasks with nothing fixed and one correct answer broken (the agent had
+  counted two returned rows; re-asked, it changed "2" to "1"). A value the agent derives correctly and one it
+  makes up look the same to the check, and a re-asked agent repeats itself or finds a tool that returns it.
 
 ## Presets
 
