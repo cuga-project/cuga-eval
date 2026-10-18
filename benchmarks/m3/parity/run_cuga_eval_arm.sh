@@ -93,7 +93,9 @@ run_cap1_domain() {
     [ -n "${M3_ADAPTER_AGENT_TIMEOUT:-}" ] && args+=(--agent-timeout "$((M3_ADAPTER_AGENT_TIMEOUT + 60))")
     [ "$PRESET" != "off" ] && args+=(--adapter-preset "$PRESET")
     [ "$PRESET" != "off" ] && [ "$DEMODATA" != "-" ] && args+=(--demo-data "$DEMODATA")
-    (cd "$ROOT" && M3_DATA_DIR="$CAP1_INPUT" uv run --frozen python benchmarks/m3/eval_m3_task_1_enterprise_style.py "${args[@]}") 2>&1 | tee -a "$OUT/console.log"
+    # LOGURU_LEVEL=INFO: load_env.sh defaults it to WARNING, which hid the adapter's decisions (gate
+    # retries, checks) from cap1 console logs; the caps 2-4 runners log at INFO already.
+    (cd "$ROOT" && LOGURU_LEVEL=INFO M3_DATA_DIR="$CAP1_INPUT" uv run --frozen python benchmarks/m3/eval_m3_task_1_enterprise_style.py "${args[@]}") 2>&1 | tee -a "$OUT/console.log"
     rc=${PIPESTATUS[0]}
     latest=$(ls -td "$raw"/*/task_1 2>/dev/null | head -1)
     if [ -n "$latest" ] && [ -f "$latest/$dom.json" ]; then cp "$latest/$dom.json" "$OUT/prediction/$dom.json"; fi
