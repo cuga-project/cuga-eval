@@ -55,9 +55,16 @@ available for parity runs as `cap2_campaign`, `cap3_campaign` and `cap4_v3wx`; `
 | `cap3` | `fact_check="verify_and_retry"` | est3_ref30 50.0 → 60.0; est3_fresh30 43.3 → 56.7 (campaign 53.6 / 56.7) |
 | `cap4` | soft2 (`evidence_gate`, `support_check`, `self_verify` off; `require_tool_rounds=2`) + `fact_check="verify_and_retry"` | est4_ref30 66.7 vs V3WX answers 46.7 |
 
-Tried and not adopted: `fact_check` on cap1 and cap2 (neutral); `cap2_verbatim` (no gain); for
-cap4, the campaign's per-turn top-40 (`prefilter_top_k=40`: 56.7 vs 66.7 with every tool) and the
-conversation-aware `tool_pick` (63.3); a tool-set pick for cap3 (offline: no better than the agent).
+Tried and not adopted:
+- `fact_check` on cap1 and cap2 (neutral); `cap2_verbatim` (no gain).
+- Tool-pick parameters (offline, 60 cap2 tasks): pool 16 / 32 / 64 picked the gold tool 83 / 93 / 85%.
+  A majority of 3 picks and value examples shown to the picker added nothing over one pick at pool 32.
+- cap3: `value_examples` (53.3 vs 60.0); `require_tool_plus` on top of the fact-check (60.0 vs 63.3); a
+  tool-set pick (offline: no better than the agent).
+- cap4: the campaign's per-turn top-40 (`prefilter_top_k=40`: 56.7 vs 66.7 with every tool); the
+  conversation-aware `tool_pick` (63.3); `answer_distill` (60.0 vs 66.7).
+- cap1: a 400s `agent_timeout` changed nothing on a healthy key (0/30 items reach 220s). It is insurance
+  against a stalling proxy for full runs, together with the empty-answer recovery pass (`cap1_recover.py`).
 
 ## Presets
 
