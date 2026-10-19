@@ -6,7 +6,7 @@ import pytest
 from langchain_core.tools import StructuredTool
 from pydantic import BaseModel
 
-from benchmarks.m3.adapter.recording import RecordingScopedToolProvider, is_api_timeout
+from benchmarks.m3.adapter.recording import RecordingScopedToolProvider, is_api_timeout, is_empty_or_zero
 from benchmarks.m3.adapter.scope import is_retriever, resolve_scope
 
 pytestmark = pytest.mark.sanity
@@ -352,3 +352,52 @@ async def test_cuga_tool_timeout_is_retried_and_the_last_one_raises():
         await (await provider.get_all_tools())[0].coroutine(x=1)
     assert len(calls) == 3
     assert provider.recorded_calls[0]["result"].startswith("Error:")
+
+
+# ----------------------------- lowercase retry ---------------------------------
+
+
+class _NameArgs(BaseModel):
+    name: str = ""
+    n: int = 0
+
+
+def _stored_lowercase_tool(calls):
+    """A table that stores names in lowercase: only the lowercase spelling matches rows."""
+
+    async def coro(name: str = "", n: int = 0):
+        calls.append(name)
+        return {"rows": [[name, 3]]} if name == "murray ave" else {"rows": []}
+
+    return StructuredTool(name="get_reviews", description="d", args_schema=_NameArgs, coroutine=coro)
+
+
+def test_is_empty_or_zero():
+    assert is_empty_or_zero("[]") and is_empty_or_zero({"count": 0}) and is_empty_or_zero("[[0]]")
+    assert is_empty_or_zero("{'count': 0}") and is_empty_or_zero({"rows": []})
+    assert not is_empty_or_zero({"count": 3}) and not is_empty_or_zero("[[0, 'x']]")
+    assert not is_empty_or_zero({"ok": False}) and not is_empty_or_zero("Error: boom")
+
+
+async def test_lowercase_retry_finds_the_stored_spelling_and_records_it():
+    calls = []
+    provider = RecordingScopedToolProvider(_FakeProvider([_stored_lowercase_tool(calls)]))
+    provider.lowercase_retry = True
+    wrapped = (await provider.get_all_tools())[0]
+    assert await wrapped.coroutine(name="Murray Ave", n=1) == {"rows": [["murray ave", 3]]}
+    assert calls == ["Murray Ave", "murray ave"]
+    assert provider.recorded_calls[0]["arguments"] == {"name": "murray ave", "n": 1}
+
+
+async def test_lowercase_retry_only_when_enabled_and_keeps_a_still_empty_result():
+    calls = []
+    provider = RecordingScopedToolProvider(_FakeProvider([_stored_lowercase_tool(calls)]))
+    wrapped = (await provider.get_all_tools())[0]
+    assert await wrapped.coroutine(name="Murray Ave") == {"rows": []} and calls == ["Murray Ave"]  # off
+    provider.lowercase_retry = True
+    calls.clear()
+    assert await wrapped.coroutine(name="Elm St") == {"rows": []}  # no match either way: original kept
+    assert calls == ["Elm St", "elm st"] and provider.recorded_calls[-1]["arguments"]["name"] == "Elm St"
+    calls.clear()
+    assert await wrapped.coroutine(name="murray ave") == {"rows": [["murray ave", 3]]}
+    assert calls == ["murray ave"]  # already lowercase: no retry

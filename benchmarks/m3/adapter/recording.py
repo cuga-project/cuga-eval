@@ -37,6 +37,7 @@ fidelity rules are enforced here:
 
 from __future__ import annotations
 
+import ast
 import asyncio
 import functools
 import json
@@ -188,6 +189,39 @@ def is_api_timeout(result: Any) -> bool:
     return not rest or "timed out" in rest or "timeout" in rest
 
 
+def _all_zero(value: Any) -> bool:
+    if isinstance(value, bool):
+        return False
+    if isinstance(value, (int, float)):
+        return value == 0
+    if isinstance(value, (list, tuple)):
+        return bool(value) and all(_all_zero(v) or v is None for v in value)
+    if isinstance(value, dict):
+        return bool(value) and all(_all_zero(v) or v is None for v in value.values())
+    return False
+
+
+def is_empty_or_zero(result: Any) -> bool:
+    """No rows, or rows of nothing but zeros (``{"count": 0}``, ``[[0]]``): a filter that matched nothing."""
+    if is_empty_result(result):
+        return True
+    if isinstance(result, str):
+        try:
+            result = json.loads(result.strip())
+        except ValueError:
+            try:
+                result = ast.literal_eval(result.strip())
+            except (ValueError, SyntaxError):
+                return False
+    return _all_zero(result)
+
+
+def lowercased_args(call_kwargs: Dict[str, Any]) -> Optional[Dict[str, Any]]:
+    """The arguments with every text value lowercased; None when nothing would change."""
+    lowered = {k: v.lower() if isinstance(v, str) else v for k, v in call_kwargs.items()}
+    return lowered if lowered != call_kwargs else None
+
+
 def with_empty_result_hint(result: Any, examples: Optional[Dict[str, List[str]]] = None) -> str:
     """The raw result, the hint, and (when known) values other questions passed for these parameters."""
     text = result if isinstance(result, str) else json.dumps(result, default=str)
@@ -229,6 +263,7 @@ class RecordingScopedToolProvider:
         # Per task (set by the agent wrapper): called when a call returns no rows or fails.
         self.on_failure: Optional[Callable[[], None]] = None
         self.api_timeout_retries = API_TIMEOUT_RETRIES
+        self.lowercase_retry = False  # retry an empty/zero call once with lowercased text arguments
         self.recorded_calls: List[dict] = []  # cleared by the agent wrapper per task
         self.scope: str = "all"  # set by the agent wrapper per invoke
 
@@ -333,6 +368,16 @@ class RecordingScopedToolProvider:
             sink.append(record)
             try:
                 result = await call_inner(call_kwargs)
+                if provider.lowercase_retry and is_empty_or_zero(result):
+                    lowered = lowercased_args(call_kwargs)
+                    if lowered is not None:
+                        retried = await call_inner(lowered)
+                        if not is_empty_or_zero(retried) and not looks_like_error(retried):
+                            logger.info(
+                                "[m3-adapter lowercase-retry] {} matched with lowercased arguments", name
+                            )
+                            result = retried
+                            record["arguments"] = dict(lowered)
                 record["result"] = str(result)[:RESULT_MAX_CHARS]
                 if provider.on_failure is not None and (is_empty_result(result) or looks_like_error(result)):
                     provider.on_failure()

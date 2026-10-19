@@ -168,6 +168,14 @@ class AdapterConfig:
     # After every re-ask: a draft that is the model's working notes ("We need ...", "Let's call ...")
     # instead of an answer is sent back (up to max_gate_rounds). FC ends on any reply without tool calls.
     plan_text_gate: bool = False
+    # A call that returns no rows or only zeros is retried once with its text arguments lowercased:
+    # many tables store names in lowercase ("murray ave", "asian", "michael jackson").
+    lowercase_retry: bool = False
+    # Fact-check: accept a CORRECTED value only when every value in it appears in a tool result (a
+    # correction drawn from the call arguments replaced a right draft).
+    fact_check_strict: bool = False
+    # A re-ask cut by agent_timeout returns the answer from before the re-ask instead of nothing.
+    keep_draft_on_timeout: bool = False
     # Two-stage tool narrowing (single-tool tasks, cap2): cosine top-``tool_pick_pool``, then one LLM
     # call picks THE tool; only the first ``tool_pick_bind`` of [pick, runner-up, cosine order] are
     # bound (the bind cap). Offline on est2_ref30: gold tool picked 29/30 vs the agent's 79% first call.

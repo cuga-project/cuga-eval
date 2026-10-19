@@ -1,5 +1,6 @@
 """Improvements beyond the campaign: require-tool, refusal recovery, fact-check, transport retries."""
 
+from dataclasses import replace
 from types import SimpleNamespace
 
 import pytest
@@ -329,3 +330,68 @@ async def test_values_check_keeps_the_draft_when_the_reask_gives_up_and_skips_wh
     assert (
         await run_answer_pipeline(invoke_round, _result("5"), off, TaskContext(), calls) == "5" and sent == []
     )
+
+
+# ------------------------------------------------------------------ strict fact-check
+
+
+async def test_strict_fact_check_keeps_a_correction_drawn_from_outside_the_results():
+    """v1 cap3 college_completion: the draft "New Hampshire" (gold) was "corrected" to a name that only
+    appeared in a call's arguments. Strict mode keeps the draft; a correction found in the results applies."""
+    calls = [
+        {
+            "tool_name": "get_state",
+            "arguments": {"college": "Dartmouth College"},
+            "result": "{'state': 'New Hampshire'}",
+        }
+    ]
+    for strict, expected in ((True, "New Hampshire"), (False, "Dartmouth College")):
+        invoke_round, _ = _rounds()
+        cfg = AdapterConfig(fact_check="verify", fact_check_strict=strict)
+        out = await run_answer_pipeline(
+            invoke_round,
+            _result("New Hampshire"),
+            cfg,
+            TaskContext(),
+            calls,
+            _checker("CORRECTED: Dartmouth College"),
+            question="Which state?",
+        )
+        assert out == expected
+    calls = [{"tool_name": "get_n", "arguments": {}, "result": "{'count': 8911}"}]
+    invoke_round, _ = _rounds()
+    cfg = AdapterConfig(fact_check="verify", fact_check_strict=True)
+    out = await run_answer_pipeline(
+        invoke_round, _result("891891"), cfg, TaskContext(), calls, _checker("CORRECTED: 8911")
+    )
+    assert out == "8911"  # a garbled copy is still repaired from the results
+
+
+# ------------------------------------------------------------------ keep the draft on a re-ask timeout
+
+
+class _HangingFollowUp:
+    """First invoke answers "42" with a tool call recorded; every re-ask hangs past the agent timeout."""
+
+    def __init__(self):
+        self.calls = 0
+
+    async def invoke(self, message=None, thread_id=None, config=None, **kwargs):
+        import asyncio
+
+        self.calls += 1
+        if self.calls > 1:
+            await asyncio.sleep(30)
+        return SimpleNamespace(
+            answer="42", tool_calls=[{"name": "d_get_x", "arguments": {}}], thread_id=thread_id, error=None
+        )
+
+
+async def test_a_reask_cut_by_the_timeout_answers_with_the_earlier_draft():
+    base = AdapterConfig(enabled=True, agent_timeout=1, require_tool_rounds=1)  # 0 recorded calls -> a re-ask
+    out = await _agent(replace(base, keep_draft_on_timeout=True), _HangingFollowUp()).invoke(
+        "q", thread_id="t"
+    )
+    assert out.answer == "42" and out.tool_calls == [{"name": "d_get_x", "arguments": {}}]
+    with pytest.raises(TimeoutError):  # off: the task fails empty, as before
+        await _agent(base, _HangingFollowUp()).invoke("q", thread_id="t")

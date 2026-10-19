@@ -329,7 +329,10 @@ async def run_answer_pipeline(
                 logger.warning("[m3-adapter fact-check] failed ({}); keeping the draft", exc)
                 kind, payload = "OK", ""
             logger.info("[m3-adapter fact-check] {}{}", kind, f": {payload[:120]}" if payload else "")
-            if kind == "CORRECTED":
+            results = " ".join(str(c.get("result", "")) for c in _successful_calls(recorded_calls))
+            if kind == "CORRECTED" and cfg.fact_check_strict and unsupported_values(payload, results):
+                logger.info("[m3-adapter fact-check] correction kept out: not in any tool result")
+            elif kind == "CORRECTED":
                 answer = canonicalize_final_answer(payload) if cfg.canonicalize else payload
             elif kind == "MISSING" and cfg.fact_check == "verify_and_retry":
                 follow_up = await retry(FACT_CHECK_RETRY.format(need=payload), "fact-check")

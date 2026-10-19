@@ -38,7 +38,7 @@ from benchmarks.m3.adapter.demos import (
     build_param_value_index,
     select_prose_pairs,
 )
-from benchmarks.m3.adapter.final_answer import make_final_answer_fn
+from benchmarks.m3.adapter.final_answer import make_final_answer_fn, normalize_answer, strip_channel_tokens
 from benchmarks.m3.adapter.guards import run_answer_pipeline
 from benchmarks.m3.adapter.instructions import VERBATIM_RULE, compose_instruction_block
 from benchmarks.m3.adapter.recording import RecordingScopedToolProvider
@@ -136,6 +136,7 @@ class VakraAdapterAgent:
         self._value_index = value_index
         self._final_answer_installed = final_answer_installed
         self._ctx = TaskContext()
+        self._draft: Optional[tuple] = None  # (result, tool calls) of the last completed round
         self._llm_model = None
         self._namer: Optional[Callable[[str], str]] = None
         self._namer_source: Any = None  # the base provider the namer was built from
@@ -287,11 +288,32 @@ class VakraAdapterAgent:
         timeout = self._cfg.agent_timeout
         if not timeout:
             return await self._invoke(message, thread_id, config, **kwargs)
+        self._draft = None
         try:
             return await asyncio.wait_for(self._invoke(message, thread_id, config, **kwargs), timeout=timeout)
         except asyncio.TimeoutError as exc:
             logger.warning("[m3-adapter] task exceeded agent_timeout={}s; cancelled", timeout)
+            kept = self._draft_result() if self._cfg.keep_draft_on_timeout else None
+            if kept is not None:
+                logger.warning("[m3-adapter] timeout during a re-ask: answering with the earlier draft")
+                return kept
             raise TimeoutError(f"agent_timeout {timeout}s exceeded") from exc
+
+    def _draft_result(self) -> Any:
+        """The last completed round's result, with every tool call so far; None without an answer."""
+        if self._draft is None:
+            return None
+        result, calls = self._draft
+        answer = strip_channel_tokens(str(getattr(result, "answer", "") or ""))
+        if not answer.strip():
+            return None
+        if self._cfg.normalize:
+            answer = normalize_answer(answer)
+        try:
+            return result.model_copy(update={"answer": answer, "tool_calls": list(calls)})
+        except AttributeError:  # non-pydantic result object
+            result.answer, result.tool_calls = answer, list(calls)
+            return result
 
     async def _invoke(
         self, message: Any = None, thread_id: Optional[str] = None, config: Optional[dict] = None, **kwargs
@@ -350,6 +372,7 @@ class VakraAdapterAgent:
         result = await self._inner.invoke(message, thread_id=thread_id, config=run_config, **kwargs)
         all_tool_calls = list(getattr(result, "tool_calls", None) or [])
         effective_thread = getattr(result, "thread_id", None) or thread_id
+        self._draft = (result, all_tool_calls)  # what a timeout during the re-asks falls back to
 
         async def invoke_round(correction: str):
             if widen:  # the answer checks re-ask: something went wrong, show the wider tool set
@@ -361,6 +384,8 @@ class VakraAdapterAgent:
                 **kwargs,
             )
             all_tool_calls.extend(getattr(follow_up, "tool_calls", None) or [])
+            if not getattr(follow_up, "error", None):
+                self._draft = (follow_up, all_tool_calls)
             return follow_up
 
         answer = await run_answer_pipeline(
@@ -383,13 +408,15 @@ class VakraAdapterAgent:
 
 def recording_provider(base_provider: Any, cfg: AdapterConfig) -> RecordingScopedToolProvider:
     """The recording wrapper with the config's cap, naming and empty-result hint."""
-    return RecordingScopedToolProvider(
+    provider = RecordingScopedToolProvider(
         base_provider,
         tool_cap=cfg.tool_cap,
         bare_names=cfg.bare_tool_names,
         empty_result_hint=cfg.empty_result_hint,
         hint_non_string_results=cfg.execution_mode == "function_calling",
     )
+    provider.lowercase_retry = cfg.lowercase_retry
+    return provider
 
 
 def _warn_if_bind_cap_unsafe(cfg: AdapterConfig) -> None:

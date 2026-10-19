@@ -245,4 +245,6 @@ async def test_plan_text_check_is_bounded():
     on = replace(PRESETS["cap2"], plan_text_gate=True, max_gate_rounds=2)
     invoke_round, sent = _rounds(PLAN_DRAFTS[0], PLAN_DRAFTS[1], "never asked")
     out = await run_answer_pipeline(invoke_round, _result(PLAN_DRAFTS[2]), on, TaskContext(), [OK_CALL])
-    assert sent == [PLAN_TEXT_CORRECTION] * 2 and out.startswith("We need to get the answer")  # 2 rounds, then kept
+    assert sent == [PLAN_TEXT_CORRECTION] * 2 and out.startswith(
+        "We need to get the answer"
+    )  # 2 rounds, then kept
