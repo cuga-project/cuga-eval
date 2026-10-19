@@ -179,6 +179,12 @@ M3_GROUNDEDNESS_TRIM_RULE = """
 """.strip()
 
 
+def _results_dir() -> Path:
+    """Where results, partials and Vakra prediction files go: ``M3_RESULTS_DIR`` when set (so
+    concurrent runs keep separate folders), else ``benchmarks/m3/results``."""
+    return Path(os.environ.get("M3_RESULTS_DIR") or Path(__file__).parent / "results")
+
+
 def _groundedness_prompt_enabled() -> bool:
     """Wave-1 Change #1 A/B toggle. Default on; set M3_GROUNDEDNESS_PROMPT to
     off / 0 / false / no to drop the evidence-chain rider (the baseline arm)."""
@@ -1166,7 +1172,7 @@ class M3Evaluator:
     def save_results(self, output_dir: Optional[str] = None):
         """Save evaluation results to JSON files."""
         if output_dir is None:
-            output_dir = Path(__file__).parent / "results"
+            output_dir = _results_dir()
 
         # Save standard results
         results_path = save_evaluation_results(self.results, output_dir, prefix="m3")
@@ -1739,7 +1745,7 @@ async def evaluate_single_task(
                     try:
                         write_predictions_no_gt(
                             evaluator.results,
-                            output_dir=Path(__file__).parent / "results",
+                            output_dir=_results_dir(),
                             domain=domain,
                         )
                     except Exception as e:
@@ -1754,7 +1760,7 @@ async def evaluate_single_task(
                     try:
                         await vakra_score_results_async(
                             evaluator.results,
-                            output_dir=Path(__file__).parent / "results",
+                            output_dir=_results_dir(),
                             capability_name=cap_name,
                             domain=domain_name,
                         )
@@ -2631,7 +2637,7 @@ def _finalize_and_save_results(
     When ``bundle_dir`` is set, the merged results are read back from the on-disk
     partials (so skipped/resumed tasks are included) and written into the bundle.
     """
-    output_dir = Path(__file__).parent / "results"
+    output_dir = _results_dir()
     if bundle_dir is not None:
         from benchmarks.helpers.incremental_results import load_all_partial_results
 
@@ -3212,7 +3218,7 @@ async def run_config_mode(args, container_runtime: str, defer_save: bool = False
                 saved_path = finalize_merged_results(bundle_dir, prefix=prefix)
                 logger.warning(f"📁 Partial results merged from disk to: {saved_path}")
             elif all_results:
-                output_dir = Path(__file__).parent / "results"
+                output_dir = _results_dir()
                 prefix = "m3_config_no_gt_partial" if no_ground_truth else "m3_config_partial"
                 saved_path = save_evaluation_results(all_results, output_dir, prefix=prefix)
                 logger.warning(f"📁 Partial results ({len(all_results)} task-results) saved to: {saved_path}")
@@ -3233,7 +3239,7 @@ async def run_config_mode(args, container_runtime: str, defer_save: bool = False
                 saved_path = finalize_merged_results(bundle_dir, prefix=prefix)
                 logger.warning(f"📁 Partial results merged from disk to: {saved_path}")
             elif all_results:
-                output_dir = Path(__file__).parent / "results"
+                output_dir = _results_dir()
                 prefix = "m3_config_no_gt_partial" if no_ground_truth else "m3_config_partial"
                 saved_path = save_evaluation_results(all_results, output_dir, prefix=prefix)
                 logger.warning(f"📁 Partial results ({len(all_results)} task-results) saved to: {saved_path}")

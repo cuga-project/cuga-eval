@@ -30,6 +30,9 @@ if [ -n "$VARIANT" ]; then
     ARM="${ARM}@${VARIANT}"
 fi
 OUT="$PARITY_DIR/runs/$RUN_ID/$ARM"; mkdir -p "$OUT/prediction"
+# Each arm writes eval_m3's results and Vakra prediction files to its own folder: arms running at the
+# same time (other keys) shared benchmarks/m3/results, and one snapshot picked up another arm's log.
+export M3_RESULTS_DIR="$OUT/results_raw"; mkdir -p "$M3_RESULTS_DIR"
 ARM_START=$(date +%s); FINAL_RC=0
 
 # Execution mode. The settings key reaches every agent (also the plain `off` one); the
@@ -154,7 +157,7 @@ for dom in $DOMS; do
             RC=${PIPESTATUS[0]}
         fi
         (cd "$ROOT" && uv run --frozen python -m benchmarks.m3.parity.snapshot snapshot-cuga-eval \
-            --manifest "$MAN" --results-dir "$ROOT/benchmarks/m3/results" --since "$DOM_START" --out "$OUT" --domains "$dom") | tee -a "$OUT/snapshot.jsonl"
+            --manifest "$MAN" --results-dir "$M3_RESULTS_DIR" --since "$DOM_START" --out "$OUT" --domains "$dom") | tee -a "$OUT/snapshot.jsonl"
     fi
     echo "[$ARM] $dom done rc=$RC in $(( $(date +%s) - DOM_START ))s" | tee -a "$OUT/console.log"
     if [ "$RC" = "3" ]; then
