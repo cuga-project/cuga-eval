@@ -341,6 +341,8 @@ def test_validation_manifests_are_the_campaign_scorecards_and_held_out():
     est2 = _manifest("parity_est2_cap2")  # the whole est2 sample (115 of its 120 items carry a verdict)
     assert est2["n"] == 115 and len(est2["ids_by_domain"]) == 35
     assert round(100 * sum(est2["reference"]["pass_by_uuid"]["on"].values()) / est2["n"], 1) == 62.6
+    est1 = _manifest("parity_est1_cap1")  # the whole cap1 scorecard sample (119 of 120 carry a verdict)
+    assert est1["n"] == 119 and len(est1["ids_by_domain"]) == 29
     val4 = _manifest("parity_est4_val120")  # cap4 validation: none of the 30 items the defaults were tuned on
     tuned = {u for ids in _manifest("parity_est4_ref30")["ids_by_domain"].values() for u in ids}
     held = {u for ids in val4["ids_by_domain"].values() for u in ids}
