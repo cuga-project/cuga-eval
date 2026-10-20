@@ -286,6 +286,12 @@ _CAP4_V3WX = AdapterConfig(
     cuga_settings=CAMPAIGN_CODEACT_SETTINGS,
 )
 
+#: Two fixes from the 2026-10-19 review of every cap2/cap3 validation failure, adopted after the
+#: four-cap A/B: the tasks they changed were gains (lowercase retry: 4 tasks on caps 2-4, stored
+#: lowercase values; earlier draft on a re-ask timeout: 2 cap4 tasks) with no attributable loss.
+#: fact_check_strict stays off (no attributable gain, one probable cap4 loss).
+_REVIEW_FIXES = dict(lowercase_retry=True, keep_draft_on_timeout=True)
+
 PRESETS: dict[str, AdapterConfig] = {
     "off": AdapterConfig(),
     "cap1": AdapterConfig(
@@ -303,6 +309,7 @@ PRESETS: dict[str, AdapterConfig] = {
         relist_after_switch=True,
         shortlist_top_k=128,
         **_FC_CANON_RUNTIME,  # the official cap1 run: fc_canon_proto_test.sh (protocol + re-list)
+        **_REVIEW_FIXES,
     ),
     # Defaults: the campaign configs plus the changes that won paired A/Bs on two disjoint
     # train slices each (parity kit, 2026-10-15/17; benchmarks/m3/ADAPTER.md "Defaults").
@@ -320,8 +327,11 @@ PRESETS: dict[str, AdapterConfig] = {
         retry_unattempted_refusal=True,
         empty_result_hint=True,  # no rows -> the data's value conventions (+3.5 pts)
         param_value_examples=6,
+        **_REVIEW_FIXES,
     ),
-    "cap3": replace(_CAP3_CAMPAIGN, preset="cap3", fact_check="verify_and_retry"),  # +10 / +13 pts
+    "cap3": replace(
+        _CAP3_CAMPAIGN, preset="cap3", fact_check="verify_and_retry", **_REVIEW_FIXES
+    ),  # +10 / +13
     "cap4": replace(
         _CAP4_V3WX,
         preset="cap4",
@@ -332,6 +342,7 @@ PRESETS: dict[str, AdapterConfig] = {
         self_verify=False,
         require_tool_rounds=2,
         fact_check="verify_and_retry",
+        **_REVIEW_FIXES,
     ),
     "cap2_campaign": _CAP2_CAMPAIGN,
     "cap3_campaign": _CAP3_CAMPAIGN,

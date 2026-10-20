@@ -54,6 +54,7 @@ available for parity runs as `cap2_campaign`, `cap3_campaign` and `cap4_v3wx`; `
 | `cap2` | `tool_pick` (pool 48 → pick + LLM ranking → bind 10, the pick named: `tool_pick_pool=48`, `tool_pick_bind=10`, `tool_pick_fill="llm"`, `tool_pick_hint`), `require_tool_rounds=2` + `retry_unattempted_refusal`, `empty_result_hint` + `param_value_examples=6` | est2_ref30 66.7 → 76.7 (pick + retry); est2_fresh30 48.3 → 69.0 (campaign answers 70.0 / 65.5); bind 10 ties bind 3 on 60 tasks (69.5 / 69.5) and keeps the gold tool bound when the pick misses |
 | `cap3` | `fact_check="verify_and_retry"` | est3_ref30 50.0 → 60.0; est3_fresh30 43.3 → 56.7 (campaign 53.6 / 56.7) |
 | `cap4` | soft2 (`evidence_gate`, `support_check`, `self_verify` off; `require_tool_rounds=2`) + `fact_check="verify_and_retry"` | est4_ref30 66.7 vs V3WX answers 46.7 |
+| all four | `lowercase_retry` (a call with no rows or only zeros is retried once with lowercased text arguments) + `keep_draft_on_timeout` (a re-ask cut by `agent_timeout` answers with the earlier draft) | four-cap A/B on the campaign samples (2026-10-19): the tasks they changed were gains — lowercase 4 (stored lowercase values, caps 2-4), earlier draft 2 (cap4 timeouts) — with no attributable loss |
 
 Tried and not adopted:
 - `fact_check` on cap1 and cap2 (neutral); `cap2_verbatim` (no gain).
@@ -69,6 +70,11 @@ Tried and not adopted:
   on cap3 it fired 3 times in 30 tasks with nothing fixed and one correct answer broken (the agent had
   counted two returned rows; re-asked, it changed "2" to "1"). A value the agent derives correctly and one it
   makes up look the same to the check, and a re-asked agent repeats itself or finds a tool that returns it.
+- `fact_check_strict` (apply a fact-check correction only when its value appears in a tool result): offline
+  it kept 10 of 11 helpful corrections and blocked both harmful ones, but live it fired 4 times across caps
+  with no attributable gain and one probable cap4 loss (retrieved documents do not repeat values verbatim).
+- `plan_text_gate` (re-ask a draft that is working notes): fired twice on cap2 and turned the notes into a
+  refusal; 12 tasks gained and 12 lost — no measurable effect.
 
 ## Presets
 

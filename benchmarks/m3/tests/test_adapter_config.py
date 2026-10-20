@@ -301,7 +301,9 @@ def test_execution_mode_configurable_mapping():
 
 
 def test_defaults_are_the_campaign_configs_plus_the_ab_winners():
-    """cap1 is the campaign's config; cap2-cap4 add only what won paired A/Bs (ADAPTER.md "Defaults")."""
+    """cap1 is the campaign's config; cap2-cap4 add only what won paired A/Bs (ADAPTER.md "Defaults");
+    all four carry the two review fixes (lowercase retry, earlier draft on a re-ask timeout)."""
+    FIXES = dict(lowercase_retry=True, keep_draft_on_timeout=True)
     assert PRESETS["cap2"] == replace(
         PRESETS["cap2_campaign"],
         preset="cap2",
@@ -314,8 +316,11 @@ def test_defaults_are_the_campaign_configs_plus_the_ab_winners():
         retry_unattempted_refusal=True,
         empty_result_hint=True,
         param_value_examples=6,
+        **FIXES,
     )
-    assert PRESETS["cap3"] == replace(PRESETS["cap3_campaign"], preset="cap3", fact_check="verify_and_retry")
+    assert PRESETS["cap3"] == replace(
+        PRESETS["cap3_campaign"], preset="cap3", fact_check="verify_and_retry", **FIXES
+    )
     assert PRESETS["cap4"] == replace(
         PRESETS["cap4_v3wx"],
         preset="cap4",
@@ -324,6 +329,10 @@ def test_defaults_are_the_campaign_configs_plus_the_ab_winners():
         self_verify=False,
         require_tool_rounds=2,
         fact_check="verify_and_retry",
+        **FIXES,
     )
+    cap1 = PRESETS["cap1"]
+    assert cap1.lowercase_retry and cap1.keep_draft_on_timeout and not cap1.fact_check_strict
+    assert not any(PRESETS[p].lowercase_retry for p in ("off", "cap2_campaign", "cap3_campaign", "cap4_v3wx"))
     assert PRESETS["cap4"].prefilter_top_k is None and not PRESETS["cap4"].tool_pick  # all tools beat top-40
     assert {"cap2_campaign", "cap3_campaign", "cap4_v3wx"} <= set(PRESETS)
