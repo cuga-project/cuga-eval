@@ -11,6 +11,7 @@ For each arm (one per capability, after its recovery merge) this writes
   console log of the run that produced the submitted answer (the arm, or the recovery pass that
   replaced it). Tasks with no timing in any log get 0.0 and are counted in the report.
 * ``sequence.tool_response`` is dropped: the evaluator replays every tool call and overwrites it.
+* Two arms of one capability (disjoint domain halves run on two keys) are merged into one directory.
 * Completeness: every uuid of the official test input appears exactly once, in input order. A task
   the arm never predicted gets an empty ``error`` record so the file validates, and it is counted.
 
@@ -136,20 +137,35 @@ def _tool_calls(turn: Dict[str, Any]) -> List[Dict[str, Any]]:
 
 
 def package_arm(arm_dir: Path, inputs_dir: Path, out_root: Path) -> Dict[str, Any]:
-    """Write one capability's submission files; returns counts for the report."""
-    arm_dir = Path(arm_dir)
-    meta = json.loads((arm_dir / "meta.json").read_text())
-    manifest = json.loads((MANIFESTS / f"{meta['subset']}.json").read_text())
+    """Write one capability's submission files from a single arm; returns counts for the report."""
+    return package_capability([Path(arm_dir)], inputs_dir, out_root)
+
+
+def package_capability(arm_dirs: List[Path], inputs_dir: Path, out_root: Path) -> Dict[str, Any]:
+    """Write one capability's submission files from its arms (disjoint domain halves run on two keys)."""
+    arm_dirs = [Path(a) for a in arm_dirs]
+    metas = [json.loads((a / "meta.json").read_text()) for a in arm_dirs]
+    manifests = [json.loads((MANIFESTS / f"{m['subset']}.json").read_text()) for m in metas]
+    if len({(m["capability_dir"], int(m["task_id"])) for m in manifests}) != 1:
+        raise ValueError(f"arms of different capabilities: {[str(a) for a in arm_dirs]}")
+    manifest, meta = manifests[0], metas[0]
     task_id = int(manifest["task_id"])
     cap_dir = out_root / manifest["capability_dir"]
     cap_dir.mkdir(parents=True, exist_ok=True)
 
-    runs = [arm_dir] + recovery_runs(arm_dir)
+    runs = [r for a in arm_dirs for r in [a] + recovery_runs(a)]
     infos = [run_info(r, task_id) for r in runs]
     preds: Dict[str, Dict[str, Any]] = {}
-    for f in glob.glob(str(arm_dir / "prediction" / "*.json")):
-        for rec in json.loads(Path(f).read_text()):
-            preds[str(rec.get("uuid") or "").lower()] = rec
+    overlap = 0
+    for a in arm_dirs:
+        for f in glob.glob(str(a / "prediction" / "*.json")):
+            for rec in json.loads(Path(f).read_text()):
+                key = str(rec.get("uuid") or "").lower()
+                if key in preds:
+                    overlap += 1
+                    if not str(_final_turn(rec).get("answer") or "").strip():
+                        continue  # keep the copy that has an answer
+                preds[key] = rec
 
     counts = dict(tasks=0, answered=0, error=0, missing=0, no_duration=0, turn_id_mismatch=0, domains=0)
     for inp_file in sorted(inputs_dir.glob("*.json")):
@@ -206,12 +222,15 @@ def package_arm(arm_dir: Path, inputs_dir: Path, out_root: Path) -> Dict[str, An
     unknown = set(preds) - {
         str(it["uuid"]).lower() for f in inputs_dir.glob("*.json") for it in json.loads(f.read_text())
     }
+    commits = sorted({str((m.get("cuga_agent") or {}).get("commit")) for m in metas})
     return dict(
-        arm=str(arm_dir),
-        subset=meta["subset"],
+        arms=[str(a) for a in arm_dirs],
+        subsets=[m["subset"] for m in metas],
         capability_dir=manifest["capability_dir"],
-        recovery_runs=[str(r) for r in runs[1:]],
+        recovery_runs=[str(r) for r in runs if r not in arm_dirs],
         cuga_agent=meta.get("cuga_agent"),
+        cuga_agent_commits=commits,
+        predictions_in_two_arms=overlap,
         cuga_eval=meta.get("cuga_eval"),
         adapter_preset=meta.get("adapter_preset"),
         execution_mode=meta.get("execution_mode"),
@@ -235,19 +254,25 @@ def validate(vakra_main: Path, cap_dirs: List[Path]) -> Tuple[int, str]:
 def main(argv: Optional[List[str]] = None) -> int:
     p = argparse.ArgumentParser(description=__doc__.splitlines()[0])
     p.add_argument(
-        "--arm", action="append", required=True, type=Path, help="RUN_DIR/ARM (repeat per capability)"
+        "--arm",
+        action="append",
+        required=True,
+        type=Path,
+        help="RUN_DIR/ARM (repeat; two arms of one capability merge)",
     )
     p.add_argument("--out", required=True, type=Path)
     p.add_argument("--vakra-main", type=Path, default=Path(os.path.expanduser("~/git/appworld/vakra-main")))
     p.add_argument("--no-validate", action="store_true")
     args = p.parse_args(argv)
-    report = []
-    for arm in args.arm:
+    by_cap: Dict[str, List[Path]] = {}
+    inputs: Dict[str, Path] = {}
+    for arm in args.arm:  # arms of one capability (disjoint domain halves) are packaged together
         manifest = json.loads(
             (MANIFESTS / f"{json.loads((arm / 'meta.json').read_text())['subset']}.json").read_text()
         )
-        inputs = args.vakra_main / manifest["vakra_train_data"] / "input"
-        report.append(package_arm(arm, inputs, args.out))
+        by_cap.setdefault(manifest["capability_dir"], []).append(arm)
+        inputs[manifest["capability_dir"]] = args.vakra_main / manifest["vakra_train_data"] / "input"
+    report = [package_capability(arms, inputs[cap], args.out) for cap, arms in by_cap.items()]
     result: Dict[str, Any] = {"arms": report}
     if not args.no_validate:
         rc, log = validate(args.vakra_main, [args.out / r["capability_dir"] for r in report])

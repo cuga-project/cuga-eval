@@ -158,3 +158,26 @@ def test_package_arm_counts_a_turn_id_that_differs_from_the_input(tmp_path, monk
     _write(arm / "meta.json", {"subset": "test_x"})
     _write(arm / "prediction" / "hockey.json", [_pred("H-1", "7", turn_id=1)])
     assert pkg.package_arm(arm, tmp_path / "input", tmp_path / "out")["turn_id_mismatch"] == 1
+
+
+def test_package_capability_merges_two_arms_of_one_capability(tmp_path, monkeypatch):
+    manifests = tmp_path / "manifests"
+    for name in ("test_a", "test_b"):
+        _write(manifests / f"{name}.json", {"task_id": 1, "capability_dir": "capability_1_bi_apis"})
+    _write(manifests / "test_c.json", {"task_id": 2, "capability_dir": "capability_2_dashboard_apis"})
+    monkeypatch.setattr(pkg, "MANIFESTS", manifests)
+    _write(tmp_path / "input" / "hockey.json", [_input_item("H-1")])
+    _write(tmp_path / "input" / "books.json", [_input_item("B-1")])
+    arms = []
+    for name, dom, uuid in (("test_a", "hockey", "H-1"), ("test_b", "books", "B-1")):
+        arm = tmp_path / "runs" / f"run_{name}" / "cuga_eval_cap1_fc"
+        _write(arm / "meta.json", {"subset": name, "cuga_agent": {"commit": "abc"}})
+        _write(arm / "prediction" / f"{dom}.json", [_pred(uuid, uuid.lower())])
+        arms.append(arm)
+    report = pkg.package_capability(arms, tmp_path / "input", tmp_path / "out")
+    assert report["answered"] == 2 and report["missing"] == 0 and report["cuga_agent_commits"] == ["abc"]
+    assert report["subsets"] == ["test_a", "test_b"] and report["predictions_in_two_arms"] == 0
+    other = tmp_path / "runs" / "run_c" / "cuga_eval_cap2_fc"
+    _write(other / "meta.json", {"subset": "test_c"})
+    with pytest.raises(ValueError):
+        pkg.package_capability([arms[0], other], tmp_path / "input", tmp_path / "out")

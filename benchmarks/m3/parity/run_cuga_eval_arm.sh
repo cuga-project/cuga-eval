@@ -16,7 +16,9 @@ RUN_ID="${1:?run_id}"; SUBSET="${2:?subset}"; PRESET="${3:?preset}"; shift 3
 MAN="$PARITY_DIR/manifests/$SUBSET.json"; [ -f "$MAN" ] || { echo "no manifest $MAN" >&2; exit 2; }
 TASK_ID=$(python3 -c "import json;print(json.load(open('$MAN'))['task_id'])")
 DOMS=$(python3 -c "import json;print(' '.join(json.load(open('$MAN'))['ids_by_domain']))")
-CONTAINER=$(python3 -c "import json;print(json.load(open('$MAN'))['capability_dir'])")
+# PARITY_CONTAINER: a second container of the same image (same read-only mounts) lets two keys run
+# disjoint domain halves of one capability at once; each arm restarts only its own container.
+CONTAINER="${PARITY_CONTAINER:-$(python3 -c "import json;print(json.load(open('$MAN'))['capability_dir'])")}"
 FC="${PARITY_FC:-0}"
 VARIANT="${PARITY_VARIANT:-}"
 ARM="cuga_eval_${PRESET}"; [ "$FC" = "1" ] && ARM="${ARM}_fc"
