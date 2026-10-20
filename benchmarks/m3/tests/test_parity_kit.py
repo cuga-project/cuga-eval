@@ -787,6 +787,17 @@ def test_cap4_campaign_history_uses_the_gold_answers_of_earlier_turns():
     assert campaign_history(turns[-1:]) == []
 
 
+def test_cap4_history_clips_an_oversized_earlier_answer():
+    from benchmarks.m3.parity.eval_m3_cap4 import HISTORY_ANSWER_CHARS, campaign_history
+
+    turns = [{"query": "q1", "answer": "x" * (HISTORY_ANSWER_CHARS + 1234)}, {"query": "q2"}]
+    clipped = campaign_history(turns)[1].content
+    assert clipped.startswith("x" * HISTORY_ANSWER_CHARS)
+    assert clipped.endswith("[... earlier answer truncated: 1,234 more characters]")
+    exact = [{"query": "q1", "answer": "y" * HISTORY_ANSWER_CHARS}, {"query": "q2"}]
+    assert campaign_history(exact)[1].content == "y" * HISTORY_ANSWER_CHARS  # at the limit: verbatim
+
+
 async def test_cap4_runs_only_the_last_turn_with_the_history_prepended(monkeypatch):
     from langchain_core.messages import HumanMessage
 

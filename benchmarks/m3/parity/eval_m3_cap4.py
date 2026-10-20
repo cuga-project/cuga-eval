@@ -24,13 +24,25 @@ import benchmarks.m3.eval_m3 as em
 _original_multiturn = em.evaluate_multiturn_task_with_langfuse
 
 
+#: An earlier answer longer than this is cut, with a note of how much was left out: a few test
+#: dialogues carry multi-megabyte earlier answers (one menu answer is 11 MB), and verbatim they push
+#: the prompt past gpt-oss-120b's 131k-token context, so the task fails on every attempt.
+HISTORY_ANSWER_CHARS = 20_000
+
+
+def clip_history_answer(text: str, limit: int = HISTORY_ANSWER_CHARS) -> str:
+    if len(text) <= limit:
+        return text
+    return text[:limit] + f"\n[... earlier answer truncated: {len(text) - limit:,} more characters]"
+
+
 def campaign_history(turns: List[Dict[str, Any]]) -> List[Any]:
-    """User question and gold answer of every turn before the last."""
+    """User question and gold answer of every turn before the last (long answers clipped)."""
     history: List[Any] = []
     for turn in turns[:-1]:
         history.append(HumanMessage(content=str(turn.get("query", ""))))
         if turn.get("answer"):
-            history.append(AIMessage(content=str(turn["answer"])))
+            history.append(AIMessage(content=clip_history_answer(str(turn["answer"]))))
     return history
 
 
