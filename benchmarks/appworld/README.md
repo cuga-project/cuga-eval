@@ -2,8 +2,8 @@
 
 ## 📊 Overview
 
-The AppWorld benchmark evaluates agent capabilities with complex web application automation and task completion. It tests the agent's ability to:
-- Navigate and interact with web applications
+The AppWorld benchmark evaluates multi-app personal assistance: personal tasks that span everyday consumer apps (email, shopping, payments, music) and are completed through the apps' APIs. It tests the agent's ability to:
+- Call app APIs to read and change app state
 - Complete multi-step tasks across different apps
 - Handle realistic application workflows
 - Reason about application state and context

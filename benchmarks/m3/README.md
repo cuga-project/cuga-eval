@@ -1,8 +1,8 @@
-# 🏒 M3 Benchmark
+# 🏒 VAKRA / M3 Benchmark
 
 ## 📊 Overview
 
-The M3 benchmark evaluates multi-hop question answering capabilities across multiple domains. It tests the agent's ability to:
+The [VAKRA](https://github.com/IBM/vakra) benchmark (named `m3` in this repo's folders, scripts and CLI flags) evaluates multi-hop, multi-source tool calling: agents answer questions using 8,000+ locally hosted APIs backed by real databases across 62 domains, plus domain-aligned document collections. It tests the agent's ability to:
 - Answer single-hop questions requiring one API call
 - Handle multi-hop questions requiring multiple API calls
 - Reason across different data sources
@@ -29,12 +29,12 @@ The M3 benchmark evaluates multi-hop question answering capabilities across mult
 
 3. **VAKRA Setup**
 
-   Download the Vakra data (M3 dataset) and start Docker containers:
+   Download the VAKRA data and start Docker containers:
    ```bash
    export HF_TOKEN=hf_your_token_here
    bash ./setup_m3.sh
    ```
-   This setup vakra in `vendor/vakra`
+   This sets up VAKRA in `vendor/vakra`
 
    See [VAKRA setup guide](https://github.com/IBM/vakra/blob/main/setup.md) for details on Docker setup, environments, and data downloads.
 
@@ -74,7 +74,7 @@ The M3 benchmark evaluates multi-hop question answering capabilities across mult
    # OPENAI_BASE_URL=your-endpoint
    ```
 
-   **M3 benchmark configuration:** (cuga-eval/benchmarks/m3/config/m3.env)
+   **VAKRA benchmark configuration:** (cuga-eval/benchmarks/m3/config/m3.env)
    ```bash
    # Copy example config
    cp benchmarks/m3/config/m3.env.example benchmarks/m3/config/m3.env
@@ -100,7 +100,7 @@ The M3 benchmark evaluates multi-hop question answering capabilities across mult
 
 ### Named experiments, resume & background
 
-M3 config-mode runs can span hundreds of domains — use named experiments to survive crashes and long runtimes. Resume skips successfully completed `(task, domain)` pairs; failed domains are re-attempted.
+VAKRA config-mode runs can span hundreds of domains — use named experiments to survive crashes and long runtimes. Resume skips successfully completed `(task, domain)` pairs; failed domains are re-attempted.
 
 ```bash
 # Full small_train run as a named workspace
@@ -130,7 +130,7 @@ Partial results land in `evaluation_bundles/<name>/results/partial/` as `<task>_
 bash benchmarks/m3/eval.sh --task hockey_395_0
 ```
 
-### M3 small_train.zip recipes (Vakra-scored)
+### VAKRA small_train.zip recipes (VAKRA-scored)
 
 The bundled `data/small_train.zip` is the canonical eval set: 20 domains × 10 tasks =
 **200 test cases** total, split across two capabilities:
@@ -144,7 +144,7 @@ The bundled `data/small_train.zip` is the canonical eval set: 20 domains × 10 t
 
 All commands below use `caffeinate` so macOS doesn't sleep mid-run, and pass
 `--m3-data benchmarks/m3/data/small_train.zip` so the legacy keyword data files
-under `data/` aren't touched. Pass/fail comes from the Vakra LLM judges
+under `data/` aren't touched. Pass/fail comes from the VAKRA LLM judges
 (correctness × groundedness × exact-match); set `M3_VAKRA_LIVE_MCP=on` if you
 want byte-identical-to-CLI verdicts and have the capability container running.
 
@@ -219,15 +219,15 @@ corpus) with:
 uv run python benchmarks/m3/scripts/generate_eval_split.py --ratio 0.5 --seed 42
 ```
 
-### M3 unlabeled / no-ground-truth recipes
+### VAKRA unlabeled / no-ground-truth recipes
 
-For datasets that ship only an `input/` side (e.g. the Vakra test set under
+For datasets that ship only an `input/` side (e.g. the VAKRA test set under
 `vendor/vakra/data/test/capability_2_dashboard_apis/`), pass
 `--no-ground-truth`. The flag tells the loader to skip the missing `output/`,
-runs the agent against the test domains, **skips Vakra/judge scoring entirely**,
+runs the agent against the test domains, **skips VAKRA/judge scoring entirely**,
 and dumps each domain's prediction to
 `benchmarks/m3/results/_vakra/prediction/<domain>.json` in the same shape the
-Vakra evaluator expects. The summary is a per-sample tool-call count instead
+VAKRA evaluator expects. The summary is a per-sample tool-call count instead
 of pass/fail.
 
 The data path can be the capability dir itself or its parent — the loader
@@ -242,13 +242,13 @@ caffeinate -i bash benchmarks/m3/eval.sh \
   --no-ground-truth \
   --capability m3_task_2 --domain california_schools --max-samples 1
 
-# 2) cuga, full vakra test set for capability 2 (17 domains)
+# 2) cuga, full VAKRA test set for capability 2 (17 domains)
 caffeinate -i bash benchmarks/m3/eval.sh \
   --m3-data vendor/vakra/data/test/capability_2_dashboard_apis \
   --no-ground-truth \
   --capability m3_task_2 --bundle-zip
 
-# 3) cuga, full vakra test set across all capabilities the loader finds
+# 3) cuga, full VAKRA test set across all capabilities the loader finds
 caffeinate -i bash benchmarks/m3/eval.sh \
   --m3-data vendor/vakra/data/test \
   --no-ground-truth --bundle-zip
@@ -266,7 +266,7 @@ holds the raw run metadata.
 - For zip mode, capability-2 / capability-3 Docker containers must be running
   (they're what the registry talks to). The first command in the script will
   surface a clear error if a container is missing.
-- Per-task Vakra detail (judge scores + explanations) prints inline; the full
+- Per-task VAKRA detail (judge scores + explanations) prints inline; the full
   judge JSON lands at `benchmarks/m3/results/_vakra/results.json`.
 
 
@@ -412,7 +412,7 @@ FastAPI REST wrapper MCP server (/app/m3-rest/mcp_server.py)
   ↓
 FastAPI REST API (localhost:8000 inside container)
   ↓
-M3 database tools (<domain>.sqlite)
+VAKRA database tools (<domain>.sqlite)
 ```
 
 **Registry Mode Features:**
@@ -452,7 +452,7 @@ The evaluation script performs:
 - **Trajectory Data**: `benchmarks/m3/logging/trajectory_data/`
 - **Activity Logs**: `benchmarks/m3/logging/`
 
-The ground truth format file is compatible with the M3 benchmark evaluation format and includes:
+The ground truth format file is compatible with the VAKRA benchmark evaluation format and includes:
 - Task metadata (uuid, domain, num_turns)
 - Dialogue structure with queries and responses
 - Tool call sequences with arguments and results
@@ -514,10 +514,10 @@ The `--domain` flag must match available databases in the container:
 - **Ground Truth Format**: `benchmarks/m3/results/<timestamp>/task_1/<domain>.json`
 - **Logs**: `benchmarks/m3/logging/`
 
-The ground truth format output matches the M3 benchmark evaluation format used by `eval_m3.py`, with the same structure:
+The ground truth format output matches the VAKRA benchmark evaluation format used by `eval_m3.py`, with the same structure:
 - Organized by timestamp and task folders
 - One JSON file per domain
-- Compatible with M3 benchmark evaluation tools
+- Compatible with VAKRA benchmark evaluation tools
 
 ### Architecture
 

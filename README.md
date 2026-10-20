@@ -14,8 +14,8 @@ This repository contains:
 |-----------|-------------|--------|
 | **[BPO](benchmarks/bpo/README.md)** | BPO recruiting analytics with 32 tool APIs, policies, and error resilience testing | Recruiting Analytics |
 | **[Oak Health Insurance](benchmarks/oak_health_insurance/README.md)** | Healthcare insurance application with claims, coverage, and benefits tasks | Healthcare |
-| **[M3](benchmarks/m3/README.md)** | Multi-hop question answering using hockey domain data | Knowledge Retrieval |
-| **[AppWorld](benchmarks/appworld/README.md)** | Complex web application automation and task completion | Web Automation |
+| **[VAKRA / M3](benchmarks/m3/README.md)** | Multi-hop, multi-source tool calling over 8,000+ APIs backed by real databases across 62 domains, plus domain-aligned documents | API & Knowledge Retrieval |
+| **[AppWorld](benchmarks/appworld/README.md)** | Everyday consumer apps (email, shopping, payments, music) with multi-app personal tasks via APIs | Multi-App Personal Assistance |
 | **[tau2-bench (τ²)](benchmarks/tau2/README.md)** | Multi-turn customer-service benchmark (airline/retail/telecom) with user simulator and env-state scoring | Customer Service |
 
 ---
@@ -84,7 +84,7 @@ LANGFUSE_HOST="https://us.cloud.langfuse.com"
 
 ### 5. Per-benchmark setup
 
-Steps 1–4 above (clone, `setup_cuga.sh`, `uv venv && uv sync`, `.env`) are enough to run **BPO** and **Oak Health Insurance** out of the box. **M3**, **AppWorld**, and **tau2 (τ²)** each need one extra setup step. The five subsections below are independent — run only the ones for benchmarks you actually want to use.
+Steps 1–4 above (clone, `setup_cuga.sh`, `uv venv && uv sync`, `.env`) are enough to run **BPO** and **Oak Health Insurance** out of the box. **VAKRA / M3**, **AppWorld**, and **tau2 (τ²)** each need one extra setup step. The five subsections below are independent — run only the ones for benchmarks you actually want to use.
 
 At-a-glance:
 
@@ -92,7 +92,7 @@ At-a-glance:
 |---|---|---|
 | BPO | None — base `uv sync` is enough | – |
 | Oak Health Insurance | None — base `uv sync` is enough | – |
-| M3 | Yes (one-time) | `./setup_m3.sh` |
+| VAKRA / M3 | Yes (one-time) | `./setup_m3.sh` |
 | AppWorld | Yes (one-time) | `git lfs install && ./setup_appworld.sh` |
 | tau2-bench (τ²) | Yes (one-time) | `bash setup_tau2.sh && uv sync --group tau2` |
 
@@ -104,16 +104,16 @@ BPO is ready to run after the base install. Skip ahead to [Quick Start](#-quick-
 
 Oak is ready to run after the base install. See [`benchmarks/oak_health_insurance/README.md`](benchmarks/oak_health_insurance/README.md).
 
-#### M3 (Vakra) Setup
+#### VAKRA / M3 Setup
 
-If you plan to run the M3 benchmark:
+If you plan to run the VAKRA benchmark (folder, scripts and `--benchmark` value use the name `m3`):
 
 ```bash
 # Hugging Face token for downloading ~30 GB of benchmark data (read access is enough).
 # Create one at https://huggingface.co/settings/tokens
 export HF_TOKEN=hf_your_token_here
 
-# Clones vakra, downloads data, builds containers.
+# Clones VAKRA, downloads data, builds containers.
 ./setup_m3.sh
 ```
 
@@ -170,7 +170,7 @@ See [`benchmarks/tau2/README.md`](benchmarks/tau2/README.md) for full details.
 
 #### Running multiple benchmarks
 
-The setup steps are independent — run each one when you want that benchmark, in any order. The base `uv sync` always succeeds regardless of which benchmark-specific setups have or haven't been run, so a fresh checkout or CI job that only needs BPO/Oak/M3 never has to touch AppWorld, and vice versa.
+The setup steps are independent — run each one when you want that benchmark, in any order. The base `uv sync` always succeeds regardless of which benchmark-specific setups have or haven't been run, so a fresh checkout or CI job that only needs BPO/Oak/VAKRA never has to touch AppWorld, and vice versa.
 
 ---
 
@@ -206,7 +206,7 @@ Available profiles: `gpt-oss`, `gpt4o`, `gpt4.1`, `opus4.5`
 The evaluation framework supports the following agent types:
 
 - **`cuga`** (default) - The full CUGA agent with planning, reflection, and advanced features
-- **`react`** - A lightweight ReAct-style agent. On BPO/M3 it emits JSON tool calls (true ReAct: decisions live between turns). On AppWorld it runs through the Python REPL but the short prompt encourages small one-API-per-step blocks, so behavior is still ReAct-flavored — decisions remain between turns.
+- **`react`** - A lightweight ReAct-style agent. On BPO/VAKRA it emits JSON tool calls (true ReAct: decisions live between turns). On AppWorld it runs through the Python REPL but the short prompt encourages small one-API-per-step blocks, so behavior is still ReAct-flavored — decisions remain between turns.
 - **`codeact`** - **AppWorld only.** Uses an `instructions.txt` few-shot prompt that demonstrates richer code blocks (loops, conditionals, multiple API calls + computation per step). Encodes workflow logic **inside** the generated code instead of deferring every branch to the next LLM turn. Also adds stop sequences, a larger trim budget, and pre-authentication. Other benchmarks reject `--agent codeact` with a clear error.
 
 > **Note on naming:** The CodeAct vs ReAct distinction here is about *where decisions live* (between turns vs in-code), not about the action mechanism. AppWorld's `--agent react` and `--agent codeact` share the same Python-REPL harness but use prompts that push the model in different directions.
@@ -233,11 +233,11 @@ Use the `--agent` flag to select the agent type:
 **What is the ReAct Agent?**
 
 The ReAct (Reasoning + Acting) agent is a lightweight, prompt-based agent that uses iterative reasoning with tool calls and observations. It provides a simpler alternative to the full CUGA agent for baseline comparisons and research. The ReAct agent:
-- Works with BPO, M3 (single-turn only), and AppWorld via the `--agent react` flag
+- Works with BPO, VAKRA (single-turn only), and AppWorld via the `--agent react` flag
 - Uses the same MCP tools and evaluation infrastructure
 - Enables direct comparison of agent architectures on the same tasks
 
-> **Note:** Oak Health Insurance only supports the CUGA agent — its `eval.sh` rejects any non-`cuga` `--agent` value (both `react` and `codeact`). M3's `--multiturn` mode is also CUGA-only and will error out if combined with `--agent react`. `--agent codeact` is supported only by AppWorld.
+> **Note:** Oak Health Insurance only supports the CUGA agent — its `eval.sh` rejects any non-`cuga` `--agent` value (both `react` and `codeact`). VAKRA's `--multiturn` mode is also CUGA-only and will error out if combined with `--agent react`. `--agent codeact` is supported only by AppWorld.
 
 
 ---
@@ -303,7 +303,7 @@ cd benchmarks/oak_health_insurance && ./eval.sh --task approved_claims
 ./benchmarks/oak_health_insurance/compare.sh --models gpt-oss,gpt4o --runs 2 --dry-run
 ```
 
-### M3 Benchmark
+### VAKRA / M3 Benchmark
 
 ```bash
 # ── Eval (single-turn) ───────────────────────────────────────
@@ -316,13 +316,13 @@ cd benchmarks/m3 && ./eval.sh --task hockey_395_0
 # With ReAct agent (single-turn only — react + --multiturn is rejected)
 ./benchmarks/m3/eval.sh --agent react --task hockey_395_0
 
-# M3-specific: multi-turn evaluation (CUGA agent only)
+# VAKRA-specific: multi-turn evaluation (CUGA agent only)
 ./benchmarks/m3/eval.sh --multiturn
 
-# M3-specific: filter by difficulty
+# VAKRA-specific: filter by difficulty
 ./benchmarks/m3/eval.sh --difficulty easy
 
-# M3-specific: run a predefined train/test split from eval_config.toml
+# VAKRA-specific: run a predefined train/test split from eval_config.toml
 ./benchmarks/m3/eval.sh --m3-data benchmarks/m3/data/small_train.zip --eval-key train
 
 # ── Compare by model ─────────────────────────────────────────
@@ -410,10 +410,10 @@ Benchmark-specific flags:
 | Flag | Benchmark | Effect |
 |---|---|---|
 | `--eval-key <key>` | AppWorld | Run a predefined task group from `benchmarks/appworld/eval_config.toml` (e.g. `test_challenge_easy`, `test_normal_all_hard`). |
-| `--eval-key train\|test` | M3 | Restrict `--m3-data` to a predefined split from `benchmarks/m3/eval_config.toml`, applied before `--task`/`--domain`/`--capability`. Requires `--m3-data`. |
+| `--eval-key train\|test` | VAKRA | Restrict `--m3-data` to a predefined split from `benchmarks/m3/eval_config.toml`, applied before `--task`/`--domain`/`--capability`. Requires `--m3-data`. |
 | `--specific-task-levels 1 2 3` | AppWorld | Filter by difficulty level. |
-| `--multiturn` | M3 | Run multi-turn evaluation (CUGA agent only). |
-| `--difficulty easy\|medium\|hard` | M3, Oak | Filter tasks by difficulty. |
+| `--multiturn` | VAKRA | Run multi-turn evaluation (CUGA agent only). |
+| `--difficulty easy\|medium\|hard` | VAKRA, Oak | Filter tasks by difficulty. |
 | `--no-policies` | BPO | Disable CUGA policies (for baselining). |
 
 ### Reproducibility Bundles
@@ -546,9 +546,9 @@ Bundles are stored in `benchmarks/{benchmark}/evaluation_bundles/` and are git-i
 
 Named experiments write each task's result to `results/partial/` as it completes, so a kill mid-run preserves everything finished so far. Resuming merges partials and continues with the remaining (and previously-failed) tasks.
 
-All benchmarks' evaluators also converge crash/ interrupt handling onto the on-disk partials (not just the in-memory list), so a task finished moments before a crash is not lost even under concurrent batch execution (M3 config mode).
+All benchmarks' evaluators also converge crash/ interrupt handling onto the on-disk partials (not just the in-memory list), so a task finished moments before a crash is not lost even under concurrent batch execution (VAKRA config mode).
 
-M3's legacy (unnamed) `eval.sh`/`compare.sh` path additionally salvages a best-effort bundle when interrupted:
+VAKRA's legacy (unnamed) `eval.sh`/`compare.sh` path additionally salvages a best-effort bundle when interrupted:
 
 - **Partial result files**: if the evaluator is interrupted or hits an unexpected exception mid-run, it saves whatever task results were already collected to `benchmarks/m3/results/m3_config_partial_*.json` (or `m3_config_no_gt_partial_*.json` with `--no-ground-truth`), distinguishable from complete-run files by the `partial` prefix.
 - **Bundle on exit**: `create_bundle`/`create_compare_bundle` are idempotent and run from both the success path and the script's `cleanup` trap (`trap cleanup EXIT INT TERM ERR`), so a bundle is produced exactly once whether the run finishes normally, is interrupted, or crashes — picking up the freshest result file written during that run.
@@ -626,7 +626,7 @@ When Langfuse is enabled, evaluations collect:
 - `full_execution_time` - Total execution time
 - `total_cache_input_tokens` - Cached token usage
 
-For m3 and the SDK appworld path, this is now the fallback: the eval tool
+For VAKRA and the SDK AppWorld path, this is now the fallback: the eval tool
 reads a `RunReceipt` directly from the agent instead (no Langfuse round-trip),
 which additionally breaks tokens down into `input_tokens`, `output_tokens`,
 `cache_read_tokens`, `reasoning_tokens`, plus `tool_call_count`, `llm_time_s`,
@@ -663,7 +663,7 @@ To add a new benchmark:
 1. Create a new directory under `benchmarks/`
 2. Add a `README.md` with detailed instructions
 3. Create a `config/{benchmark}.env` file
-4. Implement an `eval.sh` and Python evaluator. The `templates/` directory contains a few starting points (`eval_loop_template.py`, `calculate_test_score.py`, `simple_example.json`); for the full benchmark layout, copy from an existing one (BPO and M3 are the most complete references).
+4. Implement an `eval.sh` and Python evaluator. The `templates/` directory contains a few starting points (`eval_loop_template.py`, `calculate_test_score.py`, `simple_example.json`); for the full benchmark layout, copy from an existing one (BPO and VAKRA are the most complete references).
 5. Add MCP servers configuration if needed
 
 For examples, see existing benchmark implementations.
