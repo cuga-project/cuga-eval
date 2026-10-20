@@ -139,3 +139,35 @@ def test_merge_replaces_only_records_that_now_have_an_answer(tmp_path):
     assert merged == {"H-1": "1", "H-2": "22", "H-3": ""}
     backup = json.loads((arm / "prediction_pre_recover" / "hockey.json").read_text())
     assert backup[1]["output"][-1]["answer"] == ""  # the original kept
+
+
+def _vendor(dialogues, unscored=()):
+    return {
+        "domains": {
+            "hockey": {
+                "dialogues": [{"uuid": u, "score": sc} for u, sc in dialogues],
+                "unscored_uuids": list(unscored),
+            }
+        }
+    }
+
+
+def test_score_swaps_in_only_the_recovered_verdicts(tmp_path):
+    arm = tmp_path / "run_1" / "cuga_eval_cap2_fc"
+    arm.mkdir(parents=True)
+    (arm / "vendor_results.json").write_text(
+        json.dumps(_vendor([("H-1", 1.0), ("H-2", 0.0), ("H-3", 0.0)], unscored=["H-3"]))
+    )
+    (arm / "recover_log.jsonl").write_text(
+        json.dumps({"replaced": ["H-2", "H-3"], "still_failed": []}) + "\n"
+    )
+    rec = tmp_path / "run_1_recover" / "cuga_eval_cap2_fc"
+    rec.mkdir(parents=True)
+    # H-1 also appears in the recovery scores (it was not replaced): its original verdict must stay
+    (rec / "vendor_results.json").write_text(json.dumps(_vendor([("H-1", 0.0), ("H-2", 1.0), ("H-3", 1.0)])))
+    out = recover.merge_verdicts(arm, rec)
+    assert out["before"] == {"passed": 1, "scored": 2, "rate": 50.0}
+    assert out["after"] == {"passed": 3, "scored": 3, "rate": 100.0} and out["swapped"] == 2
+    assert json.loads((arm / "vendor_results.json").read_text())["domains"]["hockey"]["unscored_uuids"] == [
+        "H-3"
+    ]

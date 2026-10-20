@@ -13,6 +13,8 @@ Flow (``recover_arm.sh`` drives it):
 * the arm is re-run on that subset with the kit (same arm name -> same preset, variant, FC mode).
 * ``merge`` — replace the failed tasks' records in the arm's ``prediction/`` with the re-run's
   records that now carry an answer (the originals are kept in ``prediction_pre_recover/``).
+* ``score`` — the arm's pass rate with the recovered tasks' verdicts swapped in (the other tasks keep
+  the verdicts they were scored with, so the judge is not re-rolled on them).
 * ``clean`` — remove the recovery subset's manifest files.
 
 usage: python -m benchmarks.m3.parity.recover find  --run-dir RUN_DIR --arm ARM
@@ -187,6 +189,64 @@ def merge_predictions(arm_dir: Path, recovered_arm_dir: Path) -> Dict[str, Any]:
     return dict(replaced=len(replaced), still_failed=len(kept_failed))
 
 
+def _domain_blocks(results: Dict[str, Any]) -> List[Dict[str, Any]]:
+    doms = results.get("domains") or {}
+    return list(doms.values()) if isinstance(doms, dict) else list(doms)
+
+
+def pass_rate(results: Dict[str, Any]) -> Dict[str, Any]:
+    """Pass rate over the scored dialogues (unscored and judge-error ones left out, as the kit does)."""
+    passed = scored = 0
+    for block in _domain_blocks(results):
+        skip = set(block.get("unscored_uuids") or []) | set(block.get("judge_error_uuids") or [])
+        for d in block.get("dialogues") or []:
+            if d.get("uuid") in skip:
+                continue
+            scored += 1
+            passed += float(d.get("score") or 0) >= 1
+    return dict(passed=passed, scored=scored, rate=round(100 * passed / scored, 1) if scored else None)
+
+
+def merge_verdicts(arm_dir: Path, recovered_arm_dir: Path) -> Dict[str, Any]:
+    """The arm's scores with the recovered tasks' verdicts swapped in (``vendor_results.recovered.json``).
+
+    Only the tasks ``merge`` replaced change; every other task keeps the verdict it was scored with,
+    so the comparison does not re-roll the judge on the tasks that ran fine.
+    """
+    arm_dir, recovered_arm_dir = Path(arm_dir), Path(recovered_arm_dir)
+    replaced = set()
+    log = arm_dir / "recover_log.jsonl"
+    if log.exists():
+        for line in log.read_text().splitlines():
+            replaced |= {u.lower() for u in json.loads(line).get("replaced") or []}
+    original = _load(arm_dir / "vendor_results.json")
+    recovered = _load(recovered_arm_dir / "vendor_results.json")
+    new_dialogues: Dict[str, Dict[str, Any]] = {}
+    new_skip = set()
+    for block in _domain_blocks(recovered):
+        new_skip |= {
+            u.lower() for u in (block.get("unscored_uuids") or []) + (block.get("judge_error_uuids") or [])
+        }
+        for d in block.get("dialogues") or []:
+            new_dialogues[str(d.get("uuid", "")).lower()] = d
+    swapped = 0
+    for block in _domain_blocks(original):
+        for i, d in enumerate(block.get("dialogues") or []):
+            key = str(d.get("uuid", "")).lower()
+            if key in replaced and key in new_dialogues:
+                block["dialogues"][i] = new_dialogues[key]
+                swapped += 1
+                for field in ("unscored_uuids", "judge_error_uuids"):
+                    kept = [u for u in block.get(field) or [] if u.lower() != key]
+                    if key in new_skip:
+                        kept.append(d.get("uuid"))
+                    block[field] = kept
+    (arm_dir / "vendor_results.recovered.json").write_text(json.dumps(original, indent=1))
+    return dict(
+        before=pass_rate(_load(arm_dir / "vendor_results.json")), after=pass_rate(original), swapped=swapped
+    )
+
+
 def clean(name: str, manifests: Path = MANIFESTS) -> List[str]:
     if not name.startswith(PREFIX):
         raise ValueError(f"refusing to remove {name!r}: not a recovery subset")
@@ -208,6 +268,10 @@ def main(argv: Optional[List[str]] = None) -> int:
     m.add_argument("--run-dir", required=True, type=Path)
     m.add_argument("--arm", required=True)
     m.add_argument("--from", dest="src", required=True, type=Path)
+    v = sub.add_parser("score", help="the arm's pass rate with the recovered tasks' verdicts swapped in")
+    v.add_argument("--run-dir", required=True, type=Path)
+    v.add_argument("--arm", required=True)
+    v.add_argument("--from", dest="src", required=True, type=Path)
     c = sub.add_parser("clean", help="remove a recovery subset's manifest files")
     c.add_argument("--name", required=True)
     args = parser.parse_args(argv)
@@ -215,6 +279,8 @@ def main(argv: Optional[List[str]] = None) -> int:
         print(json.dumps(write_recovery_subset(args.run_dir, args.arm), indent=1))
     elif args.cmd == "merge":
         print(json.dumps(merge_predictions(args.run_dir / args.arm, args.src), indent=1))
+    elif args.cmd == "score":
+        print(json.dumps(merge_verdicts(args.run_dir / args.arm, args.src), indent=1))
     else:
         print(json.dumps(clean(args.name)))
     return 0
