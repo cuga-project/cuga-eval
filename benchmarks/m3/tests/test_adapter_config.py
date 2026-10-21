@@ -329,10 +329,13 @@ def test_defaults_are_the_campaign_configs_plus_the_ab_winners():
         self_verify=False,
         require_tool_rounds=2,
         fact_check="verify_and_retry",
+        prefilter_top_k=40,
+        prefilter_min_tools=400,
         **FIXES,
     )
     cap1 = PRESETS["cap1"]
     assert cap1.lowercase_retry and cap1.keep_draft_on_timeout and not cap1.fact_check_strict
     assert not any(PRESETS[p].lowercase_retry for p in ("off", "cap2_campaign", "cap3_campaign", "cap4_v3wx"))
-    assert PRESETS["cap4"].prefilter_top_k is None and not PRESETS["cap4"].tool_pick  # all tools beat top-40
+    cap4 = PRESETS["cap4"]  # every tool (beat the top-40) unless the catalog is too big to show whole
+    assert (cap4.prefilter_top_k, cap4.prefilter_min_tools, cap4.tool_pick) == (40, 400, False)
     assert {"cap2_campaign", "cap3_campaign", "cap4_v3wx"} <= set(PRESETS)

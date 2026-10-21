@@ -346,6 +346,10 @@ PRESETS: dict[str, AdapterConfig] = {
         self_verify=False,
         require_tool_rounds=2,
         fact_check="verify_and_retry",
+        # Every tool (the A/B winner over the campaign's top-40) unless the catalog cannot fit the
+        # model: past 400 tools, the campaign's per-turn top-40 (test movie, 707 tools, overflowed).
+        prefilter_top_k=40,
+        prefilter_min_tools=400,
         **_REVIEW_FIXES,
     ),
     "cap2_campaign": _CAP2_CAMPAIGN,
