@@ -171,3 +171,30 @@ def test_score_swaps_in_only_the_recovered_verdicts(tmp_path):
     assert json.loads((arm / "vendor_results.json").read_text())["domains"]["hockey"]["unscored_uuids"] == [
         "H-3"
     ]
+
+
+def test_a_second_pass_skips_tasks_an_earlier_pass_recovered(tmp_path):
+    native = [
+        {"uuid": "H-1", "error": None, "all_responses": [{"response": "1"}]},
+        {"uuid": "H-2", "error": "agent_timeout 300s exceeded", "all_responses": []},
+        {"uuid": "H-3", "error": "Connection error.", "all_responses": []},
+    ]
+    arm = _arm(tmp_path, native, {"hockey": [_pred("H-1", "1"), _pred("H-2", ""), _pred("H-3", "")]})
+    rec = tmp_path / "run_1__recover1" / "cuga_eval_cap2_fc"
+    (rec / "prediction").mkdir(parents=True)
+    (rec / "native_results.hockey.json").write_text(
+        json.dumps(
+            {
+                "results": [
+                    {"uuid": "H-2", "error": None, "all_responses": [{"response": "22"}]},
+                    {"uuid": "H-3", "error": "Connection error.", "all_responses": []},
+                ]
+            }
+        )
+    )
+    (rec / "prediction" / "hockey.json").write_text(json.dumps([_pred("H-2", "22"), _pred("H-3", "")]))
+    m = _manifest()
+    m["ids_by_domain"] = {"hockey": ["H-1", "H-2", "H-3"]}
+    assert recover.failed_tasks(arm, m) == {"hockey": ["H-2", "H-3"]}  # before any merge
+    assert recover.merge_predictions(arm, rec) == {"replaced": 1, "still_failed": 1}
+    assert recover.failed_tasks(arm, m) == {"hockey": ["H-3"]}  # H-2 is answered now: not re-run

@@ -75,15 +75,38 @@ def _runner_records(arm_dir: Path, task_id: int) -> List[Dict[str, Any]]:
     return out
 
 
+def _replaced_by(arm_dir: Path) -> Dict[str, Path]:
+    """uuid -> the recovery run whose record the arm's prediction holds now (the last pass that replaced it)."""
+    out: Dict[str, Path] = {}
+    log = Path(arm_dir) / "recover_log.jsonl"
+    if log.exists():
+        for line in log.read_text().splitlines():
+            if line.strip():
+                entry = json.loads(line)
+                for uuid in entry.get("replaced") or []:
+                    out[str(uuid).lower()] = Path(entry["recovered_from"])
+    return out
+
+
 def failed_tasks(arm_dir: Path, manifest: Dict[str, Any]) -> Dict[str, List[str]]:
-    """``{domain: [uuid, ...]}`` of the manifest's tasks that errored or ended without an answer."""
+    """``{domain: [uuid, ...]}`` of the manifest's tasks that errored or ended without an answer.
+
+    A task an earlier recovery pass replaced is judged by that pass's runner record, not by the arm's
+    original one (which still shows the old failure), so a second pass re-runs only what is still failing.
+    """
     arm_dir = Path(arm_dir)
+    task_id = int(manifest.get("task_id") or 0)
     wanted = {u.lower(): (d, u) for d, ids in manifest["ids_by_domain"].items() for u in ids}
+    replaced_by = _replaced_by(arm_dir)
     bad: Dict[str, str] = {}
-    for rec in _runner_records(arm_dir, int(manifest.get("task_id") or 0)):
-        key = str(rec.get("uuid") or "").lower()
-        if key in wanted and (rec["error"].strip() or not rec["answer"].strip()):
-            bad[key] = rec["error"].strip() or "empty answer"
+    sources = [(arm_dir, None)] + [(src, src) for src in dict.fromkeys(replaced_by.values())]
+    for run_dir, src in sources:
+        for rec in _runner_records(run_dir, task_id):
+            key = str(rec.get("uuid") or "").lower()
+            if key not in wanted or replaced_by.get(key) != src:
+                continue  # judged by the run whose record the prediction holds
+            if rec["error"].strip() or not rec["answer"].strip():
+                bad[key] = rec["error"].strip() or "empty answer"
     seen = set()
     for f in glob.glob(str(arm_dir / "prediction" / "*.json")):
         for rec in _load(f):
