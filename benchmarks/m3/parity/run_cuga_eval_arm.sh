@@ -32,6 +32,8 @@ if [ -n "$VARIANT" ]; then
     ARM="${ARM}@${VARIANT}"
 fi
 OUT="$PARITY_DIR/runs/$RUN_ID/$ARM"; mkdir -p "$OUT/prediction"
+# PARITY_WORKER=<name>: this worker logs to console.<name>.log (a helper next to the main worker, below).
+CONSOLE="$OUT/console${PARITY_WORKER:+.$PARITY_WORKER}.log"
 # Each arm writes eval_m3's results and Vakra prediction files to its own folder: arms running at the
 # same time (other keys) shared benchmarks/m3/results, and one snapshot picked up another arm's log.
 export M3_RESULTS_DIR="$OUT/results_raw"; mkdir -p "$M3_RESULTS_DIR"
@@ -66,7 +68,7 @@ BASE_ARGS=(--m3-data "$M3DATA" --capability "m3_task_$TASK_ID" --eval-key "$SUBS
 [ "$PRESET" != "off" ] && [ "$DEMODATA" != "-" ] && BASE_ARGS+=(--demo-data "$DEMODATA")
 echo "bash benchmarks/m3/eval.sh ${BASE_ARGS[*]} --domain <domain> $*" > "$OUT/command.txt"
 for VFILE in ${VFILES[@]+"${VFILES[@]}"}; do grep -E '^M3_ADAPTER_' "$VFILE" | sed "s|^|variant $(basename "$VFILE" .env): |" >> "$OUT/command.txt"; done
-echo "[$ARM] start $(date '+%F %T')  temperature=$PARITY_TEMPERATURE model=$PARITY_MODEL fc=$FC domains: $DOMS" | tee -a "$OUT/console.log"
+echo "[$ARM] start $(date '+%F %T')  temperature=$PARITY_TEMPERATURE model=$PARITY_MODEL fc=$FC domains: $DOMS" | tee -a "$CONSOLE"
 
 # Campaign hygiene (cap_estimate.sh did both before every 8-item batch): a fresh task container
 # and a live proxy. Transient proxy blips are waited out; a proxy still down after ~10 min stops
@@ -79,7 +81,7 @@ proxy_up() {
             -H "Authorization: Bearer $API_KEY" -H "Content-Type: application/json" \
             -d "{\"model\":\"$PARITY_MODEL\",\"messages\":[{\"role\":\"user\",\"content\":\"hi\"}],\"max_completion_tokens\":8,\"reasoning_effort\":\"low\"}")
         case "$code" in 200|429) return 0;; esac
-        echo "[$ARM] proxy probe HTTP $code (try $try/10) — waiting 60s" | tee -a "$OUT/console.log"; sleep 60
+        echo "[$ARM] proxy probe HTTP $code (try $try/10) — waiting 60s" | tee -a "$CONSOLE"; sleep 60
     done
     return 1
 }
@@ -100,7 +102,7 @@ run_cap1_domain() {
     [ "$PRESET" != "off" ] && [ "$DEMODATA" != "-" ] && args+=(--demo-data "$DEMODATA")
     # LOGURU_LEVEL=INFO: load_env.sh defaults it to WARNING, which hid the adapter's decisions (gate
     # retries, checks) from cap1 console logs; the caps 2-4 runners log at INFO already.
-    (cd "$ROOT" && LOGURU_LEVEL=INFO M3_DATA_DIR="$CAP1_INPUT" uv run --frozen python benchmarks/m3/eval_m3_task_1_enterprise_style.py "${args[@]}") 2>&1 | tee -a "$OUT/console.log"
+    (cd "$ROOT" && LOGURU_LEVEL=INFO M3_DATA_DIR="$CAP1_INPUT" uv run --frozen python benchmarks/m3/eval_m3_task_1_enterprise_style.py "${args[@]}") 2>&1 | tee -a "$CONSOLE"
     rc=${PIPESTATUS[0]}
     latest=$(ls -td "$raw"/*/task_1 2>/dev/null | head -1)
     if [ -n "$latest" ] && [ -f "$latest/$dom.json" ]; then cp "$latest/$dom.json" "$OUT/prediction/$dom.json"; fi
@@ -120,7 +122,7 @@ run_cap4_domain() {
     # load_env.sh reads unset variables (eval.sh runs without set -u): relax -u in this subshell only
     (cd "$ROOT" && set +u && export DYNACONF_SERVER_PORTS__REGISTRY="$REGISTRY_PORT" DYNACONF_POLICY__ENABLED=false \
         && source benchmarks/helpers/load_env.sh m3 >/dev/null \
-        && uv run --frozen python -m benchmarks.m3.parity.eval_m3_cap4 "${args[@]}") 2>&1 | tee -a "$OUT/console.log"
+        && uv run --frozen python -m benchmarks.m3.parity.eval_m3_cap4 "${args[@]}") 2>&1 | tee -a "$CONSOLE"
     rc=${PIPESTATUS[0]}
     return "$rc"
 }
@@ -129,41 +131,66 @@ run_cap4_domain() {
 # commit, edits) stops the arm — the 2026-10-13 stage-2 run lost half an arm to one.
 cuga_id() { (cd "$ROOT" && uv run --frozen python -m benchmarks.m3.parity.cuga_identity --line 2>/dev/null); }
 CUGA_ID0="$(cuga_id)"
-echo "[$ARM] cuga: $CUGA_ID0" | tee -a "$OUT/console.log"
+echo "[$ARM] cuga: $CUGA_ID0" | tee -a "$CONSOLE"
 
-for dom in $DOMS; do
+# PARITY_HELPER=1 (with PARITY_WORKER and its own PARITY_KEY / PARITY_CONTAINER): join an arm that is
+# already running under the same run id. The helper takes domains from the END of the list and never the
+# one after the main worker's current domain (the main worker may be past its resume check for it); an
+# empty placeholder prediction makes the main worker's resume check skip a domain a helper took, and a
+# claim (mkdir) keeps two helpers apart. A helper domain that ends without output keeps the placeholder:
+# its tasks count as unpredicted and go to the recovery pass.
+HELPER="${PARITY_HELPER:-0}"
+DOM_LIST="$DOMS"
+[ "$HELPER" = "1" ] && DOM_LIST="$(printf '%s\n' $DOMS | awk '{a[NR]=$0} END {for (i = NR; i > 0; i--) printf "%s ", a[i]}')"
+dom_pos() { local i=0 d; for d in $DOMS; do [ "$d" = "$1" ] && { echo "$i"; return; }; i=$((i + 1)); done; echo -1; }
+main_pos() {  # run-order index of the main worker's latest started domain (-1: none yet)
+    local last; last=$(grep -E "^\[$ARM\] [a-z_0-9]+ start [0-9]" "$OUT/console.log" 2>/dev/null | tail -1 | awk '{print $2}')
+    if [ -n "$last" ]; then dom_pos "$last"; else echo -1; fi
+}
+
+for dom in $DOM_LIST; do
     if [ -f "$OUT/prediction/$dom.json" ]; then
-        echo "[$ARM] $dom already done (resume)" | tee -a "$OUT/console.log"; continue
+        echo "[$ARM] $dom already done (resume)" | tee -a "$CONSOLE"; continue
+    fi
+    if [ "$HELPER" = "1" ]; then
+        if [ "$(dom_pos "$dom")" -le "$(( $(main_pos) + 1 ))" ]; then
+            echo "[$ARM] helper: $dom is the main worker's next domain or earlier — helper done" | tee -a "$CONSOLE"; break
+        fi
+        mkdir -p "$OUT/.claims"
+        if ! mkdir "$OUT/.claims/$dom" 2>/dev/null; then
+            echo "[$ARM] helper: $dom claimed by another helper" | tee -a "$CONSOLE"; continue
+        fi
+        echo "[]" > "$OUT/prediction/$dom.json"  # placeholder: the main worker's resume check skips it
     fi
     if [ "$(cuga_id)" != "$CUGA_ID0" ]; then
-        echo "[$ARM] CUGA changed since the arm started ($CUGA_ID0 -> $(cuga_id)) — stopping this arm" | tee -a "$OUT/console.log"
+        echo "[$ARM] CUGA changed since the arm started ($CUGA_ID0 -> $(cuga_id)) — stopping this arm" | tee -a "$CONSOLE"
         FINAL_RC=3; break
     fi
     if ! proxy_up; then
-        echo "[$ARM] proxy still down before $dom — stopping this arm; re-run the same run_id to resume" | tee -a "$OUT/console.log"
+        echo "[$ARM] proxy still down before $dom — stopping this arm; re-run the same run_id to resume" | tee -a "$CONSOLE"
         FINAL_RC=3; break
     fi
     restart_ctr "$CONTAINER"
     if lsof -nP -iTCP:"${REGISTRY_PORT:-8001}" -sTCP:LISTEN >/dev/null 2>&1; then
-        echo "[$ARM] registry port ${REGISTRY_PORT:-8001} still busy before $dom — waiting 30s" | tee -a "$OUT/console.log"; sleep 30
+        echo "[$ARM] registry port ${REGISTRY_PORT:-8001} still busy before $dom — waiting 30s" | tee -a "$CONSOLE"; sleep 30
     fi
     DOM_START=$(date +%s)
-    echo "[$ARM] $dom start $(date '+%T')" | tee -a "$OUT/console.log"
+    echo "[$ARM] $dom start $(date '+%T')" | tee -a "$CONSOLE"
     if [ "$TASK_ID" = "1" ]; then
         run_cap1_domain "$dom"; RC=$?
     else
         if [ "$TASK_ID" = "4" ]; then
             run_cap4_domain "$dom"; RC=$?
         else
-            (cd "$ROOT" && bash benchmarks/m3/eval.sh "${BASE_ARGS[@]}" --domain "$dom" "$@") 2>&1 | tee -a "$OUT/console.log"
+            (cd "$ROOT" && bash benchmarks/m3/eval.sh "${BASE_ARGS[@]}" --domain "$dom" "$@") 2>&1 | tee -a "$CONSOLE"
             RC=${PIPESTATUS[0]}
         fi
         (cd "$ROOT" && uv run --frozen python -m benchmarks.m3.parity.snapshot snapshot-cuga-eval \
             --manifest "$MAN" --results-dir "$M3_RESULTS_DIR" --since "$DOM_START" --out "$OUT" --domains "$dom") | tee -a "$OUT/snapshot.jsonl"
     fi
-    echo "[$ARM] $dom done rc=$RC in $(( $(date +%s) - DOM_START ))s" | tee -a "$OUT/console.log"
+    echo "[$ARM] $dom done rc=$RC in $(( $(date +%s) - DOM_START ))s" | tee -a "$CONSOLE"
     if [ "$RC" = "3" ]; then
-        echo "[$ARM] environment failure at $dom (containers/daemon) — stopping this arm; re-run the same run_id to resume" | tee -a "$OUT/console.log"
+        echo "[$ARM] environment failure at $dom (containers/daemon) — stopping this arm; re-run the same run_id to resume" | tee -a "$CONSOLE"
         FINAL_RC=3; break
     fi
     [ "$RC" != "0" ] && FINAL_RC=$RC
@@ -186,5 +213,5 @@ json.dump({
     "domains_done": "$DONE_DOMS".split(), "started": $ARM_START, "finished": $ARM_END, "eval_exit_code": $FINAL_RC,
 }, open(sys.argv[1] + "/meta.json", "w"), indent=1)
 PY
-echo "[$ARM] done rc=$FINAL_RC in $((ARM_END-ARM_START))s (domains done: $DONE_DOMS) -> $OUT" | tee -a "$OUT/console.log"
+echo "[$ARM] done rc=$FINAL_RC in $((ARM_END-ARM_START))s (domains done: $DONE_DOMS) -> $OUT" | tee -a "$CONSOLE"
 exit $FINAL_RC
