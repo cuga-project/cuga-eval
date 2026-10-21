@@ -188,7 +188,8 @@ class VakraAdapterAgent:
     async def _turn_tools(self, query: str, message: Any) -> Optional[set]:
         """The tool names the agent may see this turn (None = all).
 
-        ``prefilter_top_k``: the campaign's per-utterance top-k. ``tool_pick`` outside native function
+        ``prefilter_top_k``: the campaign's per-utterance top-k (only for a catalog of more than
+        ``prefilter_min_tools`` tools). ``tool_pick`` outside native function
         calling: the conversation-aware pick (FC picks at bind time, through the shortlister instead).
         """
         cfg = self._cfg
@@ -198,6 +199,8 @@ class VakraAdapterAgent:
             return None
         try:
             tools = list(await base.get_all_tools())
+            if not codeact_pick and len(tools) <= cfg.prefilter_min_tools:
+                return None  # the whole catalog fits the model: every tool (the cap4 A/B winner)
             if codeact_pick:
                 history = conversation_history(message)
                 names = await pick_turn_tools(

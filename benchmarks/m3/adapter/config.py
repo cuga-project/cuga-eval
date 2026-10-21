@@ -200,6 +200,10 @@ class AdapterConfig:
     # CUGA per utterance with its top-k (40 for cap4); in CodeAct mode CUGA itself never narrows the
     # catalog (expose_all_tools lifts the find_tools wall), so without this the agent sees every tool.
     prefilter_top_k: Optional[int] = None
+    # ... only when the domain has MORE than this many tools (0 = whenever prefilter_top_k is set). Every
+    # tool beat the top-40 on cap4 (66.7 vs 56.7, 2026-10-17) wherever the catalog fits the model; past
+    # ~400 tools it does not (test movie: 707 tools, a 534k-char CodeAct prompt, over the 131k context).
+    prefilter_min_tools: int = 0
 
 
 #: What every campaign run shared (VAKRA_CAMPAIGN_CONFIG.md §1): the model at temperature 1.0 drove

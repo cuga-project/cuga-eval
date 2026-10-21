@@ -368,6 +368,12 @@ async def test_turn_tools_prefilter_pick_off_and_failure(monkeypatch):
     )
     assert await broken._turn_tools("population?", None) is None
 
+    # prefilter_min_tools: the top-k only for a catalog too big to show whole
+    fits = replace(base, prefilter_top_k=3, prefilter_min_tools=len(tools))
+    assert await agent(fits)._turn_tools("population?", None) is None  # every tool
+    too_big = replace(base, prefilter_top_k=3, prefilter_min_tools=len(tools) - 1)
+    assert len(await agent(too_big)._turn_tools("population?", None)) == 3
+
 
 def test_bind_cap_and_pick_shortlister_only_in_function_calling(monkeypatch):
     import benchmarks.m3.adapter.shortlist as sl
