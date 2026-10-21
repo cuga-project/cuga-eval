@@ -1,7 +1,7 @@
 # 🧪 CUGA Evaluation Framework - Project Overview
 
 ## 🎯 Purpose
-This is an **evaluation framework** for testing the CUGA Agent (an AI agent system) across three different benchmark scenarios. It measures agent performance on real-world tasks involving API interactions, multi-hop reasoning, and web automation.
+This is an **evaluation framework** for testing the CUGA Agent (an AI agent system) across three different benchmark scenarios. It measures agent performance on real-world tasks involving API interactions, multi-hop reasoning, and multi-app personal assistance.
 
 ## 🏗️ Architecture
 
@@ -31,13 +31,13 @@ This is an **evaluation framework** for testing the CUGA Agent (an AI agent syst
 - 3 terminals needed: app, registry, eval script
 - Direct OpenAPI integration
 
-#### **M3** (Multi-hop Q&A)
+#### **VAKRA / M3** (Multi-hop Q&A)
 - Hockey statistics domain
 - 211 API endpoints for player/team/coach data
 - Tests multi-hop reasoning (questions requiring multiple API calls)
 - 2 terminals: registry, eval script
 
-#### **AppWorld** (Web Automation)
+#### **AppWorld** (Multi-App Personal Assistance)
 - 13 service integrations (Gmail, Spotify, Todoist, Venmo, etc.)
 - Tests complex multi-app workflows
 - OAuth2 authentication
@@ -103,7 +103,7 @@ from cuga.sdk import CugaAgent
 uv run eval_bench_sdk.py  # Terminal 3: Evaluation
 ```
 
-**M3/AppWorld** (2 terminals from `benchmarks/{name}/`):
+**VAKRA/AppWorld** (2 terminals from `benchmarks/{name}/`):
 ```bash
 ./run_registry.sh     # Terminal 1: MCP registry
 uv run eval_{name}.py # Terminal 2: Evaluation
@@ -249,7 +249,7 @@ cuga-eval/
 ### Evaluation Scripts
 - `benchmarks/bpo/eval_bench_sdk.py` - BPO evaluation
 - `benchmarks/oak_health_insurance/eval_bench_sdk.py` - Oak evaluation
-- `benchmarks/m3/eval_m3.py` - M3 evaluation
+- `benchmarks/m3/eval_m3.py` - VAKRA evaluation
 - `benchmarks/appworld/appworld_eval.py` - AppWorld evaluation
 
 ### Policies
@@ -258,7 +258,7 @@ cuga-eval/
 ### Data
 - `benchmarks/bpo/bpo_test_suite_v1.json` - BPO test cases (26 tasks)
 - `benchmarks/oak_health_insurance/oak_health_test_suite_v1.json` - Oak test cases
-- `benchmarks/m3/hockey.json` - M3 test cases (19 samples)
+- `benchmarks/m3/hockey.json` - VAKRA test cases (19 samples)
 - `benchmarks/appworld/eval_config.toml` - AppWorld task groups
 
 ## 🤝 Contributing
@@ -278,7 +278,7 @@ When adding features or fixing bugs:
 - [AGENTS.md](AGENTS.md) - Coding rules for AI agents
 - [BPO README](benchmarks/bpo/README.md)
 - [Oak Health Insurance README](benchmarks/oak_health_insurance/README.md)
-- [M3 README](benchmarks/m3/README.md)
+- [VAKRA / M3 README](benchmarks/m3/README.md)
 - [AppWorld README](benchmarks/appworld/README.md)
 - [CUGA Agent Repository](../cuga-agent) - The agent being evaluated
 

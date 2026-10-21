@@ -75,7 +75,7 @@ uv sync                    # base deps only (AppWorld is removed from venv;
                            #   re-add with --group appworld)
 ```
 
-Both forms succeed regardless of whether the appworld clone exists. The `appworld` group is opt-in, so running other benchmarks (BPO, M3, Oak) never requires AppWorld to be installed.
+Both forms succeed regardless of whether the appworld clone exists. The `appworld` group is opt-in, so running other benchmarks (BPO, VAKRA, Oak) never requires AppWorld to be installed.
 ---
 
 ## 🚀 Running the Benchmark

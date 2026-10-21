@@ -1,8 +1,8 @@
-# 🏒 VAKRA / M3 Benchmark
+# 🔷 VAKRA / M3 Benchmark
 
 ## 📊 Overview
 
-The [VAKRA](https://github.com/IBM/vakra) benchmark (named `m3` in this repo's folders, scripts and CLI flags) evaluates multi-hop, multi-source tool calling: agents answer questions using 8,000+ locally hosted APIs backed by real databases across 62 domains, plus domain-aligned document collections. It tests the agent's ability to:
+The [VAKRA](https://github.com/IBM/vakra) benchmark (folders, scripts and CLI values (e.g. `--benchmark m3`, `--m3-data`) use the name `m3`) evaluates multi-hop, multi-source tool calling: agents answer questions using 8,000+ locally hosted APIs backed by real databases across 62 domains, plus domain-aligned document collections. It tests the agent's ability to:
 - Answer single-hop questions requiring one API call
 - Handle multi-hop questions requiring multiple API calls
 - Reason across different data sources
@@ -100,7 +100,7 @@ The [VAKRA](https://github.com/IBM/vakra) benchmark (named `m3` in this repo's f
 
 ### Named experiments, resume & background
 
-VAKRA config-mode runs can span hundreds of domains — use named experiments to survive crashes and long runtimes. Resume skips successfully completed `(task, domain)` pairs; failed domains are re-attempted.
+VAKRA config-mode runs can span many domains across capabilities — use named experiments to survive crashes and long runtimes. Resume skips successfully completed `(task, domain)` pairs; failed domains are re-attempted.
 
 ```bash
 # Full small_train run as a named workspace

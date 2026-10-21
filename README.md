@@ -106,7 +106,7 @@ Oak is ready to run after the base install. See [`benchmarks/oak_health_insuranc
 
 #### VAKRA / M3 Setup
 
-If you plan to run the VAKRA benchmark (folder, scripts and `--benchmark` value use the name `m3`):
+If you plan to run the VAKRA benchmark (folders, scripts and CLI values (e.g. `--benchmark m3`, `--m3-data`) use the name `m3`):
 
 ```bash
 # Hugging Face token for downloading ~30 GB of benchmark data (read access is enough).
