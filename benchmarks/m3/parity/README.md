@@ -68,6 +68,38 @@ therefore runs in a private setup:
   (`cuga_identity.py`), and every cuga-eval arm stops before a domain whose CUGA
   differs from the one it started with.
 
+## Rebuilding the setup from public sources (any machine, e.g. a cluster)
+
+Everything the validated runs used comes from public sources at pinned versions. On 2026-10-22 the rebuild was
+checked against the Mac setup file by file and package by package:
+
+| part | source | pin |
+|---|---|---|
+| CUGA | github.com/cuga-project/cuga-agent | `88fd3549` + `venv_overrides.cuga-main-88fd3549.txt` (5 versions above the lock) |
+| this kit | github.com/cuga-project/cuga-eval | the commit you check out |
+| tool servers, Docker files, MCP client | github.com/IBM/vakra | `00dc68f` |
+| evaluator | github.com/IBM/vakra | `evaluator/` at `9984746` (upstream changed scoring on 2026-07-21/22, after it) |
+| data: databases, retrieval indexes, train | huggingface.co/datasets/ibm-research/VAKRA | revision `1388b9f` |
+| tool-container packages | `vakra/benchmark_environ.constraints.txt` | the image the runs used (built 2026-07-07) |
+
+```bash
+git clone https://github.com/cuga-project/cuga-agent ../cuga-agent
+bash benchmarks/m3/parity/setup_pinned_cuga.sh 88fd3549 benchmarks/m3/parity/venv_overrides.cuga-main-88fd3549.txt
+bash benchmarks/m3/parity/setup_vakra.sh --dir /big/disk/vakra          # ~37 GB of data; --help lists the steps
+bash benchmarks/m3/parity/setup_vakra.sh --dir /big/disk/vakra --steps link
+export VAKRA_MAIN=/big/disk/vakra                                        # env.sh and the kit read it
+```
+
+`setup_vakra.sh` applies two small patches to IBM/vakra (`vakra/patches/`, under VAKRA's license, CC BY-NC-SA 4.0;
+see `vakra/NOTICE`): the judge takes its endpoint from `JUDGE_MODEL`/`JUDGE_ENDPOINT`, and ending one MCP session no
+longer kills every MCP server in the container. Upstream ships tool universes for the cap1 **test** tasks only;
+the script adds the train ones with upstream's own generator, run on the train outputs, and checks the file
+against the runs' sha256. The image is upstream's Dockerfile with the base image and every package version
+pinned. Each step records what was built in `<dir>/PINS.json`.
+
+Not covered yet: the test split, which is no longer in the public dataset (access is gated), and
+`.venv-cuga`, the other stack's runner, which `preflight.sh` still requires.
+
 ## Run
 
 ```bash

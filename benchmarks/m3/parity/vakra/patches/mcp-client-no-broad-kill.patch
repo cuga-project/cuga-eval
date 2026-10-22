@@ -1,0 +1,43 @@
+--- a/benchmark/mcp_client.py
++++ b/benchmark/mcp_client.py
+@@ -167,19 +167,27 @@
+         return
+ 
+     if cfg.mode == "stdio" and not cfg.command and cfg.container_name:
+-        # Container exec mode: pkill the server process inside the container.
+-        runtime = cfg.container_runtime or detect_container_runtime()
+-        try:
+-            kill_cmd = [
+-                runtime, "exec", cfg.container_name,
+-                "pkill", "-f", "python mcp_server.py"
+-            ]
+-            subprocess.run(kill_cmd, capture_output=True, timeout=5)
+-            logger.info("Server stopped.")
+-        except subprocess.TimeoutExpired:
+-            logger.warning("Timeout while stopping server")
+-        except Exception:
+-            pass
++        # Container exec mode. NOTE: a container-wide `pkill -f "python mcp_server.py"`
++        # is UNSAFE under parallelism — multiple streams share one capability
++        # container, so it kills sibling streams' live MCP servers (observed as
++        # cascading "Failed to connect to MCP server" errors on 2026-07-08).
++        # The stdio_client context manager already terminates the per-session
++        # `docker exec -i` child on exit (verified: container proc counts stay 5-8
++        # even with 3 concurrent streams), so an explicit kill is unnecessary.
++        # Opt in to the legacy broad kill only when running a single stream.
++        if os.getenv("VAKRA_MCP_BROAD_KILL", "0") == "1":
++            runtime = cfg.container_runtime or detect_container_runtime()
++            try:
++                subprocess.run(
++                    [runtime, "exec", cfg.container_name,
++                     "pkill", "-f", "python mcp_server.py"],
++                    capture_output=True, timeout=5,
++                )
++                logger.info("Server stopped (broad kill).")
++            except subprocess.TimeoutExpired:
++                logger.warning("Timeout while stopping server")
++            except Exception:
++                pass
+     # Local subprocess stdio: the stdio_client context manager terminates the
+     # child process on exit, so no explicit kill is needed here.
+ 

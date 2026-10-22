@@ -1,0 +1,16 @@
+--- a/evaluator/judge.py
++++ b/evaluator/judge.py
+@@ -32,8 +32,11 @@
+ 
+     def __init__(self, config: dict):
+         # Set model with model or model_name
+-        model_name = config.get("model_name", "openai/gpt-oss-120b")
+-        end_point = config.get("end_point", "https://api.groq.com/openai")
++        # JUDGE_MODEL / JUDGE_ENDPOINT env vars allow rerouting the judge to any
++        # OpenAI-compatible endpoint (e.g. a local litellm proxy -> watsonx) without
++        # touching call sites; defaults preserve the original Groq behavior.
++        model_name = config.get("model_name", os.getenv("JUDGE_MODEL", "openai/gpt-oss-120b"))
++        end_point = config.get("end_point", os.getenv("JUDGE_ENDPOINT", "https://api.groq.com/openai"))
+ 
+         api_key = os.getenv("API_KEY")
+         if api_key is None or api_key == "":
