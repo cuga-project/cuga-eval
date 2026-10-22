@@ -70,7 +70,7 @@ def test_long_digit_strings_are_compared_as_written():
 
 
 def test_value_inside_a_sentence_and_dates_markdown_spaces():
-    assert cs.normalize("**July 1 , 2013**") == "2013-07-01"
+    assert cs.normalize("**July\u202f1\u202f, 2013**") == cs.normalize("2013-07-01")
     assert (
         cs.categorize(_rec("u", "2013-07-01"), _rec("u", "It was created on **July 1, 2013**."))
         == "contained"
