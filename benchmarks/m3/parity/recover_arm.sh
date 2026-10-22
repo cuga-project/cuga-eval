@@ -25,7 +25,16 @@ trap cleanup EXIT
 
 echo "[$ARM] re-running $N task(s) as $REC_ID"
 MAN="$PARITY_DIR/manifests/$SUBSET.json"
-NOGT="$(python3 -c "import json,sys;print(1 if json.load(open(sys.argv[1])).get('no_ground_truth') else 0)" "$MAN")"
+# Test split = the source data has no ground-truth outputs (inputs only). Not the manifest's
+# no_ground_truth flag: the train subsets carry it too (eval_m3 predicts only; rescore.sh scores).
+NOGT="$(python3 - "$MAN" "${VAKRA_MAIN:-$HOME/git/appworld/vakra-main}" <<'PY'
+import json, sys
+from pathlib import Path
+m = json.load(open(sys.argv[1]))
+src = m.get("vakra_train_data") or f"data/train/{m['capability_dir']}"
+print(0 if (Path(sys.argv[2]) / src / "output").is_dir() else 1)
+PY
+)"
 if [ "$NOGT" = "1" ]; then
     # Test split (no ground truth): run_parity.sh would end in scoring, so run the arm directly.
     case "$ARM" in cuga_eval_*) ;; *) echo "test-split recovery supports cuga_eval arms only" >&2; exit 2;; esac
