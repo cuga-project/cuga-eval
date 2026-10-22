@@ -94,7 +94,9 @@ run_cap1_domain() {
     local dom="$1" raw="$OUT/raw/$1" ids latest rc
     ids=$(python3 -c "import json,sys;print(','.join(json.load(open(sys.argv[1]))['ids_by_domain'][sys.argv[2]]))" "$MAN" "$dom")
     mkdir -p "$raw"
-    local args=(--container "$CONTAINER" --domain "$dom" --item-ids "$ids" --switch-timeout 150 --output "$raw")
+    # PARITY_SWITCH_TIMEOUT: the per-item universe-load limit (default the campaign main pass's 150 s).
+    # Some test universes take 3-5 min to build (a 43.9M-row join, 24 GB); a recovery pass raises it.
+    local args=(--container "$CONTAINER" --domain "$dom" --item-ids "$ids" --switch-timeout "${PARITY_SWITCH_TIMEOUT:-150}" --output "$raw")
     # The runner's own per-item limit (default 300s) must outlast the adapter's agent_timeout,
     # or a variant that raises the agent limit (variants/t400.env) is cut off by the runner.
     [ -n "${M3_ADAPTER_AGENT_TIMEOUT:-}" ] && args+=(--agent-timeout "$((M3_ADAPTER_AGENT_TIMEOUT + 60))")
