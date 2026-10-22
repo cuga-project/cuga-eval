@@ -26,6 +26,13 @@ from typing import Mapping, Optional
 _TRUE = frozenset({"1", "on", "true", "yes"})
 _FALSE = frozenset({"0", "off", "false", "no"})
 
+#: cap1's generic data tools: every train ground-truth chain is built from them (plus at most a
+#: domain-specific get_* tool). Pinned at bind time when a universe re-lists more than 128 tools.
+CAP1_DATA_TOOLS_PATTERN = (
+    r"initialize_active_data|get_data|filter_data|retrieve_data|aggregate_data|truncate|Calculator"
+    r"|select_unique_values|select_data_\w+|compute_data_\w+|sort_data(?:_\w+)?|transform_data(?:_\w+)?"
+)
+
 #: The exact embedding model the validated VAKRA runs shortlisted with.
 MINILM_MODEL = "sentence-transformers/all-MiniLM-L6-v2"
 
@@ -115,6 +122,10 @@ class AdapterConfig:
     shortlist_top_k: Optional[int] = None  # --top-k-tools (128 caps 1-3, 40 cap4)
     shortlist_model: str = MINILM_MODEL
     shortlist_pin_retrievers: bool = False  # "sdk" strategy: pin query_* tools (the campaign always did)
+    # Tool names (regex, full match) kept in the bind-time shortlist ahead of the ranked rest ("" = none).
+    # Only acts when the catalog exceeds the bind cap (128): a cap1 test domain re-listing 151-436 tools
+    # otherwise loses the generic data tools every chain needs (see CAP1_DATA_TOOLS_PATTERN).
+    shortlist_pin_pattern: str = ""
     # "sdk": CUGA's embedding strategy (embeds name + description + params + returns);
     # "campaign": vakra-main ToolShortlister as an SDK strategy ("name: description", query_* pinned)
     shortlist_strategy: str = "sdk"

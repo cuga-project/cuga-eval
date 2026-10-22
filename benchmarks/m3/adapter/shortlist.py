@@ -15,6 +15,7 @@ of that as configuration:
 
 from __future__ import annotations
 
+import re
 from typing import Any, Optional
 
 from loguru import logger
@@ -36,6 +37,9 @@ class MiniLMPinnedStrategy:
     """
 
     name = "m3_minilm_pinned"
+    #: Set by ``build_shortlister`` from the preset (the SDK instantiates the class with ``plan=`` only).
+    pin_retrievers: bool = True
+    pin_pattern: str = ""
 
     def __init__(self, plan: Any = None):
         self._plan = plan
@@ -65,12 +69,15 @@ class MiniLMPinnedStrategy:
         result = await self._ensure_inner().shortlist(request)
         ranked = list(result.candidates)
         scores = {c.name: c.score for c in ranked}
-        retrievers = [t.name for t in request.tools if is_retriever(t.name)]
+        rx = re.compile(self.pin_pattern) if self.pin_pattern else None
+        retrievers = [t.name for t in request.tools if self.pin_retrievers and is_retriever(t.name)]
+        tools = [t.name for t in request.tools if rx and rx.fullmatch(t.name) and t.name not in retrievers]
         pinned = [
             ShortlistCandidate(name=n, score=scores.get(n, 1.0), reasoning="pinned retriever")
             for n in retrievers
-        ]
-        rest = [c for c in ranked if c.name not in set(retrievers)]
+        ] + [ShortlistCandidate(name=n, score=scores.get(n, 1.0), reasoning="pinned tool") for n in tools]
+        pinned_names = set(retrievers) | set(tools)
+        rest = [c for c in ranked if c.name not in pinned_names]
         merged = pinned + rest
         if request.top_k:
             merged = merged[: request.top_k]
@@ -598,7 +605,10 @@ def build_shortlister(cfg: AdapterConfig) -> Optional[Any]:
         strategy = CAMPAIGN_STRATEGY_PATH
     else:
         prewarm_embedding_backend(cfg)
-        strategy = PINNED_STRATEGY_PATH if cfg.shortlist_pin_retrievers else "embedding"
+        MiniLMPinnedStrategy.pin_retrievers = cfg.shortlist_pin_retrievers
+        MiniLMPinnedStrategy.pin_pattern = cfg.shortlist_pin_pattern
+        pinned = cfg.shortlist_pin_retrievers or bool(cfg.shortlist_pin_pattern)
+        strategy = PINNED_STRATEGY_PATH if pinned else "embedding"
     return Shortlister(
         strategy=strategy,
         embedding_model=cfg.shortlist_model,
