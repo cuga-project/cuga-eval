@@ -187,6 +187,11 @@ class AdapterConfig:
     fact_check_strict: bool = False
     # A re-ask cut by agent_timeout returns the answer from before the re-ask instead of nothing.
     keep_draft_on_timeout: bool = False
+    # The demos show each solved example's reply as "Chain used: <tools>\nFinal answer: <value>". A model that
+    # copies the layout (GLM-5.3-Flash: 77/120 cap3 answers) has correct values failed by the groundedness
+    # judge, which reads the tool chain as unsupported claims; the final_answer fn keeps only the text after
+    # the last "Final answer:" label. gpt-oss never wrote the layout (0/354 answers, caps 1-3).
+    strip_demo_layout: bool = False
     # Two-stage tool narrowing (single-tool tasks, cap2): cosine top-``tool_pick_pool``, then one LLM
     # call picks THE tool; only the first ``tool_pick_bind`` of [pick, runner-up, cosine order] are
     # bound (the bind cap). Offline on est2_ref30: gold tool picked 29/30 vs the agent's 79% first call.

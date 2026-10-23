@@ -35,6 +35,29 @@ def strip_channel_tokens(text: str) -> str:
     return _CHANNEL_TOKEN_RE.sub("", text or "").strip()
 
 
+# The demos (demos.py) render each solved example's reply as "Chain used: <tools>\nFinal answer: <value>",
+# the value json.dumps-ed. A reply copied in that layout carries the tool chain, which the groundedness
+# judge reads as claims the tool results do not support.
+_DEMO_LAYOUT_RE = re.compile(r"\bchain used\s*:", re.IGNORECASE)
+_FINAL_ANSWER_LABEL_RE = re.compile(r"\bfinal answer\s*:\s*", re.IGNORECASE)
+
+
+def strip_demo_layout(text: str) -> str:
+    """``Chain used: ... Final answer: X`` (the demos' reply layout) -> ``X``; any other text is unchanged."""
+    if not text or not _DEMO_LAYOUT_RE.search(text):
+        return text
+    labels = list(_FINAL_ANSWER_LABEL_RE.finditer(text))
+    value = text[labels[-1].end() :].strip() if labels else ""
+    if len(value) >= 2 and value[0] == value[-1] == '"':
+        try:
+            decoded = json.loads(value)
+        except ValueError:
+            decoded = None
+        if isinstance(decoded, str):
+            value = decoded
+    return value or text
+
+
 # Give-up / cancellation phrasings (cuga_clean_agent.py). With refusal_norm on,
 # an answer that is really "I couldn't do this" is normalized to REFUSAL.
 _GIVEUP_MARKERS = (
@@ -253,13 +276,15 @@ def canonicalize_final_answer(text: str, *, bare: bool = True) -> str:
 def make_final_answer_fn(cfg: AdapterConfig) -> Callable[[str], str]:
     """The deterministic function for ``CugaAgent(final_answer=...)``.
 
-    Always strips leaked harmony tokens (a correctness fix, not tuning); adds
-    canonicalization when the preset enables it. The SDK applies it once and
-    fails open, so a surprising input can never break answer delivery.
+    Always strips leaked harmony tokens (a correctness fix, not tuning); adds the
+    demo-layout strip and canonicalization when the config enables them. The SDK
+    applies it once and fails open, so a surprising input can never break answer delivery.
     """
 
     def _final_answer(text: str) -> str:
         out = strip_channel_tokens(text)
+        if cfg.strip_demo_layout:
+            out = strip_demo_layout(out)
         if cfg.canonicalize:
             out = canonicalize_final_answer(out)
         return out

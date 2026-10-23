@@ -126,6 +126,21 @@ async def test_fact_check_corrects_from_tool_results_and_canonicalizes():
     assert "What is x?" in prompts[0] and 'get_x({"id": 1}) -> {"x": 42}' in prompts[0]
 
 
+async def test_fact_check_correction_in_the_demo_layout_is_cut_when_enabled():
+    cfg = AdapterConfig(fact_check="verify", strip_demo_layout=True)
+    invoke_round, sent = _rounds()
+    out = await run_answer_pipeline(
+        invoke_round,
+        _result("41"),
+        cfg,
+        TaskContext(),
+        [OK_CALL],
+        _checker("CORRECTED: Chain used: get_x({id: 1}) Final answer: 42"),
+        question="What is x?",
+    )
+    assert out == "42" and sent == []
+
+
 async def test_fact_check_ok_keeps_the_draft_and_failures_never_change_it():
     cfg = AdapterConfig(fact_check="verify")
     for reply in ("OK", "looks fine to me", RuntimeError("proxy down")):

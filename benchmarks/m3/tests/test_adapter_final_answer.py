@@ -1,8 +1,10 @@
 """Pure answer functions: canonicalize (ported self-test table), normalize, extract."""
 
+from dataclasses import replace
+
 import pytest
 
-from benchmarks.m3.adapter.config import PRESETS
+from benchmarks.m3.adapter.config import PRESETS, resolve_adapter_config
 from benchmarks.m3.adapter.final_answer import (
     canonicalize_final_answer,
     extract_values_answer,
@@ -11,6 +13,7 @@ from benchmarks.m3.adapter.final_answer import (
     make_final_answer_fn,
     normalize_answer,
     strip_channel_tokens,
+    strip_demo_layout,
 )
 
 pytestmark = pytest.mark.sanity
@@ -126,3 +129,45 @@ def test_canonicalize_drops_escaped_quotes_with_their_backslash():
     """JSON written as text (``\\"KIM KI-DUK, ranked\\"``) lost only its quotes and kept the backslashes."""
     raw = '[[\\"KIM KI-DUK, ranked\\"], [\\"MICHAEL POWELL, ranked\\"]]'
     assert canonicalize_final_answer(raw) == "KIM KI-DUK, ranked, MICHAEL POWELL, ranked"
+
+
+# Replies copied in the demos' layout (demos.py: "Chain used: <tools>\nFinal answer: <json value>"), as
+# GLM-5.3-Flash wrote them on caps 1-3.
+DEMO_LAYOUT_CASES = [
+    ("Chain used: get_a({id: 10054}) -> get_b({type: Bottle}) Final answer: 2681", "2681"),
+    ('Chain used: get_a\nFinal answer: "Charles Judels"', "Charles Judels"),
+    ('Chain used: get_a\nFinal answer: [["9"], ["46"]]', '[["9"], ["46"]]'),
+    ("chain used: a -> b\nfinal answer: x\nFinal answer: 7", "7"),
+]
+
+
+@pytest.mark.parametrize("raw,expected", DEMO_LAYOUT_CASES)
+def test_strip_demo_layout_keeps_the_text_after_the_last_final_answer_label(raw, expected):
+    assert strip_demo_layout(raw) == expected
+    assert strip_demo_layout(expected) == expected  # idempotent
+
+
+@pytest.mark.parametrize(
+    "text",
+    [
+        "2681",
+        "",
+        "Final answer: 7",  # a leading label alone is canonicalize's to strip
+        "Chain used: a -> b gives courses 11 and 147.",  # no label: no safe cut
+        "Chain used: a\nFinal answer:",  # an empty value never empties the answer
+    ],
+)
+def test_strip_demo_layout_leaves_other_text_alone(text):
+    assert strip_demo_layout(text) == text
+
+
+def test_final_answer_fn_strips_the_demo_layout_only_when_enabled():
+    raw = "Chain used: get_x({id: 1})\nFinal answer: [[736]]"
+    assert "Chain used" in make_final_answer_fn(PRESETS["cap3"])(raw)
+    assert make_final_answer_fn(replace(PRESETS["cap3"], strip_demo_layout=True))(raw) == "736"
+
+
+def test_strip_demo_layout_is_opt_in():
+    assert not any(cfg.strip_demo_layout for cfg in PRESETS.values())
+    env = {"M3_ADAPTER_STRIP_DEMO_LAYOUT": "true"}
+    assert resolve_adapter_config("cap3", env=env).strip_demo_layout

@@ -77,6 +77,14 @@ Tried and not adopted:
 - `plan_text_gate` (re-ask a draft that is working notes): fired twice on cap2 and turned the notes into a
   refusal; 12 tasks gained and 12 lost — no measurable effect.
 
+Opt-in, not in a preset yet:
+- `strip_demo_layout`: a reply copied in the demos' layout (`Chain used: <tools>` / `Final answer: X`) is cut
+  to `X` in the final_answer fn, and so is a fact-check correction. With GLM-5.3-Flash as the agent model, that
+  layout appeared in 20/119 cap1, 51/115 cap2 and 77/120 cap3 answers, and the groundedness judge failed
+  correct values for the tool chain. GLM's cap3 answers, re-judged after this cut, went from 42.0 to 58.0
+  (gpt-oss 59.2). gpt-oss never writes the layout: none of its answers change on caps 1-4, so the validated
+  runs are unaffected. Kit variant: `strip_demo_layout`.
+
 ## Presets
 
 Each field maps 1:1 to a flag from the validated VAKRA submission runs
@@ -159,7 +167,7 @@ whereas `0` blocks every tool call; negative integers are rejected.
 
 ```
 CugaAgent.invoke
-  └─ in-graph final_answer fn: strip harmony tokens → canonicalize (if enabled)
+  └─ in-graph final_answer fn: strip harmony tokens → strip the demos' reply layout (if enabled) → canonicalize (if enabled)
 adapter post-invoke:
   1. gates retry            empty/hedged draft → correction, SAME thread, ≤2 rounds
   2. refusal_norm           give-up phrasing → "I can not answer."

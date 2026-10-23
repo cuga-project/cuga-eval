@@ -35,6 +35,7 @@ from benchmarks.m3.adapter.final_answer import (
     looks_like_failure,
     normalize_answer,
     strip_channel_tokens,
+    strip_demo_layout,
 )
 from benchmarks.m3.adapter.recording import RESULT_MAX_CHARS
 
@@ -333,6 +334,8 @@ async def run_answer_pipeline(
             if kind == "CORRECTED" and cfg.fact_check_strict and unsupported_values(payload, results):
                 logger.info("[m3-adapter fact-check] correction kept out: not in any tool result")
             elif kind == "CORRECTED":
+                if cfg.strip_demo_layout:
+                    payload = strip_demo_layout(payload)
                 answer = canonicalize_final_answer(payload) if cfg.canonicalize else payload
             elif kind == "MISSING" and cfg.fact_check == "verify_and_retry":
                 follow_up = await retry(FACT_CHECK_RETRY.format(need=payload), "fact-check")
@@ -396,6 +399,8 @@ async def run_answer_pipeline(
     # Fallback for agents built without the in-graph final_answer function
     # (e.g. a pre-built agent wrapped after construction): apply the same
     # canonicalization here, at the equivalent point in the pipeline.
+    if not final_answer_installed and cfg.strip_demo_layout:
+        answer = strip_demo_layout(answer)
     if not final_answer_installed and cfg.canonicalize:
         answer = canonicalize_final_answer(answer)
 
