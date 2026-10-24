@@ -14,7 +14,7 @@ RUN="$PARITY_DIR/runs/$RUN_ID"
 
 summary="$(cd "$ROOT" && python3 -m benchmarks.m3.parity.recover find --run-dir "$RUN" --arm "$ARM")"
 echo "$summary"
-field() { python3 -c "import json,sys; print(json.loads(sys.argv[1]).get(sys.argv[2]) or '')" "$summary" "$1"; }
+field() { python3 -c "import json,sys; v = json.loads(sys.argv[1]).get(sys.argv[2]); print('' if v is None else v)" "$summary" "$1"; }
 N="$(field n)"; SUBSET="$(field subset)"; EXTRA="$(field eval_config_extra)"
 [ "$N" != "0" ] || { echo "[$ARM] nothing to recover"; exit 0; }
 

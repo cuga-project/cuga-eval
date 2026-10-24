@@ -53,7 +53,13 @@ if lsof -nP -iTCP:"${REGISTRY_PORT:-8001}" -sTCP:LISTEN >/dev/null 2>&1; then ba
 
 # --- the other stack -----------------------------------------------------------
 [ -d "$VAKRA_MAIN" ] && ok "vakra-main at $VAKRA_MAIN" || bad "vakra-main not found at $VAKRA_MAIN"
-[ -x "$VAKRA_MAIN/.venv-cuga/bin/python" ] && ok "vakra-main .venv-cuga (runner)" || bad "vakra-main/.venv-cuga missing"
+# Only the vakra_main_* arms run the other stack's runner (run_parity.sh sets PARITY_OTHER_STACK=1 for them);
+# a VAKRA rebuilt by setup_vakra.sh has no .venv-cuga.
+if [ "${PARITY_OTHER_STACK:-0}" = "1" ]; then
+    [ -x "$VAKRA_MAIN/.venv-cuga/bin/python" ] && ok "vakra-main .venv-cuga (runner)" || bad "vakra-main/.venv-cuga missing"
+else
+    [ -x "$VAKRA_MAIN/.venv-cuga/bin/python" ] && ok "vakra-main .venv-cuga (runner)" || info "vakra-main .venv-cuga absent (only vakra_main_* arms need it)"
+fi
 [ -x "$VAKRA_MAIN/.venv/bin/python" ] && ok "vakra-main .venv (evaluator)" || bad "vakra-main/.venv missing"
 for t in "${TASKS[@]}"; do
     case "$t" in 1) d=capability_1_bi_apis;; 2) d=capability_2_dashboard_apis;; 3) d=capability_3_multihop_reasoning;; *) d="";; esac

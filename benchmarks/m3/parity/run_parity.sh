@@ -65,6 +65,7 @@ for a in ${ARMS//,/ }; do
     [ "$_f" = "1" ] && ANY_FC=1
 done
 export PARITY_FC="$ANY_FC"   # preflight: require native FC when any arm uses it
+case ",$ARMS," in *,vakra_main_*) export PARITY_OTHER_STACK=1;; esac   # preflight: require .venv-cuga
 
 echo "== parity run $RUN_ID: subset=$SUBSET arms=$ARMS temperature=$TEMP fc=$FC (arms ending in _fc: FC on) =="
 if [ "$DRY" = "1" ]; then
