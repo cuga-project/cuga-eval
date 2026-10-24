@@ -410,3 +410,81 @@ async def test_a_reask_cut_by_the_timeout_answers_with_the_earlier_draft():
     assert out.answer == "42" and out.tool_calls == [{"name": "d_get_x", "arguments": {}}]
     with pytest.raises(TimeoutError):  # off: the task fails empty, as before
         await _agent(base, _HangingFollowUp()).invoke("q", thread_id="t")
+
+
+# ---------------- answer composer + cap1 getter rule ----------------
+
+LIST_CALL = {
+    "tool_name": "get_store_names",
+    "arguments": {"state": "OH"},
+    "result": '{"names": ["Akron East", "Dayton", "Toledo North"]}',
+    "result_full": '{"names": ["Akron East", "Dayton", "Toledo North"]}',
+}
+
+
+async def test_composer_completes_a_list_from_the_full_results():
+    prompts = []
+    out = await run_answer_pipeline(
+        _rounds()[0],
+        _result("Akron East, Dayton, ..."),
+        AdapterConfig(answer_composer=True),
+        TaskContext(),
+        [LIST_CALL],
+        _checker("Final answer: Akron East, Dayton, Toledo North", prompts),
+        question="List the stores in Ohio.",
+    )
+    assert out == "Akron East, Dayton, Toledo North"
+    assert "List the stores in Ohio." in prompts[0] and "Toledo North" in prompts[0]
+
+
+async def test_composer_answers_a_refusal_when_a_result_holds_the_value():
+    out = await run_answer_pipeline(
+        _rounds()[0],
+        _result("I can not answer."),
+        AdapterConfig(answer_composer=True),
+        TaskContext(),
+        [OK_CALL],
+        _checker("42"),
+        question="What is x?",
+    )
+    assert out == "42"
+
+
+async def test_composer_keeps_the_draft_on_keep_or_an_unsupported_value():
+    for reply in ("KEEP", "Final answer: 43"):  # 43 appears in no tool result
+        out = await run_answer_pipeline(
+            _rounds()[0],
+            _result("42"),
+            AdapterConfig(answer_composer=True),
+            TaskContext(),
+            [OK_CALL],
+            _checker(reply),
+            question="What is x?",
+        )
+        assert out == "42"
+
+
+async def test_composer_stands_aside_when_a_result_is_too_long_to_copy():
+    long_call = dict(OK_CALL, result_full="x" * 50)
+    prompts = []
+    out = await run_answer_pipeline(
+        _rounds()[0],
+        _result("42"),
+        AdapterConfig(answer_composer=True, composer_result_chars=10),
+        TaskContext(),
+        [long_call],
+        _checker("99", prompts),
+        question="What is x?",
+    )
+    assert out == "42" and prompts == []  # no LLM call made
+
+
+def test_cap1_getter_rule_is_added_only_for_cap1_when_enabled():
+    from benchmarks.m3.adapter.instructions import CAP1_GETTER_RULE, compose_instruction_block
+
+    on = AdapterConfig(enabled=True, capability=1, cap1_getter_rule=True)
+    assert CAP1_GETTER_RULE in compose_instruction_block(on, TaskContext())
+    assert CAP1_GETTER_RULE not in compose_instruction_block(replace(on, capability=2), TaskContext())
+    assert CAP1_GETTER_RULE not in compose_instruction_block(
+        replace(on, cap1_getter_rule=False), TaskContext()
+    )

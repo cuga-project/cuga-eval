@@ -129,6 +129,14 @@ class AdapterConfig:
     # cap1: call retrieve_data / aggregate_data / compute_data_* with distinct=False. The train ground
     # truth keeps duplicates in ~94% of those calls; our agent deduplicated in 42% of retrieve_data calls.
     force_distinct_false: bool = False
+    # cap1: tell the agent that filter/sort/retrieve results are handles with a 3-value preview, and that
+    # a column's full values come from its get_<Table>_<Column> tool (list questions passed 2/22 on train).
+    cap1_getter_rule: bool = False
+    # Answer composer: one LLM pass after CUGA answers, over the question + every tool result (full, up to
+    # composer_result_chars each; skipped when one is longer) that writes the answer in the benchmark's form.
+    # Kept only when every value it states appears in the tool results or the question.
+    answer_composer: bool = False
+    composer_result_chars: int = 30000
     # "sdk": CUGA's embedding strategy (embeds name + description + params + returns);
     # "campaign": vakra-main ToolShortlister as an SDK strategy ("name: description", query_* pinned)
     shortlist_strategy: str = "sdk"

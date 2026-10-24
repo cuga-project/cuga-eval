@@ -44,6 +44,15 @@ CAP1_PROTOCOL = (
     "step. Use the minimum number of calls; never repeat a call that succeeded."
 )
 
+# cap1_getter_rule — handles carry only a preview; a column's values come from its getter tool.
+CAP1_GETTER_RULE = (
+    "READING VALUES (mandatory): filter/select/sort/retrieve tools return a HANDLE whose "
+    "'first_3_values' is only a 3-value preview, never the answer when more values exist. To read "
+    "the values of a column, call that column's get_<Table>_<Column> tool with data_label=<the handle>: "
+    "it returns every value of the column for that handle, in order. Answer a list question with that "
+    "complete output (narrow the handle first, or use truncate, for a top-N). Never answer from the preview."
+)
+
 # VAKRA_CUGA_CAP2_VERBATIM — verbatim-relay rule for single-tool dashboard queries.
 CAP2_VERBATIM_RULE = (
     "ANSWER RULE: Call the single most specific tool that answers the question, then "
@@ -146,6 +155,8 @@ def compose_instruction_block(cfg: AdapterConfig, ctx: TaskContext) -> str:
     if cfg.cap1_protocol and cfg.capability == 1:
         handle_info = build_handle_info(ctx.initial_data_handle, ctx.initial_data_peek)
         parts.append((handle_info + "\n\n" + CAP1_PROTOCOL) if handle_info else CAP1_PROTOCOL)
+    if cfg.cap1_getter_rule and cfg.capability == 1:
+        parts.append(CAP1_GETTER_RULE)
     if cfg.cap2_verbatim and cfg.capability == 2:
         parts.append(CAP2_VERBATIM_RULE)
     return "\n\n".join(p for p in parts if p)

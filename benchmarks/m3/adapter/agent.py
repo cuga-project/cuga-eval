@@ -420,6 +420,7 @@ def recording_provider(base_provider: Any, cfg: AdapterConfig) -> RecordingScope
     )
     provider.lowercase_retry = cfg.lowercase_retry
     provider.force_distinct_false = cfg.force_distinct_false
+    provider.keep_full_results = cfg.composer_result_chars if cfg.answer_composer else 0
     return provider
 
 

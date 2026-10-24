@@ -281,6 +281,7 @@ class RecordingScopedToolProvider:
         self.force_distinct_false = (
             False  # cap1 data tools: keep duplicate rows (the ground truth's convention)
         )
+        self.keep_full_results = 0  # > 0: also keep each result up to this many chars (answer composer)
         self.recorded_calls: List[dict] = []  # cleared by the agent wrapper per task
         self.scope: str = "all"  # set by the agent wrapper per invoke
 
@@ -401,6 +402,8 @@ class RecordingScopedToolProvider:
                             result = retried
                             record["arguments"] = dict(lowered)
                 record["result"] = str(result)[:RESULT_MAX_CHARS]
+                if provider.keep_full_results:  # one char over the limit marks a result too long to copy
+                    record["result_full"] = str(result)[: provider.keep_full_results + 1]
                 if provider.on_failure is not None and (is_empty_result(result) or looks_like_error(result)):
                     provider.on_failure()
                 if hint_empty and (isinstance(result, str) or hint_any_type) and is_empty_result(result):

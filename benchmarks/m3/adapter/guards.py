@@ -96,6 +96,68 @@ _FACT_CHECK_PROMPT = (
     "that appear in the tool results; give the bare value(s), no explanation.\n"
     "MISSING: <what is still needed> — if the tool results do not contain what the question asks."
 )
+COMPOSER_PROMPT = """You write the FINAL ANSWER to a database question from the tool results an agent obtained.
+The answer is graded against the expected value(s), so it must contain exactly the requested values.
+
+Rules:
+1. Bare value(s) only: no sentence, no explanation, no markdown, no labels.
+2. Copy every value EXACTLY as the tool results show it (spelling, case, number format, full precision).
+   Never round, re-type from memory, convert units (1.0 stays 1.0, 100 stays 100) or invent a value.
+3. A list question: give ALL items of the tool result that answers it, in its order, comma-separated,
+   keeping duplicates. Never truncate or write "...".
+4. Several things asked: give each requested value, in the order asked, comma-separated.
+5. Nothing extra: no ids, names or fields the question did not ask for.
+6. If a tool result answers the question, answer it even when other calls failed or returned nothing.
+7. Only if no tool result contains the answer, reply exactly: KEEP
+
+Examples (illustrative):
+Q: How many orders did customer 17 place in 2015?
+Results: 1. get_order_count(customer_id=17, year=2015) -> {{"count": 4}}
+Draft: The customer placed 4 orders in 2015.
+Final answer: 4
+
+Q: List the names of the stores in Ohio.
+Results: 1. get_store_names(state="OH") -> {{"names": ["Akron East", "Dayton", "Toledo North"]}}
+Draft: Akron East, Dayton, ...
+Final answer: Akron East, Dayton, Toledo North
+
+Q: Which product sold the most, and how many units?
+Results: 1. get_top_product() -> {{"product": "Desk Lamp", "units": 1250}}
+Draft: Desk Lamp
+Final answer: Desk Lamp, 1250
+
+Q: What share of tickets were resolved in March?
+Results: 1. get_ticket(id=9) -> {{"rows": []}}  2. get_resolved_share(month="March") -> {{"share": 0.4375}}
+Draft: I can not answer.
+Final answer: 0.4375
+
+Now the task.
+Q: {question}
+Results:
+{calls}
+Draft: {answer}
+Final answer:"""
+
+
+def format_full_evidence(recorded_calls: List[dict], limit: int) -> Optional[str]:
+    """The successful calls with their FULL results (last 20); None when one result exceeds ``limit``."""
+    lines = []
+    for i, c in enumerate(_successful_calls(recorded_calls)[-FACT_CHECK_MAX_CALLS:], start=1):
+        full = str(c.get("result_full", c.get("result", "")))
+        if len(full) > limit:
+            return None
+        args = json.dumps(c.get("arguments") or {}, ensure_ascii=False, default=str)[:300]
+        lines.append(f"{i}. {c.get('tool_name')}({args}) -> {full}")
+    return "\n".join(lines)
+
+
+def parse_composed(text: str) -> str:
+    """The composer's answer: the reply after any 'Final answer:' label, trimmed."""
+    t = strip_channel_tokens(str(text or "")).strip()
+    m = re.search(r"(?is)final answer\s*:\s*(.+)$", t)
+    return (m.group(1) if m else t).strip().strip("`").strip()
+
+
 FACT_CHECK_RETRY = (
     "Your answer is not supported by the tool results yet: {need} Call the tool(s) needed to "
     "obtain it, then give the final answer based strictly on their output."
@@ -353,6 +415,48 @@ async def run_answer_pipeline(
             if follow_up is None:
                 break
             result, answer = follow_up, draft_of(follow_up)
+
+    # 1d3. Answer composer: one LLM pass over the question + every FULL tool result writes the answer in
+    # the benchmark's form (bare values, exact copies, every list item / requested part, no refusal when a
+    # result answers). Kept only when every value it states is found in the results or the question.
+    if cfg.answer_composer and llm_ainvoke is not None and _successful_calls(recorded_calls):
+        evidence = format_full_evidence(recorded_calls, cfg.composer_result_chars)
+        if evidence is None:
+            logger.info(
+                "[m3-adapter composer] skipped: a tool result is longer than {} chars",
+                cfg.composer_result_chars,
+            )
+        else:
+            try:
+                composed = parse_composed(
+                    await llm_ainvoke(
+                        COMPOSER_PROMPT.format(
+                            question=question or "(see the tool calls)", calls=evidence, answer=answer[:4000]
+                        )
+                    )
+                )
+            except Exception as exc:  # noqa: BLE001  (the composer is best-effort)
+                logger.warning("[m3-adapter composer] failed ({}); keeping the draft", exc)
+                composed = ""
+            if composed and composed.upper() != "KEEP":
+                pool = (
+                    (question or "")
+                    + " "
+                    + " ".join(
+                        str(c.get("result_full", c.get("result", "")))
+                        for c in _successful_calls(recorded_calls)
+                    )
+                )
+                missing = unsupported_values(composed, pool)
+                if missing:
+                    logger.info(
+                        "[m3-adapter composer] kept the draft: {} not in the tool results", missing[:3]
+                    )
+                else:
+                    new = canonicalize_final_answer(composed) if cfg.canonicalize else composed
+                    if new != answer:
+                        logger.info("[m3-adapter composer] rewrote {!r} -> {!r}", answer[:80], new[:80])
+                    answer = new
 
     # 1d2. Values check (deterministic): a draft stating a value no tool returned (and the question
     # does not state) is re-asked once. A re-ask that ends empty or in a give-up keeps the draft.
