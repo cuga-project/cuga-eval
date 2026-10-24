@@ -193,7 +193,7 @@ class AdapterConfig:
     # The demos show each solved example's reply as "Chain used: <tools>\nFinal answer: <value>". A model that
     # copies the layout (GLM-5.3-Flash: 77/120 cap3 answers) has correct values failed by the groundedness
     # judge, which reads the tool chain as unsupported claims; the final_answer fn keeps only the text after
-    # the last "Final answer:" label. gpt-oss never wrote the layout (0/354 answers, caps 1-3).
+    # the last "Final answer:" label. gpt-oss never wrote the layout (0/354 answers, caps 1-3). On in cap1-cap3.
     strip_demo_layout: bool = False
     # Two-stage tool narrowing (single-tool tasks, cap2): cosine top-``tool_pick_pool``, then one LLM
     # call picks THE tool; only the first ``tool_pick_bind`` of [pick, runner-up, cosine order] are
@@ -314,6 +314,9 @@ _CAP4_V3WX = AdapterConfig(
 #: lowercase values; earlier draft on a re-ask timeout: 2 cap4 tasks) with no attributable loss.
 #: fact_check_strict stays off (no attributable gain, one probable cap4 loss).
 _REVIEW_FIXES = dict(lowercase_retry=True, keep_draft_on_timeout=True)
+# caps 1-3 show demos: a reply copied in their layout is cut to its final answer (a no-op for gpt-oss,
+# which never writes it; GLM-5.3-Flash cap2 56.8 -> 73.0 re-judged, live 30-task 46.7 -> 73.3).
+_DEMO_FIXES = dict(strip_demo_layout=True)
 
 PRESETS: dict[str, AdapterConfig] = {
     "off": AdapterConfig(),
@@ -333,6 +336,7 @@ PRESETS: dict[str, AdapterConfig] = {
         shortlist_top_k=128,
         **_FC_CANON_RUNTIME,  # the official cap1 run: fc_canon_proto_test.sh (protocol + re-list)
         **_REVIEW_FIXES,
+        **_DEMO_FIXES,
     ),
     # Defaults: the campaign configs plus the changes that won paired A/Bs on two disjoint
     # train slices each (parity kit, 2026-10-15/17; benchmarks/m3/ADAPTER.md "Defaults").
@@ -351,9 +355,10 @@ PRESETS: dict[str, AdapterConfig] = {
         empty_result_hint=True,  # no rows -> the data's value conventions (+3.5 pts)
         param_value_examples=6,
         **_REVIEW_FIXES,
+        **_DEMO_FIXES,
     ),
     "cap3": replace(
-        _CAP3_CAMPAIGN, preset="cap3", fact_check="verify_and_retry", **_REVIEW_FIXES
+        _CAP3_CAMPAIGN, preset="cap3", fact_check="verify_and_retry", **_REVIEW_FIXES, **_DEMO_FIXES
     ),  # +10 / +13
     "cap4": replace(
         _CAP4_V3WX,

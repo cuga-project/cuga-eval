@@ -302,8 +302,10 @@ def test_execution_mode_configurable_mapping():
 
 def test_defaults_are_the_campaign_configs_plus_the_ab_winners():
     """cap1 is the campaign's config; cap2-cap4 add only what won paired A/Bs (ADAPTER.md "Defaults");
-    all four carry the two review fixes (lowercase retry, earlier draft on a re-ask timeout)."""
+    all four carry the two review fixes (lowercase retry, earlier draft on a re-ask timeout), and caps 1-3,
+    which show demos, cut a reply copied in the demos' layout to its final answer."""
     FIXES = dict(lowercase_retry=True, keep_draft_on_timeout=True)
+    DEMO_FIXES = dict(strip_demo_layout=True)
     assert PRESETS["cap2"] == replace(
         PRESETS["cap2_campaign"],
         preset="cap2",
@@ -317,9 +319,10 @@ def test_defaults_are_the_campaign_configs_plus_the_ab_winners():
         empty_result_hint=True,
         param_value_examples=6,
         **FIXES,
+        **DEMO_FIXES,
     )
     assert PRESETS["cap3"] == replace(
-        PRESETS["cap3_campaign"], preset="cap3", fact_check="verify_and_retry", **FIXES
+        PRESETS["cap3_campaign"], preset="cap3", fact_check="verify_and_retry", **FIXES, **DEMO_FIXES
     )
     assert PRESETS["cap4"] == replace(
         PRESETS["cap4_v3wx"],
@@ -335,6 +338,7 @@ def test_defaults_are_the_campaign_configs_plus_the_ab_winners():
     )
     cap1 = PRESETS["cap1"]
     assert cap1.lowercase_retry and cap1.keep_draft_on_timeout and not cap1.fact_check_strict
+    assert cap1.strip_demo_layout and not PRESETS["cap4"].strip_demo_layout
     assert not any(PRESETS[p].lowercase_retry for p in ("off", "cap2_campaign", "cap3_campaign", "cap4_v3wx"))
     cap4 = PRESETS["cap4"]  # every tool (beat the top-40) unless the catalog is too big to show whole
     assert (cap4.prefilter_top_k, cap4.prefilter_min_tools, cap4.tool_pick) == (40, 400, False)

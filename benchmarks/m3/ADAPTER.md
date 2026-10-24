@@ -55,6 +55,7 @@ available for parity runs as `cap2_campaign`, `cap3_campaign` and `cap4_v3wx`; `
 | `cap3` | `fact_check="verify_and_retry"` | est3_ref30 50.0 → 60.0; est3_fresh30 43.3 → 56.7 (campaign 53.6 / 56.7) |
 | `cap4` | soft2 (`evidence_gate`, `support_check`, `self_verify` off; `require_tool_rounds=2`) + `fact_check="verify_and_retry"` | est4_ref30 66.7 vs V3WX answers 46.7 |
 | `cap4` | `prefilter_top_k=40` + `prefilter_min_tools=400`: every tool, unless a domain has more than 400 — then the campaign's per-turn top-40 | the test split's movie domain (707 tools) built a 534k-character CodeAct prompt, over the 131k-token context on all 14 tasks; the campaign answered them with its top-40. No train domain reaches 400 tools, so the validated runs are unchanged |
+| `cap1`–`cap3` | `strip_demo_layout`: a reply copied in the demos' layout (`Chain used: <tools>` / `Final answer: X`) is cut to `X` in the final_answer fn (and a fact-check correction) | none of gpt-oss's answers change on caps 1-4 (a no-op for the validated runs). GLM-5.3-Flash wrote the layout in 20/119 cap1, 51/115 cap2 and 77/120 cap3 answers and the groundedness judge failed correct values for the tool chain; re-judged after the cut: cap2 56.8 → 73.0, cap3 42.0 → 58.0, cap1 neutral; live on est2_ref30: 46.7 → 73.3 (8 gained, 0 lost) |
 | all four | `lowercase_retry` (a call with no rows or only zeros is retried once with lowercased text arguments) + `keep_draft_on_timeout` (a re-ask cut by `agent_timeout` answers with the earlier draft) | four-cap A/B on the campaign samples (2026-10-19): the tasks they changed were gains — lowercase 4 (stored lowercase values, caps 2-4), earlier draft 2 (cap4 timeouts) — with no attributable loss |
 
 Tried and not adopted:
@@ -77,13 +78,6 @@ Tried and not adopted:
 - `plan_text_gate` (re-ask a draft that is working notes): fired twice on cap2 and turned the notes into a
   refusal; 12 tasks gained and 12 lost — no measurable effect.
 
-Opt-in, not in a preset yet:
-- `strip_demo_layout`: a reply copied in the demos' layout (`Chain used: <tools>` / `Final answer: X`) is cut
-  to `X` in the final_answer fn, and so is a fact-check correction. With GLM-5.3-Flash as the agent model, that
-  layout appeared in 20/119 cap1, 51/115 cap2 and 77/120 cap3 answers, and the groundedness judge failed
-  correct values for the tool chain. GLM's cap3 answers, re-judged after this cut, went from 42.0 to 58.0
-  (gpt-oss 59.2). gpt-oss never writes the layout: none of its answers change on caps 1-4, so the validated
-  runs are unaffected. Kit variant: `strip_demo_layout`.
 
 ## Presets
 

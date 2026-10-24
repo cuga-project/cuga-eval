@@ -163,11 +163,12 @@ def test_strip_demo_layout_leaves_other_text_alone(text):
 
 def test_final_answer_fn_strips_the_demo_layout_only_when_enabled():
     raw = "Chain used: get_x({id: 1})\nFinal answer: [[736]]"
-    assert "Chain used" in make_final_answer_fn(PRESETS["cap3"])(raw)
-    assert make_final_answer_fn(replace(PRESETS["cap3"], strip_demo_layout=True))(raw) == "736"
+    assert "Chain used" in make_final_answer_fn(replace(PRESETS["cap3"], strip_demo_layout=False))(raw)
+    assert make_final_answer_fn(PRESETS["cap3"])(raw) == "736"
 
 
-def test_strip_demo_layout_is_opt_in():
-    assert not any(cfg.strip_demo_layout for cfg in PRESETS.values())
-    env = {"M3_ADAPTER_STRIP_DEMO_LAYOUT": "true"}
-    assert resolve_adapter_config("cap3", env=env).strip_demo_layout
+def test_strip_demo_layout_is_on_in_the_presets_that_show_demos():
+    assert {name for name, cfg in PRESETS.items() if cfg.strip_demo_layout} == {"cap1", "cap2", "cap3"}
+    assert all(PRESETS[name].demos for name in ("cap1", "cap2", "cap3"))
+    env = {"M3_ADAPTER_STRIP_DEMO_LAYOUT": "false"}
+    assert not resolve_adapter_config("cap3", env=env).strip_demo_layout
