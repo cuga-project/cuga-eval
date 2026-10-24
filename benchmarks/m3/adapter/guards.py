@@ -103,8 +103,9 @@ Rules:
 1. Bare value(s) only: no sentence, no explanation, no markdown, no labels.
 2. Copy every value EXACTLY as the tool results show it (spelling, case, number format, full precision).
    Never round, re-type from memory, convert units (1.0 stays 1.0, 100 stays 100) or invent a value.
-3. A list question: give ALL items of the tool result that answers it, in its order, comma-separated,
-   keeping duplicates. Never truncate or write "...".
+3. A list question: give ALL items of the tool result that answers it, in its order, comma-separated.
+   Never truncate or write "...". Write a repeated value once, unless the question asks for one value
+   per row/record (e.g. "the date of each order").
 4. Several things asked: give each requested value, in the order asked, comma-separated.
 5. Nothing extra: no ids, names or fields the question did not ask for.
 6. If a tool result answers the question, answer it even when other calls failed or returned nothing.
