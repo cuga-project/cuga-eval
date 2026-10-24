@@ -36,4 +36,7 @@ git -C "$ROOT" diff --quiet -- uv.lock || {
 (cd "$ROOT" && env -u VIRTUAL_ENV UV_PROJECT_ENVIRONMENT="$VENV" uv sync --frozen --group dev)
 [ -z "$OVERRIDES" ] || uv pip install --python "$VENV/bin/python" --no-deps -r "$OVERRIDES"
 uv pip install --python "$VENV/bin/python" --no-deps -e "$WT"
+# The adapter's MiniLM ranking (demos, tool pick) needs these to import: a transformers/tokenizers mismatch only
+# logged "skipping demos" per task (2026-10-24, Linux).
+"$VENV/bin/python" -c "import transformers, sentence_transformers" || { echo "transformers does not import in $VENV" >&2; exit 1; }
 (cd "$ROOT" && env -u VIRTUAL_ENV UV_PROJECT_ENVIRONMENT="$VENV" uv run --no-sync python -m benchmarks.m3.parity.cuga_identity)
