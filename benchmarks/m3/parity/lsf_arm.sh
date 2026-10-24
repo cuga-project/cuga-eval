@@ -28,8 +28,9 @@ read -r TASK CTR DOMS <<<"$(python3 -c "import json,sys; m=json.load(open(sys.ar
 say() { echo "[lsf_arm] $(date '+%F %T') $*"; }
 
 W="${VAKRA_WORK_BASE:-/tmp}/${USER}-vakra-${LSB_JOBID:-$$}"
-mkdir -p "$W/xdg" "$W/cfg/containers" "$W/storage" "$W/run"; chmod 700 "$W/xdg"
-export XDG_RUNTIME_DIR="$W/xdg" XDG_CONFIG_HOME="$W/cfg"
+mkdir -p "$W/xdg" "$W/cfg/containers" "$W/cache" "$W/storage" "$W/run"; chmod 700 "$W/xdg"
+# podman keeps locks in XDG_CACHE_HOME too: a home on shared storage refused them (permission denied).
+export XDG_RUNTIME_DIR="$W/xdg" XDG_CONFIG_HOME="$W/cfg" XDG_CACHE_HOME="$W/cache"
 # Config files rather than flags, so the kit's plain `docker ...` / `podman ...` calls get them too.
 printf '[engine]\ncgroup_manager = "cgroupfs"\nevents_logger = "file"\n' > "$W/cfg/containers/containers.conf"
 printf '[storage]\ndriver = "overlay"\ngraphroot = "%s"\nrunroot = "%s"\n[storage.options]\nignore_chown_errors = "true"\n' \
@@ -42,6 +43,9 @@ cleanup() {
     rm -rf "$W"
 }
 trap cleanup EXIT
+# The first podman call starts the rootless pause process, which inherits that call's output: with the job's
+# stdout it kept the job running after the script ended. Start it with no inherited output.
+podman info >/dev/null 2>&1 </dev/null
 say "node $(hostname -s): $SUBSET (task $TASK, ${DOMS//+/ }), preset $PRESET fc=$FC${VARIANT:+ variant $VARIANT}"
 
 podman load -q -i "$VAKRA_IMAGE_TAR" >/dev/null || { echo "podman load failed" >&2; exit 3; }
