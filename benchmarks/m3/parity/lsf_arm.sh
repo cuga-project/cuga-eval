@@ -67,6 +67,12 @@ for _ in $(seq 1 60); do podman logs --tail 3 "$CTR" 2>&1 | grep -q "ready for e
 say "container $CTR up"
 
 export VAKRA_MAIN="$VM"
+# Subsets on vakra-main data read a converted copy (as run_parity.sh prepares it); cheap and idempotent.
+LOCAL_DATA=$(python3 -c "import json,sys;v=json.load(open(sys.argv[1])).get('m3_data','');print(v[6:] if v.startswith('local:') else '')" "$MAN")
+if [ -n "$LOCAL_DATA" ]; then
+    (cd "$ROOT" && UV_PROJECT_ENVIRONMENT="${PARITY_VENV:?}" uv run --frozen --no-sync python -m benchmarks.m3.parity.prepare_vakra_train \
+        --manifest "$MAN" --vakra-main "$VM" --out "$PARITY_DIR/.local/$LOCAL_DATA") >/dev/null || { echo "prepare failed" >&2; exit 3; }
+fi
 (
     source "$PARITY_DIR/env.sh" "${PARITY_TEMPERATURE:-1.0}" || exit 1
     PARITY_FC="$FC" bash "$PARITY_DIR/preflight.sh" "$TASK" || exit 1
