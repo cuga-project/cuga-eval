@@ -109,6 +109,13 @@ for _ in $(seq 1 60); do podman logs --tail 3 "$CTR" 2>&1 | grep -q "ready for e
 say "container $CTR up"
 
 export VAKRA_MAIN="$VM"
+# LSF packs several jobs onto one node: with env.sh's default (first free port from 18001) they all took 18001, and
+# eval.sh frees its registry port by killing whatever holds it, i.e. another job's registry. One port per job id.
+if [ -z "${PARITY_REGISTRY_PORT:-}" ]; then
+    port=$((20000 + ${LSB_JOBID:-$$} % 20000))
+    while lsof -nP -iTCP:"$port" -sTCP:LISTEN >/dev/null 2>&1; do port=$((port + 1)); done
+    export PARITY_REGISTRY_PORT=$port
+fi
 # Subsets on vakra-main data read a converted copy (as run_parity.sh prepares it); cheap and idempotent.
 LOCAL_DATA=$(python3 -c "import json,sys;v=json.load(open(sys.argv[1])).get('m3_data','');print(v[6:] if v.startswith('local:') else '')" "$MAN")
 if [ -n "$LOCAL_DATA" ]; then
