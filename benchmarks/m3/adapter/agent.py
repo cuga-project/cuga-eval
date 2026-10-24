@@ -419,6 +419,7 @@ def recording_provider(base_provider: Any, cfg: AdapterConfig) -> RecordingScope
         hint_non_string_results=cfg.execution_mode == "function_calling",
     )
     provider.lowercase_retry = cfg.lowercase_retry
+    provider.force_distinct_false = cfg.force_distinct_false
     return provider
 
 

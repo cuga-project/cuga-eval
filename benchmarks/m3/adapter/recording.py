@@ -41,6 +41,7 @@ import ast
 import asyncio
 import functools
 import json
+import re
 from typing import Any, Callable, Dict, List, Optional, Tuple
 
 from langchain_core.tools import StructuredTool
@@ -216,6 +217,19 @@ def is_empty_or_zero(result: Any) -> bool:
     return _all_zero(result)
 
 
+#: cap1 data tools that take ``distinct``; the train ground truth keeps duplicates in ~94% of their calls.
+_DISTINCT_TOOLS = re.compile(r"retrieve_data|aggregate_data|compute_data_\w+")
+
+
+def without_distinct(name: str, call_kwargs: Dict[str, Any]) -> Optional[Dict[str, Any]]:
+    """``call_kwargs`` with ``distinct`` set to False for a cap1 data tool, or None when nothing changes."""
+    if not _DISTINCT_TOOLS.fullmatch(name.rsplit("__", 1)[-1]) or "distinct" not in call_kwargs:
+        return None
+    if call_kwargs["distinct"] in (False, None) or str(call_kwargs["distinct"]).lower() == "false":
+        return None
+    return dict(call_kwargs, distinct=False)
+
+
 def lowercased_args(call_kwargs: Dict[str, Any]) -> Optional[Dict[str, Any]]:
     """The arguments with every text value lowercased; None when nothing would change."""
     lowered = {k: v.lower() if isinstance(v, str) else v for k, v in call_kwargs.items()}
@@ -264,6 +278,9 @@ class RecordingScopedToolProvider:
         self.on_failure: Optional[Callable[[], None]] = None
         self.api_timeout_retries = API_TIMEOUT_RETRIES
         self.lowercase_retry = False  # retry an empty/zero call once with lowercased text arguments
+        self.force_distinct_false = (
+            False  # cap1 data tools: keep duplicate rows (the ground truth's convention)
+        )
         self.recorded_calls: List[dict] = []  # cleared by the agent wrapper per task
         self.scope: str = "all"  # set by the agent wrapper per invoke
 
@@ -364,6 +381,11 @@ class RecordingScopedToolProvider:
                     f"Tool-call cap reached ({cap}); stop looping and answer from data already retrieved."
                 )
             call_kwargs = merge_call_args(args, kwargs, param_names)
+            if provider.force_distinct_false:
+                kept = without_distinct(name, call_kwargs)
+                if kept is not None:
+                    logger.info("[m3-adapter distinct] {}: distinct=True -> False", name)
+                    call_kwargs = kept
             record = {"tool_name": name, "arguments": dict(call_kwargs), "result": ""}
             sink.append(record)
             try:

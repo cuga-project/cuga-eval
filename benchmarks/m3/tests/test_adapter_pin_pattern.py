@@ -84,3 +84,17 @@ def test_the_knob_selects_the_pinned_strategy_and_no_preset_pins_yet(monkeypatch
     assert sl.MiniLMPinnedStrategy.pin_pattern == CAP1_DATA_TOOLS_PATTERN
     assert sl.MiniLMPinnedStrategy.pin_retrievers is False
     assert sl.build_shortlister(PRESETS["cap1"]).strategy == "embedding"  # the preset as shipped: unchanged
+
+
+def test_force_distinct_false_rewrites_only_cap1_data_tools():
+    from benchmarks.m3.adapter.recording import without_distinct
+
+    assert without_distinct("retrieve_data", {"key_name": "x", "distinct": True}) == {
+        "key_name": "x",
+        "distinct": False,
+    }
+    assert without_distinct("compute_data_count", {"distinct": "true"}) == {"distinct": False}
+    assert without_distinct("aggregate_data", {"distinct": False}) is None  # already False: untouched
+    assert without_distinct("retrieve_data", {"key_name": "x"}) is None  # no distinct argument
+    assert without_distinct("get_PlayerInfo_PlayerNames", {"distinct": True}) is None  # not a data tool
+    assert PRESETS["cap1"].force_distinct_false is False  # opt-in until the A/B

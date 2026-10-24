@@ -126,6 +126,9 @@ class AdapterConfig:
     # Only acts when the catalog exceeds the bind cap (128): a cap1 test domain re-listing 151-436 tools
     # otherwise loses the generic data tools every chain needs (see CAP1_DATA_TOOLS_PATTERN).
     shortlist_pin_pattern: str = ""
+    # cap1: call retrieve_data / aggregate_data / compute_data_* with distinct=False. The train ground
+    # truth keeps duplicates in ~94% of those calls; our agent deduplicated in 42% of retrieve_data calls.
+    force_distinct_false: bool = False
     # "sdk": CUGA's embedding strategy (embeds name + description + params + returns);
     # "campaign": vakra-main ToolShortlister as an SDK strategy ("name: description", query_* pinned)
     shortlist_strategy: str = "sdk"
