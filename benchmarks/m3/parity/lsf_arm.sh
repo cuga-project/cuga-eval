@@ -1,7 +1,10 @@
 #!/usr/bin/env bash
 # One parity arm inside a cluster job (LSF or any batch node with rootless podman), then its scoring.
 # usage (as the job's command): bash benchmarks/m3/parity/lsf_arm.sh <run_id> <subset> <preset> [--fc 0|1]
-#          [--variant NAME] [--no-score]
+#          [--variant NAME] [--shard I/N] [--no-score] [--recover]
+# --shard I/N: run only the I-th of N domain groups (balanced by task count) into the same run folder, without
+#   scoring; N such jobs then one job without --shard (all domains already done: it only scores) fill a run.
+# --recover: after scoring, the kit's recovery pass for tasks that died on infrastructure, then a re-score.
 # Needs: VAKRA_SHARED (a setup_vakra.sh folder with --steps code,evaluator,data --data train,universes on shared
 # storage), VAKRA_IMAGE_TAR (setup_vakra.sh image step's VAKRA_IMAGE_TAR), and the usual PARITY_KEY / PARITY_VENV /
 # PARITY_MODEL / PARITY_APPWORLD_ENV. PARITY_JUDGE_MODEL is the judge (default azure/gpt-oss-120b, set explicitly:
@@ -13,17 +16,46 @@
 set -uo pipefail
 PARITY_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"; ROOT="$(cd "$PARITY_DIR/../../.." && pwd)"
 RUN_ID="${1:?run_id}"; SUBSET="${2:?subset}"; PRESET="${3:?preset}"; shift 3
-FC=0; VARIANT=""; SCORE=1
+FC=0; VARIANT=""; SCORE=1; SHARD=""; RECOVER=0
 while [ $# -gt 0 ]; do
     case "$1" in
         --fc) FC="$2"; shift 2;;
         --variant) VARIANT="$2"; shift 2;;
+        --shard) SHARD="$2"; SCORE=0; shift 2;;
         --no-score) SCORE=0; shift;;
+        --recover) RECOVER=1; shift;;
         *) echo "unknown flag $1" >&2; exit 2;;
     esac
 done
 : "${VAKRA_SHARED:?set VAKRA_SHARED}" "${VAKRA_IMAGE_TAR:?set VAKRA_IMAGE_TAR}"
 MAN="$PARITY_DIR/manifests/$SUBSET.json"; [ -f "$MAN" ] || { echo "no manifest $MAN" >&2; exit 2; }
+if [ -n "$SHARD" ]; then
+    # A sub-subset of the I-th domain group, written the way recover.py writes recovery subsets: a manifest and
+    # uuid map in manifests/ (zz_*) and the eval key in a TOML that M3_EVAL_CONFIG_EXTRA points eval_m3 at.
+    SH="zz_shard_$(printf '%s' "$RUN_ID" | tr -c 'A-Za-z0-9' _)_${SHARD%/*}of${SHARD#*/}"
+    python3 - "$PARITY_DIR" "$SUBSET" "${SHARD%/*}" "${SHARD#*/}" "$SH" <<'PY' || { echo "shard setup failed" >&2; exit 2; }
+import json, os, sys
+
+pdir, base, i, n, name = sys.argv[1], sys.argv[2], int(sys.argv[3]), int(sys.argv[4]), sys.argv[5]
+man = json.load(open(f"{pdir}/manifests/{base}.json"))
+umap = json.load(open(f"{pdir}/manifests/uuid_map_{base}.json"))
+loads, parts = [0] * n, [[] for _ in range(n)]
+for dom, ids in sorted(man["ids_by_domain"].items(), key=lambda kv: (-len(kv[1]), kv[0])):
+    j = min(range(n), key=lambda k: (loads[k], k))
+    parts[j].append(dom)
+    loads[j] += len(ids)
+keep = {d: man["ids_by_domain"][d] for d in sorted(parts[i - 1])}
+ids = {u.lower() for v in keep.values() for u in v}
+json.dump(dict(man, subset=name, n=len(ids), ids_by_domain=keep), open(f"{pdir}/manifests/{name}.json", "w"), indent=1)
+zmap = {k: v for k, v in umap.get("zip_to_vakra", {}).items() if k.lower() in ids}
+json.dump(dict(umap, subset=name, zip_to_vakra=zmap), open(f"{pdir}/manifests/uuid_map_{name}.json", "w"), indent=1)
+os.makedirs(f"{pdir}/.local/shards", exist_ok=True)
+with open(f"{pdir}/.local/shards/{name}.toml", "w") as f:
+    f.write(f"{name} = [\n" + "".join(f'  "{u}",\n' for v in keep.values() for u in v) + "]\n")
+PY
+    export M3_EVAL_CONFIG_EXTRA="$PARITY_DIR/.local/shards/$SH.toml" PARITY_WORKER="shard${SHARD%/*}"
+    SUBSET="$SH"; MAN="$PARITY_DIR/manifests/$SUBSET.json"
+fi
 read -r TASK CTR DOMS <<<"$(python3 -c "import json,sys; m=json.load(open(sys.argv[1])); print(m['task_id'], m['capability_dir'], '+'.join(sorted(m['ids_by_domain'])))" "$MAN")"
 say() { echo "[lsf_arm] $(date '+%F %T') $*"; }
 
@@ -97,5 +129,27 @@ if [ "$SCORE" = "1" ]; then
         bash "$PARITY_DIR/rescore.sh" "$RUN_ID" "$SUBSET"
     )
     say "scoring rc=$?"
+fi
+if [ "$RECOVER" = "1" ]; then
+    ARM="cuga_eval_$PRESET"; [ "$FC" = "1" ] && ARM="${ARM}_fc"; [ -n "$VARIANT" ] && ARM="$ARM@$VARIANT"
+    A="$PARITY_DIR/runs/$RUN_ID/$ARM"
+    cp "$A/vendor_results.json" "$A/vendor_results.pre_recover.json" 2>/dev/null
+    (
+        source "$PARITY_DIR/env.sh" "${PARITY_TEMPERATURE:-1.0}" >/dev/null || exit 1
+        bash "$PARITY_DIR/recover_arm.sh" "$RUN_ID" "$ARM"
+    ) > "$A/recover_pass.log" 2>&1
+    if grep -q 'nothing to recover' "$A/recover_pass.log"; then
+        say "recovery: nothing to recover"
+    else
+        # recover_arm.sh swapped in verdicts judged by the agent model: keep them aside and re-judge the whole run.
+        [ -f "$A/vendor_results.recovered.json" ] && mv "$A/vendor_results.recovered.json" "$A/vendor_results.recovered_agentjudge.json"
+        say "recovery: $(grep -E '"replaced"|"still_failed"' "$A/recover_pass.log" | tr -d ' \n')"
+        (
+            export PARITY_MODEL="${PARITY_JUDGE_MODEL:-azure/gpt-oss-120b}"
+            source "$PARITY_DIR/env.sh" "${PARITY_TEMPERATURE:-1.0}" >/dev/null || exit 1
+            bash "$PARITY_DIR/rescore.sh" "$RUN_ID" "$SUBSET"
+        )
+        say "re-scoring after recovery rc=$?"
+    fi
 fi
 exit "$rc"
