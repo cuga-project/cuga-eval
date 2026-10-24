@@ -2,13 +2,15 @@
 # Build the VAKRA side of the kit from public, pinned sources: IBM/vakra code, ibm-research/VAKRA data, the
 # evaluator venv and the tool-container image. With the default pins the result equals the vakra-main copy the
 # reported runs used (checked file by file on 2026-10-22); point the kit at it with: export VAKRA_MAIN=<dir>.
-# usage: bash benchmarks/m3/parity/setup_vakra.sh [--dir DIR] [--steps LIST] [--force-link]
+# usage: bash benchmarks/m3/parity/setup_vakra.sh [--dir DIR] [--steps LIST] [--data PARTS] [--force-link]
 #   --dir    target folder (default ../vakra next to cuga-eval). The data needs ~37 GB: keep it off backed-up homes.
 #   --steps  comma list, run in this order (default code,evaluator,data,universes,image; link is opt-in):
 #     code       clone IBM/vakra at VAKRA_REF, take evaluator/ from VAKRA_EVALUATOR_REF, apply vakra/patches/
 #                (resets the tool-universe mapping to upstream: run universes after it)
 #     evaluator  <dir>/.venv: Python 3.11.13 with vakra/evaluator.requirements.txt
-#     data       databases/, indexed_documents/ and train/ of the dataset at VAKRA_DATA_REV, plus cap4_train/data
+#     data       databases/, indexed_documents/ and train/ of the dataset at VAKRA_DATA_REV, plus cap4_train/data;
+#                --data narrows it: comma list of train, index, databases, databases:<d1>+<d2> (default
+#                train,index,databases). A job on a cluster node can fetch only its domains' databases.
 #     universes  add the cap1 TRAIN tool universes to the mapping (upstream ships the test ones only); generated
 #                with upstream's own script from the train outputs, so test answers are never read
 #     image      build benchmark_environ with the package versions of the image the runs used
@@ -34,11 +36,12 @@ MAPPING=environment/configs/mcp_tool_universe_id_mapping.yaml
 MAPPING_SHA256=101297c41fb81ebad774aefff7f87fd1de9ff973d8390d91e238bf6bb6d11909   # the runs' mapping
 EMBEDDING_REV=47ea694b257b703fee9253d75c2b1f2985180498   # ibm-granite/granite-embedding-english-r2 in the image
 
-DIR="$ROOT/../vakra"; STEPS="code,evaluator,data,universes,image"; FORCE_LINK=0
+DIR="$ROOT/../vakra"; STEPS="code,evaluator,data,universes,image"; DATA="train,index,databases"; FORCE_LINK=0
 while [ $# -gt 0 ]; do
     case "$1" in
         --dir) DIR="$2"; shift 2;;
         --steps) STEPS="$2"; shift 2;;
+        --data) DATA="$2"; shift 2;;
         --force-link) FORCE_LINK=1; shift;;
         -h|--help) sed -n '2,20p' "$0"; exit 0;;
         *) echo "unknown flag $1" >&2; exit 2;;
@@ -81,21 +84,33 @@ fi
 
 if has data; then
     need_venv
-    if [ ! -d "$DIR/data/databases" ]; then
+    patterns=()
+    for part in ${DATA//,/ }; do
+        case "$part" in
+            train) patterns+=("train/*");;
+            index) patterns+=("indexed_documents/*");;
+            databases) patterns+=("databases/*");;
+            databases:*) IFS=+ read -r -a doms <<<"${part#databases:}"
+                for d in "${doms[@]}"; do patterns+=("databases/$d/*"); done;;
+            *) echo "unknown --data part $part (train, index, databases, databases:<d1>+<d2>)" >&2; exit 2;;
+        esac
+    done
+    if [[ ",$DATA," == *",databases,"* ]] && [ ! -d "$DIR/data/databases" ]; then
         free_gb=$(df -Pk "$DIR" | awk 'NR==2 {print int($4 / 1048576)}')
         [ "$free_gb" -ge 40 ] || { echo "only ${free_gb} GB free under $DIR; the data needs ~37 GB" >&2; exit 1; }
     fi
-    "$PY" -I - "$VAKRA_DATA_REPO" "$VAKRA_DATA_REV" "$DIR/data" <<'PY'
+    "$PY" -I - "$VAKRA_DATA_REPO" "$VAKRA_DATA_REV" "$DIR/data" "${patterns[@]}" <<'PY'
 import sys
 from huggingface_hub import snapshot_download
 
-repo, rev, out = sys.argv[1:4]
-snapshot_download(repo_id=repo, repo_type="dataset", revision=rev, local_dir=out,
-                  allow_patterns=["databases/*", "indexed_documents/*", "train/*"])
+repo, rev, out, *patterns = sys.argv[1:]
+snapshot_download(repo_id=repo, repo_type="dataset", revision=rev, local_dir=out, allow_patterns=patterns)
 PY
     # The cap4 subsets name their train data cap4_train/data (the campaign's folder), the same files.
-    mkdir -p "$DIR/cap4_train"
-    ln -sfn ../data/train/capability_4_multiturn "$DIR/cap4_train/data"
+    if [[ ",$DATA," == *",train,"* ]]; then
+        mkdir -p "$DIR/cap4_train"
+        ln -sfn ../data/train/capability_4_multiturn "$DIR/cap4_train/data"
+    fi
     say "data: $VAKRA_DATA_REPO@${VAKRA_DATA_REV:0:7} -> $DIR/data ($(du -sh "$DIR/data" | cut -f1))"
 fi
 

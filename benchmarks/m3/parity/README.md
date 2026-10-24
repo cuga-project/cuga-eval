@@ -97,8 +97,20 @@ the script adds the train ones with upstream's own generator, run on the train o
 against the runs' sha256. The image is upstream's Dockerfile with the base image and every package version
 pinned. Each step records what was built in `<dir>/PINS.json`.
 
-Not covered yet: the test split, which is no longer in the public dataset (access is gated), and
-`.venv-cuga`, the other stack's runner, which `preflight.sh` still requires.
+On a cluster, `lsf_arm.sh` runs one arm inside a batch job with rootless podman: it loads the image, links the
+shared code and train data (`VAKRA_SHARED`, built once with `--steps code,evaluator,data,universes --data train`),
+downloads only the subset's databases to the node (`setup_vakra.sh --data databases:<d1>+<d2>`, plus the
+retrieval index for cap4), starts the capability's container, runs the arm and scores it:
+
+```bash
+bsub -q normal -W 4:00 -n 4 -R "rusage[mem=32GB]" -o arm.%J.out -e arm.%J.err \
+    env VAKRA_SHARED=/shared/vakra VAKRA_IMAGE_TAR=/shared/benchmark_environ.tar.gz PARITY_KEY=1 \
+        PARITY_MODEL=azure/gpt-oss-120b PARITY_APPWORLD_ENV=~/.config/vakra/proxy.env \
+    bash benchmarks/m3/parity/lsf_arm.sh <run_id> parity_est2_ref30 cap2 --fc 1
+```
+
+Not covered yet: the test split, which is no longer in the public dataset (access is gated).
+`preflight.sh` requires the other stack's `.venv-cuga` only for `vakra_main_*` arms.
 
 ## Run
 

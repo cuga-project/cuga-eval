@@ -14,7 +14,7 @@ PINS = PARITY / "vakra"
 BASH = shutil.which("bash") or "/bin/bash"
 
 
-@pytest.mark.parametrize("script", ["setup_vakra.sh", "setup_pinned_cuga.sh"])
+@pytest.mark.parametrize("script", ["setup_vakra.sh", "setup_pinned_cuga.sh", "lsf_arm.sh"])
 def test_setup_scripts_parse(script):
     subprocess.run([BASH, "-n", str(PARITY / script)], check=True)  # noqa: S603  (fixed, trusted args)
 
