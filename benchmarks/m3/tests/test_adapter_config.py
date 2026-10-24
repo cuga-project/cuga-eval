@@ -305,7 +305,7 @@ def test_defaults_are_the_campaign_configs_plus_the_ab_winners():
     all four carry the two review fixes (lowercase retry, earlier draft on a re-ask timeout), and caps 1-3,
     which show demos, cut a reply copied in the demos' layout to its final answer."""
     FIXES = dict(lowercase_retry=True, keep_draft_on_timeout=True)
-    DEMO_FIXES = dict(strip_demo_layout=True)
+    DEMO_FIXES = dict(strip_demo_layout=True, answer_composer=True)  # caps 1-3: demo-layout cut + composer
     assert PRESETS["cap2"] == replace(
         PRESETS["cap2_campaign"],
         preset="cap2",
@@ -339,6 +339,7 @@ def test_defaults_are_the_campaign_configs_plus_the_ab_winners():
     cap1 = PRESETS["cap1"]
     assert cap1.lowercase_retry and cap1.keep_draft_on_timeout and not cap1.fact_check_strict
     assert cap1.strip_demo_layout and not PRESETS["cap4"].strip_demo_layout
+    assert cap1.answer_composer and not PRESETS["cap4"].answer_composer
     assert not any(PRESETS[p].lowercase_retry for p in ("off", "cap2_campaign", "cap3_campaign", "cap4_v3wx"))
     cap4 = PRESETS["cap4"]  # every tool (beat the top-40) unless the catalog is too big to show whole
     assert (cap4.prefilter_top_k, cap4.prefilter_min_tools, cap4.tool_pick) == (40, 400, False)

@@ -325,6 +325,9 @@ _REVIEW_FIXES = dict(lowercase_retry=True, keep_draft_on_timeout=True)
 # caps 1-3 show demos: a reply copied in their layout is cut to its final answer (a no-op for gpt-oss,
 # which never writes it; GLM-5.3-Flash cap2 56.8 -> 73.0 re-judged, live 30-task 46.7 -> 73.3).
 _DEMO_FIXES = dict(strip_demo_layout=True)
+# caps 1-3: the answer composer (one LLM pass over the question + full tool results, values must come from
+# the results). Two offline A/Bs on the full train sets, same trajectories: 17 gained / 4 lost, no cap below 0.
+_COMPOSER = dict(answer_composer=True)
 
 PRESETS: dict[str, AdapterConfig] = {
     "off": AdapterConfig(),
@@ -345,6 +348,7 @@ PRESETS: dict[str, AdapterConfig] = {
         **_FC_CANON_RUNTIME,  # the official cap1 run: fc_canon_proto_test.sh (protocol + re-list)
         **_REVIEW_FIXES,
         **_DEMO_FIXES,
+        **_COMPOSER,
     ),
     # Defaults: the campaign configs plus the changes that won paired A/Bs on two disjoint
     # train slices each (parity kit, 2026-10-15/17; benchmarks/m3/ADAPTER.md "Defaults").
@@ -364,9 +368,15 @@ PRESETS: dict[str, AdapterConfig] = {
         param_value_examples=6,
         **_REVIEW_FIXES,
         **_DEMO_FIXES,
+        **_COMPOSER,
     ),
     "cap3": replace(
-        _CAP3_CAMPAIGN, preset="cap3", fact_check="verify_and_retry", **_REVIEW_FIXES, **_DEMO_FIXES
+        _CAP3_CAMPAIGN,
+        preset="cap3",
+        fact_check="verify_and_retry",
+        **_REVIEW_FIXES,
+        **_DEMO_FIXES,
+        **_COMPOSER,
     ),  # +10 / +13
     "cap4": replace(
         _CAP4_V3WX,

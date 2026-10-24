@@ -752,6 +752,10 @@ def test_stacked_variants_dry_run_and_each_part_must_exist():
     assert bad.returncode == 2 and "unknown variant nope" in bad.stderr
 
 
+#: Kit settings a variant may set besides adapter overrides (temp03: the agent's models TOML + temperature).
+KIT_VARIANT_KEYS = {"AGENT_SETTING_CONFIG", "PARITY_TEMPERATURE"}
+
+
 @pytest.mark.parametrize("variant", sorted(p.stem for p in (PARITY / "variants").glob("*.env")))
 def test_every_variant_resolves_on_its_presets(variant):
     from benchmarks.m3.adapter.config import resolve_adapter_config
@@ -760,8 +764,9 @@ def test_every_variant_resolves_on_its_presets(variant):
     for line in (PARITY / "variants" / f"{variant}.env").read_text().splitlines():
         if line and not line.startswith("#"):
             k, _, v = line.partition("=")
-            assert k.startswith("M3_ADAPTER_"), f"{variant}: {k}"
-            env[k] = v
+            assert k.startswith("M3_ADAPTER_") or k in KIT_VARIANT_KEYS, f"{variant}: {k}"
+            if k.startswith("M3_ADAPTER_"):
+                env[k] = v
     for preset in ("cap1", "cap2", "cap3", "cap4_v3wx"):
         resolve_adapter_config(preset, env=env)  # raises on a malformed or unknown value
 
