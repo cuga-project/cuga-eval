@@ -36,6 +36,16 @@ printf '[engine]\ncgroup_manager = "cgroupfs"\nevents_logger = "file"\n' > "$W/c
 printf '[storage]\ndriver = "overlay"\ngraphroot = "%s"\nrunroot = "%s"\n[storage.options]\nignore_chown_errors = "true"\n' \
     "$W/storage" "$W/run" > "$W/cfg/containers/storage.conf"
 touch "$W/cfg/containers/nodocker"   # silence the podman-docker shim's notice where it honors the user file
+# The registry starts each MCP server (`docker exec -i ...`) through the MCP SDK's stdio transport, which passes
+# only HOME/PATH/USER-style variables: podman lost XDG_RUNTIME_DIR and failed on /run/user/<uid>. Wrappers first on
+# PATH set the job's podman environment for every caller.
+mkdir -p "$W/bin"
+for name in docker podman; do
+    printf '#!/bin/bash\nexport XDG_RUNTIME_DIR="%s" XDG_CONFIG_HOME="%s" XDG_CACHE_HOME="%s"\nexec %s "$@"\n' \
+        "$XDG_RUNTIME_DIR" "$XDG_CONFIG_HOME" "$XDG_CACHE_HOME" "$(command -v podman)" > "$W/bin/$name"
+    chmod +x "$W/bin/$name"
+done
+export PATH="$W/bin:$PATH"
 cleanup() {
     podman rm -f "$CTR" >/dev/null 2>&1
     # Last: any podman call after this would start a new pause process (that kept a job running for hours).
