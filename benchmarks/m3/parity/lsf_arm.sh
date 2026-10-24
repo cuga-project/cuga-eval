@@ -38,9 +38,9 @@ printf '[storage]\ndriver = "overlay"\ngraphroot = "%s"\nrunroot = "%s"\n[storag
 touch "$W/cfg/containers/nodocker"   # silence the podman-docker shim's notice where it honors the user file
 cleanup() {
     podman rm -f "$CTR" >/dev/null 2>&1
-    kill "$(cat "$XDG_RUNTIME_DIR/libpod/tmp/pause.pid" 2>/dev/null)" 2>/dev/null   # else it keeps the job alive
-    podman unshare rm -rf "$W/storage" "$W/run" >/dev/null 2>&1
-    rm -rf "$W"
+    # Last: any podman call after this would start a new pause process (that kept a job running for hours).
+    kill "$(cat "$XDG_RUNTIME_DIR/libpod/tmp/pause.pid" 2>/dev/null)" 2>/dev/null
+    rm -rf "$W" 2>/dev/null   # ignore_chown_errors: every file is the job user's
 }
 trap cleanup EXIT
 # The first podman call starts the rootless pause process, which inherits that call's output: with the job's
