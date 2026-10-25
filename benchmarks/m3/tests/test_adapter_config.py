@@ -322,7 +322,12 @@ def test_defaults_are_the_campaign_configs_plus_the_ab_winners():
         **DEMO_FIXES,
     )
     assert PRESETS["cap3"] == replace(
-        PRESETS["cap3_campaign"], preset="cap3", fact_check="verify_and_retry", **FIXES, **DEMO_FIXES
+        PRESETS["cap3_campaign"],
+        preset="cap3",
+        fact_check="verify_and_retry",
+        tool_usage_examples=2,
+        **FIXES,
+        **DEMO_FIXES,
     )
     assert PRESETS["cap4"] == replace(
         PRESETS["cap4_v3wx"],

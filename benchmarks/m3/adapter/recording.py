@@ -249,6 +249,13 @@ def with_empty_result_hint(result: Any, examples: Optional[Dict[str, List[str]]]
     return f"{text}\n\n{hint}"
 
 
+def usage_note(questions: List[str]) -> str:
+    """The description note listing solved questions a tool answered ("" when none)."""
+    if not questions:
+        return ""
+    return "\nSolved questions this tool answered: " + " | ".join(f'"{q}"' for q in questions)
+
+
 class RecordingScopedToolProvider:
     """ToolProviderInterface wrapper: record calls, cap runaways, apply scope."""
 
@@ -272,6 +279,8 @@ class RecordingScopedToolProvider:
         self.hint_non_string_results = hint_non_string_results
         # Per task (set by the agent wrapper): parameter names -> example values for the hint.
         self.value_examples: Optional[Callable[[List[str]], Dict[str, List[str]]]] = None
+        # Per task (set by the agent wrapper): tool name -> solved questions it answered (description note).
+        self.tool_usage: Optional[Callable[[str], List[str]]] = None
         # Per user turn (set by the agent wrapper): raw tool names the agent may see; None = all.
         self.allowed: Optional[set] = None
         # Per task (set by the agent wrapper): called when a call returns no rows or fails.
@@ -333,15 +342,17 @@ class RecordingScopedToolProvider:
     def _wrap_cached(self, tool: StructuredTool, exposed: Optional[str] = None) -> StructuredTool:
         """Stable wrapper identity per raw tool object; re-wrap only when the provider hands out a new one."""
         exposed = exposed or tool.name
+        note = usage_note(self.tool_usage(exposed)) if self.tool_usage is not None else ""
         entry = self._wrapped.get(tool.name)
-        if entry is not None and entry[0] is tool and entry[1] == exposed:
-            return entry[2]
-        wrapped = self._record(tool, exposed)
-        self._wrapped[tool.name] = (tool, exposed, wrapped)
+        if entry is not None and entry[0] is tool and entry[1] == exposed and entry[2] == note:
+            return entry[3]
+        wrapped = self._record(tool, exposed, note)
+        self._wrapped[tool.name] = (tool, exposed, note, wrapped)
         return wrapped
 
-    def _record(self, tool: StructuredTool, exposed: Optional[str] = None) -> StructuredTool:
-        """Wrap a tool so each call is appended to ``recorded_calls`` (bound as ``exposed``)."""
+    def _record(self, tool: StructuredTool, exposed: Optional[str] = None, note: str = "") -> StructuredTool:
+        """Wrap a tool so each call is appended to ``recorded_calls`` (bound as ``exposed``, ``note``
+        appended to its description)."""
         inner_coro = getattr(tool, "coroutine", None)
         inner_func = getattr(tool, "func", None)
         if inner_coro is None and inner_func is None:  # BaseTool subclass exposing only _run/_arun
@@ -430,9 +441,10 @@ class RecordingScopedToolProvider:
                 f"Tool '{name}' was invoked synchronously while an event loop is running; use ainvoke()."
             )
 
+        description = (tool.description or "") + note
         for fn in (recording_coro, recording_func):
             fn.__name__ = name
-            fn.__doc__ = tool.description
+            fn.__doc__ = description
         _copy_metadata(tool, recording_coro, recording_func)
 
         # model_copy keeps metadata/response_format/return_direct (and any
@@ -441,4 +453,6 @@ class RecordingScopedToolProvider:
         update: Dict[str, Any] = {"coroutine": recording_coro, "func": recording_func}
         if name != tool.name:
             update["name"] = name
+        if note:
+            update["description"] = description
         return tool.model_copy(update=update)

@@ -58,6 +58,7 @@ available for parity runs as `cap2_campaign`, `cap3_campaign` and `cap4_v3wx`; `
 | `cap1`–`cap3` | `strip_demo_layout`: a reply copied in the demos' layout (`Chain used: <tools>` / `Final answer: X`) is cut to `X` in the final_answer fn (and a fact-check correction) | none of gpt-oss's answers change on caps 1-4 (a no-op for the validated runs). GLM-5.3-Flash wrote the layout in 20/119 cap1, 51/115 cap2 and 77/120 cap3 answers and the groundedness judge failed correct values for the tool chain; re-judged after the cut: cap2 56.8 → 73.0, cap3 42.0 → 58.0, cap1 neutral; live on est2_ref30: 46.7 → 73.3 (8 gained, 0 lost) |
 | all four | `lowercase_retry` (a call with no rows or only zeros is retried once with lowercased text arguments) + `keep_draft_on_timeout` (a re-ask cut by `agent_timeout` answers with the earlier draft) | four-cap A/B on the campaign samples (2026-10-19): the tasks they changed were gains — lowercase 4 (stored lowercase values, caps 2-4), earlier draft 2 (cap4 timeouts) — with no attributable loss |
 | caps 1-3 | `answer_composer`: after CUGA answers, one LLM pass over the question + every full tool result (skipped above `composer_result_chars`) writes the answer in VAKRA's form — bare exact copies, every list item and requested part, nothing extra, no refusal when a result answers; kept only when every value it states is in the tool results or the question | two offline A/Bs on the full train sets (same trajectories, both arms scored in one session, 2026-10-24/25): rewritten answers 17 gained / 4 lost, no capability below 0 |
+| `cap3` | `tool_usage_examples=2`: each tool's description gains up to 2 solved train questions its gold calls answered (the demo source's caps 2-4 samples of the domain, which share one API catalogue; never the question being asked). A tool's name often hides what it is for; the questions it answered show it | 120-task train A/B (2026-10-25, both arms scored in one session): 59.2 → 65.8 (12 gained / 4 lost; 2 of the gains came from the answer composer, which only the variant arm ran); the agent called every gold tool on 73 tasks vs 58. Offline, the cosine shortlist already keeps the gold tools (118/120 within 128): the loss was the agent choosing a different visible tool. Expect less on test: only about half of the cap3 test tasks are in domains with train questions, and no cap2 test domain has any (so cap2 keeps it off) |
 
 Tried and not adopted:
 - cap1 `cap1_getter_rule` (tell the agent full column values come from the `get_<Table>_<Column>` getters): 119-task A/B 63/118 vs 65/118; on list questions 0/19 vs 4/19 — with more values to copy, gpt-oss corrupted them (non-breaking spaces, a Cyrillic letter, `???`).
@@ -232,6 +233,10 @@ If the demo source resolves to the same path as `--m3-data`, the run logs a
 warning (fine for train-split smoke runs; do not report test scores from it).
 The bundled train zip has no capability-1 split, so cap1 runs without demos
 unless `--demo-data` points at one. Any load failure degrades to "no demos".
+
+`tool_usage_examples` (cap3) reads the same demo source, for capabilities 2-4 of the run's domain, and
+appends to each tool's description up to that many solved questions whose gold chains called it
+(never the question being asked).
 
 ## capability specifics
 

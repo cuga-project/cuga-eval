@@ -33,9 +33,11 @@ from benchmarks.m3.adapter.config import (
 from benchmarks.m3.adapter.demos import (
     DemoIndex,
     ParamValueIndex,
+    ToolUsageIndex,
     bound_tool_namer,
     build_demo_index,
     build_param_value_index,
+    build_tool_usage_index,
     select_prose_pairs,
 )
 from benchmarks.m3.adapter.final_answer import make_final_answer_fn, normalize_answer, strip_channel_tokens
@@ -128,12 +130,14 @@ class VakraAdapterAgent:
         *,
         final_answer_installed: bool = True,
         value_index: Optional[ParamValueIndex] = None,
+        usage_index: Optional[ToolUsageIndex] = None,
     ):
         self._inner = inner
         self._cfg = cfg
         self._provider = provider
         self._demo_index = demo_index
         self._value_index = value_index
+        self._usage_index = usage_index
         self._final_answer_installed = final_answer_installed
         self._ctx = TaskContext()
         self._draft: Optional[tuple] = None  # (result, tool calls) of the last completed round
@@ -332,6 +336,10 @@ class VakraAdapterAgent:
         ctx.last_scope = "all"
         self._provider.scope = "all"
         self._provider.value_examples = self._value_examples_for(query)
+        usage, k = self._usage_index, cfg.tool_usage_examples
+        self._provider.tool_usage = (
+            (lambda name: usage.questions(name, exclude_query=query, k=k)) if (usage and k) else None
+        )
         self._provider.allowed = await self._turn_tools(query, message)
         widen = cfg.tool_pick and cfg.tool_pick_widen and cfg.execution_mode == "function_calling"
         if widen:
@@ -482,6 +490,7 @@ def build_m3_agent(
     config: AdapterConfig,
     demo_corpus: Optional[List[dict]] = None,
     callbacks: Optional[List[Any]] = None,
+    usage_corpus: Optional[List[dict]] = None,
     **cuga_kwargs: Any,
 ):
     """Single construction seam for the m3 eval.
@@ -535,6 +544,7 @@ def build_m3_agent(
         demo_index,
         final_answer_installed=final_answer_installed,
         value_index=value_index,
+        usage_index=build_tool_usage_index(usage_corpus) if config.tool_usage_examples else None,
     )
 
 

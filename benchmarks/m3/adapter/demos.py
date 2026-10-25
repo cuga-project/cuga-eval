@@ -175,6 +175,52 @@ def build_param_value_index(samples: Optional[List[dict]]) -> Optional[ParamValu
     return ParamValueIndex(index.entries) if index is not None else None
 
 
+class ToolUsageIndex:
+    """The solved questions each tool's gold calls answered, per raw tool name (lowercased)."""
+
+    MAX_QUESTION_CHARS = 200
+
+    def __init__(self, entries: List[dict]):
+        self._by_tool: Dict[str, List[str]] = {}
+        for entry in entries:
+            question = str(entry.get("query") or "").strip()
+            for call in entry.get("calls") or []:
+                name = str(call.get("name") or "").lower()
+                if name and question:
+                    questions = self._by_tool.setdefault(name, [])
+                    if question not in questions:
+                        questions.append(question)
+
+    def questions(self, tool_name: str, exclude_query: str = "", k: int = 2) -> List[str]:
+        """Up to k questions for a bound tool (``<domain>_<raw>`` or raw), never the question being asked."""
+        name = tool_name.lower()
+        found = self._by_tool.get(name)
+        while found is None and "_" in name:  # bound names carry a registry prefix
+            name = name.split("_", 1)[1]
+            found = self._by_tool.get(name)
+        asked = (exclude_query or "").strip()
+        return [q[: self.MAX_QUESTION_CHARS] for q in (found or []) if q != asked][:k]
+
+
+def build_tool_usage_index(samples: Optional[List[dict]]) -> Optional[ToolUsageIndex]:
+    index = build_demo_index(samples)
+    return ToolUsageIndex(index.entries) if index is not None else None
+
+
+def load_tool_usage_corpus(
+    cfg: AdapterConfig, *, domain: str, eval_source: Optional[Union[str, Path]] = None, **kwargs: Any
+) -> Optional[List[dict]]:
+    """The demo source's caps 2-4 samples of ``domain`` (one API catalogue), or None (off / none)."""
+    if not cfg.tool_usage_examples:
+        return None
+    samples: List[dict] = []
+    for task_id in (2, 3, 4):
+        samples += (
+            load_demo_corpus(cfg, task_id=task_id, domain=domain, eval_source=eval_source, **kwargs) or []
+        )
+    return samples or None
+
+
 def select_prose_pairs(
     index: Optional[DemoIndex], query: str, k: int, namer: Optional[Callable[[str], str]] = None
 ) -> List[dict]:
@@ -261,7 +307,7 @@ def load_demo_corpus(
     demo source *is* the evaluated data the run is warned; that is acceptable
     only for train-split smoke runs. Every failure degrades to "no demos".
     """
-    if not (cfg.demos or cfg.param_value_examples):
+    if not (cfg.demos or cfg.param_value_examples or cfg.tool_usage_examples):
         return None
     source = resolve_demo_source(cfg.demo_data)
     if eval_source is not None and _same_path(source, eval_source):

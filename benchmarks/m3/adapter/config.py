@@ -222,6 +222,10 @@ class AdapterConfig:
     # With the note, up to this many values other solved examples of the domain (the demo corpus,
     # never the asked question) passed for the same parameter names, e.g. cohort: '2y all'. 0 = off.
     param_value_examples: int = 0
+    # Each tool's description gains up to this many solved train questions its gold calls answered (the
+    # demo source's caps 2-4 samples of the domain — the API catalogue they share; never the asked
+    # question). A tool's name often hides what it is for; the questions it answered show it. 0 = off.
+    tool_usage_examples: int = 0
     # Per user turn, expose ONLY the top-K tools to the agent (the campaign's ranking: MiniLM over
     # "name: description" on the latest user turn, query_* retrievers pinned). The campaign rebuilt
     # CUGA per utterance with its top-k (40 for cap4); in CodeAct mode CUGA itself never narrows the
@@ -374,6 +378,8 @@ PRESETS: dict[str, AdapterConfig] = {
         _CAP3_CAMPAIGN,
         preset="cap3",
         fact_check="verify_and_retry",
+        # 120-task train A/B (2026-10-25, one scoring session): 59.2 -> 65.8; all gold tools called 58 -> 73.
+        tool_usage_examples=2,
         **_REVIEW_FIXES,
         **_DEMO_FIXES,
         **_COMPOSER,

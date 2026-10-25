@@ -97,7 +97,13 @@ from benchmarks.helpers.sdk_eval_helpers import (
 
 # VAKRA adapter: configured-CUGA construction seam (default preset "off" = a
 # plain CugaAgent with today's exact kwargs; see benchmarks/m3/ADAPTER.md).
-from benchmarks.m3.adapter import PRESETS, build_m3_agent, load_demo_corpus, resolve_adapter_config
+from benchmarks.m3.adapter import (
+    PRESETS,
+    build_m3_agent,
+    load_demo_corpus,
+    load_tool_usage_corpus,
+    resolve_adapter_config,
+)
 from benchmarks.m3.container_health import (
     EnvironmentFailureError,
     EnvironmentFailureStreakTracker,
@@ -1674,6 +1680,9 @@ async def evaluate_single_task(
                     task_id=task_id,
                     domain=domain,
                     eval_source=getattr(args, "m3_data", None),
+                ),
+                usage_corpus=load_tool_usage_corpus(
+                    adapter_cfg, domain=domain, eval_source=getattr(args, "m3_data", None)
                 ),
                 # Policies are loaded explicitly by _load_m3_policies below per
                 # eval run. Disable .cuga auto-load and filesystem sync to keep
