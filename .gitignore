@@ -38,6 +38,12 @@ cuga
 vendor
 milvus_policies.db
 experiments
+!benchmarks/appworld/experiments/
+benchmarks/appworld/experiments/outputs/*
+!benchmarks/appworld/experiments/outputs/.gitkeep
+benchmarks/appworld/experiments/.eval_status.json
+benchmarks/appworld/experiments/*.html
+!benchmarks/appworld/experiments/status.html
 variables_log*
 .milvus*
 milvus*
@@ -104,3 +110,14 @@ benchmarks/m3/data/small_capability_*/
 # from VAKRA (IBM Research) and distributed under CC BY-NC-SA 4.0 — see
 # benchmarks/m3/data/LICENSE and benchmarks/m3/data/NOTICE.
 !benchmarks/m3/data/small_train.zip
+
+# Local run data and per-machine state. None of this was ignored before, so a
+# single `git add -A` swept 56k files into a PR. All of it either regenerates
+# or is specific to one machine, and all of it stays on disk untracked.
+benchmarks/appworld/parallel_runs/
+benchmarks/appworld/backups/
+benchmarks/appworld/cost_baseline.json
+scratch/
+
+# Generated mirror of .claude/skills/ plus migrated command stubs.
+.agents/

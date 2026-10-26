@@ -53,6 +53,16 @@ apply_model_profile() {
             echo -e "${GREEN}  OPENAI_BASE_URL=$OPENAI_BASE_URL${NC}"
             echo -e "${GREEN}  OPENAI_API_VERSION=$OPENAI_API_VERSION${NC}"
             ;;
+        gpt5.2)
+            export AGENT_SETTING_CONFIG="settings.openai.toml"
+            export MODEL_NAME="Azure/gpt-5.2-chat-2025-12-11"
+            export OPENAI_BASE_URL="https://ete-litellm.bx.cloud9.ibm.com"
+            unset OPENAI_API_VERSION
+            echo -e "${GREEN}✓${NC} Model profile: gpt5.2 (Azure/gpt-5.2-chat-2025-12-11)"
+            echo -e "${GREEN}  AGENT_SETTING_CONFIG=$AGENT_SETTING_CONFIG${NC}"
+            echo -e "${GREEN}  MODEL_NAME=$MODEL_NAME${NC}"
+            echo -e "${GREEN}  OPENAI_BASE_URL=$OPENAI_BASE_URL${NC}"
+            ;;
         opus4.5)
             export AGENT_SETTING_CONFIG="settings.openai.toml"
             export MODEL_NAME="claude-opus-4-5-20251101"
@@ -85,7 +95,7 @@ apply_model_profile() {
             ;;
         *)
             echo -e "${RED}Error: Unknown model profile '$profile'${NC}"
-            echo -e "${YELLOW}Valid values: gpt-oss, gpt4o, gpt4.1, gpt5, opus4.5, vllm, local${NC}"
+            echo -e "${YELLOW}Valid values: gpt-oss, gpt4o, gpt4.1, gpt5, gpt5.2, opus4.5, vllm, local${NC}"
             return 1
             ;;
     esac
