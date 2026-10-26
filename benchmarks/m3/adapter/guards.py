@@ -284,7 +284,8 @@ def simple_gate_correction(final_text: str) -> Optional[str]:
 #: Openings of a draft that is the model's working notes, not an answer (FC ends on any reply without
 #: tool calls). Offline on 417 recorded answers: 5 matches, all of them failed answers.
 _PLAN_TEXT_RE = re.compile(
-    r"^\s*(?:we need|we should|we must|let'?s|i need|i will|i'll|need to|now (?:call|we)|first,? (?:we|i)|to answer)\b",
+    r"^\s*(?:we need|we should|we must|we have|we've|let'?s|i need|i will|i'll|need to|now (?:call|we)|first,? (?:we|i)"
+    r"|so,? (?:there|we)|to answer)\b",
     re.IGNORECASE,
 )
 PLAN_TEXT_CORRECTION = (

@@ -191,6 +191,8 @@ PLAN_DRAFTS = [
     'We need: "How many people did not enjoy the finale episode?" Not enjoy likely means low rating.',
     "Let's call the count tool with professor 331.",
     "I will now call compute_data_max on the filtered data.",
+    "We have filtered the table to 5 records. Need the value for the year asked next.",
+    "So there is a tool that counts them, but it is not in the list. But we can call it.",
 ]
 ANSWERS = [
     "42",
