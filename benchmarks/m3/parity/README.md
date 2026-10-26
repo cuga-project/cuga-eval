@@ -109,7 +109,8 @@ bsub -q normal -W 4:00 -n 4 -R "rusage[mem=32GB]" -o arm.%J.out -e arm.%J.err \
     bash benchmarks/m3/parity/lsf_arm.sh <run_id> parity_est2_ref30 cap2 --fc 1
 ```
 
-Not covered yet: the test split, which is no longer in the public dataset (access is gated).
+Not covered on a cluster yet: the test split, which is no longer in the public dataset (access is gated);
+on a machine that has it, see *Test split* below.
 `preflight.sh` requires the other stack's `.venv-cuga` only for `vakra_main_*` arms.
 
 ## Run
@@ -210,6 +211,47 @@ chunk that still fails is listed as `unscored_uuids` in `vendor_results.json`.
 also restarts the task container and probes the proxy before every domain, as
 `cap_estimate.sh` did before each batch. A proxy still down after ~10 minutes
 stops the arm, which can be resumed.
+
+### Test split (a full submission run)
+
+The test split has inputs only; the organizers score it. One capability per key, the shipped presets,
+temperature 1.0, CUGA from the pinned checkout (`PARITY_VENV`). Run it from a worktree pinned to the commit
+being submitted, so edits other sessions make in the shared checkout cannot reach a running arm.
+
+1. Once per machine: the test manifests and eval keys (task ids derived from vakra-main, never committed),
+   then the test inputs in the M3 layout:
+
+   ```bash
+   uv run --frozen python -m benchmarks.m3.parity.make_test_manifests --smoke        # all four caps
+   for c in 1 2 3 4; do uv run --frozen python -m benchmarks.m3.parity.prepare_vakra_train \
+       --manifest benchmarks/m3/parity/manifests/test_cap$c.json --vakra-main ~/git/appworld/vakra-main \
+       --out benchmarks/m3/parity/.local/vakra_test; done
+   ```
+
+2. Check each capability without running it (manifest, eval keys, data, env, containers, key probe):
+   `PARITY_KEY=<k> PARITY_VENV=<abs .local/venv-main> bash benchmarks/m3/parity/run_test_arm.sh --check <cap>`.
+   A one-task end-to-end run: `TEST_SUBSET=test_cap<N>_smoke ... run_test_arm.sh <N>`.
+3. Run each capability on its own key (keys 2 and 3 share one TPM budget: avoid running both at once):
+
+   ```bash
+   PARITY_KEY=1 PARITY_REGISTRY_PORT=18011 PARITY_VENV=$V bash benchmarks/m3/parity/run_test_arm.sh 4 &
+   PARITY_KEY=3 PARITY_REGISTRY_PORT=18001 PARITY_VENV=$V bash benchmarks/m3/parity/run_test_arm.sh 2 &
+   PARITY_KEY=2 PARITY_REGISTRY_PORT=18021 PARITY_VENV=$V bash -c \
+       'bash benchmarks/m3/parity/run_test_arm.sh 3 && PARITY_SWITCH_TIMEOUT=600 bash benchmarks/m3/parity/run_test_arm.sh 1'
+   ```
+
+   Each arm is followed by two recovery passes (`TEST_RECOVER_PASSES`); a stopped arm resumes with the same
+   run id (`run_test_arm.sh <cap> <run_id>`). Observed pace (2026-10-20, one key each): cap4 ~60 s/task
+   (~11 h), cap2 ~45 s (~20 h), cap3 ~40 s (~10 h), cap1 ~40 s (~23 h). cap1's heavy universes (e.g.
+   `language_corpus`, `movielens`) need a large Docker VM (48 GB) and a 600 s universe-switch timeout; some
+   still fail to load on a laptop.
+4. Package and validate (the vendor's `validate_output.py` runs at the end):
+
+   ```bash
+   uv run --frozen python -m benchmarks.m3.parity.package_submission --out <dir> \
+       --arm runs/<cap1 run>/cuga_eval_cap1_fc --arm runs/<cap2 run>/cuga_eval_cap2_fc \
+       --arm runs/<cap3 run>/cuga_eval_cap3_fc --arm runs/<cap4 run>/cuga_eval_cap4
+   ```
 
 ### Landing day (cuga-agent#777 merged)
 
