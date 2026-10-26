@@ -6,7 +6,12 @@ import pytest
 from langchain_core.tools import StructuredTool
 from pydantic import BaseModel
 
-from benchmarks.m3.adapter.recording import RecordingScopedToolProvider, is_api_timeout, is_empty_or_zero
+from benchmarks.m3.adapter.recording import (
+    RecordingScopedToolProvider,
+    is_api_timeout,
+    is_empty_handle,
+    is_empty_or_zero,
+)
 from benchmarks.m3.adapter.scope import is_retriever, resolve_scope
 
 pytestmark = pytest.mark.sanity
@@ -401,3 +406,35 @@ async def test_lowercase_retry_only_when_enabled_and_keeps_a_still_empty_result(
     calls.clear()
     assert await wrapped.coroutine(name="murray ave") == {"rows": [["murray ave", 3]]}
     assert calls == ["murray ave"]  # already lowercase: no retry
+
+
+def _stored_lowercase_handle_tool(calls):
+    """A cap1 data tool: a filter answers with a handle, and only the lowercase spelling has records."""
+
+    async def coro(name: str = "", n: int = 0):
+        calls.append(name)
+        return {"handle": "filtered_1", "num_records": 4 if name == "oakland" else 0}
+
+    return StructuredTool(name="filter_data", description="d", args_schema=_NameArgs, coroutine=coro)
+
+
+def test_is_empty_handle():
+    assert is_empty_handle({"handle": "h", "num_records": 0}) and is_empty_handle(
+        '{"handle": "h", "num_records": 0}'
+    )
+    assert not is_empty_handle({"handle": "h", "num_records": 4}) and not is_empty_handle({"count": 0})
+    assert not is_empty_handle("Error: boom") and not is_empty_handle([])
+
+
+async def test_lowercase_retry_treats_an_empty_handle_as_empty_only_when_enabled():
+    calls = []
+    provider = RecordingScopedToolProvider(_FakeProvider([_stored_lowercase_handle_tool(calls)]))
+    provider.lowercase_retry = True
+    wrapped = (await provider.get_all_tools())[0]
+    assert (await wrapped.coroutine(name="Oakland"))["num_records"] == 0 and calls == [
+        "Oakland"
+    ]  # a handle is a value
+    provider.empty_handles = True
+    calls.clear()
+    assert (await wrapped.coroutine(name="Oakland"))["num_records"] == 4
+    assert calls == ["Oakland", "oakland"] and provider.recorded_calls[-1]["arguments"]["name"] == "oakland"

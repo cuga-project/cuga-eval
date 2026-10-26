@@ -137,6 +137,9 @@ class AdapterConfig:
     # Kept only when every value it states appears in the tool results or the question.
     answer_composer: bool = False
     composer_result_chars: int = 30000
+    # The composer leaves a refusal draft alone (cap4 has policy / unanswerable tasks whose gold answer is the
+    # refusal; the composer would answer them from whatever the tools returned).
+    composer_keep_refusals: bool = False
     # "sdk": CUGA's embedding strategy (embeds name + description + params + returns);
     # "campaign": vakra-main ToolShortlister as an SDK strategy ("name: description", query_* pinned)
     shortlist_strategy: str = "sdk"
@@ -203,6 +206,13 @@ class AdapterConfig:
     # judge, which reads the tool chain as unsupported claims; the final_answer fn keeps only the text after
     # the last "Final answer:" label. gpt-oss never wrote the layout (0/354 answers, caps 1-3). On in cap1-cap3.
     strip_demo_layout: bool = False
+    # cap1 data tools answer a filter that matched nothing with a handle, {"handle": ..., "num_records": 0}: the
+    # empty-result checks saw a value, so lowercase_retry and empty_result_hint never fired on cap1 (gpt-oss: 30
+    # such calls on 119 tasks, cased values like "Oakland"). On, a 0-record handle counts as empty.
+    empty_handle_is_empty: bool = False
+    # A fact-check "MISSING" re-ask that ends in a give-up keeps the earlier draft (GLM-5.3-Flash cap3: two
+    # ground-truth values turned into refusals).
+    fact_check_keep_draft_on_giveup: bool = False
     # Two-stage tool narrowing (single-tool tasks, cap2): cosine top-``tool_pick_pool``, then one LLM
     # call picks THE tool; only the first ``tool_pick_bind`` of [pick, runner-up, cosine order] are
     # bound (the bind cap). Offline on est2_ref30: gold tool picked 29/30 vs the agent's 79% first call.

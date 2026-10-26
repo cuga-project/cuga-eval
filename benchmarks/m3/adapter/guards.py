@@ -404,8 +404,15 @@ async def run_answer_pipeline(
             elif kind == "MISSING" and cfg.fact_check == "verify_and_retry":
                 follow_up = await retry(FACT_CHECK_RETRY.format(need=payload), "fact-check")
                 if follow_up is not None:
-                    result = follow_up
-                    answer = draft_of(result)
+                    new_answer = draft_of(follow_up)
+                    if cfg.fact_check_keep_draft_on_giveup and (
+                        not new_answer.strip() or is_giveup(new_answer)
+                    ):
+                        logger.info(
+                            "[m3-adapter fact-check] the re-ask ended in a give-up; keeping the draft"
+                        )
+                    else:
+                        result, answer = follow_up, new_answer
 
     # 1d1. Plan-text check, after every re-ask above: a draft that is the model's working notes ("We
     # need ...") is sent back; any re-ask can end that way (FC ends on a reply without tool calls).
@@ -421,7 +428,13 @@ async def run_answer_pipeline(
     # 1d3. Answer composer: one LLM pass over the question + every FULL tool result writes the answer in
     # the benchmark's form (bare values, exact copies, every list item / requested part, no refusal when a
     # result answers). Kept only when every value it states is found in the results or the question.
-    if cfg.answer_composer and llm_ainvoke is not None and _successful_calls(recorded_calls):
+    keep_refusal = cfg.composer_keep_refusals and is_giveup(answer)
+    if (
+        cfg.answer_composer
+        and llm_ainvoke is not None
+        and _successful_calls(recorded_calls)
+        and not keep_refusal
+    ):
         evidence = format_full_evidence(recorded_calls, cfg.composer_result_chars)
         if evidence is None:
             logger.info(

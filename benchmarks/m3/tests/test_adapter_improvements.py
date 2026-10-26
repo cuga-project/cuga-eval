@@ -151,6 +151,36 @@ async def test_fact_check_ok_keeps_the_draft_and_failures_never_change_it():
         assert out == "42"
 
 
+async def test_composer_keep_refusals_leaves_a_refusal_draft_alone():
+    for keep, expected, calls in ((False, "42", 1), (True, "I can not answer.", 0)):
+        prompts = []
+        invoke_round, _ = _rounds()
+        out = await run_answer_pipeline(
+            invoke_round,
+            _result("I can not answer."),
+            AdapterConfig(answer_composer=True, composer_keep_refusals=keep),
+            TaskContext(),
+            [OK_CALL],
+            _checker("42", prompts),
+            question="What is x?",
+        )
+        assert out == expected and len(prompts) == calls
+
+
+async def test_fact_check_reask_ending_in_a_give_up_keeps_the_draft_when_enabled():
+    for keep, expected in ((False, "I can not answer."), (True, "41")):
+        invoke_round, sent = _rounds("I can not answer.")
+        out = await run_answer_pipeline(
+            invoke_round,
+            _result("41"),
+            AdapterConfig(fact_check="verify_and_retry", fact_check_keep_draft_on_giveup=keep),
+            TaskContext(),
+            [OK_CALL],
+            _checker("MISSING: the 2008 count"),
+        )
+        assert out == expected and len(sent) == 1
+
+
 async def test_fact_check_missing_reasks_only_in_verify_and_retry_mode():
     invoke_round, sent = _rounds("99")
     out = await run_answer_pipeline(

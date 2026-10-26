@@ -217,6 +217,18 @@ def is_empty_or_zero(result: Any) -> bool:
     return _all_zero(result)
 
 
+def is_empty_handle(result: Any) -> bool:
+    """A cap1 data handle with no records: ``{"handle": ..., "num_records": 0}`` (as a dict or its JSON text)."""
+    if isinstance(result, str):
+        try:
+            result = json.loads(result.strip())
+        except ValueError:
+            return False
+    if not isinstance(result, dict) or "num_records" not in result:
+        return False
+    return str(result["num_records"]).strip() in ("0", "0.0")
+
+
 #: cap1 data tools that take ``distinct``; the train ground truth keeps duplicates in ~94% of their calls.
 _DISTINCT_TOOLS = re.compile(r"retrieve_data|aggregate_data|compute_data_\w+")
 
@@ -287,6 +299,7 @@ class RecordingScopedToolProvider:
         self.on_failure: Optional[Callable[[], None]] = None
         self.api_timeout_retries = API_TIMEOUT_RETRIES
         self.lowercase_retry = False  # retry an empty/zero call once with lowercased text arguments
+        self.empty_handles = False  # a cap1 handle with num_records 0 counts as empty (empty_handle_is_empty)
         self.force_distinct_false = (
             False  # cap1 data tools: keep duplicate rows (the ground truth's convention)
         )
@@ -402,11 +415,17 @@ class RecordingScopedToolProvider:
             sink.append(record)
             try:
                 result = await call_inner(call_kwargs)
-                if provider.lowercase_retry and is_empty_or_zero(result):
+
+                def matched_nothing(res: Any, zeros: bool = True) -> bool:
+                    if provider.empty_handles and is_empty_handle(res):
+                        return True
+                    return is_empty_or_zero(res) if zeros else is_empty_result(res)
+
+                if provider.lowercase_retry and matched_nothing(result):
                     lowered = lowercased_args(call_kwargs)
                     if lowered is not None:
                         retried = await call_inner(lowered)
-                        if not is_empty_or_zero(retried) and not looks_like_error(retried):
+                        if not matched_nothing(retried) and not looks_like_error(retried):
                             logger.info(
                                 "[m3-adapter lowercase-retry] {} matched with lowercased arguments", name
                             )
@@ -417,7 +436,11 @@ class RecordingScopedToolProvider:
                     record["result_full"] = str(result)[: provider.keep_full_results + 1]
                 if provider.on_failure is not None and (is_empty_result(result) or looks_like_error(result)):
                     provider.on_failure()
-                if hint_empty and (isinstance(result, str) or hint_any_type) and is_empty_result(result):
+                if (
+                    hint_empty
+                    and (isinstance(result, str) or hint_any_type)
+                    and matched_nothing(result, zeros=False)
+                ):
                     lookup = provider.value_examples  # read per call: it is set per task
                     examples = lookup(list(param_names or call_kwargs)) if lookup is not None else None
                     return with_empty_result_hint(result, examples)
