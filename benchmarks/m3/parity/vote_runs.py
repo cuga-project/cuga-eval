@@ -169,7 +169,7 @@ def vote(arms: List[Path], cap: int, rule: str, out: Path) -> Dict[str, Any]:
     for fname, recs in files.items():
         (out / "prediction" / fname).write_text(json.dumps(recs, ensure_ascii=False))
     meta = json.loads((arms[0] / "meta.json").read_text())
-    meta.update(arm=out.name, variant=f"vote_{rule}", voted_from=[str(a) for a in arms])
+    meta.update(arm=out.name, variant=f"vote_{rule}", voted_from=[str(a.resolve()) for a in arms])
     (out / "meta.json").write_text(json.dumps(meta, indent=1))
     for extra in ("remap.json",):
         if (arms[0] / extra).exists():

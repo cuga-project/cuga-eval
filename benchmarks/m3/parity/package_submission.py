@@ -154,7 +154,9 @@ def package_capability(arm_dirs: List[Path], inputs_dir: Path, out_root: Path) -
     cap_dir.mkdir(parents=True, exist_ok=True)
 
     runs = [r for a in arm_dirs for r in [a] + recovery_runs(a)]
-    infos = [run_info(r, task_id) for r in runs]
+    # A voted arm (vote_runs.py) has no console log of its own: its records come from the runs it voted.
+    voted = [PARITY_DIR.parents[2] / v for m in metas for v in m.get("voted_from") or []]
+    infos = [run_info(r, task_id) for r in [*[s for v in voted for s in [v] + recovery_runs(v)], *runs]]
     preds: Dict[str, Dict[str, Any]] = {}
     overlap = 0
     for a in arm_dirs:
