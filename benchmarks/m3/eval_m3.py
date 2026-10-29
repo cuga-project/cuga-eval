@@ -94,6 +94,10 @@ from benchmarks.helpers.sdk_eval_helpers import (
     clear_all_policies,
     is_langfuse_tracing_enabled,
 )
+
+# VAKRA adapter: configured-CUGA construction seam (default preset "off" = a
+# plain CugaAgent with today's exact kwargs; see benchmarks/m3/ADAPTER.md).
+from benchmarks.m3.adapter import build_m3_agent, load_demo_corpus, resolve_adapter_config
 from benchmarks.m3.container_health import (
     EnvironmentFailureError,
     EnvironmentFailureStreakTracker,
@@ -863,6 +867,14 @@ class M3Evaluator:
         # Preserve UUID from input sample if present (M3 benchmark format)
         if "uuid" in sample:
             task_metadata["uuid"] = sample["uuid"]
+
+        # VAKRA adapter: hand the per-sample policy string to the agent before the
+        # turns run (verbatim passthrough + deterministic tool scoping).
+        if hasattr(self.agent, "set_task_context"):
+            self.agent.set_task_context(
+                additional_instructions=sample.get("additional_instructions", "") or "",
+                domain=domain,
+            )
 
         result = await evaluate_multiturn_task_with_langfuse(
             agent=self.agent,
@@ -1637,9 +1649,23 @@ async def evaluate_single_task(
             # Gate only — per-task trace-scoped handlers are attached in invoke config.
             evaluator.langfuse_enabled = should_trace_langfuse_task()
 
-            evaluator.agent = CugaAgent(
+            adapter_cfg = resolve_adapter_config(
+                getattr(args, "adapter_preset", None),
+                capability=task_id or None,
+                demo_data=getattr(args, "demo_data", None),
+            )
+            evaluator.agent = build_m3_agent(
                 tool_provider=filtered_provider,  # Only sees this domain's tools
                 special_instructions=_build_m3_special_instructions(),
+                config=adapter_cfg,
+                # Demos come from an explicit train source (--demo-data), never from
+                # the samples under evaluation; warns when the two coincide.
+                demo_corpus=load_demo_corpus(
+                    adapter_cfg,
+                    task_id=task_id,
+                    domain=domain,
+                    eval_source=getattr(args, "m3_data", None),
+                ),
                 # Policies are loaded explicitly by _load_m3_policies below per
                 # eval run. Disable .cuga auto-load and filesystem sync to keep
                 # the per-domain agent's policy set deterministic — otherwise
@@ -1653,7 +1679,16 @@ async def evaluate_single_task(
             # Load CUGA policies for this per-domain agent (mirrors benchmarks/bpo
             # eval_bench_sdk.py). The source of truth is benchmarks/m3/policies/*.md;
             # eval.sh compiles them to policies.json before invoking us.
-            await _load_m3_policies(evaluator.agent, policies_enabled=not getattr(args, "no_policies", False))
+            # Adapter presets that supply policy handling via special_instructions
+            # (cap4_v3wx) skip the policy-DB load.
+            if adapter_cfg.use_policy_system:
+                await _load_m3_policies(
+                    evaluator.agent, policies_enabled=not getattr(args, "no_policies", False)
+                )
+            else:
+                logger.info(
+                    "[m3-adapter] preset supplies policy via special_instructions; skipping policy DB load"
+                )
 
             # DEBUG: Verify agent can see tools (check filtered provider)
             try:
@@ -3388,6 +3423,30 @@ Examples:
         nargs="*",
         default=None,
         help="Task IDs to treat as already completed (skip). Usually computed by the shell layer.",
+    )
+
+    parser.add_argument(
+        "--adapter-preset",
+        type=str,
+        choices=["off", "cap1", "cap2", "cap3", "cap4_v3wx"],
+        default=None,
+        help=(
+            "VAKRA adapter preset (configured CUGA; see benchmarks/m3/ADAPTER.md). "
+            "Default: M3_ADAPTER_PRESET env var, else 'off' (current behavior, unchanged)."
+        ),
+    )
+    parser.add_argument(
+        "--demo-data",
+        dest="demo_data",
+        type=str,
+        default=None,
+        metavar="PATH",
+        help=(
+            "Demo corpus for adapter presets with few-shot demos (cap1-3): an M3 data source "
+            "(.zip or capability_<id>_* dir) whose solved samples become the demos. "
+            "Default: M3_ADAPTER_DEMO_DATA env var, else the bundled data/small_train.zip. "
+            "Never defaults to the evaluated data (label leakage; see benchmarks/m3/ADAPTER.md)."
+        ),
     )
 
     from benchmarks.helpers.logging_args import add_log_level_args, apply_log_level
