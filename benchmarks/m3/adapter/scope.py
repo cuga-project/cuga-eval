@@ -12,7 +12,7 @@ to <topic>...") classify the query topic first with one cheap LLM call.
 from __future__ import annotations
 
 import re
-from typing import Awaitable, Callable, Optional
+from typing import Awaitable, Callable, Dict, Optional, Tuple
 
 from loguru import logger
 
@@ -52,14 +52,57 @@ async def _classify_topic_match(query: str, topic: str, desc: str, llm_ainvoke: 
         return True
 
 
-async def resolve_scope(policy: str, query: str, llm_ainvoke: Optional[LlmAinvoke] = None) -> str:
-    """Resolve a policy string to a tool scope: ``all`` | ``retriever_only`` | ``no_retriever``."""
+#: (domain, topic) -> does the domain's subject belong to the topic; one classification per pair and process.
+_DOMAIN_TOPIC: Dict[Tuple[str, str], bool] = {}
+
+
+async def _classify_domain_topic(
+    domain: str, topic: str, desc: str, llm_ainvoke: Optional[LlmAinvoke]
+) -> bool:
+    """Does the database's subject belong to the policy's topic? Asked once per (domain, topic); on any
+    failure, assume a match (not cached, so a later task asks again)."""
+    key = (domain, topic)
+    if key in _DOMAIN_TOPIC:
+        return _DOMAIN_TOPIC[key]
+    if llm_ainvoke is None:
+        return True
+    try:
+        reply = await llm_ainvoke(
+            f"Topic area: {topic}\nIt covers: {desc}\n\nDatabase: {domain.replace('_', ' ')}\n\n"
+            f"Is this database's subject part of this topic area? Reply exactly YES or NO."
+        )
+    except Exception as exc:  # noqa: BLE001  (classifier is best-effort)
+        logger.warning("[m3-adapter scope] domain topic classify failed ({}); assuming match", exc)
+        return True
+    _DOMAIN_TOPIC[key] = reply.strip().upper().startswith("Y")
+    logger.info("[m3-adapter scope] domain {!r} in topic {!r}: {}", domain, topic, _DOMAIN_TOPIC[key])
+    return _DOMAIN_TOPIC[key]
+
+
+async def resolve_scope(
+    policy: str,
+    query: str,
+    llm_ainvoke: Optional[LlmAinvoke] = None,
+    *,
+    domain: str = "",
+    topic_match: str = "question",
+) -> str:
+    """Resolve a policy string to a tool scope: ``all`` | ``retriever_only`` | ``no_retriever``.
+
+    A conditional rule applies when the question is on its topic (``topic_match="question"``) or, with
+    ``topic_match="domain"``, when the task's domain belongs to it (the question when no domain is known).
+    """
     text = (policy or "").lower()
     if "document retriever" not in text:
         return "all"
     m = _COND_RULE_RE.search(policy or "")
     if m:  # conditional rule: apply only when the query is on-topic
-        if not await _classify_topic_match(query, m.group(1).strip(), m.group(2).strip(), llm_ainvoke):
+        topic, desc = m.group(1).strip(), m.group(2).strip()
+        if topic_match == "domain" and domain:
+            applies = await _classify_domain_topic(domain, topic, desc, llm_ainvoke)
+        else:
+            applies = await _classify_topic_match(query, topic, desc, llm_ainvoke)
+        if not applies:
             return "all"
         return "no_retriever" if "do not use document retrievers" in text else "retriever_only"
     if text.startswith("do not use document retriever"):

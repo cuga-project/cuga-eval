@@ -38,6 +38,7 @@ from benchmarks.m3.adapter.final_answer import (
     strip_demo_layout,
 )
 from benchmarks.m3.adapter.recording import RESULT_MAX_CHARS
+from benchmarks.m3.adapter.scope import is_retriever
 
 _HEDGE_RE = re.compile(
     r"\bhowever\b|\bbut note\b|\bapproximately\b|\bnot (?:entirely )?sure\b|"
@@ -83,6 +84,13 @@ REFUSAL_RECOVERY_CORRECTION = (
     "The tools you called already returned data relevant to the question. Re-read those tool "
     "results and extract the requested value from them, then give the final answer. Only if "
     "they truly do not contain it, call the tool that would return it before answering."
+)
+
+#: refusal_persist: a give-up with no successful database (non-retriever) call.
+USE_API_CORRECTION = (
+    "Do not give up yet: the answer is in the data the database tools return (the API tools, not the "
+    "query_* document retrievers). Call the database tool(s) that return the requested data, then give "
+    "the final answer from their results."
 )
 
 _FACT_CHECK_PROMPT = (
@@ -304,6 +312,11 @@ def _successful_calls(recorded_calls: List[dict]) -> List[dict]:
     return [c for c in recorded_calls if not str(c.get("result", "")).startswith("Error:")]
 
 
+def _successful_api_calls(recorded_calls: List[dict]) -> List[dict]:
+    """Successful calls of database (non-retriever) tools."""
+    return [c for c in _successful_calls(recorded_calls) if not is_retriever(str(c.get("tool_name", "")))]
+
+
 def _retriever_evidence(recorded_calls: List[dict]) -> str:
     return " ".join(str(c.get("result", "")) for c in _successful_calls(recorded_calls))
 
@@ -318,6 +331,7 @@ async def run_answer_pipeline(
     *,
     final_answer_installed: bool = True,
     question: str = "",
+    checkpoint: Optional[Callable[[str, str], None]] = None,
 ) -> str:
     """Apply the validated answer pipeline; returns the final answer string.
 
@@ -325,8 +339,14 @@ async def run_answer_pipeline(
     checkpointer appends the follow-up) and return an InvokeResult-shaped
     object. ``recorded_calls`` is the live sink shared with the recording
     provider — it accumulates across retry rounds within this task.
+    ``checkpoint(stage, answer)``, when given, is told the answer before and after
+    each refusal_persist step (``stage_trace``).
     """
     result = first_result
+
+    def stage(name: str, text: str) -> None:
+        if checkpoint is not None:
+            checkpoint(name, text)
 
     # 1. Answer-gate retry loop (VAKRA_CUGA_GATES): on an empty/hedged draft,
     # send a correction and continue the same thread.
@@ -425,53 +445,53 @@ async def run_answer_pipeline(
                 break
             result, answer = follow_up, draft_of(follow_up)
 
-    # 1d3. Answer composer: one LLM pass over the question + every FULL tool result writes the answer in
-    # the benchmark's form (bare values, exact copies, every list item / requested part, no refusal when a
-    # result answers). Kept only when every value it states is found in the results or the question.
-    keep_refusal = cfg.composer_keep_refusals and is_giveup(answer)
-    if (
-        cfg.answer_composer
-        and llm_ainvoke is not None
-        and _successful_calls(recorded_calls)
-        and not keep_refusal
-    ):
+    async def compose(draft: str) -> Optional[str]:
+        """The composer's answer from the full tool results; None when it keeps the draft."""
+        if llm_ainvoke is None or not _successful_calls(recorded_calls):
+            return None
         evidence = format_full_evidence(recorded_calls, cfg.composer_result_chars)
         if evidence is None:
             logger.info(
                 "[m3-adapter composer] skipped: a tool result is longer than {} chars",
                 cfg.composer_result_chars,
             )
-        else:
-            try:
-                composed = parse_composed(
-                    await llm_ainvoke(
-                        COMPOSER_PROMPT.format(
-                            question=question or "(see the tool calls)", calls=evidence, answer=answer[:4000]
-                        )
+            return None
+        try:
+            composed = parse_composed(
+                await llm_ainvoke(
+                    COMPOSER_PROMPT.format(
+                        question=question or "(see the tool calls)", calls=evidence, answer=draft[:4000]
                     )
                 )
-            except Exception as exc:  # noqa: BLE001  (the composer is best-effort)
-                logger.warning("[m3-adapter composer] failed ({}); keeping the draft", exc)
-                composed = ""
-            if composed and composed.upper() != "KEEP":
-                pool = (
-                    (question or "")
-                    + " "
-                    + " ".join(
-                        str(c.get("result_full", c.get("result", "")))
-                        for c in _successful_calls(recorded_calls)
-                    )
-                )
-                missing = unsupported_values(composed, pool)
-                if missing:
-                    logger.info(
-                        "[m3-adapter composer] kept the draft: {} not in the tool results", missing[:3]
-                    )
-                else:
-                    new = canonicalize_final_answer(composed) if cfg.canonicalize else composed
-                    if new != answer:
-                        logger.info("[m3-adapter composer] rewrote {!r} -> {!r}", answer[:80], new[:80])
-                    answer = new
+            )
+        except Exception as exc:  # noqa: BLE001  (the composer is best-effort)
+            logger.warning("[m3-adapter composer] failed ({}); keeping the draft", exc)
+            return None
+        if not composed or composed.upper() == "KEEP":
+            return None
+        pool = (
+            (question or "")
+            + " "
+            + " ".join(
+                str(c.get("result_full", c.get("result", ""))) for c in _successful_calls(recorded_calls)
+            )
+        )
+        missing = unsupported_values(composed, pool)
+        if missing:
+            logger.info("[m3-adapter composer] kept the draft: {} not in the tool results", missing[:3])
+            return None
+        return canonicalize_final_answer(composed) if cfg.canonicalize else composed
+
+    # 1d3. Answer composer: one LLM pass over the question + every FULL tool result writes the answer in
+    # the benchmark's form (bare values, exact copies, every list item / requested part, no refusal when a
+    # result answers). Kept only when every value it states is found in the results or the question.
+    keep_refusal = cfg.composer_keep_refusals and is_giveup(answer)
+    if cfg.answer_composer and not keep_refusal:
+        new = await compose(answer)
+        if new is not None:
+            if new != answer:
+                logger.info("[m3-adapter composer] rewrote {!r} -> {!r}", answer[:80], new[:80])
+            answer = new
 
     # 1d2. Values check (deterministic): a draft stating a value no tool returned (and the question
     # does not state) is re-asked once. A re-ask that ends empty or in a give-up keeps the draft.
@@ -514,6 +534,35 @@ async def run_answer_pipeline(
             if distilled and not is_giveup(distilled):
                 logger.info("[m3-adapter distill] {!r} -> {!r}", answer[:80], distilled[:80])
                 answer = distilled
+
+    # 1f. Refusal persistence (cap4): outside a retriever-only scope a give-up is almost never the gold
+    # answer, so it is pushed, each step once and only while the answer is still a give-up: no successful
+    # database call -> call one; tool data -> extract the value; then the composer's reading of the results.
+    # A re-ask that errors or ends empty keeps the earlier answer.
+    stage("base", answer)
+    if cfg.refusal_persist and ctx.last_scope != "retriever_only":
+
+        async def push(correction: str, tag: str) -> None:
+            nonlocal result, answer
+            follow_up = await retry(correction, tag)
+            new = draft_of(follow_up) if follow_up is not None else ""
+            if new.strip():
+                result, answer = follow_up, new
+            stage(tag, answer)
+
+        if is_giveup(answer) and not _successful_api_calls(recorded_calls):
+            await push(USE_API_CORRECTION, "persist-api")
+        if is_giveup(answer) and _successful_calls(recorded_calls):
+            await push(REFUSAL_RECOVERY_CORRECTION, "persist-recover")
+        if is_giveup(answer) and _successful_calls(recorded_calls):
+            guess = await compose(answer)
+            if guess is not None:
+                logger.info("[m3-adapter persist-guess] {!r} -> {!r}", answer[:80], guess[:80])
+                answer = guess
+            stage("persist-guess", answer)
+    # With trace_composer, the composer's rewrite of the final answer is logged as a stage, not applied.
+    if cfg.trace_composer and checkpoint is not None and answer.strip() and not is_giveup(answer):
+        stage("composed", await compose(answer) or answer)
 
     # Fallback for agents built without the in-graph final_answer function
     # (e.g. a pre-built agent wrapped after construction): apply the same

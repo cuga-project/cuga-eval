@@ -886,6 +886,7 @@ class M3Evaluator:
             self.agent.set_task_context(
                 additional_instructions=sample.get("additional_instructions", "") or "",
                 domain=domain,
+                task_id=str(sample.get("uuid") or sample_id),
             )
 
         result = await evaluate_multiturn_task_with_langfuse(

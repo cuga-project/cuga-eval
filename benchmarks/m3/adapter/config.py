@@ -81,6 +81,7 @@ CAMPAIGN_TEMPERATURE = 1.0  # --temperature 1.0 on every run; the passed model d
 MODEL_ROLES = ("planner", "chat", "final_answer", "code", "qa", "action")
 SHORTLIST_STRATEGIES = ("sdk", "campaign")
 FACT_CHECK_MODES = ("off", "verify", "verify_and_retry")
+TOPIC_MATCH_MODES = ("question", "domain")
 TOOL_PICK_FILLS = ("cosine", "llm")
 
 
@@ -117,6 +118,27 @@ class AdapterConfig:
     self_verify: bool = False  # VAKRA_V2_SELF_VERIFY
     refusal_norm: bool = False  # VAKRA_CUGA_REFUSAL_NORM
     tool_cap: Optional[int] = None  # VAKRA_CUGA_TOOL_CAP (16 in V3WX; None = uncapped)
+    # A policy that scopes the task to document retrievers is answered "I can not answer." without running
+    # the agent: in the cap4 train ground truth every such dialogue (133/133) expects that refusal, with no
+    # tool call — the retrievers never hold an answer.
+    retriever_scope_refusal: bool = False
+    # How a conditional policy ("If a user's query pertains to <topic>, ...") decides that it applies:
+    # "question" asks whether the question is on the topic; "domain" asks once per (domain, topic) whether
+    # the database's subject is (train: 93.3% vs 90.1% against the ground truth's domain/topic pairs).
+    topic_match: str = "question"
+    # Outside a retriever-only scope, the query_* document retrievers are not exposed: no train ground-truth
+    # answer (765 dialogues) calls one.
+    hide_retrievers: bool = False
+    # Outside a retriever-only scope a refusal is almost never the gold answer (6/765 on train). A give-up
+    # there is pushed, each step once: without a successful API call -> "call the database tools"; with
+    # tool data -> "extract the value from it"; still a give-up -> the answer composer's reading of the
+    # results (needs the composer's full results: keep_full_results is turned on with this).
+    refusal_persist: bool = False
+    # Write every answer stage of a turn (before/after each re-ask) with its tool-call count to
+    # $M3_RESULTS_DIR/adapter_trace.jsonl, so one run scores each step of the pipeline offline.
+    stage_trace: bool = False
+    # With stage_trace: also log (not apply) the composer's rewrite of the final answer.
+    trace_composer: bool = False
 
     # --- shortlisting (SDK Shortlister; exact VAKRA model) ---
     shortlist_top_k: Optional[int] = None  # --top-k-tools (128 caps 1-3, 40 cap4)
@@ -428,6 +450,7 @@ class TaskContext:
     initial_data_peek: Optional[dict] = None  # cap1: the get_data peek payload
     domain: str = ""
     last_scope: str = "all"  # set per invoke when cfg.scope resolves a policy
+    task_id: str = ""  # the sample's uuid (stage_trace records)
 
 
 def _parse_bool(raw: str, key: str) -> bool:
@@ -509,6 +532,8 @@ def resolve_adapter_config(
         )
     if cfg.fact_check not in FACT_CHECK_MODES:
         raise ValueError(f"{ENV_PREFIX}FACT_CHECK={cfg.fact_check!r} is not one of {FACT_CHECK_MODES}")
+    if cfg.topic_match not in TOPIC_MATCH_MODES:
+        raise ValueError(f"{ENV_PREFIX}TOPIC_MATCH={cfg.topic_match!r} is not one of {TOPIC_MATCH_MODES}")
     if cfg.tool_pick_fill not in TOOL_PICK_FILLS:
         raise ValueError(f"{ENV_PREFIX}TOOL_PICK_FILL={cfg.tool_pick_fill!r} is not one of {TOOL_PICK_FILLS}")
     if (

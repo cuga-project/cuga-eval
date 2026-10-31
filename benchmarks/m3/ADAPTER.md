@@ -254,6 +254,21 @@ appends to each tool's description up to that many solved questions whose gold c
   rules topic-classify the query first (one cheap LLM call). Like every
   preset, `cap4_v3wx` runs with CUGA's policy DB cleared (`use_policy_system=False`);
   policy handling comes from the instructions/scoping instead.
+- **cap4 policy opt-ins** (off in every preset; the cap4 train ground truth they follow: a dialogue
+  expects "I can not answer." exactly when its policy scopes it to document retrievers — absolute, or
+  conditional with the dialogue's domain in the topic — 133/133, with no tool call; no answer of the
+  other 765 dialogues calls a retriever, and only 6 of them expect a refusal):
+  - `retriever_scope_refusal`: a retriever-only scope answers "I can not answer." without running the agent.
+  - `topic_match="domain"`: a conditional rule applies when the task's domain belongs to its topic (one
+    LLM call per domain and topic) instead of when the question sounds on-topic (train, against the
+    ground truth's domain/topic pairs: 93.3% vs 90.1% right).
+  - `hide_retrievers`: outside a retriever-only scope the `query_*` retrievers are not exposed.
+  - `refusal_persist`: outside a retriever-only scope a give-up is pushed, each step once — no successful
+    database call → "call the database tools"; tool data → "extract the value"; then the answer
+    composer's reading of the results.
+  - `stage_trace` / `trace_composer` (diagnostics): every answer stage of a turn, with its tool-call
+    count, goes to `$M3_RESULTS_DIR/adapter_trace.<pid>.jsonl`, so one run scores each step offline;
+    `trace_composer` also logs (does not apply) the composer's rewrite of the final answer.
 
 ## Not ported (and why)
 

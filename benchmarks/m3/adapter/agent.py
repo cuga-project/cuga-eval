@@ -15,6 +15,9 @@ from __future__ import annotations
 
 import asyncio
 import inspect
+import json
+import os
+from types import SimpleNamespace
 from typing import Any, Callable, List, Optional
 
 from langchain_core.messages import HumanMessage
@@ -40,7 +43,12 @@ from benchmarks.m3.adapter.demos import (
     build_tool_usage_index,
     select_prose_pairs,
 )
-from benchmarks.m3.adapter.final_answer import make_final_answer_fn, normalize_answer, strip_channel_tokens
+from benchmarks.m3.adapter.final_answer import (
+    REFUSAL,
+    make_final_answer_fn,
+    normalize_answer,
+    strip_channel_tokens,
+)
 from benchmarks.m3.adapter.guards import run_answer_pipeline
 from benchmarks.m3.adapter.instructions import VERBATIM_RULE, compose_instruction_block
 from benchmarks.m3.adapter.recording import RecordingScopedToolProvider
@@ -167,6 +175,7 @@ class VakraAdapterAgent:
         initial_data_handle: Optional[str] = None,
         initial_data_peek: Optional[dict] = None,
         domain: str = "",
+        task_id: str = "",
     ) -> None:
         """Called by the eval before each task/sample (tasks run sequentially)."""
         self._ctx = TaskContext(
@@ -174,6 +183,7 @@ class VakraAdapterAgent:
             initial_data_handle=initial_data_handle,
             initial_data_peek=initial_data_peek,
             domain=domain,
+            task_id=task_id or "",
         )
 
     def refresh_tools(self, tools: List[Any]) -> None:
@@ -257,6 +267,27 @@ class VakraAdapterAgent:
             self._namer = bound_tool_namer(t.name for t in tools)
             self._namer_source = base
         return self._namer
+
+    def _write_trace(self, query: str, stages: List[tuple], final: str, n_calls: int) -> None:
+        """One stage_trace record: each answer stage with the number of tool calls made by then."""
+        if not self._cfg.stage_trace:
+            return
+        path = os.path.join(os.environ.get("M3_RESULTS_DIR") or ".", f"adapter_trace.{os.getpid()}.jsonl")
+        record = {
+            "task_id": self._ctx.task_id,
+            "domain": self._ctx.domain,
+            "query": query[:500],
+            "scope": self._ctx.last_scope,
+            "tool_scope": self._provider.scope,
+            "stages": [{"stage": n, "answer": a, "n_calls": k} for n, a, k in stages],
+            "final": final,
+            "n_calls": n_calls,
+        }
+        try:
+            with open(path, "a", encoding="utf-8") as fh:
+                fh.write(json.dumps(record, ensure_ascii=False, default=str) + "\n")
+        except OSError as exc:  # the trace is diagnostics: never fail the task over it
+            logger.warning("[m3-adapter trace] could not write {} ({})", path, exc)
 
     async def invoke(
         self, message: Any = None, thread_id: Optional[str] = None, config: Optional[dict] = None, **kwargs
@@ -346,13 +377,27 @@ class VakraAdapterAgent:
             CosinePickStrategy.reset(query)
         self._provider.on_failure = (lambda: CosinePickStrategy.mark_failure(query)) if widen else None
         if cfg.scope and ctx.additional_instructions:
-            scope = await resolve_scope(ctx.additional_instructions, query, self._llm_ainvoke)
+            scope = await resolve_scope(
+                ctx.additional_instructions,
+                query,
+                self._llm_ainvoke,
+                domain=ctx.domain,
+                topic_match=cfg.topic_match,
+            )
             ctx.last_scope = scope
             self._provider.scope = scope
             if scope != "all":
                 # The scoped subset is already the selection — lift the find_tools wall.
                 conf["shortlisting_tool_threshold"] = 10**6
                 logger.info("[m3-adapter scope] {} tool scope applied", scope)
+        if cfg.retriever_scope_refusal and ctx.last_scope == "retriever_only":
+            logger.info(
+                "[m3-adapter scope-refusal] retriever-only policy -> refusal without running the agent"
+            )
+            self._write_trace(query, [("scope-refusal", REFUSAL, 0)], REFUSAL, 0)
+            return _refusal_result(thread_id)
+        if cfg.hide_retrievers and ctx.last_scope != "retriever_only":
+            self._provider.scope = "no_retriever"
 
         block = compose_instruction_block(cfg, ctx)
         if ctx.last_scope == "retriever_only" and cfg.verbatim_on_retriever_scope:
@@ -399,6 +444,7 @@ class VakraAdapterAgent:
                 self._draft = (follow_up, all_tool_calls)
             return follow_up
 
+        stages: List[tuple] = []
         answer = await run_answer_pipeline(
             invoke_round,
             result,
@@ -408,13 +454,28 @@ class VakraAdapterAgent:
             self._llm_ainvoke,
             final_answer_installed=self._final_answer_installed,
             question=query,
+            checkpoint=(lambda name, text: stages.append((name, text, len(all_tool_calls))))
+            if cfg.stage_trace
+            else None,
         )
+        if cfg.stage_trace:
+            self._write_trace(query, stages, answer, len(all_tool_calls))
         try:
             return result.model_copy(update={"answer": answer, "tool_calls": all_tool_calls})
         except AttributeError:  # non-pydantic result object: mutate in place
             result.answer = answer
             result.tool_calls = all_tool_calls
             return result
+
+
+def _refusal_result(thread_id: Optional[str]) -> Any:
+    """An InvokeResult-shaped refusal with no tool calls (retriever_scope_refusal)."""
+    try:
+        from cuga.sdk import InvokeResult  # noqa: PLC0415
+
+        return InvokeResult(answer=REFUSAL, tool_calls=[], thread_id=thread_id)
+    except Exception:  # noqa: BLE001  (fake/partial cuga in tests)
+        return SimpleNamespace(answer=REFUSAL, tool_calls=[], thread_id=thread_id, error=None)
 
 
 def recording_provider(base_provider: Any, cfg: AdapterConfig) -> RecordingScopedToolProvider:
@@ -429,7 +490,8 @@ def recording_provider(base_provider: Any, cfg: AdapterConfig) -> RecordingScope
     provider.lowercase_retry = cfg.lowercase_retry
     provider.empty_handles = cfg.empty_handle_is_empty
     provider.force_distinct_false = cfg.force_distinct_false
-    provider.keep_full_results = cfg.composer_result_chars if cfg.answer_composer else 0
+    composer_used = cfg.answer_composer or cfg.refusal_persist or cfg.trace_composer
+    provider.keep_full_results = cfg.composer_result_chars if composer_used else 0
     return provider
 
 
