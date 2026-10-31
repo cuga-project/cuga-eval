@@ -116,8 +116,13 @@ run_cap1_domain() {
 # m3.env is loaded the way eval.sh loads it (never overriding what is already exported), with the
 # kit's own registry port and CUGA's policy system off.
 run_cap4_domain() {
-    local dom="$1" rc
-    local args=(--from-config "$PARITY_DIR/m3_registry_cap4.yaml" --m3-data "$M3DATA" --capability m3_task_4
+    local dom="$1" rc reg="$PARITY_DIR/m3_registry_cap4.yaml"
+    # PARITY_CONTAINER: the registry execs into that container (the bundled YAML names the default one)
+    if [ "$CONTAINER" != "capability_4_multiturn" ]; then
+        reg="$OUT/m3_registry_cap4.$CONTAINER.yaml"
+        sed "s/\"capability_4_multiturn\"/\"$CONTAINER\"/g" "$PARITY_DIR/m3_registry_cap4.yaml" > "$reg"
+    fi
+    local args=(--from-config "$reg" --m3-data "$M3DATA" --capability m3_task_4
         --eval-key "$SUBSET" --no-ground-truth --no-policies --domain "$dom")
     [ "$PRESET" != "off" ] && args+=(--adapter-preset "$PRESET")
     [ "$PRESET" != "off" ] && [ "$DEMODATA" != "-" ] && args+=(--demo-data "$DEMODATA")
