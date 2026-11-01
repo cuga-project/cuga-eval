@@ -329,9 +329,9 @@ def test_defaults_are_the_campaign_configs_plus_the_ab_winners():
         **FIXES,
         **DEMO_FIXES,
     )
-    assert PRESETS["cap4"] == replace(
+    assert PRESETS["cap4_codeact"] == replace(
         PRESETS["cap4_v3wx"],
-        preset="cap4",
+        preset="cap4_codeact",
         evidence_gate=False,
         support_check=False,
         self_verify=False,
@@ -341,6 +341,21 @@ def test_defaults_are_the_campaign_configs_plus_the_ab_winners():
         prefilter_min_tools=400,
         **FIXES,
     )
+    assert PRESETS["cap4_codeact"].execution_mode == "codeact"
+    assert PRESETS["cap4"] == replace(
+        PRESETS["cap4_codeact"],
+        preset="cap4",
+        execution_mode="function_calling",
+        fc_step_discipline="one_tool_per_step",
+        fc_prompt_fragments="evidence_first",
+        fc_answer_format=True,
+        shortlist_top_k=128,
+        retriever_scope_refusal=True,
+        refusal_persist=True,
+        stage_trace=True,
+    )
+    assert not (PRESETS["cap4"].hide_retrievers or PRESETS["cap4"].trace_composer)
+    assert PRESETS["cap4"].topic_match == "question"
     cap1 = PRESETS["cap1"]
     assert cap1.lowercase_retry and cap1.keep_draft_on_timeout and not cap1.fact_check_strict
     assert cap1.strip_demo_layout and not PRESETS["cap4"].strip_demo_layout

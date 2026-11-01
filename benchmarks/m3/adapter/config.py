@@ -172,7 +172,7 @@ class AdapterConfig:
     # --- demos source (never the split under evaluation; see demos.load_demo_corpus) ---
     demo_data: Optional[str] = None  # M3_ADAPTER_DEMO_DATA / --demo-data; None = bundled data/small_train.zip
 
-    # --- execution mode (VAKRA_CUGA_FC; caps 1-3 presets use FC, cap4/V3WX is CodeAct) ---
+    # --- execution mode (VAKRA_CUGA_FC; caps 1-4 presets use FC, cap4_v3wx / cap4_codeact are CodeAct) ---
     execution_mode: str = "codeact"  # "codeact" | "function_calling" (native FC: cuga-agent#777)
 
     # --- campaign runtime (what the campaign's own CUGA ran with, beyond the VAKRA_* flags) ---
@@ -358,6 +358,24 @@ _CAP4_V3WX = AdapterConfig(
 #: lowercase values; earlier draft on a re-ask timeout: 2 cap4 tasks) with no attributable loss.
 #: fact_check_strict stays off (no attributable gain, one probable cap4 loss).
 _REVIEW_FIXES = dict(lowercase_retry=True, keep_draft_on_timeout=True)
+
+#: The CodeAct cap4 default until 2026-11-01 (the v5-v9 test submissions): soft2 (the campaign's best
+#: unsubmitted cap4 config: the three refusal guards off, REQUIRE_TOOL with 2 rounds) plus the fact-check
+#: retry (66.7% vs V3WX answers 46.7%).
+_CAP4_CODEACT = replace(
+    _CAP4_V3WX,
+    preset="cap4_codeact",
+    evidence_gate=False,
+    support_check=False,
+    self_verify=False,
+    require_tool_rounds=2,
+    fact_check="verify_and_retry",
+    # Every tool (the A/B winner over the campaign's top-40) unless the catalog cannot fit the
+    # model: past 400 tools, the campaign's per-turn top-40 (test movie, 707 tools, overflowed).
+    prefilter_top_k=40,
+    prefilter_min_tools=400,
+    **_REVIEW_FIXES,
+)
 # caps 1-3 show demos: a reply copied in their layout is cut to its final answer (a no-op for gpt-oss,
 # which never writes it; GLM-5.3-Flash cap2 56.8 -> 73.0 re-judged, live 30-task 46.7 -> 73.3).
 _DEMO_FIXES = dict(strip_demo_layout=True)
@@ -416,25 +434,26 @@ PRESETS: dict[str, AdapterConfig] = {
         **_DEMO_FIXES,
         **_COMPOSER,
     ),  # +10 / +13
+    # cap4 policy A/B (2026-11-01, 240 train dialogues stratified by policy type, one scoring session):
+    # function calling with the caps 1-3 prompt knobs and bind-time top-128 beat CodeAct by +5.8
+    # (26 gained / 15 lost; +10.2 in domains over 128 tools), and the retriever-only refusal added +4.6
+    # (12 / 1). Refusal persistence is kept from the measured arm (near-neutral); stage_trace only logs.
     "cap4": replace(
-        _CAP4_V3WX,
+        _CAP4_CODEACT,
         preset="cap4",
-        # soft2 (the campaign's best unsubmitted cap4 config): the three refusal guards off,
-        # REQUIRE_TOOL with 2 rounds; plus the fact-check retry (66.7% vs V3WX answers 46.7%).
-        evidence_gate=False,
-        support_check=False,
-        self_verify=False,
-        require_tool_rounds=2,
-        fact_check="verify_and_retry",
-        # Every tool (the A/B winner over the campaign's top-40) unless the catalog cannot fit the
-        # model: past 400 tools, the campaign's per-turn top-40 (test movie, 707 tools, overflowed).
-        prefilter_top_k=40,
-        prefilter_min_tools=400,
-        **_REVIEW_FIXES,
+        execution_mode="function_calling",
+        fc_step_discipline="one_tool_per_step",
+        fc_prompt_fragments="evidence_first",
+        fc_answer_format=True,
+        shortlist_top_k=128,
+        retriever_scope_refusal=True,
+        refusal_persist=True,
+        stage_trace=True,
     ),
     "cap2_campaign": _CAP2_CAMPAIGN,
     "cap3_campaign": _CAP3_CAMPAIGN,
     "cap4_v3wx": _CAP4_V3WX,
+    "cap4_codeact": _CAP4_CODEACT,
 }
 
 

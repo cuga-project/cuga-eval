@@ -46,7 +46,8 @@ Presets with few-shot demos (cap1-3) read their corpus from `--demo-data` /
 changes that won paired A/Bs on two disjoint 30-task train slices each. The parity kit
 (`benchmarks/m3/parity/`) ran them with the official judge at temperature 1.0, against the
 campaign's own recorded answers re-scored in the same session. The campaign's configs stay
-available for parity runs as `cap2_campaign`, `cap3_campaign` and `cap4_v3wx`; `cap1` is unchanged.
+available for parity runs as `cap2_campaign`, `cap3_campaign` and `cap4_v3wx`; `cap1` is unchanged. The
+CodeAct cap4 default used until 2026-11-01 is `cap4_codeact`.
 
 | preset | = campaign config + | evidence (train slices, pass rate) |
 |---|---|---|
@@ -54,6 +55,7 @@ available for parity runs as `cap2_campaign`, `cap3_campaign` and `cap4_v3wx`; `
 | `cap2` | `tool_pick` (pool 48 → pick + LLM ranking → bind 10, the pick named: `tool_pick_pool=48`, `tool_pick_bind=10`, `tool_pick_fill="llm"`, `tool_pick_hint`), `require_tool_rounds=2` + `retry_unattempted_refusal`, `empty_result_hint` + `param_value_examples=6` | est2_ref30 66.7 → 76.7 (pick + retry); est2_fresh30 48.3 → 69.0 (campaign answers 70.0 / 65.5); bind 10 ties bind 3 on 60 tasks (69.5 / 69.5) and keeps the gold tool bound when the pick misses |
 | `cap3` | `fact_check="verify_and_retry"` | est3_ref30 50.0 → 60.0; est3_fresh30 43.3 → 56.7 (campaign 53.6 / 56.7) |
 | `cap4` | soft2 (`evidence_gate`, `support_check`, `self_verify` off; `require_tool_rounds=2`) + `fact_check="verify_and_retry"` | est4_ref30 66.7 vs V3WX answers 46.7 |
+| `cap4` | `execution_mode="function_calling"` with the caps 1-3 FC knobs (`fc_step_discipline="one_tool_per_step"`, `fc_prompt_fragments="evidence_first"`, `fc_answer_format`) and `shortlist_top_k=128`; `retriever_scope_refusal`; `refusal_persist`; `stage_trace` (log only) | cap4 policy A/B (2026-11-01, 240 train dialogues stratified by policy type, one scoring session): FC vs CodeAct +5.8 (26 gained / 15 lost; +3.7 in domains up to 128 tools, +10.2 above — FC binds at most 128 and shortlists the rest); the retriever-only refusal +4.6 (12 / 1); refusal persistence turned 27 give-ups into answers, none right in CodeAct, +1 in FC. `cap4_codeact` keeps the earlier CodeAct default |
 | `cap4` | `prefilter_top_k=40` + `prefilter_min_tools=400`: every tool, unless a domain has more than 400 — then the campaign's per-turn top-40 | the test split's movie domain (707 tools) built a 534k-character CodeAct prompt, over the 131k-token context on all 14 tasks; the campaign answered them with its top-40. No train domain reaches 400 tools, so the validated runs are unchanged |
 | `cap1`–`cap3` | `strip_demo_layout`: a reply copied in the demos' layout (`Chain used: <tools>` / `Final answer: X`) is cut to `X` in the final_answer fn (and a fact-check correction) | none of gpt-oss's answers change on caps 1-4 (a no-op for the validated runs). GLM-5.3-Flash wrote the layout in 20/119 cap1, 51/115 cap2 and 77/120 cap3 answers and the groundedness judge failed correct values for the tool chain; re-judged after the cut: cap2 56.8 → 73.0, cap3 42.0 → 58.0, cap1 neutral; live on est2_ref30: 46.7 → 73.3 (8 gained, 0 lost) |
 | all four | `lowercase_retry` (a call with no rows or only zeros is retried once with lowercased text arguments) + `keep_draft_on_timeout` (a re-ask cut by `agent_timeout` answers with the earlier draft) | four-cap A/B on the campaign samples (2026-10-19): the tasks they changed were gains — lowercase 4 (stored lowercase values, caps 2-4), earlier draft 2 (cap4 timeouts) — with no attributable loss |
@@ -193,7 +195,8 @@ to the SDK embedding strategy and pins `query_*` retriever tools into the top-k
 ## Execution mode (function calling)
 
 `execution_mode` maps `VAKRA_CUGA_FC`: the validated caps 1-3 runs used CUGA's
-native function-calling execution mode, cap4 (V3WX) ran CodeAct. With
+native function-calling execution mode, cap4 (V3WX) ran CodeAct; the `cap4` preset uses FC since
+2026-11-01 (`cap4_codeact` is the CodeAct one). With
 `function_calling` the adapter sets, per invoke, `cuga_lite_execution_mode="function_calling"`
 and `cuga_lite_bind_tools_mode="all"` (bind the whole scoped / shortlisted toolset
 as tools). With `codeact` it sets nothing, so that arm of an A/B is exactly the
@@ -254,7 +257,8 @@ appends to each tool's description up to that many solved questions whose gold c
   rules topic-classify the query first (one cheap LLM call). Like every
   preset, `cap4_v3wx` runs with CUGA's policy DB cleared (`use_policy_system=False`);
   policy handling comes from the instructions/scoping instead.
-- **cap4 policy opt-ins** (off in every preset; the cap4 train ground truth they follow: a dialogue
+- **cap4 policy opt-ins** (`cap4` turns on `retriever_scope_refusal`, `refusal_persist` and `stage_trace`; the
+  others are off in every preset; the cap4 train ground truth they follow: a dialogue
   expects "I can not answer." exactly when its policy scopes it to document retrievers — absolute, or
   conditional with the dialogue's domain in the topic — 133/133, with no tool call; no answer of the
   other 765 dialogues calls a retriever, and only 6 of them expect a refusal):

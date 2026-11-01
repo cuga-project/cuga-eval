@@ -16,8 +16,7 @@ PARITY_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"; ROOT="$(cd "$PARITY_
 CHECK=0; [ "${1:-}" = "--check" ] && { CHECK=1; shift; }
 CAP="${1:?usage: run_test_arm.sh [--check] <cap 1-4> [run_id]}"
 case "$CAP" in
-    1|2|3) BASE="cap$CAP"; FC=1; ARM="cuga_eval_cap${CAP}_fc" ;;
-    4) BASE="cap4"; FC=0; ARM="cuga_eval_cap4" ;;
+    1|2|3|4) BASE="cap$CAP"; FC=1; ARM="cuga_eval_cap${CAP}_fc" ;;
     *) echo "capability must be 1-4" >&2; exit 2 ;;
 esac
 SUBSET="${TEST_SUBSET:-test_cap$CAP}"
