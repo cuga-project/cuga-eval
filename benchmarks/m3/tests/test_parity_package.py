@@ -17,6 +17,8 @@ def test_error_category_never_passes_raw_provider_text():
     )
     assert pkg.error_category("agent_timeout 300s exceeded") == "TimeoutError: agent timed out"
     assert pkg.error_category("Connection error.") == "APIConnectionError: model provider unreachable"
+    for tool_server in ("Connection closed", "MCP connection closed"):
+        assert pkg.error_category(tool_server) == "ToolServerError: tool server connection closed"
     assert pkg.error_category("KeyError 'x' at host-1.example") == "Error: agent run failed"
     assert pkg.error_category("") == "empty answer"
 

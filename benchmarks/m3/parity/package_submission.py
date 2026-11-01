@@ -51,6 +51,8 @@ def error_category(error: str) -> str:
         return "BadRequestError: input longer than the model's context length"
     if "timeout" in e or "timed out" in e:
         return "TimeoutError: agent timed out"
+    if "mcp" in e or "connection closed" in e:  # the domain's tool server dropped, not the model provider
+        return "ToolServerError: tool server connection closed"
     if "connection" in e:
         return "APIConnectionError: model provider unreachable"
     return "Error: agent run failed"
