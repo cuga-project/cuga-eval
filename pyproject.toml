@@ -64,6 +64,13 @@ required-environments = [
     "sys_platform == 'linux' and platform_machine == 'x86_64'",
     "sys_platform == 'darwin' and platform_machine == 'arm64'",
 ]
+# Only takes effect when AppWorld is added locally by ./setup_appworld.sh: nothing in
+# the committed lock needs sqlalchemy, so a local re-resolve otherwise takes the newest
+# release. 2.1 percent-encodes ":" in rendered URLs, which AppWorld's db.py parses, so
+# /initialize returns 500 and no task runs. See cuga-project/cuga-eval#213.
+constraint-dependencies = [
+    "sqlalchemy<2.1",
+]
 
 [tool.uv.sources]
 cuga = { path = "../cuga-agent", editable = true }
