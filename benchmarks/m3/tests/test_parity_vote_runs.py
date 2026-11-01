@@ -5,6 +5,7 @@ import json
 import pytest
 
 from benchmarks.m3.parity import vote_runs as V
+from benchmarks.m3.parity.recover import TIMEOUT_DRAFT
 
 pytestmark = pytest.mark.sanity
 
@@ -110,3 +111,43 @@ def test_unknown_rule_and_existing_output_fail(tmp_path):
     (tmp_path / "y").mkdir()
     with pytest.raises(FileExistsError):
         V.vote(arms, 2, "majority", tmp_path / "y")
+
+
+def _draft_console(arm, *uids):
+    """A console log in which every task of ``uids`` answered with its timeout draft."""
+    draft = "2099-01-01 00:00:05.000 | WARNING | x - [m3-adapter] " + TIMEOUT_DRAFT
+    (arm / "console.log").write_text(
+        "".join(
+            f"[{i}/{len(uids)}] Processing sample\n{draft}\n2099-01-01 00:00:09.000 | INFO | x - ✅ Completed: {u}\n"
+            for i, u in enumerate(uids, 1)
+        )
+    )
+
+
+def test_a_timeout_draft_counts_toward_the_majority_but_is_taken_last(tmp_path):
+    seven = [("count", '{"count": 7}')]
+    arms = [
+        _arm(tmp_path, "r1", [_rec("t1", "7", seven), _rec("t2", "5", [("count", '{"count": 5}')])]),
+        _arm(tmp_path, "r2", [_rec("t1", "7", seven + seven), _rec("t2", "6", [("count", '{"count": 6}')])]),
+    ]
+    _draft_console(arms[0], "t1", "t2")  # r1's lean trace for t1 is a draft
+    assert V.draft_uuids(arms[0]) == {"t1", "t2"}
+    V.vote(arms, 3, "majority", tmp_path / "vm")
+    got = _chosen(tmp_path / "vm")
+    assert got["t1"] == "7"  # still the 2/2 majority, but with r2's record
+    assert got["t2"] == "6"  # no majority: the non-draft valid answer
+    log = {e["uuid"]: e for e in json.loads((tmp_path / "vm" / "vote_log.json").read_text())["tasks"]}
+    assert log["t1"]["why"] == "majority 2/2" and log["t1"]["chosen_run"] == 1
+    assert log["t2"]["timeout_drafts"] == [0]
+
+
+def test_a_draft_that_a_recovery_pass_replaced_is_not_a_draft(tmp_path):
+    arm = _arm(tmp_path / "run_1", "cuga_eval_cap3_fc", [_rec("t1", "7", [])])
+    _draft_console(arm, "t1")
+    rec = tmp_path / "run_1__recover1" / "cuga_eval_cap3_fc"
+    rec.mkdir(parents=True)
+    (rec / "console.log").write_text("")
+    (arm / "recover_log.jsonl").write_text(
+        json.dumps({"recovered_from": str(rec), "replaced": ["t1"]}) + "\n"
+    )
+    assert V.draft_uuids(arm) == set()

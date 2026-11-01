@@ -16,7 +16,9 @@ Rules (all deterministic):
   majority: run 1. A baseline that isolates what the trace choice adds.
 
 A valid answer is non-empty and not working notes; a refusal is valid only for capability 4 (some of
-its tasks expect it).
+its tasks expect it). A timeout draft (the run's console log shows the turn hit the agent timeout and
+kept its earlier draft) still counts toward a majority, but every rule takes it last: it is submitted
+only when no other run gives a valid answer.
 
 usage: python -m benchmarks.m3.parity.vote_runs --cap 1 --rule majority --out RUN/ARM@vote_majority \
            --arm RUN1/ARM --arm RUN2/ARM --arm RUN3/ARM
@@ -36,6 +38,7 @@ from typing import Any, Dict, List, Optional, Tuple
 
 from benchmarks.m3.adapter.final_answer import canonicalize_final_answer, is_giveup
 from benchmarks.m3.adapter.guards import looks_like_plan_text, unsupported_values
+from benchmarks.m3.parity.recover import _replaced_by, timeout_drafts
 
 #: The evaluator reads the last N tool responses (vakra-main evaluator/judge.py N_TOOL_CALLS_PER_TURN).
 JUDGE_WINDOW = 20
@@ -63,8 +66,8 @@ def normalize(answer: str) -> Optional[frozenset]:
 class Run:
     """One run's record of a task, with what the rules need."""
 
-    def __init__(self, index: int, record: dict, calls: List[Tuple[str, str]], cap: int):
-        self.index, self.record = index, record
+    def __init__(self, index: int, record: dict, calls: List[Tuple[str, str]], cap: int, draft: bool = False):
+        self.index, self.record, self.draft = index, record, draft
         turn = record["output"][-1]
         self.answer = str(turn.get("answer") or "")
         self.query = str(turn.get("query") or "")
@@ -81,7 +84,7 @@ class Run:
         )
 
     def trace_order(self) -> tuple:
-        return (not self.supported, self.failed, self.n_calls, self.index)
+        return (self.draft, not self.supported, self.failed, self.n_calls, self.index)
 
 
 def _majority(runs: List[Run]) -> Optional[List[Run]]:
@@ -100,15 +103,19 @@ def choose(runs: List[Run], rule: str) -> Tuple[Run, str]:
             counts = collections.Counter(r.key for r in good)
             best = max(counts.values())
             pool = [r for r in good if counts[r.key] == best]
-            return min(pool, key=lambda r: (r.n_calls, r.index)), f"evidence ({best}/{len(runs)} agree)"
+            return min(
+                pool, key=lambda r: (r.draft, r.n_calls, r.index)
+            ), f"evidence ({best}/{len(runs)} agree)"
         rule = "majority"
     group = _majority(runs)
     if group is not None:
         if rule == "first":
-            return min(group, key=lambda r: r.index), f"majority {len(group)}/{len(runs)}, earliest"
+            return min(
+                group, key=lambda r: (r.draft, r.index)
+            ), f"majority {len(group)}/{len(runs)}, earliest"
         return min(group, key=Run.trace_order), f"majority {len(group)}/{len(runs)}"
     if rule == "first":
-        return runs[0], "no majority, run 1"
+        return min(runs, key=lambda r: (r.draft, r.index)), "no majority, run 1"
     valid = [r for r in runs if r.valid] or runs
     return min(valid, key=Run.trace_order), "no majority, best supported"
 
@@ -147,22 +154,37 @@ def load_arm(arm: Path, cap: int) -> Dict[str, Tuple[str, dict, List[Tuple[str, 
     return out
 
 
+def draft_uuids(arm: Path) -> set:
+    """Lowercased uuids whose record in the arm's predictions is a timeout draft (the arm's own run or the
+    recovery pass that replaced the record)."""
+    replaced = _replaced_by(arm)
+    drafts = {src: timeout_drafts(src) for src in {arm, *replaced.values()}}
+    own = {u for u in drafts[arm] if u not in replaced}
+    return own | {u for u, src in replaced.items() if u in drafts[src]}
+
+
 def vote(arms: List[Path], cap: int, rule: str, out: Path) -> Dict[str, Any]:
     if rule not in RULES:
         raise ValueError(f"rule must be one of {RULES}")
     loaded = [load_arm(a, cap) for a in arms]
+    drafts = [draft_uuids(a) for a in arms]
     uuids = sorted(set().union(*loaded))
     files: Dict[str, List[dict]] = collections.defaultdict(list)
     log, stats = [], collections.Counter()
     for uid in uuids:
-        runs = [Run(i, d[uid][1], d[uid][2], cap) for i, d in enumerate(loaded) if uid in d]
+        runs = [
+            Run(i, d[uid][1], d[uid][2], cap, draft=uid.lower() in drafts[i])
+            for i, d in enumerate(loaded)
+            if uid in d
+        ]
         run, why = choose(runs, rule)
         fname = next(d[uid][0] for d in loaded if uid in d)
         files[fname].append(run.record)
         stats[why] += 1
-        log.append(
-            {"uuid": uid, "chosen_run": run.index, "why": why, "answers": [r.answer[:120] for r in runs]}
-        )
+        entry = {"uuid": uid, "chosen_run": run.index, "why": why, "answers": [r.answer[:120] for r in runs]}
+        if any(r.draft for r in runs):
+            entry["timeout_drafts"] = [r.index for r in runs if r.draft]
+        log.append(entry)
     if out.exists():
         raise FileExistsError(out)
     (out / "prediction").mkdir(parents=True)
