@@ -64,12 +64,15 @@ required-environments = [
     "sys_platform == 'linux' and platform_machine == 'x86_64'",
     "sys_platform == 'darwin' and platform_machine == 'arm64'",
 ]
-# Only takes effect when AppWorld is added locally by ./setup_appworld.sh: nothing in
-# the committed lock needs sqlalchemy, so a local re-resolve otherwise takes the newest
-# release. 2.1 percent-encodes ":" in rendered URLs, which AppWorld's db.py parses, so
-# /initialize returns 500 and no task runs. See cuga-project/cuga-eval#213.
+# Only take effect when AppWorld is added locally by ./setup_appworld.sh: nothing in the
+# committed lock needs these, so a local re-resolve otherwise takes the newest releases.
+# SQLAlchemy 2.1 percent-encodes ":" in rendered URLs, which AppWorld's db.py parses, so
+# /initialize returns 500 and no task runs. sqlmodel 0.0.45 rejects the naive datetimes
+# AppWorld stores, so writes of datetime columns return 500 after the parent row is
+# committed and tasks score partially instead of failing. See cuga-project/cuga-eval#213.
 constraint-dependencies = [
     "sqlalchemy<2.1",
+    "sqlmodel<0.0.45",
 ]
 
 [tool.uv.sources]
