@@ -250,7 +250,7 @@ being submitted, so edits other sessions make in the shared checkout cannot reac
    ```bash
    uv run --frozen python -m benchmarks.m3.parity.package_submission --out <dir> \
        --arm runs/<cap1 run>/cuga_eval_cap1_fc --arm runs/<cap2 run>/cuga_eval_cap2_fc \
-       --arm runs/<cap3 run>/cuga_eval_cap3_fc --arm runs/<cap4 run>/cuga_eval_cap4
+       --arm runs/<cap3 run>/cuga_eval_cap3_fc --arm runs/<cap4 run>/cuga_eval_cap4_fc
    ```
 
 ### Landing day (cuga-agent#777 merged)

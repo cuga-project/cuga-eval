@@ -32,7 +32,7 @@ CAPDIRS = {
     3: "capability_3_multihop_reasoning",
     4: "capability_4_multiturn",
 }
-ARMS = {1: "cuga_eval_cap1_fc", 2: "cuga_eval_cap2_fc", 3: "cuga_eval_cap3_fc", 4: "cuga_eval_cap4"}
+ARMS = {1: "cuga_eval_cap1_fc", 2: "cuga_eval_cap2_fc", 3: "cuga_eval_cap3_fc", 4: "cuga_eval_cap4_fc"}
 
 
 def test_ids(vakra_main: Path, cap: int) -> Dict[str, List[str]]:
