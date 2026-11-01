@@ -32,14 +32,12 @@ from datetime import datetime
 from pathlib import Path
 from typing import Any, Dict, List, Optional, Tuple
 
-from benchmarks.m3.parity.recover import _runner_records
+from benchmarks.m3.parity.recover import TASK_END, TASK_START, _runner_records
 
 PARITY_DIR = Path(__file__).resolve().parent
 MANIFESTS = PARITY_DIR / "manifests"
 
 _TS = re.compile(r"^(\d{4}-\d\d-\d\d \d\d:\d\d:\d\d\.\d+) \|")
-_START = re.compile(r"^\[\d+/\d+\] Processing sample")
-_END = re.compile(r"(?:✅ Completed: |❌ ERROR in multi-turn task )([0-9A-Za-z-]+)")
 
 
 def error_category(error: str) -> str:
@@ -66,7 +64,7 @@ def console_durations(console_log: Path) -> Dict[str, float]:
     waiting, start = False, None
     with open(console_log, errors="replace") as fh:
         for line in fh:
-            if _START.match(line):
+            if TASK_START.match(line):
                 waiting, start = True, None
                 continue
             m = _TS.match(line)
@@ -75,7 +73,7 @@ def console_durations(console_log: Path) -> Dict[str, float]:
             ts = datetime.strptime(m.group(1), "%Y-%m-%d %H:%M:%S.%f")
             if waiting:
                 waiting, start = False, ts
-            end = _END.search(line)
+            end = TASK_END.search(line)
             if end and start is not None:
                 out.setdefault(end.group(1).lower(), round((ts - start).total_seconds(), 3))
                 start = None

@@ -1,7 +1,9 @@
 """Recovery pass: re-run an arm's tasks that died on infrastructure and merge their new predictions.
 
 A task died on infrastructure when the runner recorded an error for it (the agent timeout, a dropped
-connection, a rate limit, a 5xx) or its final answer is empty. The campaign re-ran such items for
+connection, a rate limit, a 5xx), its final answer is empty, or one of its turns hit the agent timeout
+and answered with the draft from before a re-ask (``keep_draft_on_timeout``): the runner records no
+error for those, so they are read off the run's console log. The campaign re-ran such items for
 cap1 (empty answers 12.8% -> 3.5%); on the train validation runs they were 3-20% of a cap's tasks,
 mostly cap4 timeouts and proxy outages.
 
@@ -31,12 +33,18 @@ import re
 import shutil
 import sys
 from pathlib import Path
-from typing import Any, Dict, List, Optional
+from typing import Any, Dict, List, Optional, Set
 
 PARITY_DIR = Path(__file__).resolve().parent
 MANIFESTS = PARITY_DIR / "manifests"
 RECOVER_DIR = PARITY_DIR / ".local" / "recover"
 PREFIX = "zz_recover_"
+
+# eval_m3's console log frames each task from "[i/n] Processing sample" to its end line (caps 2-4).
+TASK_START = re.compile(r"^\[\d+/\d+\] Processing sample")
+TASK_END = re.compile(r"(?:✅ Completed: |❌ ERROR in multi-turn task )([0-9A-Za-z-]+)")
+# benchmarks/m3/adapter/agent.py logs this when a timed-out re-ask falls back to the earlier draft.
+TIMEOUT_DRAFT = "timeout during a re-ask: answering with the earlier draft"
 
 
 def _load(path: Path) -> Any:
@@ -75,6 +83,26 @@ def _runner_records(arm_dir: Path, task_id: int) -> List[Dict[str, Any]]:
     return out
 
 
+def timeout_drafts(arm_dir: Path) -> Set[str]:
+    """Lowercased uuids of the tasks a turn of which answered with its timeout draft (from console.log)."""
+    out: Set[str] = set()
+    log = Path(arm_dir) / "console.log"
+    if not log.exists():
+        return out
+    draft = False
+    with open(log, errors="replace") as fh:
+        for line in fh:
+            if TASK_START.match(line):
+                draft = False
+            elif TIMEOUT_DRAFT in line:
+                draft = True
+            elif end := TASK_END.search(line):
+                if draft:
+                    out.add(end.group(1).lower())
+                draft = False
+    return out
+
+
 def _replaced_by(arm_dir: Path) -> Dict[str, Path]:
     """uuid -> the recovery run whose record the arm's prediction holds now (the last pass that replaced it)."""
     out: Dict[str, Path] = {}
@@ -89,10 +117,12 @@ def _replaced_by(arm_dir: Path) -> Dict[str, Path]:
 
 
 def failed_tasks(arm_dir: Path, manifest: Dict[str, Any]) -> Dict[str, List[str]]:
-    """``{domain: [uuid, ...]}`` of the manifest's tasks that errored or ended without an answer.
+    """``{domain: [uuid, ...]}`` of the manifest's tasks that errored, ended without an answer, or
+    answered with a timeout draft.
 
-    A task an earlier recovery pass replaced is judged by that pass's runner record, not by the arm's
-    original one (which still shows the old failure), so a second pass re-runs only what is still failing.
+    A task an earlier recovery pass replaced is judged by that pass's runner record and console log,
+    not by the arm's original ones (which still show the old failure), so a second pass re-runs only
+    what is still failing.
     """
     arm_dir = Path(arm_dir)
     task_id = int(manifest.get("task_id") or 0)
@@ -101,12 +131,15 @@ def failed_tasks(arm_dir: Path, manifest: Dict[str, Any]) -> Dict[str, List[str]
     bad: Dict[str, str] = {}
     sources = [(arm_dir, None)] + [(src, src) for src in dict.fromkeys(replaced_by.values())]
     for run_dir, src in sources:
+        drafts = timeout_drafts(run_dir)
         for rec in _runner_records(run_dir, task_id):
             key = str(rec.get("uuid") or "").lower()
             if key not in wanted or replaced_by.get(key) != src:
                 continue  # judged by the run whose record the prediction holds
             if rec["error"].strip() or not rec["answer"].strip():
                 bad[key] = rec["error"].strip() or "empty answer"
+            elif key in drafts:
+                bad[key] = "agent timeout (answered with the earlier draft)"
     seen = set()
     for f in glob.glob(str(arm_dir / "prediction" / "*.json")):
         for rec in _load(f):

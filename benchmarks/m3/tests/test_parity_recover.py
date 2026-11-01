@@ -198,3 +198,55 @@ def test_a_second_pass_skips_tasks_an_earlier_pass_recovered(tmp_path):
     assert recover.failed_tasks(arm, m) == {"hockey": ["H-2", "H-3"]}  # before any merge
     assert recover.merge_predictions(arm, rec) == {"replaced": 1, "still_failed": 1}
     assert recover.failed_tasks(arm, m) == {"hockey": ["H-3"]}  # H-2 is answered now: not re-run
+
+
+def _console(arm, tasks):
+    """An eval_m3 console log: one framed block per (uuid, lines) task."""
+    out = []
+    for i, (uuid, lines) in enumerate(tasks, 1):
+        out += [
+            f"[{i}/{len(tasks)}] Processing sample",
+            "2099-01-01 00:00:00.000 | INFO | x - turn 1",
+            *lines,
+        ]
+        out.append(f"2099-01-01 00:00:09.000 | INFO | x - ✅ Completed: {uuid}")
+    (arm / "console.log").write_text("\n".join(out) + "\n")
+
+
+DRAFT = "2099-01-01 00:00:05.000 | WARNING | x - [m3-adapter] " + recover.TIMEOUT_DRAFT
+
+
+def test_a_timeout_draft_answer_is_a_failed_task(tmp_path):
+    native = [
+        {"uuid": u, "error": None, "all_responses": [{"response": a}]}
+        for u, a in (("H-1", "draft"), ("H-2", "2"), ("H-3", "3"))
+    ]
+    arm = _arm(tmp_path, native, {"hockey": [_pred("H-1", "draft"), _pred("H-2", "2"), _pred("H-3", "3")]})
+    _console(arm, [("H-1", [DRAFT]), ("H-2", []), ("H-3", [])])
+    m = _manifest()
+    m["ids_by_domain"] = {"hockey": ["H-1", "H-2", "H-3"]}
+    assert recover.timeout_drafts(arm) == {"h-1"}  # the draft line does not leak into the next task
+    assert recover.failed_tasks(arm, m) == {"hockey": ["H-1"]}
+
+
+def test_a_rerun_is_judged_by_its_own_console_log(tmp_path):
+    native = [{"uuid": u, "error": None, "all_responses": [{"response": "d"}]} for u in ("H-1", "H-2")]
+    arm = _arm(tmp_path, native, {"hockey": [_pred("H-1", "d"), _pred("H-2", "d")]})
+    _console(arm, [("H-1", [DRAFT]), ("H-2", [DRAFT])])
+    rec = tmp_path / "run_1__recover1" / "cuga_eval_cap2_fc"
+    (rec / "prediction").mkdir(parents=True)
+    (rec / "native_results.hockey.json").write_text(
+        json.dumps(
+            {
+                "results": [
+                    {"uuid": u, "error": None, "all_responses": [{"response": "r"}]} for u in ("H-1", "H-2")
+                ]
+            }
+        )
+    )
+    (rec / "prediction" / "hockey.json").write_text(json.dumps([_pred("H-1", "r"), _pred("H-2", "r")]))
+    _console(rec, [("H-1", []), ("H-2", [DRAFT])])  # H-2 timed out again on the re-run
+    m = _manifest()
+    m["ids_by_domain"] = {"hockey": ["H-1", "H-2"]}
+    assert recover.merge_predictions(arm, rec) == {"replaced": 2, "still_failed": 0}
+    assert recover.failed_tasks(arm, m) == {"hockey": ["H-2"]}
