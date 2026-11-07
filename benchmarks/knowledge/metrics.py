@@ -18,3 +18,15 @@ def coverage_by_depth(retrieved: set[str], gold_depth: dict[str, int]) -> dict[i
     for doc_id, depth in gold_depth.items():
         by_depth.setdefault(depth, set()).add(doc_id)
     return {d: evidence_coverage(retrieved, ids) for d, ids in sorted(by_depth.items())}
+
+
+# ProactiveInquirer's preregistered depth weights (pi_eval/score.py DWR_WEIGHTS): a deeper
+# hop is worth more, because reaching it means every hop before it was found too.
+DWR_WEIGHTS: dict[int, float] = {0: 0.5, 1: 1.0, 2: 1.5, 3: 2.0, 4: 2.0, 5: 2.0}
+
+
+def depth_weighted_recall(cad: dict[int, float], weights: dict[int, float] = DWR_WEIGHTS) -> float:
+    """DWR = sum_d w_d C@d / sum_d w_d over the depths the task has (pi_eval/metrics/structure.py)."""
+    num = sum(weights.get(d, 0.0) * c for d, c in cad.items() if not math.isnan(c))
+    den = sum(weights.get(d, 0.0) for d, c in cad.items() if not math.isnan(c))
+    return num / den if den else math.nan

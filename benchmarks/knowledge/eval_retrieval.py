@@ -1,4 +1,4 @@
-"""Retrieval-only evidence coverage for CUGA knowledge on the synthetic multi-hop suite.
+"""Retrieval-only evidence coverage for CUGA knowledge on multi-hop suites (synth, MuSiQue, 2Wiki).
 
 For each task: ingest its records into a fresh agent collection, then measure two things. No
 LLM and no network after the embedding model is cached, so the run is offline and deterministic.
@@ -12,6 +12,9 @@ LLM and no network after the embedding model is cached, so the run is offline an
    exact-identifier retrieval, which every hop of the chain depends on.
 
     uv run python -m benchmarks.knowledge.eval_retrieval --profile standard --out results.json
+
+MuSiQue and 2Wiki (``--suite musique|2wiki``) use each question's own paragraph pool and score
+part 1 only, plus coverage by hop depth (C@d) and depth-weighted recall (DWR); see multihop.py.
 """
 
 from __future__ import annotations
@@ -26,7 +29,7 @@ import time
 from pathlib import Path
 
 from benchmarks.helpers.bundle import collect_cuga_info
-from benchmarks.knowledge.metrics import coverage_by_depth, evidence_coverage
+from benchmarks.knowledge.metrics import coverage_by_depth, depth_weighted_recall, evidence_coverage
 from benchmarks.knowledge.synth import build
 
 
@@ -35,6 +38,7 @@ def _configure_cuga(workdir: Path, profile: str, postgres_url: str) -> None:
     os.environ["DYNACONF_KNOWLEDGE__ENABLED"] = "true"
     os.environ["DYNACONF_KNOWLEDGE__PERSIST_DIR"] = str(workdir / "knowledge")
     os.environ["DYNACONF_KNOWLEDGE__SEARCH__RAG_PROFILE"] = profile
+    os.environ["CUGA_DBS_DIR"] = str(workdir / "dbs")
     if postgres_url:
         os.environ["DYNACONF_STORAGE__MODE"] = "prod"
         os.environ["DYNACONF_STORAGE__POSTGRES_URL"] = postgres_url
@@ -55,13 +59,16 @@ async def _wait(engine, task_id: str, timeout_s: float = 120.0) -> None:
     raise TimeoutError(f"ingest task {task_id} did not finish in {timeout_s}s")
 
 
-async def _ingest(engine, client, docs, docs_dir: Path) -> dict[str, str]:
-    """Ingest each doc as its own text file; return filename -> doc_id."""
+async def _ingest(engine, client, docs, docs_dir: Path, with_title: bool = False) -> dict[str, str]:
+    """Ingest each doc as its own text file; return filename -> doc_id.
+
+    ``with_title`` puts the paragraph title on the first line (MuSiQue and 2Wiki titles name the
+    entity the paragraph is about; synth records already carry their token)."""
     docs_dir.mkdir(parents=True, exist_ok=True)
     filename_to_doc = {}
     for doc in docs:
         path = docs_dir / f"{doc.doc_id.replace(':', '_')}.txt"
-        path.write_text(doc.text)
+        path.write_text(f"{doc.title}\n{doc.text}" if with_title else doc.text)
         filename_to_doc[path.name] = doc.doc_id
         await _wait(engine, (await client.ingest(str(path)))["task_id"])
     return filename_to_doc
@@ -145,8 +152,80 @@ async def run(profile: str, k: int, n_tasks: int, postgres_url: str, pool: str =
     }
 
 
+async def run_multihop(suite: str, profile: str, k: int, limit: int, postgres_url: str) -> dict:
+    """One search with the question over the task's own pool; score coverage, C@d and DWR."""
+    from benchmarks.knowledge import multihop
+
+    tasks = multihop.musique(limit) if suite == "musique" else multihop.wiki2(limit)
+    cuga_info = collect_cuga_info()
+    with tempfile.TemporaryDirectory(prefix="cuga-kb-eval-") as tmp:
+        workdir = Path(tmp)
+        _configure_cuga(workdir, profile, postgres_url)
+        from cuga.backend.knowledge.client import KnowledgeClient
+        from cuga.backend.knowledge.config import KnowledgeConfig
+        from cuga.backend.knowledge.engine import KnowledgeEngine
+        from cuga.config import settings
+
+        engine = KnowledgeEngine(KnowledgeConfig.from_settings(settings))
+        await engine.warmup()
+        per_task = []
+        try:
+            for n, task in enumerate(tasks):
+                client = KnowledgeClient(engine, default_agent_id=f"{suite}_{n}")
+                filename_to_doc = await _ingest(
+                    engine, client, task.docs, workdir / "docs" / str(n), with_title=True
+                )
+                started = time.monotonic()
+                results = await client.search(task.question, limit=k)
+                latency_ms = (time.monotonic() - started) * 1000
+                retrieved = {
+                    filename_to_doc[r["filename"]] for r in results if r["filename"] in filename_to_doc
+                }
+                cad = coverage_by_depth(retrieved, task.gold_depth)
+                per_task.append(
+                    {
+                        "task_id": task.task_id,
+                        "coverage": evidence_coverage(retrieved, set(task.gold_depth)),
+                        "coverage_by_depth": cad,
+                        "dwr": depth_weighted_recall(cad),
+                        "distractors_retrieved": len(retrieved - set(task.gold_depth)),
+                        "search_ms": round(latency_ms, 1),
+                    }
+                )
+        finally:
+            await engine.aclose()
+            engine.shutdown()
+
+    depths = sorted({d for t in per_task for d in t["coverage_by_depth"]})
+    by_depth = {
+        d: [t["coverage_by_depth"][d] for t in per_task if d in t["coverage_by_depth"]] for d in depths
+    }
+    return {
+        "benchmark": f"knowledge_{suite}_retrieval",
+        "cuga": cuga_info,
+        "backend": "pgvector" if postgres_url else "sqlite",
+        "profile": profile,
+        "pool": "task",
+        "k": k,
+        "n_tasks": len(per_task),
+        "summary": {
+            "evidence_coverage": statistics.mean(t["coverage"] for t in per_task),
+            "coverage_by_depth": {d: statistics.mean(v) for d, v in by_depth.items()},
+            "tasks_by_depth": {d: len(v) for d, v in by_depth.items()},
+            "dwr": statistics.mean(t["dwr"] for t in per_task),
+            "task_success": statistics.mean(t["coverage"] == 1.0 for t in per_task),
+            "mean_distractors_retrieved": statistics.mean(t["distractors_retrieved"] for t in per_task),
+            "p50_search_ms": statistics.median(t["search_ms"] for t in per_task),
+        },
+        "tasks": per_task,
+    }
+
+
 def main() -> None:
     parser = argparse.ArgumentParser(description=__doc__.splitlines()[0])
+    parser.add_argument(
+        "--suite", choices=("synth", "musique", "2wiki"), default="synth", help="question suite"
+    )
     parser.add_argument("--profile", default="standard", help="CUGA knowledge profile")
     parser.add_argument("--k", type=int, default=10, help="results per search")
     parser.add_argument(
@@ -163,8 +242,33 @@ def main() -> None:
         default="task",
         help="task: a collection per task (upstream setting); open: all 576 records in one collection",
     )
+    parser.add_argument(
+        "--limit", type=int, default=200, help="musique/2wiki: questions, balanced across hop types"
+    )
     parser.add_argument("--out", type=Path, help="write the full result JSON here")
     args = parser.parse_args()
+
+    if args.suite != "synth":
+        result = asyncio.run(run_multihop(args.suite, args.profile, args.k, args.limit, args.postgres_url))
+        s = result["summary"]
+        print(
+            f"{args.suite} / {result['backend']} / {result['profile']} / k={result['k']} / cuga {result['cuga'].get('git_commit')}"
+        )
+        print(
+            f"  evidence coverage   {s['evidence_coverage']:.3f}   DWR {s['dwr']:.3f}   task success {s['task_success']:.3f}"
+        )
+        print(
+            "  coverage by depth   "
+            + "  ".join(
+                f"C@{d}={v:.2f} (n={s['tasks_by_depth'][d]})" for d, v in s["coverage_by_depth"].items()
+            )
+        )
+        print(
+            f"  distractors/top-k   {s['mean_distractors_retrieved']:.2f}   p50 search {s['p50_search_ms']:.0f} ms"
+        )
+        if args.out:
+            args.out.write_text(json.dumps(result, indent=2))
+        return
 
     result = asyncio.run(run(args.profile, args.k, args.tasks, args.postgres_url, args.pool))
     s = result["summary"]
