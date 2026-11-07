@@ -1,0 +1,85 @@
+{
+    "policies": [
+        {
+            "policy_name": "Delete Change Request Mapping \u2013 Role Authorization",
+            "description": "Only users with the Administrator, Manager, or Agent role may delete change\u2011request\u2011mapping records; all other users (e.g., Reporter) must be denied with a 403 Forbidden error.",
+            "references": [
+                "<p>| <strong>Administrator</strong> (<code>admin</code>) | System Configuration &amp; Integrity | Full CRUD (Create, Read, Update, Delete) access across all tables.\u00a0|</p>",
+                "<p>| <strong>Manager</strong> (<code>manager</code>) | Supervision, Escalation, Approvals | Full CRUD on operational tables (<code>incident</code>, <code>problem</code>, <code>change</code>, <code>knowledge</code>); READ access to all the tables. Can <strong>reassign</strong> incidents/requests. Can <strong>approve/reject</strong> Change Requests. Monitors SLAs and escalations. |</p>",
+                "<p>| <strong>Agent</strong> (<code>agent</code>) | Frontline Incident/Request fulfillment | <strong>Full CRUD</strong> on <strong>Incidents, Service Requests, Tasks, Work Notes, CMDB, Change, Problem, and Knowledge</strong>. READ access to all the tables. Can update assignment, state, and resolution. | Cannot bypass approvals, or change system administration settings. |</p>"
+            ]
+        },
+        {
+            "policy_name": "Atomic Operation Requirement",
+            "description": "Each delete_change_request_mappings call must be a single validated operation; the system must not attempt the deletion if required data is missing or the current record state prevents the action.",
+            "references": [
+                "<p><strong>Atomic Operations:</strong> Perform <strong>one validated operation at a time</strong>, except when using approved batch endpoints. Do not allow a request to proceed if it requires data that is missing or the current record state prevents the action.</p>"
+            ]
+        },
+        {
+            "policy_name": "Referential Integrity Check Before Deletion",
+            "description": "Before deleting a change\u2011request\u2011mapping record, verify that removing the mapping does not violate any mandatory dependencies or leave dangling references.",
+            "references": [
+                "<p><strong>Referential Integrity:</strong> Before closing any record, verify that all mandatory dependencies are satisfied.</p>"
+            ]
+        },
+        {
+            "policy_name": "Permission Denied (403) for Unauthorized Deletion",
+            "description": "If the invoking user\u2019s role does not include delete authority for change\u2011request\u2011mapping records, abort the operation and return a 403 Forbidden error.",
+            "references": [
+                "<p><strong>403 Forbidden:</strong> Permission denied (user role lacks authority for the operation).</p>"
+            ]
+        },
+        {
+            "policy_name": "Policy Violation Halt",
+            "description": "If any rule in this policy document is violated while attempting the deletion (e.g., missing required role or failed integrity check), halt the operation and report the specific policy reason before pausing.",
+            "references": [
+                "<p><strong>Policy Violation:</strong> If a user request violates any rule herein, you <strong>must halt the operation</strong> and provide the specific policy reason before pausing.</p>"
+            ]
+        },
+        {
+            "policy_name": "Identifier Verification Requirement",
+            "description": "Before invoking delete_change_request_mappings, verify that any provided identifiers (change_request_mapping_id, change_id, incident_id, problem_id) correspond to existing records; never fabricate or assume IDs and rely only on verified API results.",
+            "references": [
+                "<p><strong>Never assume or fabricate IDs, responses, or outcomes \u2014 rely solely on verified API results. The same is the case of optional or default arguments.</p>",
+                "<p>When identifiers such as names or IDs are missing, perform lookups, verify that you are reusing correct values from previous responses, and proceed using the retrieved data.</p>"
+            ]
+        },
+        {
+            "policy_name": "Mandatory Filter Requirement for Deletion",
+            "description": "A delete_change_request_mappings call must include at least one filter parameter (change_request_mapping_id, change_id, incident_id, or problem_id). If no filter is supplied, halt the operation and report the missing mandatory filter.",
+            "references": [
+                "<p><strong>Mandatory Fields:</strong> Any request to create or update a record must validate all mandatory fields.</p>",
+                "<p><strong>User Clarification:</strong> Do not ask for further information. If the request is ambiguous, return the list and state the ambiguity. If a mandatory field is missing, state which field is required.</p>"
+            ]
+        },
+        {
+            "policy_name": "AND\u2011Logic Enforcement for Multiple Filters",
+            "description": "When delete_change_request_mappings is called with more than one filter, all provided filters must be combined using AND logic; the deletion occurs only if a record matches every specified criterion.",
+            "references": [
+                "<p><strong>Atomic Operations:</strong> Perform <strong>one validated operation at a time</strong>, except when using approved batch endpoints. Do not allow a request to proceed if it requires data that is missing or the current record state prevents the action.</p>"
+            ]
+        },
+        {
+            "policy_name": "Work Log Requirement for Deletion Operations",
+            "description": "Any execution of the delete_change_request_mappings tool must generate a work\u2011log entry that records the timestamp (created_on) and the user_id of the person performing the deletion.",
+            "references": [
+                "<p><strong>Time Tracking:</strong> All work logs must include the timestamp (<code>created_on</code>) and the <code>user_id</code> performing the action.</p>"
+            ]
+        },
+        {
+            "policy_name": "Rate Limiting Compliance for Deletion Operations",
+            "description": "If a delete_change_request_mappings request exceeds the allowed rate limit, pause the operation and retry using exponential backoff as defined by the system\u2019s rate\u2011limiting policy.",
+            "references": [
+                "<p><strong>Rate Limiting:</strong> If exceeded, pause and retry using <strong>Exponential Backoff</strong>.</p>"
+            ]
+        },
+        {
+            "policy_name": "Conflict Handling for Deletion Operations",
+            "description": "If a delete_change_request_mappings request encounters a 409 Conflict response (e.g., record locking or state conflict), abort the operation and report the conflict to the user.",
+            "references": [
+                "<p><strong>409 Conflict:</strong> Record locking or state conflict.</p>"
+            ]
+        }
+    ]
+}

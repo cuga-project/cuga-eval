@@ -1,0 +1,76 @@
+{
+    "policies": [
+        {
+            "policy_name": "User Role and Record Relationship Verification",
+            "description": "The assistant must operate exclusively based on confirmed user roles and verified record relationships before performing any operation, including removing a child incident mapping.",
+            "references": [
+                "First you must check the user information and operate exclusively based on <strong>confirmed user roles</strong>, <strong>verified record relationships</strong>, and <strong>ITIL/database integrity rules</strong>."
+            ],
+            "iteration_added": 0
+        },
+        {
+            "policy_name": "Atomic Operation Validation",
+            "description": "Only one validated operation may be performed at a time; the request must not proceed if required data is missing or the current record state prevents the action.",
+            "references": [
+                "Atomic Operations: Perform <strong>one validated operation at a time</strong>, except when using approved batch endpoints. Do not allow a request to proceed if it requires data that is missing or the current record state prevents the action."
+            ],
+            "iteration_added": 0
+        },
+        {
+            "policy_name": "Mandatory Field Presence",
+            "description": "Any request that creates, updates, or removes a record must validate that all mandatory fields are provided; for remove_child_incident at least one of the required identifiers must be present.",
+            "references": [
+                "Mandatory Fields: Any request to create or update a record must validate all mandatory fields."
+            ],
+            "iteration_added": 0
+        },
+        {
+            "policy_name": "ID Verification \u2013 No Fabrication",
+            "description": "The assistant must never assume or fabricate IDs; it must rely on verified API results to confirm that incident IDs and mapping IDs exist before attempting removal.",
+            "references": [
+                "Never assume or fabricate IDs, responses, or outcomes \u2014 rely solely on verified API results. The same is the case of optional or default arguments."
+            ],
+            "iteration_added": 0
+        },
+        {
+            "policy_name": "Administrator CRUD Permission",
+            "description": "Only users with the Administrator role, which has Full CRUD access across all tables, are authorized to delete a child incident mapping.",
+            "references": [
+                "Administrator (<code>admin</code>) | System Configuration &amp; Integrity | Full CRUD (Create, Read, Update, Delete) access across all tables."
+            ],
+            "iteration_added": 0
+        },
+        {
+            "policy_name": "Manager CRUD Permission",
+            "description": "Users with the Manager role have Full CRUD on operational tables (incident, problem, change, knowledge) and are therefore permitted to remove a child incident mapping.",
+            "references": [
+                "Manager (<code>manager</code>) | Supervision, Escalation, Approvals | Full CRUD on operational tables (<code>incident</code>, <code>problem</code>, <code>change</code>, <code>knowledge</code>); READ access to all the tables."
+            ],
+            "iteration_added": 0
+        },
+        {
+            "policy_name": "Agent CRUD Permission",
+            "description": "Agents have Full CRUD on Incidents and related tables, allowing them to delete child\u2011incident relationships.",
+            "references": [
+                "Agent (<code>agent</code>) | Frontline Incident/Request fulfillment | <strong>Full CRUD</strong> on <strong>Incidents, Service Requests, Tasks, Work Notes, CMDB, Change, Problem, and Knowledge</strong>. READ access to all the tables."
+            ],
+            "iteration_added": 0
+        },
+        {
+            "policy_name": "User Clarification on Missing Mandatory Fields",
+            "description": "If a mandatory identifier (e.g., child_incident_mapping_id, parent_incident, or child_incident) is missing, the assistant must state which field is required rather than asking for additional clarification.",
+            "references": [
+                "User Clarification: Do not ask for further information. If the request is ambiguous, return the list and state the ambiguity. If a mandatory field is missing, state which field is required."
+            ],
+            "iteration_added": 0
+        },
+        {
+            "policy_name": "Referential Integrity Check",
+            "description": "Before removing a child\u2011incident mapping, the assistant must ensure that removing the relationship does not violate referential integrity constraints.",
+            "references": [
+                "Referential Integrity: Before closing any record, verify that all mandatory dependencies are satisfied."
+            ],
+            "iteration_added": 0
+        }
+    ]
+}

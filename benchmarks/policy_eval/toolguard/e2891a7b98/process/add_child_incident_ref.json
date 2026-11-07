@@ -1,0 +1,137 @@
+{
+    "policies": [
+        {
+            "policy_name": "Confirmed User Role Requirement",
+            "description": "The assistant must verify that the requesting user\u2019s role is one of the permitted incident\u2011management roles (Administrator, Manager, or Agent) before calling the **add_child_incident** tool. This verification is done by retrieving the user record (e.g., via get_user or list_users) and checking the `role` field against the allowed set. If the role is not confirmed or not permitted, the operation must be halted and the policy reason returned.",
+            "references": [
+                "First you must check the user information and operate exclusively based on <strong>confirmed user roles</strong>, <strong>verified record relationships</strong>, and <strong>ITIL/database integrity rules</strong>. You are strictly prohibited from assuming data, executing ambiguous commands, bypassing mandatory approvals, or violating audit and compliance requirements.",
+                "<strong>Administrator</strong> (<code>admin</code>) | System Configuration &amp; Integrity | Full CRUD (Create, Read, Update, Delete) access across all tables.",
+                "<strong>Manager</strong> (<code>manager</code>) | Supervision, Escalation, Approvals | Full CRUD on operational tables (<code>incident</code>, <code>problem</code>, <code>change</code>, <code>knowledge</code>); READ access to all the tables.",
+                "<strong>Agent</strong> (<code>agent</code>) | Frontline Incident/Request fulfillment | <strong>Full CRUD</strong> on <strong>Incidents, Service Requests, Tasks, Work Notes, CMDB, Change, Problem, and Knowledge</strong>. READ access to all the tables."
+            ],
+            "iteration_added": 1
+        },
+        {
+            "policy_name": "Verified Record Relationship Requirement",
+            "description": "Before invoking the **add_child_incident** tool, the assistant must:\n1. Confirm that both `parent_incident` and `child_incident` IDs exist (e.g., via `find_incident_by_id`).\n2. Ensure the two IDs are different.\n3. Verify that the `child_incident` does not already have a parent (check with `find_parent_incident` or `list_child_incidents`).\n4. Check that linking the two will not create a circular relationship (no ancestor of the parent is the child).\n5. Confirm that the user requesting the operation has a role that permits incident relationship modifications (Agent or Manager).",
+            "references": [
+                "First you must check the user information and operate exclusively based on <strong>confirmed user roles</strong>, <strong>verified record relationships</strong>, and <strong>ITIL/database integrity rules</strong>. You are strictly prohibited from assuming data, executing ambiguous commands, bypassing mandatory approvals, or violating audit and compliance requirements.",
+                "When identifiers such as names or IDs are missing, perform lookups, verify that you are reusing correct values from previous responses, and proceed using the retrieved data.",
+                "Never assume or fabricate IDs, responses, or outcomes \u2014 rely solely on verified API results. The same is the case of optional or default arguments.",
+                "<strong>Manager</strong> (<code>manager</code>) | Supervision, Escalation, Approvals | Full CRUD on operational tables (<code>incident</code>, <code>problem</code>, <code>change</code>, <code>knowledge</code>); READ access to all the tables. Can <strong>reassign</strong> incidents/requests. Can <strong>approve/reject</strong> Change Requests. Monitors SLAs and escalations. |",
+                "<strong>Agent</strong> (<code>agent</code>) | Frontline Incident/Request fulfillment | <strong>Full CRUD</strong> on <strong>Incidents, Service Requests, Tasks, Work Notes, CMDB, Change, Problem, and Knowledge</strong>. READ access to all the tables. Can update assignment, state, and resolution. | Cannot bypass approvals, or change system administration settings.",
+                "<strong>Referential Integrity:</strong> Before closing any record, verify that all mandatory dependencies are satisfied."
+            ],
+            "iteration_added": 1
+        },
+        {
+            "policy_name": "Mandatory Fields Validation",
+            "description": "Both required parameters \u2014 parent_incident and child_incident \u2014 must be present; if either is missing, the operation must be halted and the missing field reported.",
+            "references": [
+                "Mandatory Fields: Any request to create or update a record must validate all mandatory fields."
+            ],
+            "iteration_added": 0
+        },
+        {
+            "policy_name": "Role Permissions for Incident CRUD",
+            "description": "Only users whose assigned role includes full CRUD privileges on the Incident table may call the `add_child_incident` tool. The roles that provide such privileges are:\n- **Administrator** \u2013 full CRUD on all tables, including Incidents.\n- **Manager** \u2013 full CRUD on operational tables such as Incidents.\n- **Agent** \u2013 full CRUD on Incidents and related tables.\nUsers with the **Reporter** role have read\u2011only access to their own incidents and therefore are prohibited from creating or modifying parent\u2011child incident links.",
+            "references": [
+                "<p>| <strong>Administrator</strong> (<code>admin</code>) | System Configuration &amp; Integrity | Full CRUD (Create, Read, Update, Delete) access across all tables.\u00a0|</p>",
+                "<p>| <strong>Manager</strong> (<code>manager</code>) | Supervision, Escalation, Approvals | Full CRUD on operational tables (<code>incident</code>, <code>problem</code>, <code>change</code>, <code>knowledge</code>); READ access to all the tables. Can <strong>reassign</strong> incidents/requests. Can <strong>approve/reject</strong> Change Requests. Monitors SLAs and escalations. |</p>",
+                "<p>| <strong>Agent</strong> (<code>agent</code>) | Frontline Incident/Request fulfillment | <strong>Full CRUD</strong> on <strong>Incidents, Service Requests, Tasks, Work Notes, CMDB, Change, Problem, and Knowledge</strong>. READ access to all the tables. Can update assignment, state, and resolution. | Cannot bypass approvals, or change system administration settings. |</p>",
+                "<p>| <strong>Reporter</strong> (<code>reporter</code>) | IT Service Consumption | Can view and update <strong>their own submitted Incidents/Requests</strong>. Can search <strong>Public Knowledge</strong> articles. | Cannot view or modify records opened by other users, CMDB, or internal work notes. |</p>"
+            ],
+            "iteration_added": 0
+        },
+        {
+            "policy_name": "Atomic Operation Constraint",
+            "description": "When using the **add_child_incident** tool, the call must be the only action performed in that request. The request may not include any additional tool invocations, database updates, or API calls that have not been individually validated beforehand. If other operations are required, they must be executed in separate, sequential requests after the child\u2011incident mapping succeeds.",
+            "references": [
+                "<li>\n<p><strong>Atomic Operations:</strong> Perform <strong>one validated operation at a time</strong>, except when using approved batch endpoints. Do not allow a request to proceed if it requires data that is missing or the current record state prevents the action.</p>\n</li>"
+            ],
+            "iteration_added": 0
+        },
+        {
+            "policy_name": "Conflict Handling (409)",
+            "description": "Before invoking the **add_child_incident** tool, the assistant must first query existing parent\u2011child mappings (e.g., via the **list_child_incidents** tool) to ensure that the specified child incident is not already linked to the given parent incident. If such a mapping already exists, or if any other state conflict would prevent a valid creation, the assistant must abort the operation and return a **409 Conflict** response that describes the exact conflict (e.g., \"Child incident INC_005 is already linked to parent incident INC_001\").",
+            "references": [
+                "<strong>409 Conflict:</strong> Record locking or state conflict.",
+                "<strong>Atomic Operations:</strong> Perform <strong>one validated operation at a time</strong>, except when using approved batch endpoints. Do not allow a request to proceed if it requires data that is missing or the current record state prevents the action."
+            ],
+            "iteration_added": 0
+        },
+        {
+            "policy_name": "User Clarification Policy",
+            "description": "The assistant must not ask the user for additional clarification. If the request is ambiguous or a required field (parent_incident or child_incident) is missing, it must explicitly state which field is required and halt the operation.",
+            "references": [
+                "<strong>User Clarification:</strong> Do not ask for further information. If the request is ambiguous, return the list and state the ambiguity. If a mandatory field is missing, state which field is required.",
+                "<strong>Policy Violation:</strong> If a user request violates any rule herein, you <strong>must halt the operation</strong> and provide the specific policy reason before pausing.",
+                "<strong>Mandatory Fields:</strong> Any request to create or update a record must validate all mandatory fields."
+            ],
+            "iteration_added": 0
+        },
+        {
+            "policy_name": "General Policy Violation Handling",
+            "description": "Before calling `add_child_incident` the assistant must perform the following explicit checks using available tools:\n1. **Existence of incidents** \u2013 call `find_incident_by_id` for the `parent_incident` and `child_incident`. If either call returns an error, abort with a \"parent incident does not exist\" or \"child incident does not exist\" violation.\n2. **User role validation** \u2013 retrieve the requester\u2019s user record (e.g., `get_user` or `list_users` with the requester\u2019s ID) and confirm that `role` is either `agent` or `manager`. If not, abort with a \"insufficient role to modify incident relationships\" violation.\n3. **Circular\u2011hierarchy prevention** \u2013 use `find_parent_incident` on the `child_incident`. If it returns a parent, abort with a \"child incident already has a parent \u2013 would create a cycle\" violation.\n4. **Duplicate mapping check** \u2013 call `find_incident_by_id` on the `parent_incident` and inspect its linked child list via `list_child_incidents` (or `find_incident_by_id` with expanded relations). If the `child_incident` appears, abort with a \"mapping already exists\" violation.\n5. **Organization consistency** \u2013 ensure both incidents belong to the same organization by comparing the `org_id` field returned from step\u202f1. If they differ, abort with an \"cross\u2011organization linking not allowed\" violation.\nIf all checks pass, proceed to invoke `add_child_incident` with the supplied IDs.",
+            "references": [
+                "Never assume or fabricate IDs, responses, or outcomes \u2014 rely solely on verified API results.",
+                "Policy Violation: If a user request violates any rule herein, you must halt the operation and provide the specific policy reason before pausing.",
+                "| **Agent** (<code>agent</code>) | Frontline Incident/Request fulfillment | **Full CRUD** on **Incidents, Service Requests, Tasks, Work Notes, CMDB, Change, Problem, and Knowledge**. READ access to all the tables. Can update assignment, state, and resolution. | Cannot bypass approvals, or change system administration settings. |",
+                "| **Manager** (<code>manager</code>) | Supervision, Escalation, Approvals | Full CRUD on operational tables (<code>incident</code>, <code>problem</code>, <code>change</code>, <code>knowledge</code>); READ access to all the tables. Can **reassign** incidents/requests. Can **approve/reject** Change Requests. Monitors SLAs and escalations. |",
+                "User Status: Ensure any user being assigned to (<code>assigned_to</code>) or updated is <code>users.active = true</code>."
+            ],
+            "iteration_added": 1
+        },
+        {
+            "policy_name": "No Confirmation Required",
+            "description": "The assistant must call the `add_child_incident` tool immediately, without prompting the user for confirmation. Prior to the call it must verify that:\n1. Both `parent_incident` and `child_incident` IDs are present in the request.\n2. The calling user\u2019s role (Agent or Manager) has the required permission to create incident\u2011child mappings (see the Roles & Responsibilities table).\n3. All mandatory fields for the mapping are supplied and conform to the ITSM Assistant policy (e.g., both IDs refer to existing, active incidents, and the user is authorized to view them).\nIf any of these checks fail, the assistant must halt the operation and return the specific policy violation.\n",
+            "references": [
+                "You do not need to ask for confirmation or permission before taking action.",
+                "Any request to create or update a record must validate all mandatory fields.",
+                "<strong>Full CRUD</strong> on <strong>Incidents, Service Requests, Tasks, Work Notes, CMDB, Change, Problem, and Knowledge</strong>. READ access to all the tables.",
+                "Full CRUD on operational tables (<code>incident</code>, <code>problem</code>, <code>change</code>, <code>knowledge</code>); READ access to all the tables.",
+                "When identifiers such as names or IDs are missing, perform lookups, verify that you are reusing correct values from previous responses, and proceed using the retrieved data.",
+                "Never assume or fabricate IDs, responses, or outcomes \u2014 rely solely on verified API results."
+            ],
+            "iteration_added": 1
+        },
+        {
+            "policy_name": "Knowledge Scope Policy",
+            "description": "When invoking the add_child_incident tool, the assistant must not disclose any information that is outside the authenticated user's access scope.",
+            "references": [
+                "<strong>Knowledge Scope:</strong> Do not disclose information that is outside the authenticated user's access scope."
+            ],
+            "iteration_added": 2
+        }
+    ],
+    "archive": [
+        {
+            "policy_name": "ID Existence Verification",
+            "description": "The assistant must verify that both the parent_incident and child_incident IDs correspond to existing incident records before creating the mapping; IDs must not be fabricated or assumed.",
+            "references": [
+                "Never assume or fabricate IDs, responses, or outcomes \u2014 rely solely on verified API results.",
+                "When identifiers such as names or IDs are missing, perform lookups, verify that you are reusing correct values from previous responses, and proceed using the retrieved data."
+            ],
+            "iteration_added": 0,
+            "comments": "The policy directly applies to the 'add_child_incident' tool because the tool requires valid incident IDs. While the rule is generally applicable to any operation that consumes incident identifiers, it is still pertinent to this tool. Compliance can be validated beforehand by invoking incident\u2011lookup tools (e.g., find_incident_by_id or find_incident_by_number) to ensure both IDs exist, satisfying the \u2018can_be_validated\u2019 criterion. The requirement can be enforced using only the available API calls, chat history, and data access, making it actionable. The description is clear and does not rely on external context, so it is self\u2011contained. Overall the policy is clear, enforceable, and relevant, earning a score of 4/5. A minor improvement would be to explicitly reference the lookup tools to aid implementers, but the current wording is sufficient.\nThe policy directly applies to the 'add_child_incident' tool because the tool requires valid incident IDs. While the rule is generally applicable to any operation that consumes incident identifiers, it is still pertinent to this tool. Compliance can be validated beforehand by invoking incident\u2011lookup tools (e.g., find_incident_by_id or find_incident_by_number) to ensure both IDs exist, satisfying the \u2018can_be_validated\u2019 criterion. The requirement can be enforced using only the available API calls, chat history, and data access, making it actionable. The description is clear and does not rely on external context, so it is self\u2011contained. Overall the policy is clear, enforceable, and relevant, earning a score of 4/5. A minor improvement would be to explicitly reference the lookup tools to aid implementers, but the current wording is sufficient.\nThe policy directly applies to the 'add_child_incident' tool because the tool requires valid incident IDs. While the rule is generally applicable to any operation that consumes incident identifiers, it is still pertinent to this tool. Compliance can be validated beforehand by invoking incident\u2011lookup tools (e.g., find_incident_by_id or find_incident_by_number) to ensure both IDs exist, satisfying the \u2018can_be_validated\u2019 criterion. The requirement can be enforced using only the available API calls, chat history, and data access, making it actionable. The description is clear and does not rely on external context, so it is self\u2011contained. Overall the policy is clear, enforceable, and relevant, earning a score of 4/5. A minor improvement would be to explicitly reference the lookup tools to aid implementers, but the current wording is sufficient.\nThe policy directly applies to the 'add_child_incident' tool because the tool requires valid incident IDs. While the rule is generally applicable to any operation that consumes incident identifiers, it is still pertinent to this tool. Compliance can be validated beforehand by invoking incident\u2011lookup tools (e.g., find_incident_by_id or find_incident_by_number) to ensure both IDs exist, satisfying the \u2018can_be_validated\u2019 criterion. The requirement can be enforced using only the available API calls, chat history, and data access, making it actionable. The description is clear and does not rely on external context, so it is self\u2011contained. Overall the policy is clear, enforceable, and relevant, earning a score of 4/5. A minor improvement would be to explicitly reference the lookup tools to aid implementers, but the current wording is sufficient.\nThe policy directly applies to the 'add_child_incident' tool because the tool requires valid incident IDs. While the rule is generally applicable to any operation that consumes incident identifiers, it is still pertinent to this tool. Compliance can be validated beforehand by invoking incident\u2011lookup tools (e.g., find_incident_by_id or find_incident_by_number) to ensure both IDs exist, satisfying the \u2018can_be_validated\u2019 criterion. The requirement can be enforced using only the available API calls, chat history, and data access, making it actionable. The description is clear and does not rely on external context, so it is self\u2011contained. Overall the policy is clear, enforceable, and relevant, earning a score of 4/5. A minor improvement would be to explicitly reference the lookup tools to aid implementers, but the current wording is sufficient.\n"
+        },
+        {
+            "policy_name": "Permission Denied Handling (403)",
+            "description": "When handling a request to add a child incident (using the **add_child_incident** tool), first obtain the caller\u2019s role (e.g., via the authentication token or a prior `get_user` lookup). If the role is **admin**, **manager**, or **agent**, proceed to call the tool with the required `parent_incident` and `child_incident` parameters. If the role is **reporter** or any role without incident CRUD permissions, do not call the tool; instead return a `403 Forbidden` response with a clear message indicating that the user lacks the necessary permissions.",
+            "references": [
+                "<strong>403 Forbidden:</strong> Permission denied (user role lacks authority for the operation)."
+            ],
+            "iteration_added": 0,
+            "comments": "The policy directly addresses the use of the **add_child_incident** tool, making it relevant to ToolX. It is not narrowly scoped to only this tool (the same permission logic could apply to other incident\u2011CRUD operations), so it is not strictly tool\u2011specific. The required role check can be performed before any tool call using the `get_user` (or token inspection) tool, satisfying the can_be_validated criterion. The policy gives clear, enforceable steps that can be executed using only the available tools and data, meeting the is_actionable requirement. All necessary information is included in the description and reference, so the policy is self\u2011contained. Overall the policy is clear, enforceable, and actionable, earning a score of 4 out of 5.\nThe policy directly addresses the use of the **add_child_incident** tool, making it relevant to ToolX. It is not narrowly scoped to only this tool (the same permission logic could apply to other incident\u2011CRUD operations), so it is not strictly tool\u2011specific. The required role check can be performed before any tool call using the `get_user` (or token inspection) tool, satisfying the can_be_validated criterion. The policy gives clear, enforceable steps that can be executed using only the available tools and data, meeting the is_actionable requirement. All necessary information is included in the description and reference, so the policy is self\u2011contained. Overall the policy is clear, enforceable, and actionable, earning a score of 4 out of 5.\nThe policy directly addresses the use of the **add_child_incident** tool, making it relevant to ToolX. It is not narrowly scoped to only this tool (the same permission logic could apply to other incident\u2011CRUD operations), so it is not strictly tool\u2011specific. The required role check can be performed before any tool call using the `get_user` (or token inspection) tool, satisfying the can_be_validated criterion. The policy gives clear, enforceable steps that can be executed using only the available tools and data, meeting the is_actionable requirement. All necessary information is included in the description and reference, so the policy is self\u2011contained. Overall the policy is clear, enforceable, and actionable, earning a score of 4 out of 5.\n"
+        },
+        {
+            "policy_name": "Rate Limiting Policy",
+            "description": "When invoking the **add_child_incident** tool, if the API returns a 429 (Rate Limit Exceeded) response, the assistant must pause and retry the request using exponential backoff. The backoff starts with a 1\u2011second delay, doubles after each failed retry (2\u202fs, 4\u202fs, 8\u202fs, \u2026) and stops after a maximum of **5 attempts** or once a non\u2011429 response is received. Each retry must be logged with the attempt number and wait time.",
+            "references": [
+                "<strong>Rate Limiting:</strong> If exceeded, pause and retry using <strong>Exponential Backoff</strong>."
+            ],
+            "iteration_added": 0,
+            "comments": "The policy is directly relevant to the target tool and mentions the tool by name, making it tool\u2011specific. It cannot be validated before the call because a rate\u2011limit condition is only known after the request, so pre\u2011validation is not possible. The instruction is actionable: the assistant can detect a 429 response, pause, and retry with exponential backoff using only the tool's response and internal logic. However, the policy is not fully self\u2011contained; it references \"exponential backoff\" without specifying parameters such as initial delay, multiplier, or max retries, leaving implementation ambiguous. Adding those details (as in the alternative_description) would make the policy clearer and fully enforceable. Overall clarity and enforceability are moderate, warranting a score of **3**.\nThe policy directly addresses the target tool (add_child_incident) and therefore is relevant and tool\u2011specific. It prescribes concrete handling of a 429 response, which can be implemented by the assistant without external data, making it actionable. Because the condition (receiving a 429) is only known after the API call, compliance cannot be fully validated before invoking the tool, so can_be_validated is false. The policy description provides all necessary parameters and behavior, so it is self\u2011contained. Overall the policy is clear, enforceable, and narrowly scoped, earning a score of 4 out of 5.\nThe policy directly addresses the target tool (add_child_incident) and therefore is relevant and tool\u2011specific. It prescribes concrete handling of a 429 response, which can be implemented by the assistant without external data, making it actionable. Because the condition (receiving a 429) is only known after the API call, compliance cannot be fully validated before invoking the tool, so can_be_validated is false. The policy description provides all necessary parameters and behavior, so it is self\u2011contained. Overall the policy is clear, enforceable, and narrowly scoped, earning a score of 4 out of 5.\nThe policy directly addresses the target tool (add_child_incident) and therefore is relevant and tool\u2011specific. It prescribes concrete handling of a 429 response, which can be implemented by the assistant without external data, making it actionable. Because the condition (receiving a 429) is only known after the API call, compliance cannot be fully validated before invoking the tool, so can_be_validated is false. The policy description provides all necessary parameters and behavior, so it is self\u2011contained. Overall the policy is clear, enforceable, and narrowly scoped, earning a score of 4 out of 5.\nThe policy directly addresses the target tool (add_child_incident) and therefore is relevant and tool\u2011specific. It prescribes concrete handling of a 429 response, which can be implemented by the assistant without external data, making it actionable. Because the condition (receiving a 429) is only known after the API call, compliance cannot be fully validated before invoking the tool, so can_be_validated is false. The policy description provides all necessary parameters and behavior, so it is self\u2011contained. Overall the policy is clear, enforceable, and narrowly scoped, earning a score of 4 out of 5.\n"
+        }
+    ]
+}

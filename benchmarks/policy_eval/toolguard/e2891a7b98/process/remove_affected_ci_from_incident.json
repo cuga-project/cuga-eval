@@ -1,0 +1,46 @@
+{
+    "policies": [
+        {
+            "policy_name": "Role-Based Permission for Deleting Incident\u2011CI Links",
+            "description": "Only users with a role that grants Delete permission on Incident and CMDB tables (Administrator, Manager, or Agent) may invoke remove_affected_ci_from_incident.",
+            "references": [
+                "<p>| <strong>Administrator</strong> (<code>admin</code>) | System Configuration &amp; Integrity | Full CRUD (Create, Read, Update, Delete) access across all tables.\u00a0|</p>",
+                "<p>| <strong>Agent</strong> (<code>agent</code>) | Frontline Incident/Request fulfillment | <strong>Full CRUD</strong> on <strong>Incidents, Service Requests, Tasks, Work Notes, CMDB, Change, Problem, and Knowledge</strong>. READ access to all the tables. Can update assignment, state, and resolution. | Cannot bypass approvals, or change system administration settings. |</p>",
+                "<p>| <strong>Manager</strong> (<code>manager</code>) | Supervision, Escalation, Approvals | Full CRUD on operational tables (<code>incident</code>, <code>problem</code>, <code>change</code>, <code>knowledge</code>); READ access to all the tables. Can <strong>reassign</strong> incidents/requests. Can <strong>approve/reject</strong> Change Requests. Monitors SLAs and escalations. |</p>"
+            ],
+            "iteration_added": 0
+        },
+        {
+            "policy_name": "Mandatory Filter Requirement for Removal Operation",
+            "description": "A remove operation must include at least one filter parameter (incident_affected_cis_id, configuration_item, incident_id, created_before, or created_after) before the tool can be called.",
+            "references": [
+                "<li><p><strong>Mandatory Fields:</strong> Any request to create or update a record must validate all mandatory fields.</p></li>"
+            ],
+            "iteration_added": 0
+        },
+        {
+            "policy_name": "Use Verified Identifiers Only",
+            "description": "Do not fabricate or assume IDs when deleting incident\u2011CI links; the identifiers supplied must be verified against the system.",
+            "references": [
+                "<li><p>Never assume or fabricate IDs, responses, or outcomes \u2014 rely solely on verified API results. The same is the case of optional or default arguments.</p></li>"
+            ],
+            "iteration_added": 0
+        },
+        {
+            "policy_name": "Atomic Operation Enforcement",
+            "description": "The deletion of incident\u2011CI links must be performed as a single validated operation; no additional actions may be combined in the same request.",
+            "references": [
+                "<li><p><strong>Atomic Operations:</strong> Perform <strong>one validated operation at a time</strong>, except when using approved batch endpoints. Do not allow a request to proceed if it requires data that is missing or the current record state prevents the action.</p></li>"
+            ],
+            "iteration_added": 0
+        },
+        {
+            "policy_name": "Referential Integrity Check Before Deletion",
+            "description": "Before removing an incident\u2011CI link, ensure that deleting the link will not violate mandatory dependencies required by the incident or the configuration item.",
+            "references": [
+                "<li><p><strong>Referential Integrity:</strong> Before closing any record, verify that all mandatory dependencies are satisfied.</p></li>"
+            ],
+            "iteration_added": 0
+        }
+    ]
+}

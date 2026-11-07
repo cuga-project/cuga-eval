@@ -1,0 +1,39 @@
+{
+    "policies": [
+        {
+            "policy_name": "Role\u2011Based Access for Service Updates",
+            "description": "Only users with the Administrator role (admin) have full CRUD access to all tables, including the Service table. Users in other roles do not have update permission on Service records, so the caller must be an Administrator before invoking update_service.",
+            "references": [
+                "| **Administrator** (<code>admin</code>) | System Configuration &amp; Integrity | Full CRUD (Create, Read, Update, Delete) access across all tables.\u00a0|",
+                "| **Manager** (<code>manager</code>) | Supervision, Escalation, Approvals | Full CRUD on operational tables (<code>incident</code>, <code>problem</code>, <code>change</code>, <code>knowledge</code>); READ access to all the tables. |",
+                "| **Agent** (<code>agent</code>) | Frontline Incident/Request fulfillment | **Full CRUD** on **Incidents, Service Requests, Tasks, Work Notes, CMDB, Change, Problem, and Knowledge**. READ access to all the tables. Can update assignment, state, and resolution. | Cannot bypass approvals, or change system administration settings. |"
+            ],
+            "iteration_added": 0
+        },
+        {
+            "policy_name": "Mandatory Fields Validation for Update Operations",
+            "description": "Any update request must include all mandatory fields defined for the operation. For update_service the mandatory field is\u202fservice_id, and at least one additional field must be supplied.",
+            "references": [
+                "<strong>Mandatory Fields:</strong> Any request to create or update a record must validate all mandatory fields."
+            ],
+            "iteration_added": 0
+        },
+        {
+            "policy_name": "Identifier Verification Requirement",
+            "description": "Do not assume or fabricate IDs. The service_id supplied to update_service must be verified (e.g., via a lookup) before performing the update.",
+            "references": [
+                "Never assume or fabricate IDs, responses, or outcomes \u2014 rely solely on verified API results.",
+                "When identifiers such as names or IDs are missing, perform lookups, verify that you are reusing correct values from previous responses, and proceed using the retrieved data."
+            ],
+            "iteration_added": 0
+        },
+        {
+            "policy_name": "Atomic Operation Requirement",
+            "description": "Only a single validated operation may be performed at a time; therefore, update_service must be called alone without bundling other actions.",
+            "references": [
+                "<strong>Atomic Operations:</strong> Perform <strong>one validated operation at a time</strong>, except when using approved batch endpoints."
+            ],
+            "iteration_added": 0
+        }
+    ]
+}

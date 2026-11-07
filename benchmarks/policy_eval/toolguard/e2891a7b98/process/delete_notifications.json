@@ -1,0 +1,46 @@
+{
+    "policies": [
+        {
+            "policy_name": "Role\u2011based delete permission",
+            "description": "Only users with a role that has Delete permission on all tables may invoke delete_notifications. The Administrator role has full CRUD on all tables, while Manager and Agent roles do not have Delete rights on non\u2011operational tables such as notifications.",
+            "references": [
+                "<strong>Administrator</strong> (<code>admin</code>) | System Configuration &amp; Integrity | Full CRUD (Create, Read, Update, Delete) access across all tables.",
+                "<strong>Manager</strong> (<code>manager</code>) | Supervision, Escalation, Approvals | Full CRUD on operational tables (<code>incident</code>, <code>problem</code>, <code>change</code>, <code>knowledge</code>); READ access to all the tables.",
+                "<strong>Agent</strong> (<code>agent</code>) | Frontline Incident/Request fulfillment | <strong>Full CRUD</strong> on <strong>Incidents, Service Requests, Tasks, Work Notes, CMDB, Change, Problem, and Knowledge</strong>. READ access to all the tables."
+            ],
+            "iteration_added": 0
+        },
+        {
+            "policy_name": "Organization ownership verification",
+            "description": "The notification to be deleted must belong to the caller\u2019s organization before the delete operation is performed.",
+            "references": [
+                "Knowledge Scope: Do not disclose information that is outside the authenticated user's access scope."
+            ],
+            "iteration_added": 0
+        },
+        {
+            "policy_name": "Single operation atomicity",
+            "description": "Execute delete_notifications as a single validated operation; do not combine it with other actions unless using an approved batch endpoint.",
+            "references": [
+                "Atomic Operations: Perform <strong>one validated operation at a time</strong>, except when using approved batch endpoints."
+            ],
+            "iteration_added": 0
+        },
+        {
+            "policy_name": "Do not assume or fabricate IDs",
+            "description": "The notification_id supplied to delete_notifications must be verified against a trusted source (e.g., a prior lookup) and must not be guessed or fabricated.",
+            "references": [
+                "Never assume or fabricate IDs, responses, or outcomes \u2014 rely solely on verified API results."
+            ],
+            "iteration_added": 0
+        },
+        {
+            "policy_name": "Policy violation handling",
+            "description": "If any of the above policies are violated (e.g., insufficient role, notification outside organization, unverified ID), the operation must be halted and the specific policy reason returned before attempting deletion.",
+            "references": [
+                "Policy Violation: If a user request violates any rule herein, you <strong>must halt the operation</strong> and provide the specific policy reason before pausing."
+            ],
+            "iteration_added": 0
+        }
+    ]
+}

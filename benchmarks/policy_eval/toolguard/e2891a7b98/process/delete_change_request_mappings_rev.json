@@ -1,0 +1,88 @@
+{
+    "policies": [
+        {
+            "policy_name": "Delete Change Request Mapping \u2013 Role Authorization",
+            "description": "Only users with the Administrator, Manager, or Agent role may delete change\u2011request\u2011mapping records; all other users (e.g., Reporter) must be denied with a 403 Forbidden error.",
+            "references": [
+                "<p>| <strong>Administrator</strong> (<code>admin</code>) | System Configuration &amp; Integrity | Full CRUD (Create, Read, Update, Delete) access across all tables.\u00a0|</p>",
+                "<p>| <strong>Manager</strong> (<code>manager</code>) | Supervision, Escalation, Approvals | Full CRUD on operational tables (<code>incident</code>, <code>problem</code>, <code>change</code>, <code>knowledge</code>); READ access to all the tables. Can <strong>reassign</strong> incidents/requests. Can <strong>approve/reject</strong> Change Requests. Monitors SLAs and escalations. |</p>",
+                "<p>| <strong>Agent</strong> (<code>agent</code>) | Frontline Incident/Request fulfillment | <strong>Full CRUD</strong> on <strong>Incidents, Service Requests, Tasks, Work Notes, CMDB, Change, Problem, and Knowledge</strong>. READ access to all the tables. Can update assignment, state, and resolution. | Cannot bypass approvals, or change system administration settings. |</p>"
+            ]
+        },
+        {
+            "policy_name": "Atomic Operation Requirement",
+            "description": "Before invoking **delete_change_request_mappings**, verify that the request payload contains at least one mandatory filter key (`change_request_mapping_id`, `change_id`, `incident_id`, or `problem_id`). Call **list_change_request_mappings** with the same filter set; if the call returns an empty list, abort and raise a policy violation. If the call returns one or more mappings, proceed with the deletion. (If the system provides a field such as `locked` or a `status` indicating a non\u2011deletable state, optionally check that field and abort when it signals a locked mapping.) This version relies only on the existence of the list operation and does not assume any undocumented attributes.",
+            "references": [
+                "<p><strong>Atomic Operations:</strong> Perform <strong>one validated operation at a time</strong>, except when using approved batch endpoints. Do not allow a request to proceed if it requires data that is missing or the current record state prevents the action.</p>"
+            ]
+        },
+        {
+            "policy_name": "Referential Integrity Check Before Deletion",
+            "description": "When using the **delete_change_request_mappings** tool, first call one of the read\u2011only mapping tools (list_change_request_mappings, find_change_request_mappings_for_incident, or find_change_request_mappings_for_problem) with the same filter criteria you intend to use for deletion. Count how many mappings exist that involve the same change ID and the same incident ID or problem ID. If the count is 1 (i.e., the mapping you would delete is the only link between that change and the incident/problem), refuse the deletion and return a policy\u2011violation message. Otherwise, proceed with the delete_change_request_mappings call.",
+            "references": [
+                "<p><strong>Referential Integrity:</strong> Before closing any record, verify that all mandatory dependencies are satisfied.</p>"
+            ]
+        },
+        {
+            "policy_name": "Permission Denied (403) for Unauthorized Deletion",
+            "description": "Only users with the **Administrator** role may invoke the `delete_change_request_mappings` tool. If the caller\u2019s role is anything other than Administrator (e.g., Manager, Agent, Reporter), the request must be stopped and a **403 Forbidden** response returned, without executing the tool.",
+            "references": [
+                "<p><strong>403 Forbidden:</strong> Permission denied (user role lacks authority for the operation).</p>"
+            ]
+        },
+        {
+            "policy_name": "Policy Violation Halt",
+            "description": "Before invoking **delete_change_request_mappings**, enforce the following checks using only available ITSM tools and data:\n1. Verify the requester\u2019s role is **admin** or **manager** via `get_user` or `list_users`.\n2. Confirm that the request includes at least one of the required filter fields (`change_request_mapping_id`, `change_id`, `incident_id`, `problem_id`).\n3. Use `list_change_request_mappings` to ensure a mapping that satisfies **all** supplied filters actually exists.\nIf any of these validations fail, abort the deletion and return a clear policy\u2011violation message. (Any organization\u2011specific approval steps that cannot be validated programmatically should be handled outside this automated flow.)",
+            "references": [
+                "<p><strong>Policy Violation:</strong> If a user request violates any rule herein, you <strong>must halt the operation</strong> and provide the specific policy reason before pausing.</p>"
+            ]
+        },
+        {
+            "policy_name": "Identifier Verification Requirement",
+            "description": "Before calling the **delete_change_request_mappings** tool, first confirm that every identifier supplied in the request actually exists in the system. Use the appropriate lookup tools (e.g., `find_change_request_mappings_for_incident`, `find_change_request_mappings_for_problem`, `find_change_by_number`, `find_incident_by_id`, `find_problem_by_number`) to fetch the records. Only if the lookup returns a valid record should the delete operation be performed. Do not create or guess IDs; rely exclusively on the results of these verification calls.",
+            "references": [
+                "<p><strong>Never assume or fabricate IDs, responses, or outcomes \u2014 rely solely on verified API results. The same is the case of optional or default arguments.</p>",
+                "<p>When identifiers such as names or IDs are missing, perform lookups, verify that you are reusing correct values from previous responses, and proceed using the retrieved data.</p>"
+            ]
+        },
+        {
+            "policy_name": "Mandatory Filter Requirement for Deletion",
+            "description": "A delete_change_request_mappings call must include at least one filter parameter (change_request_mapping_id, change_id, incident_id, or problem_id). If no filter is supplied, halt the operation and report the missing mandatory filter.",
+            "references": [
+                "<p><strong>Mandatory Fields:</strong> Any request to create or update a record must validate all mandatory fields.</p>",
+                "<p><strong>User Clarification:</strong> Do not ask for further information. If the request is ambiguous, return the list and state the ambiguity. If a mandatory field is missing, state which field is required.</p>"
+            ]
+        },
+        {
+            "policy_name": "AND\u2011Logic Enforcement for Multiple Filters",
+            "description": "For the `delete_change_request_mappings` tool, the request payload must contain at least one filter (`change_request_mapping_id`, `change_id`, `incident_id`, or `problem_id`). If multiple filters are supplied, the backend must apply **AND** logic\u2014i.e., only mappings that match **all** supplied filters are eligible for deletion. The caller should construct the request accordingly and may pre\u2011validate the filter set before issuing the API call.",
+            "references": [
+                "<p><strong>Atomic Operations:</strong> Perform <strong>one validated operation at a time</strong>, except when using approved batch endpoints. Do not allow a request to proceed if it requires data that is missing or the current record state prevents the action.</p>"
+            ]
+        },
+        {
+            "policy_name": "Work Log Requirement for Deletion Operations",
+            "description": "When invoking the **delete_change_request_mappings** tool, the assistant must ensure that an audit entry is recorded. If a **log_action** tool (or equivalent) is available, call it immediately after the deletion with parameters `action=\"delete_change_request_mappings\"`, `resource_id` (the identifier(s) of the deleted mapping), `user_id` (the caller), and `timestamp` (current ISO\u20118601 time). If no explicit logging tool exists, verify that the platform automatically creates an audit log for the deletion; if it does not, abort the operation and return the error \u201cWork\u2011log requirement not satisfied\u201d.",
+            "references": [
+                "<p><strong>Time Tracking:</strong> All work logs must include the timestamp (<code>created_on</code>) and the <code>user_id</code> performing the action.</p>"
+            ]
+        },
+        {
+            "policy_name": "Rate Limiting Compliance for Deletion Operations",
+            "description": "If a delete_change_request_mappings request exceeds the allowed rate limit, pause the operation and retry using exponential backoff as defined by the system\u2019s rate\u2011limiting policy.",
+            "references": [
+                "<p><strong>Rate Limiting:</strong> If exceeded, pause and retry using <strong>Exponential Backoff</strong>.</p>"
+            ]
+        }
+    ],
+    "archive": [
+        {
+            "policy_name": "Conflict Handling for Deletion Operations",
+            "description": "If a delete_change_request_mappings request encounters a 409 Conflict response (e.g., record locking or state conflict), abort the operation and report the conflict to the user.",
+            "references": [
+                "<p><strong>409 Conflict:</strong> Record locking or state conflict.</p>"
+            ],
+            "comments": "The policy directly mentions the target tool (delete_change_request_mappings) and therefore is both relevant and tool\u2011specific. Its enforcement can be performed after the tool call by checking the HTTP status code; no pre\u2011call validation is possible because lock state cannot be determined without invoking the tool. The instruction is clear and can be acted upon using only the tool's response and chat context, making it actionable. The policy is self\u2011contained \u2013 it provides enough detail to be understood without external information. Overall the policy is well\u2011written, though it could note that no retry should be attempted, which is a minor improvement. Score: 4/5.\nThe policy directly mentions the target tool (delete_change_request_mappings) and therefore is both relevant and tool\u2011specific. Its enforcement can be performed after the tool call by checking the HTTP status code; no pre\u2011call validation is possible because lock state cannot be determined without invoking the tool. The instruction is clear and can be acted upon using only the tool's response and chat context, making it actionable. The policy is self\u2011contained \u2013 it provides enough detail to be understood without external information. Overall the policy is well\u2011written, though it could note that no retry should be attempted, which is a minor improvement. Score: 4/5.\nThe policy directly mentions the target tool (delete_change_request_mappings) and therefore is both relevant and tool\u2011specific. Its enforcement can be performed after the tool call by checking the HTTP status code; no pre\u2011call validation is possible because lock state cannot be determined without invoking the tool. The instruction is clear and can be acted upon using only the tool's response and chat context, making it actionable. The policy is self\u2011contained \u2013 it provides enough detail to be understood without external information. Overall the policy is well\u2011written, though it could note that no retry should be attempted, which is a minor improvement. Score: 4/5.\nThe policy directly mentions the target tool (delete_change_request_mappings) and therefore is both relevant and tool\u2011specific. Its enforcement can be performed after the tool call by checking the HTTP status code; no pre\u2011call validation is possible because lock state cannot be determined without invoking the tool. The instruction is clear and can be acted upon using only the tool's response and chat context, making it actionable. The policy is self\u2011contained \u2013 it provides enough detail to be understood without external information. Overall the policy is well\u2011written, though it could note that no retry should be attempted, which is a minor improvement. Score: 4/5.\nThe policy directly mentions the target tool (delete_change_request_mappings) and therefore is both relevant and tool\u2011specific. Its enforcement can be performed after the tool call by checking the HTTP status code; no pre\u2011call validation is possible because lock state cannot be determined without invoking the tool. The instruction is clear and can be acted upon using only the tool's response and chat context, making it actionable. The policy is self\u2011contained \u2013 it provides enough detail to be understood without external information. Overall the policy is well\u2011written, though it could note that no retry should be attempted, which is a minor improvement. Score: 4/5.\n"
+        }
+    ]
+}

@@ -1,0 +1,70 @@
+{
+    "policies": [
+        {
+            "policy_name": "Validate Mandatory Fields for Record Creation",
+            "description": "Before calling the **add_new_user** tool, verify that the request includes **all** of the tool\u2019s required parameters: **first_name**, **last_name**, **email** (valid format and unique), **phone** (unique, format +1-XXX-XXX-XXXX), **role** (one of admin, manager, agent, reporter), and **active** (true/false). If any are missing or invalid, return an error indicating the missing/invalid fields instead of invoking the tool.",
+            "references": [
+                "<strong>Mandatory Fields:</strong> Any request to create or update a record must validate all mandatory fields."
+            ],
+            "iteration_added": 0
+        },
+        {
+            "policy_name": "Role Must Be a Confirmed User Role",
+            "description": "When invoking the **add_new_user** tool, ensure that the **role** parameter matches one of the allowed system roles (admin, manager, agent, reporter) as defined in the predefined list of user roles. The assistant must validate the supplied role against this list before calling the tool; if the role is not one of these values, the operation must be halted and the policy violation reported.",
+            "references": [
+                "First you must check the user information and operate exclusively based on **confirmed user roles**, **verified record relationships**, and **ITIL/database integrity rules**.",
+                "| **users.role** | `admin`, `manager`, `agent`, `reporter` |"
+            ],
+            "iteration_added": 1
+        },
+        {
+            "policy_name": "Enforce Enumerated Role Values",
+            "description": "When creating or updating a user, the `role` parameter must be exactly one of the following permitted values: `admin`, `manager`, `agent`, or `reporter`. Any other value is invalid and must cause the operation to be rejected before invoking the tool.",
+            "references": [
+                "| <strong>Administrator</strong> (<code>admin</code>) | System Configuration &amp; Integrity | Full CRUD (Create, Read, Update, Delete) access across all tables.\u00a0|",
+                "| <strong>Manager</strong> (<code>manager</code>) | Supervision, Escalation, Approvals | Full CRUD on operational tables (<code>incident</code>, <code>problem</code>, <code>change</code>, <code>knowledge</code>); READ access to all the tables. Can <strong>reassign</strong> incidents/requests. Can <strong>approve/reject</strong> Change Requests. Monitors SLAs and escalations. |",
+                "| <strong>Agent</strong> (<code>agent</code>) | Frontline Incident/Request fulfillment | <strong>Full CRUD</strong> on <strong>Incidents, Service Requests, Tasks, Work Notes, CMDB, Change, Problem, and Knowledge</strong>. READ access to all the tables. Can update assignment, state, and resolution. |",
+                "| <strong>Reporter</strong> (<code>reporter</code>) | IT Service Consumption | Can view and update <strong>their own submitted Incidents/Requests</strong>. Can search <strong>Public Knowledge</strong> articles. |",
+                "| <strong>users.role</strong> | <code>admin</code>, <code>manager</code>, <code>agent</code>, <code>reporter</code> |"
+            ],
+            "iteration_added": 0
+        },
+        {
+            "policy_name": "Do Not Fabricate IDs or Assume Default Values",
+            "description": "When creating a new user, the assistant must not generate or assume any IDs, usernames, static tokens, or other auto\u2011generated fields; it must rely exclusively on the verified API response.",
+            "references": [
+                "Never assume or fabricate IDs, responses, or outcomes \u2014 rely solely on verified API results. The same is the case of optional or default arguments.",
+                "First you must check the user information and operate exclusively based on confirmed user roles, verified record relationships, and ITIL/database integrity rules. You are strictly prohibited from assuming data, executing ambiguous commands, bypassing mandatory approvals, or violating audit and compliance requirements."
+            ],
+            "iteration_added": 0
+        },
+        {
+            "policy_name": "Atomic Operation Requirement",
+            "description": "The creation of a new user must be performed as a single validated operation; no additional actions should be combined with the add_new_user call unless an approved batch endpoint is used.",
+            "references": [
+                "<strong>Atomic Operations:</strong> Perform <strong>one validated operation at a time</strong>, except when using approved batch endpoints. Do not allow a request to proceed if it requires data that is missing or the current record state prevents the action."
+            ],
+            "iteration_added": 0
+        },
+        {
+            "policy_name": "Caller Must Have Administrator Role to Create User",
+            "description": "The assistant must first retrieve the caller\u2019s user record (e.g., via get_user_using_email, get_user, or list_users using the supplied x\u2011itsm\u2011user\u2011token). If the field `role` is not `admin`, respond with a 403\u202fForbidden error and do NOT call `add_new_user`. Only when `role == \"admin\"` may the assistant proceed to invoke `add_new_user` with the requested parameters.",
+            "references": [
+                "First you must check the user information and operate exclusively based on <strong>confirmed user roles</strong>, <strong>verified record relationships</strong>, and <strong>ITIL/database integrity rules</strong>.",
+                "Administrator",
+                "(<code>admin</code>) | System Configuration &amp; Integrity | Full CRUD (Create, Read, Update, Delete) access across all tables."
+            ],
+            "iteration_added": 1
+        },
+        {
+            "policy_name": "Verify Referenced Records Existence",
+            "description": "When creating a new user, any supplied foreign\u2011key identifiers (e.g.,\u202flocation_id) must be validated to refer to an existing record in the system before invoking the add_new_user tool; the assistant must not assume the reference is valid.",
+            "references": [
+                "First you must check the user information and operate exclusively based on confirmed user roles, verified record relationships, and ITIL/database integrity rules. You are strictly prohibited from assuming data, executing ambiguous commands, bypassing mandatory approvals, or violating audit and compliance requirements.",
+                "Never assume or fabricate IDs, responses, or outcomes \u2014 rely solely on verified API results. The same is the case of optional or default arguments.",
+                "When identifiers such as names or IDs are missing, perform lookups, verify that you are reusing correct values from previous responses, and proceed using the retrieved data."
+            ],
+            "iteration_added": 2
+        }
+    ]
+}

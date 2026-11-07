@@ -1,0 +1,1585 @@
+{
+ "policy_hash": "e2891a7b98",
+ "prompt_version": "v2",
+ "stats": {
+  "sections": 14,
+  "statements": 93,
+  "rules": 58,
+  "by_type": {
+   "required_args": 3,
+   "allowed_values": 13,
+   "derived_value": 4,
+   "transition": 1,
+   "reference_status": 12,
+   "role_permission": 3,
+   "grounded_values": 1,
+   "id_provenance": 1,
+   "guidance": 20
+  },
+  "rejected": 0,
+  "model_calls": 0,
+  "cached_sections": 13,
+  "model": "gcp/gemini-3.8-flash"
+ },
+ "rules": [
+  {
+   "id": "r_87aab8e4",
+   "type": "derived_value",
+   "tool": "create_problem",
+   "arg": "priority",
+   "inputs": [
+    "impact",
+    "urgency"
+   ],
+   "table": {
+    "low|low": "planning",
+    "low|medium": "low",
+    "low|high": "moderate",
+    "medium|low": "low",
+    "medium|medium": "moderate",
+    "medium|high": "high",
+    "high|low": "moderate",
+    "high|medium": "high",
+    "high|high": "critical"
+   },
+   "source": "\u00a74.2 L133",
+   "quote": "Impact | Urgency | Priority",
+   "by": "code"
+  },
+  {
+   "id": "r_21970f6d",
+   "type": "derived_value",
+   "tool": "update_problem",
+   "arg": "priority",
+   "inputs": [
+    "impact",
+    "urgency"
+   ],
+   "table": {
+    "low|low": "planning",
+    "low|medium": "low",
+    "low|high": "moderate",
+    "medium|low": "low",
+    "medium|medium": "moderate",
+    "medium|high": "high",
+    "high|low": "moderate",
+    "high|medium": "high",
+    "high|high": "critical"
+   },
+   "source": "\u00a74.2 L133",
+   "quote": "Impact | Urgency | Priority",
+   "by": "code"
+  },
+  {
+   "id": "r_d17e6233",
+   "type": "derived_value",
+   "tool": "create_incident",
+   "arg": "priority",
+   "inputs": [
+    "impact",
+    "urgency"
+   ],
+   "table": {
+    "low|low": "planning",
+    "low|medium": "low",
+    "low|high": "moderate",
+    "medium|low": "low",
+    "medium|medium": "moderate",
+    "medium|high": "high",
+    "high|low": "moderate",
+    "high|medium": "high",
+    "high|high": "critical"
+   },
+   "source": "\u00a74.2 L133",
+   "quote": "Impact | Urgency | Priority",
+   "by": "code"
+  },
+  {
+   "id": "r_f5eaec42",
+   "type": "derived_value",
+   "tool": "update_incident",
+   "arg": "priority",
+   "inputs": [
+    "impact",
+    "urgency"
+   ],
+   "table": {
+    "low|low": "planning",
+    "low|medium": "low",
+    "low|high": "moderate",
+    "medium|low": "low",
+    "medium|medium": "moderate",
+    "medium|high": "high",
+    "high|low": "moderate",
+    "high|medium": "high",
+    "high|high": "critical"
+   },
+   "source": "\u00a74.2 L133",
+   "quote": "Impact | Urgency | Priority",
+   "by": "code"
+  },
+  {
+   "id": "r_5b90ba65",
+   "type": "transition",
+   "tool": "update_incident",
+   "arg": "status",
+   "id_arg": "incident_id",
+   "edges": {
+    "new": [
+     "in_progress",
+     "on_hold",
+     "resolved"
+    ],
+    "in_progress": [
+     "on_hold",
+     "resolved"
+    ],
+    "on_hold": [
+     "in_progress"
+    ],
+    "resolved": [
+     "closed",
+     "in_progress"
+    ]
+   },
+   "source": "\u00a73.3 L95",
+   "quote": "Valid transitions",
+   "by": "code"
+  },
+  {
+   "id": "r_70168652",
+   "type": "allowed_values",
+   "tool": "create_incident",
+   "arg": "status",
+   "values": [
+    "new",
+    "in_progress",
+    "on_hold",
+    "resolved",
+    "closed"
+   ],
+   "source": "\u00a79 L213",
+   "quote": "incident.status | new, in_progress, on_hold, resolved, closed",
+   "by": "code"
+  },
+  {
+   "id": "r_aa6fdcf4",
+   "type": "allowed_values",
+   "tool": "update_incident",
+   "arg": "status",
+   "values": [
+    "new",
+    "in_progress",
+    "on_hold",
+    "resolved",
+    "closed"
+   ],
+   "source": "\u00a79 L213",
+   "quote": "incident.status | new, in_progress, on_hold, resolved, closed",
+   "by": "code"
+  },
+  {
+   "id": "r_2d6e7771",
+   "type": "allowed_values",
+   "tool": "create_incident",
+   "arg": "resolution_code",
+   "values": [
+    "fixed",
+    "workaround",
+    "not_reproducible",
+    "closed_by_caller"
+   ],
+   "source": "\u00a79 L213",
+   "quote": "incident.resolution_code | fixed, workaround, not_reproducible, closed_by_caller",
+   "by": "code"
+  },
+  {
+   "id": "r_e849b4d1",
+   "type": "allowed_values",
+   "tool": "update_incident",
+   "arg": "resolution_code",
+   "values": [
+    "fixed",
+    "workaround",
+    "not_reproducible",
+    "closed_by_caller"
+   ],
+   "source": "\u00a79 L213",
+   "quote": "incident.resolution_code | fixed, workaround, not_reproducible, closed_by_caller",
+   "by": "code"
+  },
+  {
+   "id": "r_88b1054f",
+   "type": "allowed_values",
+   "tool": "create_change",
+   "arg": "status",
+   "values": [
+    "new",
+    "assess",
+    "authorize",
+    "scheduled",
+    "implement",
+    "review",
+    "closed",
+    "canceled"
+   ],
+   "source": "\u00a79 L213",
+   "quote": "change_request.status | new, assess, authorize, scheduled, implement, review, closed, canceled",
+   "by": "code"
+  },
+  {
+   "id": "r_d3b12d89",
+   "type": "allowed_values",
+   "tool": "update_change",
+   "arg": "status",
+   "values": [
+    "new",
+    "assess",
+    "authorize",
+    "scheduled",
+    "implement",
+    "review",
+    "closed",
+    "canceled"
+   ],
+   "source": "\u00a79 L213",
+   "quote": "change_request.status | new, assess, authorize, scheduled, implement, review, closed, canceled",
+   "by": "code"
+  },
+  {
+   "id": "r_411b694c",
+   "type": "allowed_values",
+   "tool": "link_new_incident_sla",
+   "arg": "stage",
+   "values": [
+    "in_progress",
+    "paused",
+    "completed",
+    "cancelled",
+    "breached"
+   ],
+   "source": "\u00a79 L213",
+   "quote": "incident_sla.stage | in_progress, paused, completed, cancelled, breached",
+   "by": "code"
+  },
+  {
+   "id": "r_d039bdcb",
+   "type": "allowed_values",
+   "tool": "update_incident_sla_details",
+   "arg": "stage",
+   "values": [
+    "in_progress",
+    "paused",
+    "completed",
+    "cancelled",
+    "breached"
+   ],
+   "source": "\u00a79 L213",
+   "quote": "incident_sla.stage | in_progress, paused, completed, cancelled, breached",
+   "by": "code"
+  },
+  {
+   "id": "r_4ca0442b",
+   "type": "allowed_values",
+   "tool": "delete_incident_slas",
+   "arg": "stage",
+   "values": [
+    "in_progress",
+    "paused",
+    "completed",
+    "cancelled",
+    "breached"
+   ],
+   "source": "\u00a79 L213",
+   "quote": "incident_sla.stage | in_progress, paused, completed, cancelled, breached",
+   "by": "code"
+  },
+  {
+   "type": "guidance",
+   "quote": "First you must check the user information and operate exclusively based on confirmed user roles, verified record relationships, and ITIL/database integrity rules. You are strictly prohibited from assuming data, executing ambiguous commands, bypassing mandatory approvals, or violating audit and compliance requirements.",
+   "text": "First you must check the user information and operate exclusively based on confirmed user roles, verified record relationships, and ITIL/database integrity rules. You are strictly prohibited from assuming data, executing ambiguous commands, bypassing mandatory approvals, or violating audit and compliance requirements.",
+   "tools": [],
+   "source": "\u00a7preamble L7",
+   "by": "model",
+   "id": "r_15926403"
+  },
+  {
+   "type": "guidance",
+   "quote": "If a user request violates any rule herein, you must halt the operation and provide the specific policy reason before pausing.",
+   "text": "If a user request violates any rule herein, you must halt the operation and provide the specific policy reason before pausing.",
+   "tools": [],
+   "source": "\u00a71 L13",
+   "by": "model",
+   "id": "r_2ecc812e"
+  },
+  {
+   "type": "guidance",
+   "quote": "Perform one validated operation at a time, except when using approved batch endpoints. Do not allow a request to proceed if it requires data that is missing or the current record state prevents the action.",
+   "text": "Perform one validated operation at a time, except when using approved batch endpoints. Do not allow a request to proceed if it requires data that is missing or the current record state prevents the action.",
+   "tools": [],
+   "source": "\u00a71 L15",
+   "by": "model",
+   "id": "r_46efbc52"
+  },
+  {
+   "type": "guidance",
+   "quote": "Do not disclose information that is outside the authenticated user's access scope.",
+   "text": "Do not disclose information that is outside the authenticated user's access scope.",
+   "tools": [],
+   "source": "\u00a71 L17",
+   "by": "model",
+   "id": "r_6cf5a009"
+  },
+  {
+   "type": "guidance",
+   "quote": "Do not ask for further information. If the request is ambiguous, return the list and state the ambiguity. If a mandatory field is missing, state which field is required.",
+   "text": "Do not ask for further information. If the request is ambiguous, return the list and state the ambiguity. If a mandatory field is missing, state which field is required.",
+   "tools": [],
+   "source": "\u00a71 L19",
+   "by": "model",
+   "id": "r_58ec383c"
+  },
+  {
+   "type": "guidance",
+   "quote": "Any request to create or update a record must validate all mandatory fields.",
+   "text": "Any request to create or update a record must validate all mandatory fields.",
+   "tools": [],
+   "source": "\u00a71 L21",
+   "by": "model",
+   "id": "r_b4ee864e"
+  },
+  {
+   "type": "guidance",
+   "quote": "You do not need to ask for confirmation or permission before taking action.",
+   "text": "You do not need to ask for confirmation or permission before taking action.",
+   "tools": [],
+   "source": "\u00a71 L23",
+   "by": "model",
+   "id": "r_959718da"
+  },
+  {
+   "type": "guidance",
+   "quote": "When identifiers such as names or IDs are missing, perform lookups, verify that you are reusing correct values from previous responses, and proceed using the retrieved data.",
+   "text": "When identifiers such as names or IDs are missing, perform lookups, verify that you are reusing correct values from previous responses, and proceed using the retrieved data.",
+   "tools": [],
+   "source": "\u00a71 L25",
+   "by": "model",
+   "id": "r_84cd7858"
+  },
+  {
+   "type": "id_provenance",
+   "quote": "Never assume or fabricate IDs, responses, or outcomes \u2014 rely solely on verified API results.",
+   "source": "\u00a71 L27",
+   "by": "model",
+   "id": "r_57e3f069"
+  },
+  {
+   "type": "grounded_values",
+   "quote": "The same is the case of optional or default arguments.",
+   "source": "\u00a71 L27",
+   "by": "model",
+   "id": "r_a3a9c95d"
+  },
+  {
+   "type": "guidance",
+   "quote": "Complete each task in a logical, and efficient execution flow.",
+   "text": "Complete each task in a logical, and efficient execution flow.",
+   "tools": [],
+   "source": "\u00a71 L29",
+   "by": "model",
+   "id": "r_d6154f4b"
+  },
+  {
+   "type": "role_permission",
+   "quote": "Full CRUD on operational tables (incident, problem, change, knowledge); READ access to all the tables.",
+   "roles": [
+    "manager"
+   ],
+   "effect": "forbid",
+   "tools": [
+    "add_location",
+    "add_new_group_member",
+    "add_new_service",
+    "add_new_sla_definition",
+    "add_new_user",
+    "add_new_user_group",
+    "create_new_incident_template",
+    "delete_incident_slas",
+    "link_affected_ci_to_incident",
+    "link_new_incident_sla",
+    "register_configuration_item",
+    "register_new_service_offering",
+    "remove_affected_ci_from_incident",
+    "remove_group_membership",
+    "update_configuration_item",
+    "update_incident_sla_details",
+    "update_incident_template",
+    "update_location",
+    "update_service",
+    "update_service_offering",
+    "update_sla_definition",
+    "update_user_details",
+    "update_user_group"
+   ],
+   "source": "\u00a72 L45",
+   "by": "model",
+   "id": "r_5c86e3f9"
+  },
+  {
+   "type": "role_permission",
+   "quote": "Full CRUD on Incidents, Service Requests, Tasks, Work Notes, CMDB, Change, Problem, and Knowledge. READ access to all the tables.",
+   "roles": [
+    "agent"
+   ],
+   "effect": "forbid",
+   "tools": [
+    "add_location",
+    "add_new_group_member",
+    "add_new_service",
+    "add_new_sla_definition",
+    "add_new_user",
+    "add_new_user_group",
+    "create_new_incident_template",
+    "delete_incident_slas",
+    "link_new_incident_sla",
+    "register_new_service_offering",
+    "remove_group_membership",
+    "update_incident_sla_details",
+    "update_incident_template",
+    "update_location",
+    "update_service",
+    "update_service_offering",
+    "update_sla_definition",
+    "update_user_details",
+    "update_user_group"
+   ],
+   "source": "\u00a72 L47",
+   "by": "model",
+   "id": "r_9d3c3b70"
+  },
+  {
+   "type": "role_permission",
+   "quote": "Cannot view or modify records opened by other users, CMDB, or internal work notes.",
+   "roles": [
+    "reporter"
+   ],
+   "effect": "forbid",
+   "tools": [
+    "add_child_incident",
+    "add_child_incidents",
+    "add_location",
+    "add_new_group_member",
+    "add_new_service",
+    "add_new_sla_definition",
+    "add_new_user",
+    "add_new_user_group",
+    "create_change",
+    "create_knowledge_article",
+    "create_new_incident_template",
+    "create_problem",
+    "delete_change_request_mappings",
+    "delete_incident_slas",
+    "delete_notifications",
+    "find_configuration_item_by_serial_number",
+    "find_configuration_items",
+    "link_affected_ci_to_incident",
+    "link_knowledge_to_incident",
+    "link_new_incident_sla",
+    "map_change_request",
+    "register_configuration_item",
+    "register_new_service_offering",
+    "remove_affected_ci_from_incident",
+    "remove_child_incident",
+    "remove_group_membership",
+    "remove_knowledge_link_to_incident",
+    "send_notification",
+    "update_change",
+    "update_child_incident",
+    "update_configuration_item",
+    "update_incident_sla_details",
+    "update_incident_template",
+    "update_knowledge_article",
+    "update_location",
+    "update_notification",
+    "update_problem",
+    "update_service",
+    "update_service_offering",
+    "update_sla_definition",
+    "update_user_details",
+    "update_user_group"
+   ],
+   "source": "\u00a72 L49",
+   "by": "model",
+   "id": "r_7e6fec8b"
+  },
+  {
+   "type": "guidance",
+   "quote": "To log any issue/interrupted service, create an Incident record(create_incident).",
+   "text": "To log any issue/interrupted service, create an Incident record(create_incident).",
+   "tools": [
+    "create_incident"
+   ],
+   "source": "\u00a73.1 L57",
+   "by": "model",
+   "id": "r_91c28a02"
+  },
+  {
+   "type": "required_args",
+   "quote": "Mandatory Inputs: opened_by (user submitting), caller_id (user affected), short_description, impact, and urgency.",
+   "tool": "create_incident",
+   "args": [
+    "caller_id",
+    "short_description",
+    "impact",
+    "urgency"
+   ],
+   "source": "\u00a73.1 L59",
+   "by": "model",
+   "id": "r_1becad18"
+  },
+  {
+   "type": "allowed_values",
+   "quote": "All new Incidents are set to status = new.",
+   "tool": "create_incident",
+   "arg": "status",
+   "values": [
+    "new"
+   ],
+   "source": "\u00a73.1 L85",
+   "by": "model",
+   "id": "r_1bc76b13"
+  },
+  {
+   "type": "reference_status",
+   "quote": "assigned_to must be an active user",
+   "tool": "create_incident",
+   "arg": "assigned_to",
+   "field": "active",
+   "allowed": [
+    true
+   ],
+   "source": "\u00a73.2 L89",
+   "by": "model",
+   "id": "r_dcff26ed"
+  },
+  {
+   "type": "reference_status",
+   "quote": "with the Agent or Manager role",
+   "tool": "create_incident",
+   "arg": "assigned_to",
+   "field": "role",
+   "allowed": [
+    "agent",
+    "manager"
+   ],
+   "source": "\u00a73.2 L89",
+   "by": "model",
+   "id": "r_67d84310"
+  },
+  {
+   "type": "reference_status",
+   "quote": "assigned_to must be an active user",
+   "tool": "update_incident",
+   "arg": "assigned_to",
+   "field": "active",
+   "allowed": [
+    true
+   ],
+   "source": "\u00a73.2 L89",
+   "by": "model",
+   "id": "r_49e81ae5"
+  },
+  {
+   "type": "reference_status",
+   "quote": "with the Agent or Manager role",
+   "tool": "update_incident",
+   "arg": "assigned_to",
+   "field": "role",
+   "allowed": [
+    "agent",
+    "manager"
+   ],
+   "source": "\u00a73.2 L89",
+   "by": "model",
+   "id": "r_2019d44a"
+  },
+  {
+   "type": "guidance",
+   "quote": "must be a member of the specified assignment_group",
+   "tools": [
+    "create_incident",
+    "update_incident"
+   ],
+   "text": "assigned_to must be a member of the specified assignment_group",
+   "source": "\u00a73.2 L89",
+   "by": "model",
+   "id": "r_f2879893"
+  },
+  {
+   "type": "required_args",
+   "tool": "update_incident",
+   "args": [
+    "resolution_code",
+    "resolution_notes"
+   ],
+   "when": {
+    "status": [
+     "resolved"
+    ]
+   },
+   "quote": "An Incident cannot transition to resolved without mandatory fields: resolution_code, and resolution_notes",
+   "source": "\u00a73.3 L103",
+   "by": "model",
+   "id": "r_759b809e"
+  },
+  {
+   "type": "guidance",
+   "quote": "All changes must originate from a Change Request record.",
+   "text": "All changes must originate from a Change Request record.",
+   "tools": [
+    "create_change"
+   ],
+   "source": "\u00a74.1 L113",
+   "by": "model",
+   "id": "r_dce42e2c"
+  },
+  {
+   "type": "allowed_values",
+   "quote": "All new Changes are set to status = new.",
+   "tool": "create_change",
+   "arg": "status",
+   "values": [
+    "new"
+   ],
+   "source": "\u00a74.1 L115",
+   "by": "model",
+   "id": "r_c58a482b"
+  },
+  {
+   "type": "guidance",
+   "quote": "A Problem must be created (create_problem) when a recurring incident pattern or a major incident is identified",
+   "text": "A Problem must be created (create_problem) when a recurring incident pattern or a major incident is identified.",
+   "tools": [
+    "create_problem"
+   ],
+   "source": "\u00a74.2 L121",
+   "by": "model",
+   "id": "r_a7ddc487"
+  },
+  {
+   "type": "guidance",
+   "quote": "The Problem record must link all affected Incidents via the incident_to_problem related list",
+   "text": "The Problem record must link all affected Incidents via the incident_to_problem related list.",
+   "tools": [
+    "update_incident"
+   ],
+   "source": "\u00a74.2 L123",
+   "by": "model",
+   "id": "r_b5eb2a6f"
+  },
+  {
+   "type": "allowed_values",
+   "quote": "All new Problems are set to status = new",
+   "tool": "create_problem",
+   "arg": "status",
+   "values": [
+    "new"
+   ],
+   "source": "\u00a74.2 L125",
+   "by": "model",
+   "id": "r_3233adb3"
+  },
+  {
+   "type": "guidance",
+   "quote": "If workaround/temporary solution found, update workaround field and set status=fix_in_progress. The workaround_notes must be published to the linked Incidents and relevant Knowledge Articles",
+   "text": "If workaround/temporary solution found, update workaround field and set status=fix_in_progress. The workaround_notes must be published to the linked Incidents and relevant Knowledge Articles.",
+   "tools": [
+    "update_problem",
+    "update_incident",
+    "create_knowledge_article",
+    "update_knowledge_article"
+   ],
+   "source": "\u00a74.2 L127",
+   "by": "model",
+   "id": "r_afb8d0f9"
+  },
+  {
+   "type": "guidance",
+   "quote": "A Problem transitions to closed only after the permanent fix has been successfully implemented via a linked normal or emergency Change Request",
+   "text": "A Problem transitions to closed only after the permanent fix has been successfully implemented via a linked normal or emergency Change Request.",
+   "tools": [
+    "update_problem"
+   ],
+   "source": "\u00a74.2 L129",
+   "by": "model",
+   "id": "r_9cc7a7c5"
+  },
+  {
+   "type": "reference_status",
+   "quote": "Only CIs with status = in_use or status = maintenance can be linked to active Incidents. Do not link CIs in status = retired or status = disposed.",
+   "tool": "link_affected_ci_to_incident",
+   "arg": "configuration_item",
+   "field": "status",
+   "allowed": [
+    "in_use",
+    "maintenance"
+   ],
+   "source": "\u00a75.1 L163",
+   "by": "model",
+   "id": "r_dfaf1791"
+  },
+  {
+   "type": "guidance",
+   "quote": "The SLA timer must be paused (stage = paused) when the Incident is in stage = on_hold and the on_hold_reason is one of the following enumerations: Awaiting Change, Awaiting Caller, or Awaiting Problem.",
+   "text": "The SLA timer must be paused (stage = paused) when the Incident is in stage = on_hold and the on_hold_reason is one of the following enumerations: Awaiting Change, Awaiting Caller, or Awaiting Problem.",
+   "tools": [
+    "update_incident_sla_details"
+   ],
+   "source": "\u00a76 L175",
+   "by": "model",
+   "id": "r_0998f5fe"
+  },
+  {
+   "type": "guidance",
+   "quote": "Only articles in knowledge.state = published are searchable by the Reporter role",
+   "text": "Only articles in knowledge.state = published are searchable by the Reporter role.",
+   "tools": [
+    "retrieve_knowledge_articles"
+   ],
+   "source": "\u00a77 L183",
+   "by": "model",
+   "id": "r_32d329cd"
+  },
+  {
+   "type": "guidance",
+   "quote": "When an Incident is created, a search for relevant knowledge must be performed, and matching articles linked as used_as = suggested",
+   "text": "When an Incident is created, a search for relevant knowledge must be performed, and matching articles linked as used_as = suggested.",
+   "tools": [
+    "create_incident",
+    "retrieve_knowledge_articles",
+    "link_knowledge_to_incident"
+   ],
+   "source": "\u00a77 L185",
+   "by": "model",
+   "id": "r_062065d2"
+  },
+  {
+   "type": "required_args",
+   "quote": "All knowledge links must track used_as type: suggested, applied, or resolution",
+   "tool": "link_knowledge_to_incident",
+   "args": [
+    "used_as"
+   ],
+   "source": "\u00a77 L187",
+   "by": "model",
+   "id": "r_faf33a49"
+  },
+  {
+   "type": "allowed_values",
+   "quote": "used_as type: suggested, applied, or resolution",
+   "tool": "link_knowledge_to_incident",
+   "arg": "used_as",
+   "values": [
+    "suggested",
+    "applied",
+    "resolution"
+   ],
+   "source": "\u00a77 L187",
+   "by": "model",
+   "id": "r_2fb8bc7d"
+  },
+  {
+   "type": "reference_status",
+   "quote": "Ensure any user being assigned to (assigned_to) or updated is users.active = true.",
+   "tool": "create_incident",
+   "arg": "assigned_to",
+   "field": "active",
+   "allowed": [
+    true
+   ],
+   "source": "\u00a78.1 L195",
+   "by": "model",
+   "id": "r_dcff26ed"
+  },
+  {
+   "type": "reference_status",
+   "quote": "Ensure any user being assigned to (assigned_to) or updated is users.active = true.",
+   "tool": "update_incident",
+   "arg": "assigned_to",
+   "field": "active",
+   "allowed": [
+    true
+   ],
+   "source": "\u00a78.1 L195",
+   "by": "model",
+   "id": "r_49e81ae5"
+  },
+  {
+   "type": "reference_status",
+   "quote": "Ensure any user being assigned to (assigned_to) or updated is users.active = true.",
+   "tool": "create_change",
+   "arg": "assigned_to",
+   "field": "active",
+   "allowed": [
+    true
+   ],
+   "source": "\u00a78.1 L195",
+   "by": "model",
+   "id": "r_00ded246"
+  },
+  {
+   "type": "reference_status",
+   "quote": "Ensure any user being assigned to (assigned_to) or updated is users.active = true.",
+   "tool": "update_change",
+   "arg": "assigned_to",
+   "field": "active",
+   "allowed": [
+    true
+   ],
+   "source": "\u00a78.1 L195",
+   "by": "model",
+   "id": "r_f2582090"
+  },
+  {
+   "type": "reference_status",
+   "quote": "Ensure any user being assigned to (assigned_to) or updated is users.active = true.",
+   "tool": "create_problem",
+   "arg": "assigned_to",
+   "field": "active",
+   "allowed": [
+    true
+   ],
+   "source": "\u00a78.1 L195",
+   "by": "model",
+   "id": "r_528fe403"
+  },
+  {
+   "type": "reference_status",
+   "quote": "Ensure any user being assigned to (assigned_to) or updated is users.active = true.",
+   "tool": "update_problem",
+   "arg": "assigned_to",
+   "field": "active",
+   "allowed": [
+    true
+   ],
+   "source": "\u00a78.1 L195",
+   "by": "model",
+   "id": "r_e3e405aa"
+  },
+  {
+   "type": "reference_status",
+   "quote": "Ensure any user being assigned to (assigned_to) or updated is users.active = true.",
+   "tool": "update_user_details",
+   "arg": "user_id",
+   "field": "active",
+   "allowed": [
+    true
+   ],
+   "source": "\u00a78.1 L195",
+   "by": "model",
+   "id": "r_33469992"
+  },
+  {
+   "type": "guidance",
+   "quote": "Before closing any record, verify that all mandatory dependencies are satisfied.",
+   "text": "Before closing any record, verify that all mandatory dependencies are satisfied.",
+   "tools": [
+    "update_incident",
+    "update_change",
+    "update_problem"
+   ],
+   "source": "\u00a78.1 L197",
+   "by": "model",
+   "id": "r_a5af23a4"
+  }
+ ],
+ "coverage": [
+  {
+   "source": "L63",
+   "class": "rule",
+   "by": "code",
+   "how": "matrix table"
+  },
+  {
+   "source": "L65",
+   "class": "rule",
+   "by": "code",
+   "how": "matrix table"
+  },
+  {
+   "source": "L67",
+   "class": "rule",
+   "by": "code",
+   "how": "matrix table"
+  },
+  {
+   "source": "L69",
+   "class": "rule",
+   "by": "code",
+   "how": "matrix table"
+  },
+  {
+   "source": "L71",
+   "class": "rule",
+   "by": "code",
+   "how": "matrix table"
+  },
+  {
+   "source": "L73",
+   "class": "rule",
+   "by": "code",
+   "how": "matrix table"
+  },
+  {
+   "source": "L75",
+   "class": "rule",
+   "by": "code",
+   "how": "matrix table"
+  },
+  {
+   "source": "L77",
+   "class": "rule",
+   "by": "code",
+   "how": "matrix table"
+  },
+  {
+   "source": "L79",
+   "class": "rule",
+   "by": "code",
+   "how": "matrix table"
+  },
+  {
+   "source": "L81",
+   "class": "rule",
+   "by": "code",
+   "how": "matrix table"
+  },
+  {
+   "source": "L83",
+   "class": "rule",
+   "by": "code",
+   "how": "matrix table"
+  },
+  {
+   "source": "L95",
+   "class": "rule",
+   "by": "code",
+   "how": "transition list"
+  },
+  {
+   "source": "L97",
+   "class": "rule",
+   "by": "code",
+   "how": "transition list"
+  },
+  {
+   "source": "L99",
+   "class": "rule",
+   "by": "code",
+   "how": "transition list"
+  },
+  {
+   "source": "L101",
+   "class": "rule",
+   "by": "code",
+   "how": "transition list"
+  },
+  {
+   "source": "L133",
+   "class": "rule",
+   "by": "code",
+   "how": "matrix table"
+  },
+  {
+   "source": "L135",
+   "class": "rule",
+   "by": "code",
+   "how": "matrix table"
+  },
+  {
+   "source": "L137",
+   "class": "rule",
+   "by": "code",
+   "how": "matrix table"
+  },
+  {
+   "source": "L139",
+   "class": "rule",
+   "by": "code",
+   "how": "matrix table"
+  },
+  {
+   "source": "L141",
+   "class": "rule",
+   "by": "code",
+   "how": "matrix table"
+  },
+  {
+   "source": "L143",
+   "class": "rule",
+   "by": "code",
+   "how": "matrix table"
+  },
+  {
+   "source": "L145",
+   "class": "rule",
+   "by": "code",
+   "how": "matrix table"
+  },
+  {
+   "source": "L147",
+   "class": "rule",
+   "by": "code",
+   "how": "matrix table"
+  },
+  {
+   "source": "L149",
+   "class": "rule",
+   "by": "code",
+   "how": "matrix table"
+  },
+  {
+   "source": "L151",
+   "class": "rule",
+   "by": "code",
+   "how": "matrix table"
+  },
+  {
+   "source": "L153",
+   "class": "rule",
+   "by": "code",
+   "how": "matrix table"
+  },
+  {
+   "source": "L213",
+   "class": "rule",
+   "by": "code",
+   "how": "enumeration table"
+  },
+  {
+   "source": "L215",
+   "class": "rule",
+   "by": "code",
+   "how": "enumeration table"
+  },
+  {
+   "source": "L217",
+   "class": "rule",
+   "by": "code",
+   "how": "enumeration table"
+  },
+  {
+   "source": "L219",
+   "class": "rule",
+   "by": "code",
+   "how": "enumeration table"
+  },
+  {
+   "source": "L221",
+   "class": "rule",
+   "by": "code",
+   "how": "enumeration table"
+  },
+  {
+   "source": "L223",
+   "class": "rule",
+   "by": "code",
+   "how": "enumeration table"
+  },
+  {
+   "source": "L225",
+   "class": "rule",
+   "by": "code",
+   "how": "enumeration table"
+  },
+  {
+   "source": "L227",
+   "class": "rule",
+   "by": "code",
+   "how": "enumeration table"
+  },
+  {
+   "source": "L229",
+   "class": "rule",
+   "by": "code",
+   "how": "enumeration table"
+  },
+  {
+   "source": "L231",
+   "class": "rule",
+   "by": "code",
+   "how": "enumeration table"
+  },
+  {
+   "source": "L233",
+   "class": "rule",
+   "by": "code",
+   "how": "enumeration table"
+  },
+  {
+   "source": "L235",
+   "class": "rule",
+   "by": "code",
+   "how": "enumeration table"
+  },
+  {
+   "source": "L237",
+   "class": "rule",
+   "by": "code",
+   "how": "enumeration table"
+  },
+  {
+   "source": "L239",
+   "class": "rule",
+   "by": "code",
+   "how": "enumeration table"
+  },
+  {
+   "source": "\u00a7preamble L3",
+   "class": "definition",
+   "reason": "Declares the role of the assistant and does not prescribe actionable system rules.",
+   "rules": [],
+   "rejected": []
+  },
+  {
+   "source": "\u00a7preamble L5",
+   "class": "out_of_scope",
+   "reason": "Describes the high-level mandate and operational scope without setting specific testable constraints.",
+   "rules": [],
+   "rejected": []
+  },
+  {
+   "source": "\u00a7preamble L7",
+   "class": "guidance",
+   "reason": "Provides general operational and compliance guidance that cannot be automatically checked against specific tools.",
+   "rules": [
+    "r_15926403"
+   ],
+   "rejected": []
+  },
+  {
+   "source": "\u00a71 L13",
+   "class": "guidance",
+   "reason": "General conversational instruction for handling policy violations that cannot be enforced via automated tool parameter checks.",
+   "rules": [
+    "r_2ecc812e"
+   ],
+   "rejected": []
+  },
+  {
+   "source": "\u00a71 L15",
+   "class": "guidance",
+   "reason": "General execution guidance on atomic operations and state validation.",
+   "rules": [
+    "r_46efbc52"
+   ],
+   "rejected": []
+  },
+  {
+   "source": "\u00a71 L17",
+   "class": "guidance",
+   "reason": "General confidentiality instruction not mapped to specific API constraints.",
+   "rules": [
+    "r_6cf5a009"
+   ],
+   "rejected": []
+  },
+  {
+   "source": "\u00a71 L19",
+   "class": "guidance",
+   "reason": "Instruction on conversation flow and clarifying questions.",
+   "rules": [
+    "r_58ec383c"
+   ],
+   "rejected": []
+  },
+  {
+   "source": "\u00a71 L21",
+   "class": "guidance",
+   "reason": "General instruction on validating mandatory fields.",
+   "rules": [
+    "r_b4ee864e"
+   ],
+   "rejected": []
+  },
+  {
+   "source": "\u00a71 L23",
+   "class": "guidance",
+   "reason": "Conversational behavior instruction regarding confirmation.",
+   "rules": [
+    "r_959718da"
+   ],
+   "rejected": []
+  },
+  {
+   "source": "\u00a71 L25",
+   "class": "guidance",
+   "reason": "Instruction detailing how to perform lookups and reuse identifiers.",
+   "rules": [
+    "r_84cd7858"
+   ],
+   "rejected": []
+  },
+  {
+   "source": "\u00a71 L27",
+   "class": "rule",
+   "reason": null,
+   "rules": [
+    "r_57e3f069",
+    "r_a3a9c95d"
+   ],
+   "rejected": []
+  },
+  {
+   "source": "\u00a71 L29",
+   "class": "guidance",
+   "reason": "Broad qualitative instruction on task completion flow.",
+   "rules": [
+    "r_d6154f4b"
+   ],
+   "rejected": []
+  },
+  {
+   "source": "\u00a72 L35",
+   "class": "definition",
+   "reason": "Explanatory note about role naming conventions and historical corrections",
+   "rules": [],
+   "rejected": []
+  },
+  {
+   "source": "\u00a72 L37",
+   "class": "definition",
+   "reason": "General descriptive statement about role-based access control",
+   "rules": [],
+   "rejected": []
+  },
+  {
+   "source": "\u00a72 L39",
+   "class": "definition",
+   "reason": "Table header line",
+   "rules": [],
+   "rejected": []
+  },
+  {
+   "source": "\u00a72 L41",
+   "class": "definition",
+   "reason": "Table formatting markdown separator",
+   "rules": [],
+   "rejected": []
+  },
+  {
+   "source": "\u00a72 L43",
+   "class": "definition",
+   "reason": "Administrator has full CRUD access with no restrictions",
+   "rules": [],
+   "rejected": []
+  },
+  {
+   "source": "\u00a72 L45",
+   "class": "rule",
+   "reason": null,
+   "rules": [
+    "r_5c86e3f9"
+   ],
+   "rejected": []
+  },
+  {
+   "source": "\u00a72 L47",
+   "class": "rule",
+   "reason": null,
+   "rules": [
+    "r_9d3c3b70"
+   ],
+   "rejected": []
+  },
+  {
+   "source": "\u00a72 L49",
+   "class": "rule",
+   "reason": null,
+   "rules": [
+    "r_7e6fec8b"
+   ],
+   "rejected": []
+  },
+  {
+   "source": "\u00a73.1 L57",
+   "class": "guidance",
+   "reason": "General instructional statement explaining how to log an issue.",
+   "rules": [
+    "r_91c28a02"
+   ],
+   "rejected": []
+  },
+  {
+   "source": "\u00a73.1 L59",
+   "class": "rule",
+   "reason": null,
+   "rules": [
+    "r_1becad18"
+   ],
+   "rejected": []
+  },
+  {
+   "source": "\u00a73.1 L61",
+   "class": "out_of_scope",
+   "reason": "Automatic system behavior and input-to-output lookup matrix.",
+   "rules": [],
+   "rejected": []
+  },
+  {
+   "source": "\u00a73.1 L85",
+   "class": "rule",
+   "reason": null,
+   "rules": [
+    "r_1bc76b13"
+   ],
+   "rejected": []
+  },
+  {
+   "source": "\u00a73.2 L89",
+   "class": "rule",
+   "reason": null,
+   "rules": [
+    "r_dcff26ed",
+    "r_67d84310",
+    "r_49e81ae5",
+    "r_2019d44a",
+    "r_f2879893"
+   ],
+   "rejected": []
+  },
+  {
+   "source": "\u00a73.3 L93",
+   "class": "out_of_scope",
+   "reason": "header text introducing status transitions",
+   "rules": [],
+   "rejected": []
+  },
+  {
+   "source": "\u00a73.3 L103",
+   "class": "rule",
+   "reason": null,
+   "rules": [
+    "r_759b809e"
+   ],
+   "rejected": []
+  },
+  {
+   "source": "\u00a73.3 L105",
+   "class": "out_of_scope",
+   "reason": "describes automated system behavior occurring after a time delay",
+   "rules": [],
+   "rejected": []
+  },
+  {
+   "source": "\u00a74.1 L113",
+   "class": "guidance",
+   "reason": "Instruction cannot be checked automatically",
+   "rules": [
+    "r_dce42e2c"
+   ],
+   "rejected": []
+  },
+  {
+   "source": "\u00a74.1 L115",
+   "class": "rule",
+   "reason": null,
+   "rules": [
+    "r_c58a482b"
+   ],
+   "rejected": []
+  },
+  {
+   "source": "\u00a74.1 L117",
+   "class": "definition",
+   "reason": "Enumeration and definitions of change types",
+   "rules": [],
+   "rejected": []
+  },
+  {
+   "source": "\u00a74.2 L121",
+   "class": "guidance",
+   "reason": "Trigger condition (identifying a recurring incident pattern or major incident) is a real-world evaluation rather than a tool event.",
+   "rules": [
+    "r_a7ddc487"
+   ],
+   "rejected": []
+  },
+  {
+   "source": "\u00a74.2 L123",
+   "class": "guidance",
+   "reason": "Requires linking affected Incidents via a related list, which cannot be automatically verified from a specific tool call.",
+   "rules": [
+    "r_b5eb2a6f"
+   ],
+   "rejected": []
+  },
+  {
+   "source": "\u00a74.2 L125",
+   "class": "rule",
+   "reason": null,
+   "rules": [
+    "r_3233adb3"
+   ],
+   "rejected": []
+  },
+  {
+   "source": "\u00a74.2 L127",
+   "class": "guidance",
+   "reason": "Condition depends on external discovery of a workaround and involves publishing workaround notes across multiple linked entities.",
+   "rules": [
+    "r_afb8d0f9"
+   ],
+   "rejected": []
+  },
+  {
+   "source": "\u00a74.2 L129",
+   "class": "guidance",
+   "reason": "Validating successful implementation of a permanent fix via a linked Change Request cannot be checked via single-tool reference status rules.",
+   "rules": [
+    "r_9cc7a7c5"
+   ],
+   "rejected": []
+  },
+  {
+   "source": "\u00a74.2 L131",
+   "class": "out_of_scope",
+   "reason": "Describes automatic system behavior and an input-to-output lookup matrix for priority calculation.",
+   "rules": [],
+   "rejected": []
+  },
+  {
+   "source": "\u00a75.1 L161",
+   "class": "out_of_scope",
+   "reason": "General system architecture and data recording requirement, not a specific tool call constraint.",
+   "rules": [],
+   "rejected": []
+  },
+  {
+   "source": "\u00a75.1 L163",
+   "class": "rule",
+   "reason": null,
+   "rules": [
+    "r_dfaf1791"
+   ],
+   "rejected": []
+  },
+  {
+   "source": "\u00a75.1 L165",
+   "class": "out_of_scope",
+   "reason": "Data model integrity requirement on CI records, not a specific tool call constraint.",
+   "rules": [],
+   "rejected": []
+  },
+  {
+   "source": "\u00a76 L171",
+   "class": "out_of_scope",
+   "reason": "describes automatic system behavior",
+   "rules": [],
+   "rejected": []
+  },
+  {
+   "source": "\u00a76 L173",
+   "class": "out_of_scope",
+   "reason": "informational statement regarding metrics tracked",
+   "rules": [],
+   "rejected": []
+  },
+  {
+   "source": "\u00a76 L175",
+   "class": "guidance",
+   "reason": null,
+   "rules": [
+    "r_0998f5fe"
+   ],
+   "rejected": []
+  },
+  {
+   "source": "\u00a76 L177",
+   "class": "out_of_scope",
+   "reason": "escalation flag is not a field in the incident tool catalog and notification is automatic system behavior",
+   "rules": [],
+   "rejected": []
+  },
+  {
+   "source": "\u00a77 L183",
+   "class": "guidance",
+   "reason": "Access restriction by user role during search cannot be checked automatically",
+   "rules": [
+    "r_32d329cd"
+   ],
+   "rejected": []
+  },
+  {
+   "source": "\u00a77 L185",
+   "class": "guidance",
+   "reason": "Relevance of knowledge articles to an incident cannot be checked automatically",
+   "rules": [
+    "r_062065d2"
+   ],
+   "rejected": []
+  },
+  {
+   "source": "\u00a77 L187",
+   "class": "rule",
+   "reason": null,
+   "rules": [
+    "r_faf33a49",
+    "r_2fb8bc7d"
+   ],
+   "rejected": []
+  },
+  {
+   "source": "\u00a78.1 L195",
+   "class": "rule",
+   "reason": null,
+   "rules": [
+    "r_dcff26ed",
+    "r_49e81ae5",
+    "r_00ded246",
+    "r_f2582090",
+    "r_528fe403",
+    "r_e3e405aa",
+    "r_33469992"
+   ],
+   "rejected": []
+  },
+  {
+   "source": "\u00a78.1 L197",
+   "class": "guidance",
+   "reason": null,
+   "rules": [
+    "r_a5af23a4"
+   ],
+   "rejected": []
+  },
+  {
+   "source": "\u00a78.1 L199",
+   "class": "out_of_scope",
+   "reason": "No catalog tool or arguments exist for work log records or created_on tracking",
+   "rules": [],
+   "rejected": []
+  },
+  {
+   "source": "\u00a78.2 L203",
+   "class": "definition",
+   "reason": "Defines the meaning of the 403 Forbidden HTTP error status.",
+   "rules": [],
+   "rejected": []
+  },
+  {
+   "source": "\u00a78.2 L205",
+   "class": "definition",
+   "reason": "Defines the meaning of the 409 Conflict HTTP error status.",
+   "rules": [],
+   "rejected": []
+  },
+  {
+   "source": "\u00a78.2 L207",
+   "class": "guidance",
+   "reason": "Provides operational advice to pause and retry using exponential backoff upon rate limiting, which cannot be automatically validated with tool calls.",
+   "rules": [],
+   "rejected": []
+  }
+ ]
+}

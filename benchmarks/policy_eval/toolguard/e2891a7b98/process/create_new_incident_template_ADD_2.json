@@ -1,0 +1,101 @@
+{
+    "policies": [
+        {
+            "policy_name": "Mandatory Fields Validation",
+            "description": "Any request to create or update a record must validate that all required (mandatory) fields are present and non\u2011empty before invoking the tool.",
+            "references": [
+                "<strong>Mandatory Fields:</strong> Any request to create or update a record must validate all mandatory fields."
+            ],
+            "iteration_added": 0
+        },
+        {
+            "policy_name": "No Fabricated IDs",
+            "description": "The system must not assume or fabricate any identifiers (e.g., caller_id, configuration_item) and must rely on verified data from previous lookups or API results before using them in the request.",
+            "references": [
+                "<strong>Never assume or fabricate IDs, responses, or outcomes \u2014 rely solely on verified API results.</strong>"
+            ],
+            "iteration_added": 0
+        },
+        {
+            "policy_name": "Identifier Lookup Requirement",
+            "description": "When an identifier such as a user ID (caller_id) is not already known, a lookup must be performed to retrieve and verify the correct value before it is used in the create_new_incident_template call.",
+            "references": [
+                "When identifiers such as names or IDs are missing, perform lookups, verify that you are reusing correct values from previous responses, and proceed using the retrieved data."
+            ],
+            "iteration_added": 0
+        },
+        {
+            "policy_name": "Atomic Operation Constraint",
+            "description": "Only a single validated operation (the creation of the incident template) may be performed at a time; no additional actions should be combined with this call.",
+            "references": [
+                "<strong>Atomic Operations:</strong> Perform <strong>one validated operation at a time</strong>, except when using approved batch endpoints."
+            ],
+            "iteration_added": 0
+        },
+        {
+            "policy_name": "Policy Violation Halt",
+            "description": "When invoking **create_new_incident_template**, if the request breaches any rule in the ITSM Assistant Policy, the operation must be aborted immediately and the specific policy reason must be returned before any further processing.",
+            "references": [
+                "<strong>Policy Violation:</strong> If a user request violates any rule herein, you <strong>must halt the operation</strong> and provide the specific policy reason before pausing."
+            ],
+            "iteration": 0
+        },
+        {
+            "policy_name": "User Clarification Requirement",
+            "description": "For **create_new_incident_template**, the assistant must never ask the user for additional clarification. If the request is ambiguous or a mandatory field (e.g., `name`, `caller_id`, `short_description`) is missing, the response must list the ambiguity or explicitly state which required field is missing.",
+            "references": [
+                "<strong>User Clarification:</strong> Do not ask for further information. If the request is ambiguous, return the list and state the ambiguity. If a mandatory field is missing, state which field is required."
+            ],
+            "iteration": 0
+        },
+        {
+            "policy_name": "Rate Limiting with Exponential Backoff",
+            "description": "If a rate\u2011limit error is encountered while calling **create_new_incident_template**, the assistant must pause and retry the request using an exponential backoff strategy.",
+            "references": [
+                "<strong>Rate Limiting:</strong> If exceeded, pause and retry using <strong>Exponential Backoff</strong>."
+            ],
+            "iteration": 0
+        },
+        {
+            "policy_name": "403 Forbidden Error Handling",
+            "description": "If the caller\u2019s role does not grant permission to create an incident template, the assistant must surface a **403 Forbidden** error indicating permission denial.",
+            "references": [
+                "<strong>403 Forbidden:</strong> Permission denied (user role lacks authority for the operation)."
+            ],
+            "iteration": 0
+        },
+        {
+            "policy_name": "409 Conflict Error Handling",
+            "description": "If a conflict occurs during the creation of an incident template (e.g., duplicate template name or record locking), the assistant must surface a **409 Conflict** error.",
+            "references": [
+                "<strong>409 Conflict:</strong> Record locking or state conflict."
+            ],
+            "iteration": 0
+        },
+        {
+            "policy_name": "Role\u2011Based Access Verification",
+            "description": "Before invoking **create_new_incident_template**, the assistant must verify that the authenticated user's role grants the required permission to create incident templates. If the user's role does not include the necessary CRUD capability for incident templates, the operation must be halted and a **403 Forbidden** error returned.",
+            "references": [
+                "<strong>Access rights are defined by roles and grant granular control across tables.</strong>",
+                "| <strong>Agent</strong> (<code>agent</code>) | Frontline Incident/Request fulfillment | <strong>Full CRUD</strong> on <strong>Incidents, Service Requests, Tasks, Work Notes, CMDB, Change, Problem, and Knowledge</strong>. READ access to all the tables. Can update assignment, state, and resolution. | Cannot bypass approvals, or change system administration settings. |"
+            ],
+            "iteration": 1
+        },
+        {
+            "policy_name": "Confirmed Role and Relationship Enforcement",
+            "description": "All operations, including calls to **create_new_incident_template**, must be performed only after verifying the authenticated user's confirmed role, ensuring that any related records (e.g., caller, configuration items) are verified for correct relationships, and complying with ITIL/database integrity rules.",
+            "references": [
+                "First you must check the user information and operate exclusively based on <strong>confirmed user roles</strong>, <strong>verified record relationships</strong>, and <strong>ITIL/database integrity rules</strong>."
+            ],
+            "iteration": 2
+        },
+        {
+            "policy_name": "Prohibition of Assumptions and Bypassing Approvals",
+            "description": "The assistant must never assume data, execute ambiguous commands, or bypass any mandatory approvals when creating an incident template; any such attempt must halt the operation and report the specific policy violation.",
+            "references": [
+                "You are strictly prohibited from assuming data, executing ambiguous commands, bypassing mandatory approvals, or violating audit and compliance requirements."
+            ],
+            "iteration": 2
+        }
+    ]
+}

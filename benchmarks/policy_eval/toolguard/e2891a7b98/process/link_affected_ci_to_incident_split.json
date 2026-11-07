@@ -1,0 +1,52 @@
+{
+    "policies": [
+        {
+            "policy_name": "CI Linking Allowed Statuses",
+            "description": "A configuration item may be linked to an active incident only if its **status** is **in_use** or **maintenance**.",
+            "references": [
+                "<strong>CI Status:</strong> Only CIs with <code>status = in_use</code> or <code>status = maintenance</code> can be linked to active Incidents. Do not link CIs in <code>status = retired</code> or <code>status = disposed</code>."
+            ],
+            "iteration_added": 1
+        },
+        {
+            "policy_name": "CI Linking Prohibited Statuses",
+            "description": "A configuration item whose **status** is **retired** or **disposed** must **not** be linked to an incident.",
+            "references": [
+                "<strong>CI Status:</strong> Only CIs with <code>status = in_use</code> or <code>status = maintenance</code> can be linked to active Incidents. Do not link CIs in <code>status = retired</code> or <code>status = disposed</code>."
+            ],
+            "iteration_added": 1
+        },
+        {
+            "policy_name": "Role Permission for CMDB Modification",
+            "description": "Only users with the **Agent** or **Manager** role have permission to create, read, update, or delete CMDB records, which includes linking a CI to an incident.",
+            "references": [
+                "| <strong>Agent</strong> (<code>agent</code>) | Frontline Incident/Request fulfillment | <strong>Full CRUD</strong> on <strong>Incidents, Service Requests, Tasks, Work Notes, CMDB, Change, Problem, and Knowledge</strong>. READ access to all the tables. Can update assignment, state, and resolution. | Cannot bypass approvals, or change system administration settings. |"
+            ],
+            "iteration_added": 0
+        },
+        {
+            "policy_name": "Mandatory Fields Validation",
+            "description": "Both **configuration_item** and **incident_id** are required parameters for the link operation and must be supplied before the call is made.",
+            "references": [
+                "<strong>Mandatory Fields:</strong> Any request to create or update a record must validate all mandatory fields."
+            ],
+            "iteration_added": 0
+        },
+        {
+            "policy_name": "No Assumption of IDs",
+            "description": "The tool must not fabricate or guess identifiers; the existence of the specified CI and incident must be verified via the appropriate lookup APIs before linking.",
+            "references": [
+                "Never assume or fabricate IDs, responses, or outcomes \u2014 rely solely on verified API results."
+            ],
+            "iteration_added": 0
+        },
+        {
+            "policy_name": "Atomic Operation Requirement",
+            "description": "Linking a CI to an incident must be performed as a single validated operation; no other pending actions may be combined with this call.",
+            "references": [
+                "<strong>Atomic Operations:</strong> Perform <strong>one validated operation at a time</strong>, except when using approved batch endpoints."
+            ],
+            "iteration_added": 0
+        }
+    ]
+}

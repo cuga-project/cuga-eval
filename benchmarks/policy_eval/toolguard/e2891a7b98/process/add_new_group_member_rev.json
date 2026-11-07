@@ -1,0 +1,114 @@
+{
+    "policies": [
+        {
+            "policy_name": "Mandatory Fields Validation",
+            "description": "Before calling **add_new_group_member**, ensure that:\n1. **group_id** is provided, is a non\u2011empty string, and refers to an existing user group (can be verified with **find_group_by_name** or **list_user_groups**).\n2. **user_id** is provided, is a non\u2011empty string, and refers to an existing user (can be verified with **get_user** or **list_users**).\n3. The user is not already a member of the specified group (can be checked with **list_group_members**).\nIf any of these checks fail, return an appropriate error message and do not invoke the tool.",
+            "references": [
+                "<strong>Mandatory Fields:</strong> Any request to create or update a record must validate all mandatory fields."
+            ]
+        },
+        {
+            "policy_name": "Existence Verification of Records",
+            "description": "The group and user referenced by group_id and user_id must be verified to exist before adding the membership.",
+            "references": [
+                "First you must check the user information and operate exclusively based on <strong>confirmed user roles</strong>, <strong>verified record relationships</strong>, and <strong>ITIL/database integrity rules</strong>.",
+                "Referential Integrity: Before closing any record, verify that all mandatory dependencies are satisfied."
+            ]
+        },
+        {
+            "policy_name": "Duplicate Membership Prevention",
+            "description": "If the user is already a member of the specified group, the add_new_group_member operation must be halted and a 409 Conflict response returned.",
+            "references": [
+                "<strong>Atomic Operations:</strong> Perform <strong>one validated operation at a time</strong>, except when using approved batch endpoints. Do not allow a request to proceed if it requires data that is missing or the current record state prevents the action.",
+                "<strong>409 Conflict:</strong> Record locking or state conflict."
+            ]
+        },
+        {
+            "policy_name": "Role\u2011Based Permission for Group Membership Changes",
+            "description": "Only users whose role is <code>admin</code> (Administrator) may invoke the <code>add_new_group_member</code> tool. All other roles are prohibited from creating group\u2011membership records.",
+            "references": [
+                "<strong>Administrator</strong> (<code>admin</code>) | System Configuration &amp; Integrity | Full CRUD (Create, Read, Update, Delete) access across all tables."
+            ]
+        },
+        {
+            "policy_name": "No Fabrication of IDs",
+            "description": "Before invoking the **add_new_group_member** tool, obtain the target group_id and user_id via a prior lookup using the appropriate read\u2011only tools (e.g., `list_user_groups`, `find_group_by_name`, `list_users`, `get_user`, `get_user_using_email`, or `get_user_using_name`). Only use the IDs returned by those verified API calls; never construct or guess IDs yourself. If the required IDs have not been retrieved, first perform the lookup and then call **add_new_group_member** with the confirmed IDs.",
+            "references": [
+                "Never assume or fabricate IDs, responses, or outcomes \u2014 rely solely on verified API results."
+            ]
+        },
+        {
+            "policy_name": "Atomic Operation Requirement",
+            "description": "Before calling **add_new_group_member**, the assistant must (a) confirm the group exists using `find_group_by_name` or `list_user_groups`, (b) confirm the user exists using `get_user`, `get_user_using_email`, or `get_user_using_name`, (c) ensure the user is not already a member by checking `list_group_members`, and (d) ensure the request includes a valid `x-itsm-user-token`. If any check fails, abort the call and return the specific policy violation. The add_new_group_member call must be the only mutation API invoked in that step.",
+            "references": [
+                "<strong>Atomic Operations:</strong> Perform <strong>one validated operation at a time</strong>, except when using approved batch endpoints. Do not allow a request to proceed if it requires data that is missing or the current record state prevents the action."
+            ]
+        },
+        {
+            "policy_name": "Prerequisite Data Validation",
+            "description": "Before invoking **add_new_group_member**, ensure that all required inputs are present and valid:\n- **group_id** (or group name) must refer to an existing user group.\n- **user_id** (or user email/name) must refer to an existing active user.\n- The user must not already be a member of the specified group.\nIf any of these prerequisites are missing, cannot be resolved, or fail validation, abort the operation and return a clear policy\u2011violation message.\nThese checks can be performed by first calling tools such as `find_group_by_name` / `list_groups`, `get_user`, `list_group_members`, etc., and only proceeding to `add_new_group_member` when validation succeeds.",
+            "references": [
+                "<strong>Atomic Operations:</strong> Perform <strong>one validated operation at a time</strong>, except when using approved batch endpoints. Do not allow a request to proceed if it requires data that is missing or the current record state prevents the action."
+            ]
+        },
+        {
+            "policy_name": "Same Organizational Context Requirement",
+            "description": "Before calling **add_new_group_member**, ensure the user and the group belong to the same organization. Use `get_user` (or `get_user_using_email`) to fetch the user record and `find_group_by_name` to fetch the group record. Both objects must include an `org_id` attribute. If either object lacks `org_id`, treat this as a policy violation and abort. If both `org_id` values match, proceed with the membership creation; otherwise abort and return the exact string: *\"Policy violation \u2013 the user belongs to organization X while the group belongs to organization Y; cross\u2011organization membership is not allowed.\"* This description explicitly defines the required fields and the abort behavior without relying on external policy text.",
+            "references": [
+                "First you must check the user information and operate exclusively based on <strong>confirmed user roles</strong>, <strong>verified record relationships</strong>, and <strong>ITIL/database integrity rules</strong>."
+            ]
+        },
+        {
+            "policy_name": "Verified Relationship Validity",
+            "description": "Before calling the **add_new_group_member** tool, perform the following checks: 1) Verify that the target user group exists (e.g., via **find_group_by_name** or **list_user_groups**). 2) Verify that the target user exists (e.g., via **get_user**, **get_user_using_email**, or **list_users**). 3) Confirm that the user is not already a member of the group (e.g., via **list_group_members**). Only when all three conditions are satisfied should the membership be added.",
+            "references": [
+                "First you must check the user information and operate exclusively based on <strong>confirmed user roles</strong>, <strong>verified record relationships</strong>, and <strong>ITIL/database integrity rules</strong>."
+            ]
+        },
+        {
+            "policy_name": "Permission Denial (403) Enforcement",
+            "description": "When a request to add a user to a group arrives, first perform a **get_user** call using the same **x-itsm-user-token** that accompanied the request (the token authenticates the caller and returns their user record). If the returned **role** is not **admin**, immediately stop and return a structured response with status 403 and a clear message indicating insufficient permissions. Only when the role equals **admin** should the assistant call **add_new_group_member** with the provided **group_id** and **user_id**.",
+            "references": [
+                "<strong>403 Forbidden:</strong> Permission denied (user role lacks authority for the operation)."
+            ]
+        },
+        {
+            "policy_name": "Active User Requirement for Group Membership",
+            "description": "When invoking **add_new_group_member**, first retrieve the target user (e.g., with `get_user` or `list_users`). Confirm that the user record has `users.active = true`. If the user is inactive, abort the operation and return a policy\u2011violation message; only proceed to call **add_new_group_member** when the user is active.",
+            "references": [
+                "<strong>User Status:</strong> Ensure any user being assigned to (<code>assigned_to</code>) or updated is <code>users.active = true</code>."
+            ]
+        },
+        {
+            "policy_name": "Identifier Lookup When Missing",
+            "description": "Before calling **add_new_group_member**, verify that the request includes both a valid **group_id** and **user_id**. If either identifier is missing:\n1. Retrieve the missing group ID with `find_group_by_name` (exact name).\n2. Retrieve the missing user ID using one of the user\u2011lookup tools (`get_user_using_email`, `get_user_using_name`, or `list_users` with appropriate filters).\n3. Confirm the returned record matches the intended group or user (e.g., name or email matches the request).\n4. Ensure the user is not already a member of the group by checking `list_group_members` (or any equivalent membership\u2011query tool).\n5. Once both identifiers are validated, invoke `add_new_group_member` with the confirmed **group_id** and **user_id**.\nThis fully self\u2011contained procedure guarantees that the tool receives correct identifiers and complies with the policy.",
+            "references": [
+                "When identifiers such as names or IDs are missing, perform lookups, verify that you are reusing correct values from previous responses, and proceed using the retrieved data."
+            ]
+        },
+        {
+            "policy_name": "Identifier Verification After Lookup",
+            "description": "Before calling **add_new_group_member**, first retrieve the target user and group with a lookup tool (e.g., `get_user_using_email` for the user, `find_group_by_name` for the group). Verify that:\n1. The returned **user_id** belongs to a user whose **email**, **first_name**, and **last_name** exactly match the values supplied in the request.\n2. The returned **group_id** belongs to a group whose **name** exactly matches the requested group name.\n3. No other users or groups match the supplied attributes (i.e., the lookup returned a single, unambiguous record).\nIf both checks pass, proceed to invoke `add_new_group_member` with the verified `user_id` and `group_id`. If either lookup fails, returns multiple results, or the attributes do not match exactly, return a clear error message indicating the mismatch and **do not** invoke the add\u2011member operation.\nThis wording makes the verification steps explicit and removes any ambiguity about what constitutes an \"unequivocal\" match.",
+            "references": [
+                "When identifiers such as names or IDs are missing, perform lookups, verify that you are reusing correct values from previous responses, and proceed using the retrieved data."
+            ]
+        },
+        {
+            "policy_name": "Referential Relationship Validation",
+            "description": "Before calling **add_new_group_member**, perform the following checks: (1) confirm that the target **group** exists (e.g., via `find_group_by_name` or `list_user_groups`); (2) confirm that the target **user** exists (e.g., via `get_user` or `list_users`); (3) verify that the user is not already a member of the group (e.g., by searching `list_group_members`). If any check fails, abort the operation and return a clear policy\u2011violation message (e.g., \"Group does not exist\", \"User does not exist\", or \"User is already a member of the group\"). Only proceed with `add_new_group_member` when all three conditions are satisfied.",
+            "references": [
+                "Referential Integrity: Before closing any record, verify that all mandatory dependencies are satisfied."
+            ]
+        }
+    ],
+    "archive": [
+        {
+            "policy_name": "Rate Limiting Enforcement",
+            "description": "If a call to **add_new_group_member** returns a rate\u2011limit indication (e.g., HTTP\u202f429), pause the operation and retry using exponential backoff: start with a 1\u2011second delay, double the delay after each failed retry, and stop after a configurable maximum of 5 attempts (or after a total elapsed wait time of 60\u202fseconds). If the maximum is reached without success, surface a clear error to the user. This behavior applies only to the add_new_group_member tool and does not affect other operations.",
+            "references": [
+                "<strong>Rate Limiting:</strong> If exceeded, pause and retry using <strong>Exponential Backoff</strong>."
+            ],
+            "comments": "The policy is directly relevant to the target tool and is written with that tool in mind, making it both relevant and tool\u2011specific. Enforcement can be performed by checking the response of the tool call for a rate\u2011limit error and then applying exponential backoff, which is actionable using only the tool's output and standard control flow. However, the policy cannot be fully validated before making the request because the rate\u2011limit condition is only observable after the call (unless the system tracks request counts externally). The original description assumes the reader knows how to detect a rate\u2011limit breach, so it is not completely self\u2011contained; the alternative description adds the required detection detail and retry parameters. Overall the policy is clear and enforceable, earning a score of 4 out of 5.\nThe policy is directly relevant to the target tool and names it, making it tool\u2011specific. The condition (rate\u2011limit response) can only be known after the API call, so the rule cannot be validated beforehand. The prescribed action (pause and exponential backoff) can be enforced using only the tool\u2019s response and internal timing logic, so it is actionable. However, the original description omits a concrete maximum\u2011retry limit, leaving implementation ambiguous; adding a default limit (e.g., 5 retries) makes the policy self\u2011contained. Overall the policy is clear and enforceable but needs the missing bound, hence a score of 4 out of 5.\nThe policy is directly relevant to the target tool (add_new_group_member) and is explicitly scoped to it, making it tool\u2011specific. Enforcement can be checked only after a response is received (i.e., when an HTTP\u202f429 is observed), so pre\u2011execution validation is not possible. The steps for handling rate\u2011limit (pause, exponential backoff, max attempts, total time limit, and error reporting) are concrete and can be implemented using only the tool's response and the orchestration logic, satisfying actionability. The description contains all needed parameters and does not rely on external policy sections, so it is self\u2011contained. No major gaps were found, though an optional addition could mention logging each retry for audit purposes.\nOverall rating: 4/5 \u2013 clear and enforceable, but validation can only occur post\u2011response.\nThe policy is directly relevant to the target tool (add_new_group_member) and is explicitly scoped to it, making it tool\u2011specific. Enforcement can be checked only after a response is received (i.e., when an HTTP\u202f429 is observed), so pre\u2011execution validation is not possible. The steps for handling rate\u2011limit (pause, exponential backoff, max attempts, total time limit, and error reporting) are concrete and can be implemented using only the tool's response and the orchestration logic, satisfying actionability. The description contains all needed parameters and does not rely on external policy sections, so it is self\u2011contained. No major gaps were found, though an optional addition could mention logging each retry for audit purposes.\nOverall rating: 4/5 \u2013 clear and enforceable, but validation can only occur post\u2011response.\nThe policy is directly relevant to the target tool (add_new_group_member) and is explicitly scoped to it, making it tool\u2011specific. Enforcement can be checked only after a response is received (i.e., when an HTTP\u202f429 is observed), so pre\u2011execution validation is not possible. The steps for handling rate\u2011limit (pause, exponential backoff, max attempts, total time limit, and error reporting) are concrete and can be implemented using only the tool's response and the orchestration logic, satisfying actionability. The description contains all needed parameters and does not rely on external policy sections, so it is self\u2011contained. No major gaps were found, though an optional addition could mention logging each retry for audit purposes.\nOverall rating: 4/5 \u2013 clear and enforceable, but validation can only occur post\u2011response.\n"
+        }
+    ]
+}

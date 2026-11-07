@@ -1,0 +1,150 @@
+{
+    "policies": [
+        {
+            "policy_name": "Role-Based Permission for Deleting Incident\u2011CI Links",
+            "description": "Only users with a role that grants Delete permission on Incident and CMDB tables (Administrator, Manager, or Agent) may invoke remove_affected_ci_from_incident.",
+            "references": [
+                "<p>| <strong>Administrator</strong> (<code>admin</code>) | System Configuration &amp; Integrity | Full CRUD (Create, Read, Update, Delete) access across all tables.\u00a0|</p>",
+                "<p>| <strong>Agent</strong> (<code>agent</code>) | Frontline Incident/Request fulfillment | <strong>Full CRUD</strong> on <strong>Incidents, Service Requests, Tasks, Work Notes, CMDB, Change, Problem, and Knowledge</strong>. READ access to all the tables. Can update assignment, state, and resolution. | Cannot bypass approvals, or change system administration settings. |</p>",
+                "<p>| <strong>Manager</strong> (<code>manager</code>) | Supervision, Escalation, Approvals | Full CRUD on operational tables (<code>incident</code>, <code>problem</code>, <code>change</code>, <code>knowledge</code>); READ access to all the tables. Can <strong>reassign</strong> incidents/requests. Can <strong>approve/reject</strong> Change Requests. Monitors SLAs and escalations. |</p>"
+            ],
+            "iteration_added": 0
+        },
+        {
+            "policy_name": "Mandatory Filter Requirement for Removal Operation",
+            "description": "When invoking the **remove_affected_ci_from_incident** tool (which deletes incident\u2011CI link records), the request must supply at least one of the following filter arguments: `incident_affected_cis_id`, `configuration_item`, `incident_id`, `created_before`, or `created_after`. If none of these filters are present, the operation must be rejected and the policy reason returned.",
+            "references": [
+                "<li><p><strong>Mandatory Fields:</strong> Any request to create or update a record must validate all mandatory fields.</p></li>"
+            ],
+            "iteration_added": 0
+        },
+        {
+            "policy_name": "Use Verified Identifiers Only",
+            "description": "Do not fabricate or assume IDs when deleting incident\u2011CI links; the identifiers supplied must be verified against the system.",
+            "references": [
+                "<li><p>Never assume or fabricate IDs, responses, or outcomes \u2014 rely solely on verified API results. The same is the case of optional or default arguments.</p></li>"
+            ],
+            "iteration_added": 0
+        },
+        {
+            "policy_name": "Atomic Operation Enforcement",
+            "description": "The deletion of incident\u2011CI links must be performed as a single validated operation; no additional actions may be combined in the same request.",
+            "references": [
+                "<li><p><strong>Atomic Operations:</strong> Perform <strong>one validated operation at a time</strong>, except when using approved batch endpoints. Do not allow a request to proceed if it requires data that is missing or the current record state prevents the action.</p></li>"
+            ],
+            "iteration_added": 0
+        },
+        {
+            "policy_name": "Referential Integrity Check Before Deletion",
+            "description": "Before calling **remove_affected_ci_from_incident**, perform the following checks using available read\u2011only tools:\n1. Confirm the incident identified by the filter (incident_id) exists (e.g., `find_incident_by_id`).\n2. Confirm the configuration item identified by the filter (configuration_item) exists and retrieve its `status` (e.g., `find_configuration_item_by_serial_number` or `find_configuration_items`).\n3. If the CI status is `in_use` or `maintenance`, ensure that after the deletion it will still be linked to at least one incident whose `status` is not `closed` (use `list_incident_affected_cis` to count remaining links and `list_incidents` to verify incident statuses).\n4. Check that the CI is not the sole link required by any open Change or Problem record:\n   - For Changes, use `list_change_request_mappings` or `map_change_request` to see if the CI is referenced.\n   - For Problems, use `list_problems` and verify the `configuration_item` field.\n   - If the CI is the only reference for an open Change/Problem, abort the deletion.\nIf any of the above checks fail, return a policy\u2011violation response and do not invoke `remove_affected_ci_from_incident`.",
+            "references": [
+                "<li><p><strong>Referential Integrity:</strong> Before closing any record, verify that all mandatory dependencies are satisfied.</p></li>"
+            ],
+            "iteration_added": 0
+        },
+        {
+            "policy_name": "User Role Confirmation Requirement",
+            "description": "Before calling remove_affected_ci_from_incident, the assistant must retrieve the requesting user's record (e.g., via get_user or list_users) and confirm that the user's role is one of Administrator, Manager, or Agent \u2013 the only roles that have full CRUD permissions on incident\u2011CI links. If the user\u2019s role is Reporter or any other role lacking the required write permission, the operation must be halted and a policy violation response returned.",
+            "references": [
+                "<p><strong>Role:</strong> ITSM Assistant (IT Service Management)</p>\n<p><strong>Mandate:</strong> Ensure the efficient, secure, and controlled delivery of IT services by managing the full lifecycle of Incidents, Service Requests, Changes, Problems, and Configuration Items (CIs) in strict accordance with defined policies and best practices.</p>\n<p>First you must check the user information and operate exclusively based on <strong>confirmed user roles</strong>, <strong>verified record relationships</strong>, and <strong>ITIL/database integrity rules</strong>. You are strictly prohibited from assuming data, executing ambiguous commands, bypassing mandatory approvals, or violating audit and compliance requirements.</p>"
+            ],
+            "iteration_added": 0
+        },
+        {
+            "policy_name": "Prohibited Bypassing of Mandatory Approvals",
+            "description": "The assistant must not bypass any mandatory approval workflow when deleting incident\u2011CI links; if an approval is required for the action, the operation must be halted until proper authorization is obtained.",
+            "references": [
+                "<p>You are strictly prohibited from assuming data, executing ambiguous commands, <strong>bypassing mandatory approvals</strong>, or violating audit and compliance requirements.</p>"
+            ],
+            "iteration_added": 0
+        },
+        {
+            "policy_name": "Policy Violation Halt",
+            "description": "If a request to remove an incident\u2011CI link violates any rule (e.g., missing required filter, insufficient role), the assistant must stop the operation immediately and return the specific policy reason before pausing.",
+            "references": [
+                "<li>\n<p><strong>Policy Violation:</strong> If a user request violates any rule herein, you <strong>must halt the operation</strong> and provide the specific policy reason before pausing.</p>\n</li>"
+            ],
+            "iteration_added": 0
+        },
+        {
+            "policy_name": "Reporter Role Restriction on CMDB Access",
+            "description": "Users with the Reporter role are prohibited from deleting incident\u2011CI links because they lack access to the CMDB tables; only Administrator, Manager, or Agent roles may perform this deletion.",
+            "references": [
+                "<p>| <strong>Reporter</strong> (<code>reporter</code>) | IT Service Consumption | Can view and update <strong>their own submitted Incidents/Requests</strong>. Can search <strong>Public Knowledge</strong> articles. | <strong>Cannot view or modify records opened by other users, CMDB, or internal work notes.</strong> |</p>"
+            ],
+            "iteration_added": 0
+        },
+        {
+            "policy_name": "403 Forbidden Error Handling for Insufficient Permissions",
+            "description": "If the invoking user\u2019s role is not one of the permitted roles for deleting incident\u2011CI links (e.g., only Administrator or Manager roles may perform this operation), the assistant must **not** call the `remove_affected_ci_from_incident` tool. Instead, it must immediately return a response with a **403 Forbidden** status and a message stating that the user lacks permission to delete incident\u2011CI links.",
+            "references": [
+                "<li>\n<p><strong>403 Forbidden:</strong> Permission denied (user role lacks authority for the operation).</p>\n</li>"
+            ],
+            "iteration_added": 0
+        },
+        {
+            "policy_name": "User Clarification Policy for Ambiguous Deletion Requests",
+            "description": "If a deletion request for incident\u2011CI links does not include at least one of the allowed filter parameters (ID, incident_id, configuration_item, or a date range), the assistant must not request additional clarification. Instead, it should respond with a message enumerating the acceptable filter fields (e.g., \"id\", \"incident_id\", \"configuration_item\", \"created_before/after\") and indicate that the request is ambiguous.",
+            "references": [
+                "<li>\n<p><strong>User Clarification:</strong> Do not ask for further information. If the request is ambiguous, return the list and state the ambiguity. If a mandatory field is missing, state which field is required.</p>\n</li>"
+            ],
+            "iteration_added": 0
+        },
+        {
+            "policy_name": "Logical and Efficient Execution Flow",
+            "description": "Step\u202f1 \u2013 Verify existence: use `find_incident_by_id` (or `find_incident_by_number`) to ensure the incident record is present and active; use `find_configuration_item_by_serial_number` (or `find_configuration_items` with the CI ID) to ensure the configuration item exists. Step\u202f2 \u2013 Choose filter: pick the most specific identifier supported by `remove_affected_ci_from_incident` \u2013 either the link's unique ID, the incident_id, the configuration_item_id, or a date range that narrows the result set. Step\u202f3 \u2013 Perform removal: call `remove_affected_ci_from_incident` with the selected filter (if multiple links match, the tool will delete them in a single request). Step\u202f4 \u2013 Validate response: confirm the returned `deleted_count` field is greater than\u202f0 (or that the returned boolean is true). Step\u202f5 \u2013 Log outcome: record a success message or raise an error if no records were deleted. (Optional) If a separate task\u2011tracking system exists, confirm no open tasks reference the link before deletion; otherwise proceed.",
+            "references": [
+                "<li><p>Complete each task in a logical, and efficient execution flow.</p></li>"
+            ],
+            "iteration_added": 1
+        },
+        {
+            "policy_name": "Execution Without Confirmation Conditional on Policy Checks",
+            "description": "The assistant may call the `remove_affected_ci_from_incident` tool without prompting the user for an extra confirmation **only if**:\n1. The requester\u2019s role is one of Administrator, Manager, or Agent (roles that have full CRUD access to incidents and CI links).\n2. The request includes at least one valid filter parameter (`id`, `incident_id`, `configuration_item`, or a valid date range) as required by the tool definition.\n3. All referenced records (incident, CI) are still active (`users.active = true`, `configuration_item.status` not retired/disposed) and the operation does not violate any referential\u2011integrity or audit rules.\n4. No mandatory fields are missing; if any are, the assistant must return an error indicating the missing field instead of proceeding.\nWhen all the above conditions are satisfied, the assistant proceeds with the deletion without asking for further confirmation.",
+            "references": [
+                "<li>You do not need to ask for confirmation or permission before taking action.</li>",
+                "<li>You do not need to ask for confirmation or permission before taking action.</li>",
+                "<li><p><strong>User Clarification:</strong> Do not ask for further information. If the request is ambiguous, return the list and state the ambiguity. If a mandatory field is missing, state which field is required.</p></li>"
+            ],
+            "iteration_added": 3
+        },
+        {
+            "policy_name": "Identifier Lookup and Verification Requirement",
+            "description": "Before calling **remove_affected_ci_from_incident**, ensure that at least one filter (incident_affected_cis_id, incident_id, configuration_item, or a date range) is supplied. If any of those identifiers is missing, first retrieve the missing value with the appropriate lookup tool (e.g., `find_incident_by_id`, `find_configuration_item_by_serial_number`, `list_incidents`, etc.), confirm that the returned record matches the intended entity, and then use the verified identifier in the removal request.",
+            "references": [
+                "<li><p>Never assume or fabricate IDs, responses, or outcomes \u2014 rely solely on verified API results. The same is the case of optional or default arguments.</p></li>",
+                "<p>When identifiers such as names or IDs are missing, perform lookups, verify that you are reusing correct values from previous responses, and proceed using the retrieved data.</p>"
+            ],
+            "iteration_added": 3
+        }
+    ],
+    "archive": [
+        {
+            "policy_name": "Rate Limiting and Exponential Backoff",
+            "description": "If a rate\u2011limit error is encountered while calling remove_affected_ci_from_incident, the assistant must pause the operation and retry using an exponential backoff strategy.",
+            "references": [
+                "<li><p><strong>Rate Limiting:</strong> If exceeded, pause and retry using <strong>Exponential Backoff</strong>.</p></li>"
+            ],
+            "iteration_added": 1,
+            "comments": "The policy directly references the target tool (remove_affected_ci_from_incident) and prescribes a concrete handling strategy for rate\u2011limit errors, making it both relevant and tool\u2011specific. Validation can only occur after the API call returns an error, so pre\u2011execution verification isn\u2019t possible. The instruction is enforceable using only the assistant\u2019s control flow (detecting error codes, pausing, and retrying) and does not depend on external context, so it is self\u2011contained. The policy is clear and actionable, though the inability to pre\u2011validate slightly reduces its overall robustness, resulting in a score of 4 out of 5.\nThe policy directly references the target tool (remove_affected_ci_from_incident) and prescribes a concrete handling strategy for rate\u2011limit errors, making it both relevant and tool\u2011specific. Validation can only occur after the API call returns an error, so pre\u2011execution verification isn\u2019t possible. The instruction is enforceable using only the assistant\u2019s control flow (detecting error codes, pausing, and retrying) and does not depend on external context, so it is self\u2011contained. The policy is clear and actionable, though the inability to pre\u2011validate slightly reduces its overall robustness, resulting in a score of 4 out of 5.\nThe policy directly references the target tool (remove_affected_ci_from_incident) and prescribes a concrete handling strategy for rate\u2011limit errors, making it both relevant and tool\u2011specific. Validation can only occur after the API call returns an error, so pre\u2011execution verification isn\u2019t possible. The instruction is enforceable using only the assistant\u2019s control flow (detecting error codes, pausing, and retrying) and does not depend on external context, so it is self\u2011contained. The policy is clear and actionable, though the inability to pre\u2011validate slightly reduces its overall robustness, resulting in a score of 4 out of 5.\nThe policy directly references the target tool (remove_affected_ci_from_incident) and prescribes a concrete handling strategy for rate\u2011limit errors, making it both relevant and tool\u2011specific. Validation can only occur after the API call returns an error, so pre\u2011execution verification isn\u2019t possible. The instruction is enforceable using only the assistant\u2019s control flow (detecting error codes, pausing, and retrying) and does not depend on external context, so it is self\u2011contained. The policy is clear and actionable, though the inability to pre\u2011validate slightly reduces its overall robustness, resulting in a score of 4 out of 5.\nThe policy directly references the target tool (remove_affected_ci_from_incident) and prescribes a concrete handling strategy for rate\u2011limit errors, making it both relevant and tool\u2011specific. Validation can only occur after the API call returns an error, so pre\u2011execution verification isn\u2019t possible. The instruction is enforceable using only the assistant\u2019s control flow (detecting error codes, pausing, and retrying) and does not depend on external context, so it is self\u2011contained. The policy is clear and actionable, though the inability to pre\u2011validate slightly reduces its overall robustness, resulting in a score of 4 out of 5.\n"
+        },
+        {
+            "policy_name": "Conflict Error Handling for Deletion Operations",
+            "description": "If the remove_affected_ci_from_incident tool returns a 409 Conflict error (record locking or state conflict), the assistant must halt the operation, report the conflict as the specific policy reason, and must not automatically retry the deletion.",
+            "references": [
+                "<li>\n<p><strong>409 Conflict:</strong> Record locking or state conflict.</p>\n</li>"
+            ],
+            "iteration_added": 2,
+            "comments": "The policy directly addresses the delete\u2011incident\u2011CI\u2011link tool (remove_affected_ci_from_incident) and prescribes a clear, enforceable reaction to a 409 Conflict response. It is relevant and narrowly scoped to the target tool, making it tool\u2011specific. Validation of the condition can only occur after the tool call, so pre\u2011invocation validation is not possible. The required action (halt, report, no retry) can be performed using only the tool\u2019s response and the policy text, and the policy is self\u2011contained with the necessary error definition supplied in the reference. Overall the policy is clear, actionable, and well\u2011aligned with the tool\u2019s behavior, warranting a high score.\nThe policy directly addresses the delete\u2011incident\u2011CI\u2011link tool (remove_affected_ci_from_incident) and prescribes a clear, enforceable reaction to a 409 Conflict response. It is relevant and narrowly scoped to the target tool, making it tool\u2011specific. Validation of the condition can only occur after the tool call, so pre\u2011invocation validation is not possible. The required action (halt, report, no retry) can be performed using only the tool\u2019s response and the policy text, and the policy is self\u2011contained with the necessary error definition supplied in the reference. Overall the policy is clear, actionable, and well\u2011aligned with the tool\u2019s behavior, warranting a high score.\nThe policy directly addresses the delete\u2011incident\u2011CI\u2011link tool (remove_affected_ci_from_incident) and prescribes a clear, enforceable reaction to a 409 Conflict response. It is relevant and narrowly scoped to the target tool, making it tool\u2011specific. Validation of the condition can only occur after the tool call, so pre\u2011invocation validation is not possible. The required action (halt, report, no retry) can be performed using only the tool\u2019s response and the policy text, and the policy is self\u2011contained with the necessary error definition supplied in the reference. Overall the policy is clear, actionable, and well\u2011aligned with the tool\u2019s behavior, warranting a high score.\nThe policy directly addresses the delete\u2011incident\u2011CI\u2011link tool (remove_affected_ci_from_incident) and prescribes a clear, enforceable reaction to a 409 Conflict response. It is relevant and narrowly scoped to the target tool, making it tool\u2011specific. Validation of the condition can only occur after the tool call, so pre\u2011invocation validation is not possible. The required action (halt, report, no retry) can be performed using only the tool\u2019s response and the policy text, and the policy is self\u2011contained with the necessary error definition supplied in the reference. Overall the policy is clear, actionable, and well\u2011aligned with the tool\u2019s behavior, warranting a high score.\nThe policy directly addresses the delete\u2011incident\u2011CI\u2011link tool (remove_affected_ci_from_incident) and prescribes a clear, enforceable reaction to a 409 Conflict response. It is relevant and narrowly scoped to the target tool, making it tool\u2011specific. Validation of the condition can only occur after the tool call, so pre\u2011invocation validation is not possible. The required action (halt, report, no retry) can be performed using only the tool\u2019s response and the policy text, and the policy is self\u2011contained with the necessary error definition supplied in the reference. Overall the policy is clear, actionable, and well\u2011aligned with the tool\u2019s behavior, warranting a high score.\n"
+        },
+        {
+            "policy_name": "Audit Logging Requirement for Deletion Operations",
+            "description": "Every execution of remove_affected_ci_from_incident must create a work log entry that records the timestamp (created_on) and the user_id of the actor performing the deletion, ensuring an auditable trail of the removal action.",
+            "references": [
+                "<li>\n<p><strong>Time Tracking:</strong> All work logs must include the timestamp (<code>created_on</code>) and the <code>user_id</code> performing the action.</p>\n</li>"
+            ],
+            "iteration_added": 2,
+            "comments": "The policy directly addresses the target tool (remove_affected_ci_from_incident), making it both relevant and tool\u2011specific. It is clear and enforceable: after the deletion call, the system (or the operator) must generate a work\u2011log entry containing the required timestamp and user identifier. Validation, however, cannot be performed before the tool is invoked because the work\u2011log entry is produced as a result of the operation; verification must occur post\u2011execution. The description is self\u2011contained and does not rely on external sections of the policy document. Overall, the policy is well\u2011written and actionable, earning a score of 4 out of 5.\nThe policy directly addresses the target tool (remove_affected_ci_from_incident), making it both relevant and tool\u2011specific. It is clear and enforceable: after the deletion call, the system (or the operator) must generate a work\u2011log entry containing the required timestamp and user identifier. Validation, however, cannot be performed before the tool is invoked because the work\u2011log entry is produced as a result of the operation; verification must occur post\u2011execution. The description is self\u2011contained and does not rely on external sections of the policy document. Overall, the policy is well\u2011written and actionable, earning a score of 4 out of 5.\nThe policy directly addresses the target tool (remove_affected_ci_from_incident), making it both relevant and tool\u2011specific. It is clear and enforceable: after the deletion call, the system (or the operator) must generate a work\u2011log entry containing the required timestamp and user identifier. Validation, however, cannot be performed before the tool is invoked because the work\u2011log entry is produced as a result of the operation; verification must occur post\u2011execution. The description is self\u2011contained and does not rely on external sections of the policy document. Overall, the policy is well\u2011written and actionable, earning a score of 4 out of 5.\nThe policy directly addresses the target tool (remove_affected_ci_from_incident), making it both relevant and tool\u2011specific. It is clear and enforceable: after the deletion call, the system (or the operator) must generate a work\u2011log entry containing the required timestamp and user identifier. Validation, however, cannot be performed before the tool is invoked because the work\u2011log entry is produced as a result of the operation; verification must occur post\u2011execution. The description is self\u2011contained and does not rely on external sections of the policy document. Overall, the policy is well\u2011written and actionable, earning a score of 4 out of 5.\nThe policy directly addresses the target tool (remove_affected_ci_from_incident), making it both relevant and tool\u2011specific. It is clear and enforceable: after the deletion call, the system (or the operator) must generate a work\u2011log entry containing the required timestamp and user identifier. Validation, however, cannot be performed before the tool is invoked because the work\u2011log entry is produced as a result of the operation; verification must occur post\u2011execution. The description is self\u2011contained and does not rely on external sections of the policy document. Overall, the policy is well\u2011written and actionable, earning a score of 4 out of 5.\n"
+        }
+    ]
+}

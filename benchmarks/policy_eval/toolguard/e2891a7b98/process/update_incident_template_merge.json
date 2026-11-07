@@ -1,0 +1,141 @@
+{
+    "policies": [
+        {
+            "policy_name": "Mandatory Fields Validation",
+            "description": "Any request to create or update a record must validate all mandatory fields before proceeding.",
+            "references": [
+                "<strong>Mandatory Fields:</strong> Any request to create or update a record must validate all mandatory fields."
+            ],
+            "iteration_added": 0
+        },
+        {
+            "policy_name": "Role\u2011Based Access Control for Update Operations \u2013 Admin or Manager",
+            "description": "Only users with the Administrator or Manager role, which have the required CRUD permissions, may update an incident template.",
+            "references": [
+                "| <strong>Administrator</strong> (<code>admin</code>) | System Configuration &amp; Integrity | Full CRUD (Create, Read, Update, Delete) access across all tables.\u00a0|",
+                "| <strong>Manager</strong> (<code>manager</code>) | Supervision, Escalation, Approvals | Full CRUD on operational tables (<code>incident</code>, <code>problem</code>, <code>change</code>, <code>knowledge</code>); READ access to all the tables. |"
+            ],
+            "iteration_added": 2
+        },
+        {
+            "policy_name": "Verify Existing Record ID Before Update",
+            "description": "The incident_template_id supplied to the update operation must correspond to an existing incident template; IDs must never be fabricated.",
+            "references": [
+                "Never assume or fabricate IDs, responses, or outcomes \u2014 rely solely on verified API results."
+            ],
+            "iteration_added": 0
+        },
+        {
+            "policy_name": "Atomic Operation Requirement",
+            "description": "The update_incident_template call must be performed as a single validated operation; no additional actions may be combined unless using an approved batch endpoint.",
+            "references": [
+                "Atomic Operations: Perform <strong>one validated operation at a time</strong>, except when using approved batch endpoints."
+            ],
+            "iteration_added": 0
+        },
+        {
+            "policy_name": "Require At Least One Non\u2011Empty Update Field",
+            "description": "When updating a record, at least one field other than the identifier must be provided with a non\u2011empty value; if a mandatory field is missing, the missing field must be reported.",
+            "references": [
+                "<strong>User Clarification:</strong> Do not ask for further information. If the request is ambiguous, return the list and state the ambiguity. If a mandatory field is missing, state which field is required."
+            ],
+            "iteration_added": 0
+        },
+        {
+            "policy_name": "No Confirmation Required",
+            "description": "When executing an update_incident_template operation, the assistant must proceed without asking the user for confirmation or permission.",
+            "references": [
+                "You do not need to ask for confirmation or permission before taking action."
+            ],
+            "iteration_added": 0
+        },
+        {
+            "policy_name": "Identifier Lookup Requirement",
+            "description": "If a required identifier (e.g., incident_template_id) is missing or uncertain, the assistant must perform a lookup using the appropriate tool, verify that the retrieved value matches prior responses, and use that verified identifier rather than fabricating or guessing it.",
+            "references": [
+                "When identifiers such as names or IDs are missing, perform lookups, verify that you are reusing correct values from previous responses, and proceed using the retrieved data."
+            ],
+            "iteration_added": 0
+        },
+        {
+            "policy_name": "Policy Violation Halt",
+            "description": "If a user request violates any rule in the policy document, the assistant must halt the operation and provide the specific policy reason before pausing.",
+            "references": [
+                "Policy Violation: If a user request violates any rule herein, you **must halt the operation** and provide the specific policy reason before pausing."
+            ],
+            "iteration_added": 1
+        },
+        {
+            "policy_name": "Enumeration Value Enforcement \u2013 Priority",
+            "description": "The value supplied for the incident.priority field must be one of the allowed enumerated values: critical, high, moderate, low, or planning.",
+            "references": [
+                "| <strong>incident.priority</strong> | <code>critical</code>, <code>high</code>, <code>moderate</code>, <code>low</code>, <code>planning</code> |"
+            ],
+            "iteration_added": 2
+        },
+        {
+            "policy_name": "Enumeration Value Enforcement \u2013 Impact",
+            "description": "The value supplied for the incident.impact field must be one of the allowed enumerated values: high, medium, or low.",
+            "references": [
+                "| <strong>incident.impact</strong> | <code>high</code>, <code>medium</code>, <code>low</code> |"
+            ],
+            "iteration_added": 2
+        },
+        {
+            "policy_name": "Enumeration Value Enforcement \u2013 Urgency",
+            "description": "The value supplied for the incident.urgency field must be one of the allowed enumerated values: high, medium, or low.",
+            "references": [
+                "| <strong>incident.urgency</strong> | <code>high</code>, <code>medium</code>, <code>low</code> |"
+            ],
+            "iteration_added": 2
+        },
+        {
+            "policy_name": "Enumeration Value Enforcement \u2013 Resolution Code",
+            "description": "The value supplied for the incident.resolution_code field must be one of the allowed enumerated values: fixed, workaround, not_reproducible, or closed_by_caller.",
+            "references": [
+                "| <strong>incident.resolution_code</strong> | <code>fixed</code>, <code>workaround</code>, <code>not_reproducible</code>, <code>closed_by_caller</code> |"
+            ],
+            "iteration_added": 2
+        },
+        {
+            "policy_name": "Enumeration Value Enforcement \u2013 On Hold Reason",
+            "description": "The value supplied for the incident.on_hold_reason field must be one of the allowed enumerated values: Awaiting Change, Awaiting Caller, or Awaiting Problem.",
+            "references": [
+                "| <strong>incident.on_hold_reason</strong> | <code>Awaiting Change</code>, <code>Awaiting Caller</code>, <code>Awaiting Problem</code> |"
+            ],
+            "iteration_added": 2
+        },
+        {
+            "policy_name": "Logical Execution Flow",
+            "description": "The assistant must complete each task in a logical and efficient execution flow.",
+            "references": [
+                "Complete each task in a logical, and efficient execution flow."
+            ],
+            "iteration_added": 1
+        },
+        {
+            "policy_name": "Access Scope Confidentiality",
+            "description": "Do not disclose information that is outside the authenticated user's access scope.",
+            "references": [
+                "Knowledge Scope: Do not disclose information that is outside the authenticated user's access scope."
+            ],
+            "iteration_added": 1
+        },
+        {
+            "policy_name": "Operate Based on Confirmed User Roles and Verified Relationships",
+            "description": "All actions, including updates to incident templates, must be performed only after verifying the user's confirmed role, validated record relationships, and adherence to ITIL/database integrity rules.",
+            "references": [
+                "First you must check the user information and operate exclusively based on <strong>confirmed user roles</strong>, <strong>verified record relationships</strong>, and <strong>ITIL/database integrity rules</strong>."
+            ],
+            "iteration_added": 2
+        },
+        {
+            "policy_name": "Prohibition on Assumptions and Bypassing Approvals",
+            "description": "The assistant must never assume data, execute ambiguous commands, bypass mandatory approvals, or violate any audit and compliance requirements when performing an update_incident_template operation.",
+            "references": [
+                "You are strictly prohibited from assuming data, executing ambiguous commands, bypassing mandatory approvals, or violating audit and compliance requirements."
+            ],
+            "iteration_added": 2
+        }
+    ]
+}

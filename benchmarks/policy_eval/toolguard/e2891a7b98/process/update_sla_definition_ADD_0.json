@@ -1,0 +1,69 @@
+{
+    "policies": [
+        {
+            "policy_name": "Mandatory Fields Validation",
+            "description": "Any request to create or update a record must validate all mandatory fields. For the\u202fupdate_sla_definition\u202ftool the mandatory field is\u202fsla_def_id, which must be provided and correspond to an existing SLA definition before the update is performed.",
+            "references": [
+                "<strong>Mandatory Fields:</strong> Any request to create or update a record must validate all mandatory fields."
+            ],
+            "iteration_added": 0
+        },
+        {
+            "policy_name": "Atomic Operation Requirement",
+            "description": "Operations must be performed one validated action at a time. The\u202fupdate_sla_definition\u202fcall must be the sole operation in the request and should only proceed if all required data is present and the current SLA record state allows the update.",
+            "references": [
+                "<strong>Atomic Operations:</strong> Perform <strong>one validated operation at a time</strong>, except when using approved batch endpoints. Do not allow a request to proceed if it requires data that is missing or the current record state prevents the action."
+            ],
+            "iteration_added": 0
+        },
+        {
+            "policy_name": "SLA Metric Limitation",
+            "description": "Metrics tracked for SLA records are limited to\u202ftarget_mins. When updating an SLA definition, only the\u202ftarget_mins\u202ffield (and other allowed fields) may be modified; attempts to add or change unsupported metric fields should be rejected.",
+            "references": [
+                "<strong>Metric:</strong> Metrics tracked are limited to <code>target_mins</code>."
+            ],
+            "iteration_added": 0
+        },
+        {
+            "policy_name": "SLA Pause Behavior",
+            "description": "When an incident is on hold for specific reasons, the SLA timer must be paused. Updates to an SLA definition must not conflict with this rule; for example, the\u202fpause_on_pending\u202fflag may be toggled but the system must still enforce pausing under the defined conditions.",
+            "references": [
+                "<strong>SLA Pause:</strong> The SLA timer <strong>must</strong> be paused (<code>stage = paused</code>) when the Incident is in <code>stage = on_hold</code> and the <code>on_hold_reason</code> is one of the following enumerations: <code>Awaiting Change</code>, <code>Awaiting Caller</code>, or <code>Awaiting Problem</code>."
+            ],
+            "iteration_added": 0
+        },
+        {
+            "policy_name": "SLA Breach Escalation",
+            "description": "If an SLA exceeds its duration, the incident\u2019s\u202fescalation\u202fflag must be set to true and a notification sent to the Manager. Updating an SLA definition must preserve this behavior; the\u202factive\u202for\u202ftarget_mins\u202fchanges must not disable required breach handling.",
+            "references": [
+                "<strong>Breach:</strong> If the SLA exceeds its duration (<code>stage = breached</code>), the <code>escalation</code> flag on the Incident <strong>must</strong> be set to true, and an automatic notification sent to the <code>Manager</code>."
+            ],
+            "iteration_added": 0
+        },
+        {
+            "policy_name": "Role\u2011Based Access for SLA Definition Updates",
+            "description": "Only users with the Administrator role are authorized to call the update_sla_definition tool. The Administrator role has Full CRUD access across all tables, whereas other roles (Manager, Agent, Reporter) do not have update privileges on SLA definition records. If a non\u2011Administrator attempts an update, the operation must be halted with a 403 Forbidden response.",
+            "references": [
+                "<strong>Administrator</strong> (<code>admin</code>) | System Configuration &amp; Integrity | Full CRUD (Create, Read, Update, Delete) access across all tables.",
+                "<strong>Manager</strong> (<code>manager</code>) | Supervision, Escalation, Approvals | Full CRUD on operational tables (<code>incident</code>, <code>problem</code>, <code>change</code>, <code>knowledge</code>); READ access to all the tables."
+            ],
+            "iteration": 0
+        },
+        {
+            "policy_name": "Permission Denied Handling (403\u202fForbidden)",
+            "description": "If the caller\u2019s role lacks the authority to perform an update_sla_definition operation, the system must respond with a 403 Forbidden error and must not proceed with any changes.",
+            "references": [
+                "<strong>403 Forbidden:</strong> Permission denied (user role lacks authority for the operation)."
+            ],
+            "iteration": 0
+        },
+        {
+            "policy_name": "Rate\u2011Limiting and Exponential Backoff",
+            "description": "When the update_sla_definition endpoint returns a rate\u2011limit error, the assistant must pause the request and retry using an exponential backoff strategy instead of immediately retrying or proceeding.",
+            "references": [
+                "<strong>Rate Limiting:</strong> If exceeded, pause and retry using <strong>Exponential Backoff</strong>."
+            ],
+            "iteration": 0
+        }
+    ]
+}

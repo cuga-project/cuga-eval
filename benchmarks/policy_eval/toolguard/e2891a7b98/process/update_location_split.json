@@ -1,0 +1,118 @@
+{
+    "policies": [
+        {
+            "policy_name": "User Role Verification",
+            "description": "Before invoking **update_location**, the assistant must verify that the requesting user has a confirmed role that is authorized to perform update operations.",
+            "references": [
+                "First you must check the user information and operate exclusively based on <strong>confirmed user roles</strong>, <strong>verified record relationships</strong>, and <strong>ITIL/database integrity rules</strong>."
+            ],
+            "iteration_added": 0
+        },
+        {
+            "policy_name": "Mandatory Fields Validation",
+            "description": "Any request to update a location must include all mandatory fields: the **location_id** (required) and at least one other field to be changed.",
+            "references": [
+                "Mandatory Fields: Any request to create or update a record must validate all mandatory fields."
+            ],
+            "iteration_added": 0
+        },
+        {
+            "policy_name": "Missing Mandatory Field Handling",
+            "description": "If a required field for **update_location** is missing, the assistant must report which field is required instead of asking the user for more information.",
+            "references": [
+                "User Clarification: Do not ask for further information. If the request is ambiguous, return the list and state the ambiguity. If a mandatory field is missing, state which field is required."
+            ],
+            "iteration_added": 0
+        },
+        {
+            "policy_name": "Identifier Existence Check",
+            "description": "Before updating, the assistant must verify that the specified **location_id** exists by performing a lookup; it must not assume the identifier is valid.",
+            "references": [
+                "When identifiers such as names or IDs are missing, perform lookups, verify that you are reusing correct values from previous responses, and proceed using the retrieved data."
+            ],
+            "iteration_added": 0
+        },
+        {
+            "policy_name": "No Assumption of IDs or Outcomes",
+            "description": "The assistant must rely only on verified API results when updating a location and must not fabricate IDs, responses, or outcomes.",
+            "references": [
+                "Never assume or fabricate IDs, responses, or outcomes \u2014 rely solely on verified API results. The same is the case of optional or default arguments."
+            ],
+            "iteration_added": 0
+        },
+        {
+            "policy_name": "Administrator\u2011Only Access for Location Updates",
+            "description": "The assistant must verify that the requesting user has the **Administrator** role before invoking **update_location**, because only the Administrator role has full CRUD access across all tables, including locations. If the user lacks this role, the operation must be halted.",
+            "references": [
+                "Administrator (admin) | System Configuration & Integrity | Full CRUD (Create, Read, Update, Delete) access across all tables.",
+                "Manager (manager) | Supervision, Escalation, Approvals | Full CRUD on operational tables (incident, problem, change, knowledge); READ access to all the tables.",
+                "Agent (agent) | Frontline Incident/Request fulfillment | Full CRUD on Incidents, Service Requests, Tasks, Work Notes, CMDB, Change, Problem, and Knowledge"
+            ],
+            "iteration_added": 0
+        },
+        {
+            "policy_name": "Permission Denied Error Handling (403)",
+            "description": "If a user attempts to update a location without the required authority, the assistant must respond with a **403 Forbidden** error indicating permission denied, and must not perform the update.",
+            "references": [
+                "403 Forbidden: Permission denied (user role lacks authority for the operation)."
+            ],
+            "iteration_added": 0
+        },
+        {
+            "policy_name": "Conflict Error Handling (409)",
+            "description": "If the update operation cannot be performed because of a state conflict (e.g., the location record is locked or the requested change conflicts with the current state), the assistant must return a **409 Conflict** error.",
+            "references": [
+                "409 Conflict: Record locking or state conflict."
+            ],
+            "iteration_added": 0
+        },
+        {
+            "policy_name": "Policy Violation Halt",
+            "description": "If any request to update a location violates a policy (e.g., missing required fields, insufficient role, or attempting an invalid state transition), the assistant must halt the operation and provide the specific policy reason before pausing.",
+            "references": [
+                "Policy Violation: If a user request violates any rule herein, you **must halt the operation** and provide the specific policy reason before pausing."
+            ],
+            "iteration_added": 0
+        },
+        {
+            "policy_name": "Rate Limiting Handling",
+            "description": "If the API rate limit is exceeded while invoking **update_location**, the assistant must halt further calls, pause, and retry the operation using exponential backoff as defined in the policy. No additional update attempts should be made until the backoff period elapses.",
+            "references": [
+                "<strong>Rate Limiting:</strong> If exceeded, pause and retry using <strong>Exponential Backoff</strong>."
+            ],
+            "iteration_added": 1
+        },
+        {
+            "policy_name": "Work Log Timestamp and User Tracking",
+            "description": "When performing an **update_location** operation, the assistant must ensure that the action is recorded in a work log that includes both the timestamp (**created_on**) and the **user_id** of the person performing the update, in compliance with the system\u2019s audit requirements.",
+            "references": [
+                "Time Tracking: All work logs must include the timestamp (created_on) and the user_id performing the action."
+            ],
+            "iteration_added": 2
+        },
+        {
+            "policy_name": "Access\u2011Scope Confidentiality",
+            "description": "The assistant must not reveal any location information (or any other data) to a requester if that information lies outside the authenticated user\u2019s access scope as defined by their role.",
+            "references": [
+                "Knowledge Scope: Do not disclose information that is outside the authenticated user's access scope."
+            ],
+            "iteration_added": 2
+        },
+        {
+            "policy_name": "Single Validated Operation Enforcement",
+            "description": "When updating a location, the assistant must perform exactly one validated operation per request and must not use batch endpoints.",
+            "references": [
+                "Atomic Operations: Perform <strong>one validated operation at a time</strong>, except when using approved batch endpoints."
+            ],
+            "iteration_added": 1
+        },
+        {
+            "policy_name": "Location Record State Validation",
+            "description": "Before updating a location, the assistant must verify that the current state of the location record permits the update (e.g., the record is not locked or in an immutable state). If the state prevents the action, the operation must be halted.",
+            "references": [
+                "Atomic Operations: Do not allow a request to proceed if it requires data that is missing or the current record state prevents the action."
+            ],
+            "iteration_added": 1
+        }
+    ]
+}

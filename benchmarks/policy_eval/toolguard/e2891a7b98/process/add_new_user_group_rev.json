@@ -1,0 +1,80 @@
+{
+    "policies": [
+        {
+            "policy_name": "Validate mandatory fields for creation",
+            "description": "Before calling **add_new_user_group**, verify that the required **name** field is supplied, is not empty, and is unique within the system. No other mandatory parameters are required for this tool.",
+            "references": [
+                "<strong>Mandatory Fields:</strong> Any request to create or update a record must validate all mandatory fields."
+            ],
+            "iteration_added": 0
+        },
+        {
+            "policy_name": "Enforce policy violation handling",
+            "description": "When processing an **add_new_user_group** request, enforce the following checks **before** calling the tool: \n1. **Mandatory field** \u2013 the request must include a non\u2011empty `group_name`. \n2. **Uniqueness** \u2013 `group_name` must not already exist in the system (verify via `list_user_groups` or `find_group_by_name`). \n3. **Authentication** \u2013 a valid `x-itsm-user-token` must be supplied; otherwise the tool will return 401. \nIf any of these conditions fail, abort the operation and return a clear error message indicating which rule was violated (e.g., \"Missing mandatory field: group_name\" or \"Group name already exists\").",
+            "references": [
+                "<strong>Policy Violation:</strong> If a user request violates any rule herein, you <strong>must halt the operation</strong> and provide the specific policy reason before pausing."
+            ],
+            "iteration_added": 0
+        },
+        {
+            "policy_name": "Lookup missing identifiers before use",
+            "description": "Before calling **add_new_user_group**, first run **find_group_by_name** (or **list_user_groups** with a name filter) using the desired group name. If a group is returned, abort the creation and return a message indicating that the group name already exists. If no group is found, proceed with **add_new_user_group** using the supplied name. This ensures the uniqueness requirement is satisfied without assuming the identifier exists.",
+            "references": [
+                "When identifiers such as names or IDs are missing, perform lookups, verify that you are reusing correct values from previous responses, and proceed using the retrieved data."
+            ],
+            "iteration_added": 0
+        },
+        {
+            "policy_name": "Clarify missing mandatory fields",
+            "description": "When handling a request to invoke the **add_new_user_group** tool, verify that the required field **group_name** (the unique name of the group) is present. If it is missing, return a response that explicitly states: \"Missing mandatory field: group_name\". Do not ask the user for additional information or confirmation; simply report the missing field.",
+            "references": [
+                "<strong>User Clarification:</strong> Do not ask for further information. If the request is ambiguous, return the list and state the ambiguity. If a mandatory field is missing, state which field is required."
+            ],
+            "iteration_added": 0
+        },
+        {
+            "policy_name": "Execute as a single atomic operation",
+            "description": "For the **add_new_user_group** tool, send a single request that contains just the mandatory field **group name** (and optionally the **x-itsm-user-token** header). Do not include parameters for any other tool or operation. If the organization has a special batch endpoint that permits multi\u2011step actions, that endpoint must be used; otherwise, subsequent operations (e.g., adding members) must be issued in separate calls after the group is successfully created.",
+            "references": [
+                "<strong>Atomic Operations:</strong> Perform <strong>one validated operation at a time</strong>, except when using approved batch endpoints. Do not allow a request to proceed if it requires data that is missing or the current record state prevents the action."
+            ],
+            "iteration_added": 0
+        },
+        {
+            "policy_name": "Enforce role\u2011based permission for group creation",
+            "description": "1. Extract the caller\u2019s user ID from the `x-itsm-user-token` header (the token is validated by the platform and includes the authenticated user\u2019s ID). 2. Call `get_user` with that user ID to obtain the user record. 3. Examine the `role` attribute of the returned record. 4. If the role is `admin` or `manager`, invoke `add_new_user_group` with the supplied group name. 5. If the role is anything else, do not call `add_new_user_group`; instead return a response with HTTP status **403 Forbidden** and a message such as \"User role '<role>' is not authorized to create user groups.\" This sequence can be performed entirely with the available tools before any change to the system is made.",
+            "references": [
+                "Permission denied (user role lacks authority for the operation)."
+            ],
+            "iteration_added": 2
+        },
+        {
+            "policy_name": "Handle record conflicts with appropriate error code",
+            "description": "If creating a new user group results in a conflict (e.g., the group name already exists or the record is locked), the operation must halt and return a **409 Conflict** error as defined in the error handling policy.",
+            "references": [
+                "<strong>409 Conflict:</strong> Record locking or state conflict."
+            ],
+            "iteration_added": 1
+        }
+    ],
+    "archive": [
+        {
+            "policy_name": "Do not fabricate identifiers or default values",
+            "description": "Do not generate or assume values for fields such as the group ID, manager ID, or any other identifier; rely only on values returned by verified API calls.",
+            "references": [
+                "Never assume or fabricate IDs, responses, or outcomes \u2014 rely solely on verified API results. The same is the case of optional or default arguments."
+            ],
+            "iteration_added": 0,
+            "comments": "The policy is directly applicable to the **add_new_user_group** tool because that tool generates the group ID automatically and the policy forbids fabricating such identifiers. While the rule is useful across the entire platform (hence not tool\u2011specific), it can be enforced by simply omitting any ID fields from the request payload and by only using identifiers that were returned from prior API calls. Validation is straightforward: before calling the tool we can inspect the request payload to ensure no ID fields are present or that any identifiers used were retrieved from a verified API response. The policy is clear and enforceable using only the tool\u2019s parameters and chat context. It could be made slightly more precise by explicitly mentioning \"group_id\" for this tool, but it is already self\u2011contained enough.\n\n**Score: 4** \u2013 The policy is clear, enforceable, and relevant, but it is generic rather than tailored to the specific tool, which prevents a perfect score.\nThe policy is directly applicable to the **add_new_user_group** tool because that tool generates the group ID automatically and the policy forbids fabricating such identifiers. While the rule is useful across the entire platform (hence not tool\u2011specific), it can be enforced by simply omitting any ID fields from the request payload and by only using identifiers that were returned from prior API calls. Validation is straightforward: before calling the tool we can inspect the request payload to ensure no ID fields are present or that any identifiers used were retrieved from a verified API response. The policy is clear and enforceable using only the tool\u2019s parameters and chat context. It could be made slightly more precise by explicitly mentioning \"group_id\" for this tool, but it is already self\u2011contained enough.\n\n**Score: 4** \u2013 The policy is clear, enforceable, and relevant, but it is generic rather than tailored to the specific tool, which prevents a perfect score.\nThe policy is directly applicable to the **add_new_user_group** tool because that tool generates the group ID automatically and the policy forbids fabricating such identifiers. While the rule is useful across the entire platform (hence not tool\u2011specific), it can be enforced by simply omitting any ID fields from the request payload and by only using identifiers that were returned from prior API calls. Validation is straightforward: before calling the tool we can inspect the request payload to ensure no ID fields are present or that any identifiers used were retrieved from a verified API response. The policy is clear and enforceable using only the tool\u2019s parameters and chat context. It could be made slightly more precise by explicitly mentioning \"group_id\" for this tool, but it is already self\u2011contained enough.\n\n**Score: 4** \u2013 The policy is clear, enforceable, and relevant, but it is generic rather than tailored to the specific tool, which prevents a perfect score.\nThe policy is directly applicable to the **add_new_user_group** tool because that tool generates the group ID automatically and the policy forbids fabricating such identifiers. While the rule is useful across the entire platform (hence not tool\u2011specific), it can be enforced by simply omitting any ID fields from the request payload and by only using identifiers that were returned from prior API calls. Validation is straightforward: before calling the tool we can inspect the request payload to ensure no ID fields are present or that any identifiers used were retrieved from a verified API response. The policy is clear and enforceable using only the tool\u2019s parameters and chat context. It could be made slightly more precise by explicitly mentioning \"group_id\" for this tool, but it is already self\u2011contained enough.\n\n**Score: 4** \u2013 The policy is clear, enforceable, and relevant, but it is generic rather than tailored to the specific tool, which prevents a perfect score.\nThe policy is directly applicable to the **add_new_user_group** tool because that tool generates the group ID automatically and the policy forbids fabricating such identifiers. While the rule is useful across the entire platform (hence not tool\u2011specific), it can be enforced by simply omitting any ID fields from the request payload and by only using identifiers that were returned from prior API calls. Validation is straightforward: before calling the tool we can inspect the request payload to ensure no ID fields are present or that any identifiers used were retrieved from a verified API response. The policy is clear and enforceable using only the tool\u2019s parameters and chat context. It could be made slightly more precise by explicitly mentioning \"group_id\" for this tool, but it is already self\u2011contained enough.\n\n**Score: 4** \u2013 The policy is clear, enforceable, and relevant, but it is generic rather than tailored to the specific tool, which prevents a perfect score.\n"
+        },
+        {
+            "policy_name": "Respect rate limiting and employ exponential backoff",
+            "description": "When a rate\u2011limit condition is encountered while invoking **add_new_user_group**, pause the request and retry using an exponential backoff strategy, as required by the global error handling policy.",
+            "references": [
+                "<strong>Rate Limiting:</strong> If exceeded, pause and retry using <strong>Exponential Backoff</strong>."
+            ],
+            "iteration_added": 1,
+            "comments": "The policy directly mentions the target tool (add_new_user_group) and ties its behavior to the global rate\u2011limiting rule, making it both relevant and tool\u2011specific. Validation cannot be performed before the API call because a rate\u2011limit condition (typically a 429 response) is only known after the request is sent, so can_be_validated is false. The instruction to pause and retry with exponential backoff is implementable using only the tool's response information and the chat\u2019s control flow, so it is actionable. The description includes the essential rule and a concrete reference, requiring no external context, thus it is self\u2011contained. Overall the policy is clear, enforceable, and well scoped, earning a score of 4 out of 5.\nThe policy directly mentions the target tool (add_new_user_group) and ties its behavior to the global rate\u2011limiting rule, making it both relevant and tool\u2011specific. Validation cannot be performed before the API call because a rate\u2011limit condition (typically a 429 response) is only known after the request is sent, so can_be_validated is false. The instruction to pause and retry with exponential backoff is implementable using only the tool's response information and the chat\u2019s control flow, so it is actionable. The description includes the essential rule and a concrete reference, requiring no external context, thus it is self\u2011contained. Overall the policy is clear, enforceable, and well scoped, earning a score of 4 out of 5.\nThe policy directly mentions the target tool (add_new_user_group) and ties its behavior to the global rate\u2011limiting rule, making it both relevant and tool\u2011specific. Validation cannot be performed before the API call because a rate\u2011limit condition (typically a 429 response) is only known after the request is sent, so can_be_validated is false. The instruction to pause and retry with exponential backoff is implementable using only the tool's response information and the chat\u2019s control flow, so it is actionable. The description includes the essential rule and a concrete reference, requiring no external context, thus it is self\u2011contained. Overall the policy is clear, enforceable, and well scoped, earning a score of 4 out of 5.\nThe policy directly mentions the target tool (add_new_user_group) and ties its behavior to the global rate\u2011limiting rule, making it both relevant and tool\u2011specific. Validation cannot be performed before the API call because a rate\u2011limit condition (typically a 429 response) is only known after the request is sent, so can_be_validated is false. The instruction to pause and retry with exponential backoff is implementable using only the tool's response information and the chat\u2019s control flow, so it is actionable. The description includes the essential rule and a concrete reference, requiring no external context, thus it is self\u2011contained. Overall the policy is clear, enforceable, and well scoped, earning a score of 4 out of 5.\nThe policy directly mentions the target tool (add_new_user_group) and ties its behavior to the global rate\u2011limiting rule, making it both relevant and tool\u2011specific. Validation cannot be performed before the API call because a rate\u2011limit condition (typically a 429 response) is only known after the request is sent, so can_be_validated is false. The instruction to pause and retry with exponential backoff is implementable using only the tool's response information and the chat\u2019s control flow, so it is actionable. The description includes the essential rule and a concrete reference, requiring no external context, thus it is self\u2011contained. Overall the policy is clear, enforceable, and well scoped, earning a score of 4 out of 5.\n"
+        }
+    ]
+}

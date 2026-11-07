@@ -1,0 +1,52 @@
+{
+    "policies": [
+        {
+            "policy_name": "Validate mandatory fields for creation",
+            "description": "Before invoking **add_new_user_group**, ensure that all mandatory parameters defined for the tool (\"name\" and \"type\") are present and non\u2011empty.",
+            "references": [
+                "<strong>Mandatory Fields:</strong> Any request to create or update a record must validate all mandatory fields."
+            ],
+            "iteration_added": 0
+        },
+        {
+            "policy_name": "Do not fabricate identifiers or default values",
+            "description": "Do not generate or assume values for fields such as the group ID, manager ID, or any other identifier; rely only on values returned by verified API calls.",
+            "references": [
+                "Never assume or fabricate IDs, responses, or outcomes \u2014 rely solely on verified API results. The same is the case of optional or default arguments."
+            ],
+            "iteration_added": 0
+        },
+        {
+            "policy_name": "Enforce policy violation handling",
+            "description": "If any rule applicable to the **add_new_user_group** request is violated (e.g., missing mandatory field, non\u2011unique name), halt the operation and return the specific policy reason before proceeding.",
+            "references": [
+                "<strong>Policy Violation:</strong> If a user request violates any rule herein, you <strong>must halt the operation</strong> and provide the specific policy reason before pausing."
+            ],
+            "iteration_added": 0
+        },
+        {
+            "policy_name": "Lookup missing identifiers before use",
+            "description": "If a provided identifier (e.g., manager_id) does not exist in the system, perform a lookup to verify the correct value before using it in the group\u2011creation request.",
+            "references": [
+                "When identifiers such as names or IDs are missing, perform lookups, verify that you are reusing correct values from previous responses, and proceed using the retrieved data."
+            ],
+            "iteration_added": 0
+        },
+        {
+            "policy_name": "Clarify missing mandatory fields",
+            "description": "When a request to add a new user group lacks a required field, respond by stating exactly which mandatory field is missing instead of prompting for additional information.",
+            "references": [
+                "<strong>User Clarification:</strong> Do not ask for further information. If the request is ambiguous, return the list and state the ambiguity. If a mandatory field is missing, state which field is required."
+            ],
+            "iteration_added": 0
+        },
+        {
+            "policy_name": "Execute as a single atomic operation",
+            "description": "The **add_new_user_group** call must be performed as one validated operation; do not chain it with other actions unless using an approved batch endpoint.",
+            "references": [
+                "<strong>Atomic Operations:</strong> Perform <strong>one validated operation at a time</strong>, except when using approved batch endpoints. Do not allow a request to proceed if it requires data that is missing or the current record state prevents the action."
+            ],
+            "iteration_added": 0
+        }
+    ]
+}

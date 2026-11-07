@@ -1,0 +1,76 @@
+{
+    "policies": [
+        {
+            "policy_name": "Mandatory Fields Validation",
+            "description": "All mandatory fields required by the tool (group_id and user_id) must be present and validated before invoking add_new_group_member.",
+            "references": [
+                "<strong>Mandatory Fields:</strong> Any request to create or update a record must validate all mandatory fields."
+            ],
+            "iteration_added": 0
+        },
+        {
+            "policy_name": "Existence Verification of Records",
+            "description": "The group and user referenced by group_id and user_id must be verified to exist before adding the membership.",
+            "references": [
+                "First you must check the user information and operate exclusively based on <strong>confirmed user roles</strong>, <strong>verified record relationships</strong>, and <strong>ITIL/database integrity rules</strong>."
+            ],
+            "iteration_added": 0
+        },
+        {
+            "policy_name": "Prevent Duplicate Membership",
+            "description": "The operation must be halted if the user is already a member of the specified group.",
+            "references": [
+                "<strong>Atomic Operations:</strong> Perform <strong>one validated operation at a time</strong>, except when using approved batch endpoints. Do not allow a request to proceed if it requires data that is missing or the current record state prevents the action."
+            ],
+            "iteration_added": 0
+        },
+        {
+            "policy_name": "Role\u2011Based Permission for Group Membership Changes",
+            "description": "Only roles with full CRUD access across all tables (e.g., Administrator) are authorized to create a new group member record.",
+            "references": [
+                "<strong>Administrator</strong> (<code>admin</code>) | System Configuration &amp; Integrity | Full CRUD (Create, Read, Update, Delete) access across all tables."
+            ],
+            "iteration_added": 0
+        },
+        {
+            "policy_name": "No Fabrication of IDs",
+            "description": "Do not fabricate or assume IDs; rely solely on verified API results when referencing group_id and user_id.",
+            "references": [
+                "Never assume or fabricate IDs, responses, or outcomes \u2014 rely solely on verified API results."
+            ],
+            "iteration_added": 0
+        },
+        {
+            "policy_name": "Atomic Single Operation Enforcement",
+            "description": "add_new_group_member must be executed as a single validated operation; if any prerequisite data is missing or invalid, the operation must be stopped.",
+            "references": [
+                "<strong>Atomic Operations:</strong> Perform <strong>one validated operation at a time</strong>, except when using approved batch endpoints. Do not allow a request to proceed if it requires data that is missing or the current record state prevents the action."
+            ],
+            "iteration_added": 0
+        },
+        {
+            "policy_name": "Verified Record Relationships Enforcement",
+            "description": "Before adding a user to a group, ensure that the group and the user exist within the same organizational context and that the relationship between them is valid, complying with the requirement to operate exclusively on verified record relationships.",
+            "references": [
+                "First you must check the user information and operate exclusively based on <strong>confirmed user roles</strong>, <strong>verified record relationships</strong>, and <strong>ITIL/database integrity rules</strong>."
+            ],
+            "iteration": 0
+        },
+        {
+            "policy_name": "Rate Limiting Enforcement",
+            "description": "If the add_new_group_member request exceeds the service's rate limits, the operation must be paused and retried using exponential backoff rather than proceeding immediately.",
+            "references": [
+                "<strong>Rate Limiting:</strong> If exceeded, pause and retry using <strong>Exponential Backoff</strong>."
+            ],
+            "iteration": 0
+        },
+        {
+            "policy_name": "Permission Denial (403) Enforcement",
+            "description": "If the invoking user's role does not have sufficient authority to create a group membership (e.g., non\u2011Administrator roles), the operation must be halted and a 403 Forbidden response returned.",
+            "references": [
+                "<strong>403 Forbidden:</strong> Permission denied (user role lacks authority for the operation)."
+            ],
+            "iteration": 0
+        }
+    ]
+}

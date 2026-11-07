@@ -1,0 +1,116 @@
+{
+    "policies": [
+        {
+            "policy_name": "Check Confirmed User Roles and Record Relationships",
+            "description": "Before creating a service offering, the assistant must verify the request using confirmed user roles, verified record relationships, and ITIL/database integrity rules; no assumptions about data or bypassing approvals are allowed.",
+            "references": [
+                "First you must check the user information and operate exclusively based on <strong>confirmed user roles</strong>, <strong>verified record relationships</strong>, and <strong>ITIL/database integrity rules</strong>. You are strictly prohibited from assuming data, executing ambiguous commands, bypassing mandatory approvals, or violating audit and compliance requirements."
+            ],
+            "iteration_added": 0
+        },
+        {
+            "policy_name": "Atomic Operation Requirement",
+            "description": "The register_new_service_offering call must be the only validated operation performed at this moment; the assistant may not bundle it with other actions unless an approved batch endpoint is used.",
+            "references": [
+                "<strong>Atomic Operations:</strong> Perform <strong>one validated operation at a time</strong>, except when using approved batch endpoints. Do not allow a request to proceed if it requires data that is missing or the current record state prevents the action."
+            ],
+            "iteration_added": 0
+        },
+        {
+            "policy_name": "Mandatory Fields Validation",
+            "description": "All fields marked as required in the tool definition (name, owned_by, parent, short_description) must be present and non\u2011empty before invoking register_new_service_offering.",
+            "references": [
+                "<strong>Mandatory Fields:</strong> Any request to create or update a record must validate all mandatory fields."
+            ],
+            "iteration_added": 0
+        },
+        {
+            "policy_name": "Do Not Assume or Fabricate IDs",
+            "description": "The assistant must not invent IDs or other values for the service offering; it must rely only on data returned from verified API calls.",
+            "references": [
+                "Never assume or fabricate IDs, responses, or outcomes \u2014 rely solely on verified API results. The same is the case of optional or default arguments."
+            ],
+            "iteration_added": 0
+        },
+        {
+            "policy_name": "Lookup Missing Identifiers",
+            "description": "If any identifier (e.g., parent service offering ID) is missing, the assistant must perform a lookup first and reuse the verified value before proceeding.",
+            "references": [
+                "When identifiers such as names or IDs are missing, perform lookups, verify that you are reusing correct values from previous responses, and proceed using the retrieved data."
+            ],
+            "iteration_added": 0
+        },
+        {
+            "policy_name": "No Further Information Requests",
+            "description": "The assistant must not ask the user for additional clarification; if the request is ambiguous or a mandatory field is missing, it must state the ambiguity or indicate which field is required.",
+            "references": [
+                "<strong>User Clarification:</strong> Do not ask for further information. If the request is ambiguous, return the list and state the ambiguity. If a mandatory field is missing, state which field is required."
+            ],
+            "iteration_added": 0
+        },
+        {
+            "policy_name": "Policy Violation Handling",
+            "description": "If any policy (e.g., missing mandatory field, role violation) is broken, the assistant must halt the operation and return the specific policy reason before pausing.",
+            "references": [
+                "<strong>Policy Violation:</strong> If a user request violates any rule herein, you <strong>must halt the operation</strong> and provide the specific policy reason before pausing."
+            ],
+            "iteration_added": 0
+        },
+        {
+            "policy_name": "Knowledge Scope Restriction",
+            "description": "When registering a service offering, the assistant must not disclose any information that lies outside the authenticated user's access scope.",
+            "references": [
+                "<strong>Knowledge Scope:</strong> Do not disclose information that is outside the authenticated user's access scope."
+            ],
+            "iteration_added": 0
+        },
+        {
+            "policy_name": "No Confirmation Required",
+            "description": "The assistant may invoke register_new_service_offering without asking the user for additional confirmation or permission.",
+            "references": [
+                "You do not need to ask for confirmation or permission before taking action."
+            ],
+            "iteration_added": 0
+        },
+        {
+            "policy_name": "Rate Limiting Handling",
+            "description": "If a rate\u2011limit error is returned when invoking register_new_service_offering, the assistant must pause the operation and retry using exponential backoff rather than proceeding immediately.",
+            "references": [
+                "<strong>Rate Limiting:</strong> If exceeded, pause and retry using <strong>Exponential Backoff</strong>."
+            ],
+            "iteration": 0
+        },
+        {
+            "policy_name": "Permission Denied (403 Forbidden) Handling",
+            "description": "If the register_new_service_offering request returns a 403 Forbidden error because the caller\u2019s role lacks the authority to create a service offering, the assistant must halt the operation and report the permission\u2011denied policy reason.",
+            "references": [
+                "<strong>403 Forbidden:</strong> Permission denied (user role lacks authority for the operation)."
+            ],
+            "iteration": 0
+        },
+        {
+            "policy_name": "Conflict Error (409) Handling",
+            "description": "If a 409 Conflict error is encountered (e.g., due to record locking or state conflict) while creating a service offering, the assistant must stop further processing and return the conflict policy reason.",
+            "references": [
+                "<strong>409 Conflict:</strong> Record locking or state conflict."
+            ],
+            "iteration": 0
+        },
+        {
+            "policy_name": "Role\u2011Based Access for Service Offering Creation",
+            "description": "Only users with the **Administrator** role are permitted to invoke the **register_new_service_offering** tool, because only the Administrator role has full CRUD access across all tables. Users with other roles (Manager, Agent, Reporter) do not have create permissions for service offering records.",
+            "references": [
+                "| **Administrator** (<code>admin</code>) | System Configuration &amp; Integrity | Full CRUD (Create, Read, Update, Delete) access across all tables.\u00a0|"
+            ],
+            "iteration": 1
+        },
+        {
+            "policy_name": "Owner User Must Be Active",
+            "description": "When creating a service offering, the **owned_by** field references a user. The assistant must verify that the referenced user\u2019s record has **users.active = true** before proceeding, to ensure the owner is an active account.",
+            "references": [
+                "<strong>User Status:</strong> Ensure any user being assigned to (<code>assigned_to</code>) or updated is <code>users.active = true</code>."
+            ],
+            "iteration": 1
+        }
+    ]
+}

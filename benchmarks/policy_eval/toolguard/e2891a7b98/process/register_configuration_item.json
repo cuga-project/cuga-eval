@@ -1,0 +1,45 @@
+{
+    "policies": [
+        {
+            "policy_name": "Mandatory Fields Validation",
+            "description": "Any request to create or update a record must validate all mandatory fields before invoking the register_configuration_item tool.",
+            "references": [
+                "<strong>Mandatory Fields:</strong> Any request to create or update a record must validate all mandatory fields."
+            ],
+            "iteration_added": 0
+        },
+        {
+            "policy_name": "Role\u2011Based Permission for CI Creation",
+            "description": "Only users with the Administrator or Agent role are allowed to create (register) a configuration item, because they have full CRUD permissions on the configuration_item (CMDB) table.",
+            "references": [
+                "<strong>Administrator</strong> (<code>admin</code>) | System Configuration &amp; Integrity | Full CRUD (Create, Read, Update, Delete) access across all tables.",
+                "<strong>Agent</strong> (<code>agent</code>) | Frontline Incident/Request fulfillment | <strong>Full CRUD</strong> on <strong>Incidents, Service Requests, Tasks, Work Notes, CMDB, Change, Problem, and Knowledge</strong>."
+            ],
+            "iteration_added": 0
+        },
+        {
+            "policy_name": "CI Owner Requirement",
+            "description": "Every configuration item must have a recorded owner_id field.",
+            "references": [
+                "<strong>CI Owner:</strong> All CIs must have a recorded <code>owner_id</code>."
+            ],
+            "iteration_added": 0
+        },
+        {
+            "policy_name": "Allowed CI Status Values",
+            "description": "The status supplied for a new configuration item must be one of the enumerated values: in_use, in_stock, maintenance, retired, or disposed.",
+            "references": [
+                "| <strong>configuration_item.status</strong> | <code>in_use</code>, <code>in_stock</code>, <code>maintenance</code>, <code>retired</code>, <code>disposed</code> |"
+            ],
+            "iteration_added": 0
+        },
+        {
+            "policy_name": "CI Must Be Stored in Configuration_Item Table",
+            "description": "All configuration items (IT assets) must be recorded in the configuration_item table.",
+            "references": [
+                "<strong>Table:</strong> All IT assets must be recorded in the <code>configuration_item</code> table."
+            ],
+            "iteration_added": 0
+        }
+    ]
+}

@@ -1,0 +1,52 @@
+{
+    "policies": [
+        {
+            "policy_name": "Administrator CRUD Access",
+            "description": "Only users with the Administrator role have full Create, Read, Update, Delete access across all tables, including user groups. The caller must have an active Administrator role to invoke update_user_group.",
+            "references": [
+                "<strong>Administrator</strong> (<code>admin</code>) | System Configuration &amp; Integrity | Full CRUD (Create, Read, Update, Delete) access across all tables."
+            ],
+            "iteration_added": 0
+        },
+        {
+            "policy_name": "Validate Mandatory Fields",
+            "description": "Any request to update a record must validate all mandatory fields. For update_user_group the field\u202fgroup_id is mandatory and at least one other field (e.g., name, type, active) must be provided.",
+            "references": [
+                "<strong>Mandatory Fields:</strong> Any request to create or update a record must validate all mandatory fields."
+            ],
+            "iteration_added": 0
+        },
+        {
+            "policy_name": "Atomic Operation",
+            "description": "Perform only one validated operation at a time when calling update_user_group. No batch or multi\u2011record updates are allowed for this tool.",
+            "references": [
+                "<strong>Atomic Operations:</strong> Perform <strong>one validated operation at a time</strong>, except when using approved batch endpoints."
+            ],
+            "iteration_added": 0
+        },
+        {
+            "policy_name": "No ID Assumptions",
+            "description": "Never assume or fabricate IDs. The group_id supplied to update_user_group must be verified against existing data before performing the update.",
+            "references": [
+                "Never assume or fabricate IDs, responses, or outcomes \u2014 rely solely on verified API results."
+            ],
+            "iteration_added": 0
+        },
+        {
+            "policy_name": "User Clarification for Missing Fields",
+            "description": "If a mandatory field is missing (e.g., group_id), the assistant must state which field is required instead of asking for further information.",
+            "references": [
+                "<strong>User Clarification:</strong> Do not ask for further information. If the request is ambiguous, return the list and state the ambiguity. If a mandatory field is missing, state which field is required."
+            ],
+            "iteration_added": 0
+        },
+        {
+            "policy_name": "Policy Violation Handling",
+            "description": "If any of the above rules are violated (e.g., caller lacks Administrator role, mandatory fields missing, or ID not verified), the operation must be halted and the specific policy reason returned.",
+            "references": [
+                "<strong>Policy Violation:</strong> If a user request violates any rule herein, you <strong>must halt the operation</strong> and provide the specific policy reason before pausing."
+            ],
+            "iteration_added": 0
+        }
+    ]
+}

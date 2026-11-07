@@ -1,0 +1,44 @@
+{
+    "policies": [
+        {
+            "policy_name": "Mandatory Fields Validation",
+            "description": "Before invoking link_new_incident_sla, ensure that all required fields (incident_id, sla_def_id, start_time) are provided and non\u2011empty, because any create request must validate mandatory fields.",
+            "references": [
+                "<strong>Mandatory Fields:</strong> Any request to create or update a record must validate all mandatory fields."
+            ],
+            "iteration_added": 0
+        },
+        {
+            "policy_name": "SLA Alignment with Incident Priority",
+            "description": "The SLA to be linked must correspond to the incident\u2019s priority, as SLAs are automatically aligned based on the incident\u2019s priority.",
+            "references": [
+                "<strong>SLA Application:</strong> SLAs are automatically aligned based on <code>priority</code> linked to the incident."
+            ],
+            "iteration_added": 0
+        },
+        {
+            "policy_name": "SLA Pause on Incident On\u2011Hold",
+            "description": "If the incident is currently on hold with a reason of Awaiting Change, Awaiting Caller, or Awaiting Problem, the new SLA record should be created with stage set to paused rather than the default in_progress.",
+            "references": [
+                "<strong>SLA Pause:</strong> The SLA timer <strong>must</strong> be paused (<code>stage = paused</code>) when the Incident is in <code>stage = on_hold</code> and the <code>on_hold_reason</code> is one of the following enumerations: <code>Awaiting Change</code>, <code>Awaiting Caller</code>, or <code>Awaiting Problem</code>."
+            ],
+            "iteration_added": 0
+        },
+        {
+            "policy_name": "Permission Check (403 Forbidden)",
+            "description": "Verify that the invoking user\u2019s role has authority to create an incident SLA; if the role lacks permission, the operation must be halted with a 403 Forbidden error.",
+            "references": [
+                "<strong>403 Forbidden:</strong> Permission denied (user role lacks authority for the operation)."
+            ],
+            "iteration_added": 0
+        },
+        {
+            "policy_name": "Atomic Operation Requirement",
+            "description": "Linking a new incident SLA must be performed as a single validated operation, not combined with other actions.",
+            "references": [
+                "<strong>Atomic Operations:</strong> Perform <strong>one validated operation at a time</strong>, except when using approved batch endpoints."
+            ],
+            "iteration_added": 0
+        }
+    ]
+}

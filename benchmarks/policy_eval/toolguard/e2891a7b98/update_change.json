@@ -1,0 +1,60 @@
+{
+  "policies": [
+    {
+      "policy_name": "Mandatory Change ID",
+      "description": "Any update_change request must include the mandatory field `change_id`.",
+      "references": [],
+      "iteration_added": 0
+    },
+    {
+      "policy_name": "Valid Change Status Values",
+      "description": "When the `status` parameter is provided in an `update_change` request, its value must be one of the permitted statuses: new, assess, authorize, scheduled, implement, review, closed, or canceled.",
+      "references": [
+        "<strong>change_request.status</strong> | <code>new</code>, <code>assess</code>, <code>authorize</code>, <code>scheduled</code>, <code>implement</code>, <code>review</code>, <code>closed</code>, <code>canceled</code> |"
+      ],
+      "iteration_added": 0
+    },
+    {
+      "policy_name": "Permission Check (403 Forbidden)",
+      "description": "If the calling user\u2019s role does not grant authority for the requested update_change operation, the system must return a 403 Forbidden error.",
+      "references": [
+        "<li>\n<p><strong>403 Forbidden:</strong> Permission denied (user role lacks authority for the operation).</p>\n</li>"
+      ],
+      "iteration_added": 0
+    },
+    {
+      "policy_name": "Atomic Operation Requirement",
+      "description": "The update_change call must be performed as a single validated operation; no additional actions may be combined with it.",
+      "references": [
+        "<strong>Atomic Operations:</strong> Perform <strong>one validated operation at a time</strong>, except when using approved batch endpoints. Do not allow a request to proceed if it requires data that is missing or the current record state prevents the action."
+      ],
+      "iteration_added": 0
+    },
+    {
+      "policy_name": "ManagerOrAdministrator Change Status Privilege",
+      "description": "When using the `update_change` tool, check the caller\u2019s confirmed role (available from the authenticated user record). If the caller\u2019s role is **Manager** or **Administrator**, the payload may contain any allowed `status` value (`new`, `assess`, `authorize`, `scheduled`, `implement`, `review`, `closed`, `canceled`). If the caller\u2019s role is any other role (e.g., Agent, Reporter), the payload must either omit the `status` field or set it explicitly to `new`. Any payload that attempts to change `status` to a value other than `new` for a non\u2011Manager/Administrator must be rejected before invoking the API.",
+      "references": [],
+      "iteration_added": 3
+    },
+    {
+      "policy_name": "Agent Change Status Restriction",
+      "description": "If the caller\u2019s authenticated role is **Agent**, an `update_change` call may include any updatable fields **except** the `status` field, which must either be omitted or set to the value `new`. Any payload that tries to set `status` to any value other than `new` (e.g., `assess`, `authorize`, `scheduled`, `implement`, `review`, `closed`, `canceled`) must be blocked before the tool is invoked.",
+      "references": [
+        "<strong>Agent</strong> (<code>agent</code>) | Frontline Incident/Request fulfillment | <strong>Full CRUD</strong> on <strong>Incidents, Service Requests, Tasks, Work Notes, CMDB, Change, Problem, and Knowledge</strong>. READ access to all the tables. Can update assignment, state, and resolution. | Cannot bypass approvals, or change system administration settings. |",
+        "<strong>Manager</strong> (<code>manager</code>) | Supervision, Escalation, Approvals | Full CRUD on operational tables (<code>incident</code>, <code>problem</code>, <code>change</code>, <code>knowledge</code>); READ access to all the tables. Can <strong>reassign</strong> incidents/requests. Can <strong>approve/reject</strong> Change Requests. Monitors SLAs and escalations. |"
+      ],
+      "iteration_added": 3
+    }
+  ],
+  "archive": [
+    {
+      "policy_name": "Assigned User Must Be Active",
+      "description": "When `assigned_to` is provided, the referenced user must have `users.active = true`.",
+      "references": [
+        "<strong>User Status:</strong> Ensure any user being assigned to (<code>assigned_to</code>) or updated is <code>users.active = true</code>."
+      ],
+      "iteration_added": 0,
+      "comments": "The policy directly applies to the `update_change` tool because that tool accepts an optional `assigned_to` field. Before calling the tool we can verify the target user\u2019s active flag by using a user\u2011lookup tool (e.g., `get_user` or `list_users`). This makes the policy enforceable and verifiable prior to execution. While the rule is not exclusive to the change\u2011update operation (it could also apply to incident creation, assignment, etc.), it is still relevant to the target tool. The description is clear and complete, requiring no external context. Score: 4 \u2013 the policy is clear, enforceable, and relevant, with a minor deduction for being generic rather than tool\u2011specific.\nThe policy directly applies to the `update_change` tool because that tool accepts an optional `assigned_to` field. Before calling the tool we can verify the target user\u2019s active flag by using a user\u2011lookup tool (e.g., `get_user` or `list_users`). This makes the policy enforceable and verifiable prior to execution. While the rule is not exclusive to the change\u2011update operation (it could also apply to incident creation, assignment, etc.), it is still relevant to the target tool. The description is clear and complete, requiring no external context. Score: 4 \u2013 the policy is clear, enforceable, and relevant, with a minor deduction for being generic rather than tool\u2011specific.\nThe policy directly applies to the `update_change` tool because that tool accepts an optional `assigned_to` field. Before calling the tool we can verify the target user\u2019s active flag by using a user\u2011lookup tool (e.g., `get_user` or `list_users`). This makes the policy enforceable and verifiable prior to execution. While the rule is not exclusive to the change\u2011update operation (it could also apply to incident creation, assignment, etc.), it is still relevant to the target tool. The description is clear and complete, requiring no external context. Score: 4 \u2013 the policy is clear, enforceable, and relevant, with a minor deduction for being generic rather than tool\u2011specific.\nThe policy directly applies to the `update_change` tool because that tool accepts an optional `assigned_to` field. Before calling the tool we can verify the target user\u2019s active flag by using a user\u2011lookup tool (e.g., `get_user` or `list_users`). This makes the policy enforceable and verifiable prior to execution. While the rule is not exclusive to the change\u2011update operation (it could also apply to incident creation, assignment, etc.), it is still relevant to the target tool. The description is clear and complete, requiring no external context. Score: 4 \u2013 the policy is clear, enforceable, and relevant, with a minor deduction for being generic rather than tool\u2011specific.\nThe policy directly applies to the `update_change` tool because that tool accepts an optional `assigned_to` field. Before calling the tool we can verify the target user\u2019s active flag by using a user\u2011lookup tool (e.g., `get_user` or `list_users`). This makes the policy enforceable and verifiable prior to execution. While the rule is not exclusive to the change\u2011update operation (it could also apply to incident creation, assignment, etc.), it is still relevant to the target tool. The description is clear and complete, requiring no external context. Score: 4 \u2013 the policy is clear, enforceable, and relevant, with a minor deduction for being generic rather than tool\u2011specific.\n"
+    }
+  ]
+}

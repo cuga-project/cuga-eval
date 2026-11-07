@@ -1,0 +1,64 @@
+{
+    "policies": [
+        {
+            "policy_name": "Mandatory Change ID",
+            "description": "Any update_change request must include the mandatory field\u202f`change_id`.",
+            "references": [
+                "<strong>Mandatory Fields:</strong> Any request to create or update a record must validate all mandatory fields."
+            ],
+            "iteration_added": 0
+        },
+        {
+            "policy_name": "Valid Change Status Values",
+            "description": "If the `status` field is supplied, its value must be one of the allowed change request statuses.",
+            "references": [
+                "| <strong>change_request.status</strong> | <code>new</code>, <code>assess</code>, <code>authorize</code>, <code>scheduled</code>, <code>implement</code>, <code>review</code>, <code>closed</code>, <code>canceled</code> |"
+            ],
+            "iteration_added": 0
+        },
+        {
+            "policy_name": "Assigned User Must Be Active",
+            "description": "When `assigned_to` is provided, the referenced user must have `users.active = true`.",
+            "references": [
+                "<strong>User Status:</strong> Ensure any user being assigned to (<code>assigned_to</code>) or updated is <code>users.active = true</code>."
+            ],
+            "iteration_added": 0
+        },
+        {
+            "policy_name": "Role Permission for Approving Changes",
+            "description": "Only users with the\u202fManager\u202for\u202fAdministrator\u202frole may change a Change Request status that involves approval (e.g., moving to\u202f`authorize`).",
+            "references": [
+                "| <strong>Manager</strong> (<code>manager</code>) | ... Can <strong>approve/reject</strong> Change Requests. |",
+                "| <strong>Agent</strong> (<code>agent</code>) | Cannot bypass approvals, or change system administration settings. |"
+            ],
+            "iteration_added": 0
+        },
+        {
+            "policy_name": "Permission Check (403 Forbidden)",
+            "description": "If the calling user\u2019s role does not grant authority for the requested update_change operation, the system must return a\u202f403\u202fForbidden error.",
+            "references": [
+                "<strong>403 Forbidden:</strong> Permission denied (user role lacks authority for the operation)."
+            ],
+            "iteration_added": 0
+        },
+        {
+            "policy_name": "Atomic Operation Requirement",
+            "description": "The update_change call must be performed as a single validated operation; no additional actions may be combined with it.",
+            "references": [
+                "<strong>Atomic Operations:</strong> Perform <strong>one validated operation at a time</strong>, except when using approved batch endpoints."
+            ],
+            "iteration_added": 0
+        },
+        {
+            "policy_name": "Status Update Authority for Changes",
+            "description": "Only users with the **Manager** or **Administrator** role may update a Change Request\u2019s `status` to any value beyond the initial `new` state (e.g., `assess`, `authorize`, `scheduled`, `implement`, `review`, `closed`, `canceled`). Agents are prohibited from bypassing approvals by changing the status to these values.",
+            "references": [
+                "| **Manager** (<code>manager</code>) | Supervision, Escalation, Approvals | Can <strong>approve/reject</strong> Change Requests. |",
+                "| **Agent** (<code>agent</code>) | Frontline Incident/Request fulfillment | Cannot bypass approvals, or change system administration settings. |",
+                "| <strong>change_request.status</strong> | <code>new</code>, <code>assess</code>, <code>authorize</code>, <code>scheduled</code>, <code>implement</code>, <code>review</code>, <code>closed</code>, <code>canceled</code> |"
+            ],
+            "iteration_added": 1,
+            "iteration": 0
+        }
+    ]
+}

@@ -1,0 +1,67 @@
+{
+  "policies": [
+    {
+      "policy_name": "Administrator Role and 403 Forbidden Enforcement for SLA Definition Creation",
+      "description": "Only users with the **Administrator** role may create a new SLA definition. If a user with any other role attempts this operation, the request must be denied with a **403 Forbidden** response indicating insufficient authority.",
+      "references": [
+        "<p>| <strong>Administrator</strong> (<code>admin</code>) | System Configuration &amp; Integrity | Full CRUD (Create, Read, Update, Delete) access across all tables.\u00a0|</p>",
+        "<li>\n<p><strong>403 Forbidden:</strong> Permission denied (user role lacks authority for the operation).</p>\n</li>"
+      ],
+      "iteration_added": 2
+    },
+    {
+      "policy_name": "Mandatory Fields Validation for SLA Definition",
+      "description": "Before calling the **create SLA definition** tool, perform the following local checks:\n1. Verify that the payload includes the fields **name**, **metric**, **target_mins**, **pause_on_pending**, and **active**.\n2. Ensure **name** is a non\u2011empty string \u2264\u202f120 characters and does not already exist (use the `find_sla_definition_by_name` tool to confirm uniqueness).\n3. Confirm **metric** is exactly `RESPONSE` or `RESOLUTION` (case\u2011sensitive as defined in the enumeration).\n4. Check **target_mins** is an integer \u2265\u202f1.\n5. Validate **pause_on_pending** and **active** are boolean values.\nIf any check fails, abort the operation and return a clear policy\u2011violation message indicating which validation failed.",
+      "references": [],
+      "iteration_added": 1
+    },
+    {
+      "policy_name": "Policy Violation Halt",
+      "description": "Before invoking the `create_sla_definition` tool, perform the following validation steps using only available tools and the current chat context:\n1. **Role check**: Retrieve the caller\u2019s user record (e.g., via `get_user` using the token\u2019s user_id) and confirm the `role` field is either `admin` or `manager`, which according to the policy table have full CRUD permissions on SLA definitions.\n2. **Name validation**: Confirm the `name` field is present, non\u2011empty, and its length does not exceed 120 characters. Then call `find_sla_definition_by_name` to ensure no SLA definition already exists with that exact name.\n3. **Metric validation**: Verify the `metric` value is exactly `RESPONSE` or `RESOLUTION` (case\u2011sensitive as defined in the enumeration).\n4. **Target minutes**: Ensure `target_mins` is an integer >=\u202f1.\n5. **Boolean fields**: Check that `pause_on_pending` and `active` are boolean values (true/false).\nIf any of the above checks fail, respond with a clear error indicating which rule was violated and do **not** call `create_sla_definition`. Only when every check passes should the payload be passed to `create_sla_definition`.\n\nThis version explicitly states how to obtain the user role and which tools to call for each validation, making the policy fully self\u2011contained.",
+      "references": [
+        "Policy Violation: If a user request violates any rule herein, you must halt the operation and provide the specific policy reason before pausing.",
+        "Full CRUD (Create, Read, Update, Delete) access across all tables.",
+        "Any request to create or update a record must validate all mandatory fields.",
+        "| <strong>metric</strong> | RESPONSE, RESOLUTION |"
+      ],
+      "iteration_added": 1
+    },
+    {
+      "policy_name": "Conflict Handling \u2013 409 Conflict on Duplicate SLA Definition",
+      "description": "Before invoking **create a new SLA definition**, perform a lookup (e.g., `find_sla_definition_by_name` or `list_sla_definitions` filtered by `name`). If a definition with the same `name` already exists, do **not** call the creation tool; instead, return a response with HTTP status **409 Conflict** and an explanatory message indicating that an SLA definition with that name already exists. If no conflict is found, proceed to call the creation tool with the supplied payload.",
+      "references": [
+        "<strong>409 Conflict:</strong> Record locking or state conflict."
+      ],
+      "iteration_added": 1
+    },
+    {
+      "policy_name": "Atomic Operation Requirement for SLA Definition Creation",
+      "description": "When creating an SLA definition with the **add_new_sla_definition** tool, the call must contain every required field (`name`, `metric`, `target_mins`, `pause_on_pending`, `active`) and each value must meet the tool\u2019s constraints (e.g., `target_mins` \u2265\u202f1, `metric` one of \"RESPONSE\" or \"RESOLUTION\"). The call must be the only tool invocation for that user request unless a documented batch endpoint is used, thereby satisfying the \u201cAtomic Operations\u201d policy of performing one validated operation at a time.",
+      "references": [
+        "<strong>Atomic Operations:</strong> Perform <strong>one validated operation at a time</strong>, except when using approved batch endpoints. Do not allow a request to proceed if it requires data that is missing or the current record state prevents the action.",
+        "<strong>Mandatory Fields:</strong> Any request to create or update a record must validate all mandatory fields."
+      ],
+      "iteration_added": 1
+    },
+    {
+      "policy_name": "Do Not Provide Auto\u2011Generated IDs for SLA Definition Creation",
+      "description": "When creating a new SLA definition, the assistant must not supply the auto\u2011generated `sla_def_id`. The identifier must be generated by the system and the request should rely solely on the verified API result.",
+      "references": [
+        "Never assume or fabricate IDs, responses, or outcomes \u2014 rely solely on verified API results. The same is the case of optional or default arguments.",
+        "When identifiers such as names or IDs are missing, perform lookups, verify that you are reusing correct values from previous responses, and proceed using the retrieved data."
+      ],
+      "iteration_added": 1
+    }
+  ],
+  "archive": [
+    {
+      "policy_name": "Rate Limiting Policy for SLA Definition Creation",
+      "description": "When invoking the **create SLA definition** tool, if the API returns a rate\u2011limit error (e.g., HTTP 429), the assistant must stop further calls and retry the request using exponential backoff: start with a 1\u2011second wait, double the wait time after each failed retry (2\u202fs, 4\u202fs, 8\u202fs, \u2026) up to a maximum of 32\u202fseconds, and give up after 5 attempts. Each retry should re\u2011send the same payload without modification.",
+      "references": [
+        "<strong>Rate Limiting:</strong> If exceeded, pause and retry using <strong>Exponential Backoff</strong>."
+      ],
+      "iteration_added": 1,
+      "comments": "The policy is directly relevant to the SLA definition creation tool and is scoped specifically to that operation, making it tool\u2011specific. Validation of the rate\u2011limit condition cannot be performed before the call, so it is not pre\u2011validatable, but the required reaction (pause and exponential backoff) can be enforced based on the response. The current description, however, does not spell out the backoff parameters (initial delay, multiplier, max delay, retry limit), so it is not fully self\u2011contained. Adding those details (as in the alternative description) would make the policy complete and unambiguous. Overall the policy is clear and enforceable, earning a score of 4 out of 5.\nThe policy is directly relevant to the target tool (create SLA definition) and is narrowly scoped to that operation, making it tool\u2011specific. It cannot be fully validated before the tool is called because it depends on receiving a 429 response, so `can_be_validated` is false. The required behavior (stop, exponential backoff with defined limits, and payload reuse) can be enforced solely by the assistant\u2019s control flow, so it is actionable. All necessary details are included; no extra context beyond the quoted reference is needed, so the policy is self\u2011contained. Overall the policy is clear, enforceable, and well\u2011aligned with the tool, deserving a score of 4 out of 5.\nThe policy is directly relevant to the target tool (create SLA definition) and is narrowly scoped to that operation, making it tool\u2011specific. It cannot be fully validated before the tool is called because it depends on receiving a 429 response, so `can_be_validated` is false. The required behavior (stop, exponential backoff with defined limits, and payload reuse) can be enforced solely by the assistant\u2019s control flow, so it is actionable. All necessary details are included; no extra context beyond the quoted reference is needed, so the policy is self\u2011contained. Overall the policy is clear, enforceable, and well\u2011aligned with the tool, deserving a score of 4 out of 5.\nThe policy is directly relevant to the target tool (create SLA definition) and is narrowly scoped to that operation, making it tool\u2011specific. It cannot be fully validated before the tool is called because it depends on receiving a 429 response, so `can_be_validated` is false. The required behavior (stop, exponential backoff with defined limits, and payload reuse) can be enforced solely by the assistant\u2019s control flow, so it is actionable. All necessary details are included; no extra context beyond the quoted reference is needed, so the policy is self\u2011contained. Overall the policy is clear, enforceable, and well\u2011aligned with the tool, deserving a score of 4 out of 5.\nThe policy is directly relevant to the target tool (create SLA definition) and is narrowly scoped to that operation, making it tool\u2011specific. It cannot be fully validated before the tool is called because it depends on receiving a 429 response, so `can_be_validated` is false. The required behavior (stop, exponential backoff with defined limits, and payload reuse) can be enforced solely by the assistant\u2019s control flow, so it is actionable. All necessary details are included; no extra context beyond the quoted reference is needed, so the policy is self\u2011contained. Overall the policy is clear, enforceable, and well\u2011aligned with the tool, deserving a score of 4 out of 5.\n"
+    }
+  ]
+}

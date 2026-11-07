@@ -1,0 +1,76 @@
+{
+    "policies": [
+        {
+            "policy_name": "Mandatory Fields Validation",
+            "description": "Any request to create or update a record must validate that all required fields are present before invoking the tool.",
+            "references": [
+                "<strong>Mandatory Fields:</strong> Any request to create or update a record must validate all mandatory fields."
+            ],
+            "iteration_added": 0
+        },
+        {
+            "policy_name": "Do Not Fabricate IDs",
+            "description": "Never assume or fabricate IDs; the notification_id used in update_notification must be a verified existing ID.",
+            "references": [
+                "Never assume or fabricate IDs, responses, or outcomes \u2014 rely solely on verified API results."
+            ],
+            "iteration_added": 0
+        },
+        {
+            "policy_name": "Lookup Missing Identifiers",
+            "description": "If an identifier such as notification_id is missing, perform a lookup to retrieve a valid ID before proceeding.",
+            "references": [
+                "When identifiers such as names or IDs are missing, perform lookups, verify that you are reusing correct values from previous responses, and proceed using the retrieved data."
+            ],
+            "iteration_added": 0
+        },
+        {
+            "policy_name": "Atomic Operation Requirement",
+            "description": "Only one validated operation may be performed at a time; update_notification must be called as a single atomic action.",
+            "references": [
+                "<strong>Atomic Operations:</strong> Perform <strong>one validated operation at a time</strong>, except when using approved batch endpoints."
+            ],
+            "iteration_added": 0
+        },
+        {
+            "policy_name": "Policy Violation Handling",
+            "description": "If the update_notification request would violate any rule, the operation must be halted and the specific policy reason reported before proceeding.",
+            "references": [
+                "<strong>Policy Violation:</strong> If a user request violates any rule herein, you <strong>must halt the operation</strong> and provide the specific policy reason before pausing."
+            ],
+            "iteration_added": 0
+        },
+        {
+            "policy_name": "User Clarification for Missing Mandatory Fields",
+            "description": "When a required field (e.g., notification_id) is missing, the assistant must state which field is required instead of asking for further information.",
+            "references": [
+                "<strong>User Clarification:</strong> Do not ask for further information. If the request is ambiguous, return the list and state the ambiguity. If a mandatory field is missing, state which field is required."
+            ],
+            "iteration_added": 0
+        },
+        {
+            "policy_name": "Permission Denied Handling (403)",
+            "description": "If the update_notification request is made by a user whose role does not have authority to modify the notification, the operation must halt and return a 403 Forbidden error without performing any updates.",
+            "references": [
+                "<strong>403 Forbidden:</strong> Permission denied (user role lacks authority for the operation)."
+            ],
+            "iteration": 0
+        },
+        {
+            "policy_name": "Conflict Handling (409)",
+            "description": "When the update_notification request encounters a record locking or state conflict, the assistant must stop the operation and return a 409 Conflict error, ensuring no partial updates occur.",
+            "references": [
+                "<strong>409 Conflict:</strong> Record locking or state conflict."
+            ],
+            "iteration": 0
+        },
+        {
+            "policy_name": "Rate Limiting with Exponential Backoff",
+            "description": "If the notification service responds with a rate\u2011limit condition, the assistant must pause and retry the update_notification call using exponential backoff, respecting the service\u2019s limits before proceeding.",
+            "references": [
+                "<strong>Rate Limiting:</strong> If exceeded, pause and retry using <strong>Exponential Backoff</strong>."
+            ],
+            "iteration": 0
+        }
+    ]
+}

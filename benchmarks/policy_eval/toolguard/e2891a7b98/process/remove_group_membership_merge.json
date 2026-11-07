@@ -1,0 +1,103 @@
+{
+    "policies": [
+        {
+            "policy_name": "Mandatory Fields Validation",
+            "description": "Before calling remove_group_membership, verify that all required parameters (group_id and user_id) are provided and not missing, as the operation requires mandatory fields to be validated.",
+            "references": [
+                "Mandatory Fields: Any request to create or update a record must validate all mandatory fields."
+            ],
+            "iteration_added": 0
+        },
+        {
+            "policy_name": "Atomic Operation Constraint",
+            "description": "Execute remove_group_membership as a single validated operation; do not combine it with other actions in the same request, and ensure the required data is present before proceeding.",
+            "references": [
+                "Atomic Operations: Perform one validated operation at a time, except when using approved batch endpoints. Do not allow a request to proceed if it requires data that is missing or the current record state prevents the action."
+            ],
+            "iteration_added": 0
+        },
+        {
+            "policy_name": "User Active Status Requirement",
+            "description": "Confirm that the user identified by user_id is active (users.active = true) before removing their group membership, as updates involving users must only affect active accounts.",
+            "references": [
+                "User Status: Ensure any user being assigned to (assigned_to) or updated is users.active = true."
+            ],
+            "iteration_added": 0
+        },
+        {
+            "policy_name": "Permission Authorization",
+            "description": "Before invoking remove_group_membership, verify that the calling user possesses the necessary role/permissions; if the user lacks authority, halt the operation and return a 403 Forbidden response.",
+            "references": [
+                "403 Forbidden: Permission denied (user role lacks authority for the operation)."
+            ],
+            "iteration_added": 0
+        },
+        {
+            "policy_name": "Group Existence Validation",
+            "description": "Validate that the specified group_id exists in the system via a verified lookup before attempting to remove the membership.",
+            "references": [
+                "Never assume or fabricate IDs, rely solely on verified API results.",
+                "Referential Integrity: Before closing any record, verify that all mandatory dependencies are satisfied."
+            ],
+            "iteration_added": 1
+        },
+        {
+            "policy_name": "User Existence Validation",
+            "description": "Validate that the specified user_id exists in the system via a verified lookup before attempting to remove the membership.",
+            "references": [
+                "Never assume or fabricate IDs, rely solely on verified API results.",
+                "Referential Integrity: Before closing any record, verify that all mandatory dependencies are satisfied."
+            ],
+            "iteration_added": 1
+        },
+        {
+            "policy_name": "Group-User Relationship Validation",
+            "description": "Validate that a membership relationship between the given group_id and user_id exists and is valid before removal.",
+            "references": [
+                "Never assume or fabricate IDs, rely solely on verified API results.",
+                "Referential Integrity: Before closing any record, verify that all mandatory dependencies are satisfied."
+            ],
+            "iteration_added": 1
+        },
+        {
+            "policy_name": "Member ID Consistency",
+            "description": "If a member_id is supplied, ensure it corresponds exactly to the provided group_id and user_id, maintaining referential integrity of the group\u2011membership record.",
+            "references": [
+                "Referential Integrity: Before closing any record, verify that all mandatory dependencies are satisfied."
+            ],
+            "iteration_added": 0
+        },
+        {
+            "policy_name": "Administrator Role Required for Group Membership Removal",
+            "description": "Only a user with the Administrator role may invoke `remove_group_membership`, because Administrators have full CRUD access across all tables, which includes user\u2011group management. If the calling user does not hold the `admin` role, the operation must be halted and a 403\u202fForbidden response returned.",
+            "references": [
+                "| **Administrator** (<code>admin</code>) | System Configuration &amp; Integrity | Full CRUD (Create, Read, Update, Delete) access across all tables. |"
+            ],
+            "iteration_added": 1
+        },
+        {
+            "policy_name": "No Approval Bypass for Group Membership Changes",
+            "description": "When removing a user from a group, the assistant must not bypass any required approvals. Changes that affect system\u2011administration settings such as group memberships must follow the normal approval workflow; attempting to delete a membership without the appropriate approval must cause the operation to halt with a policy violation.",
+            "references": [
+                "Cannot bypass approvals, or change system administration settings."
+            ],
+            "iteration_added": 1
+        },
+        {
+            "policy_name": "Conflict Error Handling",
+            "description": "If the remove_group_membership API returns a 409 Conflict response (indicating record locking or a state conflict), the operation must be halted and the conflict reason reported to the user.",
+            "references": [
+                "409 Conflict: Record locking or state conflict."
+            ],
+            "iteration_added": 2
+        },
+        {
+            "policy_name": "Rate Limiting Management",
+            "description": "If the remove_group_membership request is rate\u2011limited, the assistant must pause and retry the request using exponential backoff as defined in the policy.",
+            "references": [
+                "Rate Limiting: If exceeded, pause and retry using Exponential Backoff."
+            ],
+            "iteration_added": 2
+        }
+    ]
+}

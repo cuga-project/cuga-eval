@@ -1,0 +1,166 @@
+{
+    "policies": [
+        {
+            "policy_name": "Mandatory fields must be provided for add_child_incidents",
+            "description": "The request must include both the required parameters\u202f\u2014\u202fparent_incident and child_incidents\u202f\u2014\u202fbefore invoking the add_child_incidents tool.",
+            "references": [
+                "<strong>Mandatory Fields:</strong> Any request to create or update a record must validate all mandatory fields."
+            ],
+            "iteration_added": 0
+        },
+        {
+            "policy_name": "Verify incident identifiers exist before creating relationships",
+            "description": "Do not assume incident IDs are valid; the parent and each child incident ID must be looked up and confirmed to exist via verified API results before calling add_child_incidents.",
+            "references": [
+                "Never assume or fabricate IDs, responses, or outcomes \u2014 rely solely on verified API results.",
+                "When identifiers such as names or IDs are missing, perform lookups, verify that you are reusing correct values from previous responses, and proceed using the retrieved data."
+            ],
+            "iteration_added": 0
+        },
+        {
+            "policy_name": "User role must have CRUD permissions on incidents",
+            "description": "Only users with roles that grant full CRUD access to incidents (Administrator, Manager, or Agent) are permitted to create parent\u2011child incident mappings.",
+            "references": [
+                "<strong>Administrator</strong> (<code>admin</code>) | System Configuration &amp; Integrity | Full CRUD (Create, Read, Update, Delete) access across all tables.",
+                "<strong>Agent</strong> (<code>agent</code>) | Frontline Incident/Request fulfillment | <strong>Full CRUD</strong> on <strong>Incidents, Service Requests, Tasks, Work Notes, CMDB, Change, Problem, and Knowledge</strong>. READ access to all the tables. Can update assignment, state, and resolution."
+            ],
+            "iteration_added": 0
+        },
+        {
+            "policy_name": "Batch endpoint usage is permitted under atomic operation rules",
+            "description": "add_child_incidents is a batch operation; it may be executed because the policy allows batch endpoints as an exception to the one\u2011operation\u2011at\u2011a\u2011time rule.",
+            "references": [
+                "<strong>Atomic Operations:</strong> Perform <strong>one validated operation at a time</strong>, except when using approved batch endpoints."
+            ],
+            "iteration_added": 0
+        },
+        {
+            "policy_name": "Halt operation on policy violation",
+            "description": "If a user request violates any rule herein, the assistant must immediately stop the operation and provide the specific policy reason before pausing.",
+            "references": [
+                "<strong>Policy Violation:</strong> If a user request violates any rule herein, you <strong>must halt the operation</strong> and provide the specific policy reason before pausing."
+            ],
+            "iteration_added": 0
+        },
+        {
+            "policy_name": "Enforce knowledge\u2011scope confidentiality",
+            "description": "The assistant must never disclose information that lies outside the authenticated user's access scope when creating or managing parent\u2011child incident relationships.",
+            "references": [
+                "<strong>Knowledge Scope:</strong> Do not disclose information that is outside the authenticated user's access scope."
+            ],
+            "iteration_added": 0
+        },
+        {
+            "policy_name": "Do not request clarification",
+            "description": "When handling a request to add child incidents, the assistant must not ask the user for additional information. If the request is ambiguous or missing mandatory fields, it must return the list of required inputs and state the ambiguity or missing field.",
+            "references": [
+                "<strong>User Clarification:</strong> Do not ask for further information. If the request is ambiguous, return the list and state the ambiguity. If a mandatory field is missing, state which field is required."
+            ],
+            "iteration_added": 0
+        },
+        {
+            "policy_name": "Log timestamps and actor for child\u2011incident mappings",
+            "description": "Every creation of a parent\u2011child incident mapping must be recorded with the timestamp (`created_on`) and the `user_id` of the actor performing the operation.",
+            "references": [
+                "<strong>Time Tracking:</strong> All work logs must include the timestamp (<code>created_on</code>) and the <code>user_id</code> performing the action."
+            ],
+            "iteration_added": 0
+        },
+        {
+            "policy_name": "Check incident status before creating parent\u2011child relationship",
+            "description": "Before invoking add_child_incidents, verify that the parent incident (and any child incident, if required) is in a state that permits linking (e.g., not closed or cancelled); if the current record state prevents the action, the operation must not proceed.",
+            "references": [
+                "Do not allow a request to proceed if it requires data that is missing or the current record state prevents the action."
+            ],
+            "iteration_added": 1
+        },
+        {
+            "policy_name": "Enforce referential integrity for parent\u2011child incident links",
+            "description": "Both the parent incident ID and each child incident ID must correspond to existing incident records; the assistant must confirm these records exist and are valid before creating the mapping.",
+            "references": [
+                "<strong>Referential Integrity:</strong> Before closing any record, verify that all mandatory dependencies are satisfied."
+            ],
+            "iteration_added": 1
+        },
+        {
+            "policy_name": "Return 403 Forbidden for insufficient permissions",
+            "description": "If the requesting user does not have a role that grants CRUD access to incidents (Administrator, Manager, or Agent), the assistant must abort the add_child_incidents operation and return a 403 Forbidden error.",
+            "references": [
+                "<strong>403 Forbidden:</strong> Permission denied (user role lacks authority for the operation)."
+            ],
+            "iteration_added": 1
+        },
+        {
+            "policy_name": "Return 409 Conflict on duplicate parent\u2011child link",
+            "description": "If the add_child_incidents request would create a duplicate parent\u2011child link, the assistant must abort the operation and return a 409 Conflict error.",
+            "references": [
+                "<strong>409 Conflict:</strong> Record locking or state conflict."
+            ],
+            "iteration_added": 2
+        },
+        {
+            "policy_name": "Return 409 Conflict on state conflict (e.g., locked incident)",
+            "description": "If the add_child_incidents request would conflict with the current state of an incident (such as the incident being locked), the assistant must abort the operation and return a 409 Conflict error.",
+            "references": [
+                "<strong>409 Conflict:</strong> Record locking or state conflict."
+            ],
+            "iteration_added": 2
+        },
+        {
+            "policy_name": "Confirm user roles before operation",
+            "description": "Before invoking any tool, the assistant must check that the request is processed using confirmed user roles.",
+            "references": [
+                "First you must check the user information and operate exclusively based on <strong>confirmed user roles</strong>, <strong>verified record relationships</strong>, and <strong>ITIL/database integrity rules</strong>."
+            ],
+            "iteration_added": 3
+        },
+        {
+            "policy_name": "Verify record relationships before operation",
+            "description": "Before invoking any tool, the assistant must validate that all involved record relationships are verified.",
+            "references": [
+                "First you must check the user information and operate exclusively based on <strong>confirmed user roles</strong>, <strong>verified record relationships</strong>, and <strong>ITIL/database integrity rules</strong>."
+            ],
+            "iteration_added": 3
+        },
+        {
+            "policy_name": "Apply ITIL/database integrity rules before operation",
+            "description": "Before invoking any tool, the assistant must ensure that ITIL and database integrity rules are satisfied.",
+            "references": [
+                "First you must check the user information and operate exclusively based on <strong>confirmed user roles</strong>, <strong>verified record relationships</strong>, and <strong>ITIL/database integrity rules</strong>."
+            ],
+            "iteration_added": 3
+        },
+        {
+            "policy_name": "Do not bypass mandatory approvals",
+            "description": "When creating parent\u2011child incident mappings the assistant must not bypass any mandatory approvals.",
+            "references": [
+                "You are strictly prohibited from assuming data, executing ambiguous commands, bypassing mandatory approvals, or violating audit and compliance requirements."
+            ],
+            "iteration_added": 3
+        },
+        {
+            "policy_name": "Do not violate audit/compliance requirements",
+            "description": "When creating parent\u2011child incident mappings the assistant must not violate audit or compliance requirements.",
+            "references": [
+                "You are strictly prohibited from assuming data, executing ambiguous commands, bypassing mandatory approvals, or violating audit and compliance requirements."
+            ],
+            "iteration_added": 3
+        },
+        {
+            "policy_name": "Rate limiting must be respected with exponential backoff",
+            "description": "If the add_child_incidents API call hits a rate\u2011limit, the assistant must pause and retry using exponential backoff rather than failing immediately.",
+            "references": [
+                "<strong>Rate Limiting:</strong> If exceeded, pause and retry using <strong>Exponential Backoff</strong>."
+            ],
+            "iteration_added": 2
+        },
+        {
+            "policy_name": "Execute tasks in a logical and efficient flow",
+            "description": "All steps involved in adding child incidents must be performed in a logical, efficient execution order.",
+            "references": [
+                "Complete each task in a logical, and efficient execution flow."
+            ],
+            "iteration_added": 2
+        }
+    ]
+}

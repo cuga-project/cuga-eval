@@ -1,0 +1,46 @@
+{
+    "policies": [
+        {
+            "policy_name": "Role\u2011Based Access \u2013 Delete Operations on Change Request Mappings",
+            "description": "Only users whose role grants full CRUD permissions (Administrator, Manager, or Agent) may delete change\u2011request\u2011mapping records. Users without such a role must be denied the operation.",
+            "references": [
+                "<p>| <strong>Administrator</strong> (<code>admin</code>) | System Configuration &amp; Integrity | Full CRUD (Create, Read, Update, Delete) access across all tables.\u00a0|</p>",
+                "<p>| <strong>Manager</strong> (<code>manager</code>) | Supervision, Escalation, Approvals | Full CRUD on operational tables (<code>incident</code>, <code>problem</code>, <code>change</code>, <code>knowledge</code>); READ access to all the tables. Can <strong>reassign</strong> incidents/requests. Can <strong>approve/reject</strong> Change Requests. Monitors SLAs and escalations. |</p>",
+                "<p>| <strong>Agent</strong> (<code>agent</code>) | Frontline Incident/Request fulfillment | <strong>Full CRUD</strong> on <strong>Incidents, Service Requests, Tasks, Work Notes, CMDB, Change, Problem, and Knowledge</strong>. READ access to all the tables. Can update assignment, state, and resolution. | Cannot bypass approvals, or change system administration settings. |</p>"
+            ],
+            "iteration_added": 0
+        },
+        {
+            "policy_name": "Atomic Operation Requirement",
+            "description": "Each delete_change_request_mappings call must be a single validated operation; the system must not attempt to perform the deletion if required data is missing or the current record state prevents the action.",
+            "references": [
+                "<p><strong>Atomic Operations:</strong> Perform <strong>one validated operation at a time</strong>, except when using approved batch endpoints. Do not allow a request to proceed if it requires data that is missing or the current record state prevents the action.</p>"
+            ],
+            "iteration_added": 0
+        },
+        {
+            "policy_name": "Referential Integrity Check Before Deletion",
+            "description": "Before deleting a change\u2011request\u2011mapping record, verify that removing the mapping does not violate any mandatory dependencies or leave dangling references.",
+            "references": [
+                "<p><strong>Referential Integrity:</strong> Before closing any record, verify that all mandatory dependencies are satisfied.</p>"
+            ],
+            "iteration_added": 0
+        },
+        {
+            "policy_name": "Permission Denied (403) for Unauthorized Deletion",
+            "description": "If the invoking user\u2019s role does not include delete authority for change\u2011request\u2011mapping records, the operation must be aborted and a 403 Forbidden error returned.",
+            "references": [
+                "<p><strong>403 Forbidden:</strong> Permission denied (user role lacks authority for the operation).</p>"
+            ],
+            "iteration_added": 0
+        },
+        {
+            "policy_name": "Policy Violation Halt",
+            "description": "If any rule in this policy document is violated while attempting the deletion (e.g., missing required role or failed integrity check), the operation must be halted and the specific policy reason reported before pausing.",
+            "references": [
+                "<p><strong>Policy Violation:</strong> If a user request violates any rule herein, you <strong>must halt the operation</strong> and provide the specific policy reason before pausing.</p>"
+            ],
+            "iteration_added": 0
+        }
+    ]
+}

@@ -1,0 +1,95 @@
+{
+    "policies": [
+        {
+            "policy_name": "Role\u2011Based Permission for Problem Creation",
+            "description": "Only users whose confirmed role is Administrator, Manager, or Agent may invoke the create_problem tool, because these roles have Full CRUD access on the problem table.",
+            "references": [
+                "First you must check the user information and operate exclusively based on **confirmed user roles**, **verified record relationships**, and **ITIL/database integrity rules**.",
+                "<strong>Administrator</strong> (<code>admin</code>) | System Configuration &amp; Integrity | Full CRUD (Create, Read, Update, Delete) access across all tables.",
+                "<strong>Manager</strong> (<code>manager</code>) | Supervision, Escalation, Approvals | Full CRUD on operational tables (<code>incident</code>, <code>problem</code>, <code>change</code>, <code>knowledge</code>);",
+                "<strong>Agent</strong> (<code>agent</code>) | Frontline Incident/Request fulfillment | <strong>Full CRUD</strong> on <strong>Incidents, Service Requests, Tasks, Work Notes, CMDB, Change, Problem, and Knowledge</strong>."
+            ],
+            "iteration_added": 0
+        },
+        {
+            "policy_name": "Mandatory Fields Validation",
+            "description": "Every request to create a Problem must include all mandatory fields defined for the operation (problem_statement, status, impact, urgency, priority).",
+            "references": [
+                "<strong>Mandatory Fields:</strong> Any request to create or update a record must validate all mandatory fields."
+            ],
+            "iteration_added": 0
+        },
+        {
+            "policy_name": "Do Not Fabricate IDs",
+            "description": "When providing identifiers (e.g., assigned_to, configuration_item, original_task) the system must not assume or fabricate IDs; the IDs must be verified through a prior lookup.",
+            "references": [
+                "<strong>Never assume or fabricate IDs, responses, or outcomes \u2014 rely solely on verified API results.</strong>"
+            ],
+            "iteration_added": 0
+        },
+        {
+            "policy_name": "Lookup Missing Identifiers",
+            "description": "If any required identifier is missing from the request, the assistant must perform a lookup, verify the correct value from previous responses, and then use that verified value.",
+            "references": [
+                "When identifiers such as names or IDs are missing, perform lookups, verify that you are reusing correct values from previous responses, and proceed using the retrieved data."
+            ],
+            "iteration_added": 0
+        },
+        {
+            "policy_name": "Problem\u2011Incident Linking Requirement",
+            "description": "A newly created Problem record must be linked to all affected Incidents using the incident_to_problem related list.",
+            "references": [
+                "<strong>Linking:</strong> The Problem record <strong>must</strong> link all affected Incidents via the <code>incident_to_problem</code> related list."
+            ],
+            "iteration_added": 0
+        },
+        {
+            "policy_name": "Default Problem Status",
+            "description": "If the status field is not explicitly supplied, the newly created Problem must have its status set to <code>new</code>.",
+            "references": [
+                "<strong>Default Status:</strong> All new Problems are set to <code>status = new</code>."
+            ],
+            "iteration_added": 0
+        },
+        {
+            "policy_name": "Workaround Handling Policy",
+            "description": "When a workaround is provided, the Problem\u2019s status must be set to <code>fix_in_progress</code> and the workaround notes must be published to every linked Incident and to relevant Knowledge Articles.",
+            "references": [
+                "<strong>Workaround:</strong> If workaround/temporary solution found, update workaround field and set status=<code>fix_in_progress</code>. The <code>workaround_notes</code> <strong>must</strong> be published to the linked Incidents and relevant Knowledge Articles."
+            ],
+            "iteration_added": 0
+        },
+        {
+            "policy_name": "Priority Must Follow Impact\u2011Urgency Matrix",
+            "description": "The priority value supplied (or automatically calculated) must correspond to the matrix defined for Impact \u00d7 Urgency; the system determines priority automatically from that matrix.",
+            "references": [
+                "<strong>Priority Calculation:</strong> Priority (<code>critical</code>, <code>high</code>, <code>moderate</code>, <code>low</code>, <code>planning</code>) is determined automatically by the system based on a below pre-defined matrix of <strong>Impact x Urgency</strong>."
+            ],
+            "iteration_added": 0
+        },
+        {
+            "policy_name": "Atomic Operation Requirement",
+            "description": "The creation of a Problem must be performed as a single validated operation; no additional unvalidated actions may be combined with it.",
+            "references": [
+                "<strong>Atomic Operations:</strong> Perform <strong>one validated operation at a time</strong>, except when using approved batch endpoints."
+            ],
+            "iteration_added": 0
+        },
+        {
+            "policy_name": "Problem Creation Trigger Requirement",
+            "description": "A Problem record may only be created when a recurring incident pattern or a major incident has been identified.",
+            "references": [
+                "**Trigger:** A Problem must be created (`create_problem`) when a recurring incident pattern or a major incident is identified."
+            ],
+            "iteration": 0
+        },
+        {
+            "policy_name": "Problem Closure Dependency on Change Request",
+            "description": "A Problem can transition to the **closed** status only after a permanent fix has been successfully implemented via a linked **normal** or **emergency** Change Request.",
+            "references": [
+                "**Final Status:** A Problem transitions to `closed` only after the permanent fix has been successfully implemented via a linked `normal` or `emergency` Change Request."
+            ],
+            "iteration": 0
+        }
+    ]
+}

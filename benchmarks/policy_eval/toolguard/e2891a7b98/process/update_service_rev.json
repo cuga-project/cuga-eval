@@ -1,0 +1,42 @@
+{
+    "policies": [
+        {
+            "policy_name": "Administrator Role Required for Service Updates",
+            "description": "Only users with the Administrator role (admin) may invoke the update_service tool; users in any other role are prohibited from updating Service records.",
+            "references": [
+                "| **Administrator** (<code>admin</code>) | System Configuration &amp; Integrity | Full CRUD (Create, Read, Update, Delete) access across all tables.\u00a0|",
+                "| **Manager** (<code>manager</code>) | Supervision, Escalation, Approvals | Full CRUD on operational tables (<code>incident</code>, <code>problem</code>, <code>change</code>, <code>knowledge</code>); READ access to all the tables. |",
+                "| **Agent** (<code>agent</code>) | Frontline Incident/Request fulfillment | **Full CRUD** on **Incidents, Service Requests, Tasks, Work Notes, CMDB, Change, Problem, and Knowledge**. READ access to all the tables. |"
+            ]
+        },
+        {
+            "policy_name": "Service Update Must Include Mandatory Field service_id",
+            "description": "For the `update_service` tool, the request must include a `service_id` field (string) that uniquely identifies the service record to be updated. The payload may contain any other fields to modify, but `service_id` is required; if it is missing, the request should be rejected before invoking the tool.",
+            "references": [
+                "<strong>Mandatory Fields:</strong> Any request to create or update a record must validate all mandatory fields."
+            ]
+        },
+        {
+            "policy_name": "Service Update Must Include At Least One Additional Field",
+            "description": "An update_service request must provide at least one updatable field in addition to `service_id` (e.g., name, owned_by, status, etc.).",
+            "references": [
+                "At least one field must be provided. Service name must be unique if provided."
+            ]
+        },
+        {
+            "policy_name": "Identifier Verification Requirement",
+            "description": "Prior to invoking **update_service**, verify that the `service_id` supplied by the user corresponds to an existing service record. Perform this verification using a lookup tool such as `find_service_by_name` (if the name is known) or `list_services` (filtered by the given ID). If the lookup returns a matching service, proceed with the `update_service` call; if no match is found, halt the operation and return an error indicating that the provided `service_id` is invalid. Under no circumstances should a `service_id` be fabricated or guessed.",
+            "references": [
+                "Never assume or fabricate IDs, responses, or outcomes \u2014 rely solely on verified API results.",
+                "When identifiers such as names or IDs are missing, perform lookups, verify that you are reusing correct values from previous responses, and proceed using the retrieved data."
+            ]
+        },
+        {
+            "policy_name": "Atomic Operation Requirement",
+            "description": "When invoking the update_service tool, issue exactly one call that updates the service record and include no other tool calls or batch operations in the same request. The request must contain at least one field to modify and must not attempt to combine multiple independent actions.",
+            "references": [
+                "<strong>Atomic Operations:</strong> Perform <strong>one validated operation at a time</strong>, except when using approved batch endpoints."
+            ]
+        }
+    ]
+}

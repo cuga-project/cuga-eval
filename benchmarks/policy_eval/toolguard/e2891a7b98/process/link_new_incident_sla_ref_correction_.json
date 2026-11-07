@@ -1,0 +1,128 @@
+{
+    "policies": [
+        {
+            "policy_name": "Mandatory Fields Validation",
+            "description": "Before calling the **link_new_incident_sla** tool, verify that the payload includes **incident_id**, **sla_def_id**, and **start_time**. All three must be non\u2011empty; incident_id and sla_def_id must match existing record IDs, and start_time must be a valid ISO\u20118601 datetime string. If any check fails, return an error explaining which mandatory field is missing or invalid and do not invoke the tool.",
+            "references": [
+                "<strong>Mandatory Fields:</strong> Any request to create or update a record must validate all mandatory fields.",
+                "<strong>Referential Integrity:</strong> Before closing any record, verify that all mandatory dependencies are satisfied."
+            ],
+            "iteration_added": 0
+        },
+        {
+            "policy_name": "SLA Alignment with Incident Priority",
+            "description": "When creating an Incident SLA (using the\u202flink_new_incident_sla\u202ftool), verify that the selected\u202fsla_def_id\u202fhas an\u202fapplies_to_priority\u202fvalue that matches the\u202fpriority\u202ffield of the incident identified by\u202fincident_id. If the priorities do not match, abort the operation and return a policy\u2011violation error indicating \u201cSLA priority mismatch\u201d.",
+            "references": [
+                "<li><strong>SLA Application:</strong> SLAs are automatically aligned based on <code>priority</code> linked to the incident.</li>"
+            ],
+            "iteration_added": 0
+        },
+        {
+            "policy_name": "Permission Check (403 Forbidden)",
+            "description": "Verify that the invoking user\u2019s role has authority to create an incident SLA; if the role lacks permission, the operation must be halted with a 403 Forbidden error.",
+            "references": [
+                "<strong>403 Forbidden:</strong> Permission denied (user role lacks authority for the operation).",
+                "<strong>Policy Violation:</strong> If a user request violates any rule herein, you <strong>must halt the operation</strong> and provide the specific policy reason before pausing."
+            ],
+            "iteration_added": 0
+        },
+        {
+            "policy_name": "Atomic Operation Requirement",
+            "description": "Before invoking `link_new_incident_sla`, perform the following validations in separate steps: 1) Confirm the target incident exists by calling `find_incident_by_id` or `find_incident_by_number`. 2) Confirm the SLA definition exists by calling `find_sla_definition_by_name` or `find_sla_definitions`. 3) Verify that the `start_time` parameter is a syntactically correct ISO\u20118601 datetime string and that its value lies between the current system date/time and 365 days in the future (the organization\u2019s allowed SLA window). Once all three checks succeed, a single call to `link_new_incident_sla` may be made; no additional tool calls should occur in the same interaction unless a pre\u2011approved batch endpoint is used.",
+            "references": [
+                "Atomic Operations: Perform one validated operation at a time, except when using approved batch endpoints."
+            ],
+            "iteration_added": 0
+        },
+        {
+            "policy_name": "Conflict Error Handling",
+            "description": "Before calling **link_new_incident_sla**, perform the following validation steps:\n1. Call `find_incident_slas` with the target `incident_id`. If the response contains any SLA records, abort and return a **409 Conflict** with the message \"SLA already exists for this incident\".\n2. Retrieve the incident record (e.g., via `find_incident_by_id`). Verify that its `status` is one of the allowed states for SLA creation: `new`, `in_progress`, `on_hold`, or `resolved`. If the status is `closed` or `canceled`, abort and return a **409 Conflict** with the message \"Incident state disallows SLA creation\".\n3. Only if both checks pass, invoke `link_new_incident_sla` with `incident_id`, `sla_def_id`, and `start_time`.\nThe policy assumes the system returns a 409 Conflict for record\u2011state conflicts, as defined in the \"Error Handling\" section of the ITSM Assistant Policy.",
+            "references": [
+                "<strong>409 Conflict:</strong> Record locking or state conflict."
+            ],
+            "iteration_added": 0
+        },
+        {
+            "policy_name": "No Fabrication of Identifiers or Defaults",
+            "description": "When creating an Incident SLA, never assume or fabricate any identifier, response value, or default argument. All IDs and field values must come from verified API results or explicit input.",
+            "references": [
+                "Never assume or fabricate IDs, responses, or outcomes \u2014 rely solely on verified API results. The same is the case of optional or default arguments.",
+                "First you must check the user information and operate exclusively based on confirmed user roles, verified record relationships, and ITIL/database integrity rules. You are strictly prohibited from assuming data, executing ambiguous commands, bypassing mandatory approvals, or violating audit and compliance requirements."
+            ],
+            "iteration_added": 2
+        },
+        {
+            "policy_name": "Policy Violation Handling",
+            "description": "Before using the **link_new_incident_sla** tool, ensure the requester is an Administrator, Manager, or Agent (all of whom have CRUD rights on the `incident_sla` table). Verify that `incident_id`, `sla_def_id`, and `start_time` are supplied and non\u2011empty. Use `find_incident_by_id` to confirm the incident exists and is not in a `closed` state. Use `find_sla_definition_by_name` (or `find_sla_definitions`) to confirm the SLA definition exists and is active. Validate that `start_time` follows ISO\u20118601 format and is not in the past unless a specific policy permits back\u2011dating. Finally, call `find_incident_slas` to ensure no existing SLA link uses the same `incident_id` and `sla_def_id`. If any condition fails, return a policy\u2011violation response and do not invoke `link_new_incident_sla`.",
+            "references": [
+                "<strong>Mandatory Fields:</strong> Any request to create or update a record must validate all mandatory fields.",
+                "| <strong>Administrator</strong> (<code>admin</code>) | System Configuration &amp; Integrity | Full CRUD (Create, Read, Update, Delete) access across all tables.",
+                "|",
+                "| <strong>Manager</strong> (<code>manager</code>) | Supervision, Escalation, Approvals | Full CRUD on operational tables (<code>incident</code>, <code>problem</code>, <code>change</code>, <code>knowledge</code>); READ access to all the tables. Can <strong>reassign</strong> incidents/requests. Can <strong>approve/reject</strong> Change Requests. Monitors SLAs and escalations. |",
+                "| <strong>Agent</strong> (<code>agent</code>) | Frontline Incident/Request fulfillment | <strong>Full CRUD</strong> on <strong>Incidents, Service Requests, Tasks, Work Notes, CMDB, Change, Problem, and Knowledge</strong>. READ access to all the tables. Can update assignment, state, and resolution. |"
+            ],
+            "iteration_added": 2
+        },
+        {
+            "policy_name": "SLA Pause When Incident Is On Hold",
+            "description": "When creating an Incident SLA (using the **link_new_incident_sla** tool), first retrieve the incident (e.g., via **find_incident_by_id**). If the incident\u2019s **status** equals **on_hold** and its **on_hold_reason** is one of **Awaiting Change**, **Awaiting Caller**, or **Awaiting Problem**, then:\n1. Call **link_new_incident_sla** with the required fields (incident_id, sla_def_id, start_time). The tool will set the stage to its default **in_progress**.\n2. Immediately call **update_incident_sla_details** with the returned **incident_sla_id** and set **stage = paused**.\nIf the incident is not on hold, only step\u202f1 is needed. This sequence ensures the policy is enforced even though the creation endpoint does not expose a stage parameter.",
+            "references": [
+                "<p><strong>SLA Pause:</strong> The SLA timer <strong>must</strong> be paused (<code>stage = paused</code>) when the Incident is in <code>stage = on_hold</code> and the <code>on_hold_reason</code> is one of the following enumerations: <code>Awaiting Change</code>, <code>Awaiting Caller</code>, or <code>Awaiting Problem</code>.</p>",
+                "| incident.on_hold_reason | <code>Awaiting Change</code>, <code>Awaiting Caller</code>, <code>Awaiting Problem</code> |"
+            ],
+            "iteration_added": 2
+        },
+        {
+            "policy_name": "Verify Incident Record Exists Before SLA Creation",
+            "description": "Before invoking the **create_incident_sla** tool, perform a lookup using the **find_incident_by_id** tool with the supplied <code>incident_id</code>. If the lookup returns a valid incident object, proceed to create the SLA; otherwise, abort and return an error indicating that the incident does not exist.",
+            "references": [
+                "First you must check the user information and operate exclusively based on confirmed user roles, verified record relationships, and ITIL/database integrity rules.",
+                "When identifiers such as names or IDs are missing, perform lookups, verify that you are reusing correct values from previous responses, and proceed using the retrieved data.",
+                "Never assume or fabricate IDs, responses, or outcomes \u2014 rely solely on verified API results.",
+                "Referential Integrity:",
+                "Before closing any record, verify that all mandatory dependencies are satisfied."
+            ],
+            "iteration_added": 1
+        },
+        {
+            "policy_name": "Verify SLA Definition Record Exists Before SLA Creation",
+            "description": "Before creating a new Incident SLA, confirm that the provided <code>sla_def_id</code> corresponds to an existing SLA definition record.",
+            "references": [],
+            "iteration_added": 1
+        },
+        {
+            "policy_name": "Lookup Incident ID When Missing",
+            "description": "If the required <code>incident_id</code> is not supplied, perform a lookup using the appropriate tool (e.g., <code>find_incident_by_number</code> or <code>find_incident_by_id</code>) and reuse the retrieved value before attempting to create the Incident SLA.",
+            "references": [
+                "When identifiers such as names or IDs are missing, perform lookups, verify that you are reusing correct values from previous responses, and proceed using the retrieved data."
+            ],
+            "iteration_added": 2
+        },
+        {
+            "policy_name": "Lookup SLA Definition ID When Missing",
+            "description": "Before invoking the **create incident SLA** tool, examine the supplied payload. If the mandatory field <code>sla_def_id</code> is absent, look for an optional <code>sla_name</code> field. When <code>sla_name</code> is provided, call the <code>find_sla_definition_by_name</code> API to retrieve the corresponding <code>sla_def_id</code>. Replay the original **create incident SLA** request, this time supplying the retrieved <code>sla_def_id</code>. If neither <code>sla_def_id</code> nor <code>sla_name</code> is present, abort the operation and return an error stating that the SLA definition identifier is required.",
+            "references": [],
+            "iteration_added": 2
+        }
+    ],
+    "archive": [
+        {
+            "policy_name": "Rate Limiting and Exponential Backoff",
+            "description": "When calling the **link_new_incident_sla** tool, if the API returns a **429 Too Many Requests** (or any documented rate\u2011limit error), the system must:\n1. Stop further processing for that request.\n2. Wait for an initial back\u2011off interval of 1 second.\n3. Retry the call, doubling the wait time after each subsequent 429 response (2\u202fs, 4\u202fs, 8\u202fs, \u2026) up to a maximum of **5 attempts** or a total back\u2011off time of **30\u202fseconds**.\n4. If all retries still return a rate\u2011limit error, return a clear error message indicating that the operation could not be completed due to persistent rate limiting.\nThis behavior must be enforced automatically; the assistant must not surface the 429 to the user nor abort the workflow without attempting the described retries.",
+            "references": [
+                "<strong>Rate Limiting:</strong> If exceeded, pause and retry using <strong>Exponential Backoff</strong>."
+            ],
+            "iteration_added": 2,
+            "comments": "The policy directly targets the `link_new_incident_sla` tool (the specified Target Tool), making it highly relevant and tool\u2011specific. It provides a complete, step\u2011by\u2011step fallback strategy that can be enforced solely with the tool\u2019s response (HTTP 429) and internal timing logic, thus it is actionable. Validation of compliance can only occur after a 429 response, so pre\u2011invocation validation is not possible, which lowers the score slightly. The description contains all necessary details without requiring external context, so the policy is self\u2011contained. Overall, the policy is clear, enforceable, and well\u2011scoped, earning a score of 4 out of 5.\nThe policy directly targets the `link_new_incident_sla` tool (the specified Target Tool), making it highly relevant and tool\u2011specific. It provides a complete, step\u2011by\u2011step fallback strategy that can be enforced solely with the tool\u2019s response (HTTP 429) and internal timing logic, thus it is actionable. Validation of compliance can only occur after a 429 response, so pre\u2011invocation validation is not possible, which lowers the score slightly. The description contains all necessary details without requiring external context, so the policy is self\u2011contained. Overall, the policy is clear, enforceable, and well\u2011scoped, earning a score of 4 out of 5.\nThe policy directly targets the `link_new_incident_sla` tool (the specified Target Tool), making it highly relevant and tool\u2011specific. It provides a complete, step\u2011by\u2011step fallback strategy that can be enforced solely with the tool\u2019s response (HTTP 429) and internal timing logic, thus it is actionable. Validation of compliance can only occur after a 429 response, so pre\u2011invocation validation is not possible, which lowers the score slightly. The description contains all necessary details without requiring external context, so the policy is self\u2011contained. Overall, the policy is clear, enforceable, and well\u2011scoped, earning a score of 4 out of 5.\nThe policy directly targets the `link_new_incident_sla` tool (the specified Target Tool), making it highly relevant and tool\u2011specific. It provides a complete, step\u2011by\u2011step fallback strategy that can be enforced solely with the tool\u2019s response (HTTP 429) and internal timing logic, thus it is actionable. Validation of compliance can only occur after a 429 response, so pre\u2011invocation validation is not possible, which lowers the score slightly. The description contains all necessary details without requiring external context, so the policy is self\u2011contained. Overall, the policy is clear, enforceable, and well\u2011scoped, earning a score of 4 out of 5.\n"
+        },
+        {
+            "policy_name": "User Clarification Requirement",
+            "description": "Do not ask for additional information. When a request is ambiguous, return the list of possible actions and clearly state the ambiguity. If a mandatory field is missing, explicitly state which field is required.",
+            "references": [
+                "<strong>User Clarification:</strong> Do not ask for further information. If the request is ambiguous, return the list and state the ambiguity. If a mandatory field is missing, state which field is required."
+            ],
+            "iteration_added": 2,
+            "comments": "The policy is directly applicable to the \"Create a new Incident SLA record\" tool because the tool has mandatory inputs (incident_id, sla_def_id, start_time). Before invoking the tool we can validate that these fields are present; if any are missing, the assistant must explicitly state which field(s) are required rather than prompting the user for clarification. The rule can be enforced using only the request payload and does not depend on external context, making it actionable and self\u2011contained. It is a general policy (not tool\u2011specific), but it is still relevant for this operation. The only minor deficiency is the phrase \"return the list of possible actions\" which could be clarified (e.g., enumerate valid incident\u2011SLA creation pathways). Overall the policy is clear and enforceable.\nScore: 4\nThe policy is directly applicable to the \"Create a new Incident SLA record\" tool because the tool has mandatory inputs (incident_id, sla_def_id, start_time). Before invoking the tool we can validate that these fields are present; if any are missing, the assistant must explicitly state which field(s) are required rather than prompting the user for clarification. The rule can be enforced using only the request payload and does not depend on external context, making it actionable and self\u2011contained. It is a general policy (not tool\u2011specific), but it is still relevant for this operation. The only minor deficiency is the phrase \"return the list of possible actions\" which could be clarified (e.g., enumerate valid incident\u2011SLA creation pathways). Overall the policy is clear and enforceable.\nScore: 4\nThe policy is directly applicable to the \"Create a new Incident SLA record\" tool because the tool has mandatory inputs (incident_id, sla_def_id, start_time). Before invoking the tool we can validate that these fields are present; if any are missing, the assistant must explicitly state which field(s) are required rather than prompting the user for clarification. The rule can be enforced using only the request payload and does not depend on external context, making it actionable and self\u2011contained. It is a general policy (not tool\u2011specific), but it is still relevant for this operation. The only minor deficiency is the phrase \"return the list of possible actions\" which could be clarified (e.g., enumerate valid incident\u2011SLA creation pathways). Overall the policy is clear and enforceable.\nScore: 4\nThe policy is directly applicable to the \"Create a new Incident SLA record\" tool because the tool has mandatory inputs (incident_id, sla_def_id, start_time). Before invoking the tool we can validate that these fields are present; if any are missing, the assistant must explicitly state which field(s) are required rather than prompting the user for clarification. The rule can be enforced using only the request payload and does not depend on external context, making it actionable and self\u2011contained. It is a general policy (not tool\u2011specific), but it is still relevant for this operation. The only minor deficiency is the phrase \"return the list of possible actions\" which could be clarified (e.g., enumerate valid incident\u2011SLA creation pathways). Overall the policy is clear and enforceable.\nScore: 4\nThe policy is directly applicable to the \"Create a new Incident SLA record\" tool because the tool has mandatory inputs (incident_id, sla_def_id, start_time). Before invoking the tool we can validate that these fields are present; if any are missing, the assistant must explicitly state which field(s) are required rather than prompting the user for clarification. The rule can be enforced using only the request payload and does not depend on external context, making it actionable and self\u2011contained. It is a general policy (not tool\u2011specific), but it is still relevant for this operation. The only minor deficiency is the phrase \"return the list of possible actions\" which could be clarified (e.g., enumerate valid incident\u2011SLA creation pathways). Overall the policy is clear and enforceable.\nScore: 4\n"
+        }
+    ]
+}

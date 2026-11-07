@@ -1,0 +1,44 @@
+{
+    "policies": [
+        {
+            "policy_name": "Mandatory incident_sla_id field",
+            "description": "Any request to update an Incident SLA must include the mandatory field\u202fincident_sla_id.",
+            "references": [
+                "<strong>Mandatory Fields:</strong> Any request to create or update a record must validate all mandatory fields."
+            ],
+            "iteration_added": 0
+        },
+        {
+            "policy_name": "Valid stage values",
+            "description": "When updating an Incident SLA, the\u202fstage\u202ffield must be set to one of the allowed enumeration values: in_progress, paused, completed, cancelled, or breached.",
+            "references": [
+                "| <strong>incident_sla.stage</strong> | <code>in_progress</code>, <code>paused</code>, <code>completed</code>, <code>cancelled</code>, <code>breached</code> |"
+            ],
+            "iteration_added": 0
+        },
+        {
+            "policy_name": "Pause SLA only on allowed on\u2011hold reasons",
+            "description": "The SLA timer may be set to\u202fstage = paused\u202fonly when the related Incident is in\u202fstage = on_hold\u202fand its\u202fon_hold_reason\u202fis one of: Awaiting Change, Awaiting Caller, or Awaiting Problem.",
+            "references": [
+                "<strong>SLA Pause:</strong> The SLA timer <strong>must</strong> be paused (<code>stage = paused</code>) when the Incident is in <code>stage = on_hold</code> and the <code>on_hold_reason</code> is one of the following enumerations: <code>Awaiting Change</code>, <code>Awaiting Caller</code>, or <code>Awaiting Problem</code>."
+            ],
+            "iteration_added": 0
+        },
+        {
+            "policy_name": "Breach handling requirements",
+            "description": "If an Incident SLA is updated to\u202fstage = breached, the Incident\u2019s\u202fescalation\u202fflag must be set to\u202ftrue\u202fand an automatic notification must be sent to the\u202fManager.",
+            "references": [
+                "<strong>Breach:</strong> If the SLA exceeds its duration (<code>stage = breached</code>), the <code>escalation</code> flag on the Incident <strong>must</strong> be set to true, and an automatic notification sent to the <code>Manager</code>."
+            ],
+            "iteration_added": 0
+        },
+        {
+            "policy_name": "Atomic update operation",
+            "description": "Each call to\u202fupdate_incident_sla_details\u202fmust perform only one validated operation at a time; multiple field updates are not allowed unless using an approved batch endpoint.",
+            "references": [
+                "<strong>Atomic Operations:</strong> Perform <strong>one validated operation at a time</strong>, except when using approved batch endpoints."
+            ],
+            "iteration_added": 0
+        }
+    ]
+}

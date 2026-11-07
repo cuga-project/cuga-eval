@@ -1,0 +1,92 @@
+{
+    "policies": [
+        {
+            "policy_name": "Role\u2011Based Deletion Permission",
+            "description": "Only users with the **Administrator** role are authorized to delete Incident SLA records because they have full CRUD access across all tables. Users with any other role (Manager, Agent, Reporter, etc.) must be denied the operation and a **403\u202fForbidden** error returned, indicating that the user role lacks authority for the deletion.",
+            "references": [
+                "Administrator (admin) | System Configuration & Integrity | Full CRUD (Create, Read, Update, Delete) access across all tables.",
+                "403 Forbidden:",
+                "Permission denied (user role lacks authority for the operation)."
+            ],
+            "iteration_added": 1
+        },
+        {
+            "policy_name": "Identifier Integrity for Deletion",
+            "description": "Before calling **delete_incident_slas**, ensure that every identifier required by the operation (`incident_sla_id`, `incident_id`, `sla_def_id`) is obtained from a verified source. If any identifier is missing, first retrieve it using one of the read\u2011only tools (e.g., **find_incident_slas**, **find_sla_definition_by_name**, **find_sla_definitions**, or any other tool that can return the needed ID). Only after a successful lookup should the delete request be issued. Do not construct IDs yourself or guess values; use only IDs that were returned by a prior API call or are part of the user\u2019s confirmed context.",
+            "references": [
+                "First you must check the user information and operate exclusively based on <strong>confirmed user roles</strong>, <strong>verified record relationships</strong>, and <strong>ITIL/database integrity rules</strong>. You are strictly prohibited from assuming data, executing ambiguous commands, bypassing mandatory approvals, or violating audit and compliance requirements.",
+                "When identifiers such as names or IDs are missing, perform lookups, verify that you are reusing correct values from previous responses, and proceed using the retrieved data.",
+                "Never assume or fabricate IDs, responses, or outcomes \u2014 rely solely on verified API results. The same is the case of optional or default arguments."
+            ],
+            "iteration_added": 1
+        },
+        {
+            "policy_name": "Atomic Deletion Operation",
+            "description": "Each `delete_incident_slas` call must be performed as a single validated operation. The assistant may not combine the deletion with any other actions unless using an approved batch endpoint, ensuring the operation is atomic.",
+            "references": [
+                "Atomic Operations: Perform one validated operation at a time, except when using approved batch endpoints. Do not allow a request to proceed if it requires data that is missing or the current record state prevents the action."
+            ],
+            "iteration_added": 1
+        },
+        {
+            "policy_name": "Conflict Error Handling for Deletion",
+            "description": "If a deletion attempt fails because the Incident SLA record is locked or in a state that prevents removal, the assistant must return a **409\u202fConflict** error to indicate the state conflict.",
+            "references": [
+                "<strong>409 Conflict:</strong> Record locking or state conflict."
+            ],
+            "iteration_added": 1
+        },
+        {
+            "policy_name": "Policy Violation Halt",
+            "description": "When a request to delete incident SLA records is received:\n1. Verify the request payload contains **at least one** of the allowed filter fields (`incident_sla_id`, `incident_id`, `sla_def_id`, `stage`, `has_breached`, `created_before`, `created_after`). If none are present, reject the request.\n2. Use a user\u2011lookup tool (`get_user`, `get_user_using_email`, or `list_users`) to fetch the requester\u2019s record and ensure their `role` is **admin** or **manager**. If the role is lower, deny the operation.\n3. Identify the exact SLA records that would be affected by calling `list_incident_slas` with the same filter set.\n4. For each SLA identified, confirm there are **no active** incidents, changes, or problems referencing it:\n   - Call `list_incidents` with `incident_sla_id` equal to the SLA\u2019s ID and ensure the result set is empty.\n   - Call `list_changes` with any filter that could link the change to the SLA (e.g., `sla_def_id` or `incident_sla_id`). Ensure no records are returned.\n   - Call `list_problems` with analogous filters and ensure no records are returned.\n5. If any of the above list calls return records, abort the deletion and return an integrity\u2011violation error.\n6. If all checks pass, execute `delete_incident_slas` with the original request payload.\nThis description contains all required steps and the exact tools to be used, making it fully self\u2011contained.",
+            "references": [
+                "<strong>Policy Violation:</strong> If a user request violates any rule herein, you <strong>must halt the operation</strong> and provide the specific policy reason before pausing.",
+                "| <strong>Administrator</strong> (<code>admin</code>) | System Configuration &amp; Integrity | Full CRUD (Create, Read, Update, Delete) access across all tables.\u00a0|",
+                "| <strong>Manager</strong> (<code>manager</code>) | Supervision, Escalation, Approvals | Full CRUD on operational tables (<code>incident</code>, <code>problem</code>, <code>change</code>, <code>knowledge</code>); READ access to all the tables. Can <strong>reassign</strong> incidents/requests. Can <strong>approve/reject</strong> Change Requests. Monitors SLAs and escalations. |"
+            ],
+            "iteration_added": 1
+        },
+        {
+            "policy_name": "No Confirmation Required Before Deletion",
+            "description": "Before calling delete_incident_slas, the assistant must verify: (a) the requesting user's role is either Administrator or Manager (these roles have delete rights on Incident SLA records as defined in the role table); (b) the request includes at least one non\u2011empty filter among incident_sla_id, incident_id, sla_def_id, stage, has_breached, created_before, created_after; (c) for each filter value, perform a lookup (e.g., using list or find tools) to confirm that matching Incident SLA records exist in the organization; (d) ensure no other records (such as active incident\u2011sla links) would be left orphaned by the deletion \u2013 this can be checked by querying dependent tables; (e) only after all checks pass may the assistant invoke delete_incident_slas without asking the user for additional confirmation.",
+            "references": [
+                "You do not need to ask for confirmation or permission before taking action.",
+                "Administrator (admin) | Full CRUD (Create, Read, Update, Delete) access across all tables.",
+                "Manager (manager) | Full CRUD on operational tables (incident, problem, change, knowledge); READ access to all the tables.",
+                "Referential Integrity:",
+                "Before closing any record, verify that all mandatory dependencies are satisfied."
+            ],
+            "iteration_added": 1
+        },
+        {
+            "policy_name": "Missing or Ambiguous Filters Handling",
+            "description": "Before calling **delete_incident_slas**, ensure the request includes at least one of the following filters: `incident_sla_id`, `incident_id`, `sla_def_id`, `stage`, `has_breached`, `created_before`, or `created_after`. If none are supplied, stop and return an error indicating that a filter is required. If the supplied filter(s) would affect more than one SLA record, invoke **find_incident_slas** with the same filter(s) to obtain the matching records, display the list to the user, and request the user to specify which record(s) to delete. Only after the user confirms the exact record(s) should **delete_incident_slas** be executed.",
+            "references": [
+                "<strong>Policy Violation:</strong> If a user request violates any rule herein, you <strong>must halt the operation</strong> and provide the specific policy reason before pausing.",
+                "<strong>User Clarification:</strong> Do not ask for further information. If the request is ambiguous, return the list and state the ambiguity. If a mandatory field is missing, state which field is required.",
+                "<strong>Mandatory Fields:</strong> Any request to create or update a record must validate all mandatory fields.",
+                "You are strictly prohibited from assuming data, executing ambiguous commands, bypassing mandatory approvals, or violating audit and compliance requirements."
+            ],
+            "iteration_added": 1
+        },
+        {
+            "policy_name": "Referential Integrity Check for SLA Deletion",
+            "description": "Before invoking the `delete_incident_slas` tool, the assistant must:\n1. Identify the SLA record(s) targeted for deletion (using the supplied filter parameters).\n2. Query the `incident` table (via `list_incidents` or equivalent) for any incident that has an `incident_sla_id` matching the SLA(s) and whose `status` is not `closed` (i.e., the incident is still active or in\u2011progress).\n3. If any such incidents are found, abort the deletion and return a policy\u2011violation message stating that dependent active incidents exist.\n4. Only proceed with `delete_incident_slas` when zero dependent active incidents are found.\nThis ensures referential integrity while remaining enforceable using only available tools and data.",
+            "references": [
+                "<p><strong>Referential Integrity:</strong> Before closing any record, verify that all mandatory dependencies are satisfied.</p>"
+            ],
+            "iteration_added": 1
+        }
+    ],
+    "archive": [
+        {
+            "policy_name": "Rate Limiting Compliance",
+            "description": "When invoking the `delete_incident_slas` tool, monitor the HTTP response code. If a **429 Too Many Requests** response (or any rate\u2011limit error) is returned, the assistant must stop further calls, wait for a backoff period, and retry. The backoff period starts at 1 second and doubles with each successive retry (2\u202fs, 4\u202fs, 8\u202fs, \u2026) up to a maximum of 5 retries or a total wait time of 60\u202fseconds, whichever occurs first. If the limit is still exceeded after the final retry, the assistant should abort the operation and return a clear error message indicating that the rate limit was hit.",
+            "references": [
+                "Rate Limiting: If exceeded, pause and retry using Exponential Backoff."
+            ],
+            "iteration_added": 1,
+            "comments": "The policy is clearly relevant to the `delete_incident_slas` tool and is narrowly scoped, making it tool\u2011specific. It is enforceable because the assistant can detect a 429 response and implement exponential backoff using only the tool's response information. However, the policy cannot be fully validated before the call\u2014rate\u2011limit status is only known after a request is made. Additionally, the description lacks concrete backoff parameters (initial delay, max retries, cap), so it is not fully self\u2011contained. Adding those details, as in the alternative description, would make the policy complete and easier to implement. Overall the policy is well\u2011written but could benefit from more specifics, earning a score of 4.\nThe policy is directly relevant to the `delete_incident_slas` tool and is narrowly scoped to that tool, making it tool\u2011specific. While the required behavior (monitoring the response code) cannot be validated *before* the tool call\u2014because rate\u2011limit status is only known after the request\u2014it can be enforced after the call, so it fails the pre\u2011validation criterion. The policy is fully actionable using only the tool\u2019s response and standard control flow (pausing, retrying, aborting). All necessary details (backoff schedule, retry limits, abort behavior) are included, so the description is self\u2011contained. Overall clarity and enforceability are high, warranting a score of 4 out of 5.\nThe policy is directly relevant to the `delete_incident_slas` tool and is narrowly scoped to that tool, making it tool\u2011specific. While the required behavior (monitoring the response code) cannot be validated *before* the tool call\u2014because rate\u2011limit status is only known after the request\u2014it can be enforced after the call, so it fails the pre\u2011validation criterion. The policy is fully actionable using only the tool\u2019s response and standard control flow (pausing, retrying, aborting). All necessary details (backoff schedule, retry limits, abort behavior) are included, so the description is self\u2011contained. Overall clarity and enforceability are high, warranting a score of 4 out of 5.\nThe policy is directly relevant to the `delete_incident_slas` tool and is narrowly scoped to that tool, making it tool\u2011specific. While the required behavior (monitoring the response code) cannot be validated *before* the tool call\u2014because rate\u2011limit status is only known after the request\u2014it can be enforced after the call, so it fails the pre\u2011validation criterion. The policy is fully actionable using only the tool\u2019s response and standard control flow (pausing, retrying, aborting). All necessary details (backoff schedule, retry limits, abort behavior) are included, so the description is self\u2011contained. Overall clarity and enforceability are high, warranting a score of 4 out of 5.\nThe policy is directly relevant to the `delete_incident_slas` tool and is narrowly scoped to that tool, making it tool\u2011specific. While the required behavior (monitoring the response code) cannot be validated *before* the tool call\u2014because rate\u2011limit status is only known after the request\u2014it can be enforced after the call, so it fails the pre\u2011validation criterion. The policy is fully actionable using only the tool\u2019s response and standard control flow (pausing, retrying, aborting). All necessary details (backoff schedule, retry limits, abort behavior) are included, so the description is self\u2011contained. Overall clarity and enforceability are high, warranting a score of 4 out of 5.\n"
+        }
+    ]
+}

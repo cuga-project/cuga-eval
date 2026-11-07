@@ -1,0 +1,142 @@
+{
+    "policies": [
+        {
+            "policy_name": "Role-Based Permission for Deleting Incident\u2011CI Links",
+            "description": "Only users with a role that grants Delete permission on Incident and CMDB tables (Administrator, Manager, or Agent) may invoke remove_affected_ci_from_incident.",
+            "references": [
+                "<p>| <strong>Administrator</strong> (<code>admin</code>) | System Configuration &amp; Integrity | Full CRUD (Create, Read, Update, Delete) access across all tables.\u00a0|</p>",
+                "<p>| <strong>Agent</strong> (<code>agent</code>) | Frontline Incident/Request fulfillment | <strong>Full CRUD</strong> on <strong>Incidents, Service Requests, Tasks, Work Notes, CMDB, Change, Problem, and Knowledge</strong>. READ access to all the tables. Can update assignment, state, and resolution. | Cannot bypass approvals, or change system administration settings. |</p>",
+                "<p>| <strong>Manager</strong> (<code>manager</code>) | Supervision, Escalation, Approvals | Full CRUD on operational tables (<code>incident</code>, <code>problem</code>, <code>change</code>, <code>knowledge</code>); READ access to all the tables. Can <strong>reassign</strong> incidents/requests. Can <strong>approve/reject</strong> Change Requests. Monitors SLAs and escalations. |</p>"
+            ],
+            "iteration_added": 0
+        },
+        {
+            "policy_name": "Mandatory Filter Requirement for Removal Operation",
+            "description": "A remove operation must include at least one filter parameter (incident_affected_cis_id, configuration_item, incident_id, created_before, or created_after) before the tool can be called.",
+            "references": [
+                "<li><p><strong>Mandatory Fields:</strong> Any request to create or update a record must validate all mandatory fields.</p></li>"
+            ],
+            "iteration_added": 0
+        },
+        {
+            "policy_name": "Use Verified Identifiers Only",
+            "description": "Do not fabricate or assume IDs when deleting incident\u2011CI links; the identifiers supplied must be verified against the system.",
+            "references": [
+                "<li><p>Never assume or fabricate IDs, responses, or outcomes \u2014 rely solely on verified API results. The same is the case of optional or default arguments.</p></li>"
+            ],
+            "iteration_added": 0
+        },
+        {
+            "policy_name": "Atomic Operation Enforcement",
+            "description": "The deletion of incident\u2011CI links must be performed as a single validated operation; no additional actions may be combined in the same request.",
+            "references": [
+                "<li><p><strong>Atomic Operations:</strong> Perform <strong>one validated operation at a time</strong>, except when using approved batch endpoints. Do not allow a request to proceed if it requires data that is missing or the current record state prevents the action.</p></li>"
+            ],
+            "iteration_added": 0
+        },
+        {
+            "policy_name": "Referential Integrity Check Before Deletion",
+            "description": "Before removing an incident\u2011CI link, ensure that deleting the link will not violate mandatory dependencies required by the incident or the configuration item.",
+            "references": [
+                "<li><p><strong>Referential Integrity:</strong> Before closing any record, verify that all mandatory dependencies are satisfied.</p></li>"
+            ],
+            "iteration_added": 0
+        },
+        {
+            "policy_name": "User Role Confirmation Requirement",
+            "description": "Before invoking remove_affected_ci_from_incident, the assistant must verify the requesting user's role against the confirmed user information and ensure the role grants the necessary permissions.",
+            "references": [
+                "<p><strong>Role:</strong> ITSM Assistant (IT Service Management)</p>\n<p><strong>Mandate:</strong> Ensure the efficient, secure, and controlled delivery of IT services by managing the full lifecycle of Incidents, Service Requests, Changes, Problems, and Configuration Items (CIs) in strict accordance with defined policies and best practices.</p>\n<p>First you must check the user information and operate exclusively based on <strong>confirmed user roles</strong>, <strong>verified record relationships</strong>, and <strong>ITIL/database integrity rules</strong>. You are strictly prohibited from assuming data, executing ambiguous commands, bypassing mandatory approvals, or violating audit and compliance requirements.</p>"
+            ],
+            "iteration": 0
+        },
+        {
+            "policy_name": "Prohibited Bypassing of Mandatory Approvals",
+            "description": "The assistant must not bypass any mandatory approval workflow when deleting incident\u2011CI links; if an approval is required for the action, the operation must be halted until proper authorization is obtained.",
+            "references": [
+                "<p>You are strictly prohibited from assuming data, executing ambiguous commands, <strong>bypassing mandatory approvals</strong>, or violating audit and compliance requirements.</p>"
+            ],
+            "iteration": 0
+        },
+        {
+            "policy_name": "Policy Violation Halt",
+            "description": "If a request to remove an incident\u2011CI link violates any rule (e.g., missing required filter, insufficient role), the assistant must stop the operation immediately and return the specific policy reason before pausing.",
+            "references": [
+                "<li>\n<p><strong>Policy Violation:</strong> If a user request violates any rule herein, you <strong>must halt the operation</strong> and provide the specific policy reason before pausing.</p>\n</li>"
+            ],
+            "iteration": 0
+        },
+        {
+            "policy_name": "Reporter Role Restriction on CMDB Access",
+            "description": "Users with the Reporter role are prohibited from deleting incident\u2011CI links because they lack access to the CMDB tables; only Administrator, Manager, or Agent roles may perform this deletion.",
+            "references": [
+                "<p>| <strong>Reporter</strong> (<code>reporter</code>) | IT Service Consumption | Can view and update <strong>their own submitted Incidents/Requests</strong>. Can search <strong>Public Knowledge</strong> articles. | <strong>Cannot view or modify records opened by other users, CMDB, or internal work notes.</strong> |</p>"
+            ],
+            "iteration": 0
+        },
+        {
+            "policy_name": "403 Forbidden Error Handling for Insufficient Permissions",
+            "description": "When a user without adequate role attempts to call remove_affected_ci_from_incident, the assistant must return a 403 Forbidden error indicating permission denial.",
+            "references": [
+                "<li>\n<p><strong>403 Forbidden:</strong> Permission denied (user role lacks authority for the operation).</p>\n</li>"
+            ],
+            "iteration": 0
+        },
+        {
+            "policy_name": "User Clarification Policy for Ambiguous Deletion Requests",
+            "description": "If the request to delete incident\u2011CI links is ambiguous (e.g., missing filter details), the assistant must not ask for more information but instead return the list of required fields and state the ambiguity.",
+            "references": [
+                "<li>\n<p><strong>User Clarification:</strong> Do not ask for further information. If the request is ambiguous, return the list and state the ambiguity. If a mandatory field is missing, state which field is required.</p>\n</li>"
+            ],
+            "iteration": 0
+        },
+        {
+            "policy_name": "Identifier Lookup Requirement",
+            "description": "If required identifiers (such as incident_affected_cis_id, configuration_item, incident_id, etc.) are missing from the request, the assistant must perform a lookup using the appropriate tool, verify that the retrieved identifier is correct and reuse it, then proceed with the delete operation using the verified identifier.",
+            "references": [
+                "<p>When identifiers such as names or IDs are missing, perform lookups, verify that you are reusing correct values from previous responses, and proceed using the retrieved data.</p>"
+            ],
+            "iteration": 1
+        },
+        {
+            "policy_name": "Logical and Efficient Execution Flow",
+            "description": "All operations, including removal of incident\u2011CI links, must be carried out in a logical sequence and using the most efficient execution flow possible.",
+            "references": [
+                "<li><p>Complete each task in a logical, and efficient execution flow.</p></li>"
+            ],
+            "iteration": 1
+        },
+        {
+            "policy_name": "No Confirmation Required Before Action",
+            "description": "The assistant may execute the remove_affected_ci_from_incident tool without asking the user for additional confirmation, provided all other policy checks (role, filters, integrity, etc.) have been satisfied.",
+            "references": [
+                "<li>You do not need to ask for confirmation or permission before taking action.</li>"
+            ],
+            "iteration": 1
+        },
+        {
+            "policy_name": "Rate Limiting and Exponential Backoff",
+            "description": "If a rate\u2011limit error is encountered while calling remove_affected_ci_from_incident, the assistant must pause the operation and retry using an exponential backoff strategy.",
+            "references": [
+                "<li><p><strong>Rate Limiting:</strong> If exceeded, pause and retry using <strong>Exponential Backoff</strong>.</p></li>"
+            ],
+            "iteration": 1
+        },
+        {
+            "policy_name": "Conflict Error Handling for Deletion Operations",
+            "description": "If the remove_affected_ci_from_incident tool returns a 409 Conflict error (record locking or state conflict), the assistant must halt the operation, report the conflict as the specific policy reason, and must not automatically retry the deletion.",
+            "references": [
+                "<li>\n<p><strong>409 Conflict:</strong> Record locking or state conflict.</p>\n</li>"
+            ],
+            "iteration": 2
+        },
+        {
+            "policy_name": "Audit Logging Requirement for Deletion Operations",
+            "description": "Every execution of remove_affected_ci_from_incident must create a work log entry that records the timestamp (created_on) and the user_id of the actor performing the deletion, ensuring an auditable trail of the removal action.",
+            "references": [
+                "<li>\n<p><strong>Time Tracking:</strong> All work logs must include the timestamp (<code>created_on</code>) and the <code>user_id</code> performing the action.</p>\n</li>"
+            ],
+            "iteration": 2
+        }
+    ]
+}

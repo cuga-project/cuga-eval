@@ -1,0 +1,36 @@
+{
+    "policies": [
+        {
+            "policy_name": "Mandatory Fields Validation",
+            "description": "Any request to create or update a record must validate that all required (mandatory) fields are present and non\u2011empty before invoking the tool.",
+            "references": [
+                "<strong>Mandatory Fields:</strong> Any request to create or update a record must validate all mandatory fields."
+            ],
+            "iteration_added": 0
+        },
+        {
+            "policy_name": "No Fabricated IDs",
+            "description": "The system must not assume or fabricate any identifiers (e.g., caller_id, configuration_item) and must rely on verified data from previous lookups or API results before using them in the request.",
+            "references": [
+                "<strong>Never assume or fabricate IDs, responses, or outcomes \u2014 rely solely on verified API results.</strong>"
+            ],
+            "iteration_added": 0
+        },
+        {
+            "policy_name": "Identifier Lookup Requirement",
+            "description": "When an identifier such as a user ID (caller_id) is not already known, a lookup must be performed to retrieve and verify the correct value before it is used in the create_new_incident_template call.",
+            "references": [
+                "When identifiers such as names or IDs are missing, perform lookups, verify that you are reusing correct values from previous responses, and proceed using the retrieved data."
+            ],
+            "iteration_added": 0
+        },
+        {
+            "policy_name": "Atomic Operation Constraint",
+            "description": "Only a single validated operation (the creation of the incident template) may be performed at a time; no additional actions should be combined with this call.",
+            "references": [
+                "<strong>Atomic Operations:</strong> Perform <strong>one validated operation at a time</strong>, except when using approved batch endpoints."
+            ],
+            "iteration_added": 0
+        }
+    ]
+}

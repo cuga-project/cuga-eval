@@ -1,0 +1,121 @@
+{
+    "policies": [
+        {
+            "policy_name": "Authorization Requirement for Knowledge Link Deletion",
+            "description": "User must have full CRUD permissions on the Knowledge table and must be in role Agent, Manager, or Administrator to delete a knowledge link; the Reporter role is prohibited. If the user lacks these permissions, abort with a 403 Forbidden error.",
+            "references": [
+                "<strong>Full CRUD</strong> on <strong>Incidents, Service Requests, Tasks, Work Notes, CMDB, Change, Problem, and Knowledge</strong>. READ access to all the tables.",
+                "Full CRUD on operational tables (<code>incident</code>, <code>problem</code>, <code>change</code>, <code>knowledge</code>); READ access to all the tables.",
+                "Cannot view or modify records opened by other users, CMDB, or internal work notes."
+            ],
+            "iteration_added": 2
+        },
+        {
+            "policy_name": "Reporter Knowledge Article View Permission",
+            "description": "Users with the Reporter role may only view knowledge articles that are in the published state.",
+            "references": [
+                "Only articles in <code>knowledge.state = published</code> are searchable by the <code>Reporter</code> role.",
+                "Cannot view or modify records opened by other users, CMDB, or internal work notes."
+            ],
+            "iteration_added": 1
+        },
+        {
+            "policy_name": "Identifier Validation for Knowledge Link Removal",
+            "description": "A removal request must include either the incident\u2011knowledge link ID (incident_kb_id) or both incident_id and knowledge_id; if only incident_id and knowledge_id are provided, perform a lookup to retrieve and verify the correct incident_kb_id before removal.",
+            "references": [
+                "<strong>Mandatory Fields:</strong> Any request to create or update a record must validate all mandatory fields.",
+                "<strong>User Clarification:</strong> If a mandatory field is missing, state which field is required.",
+                "When identifiers such as names or IDs are missing, perform <strong>lookups</strong>, verify that you are reusing correct values from previous responses, and proceed using the retrieved data."
+            ],
+            "iteration_added": 1
+        },
+        {
+            "policy_name": "Knowledge Scope Enforcement",
+            "description": "The operation must not disclose or act upon any knowledge article that is outside the authenticated user's access scope.",
+            "references": [
+                "<strong>Knowledge Scope:</strong> Do not disclose information that is outside the authenticated user's access scope."
+            ],
+            "iteration_added": 0
+        },
+        {
+            "policy_name": "Atomic Operation Requirement",
+            "description": "The removal of a knowledge link must be performed as a single validated operation; no additional actions may be combined in the same call.",
+            "references": [
+                "Perform <strong>one validated operation at a time</strong>, except when using approved batch endpoints."
+            ],
+            "iteration_added": 0
+        },
+        {
+            "policy_name": "Prohibition of ID Fabrication",
+            "description": "The tool must not fabricate or guess incident_kb_id, incident_id, or knowledge_id values; the identifiers must be verified against the system before removal.",
+            "references": [
+                "Never assume or fabricate IDs, responses, or outcomes \u2014 rely solely on verified API results."
+            ],
+            "iteration_added": 0
+        },
+        {
+            "policy_name": "Policy Violation Halt",
+            "description": "If any policy in this document is violated when attempting to remove a knowledge link, the operation must be halted and the specific policy reason returned before any action is taken.",
+            "references": [
+                "<strong>Policy Violation:</strong> If a user request violates any rule herein, you <strong>must halt the operation</strong> and provide the specific policy reason before pausing."
+            ],
+            "iteration_added": 0
+        },
+        {
+            "policy_name": "User Role Verification",
+            "description": "Before performing any operation, the assistant must check the user information and operate exclusively based on confirmed user roles.",
+            "references": [
+                "First you must check the user information and operate exclusively based on <strong>confirmed user roles</strong>, <strong>verified record relationships</strong>, and <strong>ITIL/database integrity rules</strong>."
+            ],
+            "iteration_added": 0
+        },
+        {
+            "policy_name": "Verified Record Relationship Check",
+            "description": "The assistant must ensure that the incident and knowledge article involved in the removal belong to the same organization and have a valid relationship before deleting the link.",
+            "references": [
+                "First you must check the user information and operate exclusively based on <strong>confirmed user roles</strong>, <strong>verified record relationships</strong>, and <strong>ITIL/database integrity rules</strong>."
+            ],
+            "iteration_added": 0
+        },
+        {
+            "policy_name": "No Confirmation Required",
+            "description": "The assistant may proceed with the removal operation without requesting additional confirmation or permission once all validations have passed.",
+            "references": [
+                "You do not need to ask for confirmation or permission before taking action."
+            ],
+            "iteration_added": 0
+        },
+        {
+            "policy_name": "Rate Limiting Handling",
+            "description": "If a rate\u2011limit error is encountered, the assistant must pause and retry the request using exponential backoff rather than failing immediately.",
+            "references": [
+                "<strong>Rate Limiting:</strong> If exceeded, pause and retry using <strong>Exponential Backoff</strong>."
+            ],
+            "iteration_added": 0
+        },
+        {
+            "policy_name": "Ambiguous Request Handling",
+            "description": "If a removal request is ambiguous (e.g., both incident_kb_id and incident_id/knowledge_id are provided, or required identifiers are unclear), the assistant must not ask for clarification but must return the list of possible interpretations and state the ambiguity.",
+            "references": [
+                "<strong>User Clarification:</strong> Do not ask for further information. If the request is ambiguous, return the list and state the ambiguity."
+            ],
+            "iteration_added": 1
+        },
+        {
+            "policy_name": "Conflict Error Handling",
+            "description": "If the removal of a knowledge link encounters a record locking or state conflict, the assistant must return a 409 Conflict error instead of proceeding.",
+            "references": [
+                "<strong>409 Conflict:</strong> Record locking or state conflict."
+            ],
+            "iteration_added": 1
+        },
+        {
+            "policy_name": "Audit Logging for Knowledge Link Removal",
+            "description": "Every removal of a knowledge link from an incident must be recorded in the system audit log, including the timestamp (created_on) of the action and the user_id of the assistant performing the operation.",
+            "references": [
+                "<strong>Time Tracking:</strong> All work logs must include the timestamp (<code>created_on</code>) and the <code>user_id</code> performing the action."
+            ],
+            "iteration_added": 2
+        }
+    ]
+}

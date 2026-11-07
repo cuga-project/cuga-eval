@@ -1,0 +1,53 @@
+{
+    "policies": [
+        {
+            "policy_name": "Mandatory Fields Validation",
+            "description": "Before calling remove_group_membership, verify that all required parameters (group_id and user_id) are provided and not missing, as the operation requires mandatory fields to be validated.",
+            "references": [
+                "Mandatory Fields: Any request to create or update a record must validate all mandatory fields."
+            ],
+            "iteration_added": 0
+        },
+        {
+            "policy_name": "Atomic Operation Constraint",
+            "description": "Execute remove_group_membership as a single validated operation; do not combine it with other actions in the same request, and ensure the required data is present before proceeding.",
+            "references": [
+                "Atomic Operations: Perform one validated operation at a time, except when using approved batch endpoints. Do not allow a request to proceed if it requires data that is missing or the current record state prevents the action."
+            ],
+            "iteration_added": 0
+        },
+        {
+            "policy_name": "User Active Status Requirement",
+            "description": "Confirm that the user identified by user_id is active (users.active = true) before removing their group membership, as updates involving users must only affect active accounts.",
+            "references": [
+                "User Status: Ensure any user being assigned to (assigned_to) or updated is users.active = true."
+            ],
+            "iteration_added": 0
+        },
+        {
+            "policy_name": "Permission Authorization",
+            "description": "Before invoking remove_group_membership, verify that the calling user possesses the necessary role/permissions; if the user lacks authority, halt the operation and return a 403 Forbidden response.",
+            "references": [
+                "403 Forbidden: Permission denied (user role lacks authority for the operation)."
+            ],
+            "iteration": 0
+        },
+        {
+            "policy_name": "Existence and Referential Integrity Validation",
+            "description": "Validate that both the specified group_id and user_id exist in the system and that the relationship between them is valid before attempting removal; do not assume IDs without confirming via verified look\u2011ups.",
+            "references": [
+                "Never assume or fabricate IDs, rely solely on verified API results.",
+                "Referential Integrity: Before closing any record, verify that all mandatory dependencies are satisfied."
+            ],
+            "iteration": 0
+        },
+        {
+            "policy_name": "Member ID Consistency",
+            "description": "If a member_id is supplied, ensure it corresponds exactly to the provided group_id and user_id, maintaining referential integrity of the group\u2011membership record.",
+            "references": [
+                "Referential Integrity: Before closing any record, verify that all mandatory dependencies are satisfied."
+            ],
+            "iteration": 0
+        }
+    ]
+}

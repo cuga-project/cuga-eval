@@ -1,0 +1,213 @@
+{
+    "policies": [
+        {
+            "policy_name": "Mandatory fields validation for incident update",
+            "description": "Any incident update must include all fields that are mandatory for the operation before calling update_incident.",
+            "references": [
+                "<strong>Mandatory Fields:</strong> Any request to create or update a record must validate all mandatory fields."
+            ],
+            "iteration_added": 0
+        },
+        {
+            "policy_name": "Role\u2011based access control for incident updates",
+            "description": "Only users with the appropriate role may update an incident: Administrators, Managers and Agents have full CRUD on incidents; Reporters may update only incidents they originally submitted.",
+            "references": [
+                "| <strong>Administrator</strong> (<code>admin</code>) | System Configuration &amp; Integrity | Full CRUD (Create, Read, Update, Delete) access across all tables.\u00a0|",
+                "| <strong>Manager</strong> (<code>manager</code>) | Supervision, Escalation, Approvals | Full CRUD on operational tables (<code>incident</code>, <code>problem</code>, <code>change</code>, <code>knowledge</code>); READ access to all the tables. Can <strong>reassign</strong> incidents/requests. Can <strong>approve/reject</strong> Change Requests. Monitors SLAs and escalations. |",
+                "| <strong>Agent</strong> (<code>agent</code>) | Frontline Incident/Request fulfillment | <strong>Full CRUD</strong> on <strong>Incidents, Service Requests, Tasks, Work Notes, CMDB, Change, Problem, and Knowledge</strong>. READ access to all the tables. Can update assignment, state, and resolution. | Cannot bypass approvals, or change system administration settings. |",
+                "| <strong>Reporter</strong> (<code>reporter</code>) | IT Service Consumption | Can view and update <strong>their own submitted Incidents/Requests</strong>. Can search <strong>Public Knowledge</strong> articles. | Cannot view or modify records opened by other users, CMDB, or internal work notes. |"
+            ],
+            "iteration_added": 0
+        },
+        {
+            "policy_name": "Assignment user must be active Agent or Manager and member of assignment group",
+            "description": "When the assigned_to field (or assignment_group) is updated, the target user must be active, hold the Agent or Manager role, and belong to the specified assignment group.",
+            "references": [
+                "<strong>Constraints:</strong> <code>assigned_to</code> must be an <strong>active</strong> user with the <code>Agent</code> or <code>Manager</code> role and must be a member of the specified <code>assignment_group</code>."
+            ],
+            "iteration_added": 0
+        },
+        {
+            "policy_name": "Validate incident status transitions",
+            "description": "The new incident status must follow the allowed state transition matrix before invoking update_incident.",
+            "references": [
+                "<p><code>new</code> \u2192 <code>in_progress</code> / <code>on_hold</code> / <code>resolved</code></p>",
+                "<p><code>in_progress</code> \u2192 <code>on_hold</code> / <code>resolved</code></p>",
+                "<p><code>on_hold</code> \u2192 <code>in_progress</code> (Must log <code>on_hold_reason</code> before transition)</p>",
+                "<p><code>resolved</code> \u2192 <code>closed</code> / 'in_progress'</p>"
+            ],
+            "iteration_added": 0
+        },
+        {
+            "policy_name": "Resolution fields required for resolved state",
+            "description": "If the incident status is being set to\u202fresolved, both resolution_code and resolution_notes must be supplied.",
+            "references": [
+                "<strong>Resolution Requirement:</strong> An Incident cannot transition to <code>resolved</code> without mandatory fields: <code>resolution_code</code>, and <code>resolution_notes</code> (free-form text, max 2000 chars)."
+            ],
+            "iteration_added": 0
+        },
+        {
+            "policy_name": "SLA pause requirement when incident is on hold",
+            "description": "When status is changed to on_hold, the on_hold_reason must be one of the allowed enumerations and the SLA timer must be set to paused.",
+            "references": [
+                "<strong>SLA Pause:</strong> The SLA timer <strong>must</strong> be paused (<code>stage = paused</code>) when the Incident is in <code>stage = on_hold</code> and the <code>on_hold_reason</code> is one of the following enumerations: <code>Awaiting Change</code>, <code>Awaiting Caller</code>, or <code>Awaiting Problem</code>."
+            ],
+            "iteration_added": 0
+        },
+        {
+            "policy_name": "User activity check for assignment",
+            "description": "Any user referenced in the assigned_to field must have users.active = true.",
+            "references": [
+                "<strong>User Status:</strong> Ensure any user being assigned to (<code>assigned_to</code>) or updated is <code>users.active = true</code>."
+            ],
+            "iteration_added": 0
+        },
+        {
+            "policy_name": "Referential integrity before closing an incident",
+            "description": "Before changing an incident\u2019s status to closed, verify that all mandatory dependent records (e.g., resolution notes, linked problem/change) are satisfied.",
+            "references": [
+                "<strong>Referential Integrity:</strong> Before closing any record, verify that all mandatory dependencies are satisfied."
+            ],
+            "iteration_added": 0
+        },
+        {
+            "policy_name": "Configuration Item linkage restriction",
+            "description": "When updating an incident's configuration_item field, only CIs whose status is **in_use** or **maintenance** may be linked. CIs with status **retired** or **disposed** must not be linked to active incidents.",
+            "references": [
+                "<strong>CI Status:</strong> Only CIs with <code>status = in_use</code> or <code>status = maintenance</code> can be linked to active Incidents. Do not link CIs in <code>status = retired</code> or <code>status = disposed</code>."
+            ],
+            "iteration": 0
+        },
+        {
+            "policy_name": "Rate limiting and exponential back\u2011off",
+            "description": "If the API rate limit is exceeded while invoking **update_incident**, the operation must pause and be retried using exponential back\u2011off rather than failing immediately.",
+            "references": [
+                "<strong>Rate Limiting:</strong> If exceeded, pause and retry using <strong>Exponential Backoff</strong>."
+            ],
+            "iteration": 0
+        },
+        {
+            "policy_name": "Error handling \u2013 forbidden and conflict responses",
+            "description": "When **update_incident** returns a **403 Forbidden** or **409 Conflict**, the assistant must halt the operation and surface the specific error reason to the user.",
+            "references": [
+                "<strong>403 Forbidden:</strong> Permission denied (user role lacks authority for the operation).",
+                "<strong>409 Conflict:</strong> Record locking or state conflict."
+            ],
+            "iteration": 0
+        },
+        {
+            "policy_name": "Atomic operation requirement",
+            "description": "Each call to **update_incident** must be a single, validated operation. The assistant must not combine multiple state changes in one request unless using an approved batch endpoint.",
+            "references": [
+                "<strong>Atomic Operations:</strong> Perform <strong>one validated operation at a time</strong>, except when using approved batch endpoints."
+            ],
+            "iteration": 0
+        },
+        {
+            "policy_name": "No assumption or fabrication of identifiers",
+            "description": "When updating an incident, the assistant must never assume or fabricate IDs, field values, or outcomes; it must rely solely on verified results from the API.",
+            "references": [
+                "Never assume or fabricate IDs, responses, or outcomes \u2014 rely solely on verified API results."
+            ],
+            "iteration": 0
+        },
+        {
+            "policy_name": "User clarification for ambiguous or incomplete requests",
+            "description": "If a request to update an incident is ambiguous or missing mandatory fields, the assistant must not ask for additional information; instead, it must return the list of required fields and indicate which field is missing.",
+            "references": [
+                "<strong>User Clarification:</strong> Do not ask for further information. If the request is ambiguous, return the list and state the ambiguity. If a mandatory field is missing, state which field is required."
+            ],
+            "iteration": 0
+        },
+        {
+            "policy_name": "Policy violation handling",
+            "description": "If any policy governing incident updates is violated, the assistant must halt the operation immediately and provide the specific policy reason before pausing.",
+            "references": [
+                "<strong>Policy Violation:</strong> If a user request violates any rule herein, you <strong>must halt the operation</strong> and provide the specific policy reason before pausing."
+            ],
+            "iteration": 0
+        },
+        {
+            "policy_name": "Priority auto\u2011calculation enforcement",
+            "description": "When creating or updating an incident, the priority field must be derived automatically from the Impact\u202f\u00d7\u202fUrgency matrix; the assistant must not accept a manually supplied priority that conflicts with the system\u2011calculated value.",
+            "references": [
+                "<strong>Priority (<code>critical</code>, <code>high</code>, <code>moderate</code>, <code>low</code>, <code>planning</code>) is determined automatically by the system based on a below pre-defined matrix of <strong>Impact x Urgency</strong>.",
+                "<strong>Priority (<code>critical</code>, <code>high</code>, <code>moderate</code>, <code>low</code>, <code>planning</code>) is determined automatically by the system based on a below pre-defined matrix of <strong>Impact x Urgency</strong>."
+            ],
+            "iteration": 1
+        },
+        {
+            "policy_name": "Resolution code enumeration enforcement",
+            "description": "If the incident is being updated with a\u202fresolution_code, the value must be one of the allowed enumerations defined for incidents.",
+            "references": [
+                "<strong>incident.resolution_code</strong> | <code>fixed</code>, <code>workaround</code>, <code>not_reproducible</code>, <code>closed_by_caller</code>"
+            ],
+            "iteration": 1
+        },
+        {
+            "policy_name": "On\u2011hold reason enumeration enforcement",
+            "description": "When setting an incident\u2019s status to\u202fon_hold (or transitioning from on_hold), the on_hold_reason must be one of the permitted values.",
+            "references": [
+                "<strong>incident.on_hold_reason</strong> | <code>Awaiting Change</code>, <code>Awaiting Caller</code>, <code>Awaiting Problem</code>",
+                "<strong>SLA Pause:</strong> The SLA timer <strong>must</strong> be paused (<code>stage = paused</code>) when the Incident is in <code>stage = on_hold</code> and the <code>on_hold_reason</code> is one of the following enumerations: <code>Awaiting Change</code>, <code>Awaiting Caller</code>, or <code>Awaiting Problem</code>."
+            ],
+            "iteration": 1
+        },
+        {
+            "policy_name": "No confirmation required before performing actions",
+            "description": "The assistant may execute the update_incident operation without asking the user for additional confirmation or permission.",
+            "references": [
+                "You do not need to ask for confirmation or permission before taking action."
+            ],
+            "iteration": 1
+        },
+        {
+            "policy_name": "Missing identifier lookup requirement",
+            "description": "If any required identifier (e.g., user ID, CI ID) is not supplied, the assistant must first perform a lookup to obtain the correct value before proceeding with the update.",
+            "references": [
+                "When identifiers such as names or IDs are missing, perform lookups, verify that you are reusing correct values from previous responses, and proceed using the retrieved data."
+            ],
+            "iteration": 1
+        },
+        {
+            "policy_name": "Knowledge scope confidentiality",
+            "description": "The assistant must never expose or return data that lies outside the authenticated user\u2019s access scope when processing an incident update.",
+            "references": [
+                "<strong>Knowledge Scope:</strong> Do not disclose information that is outside the authenticated user's access scope."
+            ],
+            "iteration": 1
+        },
+        {
+            "policy_name": "SLA breach escalation notification",
+            "description": "If an incident\u2019s SLA timer enters the breached stage, the assistant must set the incident\u2019s escalation flag to true and trigger an automatic notification to the Manager.",
+            "references": [
+                "<strong>Breach:</strong> If the SLA exceeds its duration (<code>stage = breached</code>), the <code>escalation</code> flag on the Incident <strong>must</strong> be set to true, and an automatic notification sent to the <code>Manager</code>."
+            ],
+            "iteration": 1
+        },
+        {
+            "policy_name": "Verified user role and record relationship enforcement",
+            "description": "Before invoking **update_incident**, the assistant must confirm the requesting user's role and ensure the user\u2011record relationship is verified according to the ITIL/database integrity rules.",
+            "references": [
+                "First you must check the user information and operate exclusively based on <strong>confirmed user roles</strong>, <strong>verified record relationships</strong>, and <strong>ITIL/database integrity rules</strong>."
+            ],
+            "iteration": 2
+        },
+        {
+            "policy_name": "Prohibition of bypassing mandatory approvals",
+            "description": "When updating an incident, the assistant must never bypass any required approvals (e.g., change or problem approvals) that are mandated by the ITSM process.",
+            "references": [
+                "You are strictly prohibited from assuming data, executing ambiguous commands, bypassing mandatory approvals, or violating audit and compliance requirements."
+            ],
+            "iteration": 2
+        },
+        {
+            "policy_name": "Audit logging of user actions (time tracking) for incident updates",
+            "description": "All updates to an incident must be recorded as a work log that includes the timestamp (**created_on**) and the **user_id** of the person performing the update.",
+            "references": [
+                "<strong>Time Tracking:</strong> All work logs must include the timestamp (<code>created_on</code>) and the <code>user_id</code> performing the action."
+            ],
+            "iteration": 2
+        }
+    ]
+}

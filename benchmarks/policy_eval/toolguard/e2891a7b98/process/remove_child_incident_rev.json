@@ -1,0 +1,147 @@
+{
+    "policies": [
+        {
+            "policy_name": "User Role Verification",
+            "description": "Before invoking the **remove_child_incident** tool, verify that the requester\u2019s role is authorized. Using the authentication token (`x-itsm-user-token`) identify the caller\u2019s `user_id`, then call `get_user` (or `list_users` with a filter) to obtain the user record. If the `role` field equals `admin` or `manager`, proceed with the removal; otherwise, halt the operation and return a policy\u2011violation message indicating insufficient permissions.",
+            "references": [
+                "First you must check the user information and operate exclusively based on <strong>confirmed user roles</strong>, <strong>verified record relationships</strong>, and <strong>ITIL/database integrity rules</strong>."
+            ],
+            "iteration_added": 1
+        },
+        {
+            "policy_name": "Record Relationship Verification",
+            "description": "Before invoking the **remove_child_incident** tool, the assistant must confirm that the parent\u2011child relationship actually exists. This can be done by querying existing mappings (e.g., using *list_child_incidents*, *find_incident_by_id*, or any mapping\u2011lookup tool) and ensuring that the supplied identifiers correspond to a valid mapping. Only after this verification may the assistant call *remove_child_incident* with either the *child_incident_mapping_id* or the *parent_incident*\u202f+\u202f*child_incident* pair.",
+            "references": [
+                "First you must check the user information and operate exclusively based on <strong>confirmed user roles</strong>, <strong>verified record relationships</strong>, and <strong>ITIL/database integrity rules</strong>."
+            ],
+            "iteration_added": 1
+        },
+        {
+            "policy_name": "Atomic Operation Validation",
+            "description": "Before invoking the **remove_child_incident** tool, first ensure that the request provides either a valid **child_incident_mapping_id** or both **parent_incident** and **child_incident** IDs. Use the **list_child_incidents** tool with appropriate filters to verify that the specified mapping exists. Confirm that the requester\u2019s role (Administrator, Manager, or Agent) has delete rights on incident\u2011child\u2011mapping records as defined in the role\u2011based access table (these roles have full CRUD on incident\u2011related tables). If any validation step fails, return an explicit error and do not call the removal tool. Only after successful validation should the **remove_child_incident** tool be called with the verified parameters.",
+            "references": [
+                "Atomic Operations: Perform <strong>one validated operation at a time</strong>, except when using approved batch endpoints. Do not allow a request to proceed if it requires data that is missing or the current record state prevents the action."
+            ],
+            "iteration_added": 0
+        },
+        {
+            "policy_name": "Mandatory Field Presence",
+            "description": "Before calling the **remove_child_incident** tool, ensure that the request includes at least one of the following identifiers: (1) **child_incident_mapping_id**, or (2) both **parent_incident** AND **child_incident**. If none of these are supplied, the operation must be halted and the policy violation reported.",
+            "references": [
+                "Mandatory Fields: Any request to create or update a record must validate all mandatory fields."
+            ],
+            "iteration_added": 0
+        },
+        {
+            "policy_name": "ID Verification \u2013 No Fabrication",
+            "description": "Before calling **remove_child_incident**, first confirm the existence of the mapping using **list_child_incidents** (filter by the supplied *child_incident_mapping_id* or by *parent_incident* and *child_incident*). Proceed with the removal only if the mapping is present; otherwise return an explicit error about the missing or invalid identifier. No IDs may be fabricated.",
+            "references": [
+                "Never assume or fabricate IDs, responses, or outcomes \u2014 rely solely on verified API results. The same is the case of optional or default arguments."
+            ],
+            "iteration_added": 0
+        },
+        {
+            "policy_name": "Authorized Roles for Deleting Child Incident Mapping",
+            "description": "Only users whose `role` field is set to `admin`, `manager`, or `agent` may invoke the `remove_child_incident` tool. Before calling the tool, retrieve the requesting user's record (e.g., via `get_user` or `list_users`) and verify the role. If the role is not one of the authorized values, abort the operation and return a 403 Forbidden error.",
+            "references": [
+                "Administrator (<code>admin</code>) | System Configuration &amp; Integrity | Full CRUD (Create, Read, Update, Delete) access across all tables.",
+                "Manager (<code>manager</code>) | Supervision, Escalation, Approvals | Full CRUD on operational tables (<code>incident</code>, <code>problem</code>, <code>change</code>, <code>knowledge</code>); READ access to all the tables.",
+                "Agent (<code>agent</code>) | Frontline Incident/Request fulfillment | <strong>Full CRUD</strong> on <strong>Incidents, Service Requests, Tasks, Work Notes, CMDB, Change, Problem, and Knowledge</strong>. READ access to all the tables."
+            ],
+            "iteration_added": 1
+        },
+        {
+            "policy_name": "User Clarification on Missing Mandatory Fields",
+            "description": "If a mandatory identifier (e.g., child_incident_mapping_id, parent_incident, or child_incident) is missing, the assistant must state which field is required rather than asking for additional clarification.",
+            "references": [
+                "User Clarification: Do not ask for further information. If the request is ambiguous, return the list and state the ambiguity. If a mandatory field is missing, state which field is required."
+            ],
+            "iteration_added": 0
+        },
+        {
+            "policy_name": "Referential Integrity Check",
+            "description": "Before invoking the `remove_child_incident` tool, confirm that the mapping truly exists and that removing it will not violate data integrity. Steps:\n1. Use `list_child_incidents` (filter by `parent_incident` or by `child_incident_mapping_id`) to locate the exact mapping. If not found, stop and report \u201cMapping not found\u201d.\n2. Retrieve the child incident via `find_incident_by_id` (or `list_incidents` with `incident_id=child_incident`). Abort if its `status` equals `closed`.\n3. Check for dependent records: query `list_incident_slas`, `list_problems`, and `list_changes` with filters `incident_id=child_incident` or `parent_incident`. If any results are returned, stop and report the dependent objects.\n4. Only when steps 1\u20113 succeed, call `remove_child_incident` passing the confirmed `child_incident_mapping_id` (or the pair `parent_incident`\u202f+\u202f`child_incident`). Return success boolean.\nAny validation failure should produce a concise error message describing the cause.",
+            "references": [
+                "Referential Integrity: Before closing any record, verify that all mandatory dependencies are satisfied."
+            ],
+            "iteration_added": 0
+        },
+        {
+            "policy_name": "Reporter Role Restriction",
+            "description": "The Reporter role may only view and update incidents or requests that they themselves created. Because deleting a child\u2011incident mapping modifies a relationship that can involve other users' records, a Reporter is not permitted to invoke the `remove_child_incident` tool.",
+            "references": [
+                "Reporter (<code>reporter</code>) | IT Service Consumption | Can view and update <strong>their own submitted Incidents/Requests</strong>. Can search <strong>Public Knowledge</strong> articles. | Cannot view or modify records opened by other users, CMDB, or internal work notes."
+            ],
+            "iteration_added": 0
+        },
+        {
+            "policy_name": "Identifier Lookup Requirement",
+            "description": "Before invoking the **remove_child_incident** tool, the assistant must ensure that it has either **child_incident_mapping_id** or both **parent_incident** and **child_incident** values. If any of these identifiers are absent, the assistant must first retrieve the missing identifier(s) using an appropriate lookup tool (e.g., `find_incident_by_number`, `list_incidents`, `find_incident_by_id`, or any other tool that can return the needed ID). The retrieved ID must be verified against any IDs already returned in the conversation to guarantee consistency, and only after a successful lookup may the removal be performed.",
+            "references": [
+                "When identifiers such as names or IDs are missing, perform lookups, verify that you are reusing correct values from previous responses, and proceed using the retrieved data."
+            ],
+            "iteration_added": 0
+        },
+        {
+            "policy_name": "Permission Denial Handling (403 Forbidden)",
+            "description": "If a user whose role does not include incident CRUD privileges (e.g., a Reporter) attempts to invoke the **remove_child_incident** tool, the request must be stopped and a **403 Forbidden** response returned. Only users with roles **Administrator**, **Manager**, or **Agent** are authorized to delete a parent\u2011child incident relationship.",
+            "references": [
+                "403 Forbidden: Permission denied (user role lacks authority for the operation)."
+            ],
+            "iteration_added": 0
+        },
+        {
+            "policy_name": "Policy Violation Halt",
+            "description": "Before invoking `remove_child_incident`, the assistant must:\n1. Check the caller\u2019s role (using `get_user` / `list_users`) and ensure it is one of the roles granted delete permission on incident\u2011mapping records (Administrator or Manager as defined in the role matrix).\n2. Verify that the request includes either `child_incident_mapping_id` **or** both `parent_incident` and `child_incident`.\n3. Use `list_child_incidents` (or a specific lookup) to confirm the mapping exists.\n4. Ensure that the parent incident will still have at least one child after removal; if the parent currently has only this child, block the operation and return a policy\u2011violation message.\nIf any check fails, do not call `remove_child_incident` and return a clear error citing the specific policy rule.\n",
+            "references": [
+                "Policy Violation: If a user request violates any rule herein, you <strong>must halt the operation</strong> and provide the specific policy reason before pausing."
+            ],
+            "iteration_added": 0
+        },
+        {
+            "policy_name": "Logical and Efficient Execution Flow",
+            "description": "Before calling **remove_child_incident**, confirm that the mapping exists by querying the appropriate endpoint (e.g.,\u202flist_child_incidents) using either the **child_incident_mapping_id** or the combination of **parent_incident** and **child_incident**. If the mapping is not found, abort and return an error. No additional external checks are required; once existence is confirmed, invoke the tool with the identified parameter.",
+            "references": [
+                "Complete each task in a logical, and efficient execution flow."
+            ],
+            "iteration_added": 0
+        },
+        {
+            "policy_name": "No Confirmation Required",
+            "description": "Before calling the **remove_child_incident** tool, perform the following checks:\n1. **Role check** \u2013 Retrieve the caller\u2019s user record (e.g., with `get_user` or `list_users` filtered by the authentication token) and confirm the `role` field is one of `admin`, `manager`, or `agent`.\n2. **Identifier presence** \u2013 Ensure the request contains either `child_incident_mapping_id` **or** both `parent_incident` and `child_incident`.\n3. **Mapping existence** \u2013 Call `list_child_incidents` (or `list_incidents` with appropriate filters) to verify that the specified mapping or parent/child pair exists.\n4. **User activity validation** \u2013 For each incident involved, retrieve the related user(s) (e.g., `assigned_to` or `opened_by`) using `get_user`/`list_users` and confirm `active = true`.\nIf all validations succeed, invoke `remove_child_incident` directly without asking the user for confirmation. If any validation fails, return a policy\u2011violation message describing the specific failure and abort the operation.",
+            "references": [
+                "You do not need to ask for confirmation or permission before taking action."
+            ],
+            "iteration_added": 2
+        }
+    ],
+    "archive": [
+        {
+            "policy_name": "Rate Limiting and Exponential Backoff",
+            "description": "When using the **remove_child_incident** tool, handle a 429 (Rate Limit Exceeded) response by aborting the attempt, waiting 1 second, then retrying with exponential back\u2011off (2\u202fs, 4\u202fs, 8\u202fs, 16\u202fs, 30\u202fs). Stop after either 5 retries **or** a cumulative wait of 30\u202fseconds, whichever occurs first. If all retries fail, return an explicit error stating that the operation could not be completed because the rate limit was continuously exceeded.",
+            "references": [
+                "<strong>Rate Limiting:</strong> If exceeded, pause and retry using <strong>Exponential Backoff</strong>."
+            ],
+            "iteration_added": 1,
+            "comments": "The policy is relevant because it directly addresses the scenario of calling the **remove_child_incident** tool. However, it is not truly tool\u2011specific\u2014it mirrors a generic error\u2011handling rule that applies to any API call. Validation before the call is not possible; we can only detect a rate\u2011limit breach after receiving a 429 response, so `can_be_validated` is false. The policy is actionable because the assistant can implement a pause and exponential back\u2011off upon receiving the error. The description lacks concrete back\u2011off parameters (initial delay, multiplier, max retries), making it not fully self\u2011contained. Adding these details (as in the alternative description) would improve clarity and implementation consistency. Overall, the policy is clear but could be more precise, warranting a score of 3 out of 5.\nThe policy is directly tied to the `remove_child_incident` endpoint, making it highly relevant and tool\u2011specific. Its requirements can be enforced programmatically (abort on 429, wait intervals, retry count), so it is actionable. Validation of compliance cannot be performed before the tool call because the 429 response is only known post\u2011call, thus `can_be_validated` is false. The description provides all necessary details (retry schedule, max attempts, cumulative wait limit) without needing external context, so it is self\u2011contained. Overall the policy is clear, enforceable, and well scoped, earning a score of 4 out of 5.\nThe policy is directly tied to the `remove_child_incident` endpoint, making it highly relevant and tool\u2011specific. Its requirements can be enforced programmatically (abort on 429, wait intervals, retry count), so it is actionable. Validation of compliance cannot be performed before the tool call because the 429 response is only known post\u2011call, thus `can_be_validated` is false. The description provides all necessary details (retry schedule, max attempts, cumulative wait limit) without needing external context, so it is self\u2011contained. Overall the policy is clear, enforceable, and well scoped, earning a score of 4 out of 5.\nThe policy is directly tied to the `remove_child_incident` endpoint, making it highly relevant and tool\u2011specific. Its requirements can be enforced programmatically (abort on 429, wait intervals, retry count), so it is actionable. Validation of compliance cannot be performed before the tool call because the 429 response is only known post\u2011call, thus `can_be_validated` is false. The description provides all necessary details (retry schedule, max attempts, cumulative wait limit) without needing external context, so it is self\u2011contained. Overall the policy is clear, enforceable, and well scoped, earning a score of 4 out of 5.\n"
+        },
+        {
+            "policy_name": "Conflict Error Handling (409)",
+            "description": "When attempting to delete a child incident mapping, if the record is locked or a state conflict occurs, the assistant must treat the response as a 409 Conflict and halt further processing.",
+            "references": [
+                "<strong>409 Conflict:</strong> Record locking or state conflict."
+            ],
+            "iteration_added": 1,
+            "comments": "The policy directly addresses the \u2018remove_child_incident\u2019 tool by specifying how to handle a 409 Conflict that may be returned when the mapping cannot be removed due to locking or state issues. It is relevant and sufficiently specific to this tool, making it tool\u2011specific. Validation of the condition cannot be performed beforehand because the policy list does not provide a way to pre\u2011check lock status; the check is reactive after the tool call. The instruction is clear and enforceable \u2013 upon receiving a 409 you must halt any further actions. All necessary information (what a 409 means and the required reaction) is present in the policy, so it is self\u2011contained. Overall clarity and enforceability are high, warranting a score of 5.\nThe policy directly addresses the \u2018remove_child_incident\u2019 tool by specifying how to handle a 409 Conflict that may be returned when the mapping cannot be removed due to locking or state issues. It is relevant and sufficiently specific to this tool, making it tool\u2011specific. Validation of the condition cannot be performed beforehand because the policy list does not provide a way to pre\u2011check lock status; the check is reactive after the tool call. The instruction is clear and enforceable \u2013 upon receiving a 409 you must halt any further actions. All necessary information (what a 409 means and the required reaction) is present in the policy, so it is self\u2011contained. Overall clarity and enforceability are high, warranting a score of 5.\nThe policy directly addresses the \u2018remove_child_incident\u2019 tool by specifying how to handle a 409 Conflict that may be returned when the mapping cannot be removed due to locking or state issues. It is relevant and sufficiently specific to this tool, making it tool\u2011specific. Validation of the condition cannot be performed beforehand because the policy list does not provide a way to pre\u2011check lock status; the check is reactive after the tool call. The instruction is clear and enforceable \u2013 upon receiving a 409 you must halt any further actions. All necessary information (what a 409 means and the required reaction) is present in the policy, so it is self\u2011contained. Overall clarity and enforceability are high, warranting a score of 5.\nThe policy directly addresses the \u2018remove_child_incident\u2019 tool by specifying how to handle a 409 Conflict that may be returned when the mapping cannot be removed due to locking or state issues. It is relevant and sufficiently specific to this tool, making it tool\u2011specific. Validation of the condition cannot be performed beforehand because the policy list does not provide a way to pre\u2011check lock status; the check is reactive after the tool call. The instruction is clear and enforceable \u2013 upon receiving a 409 you must halt any further actions. All necessary information (what a 409 means and the required reaction) is present in the policy, so it is self\u2011contained. Overall clarity and enforceability are high, warranting a score of 5.\nThe policy directly addresses the \u2018remove_child_incident\u2019 tool by specifying how to handle a 409 Conflict that may be returned when the mapping cannot be removed due to locking or state issues. It is relevant and sufficiently specific to this tool, making it tool\u2011specific. Validation of the condition cannot be performed beforehand because the policy list does not provide a way to pre\u2011check lock status; the check is reactive after the tool call. The instruction is clear and enforceable \u2013 upon receiving a 409 you must halt any further actions. All necessary information (what a 409 means and the required reaction) is present in the policy, so it is self\u2011contained. Overall clarity and enforceability are high, warranting a score of 5.\n"
+        },
+        {
+            "policy_name": "Work Log Time Tracking",
+            "description": "All removal actions, including deleting a child incident mapping, must generate a work log that records the timestamp (`created_on`) and the `user_id` of the actor performing the operation.",
+            "references": [
+                "<strong>Time Tracking:</strong> All work logs must include the timestamp (<code>created_on</code>) and the <code>user_id</code> performing the action."
+            ],
+            "iteration_added": 1,
+            "comments": "The policy is relevant because it explicitly mentions removal actions such as deleting a child incident mapping, which is the operation performed by the target tool. However, the policy is not tool\u2011specific; it applies to any removal operation across the system. Validation of compliance cannot be performed before calling the tool because the work\u2011log entry is created as a side effect of the operation, and there is no pre\u2011execution check to confirm it will be logged. The policy is not directly actionable with the parameters of the `remove_child_incident` tool \u2013 the tool does not accept any logging\u2011related arguments, nor is there a provided logging tool in the current toolbox to create the required entry. The description is understandable on its own, referencing the earlier \"Time Tracking\" rule, so it is self\u2011contained. Overall clarity is acceptable, but enforceability is low, leading to a score of 2 out of 5.\nThe policy is relevant because it explicitly mentions removal actions such as deleting a child incident mapping, which is the operation performed by the target tool. However, the policy is not tool\u2011specific; it applies to any removal operation across the system. Validation of compliance cannot be performed before calling the tool because the work\u2011log entry is created as a side effect of the operation, and there is no pre\u2011execution check to confirm it will be logged. The policy is not directly actionable with the parameters of the `remove_child_incident` tool \u2013 the tool does not accept any logging\u2011related arguments, nor is there a provided logging tool in the current toolbox to create the required entry. The description is understandable on its own, referencing the earlier \"Time Tracking\" rule, so it is self\u2011contained. Overall clarity is acceptable, but enforceability is low, leading to a score of 2 out of 5.\nThe policy is relevant because it explicitly mentions removal actions such as deleting a child incident mapping, which is the operation performed by the target tool. However, the policy is not tool\u2011specific; it applies to any removal operation across the system. Validation of compliance cannot be performed before calling the tool because the work\u2011log entry is created as a side effect of the operation, and there is no pre\u2011execution check to confirm it will be logged. The policy is not directly actionable with the parameters of the `remove_child_incident` tool \u2013 the tool does not accept any logging\u2011related arguments, nor is there a provided logging tool in the current toolbox to create the required entry. The description is understandable on its own, referencing the earlier \"Time Tracking\" rule, so it is self\u2011contained. Overall clarity is acceptable, but enforceability is low, leading to a score of 2 out of 5.\nThe policy is relevant because it explicitly mentions removal actions such as deleting a child incident mapping, which is the operation performed by the target tool. However, the policy is not tool\u2011specific; it applies to any removal operation across the system. Validation of compliance cannot be performed before calling the tool because the work\u2011log entry is created as a side effect of the operation, and there is no pre\u2011execution check to confirm it will be logged. The policy is not directly actionable with the parameters of the `remove_child_incident` tool \u2013 the tool does not accept any logging\u2011related arguments, nor is there a provided logging tool in the current toolbox to create the required entry. The description is understandable on its own, referencing the earlier \"Time Tracking\" rule, so it is self\u2011contained. Overall clarity is acceptable, but enforceability is low, leading to a score of 2 out of 5.\nThe policy is relevant because it explicitly mentions removal actions such as deleting a child incident mapping, which is the operation performed by the target tool. However, the policy is not tool\u2011specific; it applies to any removal operation across the system. Validation of compliance cannot be performed before calling the tool because the work\u2011log entry is created as a side effect of the operation, and there is no pre\u2011execution check to confirm it will be logged. The policy is not directly actionable with the parameters of the `remove_child_incident` tool \u2013 the tool does not accept any logging\u2011related arguments, nor is there a provided logging tool in the current toolbox to create the required entry. The description is understandable on its own, referencing the earlier \"Time Tracking\" rule, so it is self\u2011contained. Overall clarity is acceptable, but enforceability is low, leading to a score of 2 out of 5.\n"
+        }
+    ]
+}

@@ -1,0 +1,116 @@
+{
+    "policies": [
+        {
+            "policy_name": "Validate Mandatory Fields",
+            "description": "When calling the `update_problem` tool, the request must contain **either** `problem_id` **or** `number`. In addition, at least one updatable field (such as `status`, `assigned_to`, `fix_notes`, etc.) must be provided; fields may be omitted only if they are not being changed. All supplied fields must be non\u2011empty, and any field that has a predefined enumeration (e.g., `status` must be one of `NEW`, `ASSESS`, `ROOT_CAUSE`, `FIX_IN_PROGRESS`, `RESOLVED`, `CLOSED`) must contain a value from that enumeration. No other mandatory fields are required\u2014the identifier alone satisfies the tool\u2019s mandatory input, but the tool will reject calls that do not modify any field.",
+            "references": [
+                "<strong>Mandatory Fields:</strong> Any request to create or update a record must validate all mandatory fields."
+            ]
+        },
+        {
+            "policy_name": "Role-Based Update Permission",
+            "description": "Only users with a role that has full CRUD permissions on the Problem table (Administrator, Manager, or Agent) are allowed to perform an update on a Problem record.",
+            "references": [
+                "| <strong>Administrator</strong> (<code>admin</code>) | System Configuration &amp; Integrity | Full CRUD (Create, Read, Update, Delete) access across all tables.\u00a0|",
+                "| <strong>Manager</strong> (<code>manager</code>) | Supervision, Escalation, Approvals | Full CRUD on operational tables (<code>incident</code>, <code>problem</code>, <code>change</code>, <code>knowledge</code>); READ access to all the tables. Can <strong>reassign</strong> incidents/requests. Can <strong>approve/reject</strong> Change Requests. Monitors SLAs and escalations. |",
+                "| <strong>Agent</strong> (<code>agent</code>) | Frontline Incident/Request fulfillment | <strong>Full CRUD</strong> on <strong>Incidents, Service Requests, Tasks, Work Notes, CMDB, Change, Problem, and Knowledge</strong>. READ access to all the tables. Can update assignment, state, and resolution. |"
+            ]
+        },
+        {
+            "policy_name": "Mandatory Field Clarification",
+            "description": "When using the **update_problem** tool, the request must include **at least one identifier** (`problem_id` or `number`). If neither identifier is supplied, the assistant must respond with a clear message stating that **\"problem_id\" or \"number\" is required** and must not ask the user for additional clarification.",
+            "references": [
+                "<strong>User Clarification:</strong> Do not ask for further information. If the request is ambiguous, return the list and state the ambiguity. If a mandatory field is missing, state which field is required."
+            ]
+        },
+        {
+            "policy_name": "Closing Problem Requires Dependency Validation",
+            "description": "Before calling the `update_problem` tool to set a problem\u2019s `status` to `closed`, perform the following checks:\n1. **Linked Change Request** \u2013 Use `list_change_request_mappings` (or `list_changes` filtered by the problem\u2019s ID) to locate at least one Change Request linked to the problem. Retrieve that Change Request with `list_changes` and confirm:\n   - `type` is either `normal` or `emergency`\n   - `status` is `closed`\n2. **Open Incident Check** \u2013 Query `list_incidents` with filters `problem=<problem_id>` and `status` not in (`closed`, `canceled`). The result set must be empty, meaning no incident tied to the problem remains open.\n3. **Fix Notes Presence** \u2013 Retrieve the problem record (e.g., via `find_problem_by_number` or `list_problems`) and verify that the `fix_notes` field exists and is not an empty string.\nIf **all** three conditions are satisfied, proceed to call `update_problem` with `status=\"closed\"` (and any other fields you wish to update). If any condition fails, abort the operation and return a clear policy\u2011violation message indicating which dependency was not met.",
+            "references": [
+                "<strong>Final Status:</strong> A Problem transitions to <code>closed</code> only after the permanent fix has been successfully implemented via a linked <code>normal</code> or <code>emergency</code> Change Request.",
+                "<strong>Referential Integrity:</strong> Before closing any record, verify that all mandatory dependencies are satisfied."
+            ]
+        },
+        {
+            "policy_name": "Workaround Update Requires Status and Publication",
+            "description": "When calling `update_problem`, ensure that any request containing `workaround` or `workaround_notes` also includes `status\":\"fix_in_progress\"`. After the update succeeds, automatically:\n- Execute `list_incidents` with the filter `{ \"problem\": \"<problem_id_or_number>\" }` (the `problem` filter is supported by the `list_incidents` tool) and for each incident returned, call `update_incident` with `{ \"incident_id\": \"<id>\", \"worknotes\": \"<workaround_notes>\" }`.\n- Execute `retrieve_knowledge_articles` with a filter that selects articles linked to the problem. Since the generic `retrieve_knowledge_articles` tool does not list its filter fields, assume a custom filter parameter `related_problem` is available; if not, the caller must first determine the linking mechanism using the system's metadata. For each article returned, call `update_knowledge_article` with `{ \"knowledge_id\": \"<id>\", \"description\": \"<existing_description>\\n\\nWorkaround: <workaround_notes>\" }`.\nThese actions rely solely on the listed tool definitions and do not require outside information.",
+            "references": [
+                "If workaround/temporary solution found, update workaround field and set status=<code>fix_in_progress</code>. The <code>workaround_notes</code> <strong>must</strong> be published to the linked Incidents and relevant Knowledge Articles."
+            ]
+        },
+        {
+            "policy_name": "Problem Must Link Affected Incidents",
+            "description": "Before calling **update_problem**, perform the following steps:\n1. Retrieve the Problem record (using `find_problem_by_number` or `list_problems` filtered by `problem_id`).\n2. Retrieve all Incidents that have the Problem's identifier in their `problem` field (using `list_incidents` with the `problem` filter).\n3. Compare the set of Incident IDs returned in step\u202f2 with the Incident IDs present in the Problem record's `incident_to_problem` relationship (assumed to be exposed as a list field in the Problem object).\n4. If any Incident from step\u202f2 is not present in that relationship, abort the `update_problem` call and return a clear error indicating the missing links (or invoke the appropriate linking tool, if available, before retrying).\nThis description specifies the exact API calls needed and the fields to compare, making the policy executable without external context.",
+            "references": [
+                "The Problem record <strong>must</strong> link all affected Incidents via the <code>incident_to_problem</code> related list."
+            ]
+        },
+        {
+            "policy_name": "Configuration Item Status Validation for Problem Update",
+            "description": "If a Problem update includes a `configuration_item` reference, the referenced Configuration Item must have `status = in_use` or `status = maintenance`. Linking a Problem to a CI with status `retired` or `disposed` is prohibited.",
+            "references": [
+                "<strong>CI Status:</strong> Only CIs with <code>status = in_use</code> or <code>status = maintenance</code> can be linked to active Incidents. Do not link CIs in <code>status = retired</code> or <code>status = disposed</code>."
+            ]
+        },
+        {
+            "policy_name": "Problem Status Value Constraint",
+            "description": "When updating a Problem record, the `status` field must be set to one of the allowed status values defined for problems: NEW, ASSESS, ROOT_CAUSE, FIX_IN_PROGRESS, RESOLVED, or CLOSED.",
+            "references": [
+                "<strong>status:</strong> Problem status (NEW, ASSESS, ROOT_CAUSE, FIX_IN_PROGRESS, RESOLVED, CLOSED)"
+            ]
+        },
+        {
+            "policy_name": "Problem Priority Enumeration Constraint",
+            "description": "When calling the **update_problem** tool, if the payload contains a `priority` field, its value must be exactly one of the following strings: \"critical\", \"high\", \"moderate\", \"low\", or \"planning\". Any other value should cause the operation to be halted and the policy violation reported before the API call is made.",
+            "references": [
+                "<strong>Priority Calculation:</strong> Priority (<code>critical</code>, <code>high</code>, <code>moderate</code>, <code>low</code>, <code>planning</code>) is determined automatically by the system based on a below pre-defined matrix of <strong>Impact x Urgency</strong>."
+            ]
+        },
+        {
+            "policy_name": "Problem Impact Value Constraint",
+            "description": "When updating a Problem, the `impact` field (if supplied) must be one of the allowed values: `high`, `medium`, or `low`.",
+            "references": [
+                "<strong>incident.impact</strong> | <code>high</code>, <code>medium</code>, <code>low</code>"
+            ]
+        },
+        {
+            "policy_name": "Problem Urgency Value Constraint",
+            "description": "When updating a Problem, the `urgency` field (if supplied) must be one of the allowed values: `high`, `medium`, or `low`.",
+            "references": [
+                "<strong>incident.urgency</strong> | <code>high</code>, <code>medium</code>, <code>low</code>"
+            ]
+        },
+        {
+            "policy_name": "Problem Category Enumeration Constraint",
+            "description": "When calling the **update_problem** tool, if the optional `category` field is provided it must match one of the system\u2011defined problem categories. Acceptable values are **NETWORK**, **SOFTWARE**, **HARDWARE**, or **DATABASE** (case\u2011insensitive). Any other value should cause the request to be rejected before invoking the tool.",
+            "references": [
+                "<strong>category:</strong> Problem category (network, software, hardware, database)."
+            ]
+        },
+        {
+            "policy_name": "Problem Priority Auto\u2011Calculation Constraint",
+            "description": "When invoking the **update_problem** tool, the `priority` of a Problem cannot be set arbitrarily. It is automatically derived from the `impact` and `urgency` fields according to the following matrix:\n\n| Impact | Urgency | Priority |\n|--------|---------|----------|\n| low    | low     | planning |\n| low    | medium  | low      |\n| low    | high    | moderate |\n| medium | low     | low      |\n| medium | medium  | moderate |\n| medium | high    | high     |\n| high   | low     | moderate |\n| high   | medium  | high     |\n| high   | high    | critical |\n\nIf the update payload includes a `priority` value, the system must verify that this value matches the entry in the matrix for the supplied `impact` and `urgency`. If it does not match, the update must be rejected with a policy\u2011violation error.",
+            "references": [
+                "<p><strong>Priority Calculation:</strong> Priority (<code>critical</code>, <code>high</code>, <code>moderate</code>, <code>low</code>, <code>planning</code>) is determined automatically by the system based on a below pre-defined matrix of <strong>Impact x Urgency</strong>.</p>"
+            ]
+        }
+    ],
+    "archive": [
+        {
+            "policy_name": "Assigned User Must Be Active",
+            "description": "When the update includes an `assigned_to` user, that user must have `users.active = true`.",
+            "references": [
+                "<strong>User Status:</strong> Ensure any user being assigned to (<code>assigned_to</code>) or updated is <code>users.active = true</code>."
+            ],
+            "comments": "The policy directly applies to the `update_problem` tool because that tool can accept an `assigned_to` field. Although the rule is not exclusive to the problem domain (it also governs other update operations), it is still highly relevant. Validation can be performed ahead of the tool call by retrieving the user record (e.g., via `get_user` or `list_users`) and checking the `active` flag. The policy can be enforced solely with the parameters of the `update_problem` request and a pre\u2011check of user data, meeting the actionability requirement. The description is clear and does not depend on external context beyond the cited reference, making it self\u2011contained. \n\nOverall rating: 4/5 \u2013 the policy is clear, enforceable, and relevant, but it is not narrowly scoped to the `update_problem` tool, which slightly reduces its specificity score.\nThe policy directly applies to the `update_problem` tool because that tool can accept an `assigned_to` field. Although the rule is not exclusive to the problem domain (it also governs other update operations), it is still highly relevant. Validation can be performed ahead of the tool call by retrieving the user record (e.g., via `get_user` or `list_users`) and checking the `active` flag. The policy can be enforced solely with the parameters of the `update_problem` request and a pre\u2011check of user data, meeting the actionability requirement. The description is clear and does not depend on external context beyond the cited reference, making it self\u2011contained. \n\nOverall rating: 4/5 \u2013 the policy is clear, enforceable, and relevant, but it is not narrowly scoped to the `update_problem` tool, which slightly reduces its specificity score.\nThe policy directly applies to the `update_problem` tool because that tool can accept an `assigned_to` field. Although the rule is not exclusive to the problem domain (it also governs other update operations), it is still highly relevant. Validation can be performed ahead of the tool call by retrieving the user record (e.g., via `get_user` or `list_users`) and checking the `active` flag. The policy can be enforced solely with the parameters of the `update_problem` request and a pre\u2011check of user data, meeting the actionability requirement. The description is clear and does not depend on external context beyond the cited reference, making it self\u2011contained. \n\nOverall rating: 4/5 \u2013 the policy is clear, enforceable, and relevant, but it is not narrowly scoped to the `update_problem` tool, which slightly reduces its specificity score.\nThe policy directly applies to the `update_problem` tool because that tool can accept an `assigned_to` field. Although the rule is not exclusive to the problem domain (it also governs other update operations), it is still highly relevant. Validation can be performed ahead of the tool call by retrieving the user record (e.g., via `get_user` or `list_users`) and checking the `active` flag. The policy can be enforced solely with the parameters of the `update_problem` request and a pre\u2011check of user data, meeting the actionability requirement. The description is clear and does not depend on external context beyond the cited reference, making it self\u2011contained. \n\nOverall rating: 4/5 \u2013 the policy is clear, enforceable, and relevant, but it is not narrowly scoped to the `update_problem` tool, which slightly reduces its specificity score.\nThe policy directly applies to the `update_problem` tool because that tool can accept an `assigned_to` field. Although the rule is not exclusive to the problem domain (it also governs other update operations), it is still highly relevant. Validation can be performed ahead of the tool call by retrieving the user record (e.g., via `get_user` or `list_users`) and checking the `active` flag. The policy can be enforced solely with the parameters of the `update_problem` request and a pre\u2011check of user data, meeting the actionability requirement. The description is clear and does not depend on external context beyond the cited reference, making it self\u2011contained. \n\nOverall rating: 4/5 \u2013 the policy is clear, enforceable, and relevant, but it is not narrowly scoped to the `update_problem` tool, which slightly reduces its specificity score.\n"
+        },
+        {
+            "policy_name": "Atomic Operation Requirement",
+            "description": "The update must be a single validated operation; it cannot proceed if required data is missing or the current record state prevents the action.",
+            "references": [
+                "<strong>Atomic Operations:</strong> Perform <strong>one validated operation at a time</strong>, except when using approved batch endpoints. Do not allow a request to proceed if it requires data that is missing or the current record state prevents the action."
+            ],
+            "comments": "The policy directly applies to the `update_problem` tool because the tool performs a single update operation. The rule is generic (applies to all CRUD actions) rather than being tailored to the problem\u2011update endpoint, so it is not tool\u2011specific. Before calling the tool we can validate that all required fields are supplied (the tool allows any subset) and, if needed, fetch the existing problem record (e.g., via `find_problem_by_number`) to ensure the current status permits the requested change. This validation can be performed using available tools and the chat context, making the policy enforceable. The description is clear enough on its own, though adding an explicit example for a problem\u2011update scenario could improve readability. Overall the policy is clear, enforceable, and relevant, earning a score of 4 out of 5.\nThe policy directly applies to the `update_problem` tool because the tool performs a single update operation. The rule is generic (applies to all CRUD actions) rather than being tailored to the problem\u2011update endpoint, so it is not tool\u2011specific. Before calling the tool we can validate that all required fields are supplied (the tool allows any subset) and, if needed, fetch the existing problem record (e.g., via `find_problem_by_number`) to ensure the current status permits the requested change. This validation can be performed using available tools and the chat context, making the policy enforceable. The description is clear enough on its own, though adding an explicit example for a problem\u2011update scenario could improve readability. Overall the policy is clear, enforceable, and relevant, earning a score of 4 out of 5.\nThe policy directly applies to the `update_problem` tool because the tool performs a single update operation. The rule is generic (applies to all CRUD actions) rather than being tailored to the problem\u2011update endpoint, so it is not tool\u2011specific. Before calling the tool we can validate that all required fields are supplied (the tool allows any subset) and, if needed, fetch the existing problem record (e.g., via `find_problem_by_number`) to ensure the current status permits the requested change. This validation can be performed using available tools and the chat context, making the policy enforceable. The description is clear enough on its own, though adding an explicit example for a problem\u2011update scenario could improve readability. Overall the policy is clear, enforceable, and relevant, earning a score of 4 out of 5.\nThe policy directly applies to the `update_problem` tool because the tool performs a single update operation. The rule is generic (applies to all CRUD actions) rather than being tailored to the problem\u2011update endpoint, so it is not tool\u2011specific. Before calling the tool we can validate that all required fields are supplied (the tool allows any subset) and, if needed, fetch the existing problem record (e.g., via `find_problem_by_number`) to ensure the current status permits the requested change. This validation can be performed using available tools and the chat context, making the policy enforceable. The description is clear enough on its own, though adding an explicit example for a problem\u2011update scenario could improve readability. Overall the policy is clear, enforceable, and relevant, earning a score of 4 out of 5.\nThe policy directly applies to the `update_problem` tool because the tool performs a single update operation. The rule is generic (applies to all CRUD actions) rather than being tailored to the problem\u2011update endpoint, so it is not tool\u2011specific. Before calling the tool we can validate that all required fields are supplied (the tool allows any subset) and, if needed, fetch the existing problem record (e.g., via `find_problem_by_number`) to ensure the current status permits the requested change. This validation can be performed using available tools and the chat context, making the policy enforceable. The description is clear enough on its own, though adding an explicit example for a problem\u2011update scenario could improve readability. Overall the policy is clear, enforceable, and relevant, earning a score of 4 out of 5.\n"
+        }
+    ]
+}

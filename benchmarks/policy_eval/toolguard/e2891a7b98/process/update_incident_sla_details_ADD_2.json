@@ -1,0 +1,100 @@
+{
+    "policies": [
+        {
+            "policy_name": "Mandatory incident_sla_id field",
+            "description": "Any request to update an Incident SLA must include the mandatory field\u202fincident_sla_id.",
+            "references": [
+                "<strong>Mandatory Fields:</strong> Any request to create or update a record must validate all mandatory fields."
+            ],
+            "iteration_added": 0
+        },
+        {
+            "policy_name": "Valid stage values",
+            "description": "When updating an Incident SLA, the\u202fstage\u202ffield must be set to one of the allowed enumeration values: in_progress, paused, completed, cancelled, or breached.",
+            "references": [
+                "| <strong>incident_sla.stage</strong> | <code>in_progress</code>, <code>paused</code>, <code>completed</code>, <code>cancelled</code>, <code>breached</code> |"
+            ],
+            "iteration_added": 0
+        },
+        {
+            "policy_name": "Pause SLA only on allowed on\u2011hold reasons",
+            "description": "The SLA timer may be set to\u202fstage = paused\u202fonly when the related Incident is in\u202fstage = on_hold\u202fand its\u202fon_hold_reason\u202fis one of: Awaiting Change, Awaiting Caller, or Awaiting Problem.",
+            "references": [
+                "<strong>SLA Pause:</strong> The SLA timer <strong>must</strong> be paused (<code>stage = paused</code>) when the Incident is in <code>stage = on_hold</code> and the <code>on_hold_reason</code> is one of the following enumerations: <code>Awaiting Change</code>, <code>Awaiting Caller</code>, or <code>Awaiting Problem</code>."
+            ],
+            "iteration_added": 0
+        },
+        {
+            "policy_name": "Breach handling requirements",
+            "description": "If an Incident SLA is updated to\u202fstage = breached, the Incident\u2019s\u202fescalation\u202fflag must be set to\u202ftrue\u202fand an automatic notification must be sent to the\u202fManager.",
+            "references": [
+                "<strong>Breach:</strong> If the SLA exceeds its duration (<code>stage = breached</code>), the <code>escalation</code> flag on the Incident <strong>must</strong> be set to true, and an automatic notification sent to the <code>Manager</code>."
+            ],
+            "iteration_added": 0
+        },
+        {
+            "policy_name": "Atomic update operation",
+            "description": "Each call to\u202fupdate_incident_sla_details\u202fmust perform only one validated operation at a time; multiple field updates are not allowed unless using an approved batch endpoint.",
+            "references": [
+                "<strong>Atomic Operations:</strong> Perform <strong>one validated operation at a time</strong>, except when using approved batch endpoints."
+            ],
+            "iteration_added": 0
+        },
+        {
+            "policy_name": "Permission enforcement for SLA updates",
+            "description": "When invoking update_incident_sla_details, the system must verify that the requesting user\u2019s role has authority to perform the update; otherwise a 403 Forbidden error must be returned.",
+            "references": [
+                "<strong>403 Forbidden:</strong> Permission denied (user role lacks authority for the operation)."
+            ],
+            "iteration": 0
+        },
+        {
+            "policy_name": "Rate limiting on SLA update calls",
+            "description": "If the rate limit for update_incident_sla_details calls is exceeded, the operation must be paused and retried using exponential backoff.",
+            "references": [
+                "<strong>Rate Limiting:</strong> If exceeded, pause and retry using <strong>Exponential Backoff</strong>."
+            ],
+            "iteration": 0
+        },
+        {
+            "policy_name": "Conflict handling for SLA state updates",
+            "description": "If an update to an Incident SLA record results in a record lock or an invalid state transition, the system must return a 409 Conflict error.",
+            "references": [
+                "<strong>409 Conflict:</strong> Record locking or state conflict."
+            ],
+            "iteration": 0
+        },
+        {
+            "policy_name": "Operation must be based on confirmed user roles and verified relationships",
+            "description": "Before invoking update_incident_sla_details, the system must ensure the request is made using confirmed user roles, verified record relationships, and ITIL/database integrity rules; otherwise the operation must be halted.",
+            "references": [
+                "First you must check the user information and operate exclusively based on <strong>confirmed user roles</strong>, <strong>verified record relationships</strong>, and <strong>ITIL/database integrity rules</strong>."
+            ],
+            "iteration": 1
+        },
+        {
+            "policy_name": "Referential integrity for incident_id and sla_def_id",
+            "description": "When an update to an Incident SLA changes the incident_id or sla_def_id fields, the new identifiers must reference existing Incident and SLA Definition records; if they do not exist the update must be aborted.",
+            "references": [
+                "<strong>Referential Integrity:</strong> Before closing any record, verify that all mandatory dependencies are satisfied."
+            ],
+            "iteration": 1
+        },
+        {
+            "policy_name": "Do not fabricate IDs or assume defaults",
+            "description": "The update_incident_sla_details call must never assume, guess, or fabricate incident_sla_id, incident_id, sla_def_id, or any other identifiers; it must rely only on IDs retrieved from verified API responses.",
+            "references": [
+                "Never assume or fabricate IDs, responses, or outcomes \u2014 rely solely on verified API results. The same is the case of optional or default arguments."
+            ],
+            "iteration": 1
+        },
+        {
+            "policy_name": "SLA definition must align with incident priority",
+            "description": "When updating an Incident SLA record, the selected SLA definition must correspond to the priority of the associated incident; the update must not break this automatic alignment.",
+            "references": [
+                "<strong>SLA Application:</strong> SLAs are automatically aligned based on <code>priority</code> linked to the incident."
+            ],
+            "iteration": 2
+        }
+    ]
+}

@@ -1,0 +1,44 @@
+{
+    "policies": [
+        {
+            "policy_name": "Mandatory Fields Validation",
+            "description": "Any request to create or update a record must validate all mandatory fields before proceeding.",
+            "references": [
+                "<strong>Mandatory Fields:</strong> Any request to create or update a record must validate all mandatory fields."
+            ],
+            "iteration_added": 0
+        },
+        {
+            "policy_name": "CI Owner Requirement",
+            "description": "Every Configuration Item must have a recorded owner_id.",
+            "references": [
+                "<strong>CI Owner:</strong> All CIs must have a recorded <code>owner_id</code>."
+            ],
+            "iteration_added": 0
+        },
+        {
+            "policy_name": "CI Status Enumerated Values",
+            "description": "The status field of a Configuration Item must be one of the allowed enumeration values: in_use, in_stock, maintenance, retired, or disposed.",
+            "references": [
+                "| <strong>configuration_item.status</strong> | <code>in_use</code>, <code>in_stock</code>, <code>maintenance</code>, <code>retired</code>, <code>disposed</code> |"
+            ],
+            "iteration_added": 0
+        },
+        {
+            "policy_name": "CI Linkable Status Constraint",
+            "description": "Only Configuration Items whose status is in_use or maintenance may be linked to active Incidents; items with status retired or disposed must not be linked.",
+            "references": [
+                "<strong>CI Status:</strong> Only CIs with <code>status = in_use</code> or <code>status = maintenance</code> can be linked to active Incidents. Do not link CIs in <code>status = retired</code> or <code>status = disposed</code>."
+            ],
+            "iteration_added": 0
+        },
+        {
+            "policy_name": "User Active Status for Ownership Assignment",
+            "description": "When assigning a user as the owner of a Configuration Item, the user must have users.active = true.",
+            "references": [
+                "<strong>User Status:</strong> Ensure any user being assigned to (<code>assigned_to</code>) or updated is <code>users.active = true</code>."
+            ],
+            "iteration_added": 0
+        }
+    ]
+}

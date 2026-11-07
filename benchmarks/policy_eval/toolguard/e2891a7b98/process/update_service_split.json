@@ -1,0 +1,54 @@
+{
+    "policies": [
+        {
+            "policy_name": "Administrator Role Required for Service Updates",
+            "description": "Only users with the Administrator role (admin) are permitted to invoke the update_service tool to modify Service records.",
+            "references": [
+                "| **Administrator** (<code>admin</code>) | System Configuration &amp; Integrity | Full CRUD (Create, Read, Update, Delete) access across all tables.\u00a0|"
+            ],
+            "iteration_added": 1
+        },
+        {
+            "policy_name": "Non\u2011Administrator Roles Prohibited from Service Updates",
+            "description": "Users in roles other than Administrator (e.g., Manager, Agent, Reporter) do not have permission to update Service records.",
+            "references": [
+                "| **Manager** (<code>manager</code>) | Supervision, Escalation, Approvals | Full CRUD on operational tables (<code>incident</code>, <code>problem</code>, <code>change</code>, <code>knowledge</code>); READ access to all the tables. |",
+                "| **Agent** (<code>agent</code>) | Frontline Incident/Request fulfillment | **Full CRUD** on **Incidents, Service Requests, Tasks, Work Notes, CMDB, Change, Problem, and Knowledge**. READ access to all the tables. |"
+            ],
+            "iteration_added": 1
+        },
+        {
+            "policy_name": "Service Update Must Include Mandatory Field service_id",
+            "description": "Every call to update_service must contain the mandatory field\u202f`service_id` identifying the service to be updated.",
+            "references": [
+                "<strong>Mandatory Fields:</strong> Any request to create or update a record must validate all mandatory fields."
+            ],
+            "iteration_added": 1
+        },
+        {
+            "policy_name": "Service Update Must Include At Least One Additional Field",
+            "description": "In addition to the mandatory `service_id`, a request to update_service must supply at least one other updatable field (e.g., name, owned_by, status, etc.).",
+            "references": [
+                "At least one field must be provided. Service name must be unique if provided."
+            ],
+            "iteration_added": 1
+        },
+        {
+            "policy_name": "Identifier Verification Requirement",
+            "description": "The `service_id` supplied to update_service must be verified (e.g., via a lookup) before performing the update; IDs must never be fabricated.",
+            "references": [
+                "Never assume or fabricate IDs, responses, or outcomes \u2014 rely solely on verified API results.",
+                "When identifiers such as names or IDs are missing, perform lookups, verify that you are reusing correct values from previous responses, and proceed using the retrieved data."
+            ],
+            "iteration_added": 0
+        },
+        {
+            "policy_name": "Atomic Operation Requirement",
+            "description": "Only a single validated operation may be performed at a time; update_service must be called alone without bundling other actions.",
+            "references": [
+                "<strong>Atomic Operations:</strong> Perform <strong>one validated operation at a time</strong>, except when using approved batch endpoints."
+            ],
+            "iteration_added": 0
+        }
+    ]
+}

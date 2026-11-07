@@ -1,0 +1,75 @@
+{
+    "policies": [
+        {
+            "policy_name": "Mandatory_Field_Presence_for_SLA_Update",
+            "description": "When calling the\u202fupdate_sla_definition\u202ftool, the mandatory field\u202fsla_def_id\u202fmust be supplied. The request must be rejected if this field is missing.",
+            "references": [
+                "<strong>Mandatory Fields:</strong> Any request to create or update a record must validate all mandatory fields."
+            ]
+        },
+        {
+            "policy_name": "Single_Operation_Per_Request",
+            "description": "The\u202fupdate_sla_definition\u202fcall must be the only operation performed in a request; no additional actions may be combined with it.",
+            "references": [
+                "<strong>Atomic Operations:</strong> Perform <strong>one validated operation at a time</strong>, except when using approved batch endpoints. Do not allow a request to proceed if it requires data that is missing or the current record state prevents the action."
+            ]
+        },
+        {
+            "policy_name": "SLA_Metric_Limitation",
+            "description": "When invoking the `update_sla_definition` tool, the request payload must contain **only** the following fields: `target_mins`, `active`, `pause_on_pending`, `applies_to_priority`, `schedule`, `name`, and `metric`. Any other field (e.g., `priority`, `description`, custom metric attributes) is considered unsupported and must cause the operation to be halted with a policy\u2011violation message.",
+            "references": []
+        },
+        {
+            "policy_name": "SLA_Pause_Behavior",
+            "description": "When using the **update_sla_definition** tool, verify the incoming payload. If the payload includes the field **pause_on_pending** and its value is **false**, the request must be rejected. The SLA definition\u2019s **pause_on_pending** flag must remain **true** (or be omitted) because the system\u2019s SLA logic requires this flag to be enabled so that the SLA timer can be paused (stage = paused) whenever an incident is placed on hold for the reasons *Awaiting Change*, *Awaiting Caller*, or *Awaiting Problem*. Only payloads that keep **pause_on_pending** set to **true** or do not modify it are permitted.",
+            "references": [
+                "<strong>SLA Pause:</strong> The SLA timer <strong>must</strong> be paused (<code>stage = paused</code>) when the Incident is in <code>stage = on_hold</code> and the <code>on_hold_reason</code> is one of the following enumerations: <code>Awaiting Change</code>, <code>Awaiting Caller</code>, or <code>Awaiting Problem</code>.",
+                "- pause_on_pending: Boolean indicating if SLA pauses on pending status"
+            ]
+        },
+        {
+            "policy_name": "SLA_Breach_Escalation",
+            "description": "Any change to an SLA definition (e.g.,\u202factive\u202for\u202ftarget_mins) must preserve the breach\u2011handling behavior: if an SLA exceeds its duration, the incident\u2019s\u202fescalation\u202fflag must be set to true and a notification sent to the\u202fManager.",
+            "references": [
+                "<strong>Breach:</strong> If the SLA exceeds its duration (<code>stage = breached</code>), the <code>escalation</code> flag on the Incident <strong>must</strong> be set to true, and an automatic notification sent to the <code>Manager</code>."
+            ]
+        },
+        {
+            "policy_name": "Administrator_Access_Only_With_403_On_Denial",
+            "description": "1. Use the **get_user** tool (or **list_users** with filter `user_id`/`email`) passing the request\u2019s `x-itsm-user-token` to obtain the authenticated user record.\n2. Inspect the returned object's `role` field.\n3. If `role` equals `admin`, call **update_sla_definition** with the supplied payload.\n4. If `role` is any other value, do **not** call the update tool; instead return a JSON response:\n   ```json\n   { \"error\": \"403 Forbidden\", \"message\": \"Insufficient permissions \u2013 only Administrator role may update SLA definitions.\" }\n   ```\n5. If the token is missing or the user lookup fails, return a `401 Unauthorized`\u2011type error before any SLA update attempt.",
+            "references": [
+                "<strong>Administrator</strong> (<code>admin</code>) | System Configuration &amp; Integrity | Full CRUD (Create, Read, Update, Delete) access across all tables.",
+                "<strong>403 Forbidden:</strong> Permission denied (user role lacks authority for the operation)."
+            ]
+        },
+        {
+            "policy_name": "SLA_Definition_Existence_Verification",
+            "description": "Before invoking\u202fupdate_sla_definition, the assistant must verify that the provided\u202fsla_def_id\u202fcorresponds to an existing SLA definition record. The operation must not proceed if the identifier cannot be resolved, and an appropriate error indicating \u201cSLA definition not found\u201d must be returned.",
+            "references": [
+                "When identifiers such as names or IDs are missing, perform lookups, verify that you are reusing correct values from previous responses, and proceed using the retrieved data.",
+                "Never assume or fabricate IDs, responses, or outcomes \u2014 rely solely on verified API results.",
+                "Referential Integrity:",
+                "Before closing any record, verify that all mandatory dependencies are satisfied."
+            ]
+        }
+    ],
+    "archive": [
+        {
+            "policy_name": "Rate_Limiting_Exponential_Backoff",
+            "description": "If a call to the\u202fupdate_sla_definition\u202fAPI returns an HTTP\u202f429\u202f\u2018Too Many Requests\u2019 (or any documented rate\u2011limit error), the assistant must stop further attempts, wait for a backoff interval that doubles with each retry (e.g., 1\u202fs, 2\u202fs, 4\u202fs, \u2026 up to a reasonable maximum), and then retry the request. The backoff process must cease once the request succeeds or a non\u2011rate\u2011limit error is received.",
+            "references": [
+                "<strong>Rate Limiting:</strong> If exceeded, pause and retry using <strong>Exponential Backoff</strong>."
+            ],
+            "comments": "The policy is directly relevant to the target tool (update_sla_definition) and is narrowly scoped, making it tool\u2011specific. It cannot be validated before the API call because the rate\u2011limit condition is only known after a response, so validation must occur post\u2011call. The required action (pause and exponential backoff) is implementable using only the assistant\u2019s control flow and does not depend on external data. The original description lacks explicit details about the error code and backoff mechanics, so it is not fully self\u2011contained; the alternative description adds the missing specifics. Overall the policy is clear and enforceable, earning a score of 4.\nThe policy directly addresses the target tool (update_sla_definition) and specifies the exact behaviour required when a 429 response is received. It is clearly scoped to this API, making it tool\u2011specific and actionable using only the tool\u2019s response codes and the assistant\u2019s control flow. Validation can only occur after a rate\u2011limit error is observed, so it cannot be fully validated beforehand. The description and reference together provide a complete, stand\u2011alone rule, requiring no external context. Overall the policy is clear and enforceable, meriting a score of 4/5.\nThe policy directly addresses the target tool (update_sla_definition) and specifies the exact behaviour required when a 429 response is received. It is clearly scoped to this API, making it tool\u2011specific and actionable using only the tool\u2019s response codes and the assistant\u2019s control flow. Validation can only occur after a rate\u2011limit error is observed, so it cannot be fully validated beforehand. The description and reference together provide a complete, stand\u2011alone rule, requiring no external context. Overall the policy is clear and enforceable, meriting a score of 4/5.\nThe policy directly addresses the target tool (update_sla_definition) and specifies the exact behaviour required when a 429 response is received. It is clearly scoped to this API, making it tool\u2011specific and actionable using only the tool\u2019s response codes and the assistant\u2019s control flow. Validation can only occur after a rate\u2011limit error is observed, so it cannot be fully validated beforehand. The description and reference together provide a complete, stand\u2011alone rule, requiring no external context. Overall the policy is clear and enforceable, meriting a score of 4/5.\nThe policy directly addresses the target tool (update_sla_definition) and specifies the exact behaviour required when a 429 response is received. It is clearly scoped to this API, making it tool\u2011specific and actionable using only the tool\u2019s response codes and the assistant\u2019s control flow. Validation can only occur after a rate\u2011limit error is observed, so it cannot be fully validated beforehand. The description and reference together provide a complete, stand\u2011alone rule, requiring no external context. Overall the policy is clear and enforceable, meriting a score of 4/5.\n"
+        },
+        {
+            "policy_name": "SLA_Record_State_Validation_With_409_On_Conflict",
+            "description": "The\u202fupdate_sla_definition\u202foperation may proceed only if the SLA definition record is in a state that permits updates (i.e., not locked or in a conflicting transaction). If the record is locked or a state conflict is detected, the assistant must halt the operation and return a\u202f409\u202fConflict error.",
+            "references": [
+                "<strong>Atomic Operations:</strong> Perform <strong>one validated operation at a time</strong>, except when using approved batch endpoints. Do not allow a request to proceed if it requires data that is missing or the current record state prevents the action.",
+                "<strong>409 Conflict:</strong> Record locking or state conflict."
+            ],
+            "comments": "The policy directly addresses the target tool (update_sla_definition) and therefore is relevant and sufficiently specific. It is enforceable by attempting the update and handling a 409 response, which satisfies actionability. However, the system lacks a dedicated operation to check a record's lock or conflict status before calling the update API, so pre\u2011validation is not possible. The description is clear without needing external context, making it self\u2011contained. Overall the policy is well\u2011written and practical, earning a score of 4.\nThe policy directly addresses the target tool (update_sla_definition) and therefore is relevant and sufficiently specific. It is enforceable by attempting the update and handling a 409 response, which satisfies actionability. However, the system lacks a dedicated operation to check a record's lock or conflict status before calling the update API, so pre\u2011validation is not possible. The description is clear without needing external context, making it self\u2011contained. Overall the policy is well\u2011written and practical, earning a score of 4.\nThe policy directly addresses the target tool (update_sla_definition) and therefore is relevant and sufficiently specific. It is enforceable by attempting the update and handling a 409 response, which satisfies actionability. However, the system lacks a dedicated operation to check a record's lock or conflict status before calling the update API, so pre\u2011validation is not possible. The description is clear without needing external context, making it self\u2011contained. Overall the policy is well\u2011written and practical, earning a score of 4.\nThe policy directly addresses the target tool (update_sla_definition) and therefore is relevant and sufficiently specific. It is enforceable by attempting the update and handling a 409 response, which satisfies actionability. However, the system lacks a dedicated operation to check a record's lock or conflict status before calling the update API, so pre\u2011validation is not possible. The description is clear without needing external context, making it self\u2011contained. Overall the policy is well\u2011written and practical, earning a score of 4.\nThe policy directly addresses the target tool (update_sla_definition) and therefore is relevant and sufficiently specific. It is enforceable by attempting the update and handling a 409 response, which satisfies actionability. However, the system lacks a dedicated operation to check a record's lock or conflict status before calling the update API, so pre\u2011validation is not possible. The description is clear without needing external context, making it self\u2011contained. Overall the policy is well\u2011written and practical, earning a score of 4.\n"
+        }
+    ]
+}

@@ -1,0 +1,38 @@
+{
+    "policies": [
+        {
+            "policy_name": "Role\u2011based access for knowledge article updates",
+            "description": "Only users with the Administrator, Manager, or Agent role are permitted to update knowledge articles, because they have Full CRUD access on the knowledge table.",
+            "references": [
+                "<strong>Administrator</strong> (<code>admin</code>) | System Configuration &amp; Integrity | Full CRUD (Create, Read, Update, Delete) access across all tables.",
+                "<strong>Manager</strong> (<code>manager</code>) | Supervision, Escalation, Approvals | Full CRUD on operational tables (<code>incident</code>, <code>problem</code>, <code>change</code>, <code>knowledge</code>); READ access to all the tables.",
+                "<strong>Agent</strong> (<code>agent</code>) | Frontline Incident/Request fulfillment | <strong>Full CRUD</strong> on <strong>Incidents, Service Requests, Tasks, Work Notes, CMDB, Change, Problem, and Knowledge</strong>. READ access to all the tables."
+            ],
+            "iteration_added": 0
+        },
+        {
+            "policy_name": "Mandatory fields validation for record updates",
+            "description": "Any request to update a record, including a knowledge article, must validate that all mandatory fields required for the operation are supplied.",
+            "references": [
+                "<strong>Mandatory Fields:</strong> Any request to create or update a record must validate all mandatory fields."
+            ],
+            "iteration_added": 0
+        },
+        {
+            "policy_name": "Knowledge scope restriction",
+            "description": "When updating a knowledge article, the assistant must not disclose or modify information that lies outside the authenticated user's access scope.",
+            "references": [
+                "<strong>Knowledge Scope:</strong> Do not disclose information that is outside the authenticated user's access scope."
+            ],
+            "iteration_added": 0
+        },
+        {
+            "policy_name": "Atomic operation constraint",
+            "description": "The update_knowledge_article tool must be invoked as a single validated operation; only one operation may be performed at a time unless an approved batch endpoint is used.",
+            "references": [
+                "<strong>Atomic Operations:</strong> Perform <strong>one validated operation at a time</strong>, except when using approved batch endpoints."
+            ],
+            "iteration_added": 0
+        }
+    ]
+}

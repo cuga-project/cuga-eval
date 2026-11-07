@@ -1,0 +1,45 @@
+{
+  "policies": [
+    {
+      "policy_name": "CI Linking Status Policy",
+      "description": "A configuration item may be linked to an incident only when its **status** is **in_use** or **maintenance**; it must **not** be linked when the status is **retired** or **disposed**.",
+      "references": [
+        "<li>\n<p><strong>CI Status:</strong> Only CIs with <code>status = in_use</code> or <code>status = maintenance</code> can be linked to active Incidents. Do not link CIs in <code>status = retired</code> or <code>status = disposed</code>.</p>\n</li>"
+      ],
+      "iteration_added": 2
+    },
+    {
+      "policy_name": "Role Permission for CMDB Modification",
+      "description": "Only users with the **Agent** or **Manager** role have permission to create, read, update, or delete CMDB records, which includes linking a CI to an incident.",
+      "references": [
+        "| <strong>Agent</strong> (<code>agent</code>) | Frontline Incident/Request fulfillment | <strong>Full CRUD</strong> on <strong>Incidents, Service Requests, Tasks, Work Notes, CMDB, Change, Problem, and Knowledge</strong>. READ access to all the tables. Can update assignment, state, and resolution. | Cannot bypass approvals, or change system administration settings. |"
+      ],
+      "iteration_added": 0
+    },
+    {
+      "policy_name": "Mandatory Fields Validation",
+      "description": "Both **configuration_item** and **incident_id** are required parameters for the link operation and must be supplied before the call is made.",
+      "references": [
+        "<strong>Mandatory Fields:</strong> Any request to create or update a record must validate all mandatory fields."
+      ],
+      "iteration_added": 0
+    },
+    {
+      "policy_name": "No Assumption of IDs",
+      "description": "Before invoking the **link_affected_ci_to_incident** tool, the assistant must verify that both the incident and the configuration item exist. Use the provided lookup tools (**find_incident_by_id**, **find_incident_by_number**, **find_configuration_item_by_serial_number**, **find_configuration_items**) to retrieve the records. Proceed with the link only if the look\u2011up calls succeed and return valid IDs. Never fabricate or guess any ID; always rely on the concrete API responses.",
+      "references": [
+        "When identifiers such as names or IDs are missing, perform lookups, verify that you are reusing correct values from previous responses, and proceed using the retrieved data.",
+        "Never assume or fabricate IDs, responses, or outcomes \u2014 rely solely on verified API results. The same is the case of optional or default arguments."
+      ],
+      "iteration_added": 0
+    },
+    {
+      "policy_name": "Atomic Operation Requirement",
+      "description": "When invoking the **link_affected_ci_to_incident** tool, the call must be the only operational API request in the current transaction (i.e., exactly one validated operation). Do not combine this call with any other create/update/delete actions unless you are using an explicitly approved batch endpoint that supports atomic multi\u2011record processing.",
+      "references": [
+        "<strong>Atomic Operations:</strong> Perform <strong>one validated operation at a time</strong>, except when using approved batch endpoints. Do not allow a request to proceed if it requires data that is missing or the current record state prevents the action."
+      ],
+      "iteration_added": 0
+    }
+  ]
+}

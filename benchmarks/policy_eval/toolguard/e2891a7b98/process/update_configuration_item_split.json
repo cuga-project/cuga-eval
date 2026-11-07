@@ -1,0 +1,68 @@
+{
+    "policies": [
+        {
+            "policy_name": "Mandatory Fields Validation \u2013 Create",
+            "description": "Any request to create a record must validate all mandatory fields before proceeding.",
+            "references": [
+                "<strong>Mandatory Fields:</strong> Any request to create or update a record must validate all mandatory fields."
+            ],
+            "iteration_added": 1
+        },
+        {
+            "policy_name": "Mandatory Fields Validation \u2013 Update",
+            "description": "Any request to update a record must validate all mandatory fields before proceeding.",
+            "references": [
+                "<strong>Mandatory Fields:</strong> Any request to create or update a record must validate all mandatory fields."
+            ],
+            "iteration_added": 1
+        },
+        {
+            "policy_name": "CI Owner Requirement",
+            "description": "Every Configuration Item must have a recorded owner_id.",
+            "references": [
+                "<strong>CI Owner:</strong> All CIs must have a recorded <code>owner_id</code>."
+            ],
+            "iteration_added": 0
+        },
+        {
+            "policy_name": "CI Status Enumerated Values",
+            "description": "The status field of a Configuration Item must be one of the allowed enumeration values: in_use, in_stock, maintenance, retired, or disposed.",
+            "references": [
+                "| <strong>configuration_item.status</strong> | <code>in_use</code>, <code>in_stock</code>, <code>maintenance</code>, <code>retired</code>, <code>disposed</code> |"
+            ],
+            "iteration_added": 0
+        },
+        {
+            "policy_name": "CI Linkable Status \u2013 Allowed",
+            "description": "Only Configuration Items whose status is in_use or maintenance may be linked to active Incidents.",
+            "references": [
+                "<strong>CI Status:</strong> Only CIs with <code>status = in_use</code> or <code>status = maintenance</code> can be linked to active Incidents. Do not link CIs in <code>status = retired</code> or <code>status = disposed</code>."
+            ],
+            "iteration_added": 1
+        },
+        {
+            "policy_name": "CI Linkable Status \u2013 Disallowed",
+            "description": "Configuration Items with status retired or disposed must not be linked to active Incidents.",
+            "references": [
+                "<strong>CI Status:</strong> Only CIs with <code>status = in_use</code> or <code>status = maintenance</code> can be linked to active Incidents. Do not link CIs in <code>status = retired</code> or <code>status = disposed</code>."
+            ],
+            "iteration_added": 1
+        },
+        {
+            "policy_name": "User Active Status for Ownership Assignment",
+            "description": "When assigning a user as the owner of a Configuration Item, the user must have users.active = true.",
+            "references": [
+                "<strong>User Status:</strong> Ensure any user being assigned to (<code>assigned_to</code>) or updated is <code>users.active = true</code>."
+            ],
+            "iteration_added": 0
+        },
+        {
+            "policy_name": "Configuration Item Table Requirement",
+            "description": "Any configuration item that is to be created, read, updated, or deleted must reside in the `configuration_item` table; the tool must operate only on records within this table.",
+            "references": [
+                "<strong>Table:</strong> All IT assets must be recorded in the <code>configuration_item</code> table."
+            ],
+            "iteration_added": 0
+        }
+    ]
+}

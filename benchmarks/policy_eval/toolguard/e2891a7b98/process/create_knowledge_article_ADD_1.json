@@ -1,0 +1,54 @@
+{
+    "policies": [
+        {
+            "policy_name": "Role\u2011based permission to create Knowledge articles",
+            "description": "The user invoking **create_knowledge_article** must have a role that grants Full CRUD access to the **knowledge** table (Administrator, Manager, or Agent). Verify the caller\u2019s role before calling the tool.",
+            "references": [
+                "<strong>Administrator</strong> (<code>admin</code>) | System Configuration &amp; Integrity | Full CRUD (Create, Read, Update, Delete) access across all tables.",
+                "<strong>Manager</strong> (<code>manager</code>) | Supervision, Escalation, Approvals | Full CRUD on operational tables (<code>incident</code>, <code>problem</code>, <code>change</code>, <code>knowledge</code>); READ access to all the tables.",
+                "<strong>Agent</strong> (<code>agent</code>) | Frontline Incident/Request fulfillment | <strong>Full CRUD</strong> on <strong>Incidents, Service Requests, Tasks, Work Notes, CMDB, Change, Problem, and Knowledge</strong>. READ access to all the tables."
+            ],
+            "iteration_added": 0
+        },
+        {
+            "policy_name": "Mandatory fields validation",
+            "description": "Any request to create a record, including a Knowledge article, must include and validate all mandatory fields defined for the operation.",
+            "references": [
+                "<strong>Mandatory Fields:</strong> Any request to create or update a record must validate all mandatory fields."
+            ],
+            "iteration_added": 0
+        },
+        {
+            "policy_name": "Knowledge article creation requires required parameters",
+            "description": "When creating a Knowledge article, the request must provide the required parameters **title** and **owner_id** as defined by the tool schema.",
+            "references": [
+                "<strong>Mandatory Fields:</strong> Any request to create or update a record must validate all mandatory fields."
+            ],
+            "iteration_added": 0
+        },
+        {
+            "policy_name": "Knowledge article searchable state restriction",
+            "description": "Only knowledge articles whose state is set to **published** can be searched by users with the Reporter role.",
+            "references": [
+                "<strong>Article Status:</strong> Only articles in <code>knowledge.state = published</code> are searchable by the <code>Reporter</code> role."
+            ],
+            "iteration": 0
+        },
+        {
+            "policy_name": "Knowledge article state enumeration enforcement",
+            "description": "When creating or updating a knowledge article, the **state** field must be one of the allowed enumeration values defined for the knowledge table.",
+            "references": [
+                "<strong>kb_knowledge.state</strong> | <code>draft</code>, <code>review</code>, <code>published</code>, <code>retired</code>"
+            ],
+            "iteration": 0
+        },
+        {
+            "policy_name": "Owner must be an active user",
+            "description": "When creating a Knowledge article, the **owner_id** must reference a user whose **users.active = true** status. The system must validate that the specified owner is an active user before invoking **create_knowledge_article**.",
+            "references": [
+                "<strong>User Status:</strong> Ensure any user being assigned to (<code>assigned_to</code>) or updated is <code>users.active = true</code>."
+            ],
+            "iteration": 1
+        }
+    ]
+}

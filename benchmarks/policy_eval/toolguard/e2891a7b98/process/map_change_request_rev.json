@@ -1,0 +1,105 @@
+{
+    "policies": [
+        {
+            "policy_name": "Mandatory Change ID Presence",
+            "description": "When using the map_change_request tool, the `change_id` field must be provided; the operation must not be invoked without it.",
+            "references": [
+                "<strong>Mandatory Fields:</strong> Any request to create or update a record must validate all mandatory fields."
+            ],
+            "iteration_added": 1
+        },
+        {
+            "policy_name": "At Least One Target ID Provided",
+            "description": "When using the map_change_request tool, at least one of `incident_id` or `problem_id` must be supplied; the operation must not be invoked if both are missing.",
+            "references": [
+                "<strong>Mandatory Fields:</strong> Any request to create or update a record must validate all mandatory fields."
+            ],
+            "iteration_added": 1
+        },
+        {
+            "policy_name": "Atomic Operation Requirement",
+            "description": "Each tool invocation must be a single validated operation. the map_change_request call must be performed alone, not combined with other actions in the same request.",
+            "references": [
+                "<strong>Atomic Operations:</strong> Perform <strong>one validated operation at a time</strong>, except when using approved batch endpoints."
+            ],
+            "iteration_added": 0
+        },
+        {
+            "policy_name": "Role\u2013Based Permission for Change Mapping",
+            "description": "Before calling `map_change_request`, retrieve the requesting user\u2019s record (e.g., via `get_user` or `list_users` with a role filter) and confirm that the `role` field is one of `admin`, `manager`, or `agent`. If the role is not in this allowed set, abort the operation and return a policy\u2011violation message stating that only Administrator, Manager, or Agent roles may create change\u2011incident/problem mappings.",
+            "references": [
+                "| **Administrator** (<code>admin</code>) | System Configuration &amp; Integrity | Full CRUD (Create, Read, Update, Delete) access across all tables.|",
+                "| **Manager** (<code>manager</code>) | Supervision, Escalation, Approvals | Full CRUD on operational tables (<code>incident</code>, <code>problem</code>, <code>change</code>, <code>knowledge</code>); READ access to all the tables.|",
+                "| **Agent** (<code>agent</code>) | Frontline Incident/Request fulfillment | <strong>Full CRUD</strong> on <strong>Incidents, Service Requests, Tasks, Work Notes, CMDB, Change, Problem, and Knowledge</strong>. READ access to all the tables.|"
+            ],
+            "iteration_added": 0
+        },
+        {
+            "policy_name": "ID Existence Verification",
+            "description": "Prior to invoking the `map_change_request` tool, validate all identifiers using the appropriate lookup tools that are part of the API:\n1. Call `find_change_by_number` (or `find_change_by_number` equivalent) with the provided change number to retrieve a valid `change_id`. Abort if the change is not found.\n2. If an `incident_id` is supplied, call `find_incident_by_id` (or `find_incident_by_number` if only the number is known) to verify the incident exists. Abort if not found.\n3. If a `problem_id` is supplied, call `find_problem_by_number` to verify the problem exists. Abort if not found.\nAfter all required lookups return successful results, proceed to call `map_change_request` with the confirmed IDs. Do not fabricate or guess identifiers; use only the IDs returned by the lookup tools.",
+            "references": [
+                "Never assume or fabricate IDs, responses, or outcomes \u2014 rely solely on verified API results."
+            ],
+            "iteration_added": 0
+        },
+        {
+            "policy_name": "Permission Denied Handling",
+            "description": "When invoking the **map_change_request** tool, first verify the requester\u2019s role. Only users with **full CRUD access to the `change` table** (e.g., roles **Administrator** and **Manager**) are permitted to create a mapping. If the requester\u2019s role is **Agent**, **Reporter**, or any role lacking CRUD rights on `change`, the operation must be aborted and a **403\u202fForbidden** error returned, including a message such as: \u201cUser role 'agent' does not have permission to create change\u2011incident/problem mappings.\u201d",
+            "references": [
+                "<strong>403 Forbidden:</strong> Permission denied (user role lacks authority for the operation)."
+            ],
+            "iteration_added": 0
+        },
+        {
+            "policy_name": "Conflict Detection for Mapping Creation",
+            "description": "When attempting to create a change\u2011incident or change\u2011problem mapping, if a mapping with the same combination of `change_id` and `incident_id`/`problem_id` already exists, the operation must fail with a 409 Conflict response.",
+            "references": [
+                "<strong>409 Conflict:</strong> Record locking or state conflict."
+            ],
+            "iteration_added": 0
+        },
+        {
+            "policy_name": "Rate Limiting and Exponential Backoff",
+            "description": "When invoking **map_change_request**, if the API responds with a rate\u2011limit status (e.g., HTTP\u202f429) the assistant must:\n1. Stop further calls to any endpoint for the current request.\n2. Wait for a backoff period calculated as **base_delay \u00d7 2^(retry_count\u20111)**, where **base_delay** = 1\u202fsecond and **retry_count** starts at\u202f1.\n3. Retry the **map_change_request** call up to a maximum of **5 attempts**. After each failed retry, increment **retry_count** and recompute the backoff.\n4. If the 5th attempt still fails with a rate\u2011limit error, raise a **403\u202fForbidden** error with the message \"Rate limit exceeded \u2013 maximum retries attempted\".\nThis behavior can be verified by inspecting the response code before each retry and by tracking the elapsed wait time.",
+            "references": [
+                "<strong>Rate Limiting:</strong> If exceeded, pause and retry using <strong>Exponential Backoff</strong>."
+            ],
+            "iteration_added": 0
+        },
+        {
+            "policy_name": "Missing Mandatory Field Clarification",
+            "description": "When a required field for map_change_request (`change_id`, `incident_id`, or `problem_id`) is absent, the assistant must immediately state which specific field is missing instead of proceeding or asking for additional information.",
+            "references": [
+                "<strong>User Clarification:</strong> Do not ask for further information. If the request is ambiguous, return the list and state the ambiguity. If a mandatory field is missing, state which field is required."
+            ],
+            "iteration_added": 0
+        },
+        {
+            "policy_name": "Policy Violation Halt",
+            "description": "When invoking the **map_change_request** tool, enforce the following checks **before** calling the API:\n1. **Mandatory fields** \u2013 `change_id` must be present, and at least one of `incident_id` or `problem_id` must be supplied. If either condition is missing, halt and return the specific missing\u2011field reason.\n2. **Existence checks** \u2013 Verify that the supplied `change_id`, `incident_id`, and/or `problem_id` actually exist using the appropriate lookup tools (`find_change_by_number`, `find_incident_by_id`, `find_problem_by_number`). If any identifier does not resolve, halt and report the failure.\n3. **Permission checks** \u2013 Confirm that the requesting user\u2019s role (from the user record) is allowed to create change\u2011request mappings (e.g., Agent, Manager, Administrator). If the role lacks the required permission, halt and return a *403 Forbidden* style message.\n4. **Organizational scoping** \u2013 Ensure the change, incident, and problem all belong to the same organization as the caller; otherwise, halt and return a policy violation.\nIf all checks pass, proceed to call `map_change_request`. If any check fails, stop the operation and return the exact policy reason before pausing.",
+            "references": [
+                "Policy Violation: If a user request violates any rule herein, you **must halt the operation** and provide the specific policy reason before pausing."
+            ],
+            "iteration_added": 2
+        },
+        {
+            "policy_name": "Verified Record Relationships Requirement",
+            "description": "Before calling `map_change_request`, the assistant must validate each supplied ID using only the lookup tools that are defined in the toolset:\n- Verify `change_id` with `find_change_by_number` (the only change\u2011lookup tool available).\n- Verify `incident_id` with `find_incident_by_number` or `find_incident_by_id` (both are defined).\n- Verify `problem_id` with `find_problem_by_number` (the only problem\u2011lookup tool defined).\nIf any lookup returns an error or the record belongs to a different organization, abort and return a clear policy\u2011violation message. Only when all lookups succeed should `map_change_request` be invoked.\nThis version removes references to non\u2011existent tools and makes the required validation steps completely self\u2011contained.",
+            "references": [
+                "First you must check the user information and operate exclusively based on **confirmed user roles**, **verified record relationships** and ITIL/database integrity rules."
+            ],
+            "iteration_added": 2
+        }
+    ],
+    "archive": [
+        {
+            "policy_name": "Audit Logging for Mapping Operations",
+            "description": "When creating a change\u2011incident or change\u2011problem mapping with the map_change_request tool, the operation must be recorded with a timestamp (`created_on`) and the `user_id` of the caller to satisfy audit and compliance requirements.",
+            "references": [
+                "<strong>Time Tracking:</strong> All work logs must include the timestamp (<code>created_on</code>) and the <code>user_id</code> performing the action."
+            ],
+            "iteration_added": 1,
+            "comments": "The policy directly applies to the target tool (map_change_request) and is narrowly scoped, so it is both relevant and tool\u2011specific. The requirement (recording `created_on` and `user_id`) is enforceable by simply invoking the tool, as the system is expected to auto\u2011populate those audit fields. However, the policy cannot be fully validated *before* the tool call because the tool description does not explicitly guarantee that the created record will return those fields; validation would need to happen after the call. The description is clear and does not rely on external context, making the policy self\u2011contained. Overall the policy is clear, relevant, and enforceable, but limited pre\u2011validation reduces its score slightly.\nScore: 4\nThe policy directly applies to the target tool (map_change_request) and is narrowly scoped, so it is both relevant and tool\u2011specific. The requirement (recording `created_on` and `user_id`) is enforceable by simply invoking the tool, as the system is expected to auto\u2011populate those audit fields. However, the policy cannot be fully validated *before* the tool call because the tool description does not explicitly guarantee that the created record will return those fields; validation would need to happen after the call. The description is clear and does not rely on external context, making the policy self\u2011contained. Overall the policy is clear, relevant, and enforceable, but limited pre\u2011validation reduces its score slightly.\nScore: 4\nThe policy directly applies to the target tool (map_change_request) and is narrowly scoped, so it is both relevant and tool\u2011specific. The requirement (recording `created_on` and `user_id`) is enforceable by simply invoking the tool, as the system is expected to auto\u2011populate those audit fields. However, the policy cannot be fully validated *before* the tool call because the tool description does not explicitly guarantee that the created record will return those fields; validation would need to happen after the call. The description is clear and does not rely on external context, making the policy self\u2011contained. Overall the policy is clear, relevant, and enforceable, but limited pre\u2011validation reduces its score slightly.\nScore: 4\nThe policy directly applies to the target tool (map_change_request) and is narrowly scoped, so it is both relevant and tool\u2011specific. The requirement (recording `created_on` and `user_id`) is enforceable by simply invoking the tool, as the system is expected to auto\u2011populate those audit fields. However, the policy cannot be fully validated *before* the tool call because the tool description does not explicitly guarantee that the created record will return those fields; validation would need to happen after the call. The description is clear and does not rely on external context, making the policy self\u2011contained. Overall the policy is clear, relevant, and enforceable, but limited pre\u2011validation reduces its score slightly.\nScore: 4\nThe policy directly applies to the target tool (map_change_request) and is narrowly scoped, so it is both relevant and tool\u2011specific. The requirement (recording `created_on` and `user_id`) is enforceable by simply invoking the tool, as the system is expected to auto\u2011populate those audit fields. However, the policy cannot be fully validated *before* the tool call because the tool description does not explicitly guarantee that the created record will return those fields; validation would need to happen after the call. The description is clear and does not rely on external context, making the policy self\u2011contained. Overall the policy is clear, relevant, and enforceable, but limited pre\u2011validation reduces its score slightly.\nScore: 4\n"
+        }
+    ]
+}

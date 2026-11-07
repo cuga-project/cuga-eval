@@ -1,0 +1,148 @@
+{
+    "policies": [
+        {
+            "policy_name": "Mandatory Fields Presence",
+            "description": "All required fields for the `update_child_incident` operation (child_incident_mapping_id, parent_incident, child_incident) must be provided before invoking the tool.",
+            "references": [
+                "<strong>Mandatory Fields:</strong> Any request to create or update a record must validate all mandatory fields."
+            ],
+            "iteration_added": 1
+        },
+        {
+            "policy_name": "Mandatory Fields Non\u2011Empty",
+            "description": "Before calling the `update_child_incident` tool, verify that the three required parameters\u2014`child_incident_mapping_id`, `parent_incident`, and `child_incident`\u2014are present and contain non\u2011empty values. If any of them is missing or empty, reject the request and return a policy\u2011violation message.",
+            "references": [
+                "<strong>Mandatory Fields:</strong> Any request to create or update a record must validate all mandatory fields."
+            ],
+            "iteration_added": 1
+        },
+        {
+            "policy_name": "Role\u2011Based Access for Updating Incident Relationships",
+            "description": "When a request to update a parent\u2011child incident mapping arrives, first retrieve the caller\u2019s user record (using `get_user` with the user ID extracted from the request\u2019s authentication token, or `list_users` filtered by the token). If the retrieved `role` equals `admin`, `manager`, or `agent`, proceed to call `update_child_incident` with the supplied `child_incident_mapping_id`, `parent_incident`, and `child_incident`. If the role is anything else, immediately respond with a 403\u202fForbidden error and do not invoke the tool.",
+            "references": [
+                "<strong>Administrator</strong> (<code>admin</code>) | System Configuration &amp; Integrity | Full CRUD (Create, Read, Update, Delete) access across all tables.",
+                "<strong>Manager</strong> (<code>manager</code>) | Supervision, Escalation, Approvals | Full CRUD on operational tables (<code>incident</code>, <code>problem</code>, <code>change</code>, <code>knowledge</code>); READ access to all the tables. Can <strong>reassign</strong> incidents/requests. Can <strong>approve/reject</strong> Change Requests. Monitors SLAs and escalations.",
+                "<strong>Agent</strong> (<code>agent</code>) | Frontline Incident/Request fulfillment | <strong>Full CRUD</strong> on <strong>Incidents, Service Requests, Tasks, Work Notes, CMDB, Change, Problem, and Knowledge</strong>. READ access to all the tables. Can update assignment, state, and resolution."
+            ],
+            "iteration_added": 0
+        },
+        {
+            "policy_name": "Atomic Operation Requirement",
+            "description": "When invoking the `update_child_incident` tool, call it alone in the request\u2014no other tool calls or additional actions may be combined in the same operation. The call must be fully validated (all required parameters present and correct) before execution, adhering to the policy that only one validated operation is performed at a time.",
+            "references": [
+                "<strong>Atomic Operations:</strong> Perform <strong>one validated operation at a time</strong>, except when using approved batch endpoints."
+            ],
+            "iteration_added": 0
+        },
+        {
+            "policy_name": "No Assumption of IDs Policy",
+            "description": "Before calling `update_child_incident`:\n- Call `find_incident_by_id` (or `find_incident_by_number`) for the supplied `parent_incident` and `child_incident`. If the API returns a 404 or the incident's `status` field is `closed` (or any status that indicates it is no longer active), treat the identifier as invalid.\n- Call `list_child_incidents` with a filter `child_incident_mapping_id = <provided id>`. If the response list is empty, the mapping id is invalid.\nOnly when all three look\u2011ups succeed should the `update_child_incident` tool be invoked. If any lookup fails, return an error message such as \"Invalid parent_incident ID: <id>\" or \"Mapping ID not found: <id>\" and do not call the update tool.",
+            "references": [
+                "Never assume or fabricate IDs, responses, or outcomes \u2014 rely solely on verified API results."
+            ],
+            "iteration_added": 0
+        },
+        {
+            "policy_name": "Referential Integrity \u2013 Incident Existence",
+            "description": "Before updating a child\u2011incident mapping, ensure that the referenced parent incident and child incident actually exist.",
+            "references": [
+                "Referential Integrity: Before closing any record, verify that all mandatory dependencies are satisfied."
+            ],
+            "iteration_added": 1
+        },
+        {
+            "policy_name": "Referential Integrity \u2013 Relationship Satisfaction",
+            "description": "Before calling `update_child_incident`, ensure:\n- `parent_incident` and `child_incident` exist (use `find_incident_by_id`).\n- The user\u2019s role includes incident write permission (see role table).\n- The child incident is not already linked to a different parent unless the existing link matches the payload (check with `list_child_incidents` or `find_parent_incident`).\n- Adding the link will not create a loop; walk the parent chain from `parent_incident` and confirm `child_incident` does not appear.\n- Both incidents share the caller\u2019s organization (compare `organization_id` fields).\nIf any check fails, abort and return a policy\u2011violation error.",
+            "references": [
+                "Referential Integrity: Before closing any record, verify that all mandatory dependencies are satisfied."
+            ],
+            "iteration_added": 1
+        },
+        {
+            "policy_name": "Permission Denied Error Handling",
+            "description": "When calling the **update_child_incident** tool, first verify that the caller\u2019s role grants CRUD access to the incident\u2011relationship tables (e.g., Administrator, Manager, or Agent). If the caller\u2019s role lacks this permission, abort the operation and return a **403\u202fForbidden** error indicating insufficient authority.",
+            "references": [
+                "<strong>403 Forbidden:</strong> Permission denied (user role lacks authority for the operation)."
+            ],
+            "iteration_added": 0
+        },
+        {
+            "policy_name": "Policy Violation Halt Requirement",
+            "description": "Before using the **Update a child incident mapping** tool, enforce the following checks: (1) the requester\u2019s role must be Administrator, Manager, or Agent and the user must be active; (2) both `parent_incident` and `child_incident` must exist (call `find_incident_by_id` for each); (3) retrieve the existing mapping (e.g., via `list_child_incidents` filtered by the mapping ID) and confirm that the new `parent_incident` and `child_incident` values differ from the stored ones. If any check fails, abort the operation and return a clear policy\u2011violation message.",
+            "references": [
+                "Policy Violation: If a user request violates any rule herein, you <strong>must halt the operation</strong> and provide the specific policy reason before pausing."
+            ],
+            "iteration_added": 0
+        },
+        {
+            "policy_name": "Identifier Lookup Before Use",
+            "description": "Before calling the **update_child_incident** tool, ensure that all three required parameters are supplied:\n- `child_incident_mapping_id` \u2013 the mapping record ID.\n- `parent_incident` \u2013 the incident ID of the parent.\n- `child_incident` \u2013 the incident ID of the child.\nIf any of these values are not already known, retrieve them using the incident\u2011lookup APIs that are part of the system, such as:\n- `find_incident_by_id` (search by exact incident ID),\n- `find_incident_by_number` (search by incident number),\n- `list_incidents` with filters like `incident_id`, `number`, `short_description`, etc.\nAfter obtaining the missing identifier, double\u2011check that the returned record matches the entity you intend to reference (e.g., verify `short_description` or other distinguishing fields). Only once all three identifiers are present and verified should you invoke `update_child_incident` with the complete payload.",
+            "references": [
+                "When identifiers such as names or IDs are missing, perform lookups, verify that you are reusing correct values from previous responses, and proceed using the retrieved data."
+            ],
+            "iteration_added": 1
+        },
+        {
+            "policy_name": "No Confirmation Required",
+            "description": "The assistant may invoke the `update_child_incident` tool without asking the user for confirmation, provided that:\n1. The request supplies all required parameters (`child_incident_mapping_id`, `parent_incident`, `child_incident`).\n2. The requesting user holds a role that permits child\u2011incident mapping updates (Agent or Manager).\n3. All referenced records (mapping, parent incident, child incident) exist and are active.\n4. No policy rule from the ITSM Assistant Policy is violated (e.g., atomic operation, data integrity, role\u2011based access). If any of these checks fail, the assistant must halt and return the specific policy reason.",
+            "references": [
+                "You do not need to ask for confirmation or permission before taking action."
+            ],
+            "iteration_added": 1
+        },
+        {
+            "policy_name": "Confirmed Role Enforcement",
+            "description": "Before calling the `update_child_incident` tool, retrieve the requester\u2019s user record (e.g., via `get_user` or `get_user_using_email`) using the provided authentication token. Confirm that the user\u2019s `role` field is one of the allowed roles (admin, manager, agent) and that the user is active. Only proceed with the `update_child_incident` call if these checks pass; otherwise, halt the operation and return a policy\u2011violation error.",
+            "references": [
+                "First you must check the user information and operate exclusively based on <strong>confirmed user roles</strong>, <strong>verified record relationships</strong>, and <strong>ITIL/database integrity rules</strong>."
+            ],
+            "iteration_added": 3
+        },
+        {
+            "policy_name": "Verified Record Relationship Enforcement",
+            "description": "Before invoking `update_child_incident`, the assistant must validate the mapping and related incidents using only the provided tools. Retrieve the mapping with `list_child_incidents` filtered by `child_incident_mapping_id`. Verify that the mapping\u2019s `parent_incident` and `child_incident` match the requested values. Confirm the existence of both incidents with `find_incident_by_id` (or `find_incident_by_number`). Ensure the parent incident\u2019s status is not a terminal state such as `closed`. Prevent circular relationships by confirming the child is not already an ancestor of the parent (traverse parent links with additional `list_child_incidents` queries). If any validation fails, abort and report the specific policy breach; otherwise, call `update_child_incident`.",
+            "references": [
+                "First you must check the user information and operate exclusively based on <strong>confirmed user roles</strong>, <strong>verified record relationships</strong>, and <strong>ITIL/database integrity rules</strong>."
+            ],
+            "iteration_added": 3
+        }
+    ],
+    "archive": [
+        {
+            "policy_name": "Conflict Error Handling",
+            "description": "If the `update_child_incident` request encounters a record locking or state conflict, the assistant must return a 409 Conflict response and halt further processing.",
+            "references": [
+                "<strong>409 Conflict:</strong> Record locking or state conflict."
+            ],
+            "iteration_added": 1,
+            "comments": "The policy directly mentions the `update_child_incident` tool, making it highly relevant and tool\u2011specific. The required behavior (return a 409 Conflict and stop) can be enforced after the tool call, but the presence of a conflict cannot be known before invoking the API, so pre\u2011validation is not possible. The rule is clear, concise, and does not rely on external sections beyond the quoted error\u2011code reference, which is already provided, so it is self\u2011contained. Overall the policy is clear and enforceable, though its validation limitation prevents pre\u2011execution checks, hence a score of 4 out of 5.\nThe policy directly mentions the `update_child_incident` tool, making it highly relevant and tool\u2011specific. The required behavior (return a 409 Conflict and stop) can be enforced after the tool call, but the presence of a conflict cannot be known before invoking the API, so pre\u2011validation is not possible. The rule is clear, concise, and does not rely on external sections beyond the quoted error\u2011code reference, which is already provided, so it is self\u2011contained. Overall the policy is clear and enforceable, though its validation limitation prevents pre\u2011execution checks, hence a score of 4 out of 5.\nThe policy directly mentions the `update_child_incident` tool, making it highly relevant and tool\u2011specific. The required behavior (return a 409 Conflict and stop) can be enforced after the tool call, but the presence of a conflict cannot be known before invoking the API, so pre\u2011validation is not possible. The rule is clear, concise, and does not rely on external sections beyond the quoted error\u2011code reference, which is already provided, so it is self\u2011contained. Overall the policy is clear and enforceable, though its validation limitation prevents pre\u2011execution checks, hence a score of 4 out of 5.\nThe policy directly mentions the `update_child_incident` tool, making it highly relevant and tool\u2011specific. The required behavior (return a 409 Conflict and stop) can be enforced after the tool call, but the presence of a conflict cannot be known before invoking the API, so pre\u2011validation is not possible. The rule is clear, concise, and does not rely on external sections beyond the quoted error\u2011code reference, which is already provided, so it is self\u2011contained. Overall the policy is clear and enforceable, though its validation limitation prevents pre\u2011execution checks, hence a score of 4 out of 5.\nThe policy directly mentions the `update_child_incident` tool, making it highly relevant and tool\u2011specific. The required behavior (return a 409 Conflict and stop) can be enforced after the tool call, but the presence of a conflict cannot be known before invoking the API, so pre\u2011validation is not possible. The rule is clear, concise, and does not rely on external sections beyond the quoted error\u2011code reference, which is already provided, so it is self\u2011contained. Overall the policy is clear and enforceable, though its validation limitation prevents pre\u2011execution checks, hence a score of 4 out of 5.\n"
+        },
+        {
+            "policy_name": "Rate Limiting and Exponential Backoff",
+            "description": "If a call to the `update_child_incident` tool returns a rate\u2011limit indication (HTTP\u202f429 or an error payload with a rate\u2011limit flag), stop further calls, wait `1s \u00d7 2^n` seconds where *n* is the number of retries already performed, and retry the identical request. Perform this up to a maximum of 5 attempts (or a configured limit). If the request still fails after the final attempt, emit a \u201cRate Limiting\u201d policy violation and cease the operation. Do not modify any request fields while waiting.",
+            "references": [
+                "<strong>Rate Limiting:</strong> If exceeded, pause and retry using <strong>Exponential Backoff</strong>."
+            ],
+            "iteration_added": 1,
+            "comments": "The policy is clearly relevant to the target tool (update_child_incident) and is narrowly scoped, so it is both relevant and tool\u2011specific. compliance cannot be verified before the call because a rate\u2011limit condition is only known after an API response, therefore **can_be_validated** is false. The required behavior (detect error, pause, exponential backoff, retry) can be enforced using only the assistant\u2019s control flow and does not need external data, making it actionable. However the original wording does not specify what constitutes a rate\u2011limit error, the back\u2011off parameters, or retry limits, so it is not fully self\u2011contained. The alternative description adds those missing details while preserving the intent. Overall the policy is clear and enforceable, deserving a score of **4**.\nThe policy directly addresses the `update_child_incident` tool, making it both relevant and tool\u2011specific. Validation of the rate\u2011limit condition can only be done *after* the tool call, so it cannot be pre\u2011validated, which is correctly reflected by `can_be_validated = false`. The steps (detect 429, apply exponential backoff, limit retries, raise a violation) are fully enforceable using only the tool\u2019s response and internal retry counters, so the policy is actionable. The description contains all necessary details (detecting 429 or a rate\u2011limit flag, backoff formula, retry cap, and violation handling) and does not rely on external context, thus it is self\u2011contained. Overall clarity and enforceability are high, earning a score of 4 out of 5. Minor improvement could be to explicitly define what constitutes a \u201crate\u2011limit flag\u201d in the error payload, but the current wording is sufficient for implementation.\nThe policy directly addresses the `update_child_incident` tool, making it both relevant and tool\u2011specific. Validation of the rate\u2011limit condition can only be done *after* the tool call, so it cannot be pre\u2011validated, which is correctly reflected by `can_be_validated = false`. The steps (detect 429, apply exponential backoff, limit retries, raise a violation) are fully enforceable using only the tool\u2019s response and internal retry counters, so the policy is actionable. The description contains all necessary details (detecting 429 or a rate\u2011limit flag, backoff formula, retry cap, and violation handling) and does not rely on external context, thus it is self\u2011contained. Overall clarity and enforceability are high, earning a score of 4 out of 5. Minor improvement could be to explicitly define what constitutes a \u201crate\u2011limit flag\u201d in the error payload, but the current wording is sufficient for implementation.\nThe policy directly addresses the `update_child_incident` tool, making it both relevant and tool\u2011specific. Validation of the rate\u2011limit condition can only be done *after* the tool call, so it cannot be pre\u2011validated, which is correctly reflected by `can_be_validated = false`. The steps (detect 429, apply exponential backoff, limit retries, raise a violation) are fully enforceable using only the tool\u2019s response and internal retry counters, so the policy is actionable. The description contains all necessary details (detecting 429 or a rate\u2011limit flag, backoff formula, retry cap, and violation handling) and does not rely on external context, thus it is self\u2011contained. Overall clarity and enforceability are high, earning a score of 4 out of 5. Minor improvement could be to explicitly define what constitutes a \u201crate\u2011limit flag\u201d in the error payload, but the current wording is sufficient for implementation.\n"
+        },
+        {
+            "policy_name": "User Clarification Policy",
+            "description": "The assistant must not ask the user for additional information. If a request is ambiguous or a mandatory field is missing, it must return a list of required fields and state the ambiguity or missing field without prompting for clarification.",
+            "references": [
+                "<strong>User Clarification:</strong> Do not ask for further information. If the request is ambiguous, return the list and state the ambiguity. If a mandatory field is missing, state which field is required."
+            ],
+            "iteration_added": 1,
+            "comments": "The policy is applicable to the 'Update a child incident mapping' tool because the tool requires three mandatory parameters. The policy directs the assistant to validate the presence of those parameters before invoking the tool and to refuse to ask the user for clarification, instead returning the missing fields. Although the policy is generic (not limited to this tool), it can be validated pre\u2011execution by checking the request payload against the tool's required parameters. It is actionable using only the request data and does not depend on any external context. The description is clear enough to be implemented without additional references. Score: 4 \u2013 the policy is clear and enforceable, but its generic nature means it could be refined to mention the specific parameters for this tool for even tighter guidance.\nThe policy is applicable to the 'Update a child incident mapping' tool because the tool requires three mandatory parameters. The policy directs the assistant to validate the presence of those parameters before invoking the tool and to refuse to ask the user for clarification, instead returning the missing fields. Although the policy is generic (not limited to this tool), it can be validated pre\u2011execution by checking the request payload against the tool's required parameters. It is actionable using only the request data and does not depend on any external context. The description is clear enough to be implemented without additional references. Score: 4 \u2013 the policy is clear and enforceable, but its generic nature means it could be refined to mention the specific parameters for this tool for even tighter guidance.\nThe policy is applicable to the 'Update a child incident mapping' tool because the tool requires three mandatory parameters. The policy directs the assistant to validate the presence of those parameters before invoking the tool and to refuse to ask the user for clarification, instead returning the missing fields. Although the policy is generic (not limited to this tool), it can be validated pre\u2011execution by checking the request payload against the tool's required parameters. It is actionable using only the request data and does not depend on any external context. The description is clear enough to be implemented without additional references. Score: 4 \u2013 the policy is clear and enforceable, but its generic nature means it could be refined to mention the specific parameters for this tool for even tighter guidance.\nThe policy is applicable to the 'Update a child incident mapping' tool because the tool requires three mandatory parameters. The policy directs the assistant to validate the presence of those parameters before invoking the tool and to refuse to ask the user for clarification, instead returning the missing fields. Although the policy is generic (not limited to this tool), it can be validated pre\u2011execution by checking the request payload against the tool's required parameters. It is actionable using only the request data and does not depend on any external context. The description is clear enough to be implemented without additional references. Score: 4 \u2013 the policy is clear and enforceable, but its generic nature means it could be refined to mention the specific parameters for this tool for even tighter guidance.\nThe policy is applicable to the 'Update a child incident mapping' tool because the tool requires three mandatory parameters. The policy directs the assistant to validate the presence of those parameters before invoking the tool and to refuse to ask the user for clarification, instead returning the missing fields. Although the policy is generic (not limited to this tool), it can be validated pre\u2011execution by checking the request payload against the tool's required parameters. It is actionable using only the request data and does not depend on any external context. The description is clear enough to be implemented without additional references. Score: 4 \u2013 the policy is clear and enforceable, but its generic nature means it could be refined to mention the specific parameters for this tool for even tighter guidance.\n"
+        },
+        {
+            "policy_name": "Audit Logging for Incident Relationship Updates",
+            "description": "Every successful `update_child_incident` call must be recorded in the audit log, capturing the timestamp (`created_on`) and the `user_id` that performed the update.",
+            "references": [
+                "<strong>Time Tracking:</strong> All work logs must include the timestamp (<code>created_on</code>) and the <code>user_id</code> performing the action."
+            ],
+            "iteration_added": 2,
+            "comments": "The policy is directly tied to the `update_child_incident` tool, making it highly relevant and tool\u2011specific. However, compliance (i.e., confirming that an audit entry was created) can only be verified after the operation, so it cannot be pre\u2011validated. Enforcing the policy also requires system\u2011level audit\u2011logging behavior that lies outside the parameters of the tool itself, so it is not directly actionable via tool inputs or chat history alone. The description is clear enough to stand on its own without further context. Overall clarity is good, but enforceability is limited, yielding a score of 3 out of 5.\nThe policy is directly tied to the `update_child_incident` tool, making it highly relevant and tool\u2011specific. However, compliance (i.e., confirming that an audit entry was created) can only be verified after the operation, so it cannot be pre\u2011validated. Enforcing the policy also requires system\u2011level audit\u2011logging behavior that lies outside the parameters of the tool itself, so it is not directly actionable via tool inputs or chat history alone. The description is clear enough to stand on its own without further context. Overall clarity is good, but enforceability is limited, yielding a score of 3 out of 5.\nThe policy is directly tied to the `update_child_incident` tool, making it highly relevant and tool\u2011specific. However, compliance (i.e., confirming that an audit entry was created) can only be verified after the operation, so it cannot be pre\u2011validated. Enforcing the policy also requires system\u2011level audit\u2011logging behavior that lies outside the parameters of the tool itself, so it is not directly actionable via tool inputs or chat history alone. The description is clear enough to stand on its own without further context. Overall clarity is good, but enforceability is limited, yielding a score of 3 out of 5.\nThe policy is directly tied to the `update_child_incident` tool, making it highly relevant and tool\u2011specific. However, compliance (i.e., confirming that an audit entry was created) can only be verified after the operation, so it cannot be pre\u2011validated. Enforcing the policy also requires system\u2011level audit\u2011logging behavior that lies outside the parameters of the tool itself, so it is not directly actionable via tool inputs or chat history alone. The description is clear enough to stand on its own without further context. Overall clarity is good, but enforceability is limited, yielding a score of 3 out of 5.\nThe policy is directly tied to the `update_child_incident` tool, making it highly relevant and tool\u2011specific. However, compliance (i.e., confirming that an audit entry was created) can only be verified after the operation, so it cannot be pre\u2011validated. Enforcing the policy also requires system\u2011level audit\u2011logging behavior that lies outside the parameters of the tool itself, so it is not directly actionable via tool inputs or chat history alone. The description is clear enough to stand on its own without further context. Overall clarity is good, but enforceability is limited, yielding a score of 3 out of 5.\n"
+        }
+    ]
+}

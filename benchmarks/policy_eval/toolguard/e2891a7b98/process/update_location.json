@@ -1,0 +1,52 @@
+{
+    "policies": [
+        {
+            "policy_name": "User Role Verification",
+            "description": "Before invoking **update_location**, the assistant must verify that the requesting user has a confirmed role that is authorized to perform update operations.",
+            "references": [
+                "First you must check the user information and operate exclusively based on <strong>confirmed user roles</strong>, <strong>verified record relationships</strong>, and <strong>ITIL/database integrity rules</strong>."
+            ],
+            "iteration_added": 0
+        },
+        {
+            "policy_name": "Mandatory Fields Validation",
+            "description": "Any request to update a location must include all mandatory fields: the **location_id** (required) and at least one other field to be changed.",
+            "references": [
+                "Mandatory Fields: Any request to create or update a record must validate all mandatory fields."
+            ],
+            "iteration_added": 0
+        },
+        {
+            "policy_name": "Missing Mandatory Field Handling",
+            "description": "If a required field for **update_location** is missing, the assistant must report which field is required instead of asking the user for more information.",
+            "references": [
+                "User Clarification: Do not ask for further information. If the request is ambiguous, return the list and state the ambiguity. If a mandatory field is missing, state which field is required."
+            ],
+            "iteration_added": 0
+        },
+        {
+            "policy_name": "Atomic Operation Requirement",
+            "description": "The location update must be performed as a single validated operation; the assistant must not proceed if required data is missing or if the current record state prevents the update.",
+            "references": [
+                "Atomic Operations: Perform <strong>one validated operation at a time</strong>, except when using approved batch endpoints. Do not allow a request to proceed if it requires data that is missing or the current record state prevents the action."
+            ],
+            "iteration_added": 0
+        },
+        {
+            "policy_name": "Identifier Existence Check",
+            "description": "Before updating, the assistant must verify that the specified **location_id** exists by performing a lookup; it must not assume the identifier is valid.",
+            "references": [
+                "When identifiers such as names or IDs are missing, perform lookups, verify that you are reusing correct values from previous responses, and proceed using the retrieved data."
+            ],
+            "iteration_added": 0
+        },
+        {
+            "policy_name": "No Assumption of IDs or Outcomes",
+            "description": "The assistant must rely only on verified API results when updating a location and must not fabricate IDs, responses, or outcomes.",
+            "references": [
+                "Never assume or fabricate IDs, responses, or outcomes \u2014 rely solely on verified API results. The same is the case of optional or default arguments."
+            ],
+            "iteration_added": 0
+        }
+    ]
+}

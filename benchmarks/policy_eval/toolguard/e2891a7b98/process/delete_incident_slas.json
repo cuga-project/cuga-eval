@@ -1,0 +1,22 @@
+{
+    "policies": [
+        {
+            "policy_name": "Role\u2011Based Deletion Permission for Incident SLA",
+            "description": "Only users with the Administrator role are authorized to delete Incident SLA records because only the Administrator has full CRUD (Create, Read, Update, Delete) access across all tables. Manager and Agent roles have CRUD only on limited tables that do not include SLA tables, so they lack delete permission for Incident SLA records.",
+            "references": [
+                "<strong>Administrator</strong> (<code>admin</code>) | System Configuration &amp; Integrity | Full CRUD (Create, Read, Update, Delete) access across all tables.",
+                "<strong>Manager</strong> (<code>manager</code>) | Supervision, Escalation, Approvals | Full CRUD on operational tables (<code>incident</code>, <code>problem</code>, <code>change</code>, <code>knowledge</code>); READ access to all the tables. Can <strong>reassign</strong> incidents/requests. Can <strong>approve/reject</strong> Change Requests. Monitors SLAs and escalations.",
+                "<strong>Agent</strong> (<code>agent</code>) | Frontline Incident/Request fulfillment | <strong>Full CRUD</strong> on <strong>Incidents, Service Requests, Tasks, Work Notes, CMDB, Change, Problem, and Knowledge</strong>. READ access to all the tables. Can update assignment, state, and resolution. | Cannot bypass approvals, or change system administration settings."
+            ],
+            "iteration_added": 0
+        },
+        {
+            "policy_name": "Permission Denied for Unauthorized Role",
+            "description": "If a user attempts to delete Incident SLA records without having the required Administrator role, the operation must be halted and a 403 Forbidden error returned, indicating that the user role lacks authority for the operation.",
+            "references": [
+                "<strong>403 Forbidden:</strong> Permission denied (user role lacks authority for the operation)."
+            ],
+            "iteration_added": 0
+        }
+    ]
+}

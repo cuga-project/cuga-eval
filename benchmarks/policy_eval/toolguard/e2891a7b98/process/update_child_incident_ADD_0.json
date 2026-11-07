@@ -1,0 +1,62 @@
+{
+    "policies": [
+        {
+            "policy_name": "Mandatory Fields Validation",
+            "description": "All required fields for the update_child_incident operation (child_incident_mapping_id, parent_incident, child_incident) must be provided and non\u2011empty before invoking the tool.",
+            "references": [
+                "<strong>Mandatory Fields:</strong> Any request to create or update a record must validate all mandatory fields."
+            ],
+            "iteration_added": 0
+        },
+        {
+            "policy_name": "Role\u2011Based Access for Updating Incident Relationships",
+            "description": "Only users with roles Administrator, Manager, or Agent may perform update_child_incident, as these roles have full CRUD permissions on incident\u2011related tables.",
+            "references": [
+                "<strong>Administrator</strong> (<code>admin</code>) | System Configuration &amp; Integrity | Full CRUD (Create, Read, Update, Delete) access across all tables.",
+                "<strong>Manager</strong> (<code>manager</code>) | Supervision, Escalation, Approvals | Full CRUD on operational tables (<code>incident</code>, <code>problem</code>, <code>change</code>, <code>knowledge</code>); READ access to all the tables. Can <strong>reassign</strong> incidents/requests. Can <strong>approve/reject</strong> Change Requests. Monitors SLAs and escalations.",
+                "<strong>Agent</strong> (<code>agent</code>) | Frontline Incident/Request fulfillment | <strong>Full CRUD</strong> on <strong>Incidents, Service Requests, Tasks, Work Notes, CMDB, Change, Problem, and Knowledge</strong>. READ access to all the tables. Can update assignment, state, and resolution. | Cannot bypass approvals, or change system administration settings."
+            ],
+            "iteration_added": 0
+        },
+        {
+            "policy_name": "Atomic Operation Requirement",
+            "description": "The update_child_incident must be executed as a single validated operation, not combined with other actions.",
+            "references": [
+                "<strong>Atomic Operations:</strong> Perform <strong>one validated operation at a time</strong>, except when using approved batch endpoints."
+            ],
+            "iteration_added": 0
+        },
+        {
+            "policy_name": "No Assumption of IDs Policy",
+            "description": "Do not fabricate or guess any identifiers (such as child_incident_mapping_id, parent_incident, child_incident). The tool must first verify that each ID exists via a confirmed lookup before performing the update.",
+            "references": [
+                "Never assume or fabricate IDs, responses, or outcomes \u2014 rely solely on verified API results."
+            ],
+            "iteration": 0
+        },
+        {
+            "policy_name": "Referential Integrity Enforcement",
+            "description": "Before updating a child\u2011incident mapping, ensure that the referenced parent and child incidents actually exist and that all required relationships are satisfied; otherwise the operation must be halted.",
+            "references": [
+                "Referential Integrity: Before closing any record, verify that all mandatory dependencies are satisfied."
+            ],
+            "iteration": 0
+        },
+        {
+            "policy_name": "Permission Denied Error Handling",
+            "description": "If the invoking user\u2019s role does not include the required CRUD permissions for incident relationship tables, the operation must be aborted and a 403 Forbidden response returned.",
+            "references": [
+                "403 Forbidden: Permission denied (user role lacks authority for the operation)."
+            ],
+            "iteration": 0
+        },
+        {
+            "policy_name": "Policy Violation Halt Requirement",
+            "description": "Any request that breaches a defined policy (e.g., missing mandatory fields, insufficient role, failed referential integrity) must be stopped immediately, and the specific policy reason must be returned before any further action.",
+            "references": [
+                "Policy Violation: If a user request violates any rule herein, you must halt the operation and provide the specific policy reason before pausing."
+            ],
+            "iteration": 0
+        }
+    ]
+}

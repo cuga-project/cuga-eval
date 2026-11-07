@@ -1,0 +1,105 @@
+{
+    "policies": [
+        {
+            "policy_name": "LinkKnowledgeRolePermission",
+            "description": "Only users with Administrator, Manager, or Agent roles may create a knowledge\u2011incident link; users with the Reporter role may not.",
+            "references": [
+                "| **Administrator** (**admin**) | System Configuration & Integrity | Full CRUD (Create, Read, Update, Delete) access across all tables. |",
+                "| **Manager** (**manager**) | Supervision, Escalation, Approvals | Full CRUD on operational tables (**incident**, **problem**, **change**, **knowledge**); READ access to all the tables. Can **reassign** incidents/requests. Can **approve/reject** Change Requests. Monitors SLAs and escalations. |",
+                "| **Agent** (**agent**) | Frontline Incident/Request fulfillment | **Full CRUD** on **Incidents, Service Requests, Tasks, Work Notes, CMDB, Change, Problem, and Knowledge**. READ access to all the tables. Can update assignment, state, and resolution. |",
+                "| **Reporter** (**reporter**) | IT Service Consumption | Can view and update **their own submitted Incidents/Requests**. Can search **Public Knowledge** articles. | Cannot view or modify records opened by other users, CMDB, or internal work notes. |"
+            ],
+            "iteration_added": 3
+        },
+        {
+            "policy_name": "KnowledgeLinkUsageTracking",
+            "description": "Every knowledge\u2011incident link must record the `used_as` type, which must be one of the allowed values: suggested, applied, or resolution.",
+            "references": [
+                "<strong>Search Policy:</strong> When an Incident is created, a search for relevant knowledge must be performed, and matching articles linked as <code>used_as = suggested</code>.",
+                "<strong>Use Tracking:</strong> All knowledge links must track <code>used_as</code> type: <code>suggested</code>, <code>applied</code>, or <code>resolution</code>."
+            ],
+            "iteration_added": 0
+        },
+        {
+            "policy_name": "KnowledgeArticlePublishedRequirement",
+            "description": "A knowledge article must be in the `published` state before it can be linked to an incident.",
+            "references": [
+                "<strong>Article Status:</strong> Only articles in <code>knowledge.state = published</code> are searchable by the <code>Reporter</code> role."
+            ],
+            "iteration_added": 0
+        },
+        {
+            "policy_name": "NoAssumptionOfIds",
+            "description": "Before invoking the **link_knowledge_to_incident** tool, ensure that the `incident_id` refers to an existing incident (e.g., by calling **find_incident_by_id** or **find_incident_by_number**) and that the `knowledge_id` refers to an existing knowledge article (e.g., by calling **retrieve_knowledge_articles** or **find_incident_knowledge_links**). Only after both records are confirmed should the link be created; never fabricate or guess identifiers.",
+            "references": [
+                "First you must check the user information and operate exclusively based on <strong>confirmed user roles</strong>, <strong>verified record relationships</strong>, and <strong>ITIL/database integrity rules</strong>. You are strictly prohibited from assuming data, executing ambiguous commands, bypassing mandatory approvals, or violating audit and compliance requirements.",
+                "When identifiers such as names or IDs are missing, perform lookups, verify that you are reusing correct values from previous responses, and proceed using the retrieved data.",
+                "Never assume or fabricate IDs, responses, or outcomes \u2014 rely solely on verified API results. The same is the case of optional or default arguments."
+            ],
+            "iteration_added": 0
+        },
+        {
+            "policy_name": "AtomicOperation",
+            "description": "When invoking the **link_knowledge_to_incident** tool, execute only that call in the current step. Do not combine it with any other tool calls or data\u2011modifying actions in the same request; if multiple links are needed, use an approved batch endpoint.",
+            "references": [
+                "<strong>Atomic Operations:</strong> Perform <strong>one validated operation at a time</strong>, except when using approved batch endpoints. Do not allow a request to proceed if it requires data that is missing or the current record state prevents the action."
+            ],
+            "iteration_added": 0
+        },
+        {
+            "policy_name": "MandatoryFieldsValidation",
+            "description": "All mandatory fields for the link operation (`incident_id` and `knowledge_id`) must be present and non\u2011empty before invoking the tool.",
+            "references": [
+                "Mandatory Fields:",
+                "Any request to create or update a record must validate all mandatory fields."
+            ],
+            "iteration_added": 0
+        },
+        {
+            "policy_name": "KnowledgeSearchOnIncidentCreation",
+            "description": "When creating a new incident, first invoke the `retrieve_knowledge_articles` tool (or any equivalent knowledge\u2011search tool) using the incident\u2019s short_description, category, impact, urgency, etc., as search criteria. For every knowledge article returned, call the `link_knowledge_to_incident` tool with the parameters:\n- `incident_id`: the ID of the incident just created\n- `knowledge_id`: the ID of the knowledge article to link\n- `used_as`: set to the enum value `suggested`\nThe policy is met only if each call to `link_knowledge_to_incident` includes the `used_as` parameter with the exact value `suggested`.",
+            "references": [
+                "<li><strong>Search Policy:</strong> When an Incident is created, a search for relevant knowledge must be performed, and matching articles linked as <code>used_as = suggested</code>.</li>",
+                "<li><strong>Use Tracking:</strong> All knowledge links must track <code>used_as</code> type: <code>suggested</code>, <code>applied</code>, or <code>resolution</code>.</li>"
+            ],
+            "iteration_added": 1
+        },
+        {
+            "policy_name": "VerifySameOrganizationBeforeLink",
+            "description": "Before creating a knowledge\u2011incident link, verify that the Incident and the Knowledge article belong to the same organization.",
+            "references": [],
+            "iteration_added": 1
+        },
+        {
+            "policy_name": "VerifyUserRoleAccessBeforeLink",
+            "description": "Before invoking the **link_knowledge_to_incident** tool, confirm that the authenticated user\u2019s role permits the operation: \n- The user must have read (or higher) access to the target Incident (Agent, Manager, Administrator, or Reporter when the Incident was opened by that Reporter). \n- The user must be allowed to view the Knowledge article (any role can view a Knowledge article that is in the **published** state; only Agent, Manager, Administrator can link unpublished or internal articles). \n- If either check fails, abort the linking operation and return a policy\u2011violation error indicating the missing permission.",
+            "references": [
+                "Can view and update <strong>their own submitted Incidents/Requests</strong>. Can search <strong>Public Knowledge</strong> articles.",
+                "Cannot view or modify records opened by other users, CMDB, or internal work notes.",
+                "Only articles in <code>knowledge.state = published</code> are searchable by the <code>Reporter</code> role.",
+                "When an Incident is created, a search for relevant knowledge must be performed, and matching articles linked as <code>used_as = suggested</code>."
+            ],
+            "iteration_added": 1
+        }
+    ],
+    "archive": [
+        {
+            "policy_name": "CreateSuggestedKnowledgeLink",
+            "description": "For any matching article found during incident creation, the system must create an incident\u2011knowledge link with `used_as = suggested`.",
+            "references": [
+                "When an Incident is created, a search for relevant knowledge must be performed, and matching articles linked as <code>used_as = suggested</code>."
+            ],
+            "iteration_added": 1,
+            "comments": "The policy directly governs the behavior of the `link_knowledge_to_incident` tool, making it relevant and tool\u2011specific. It is actionable because the required link can be created by passing the appropriate parameters (incident ID, knowledge article ID, and the `used_as` flag set to 'suggested'). However, full compliance cannot be confirmed before the tool is invoked; we can only verify that the necessary fields are supplied, while the actual presence of the `used_as = suggested` value can only be confirmed after the link is created. The policy statement is self\u2011contained\u2014it clearly defines the required outcome without needing external context. Overall clarity, enforceability, and relevance are high, meriting a score of 4 out of 5.\nThe policy directly governs the behavior of the `link_knowledge_to_incident` tool, making it relevant and tool\u2011specific. It is actionable because the required link can be created by passing the appropriate parameters (incident ID, knowledge article ID, and the `used_as` flag set to 'suggested'). However, full compliance cannot be confirmed before the tool is invoked; we can only verify that the necessary fields are supplied, while the actual presence of the `used_as = suggested` value can only be confirmed after the link is created. The policy statement is self\u2011contained\u2014it clearly defines the required outcome without needing external context. Overall clarity, enforceability, and relevance are high, meriting a score of 4 out of 5.\nThe policy directly governs the behavior of the `link_knowledge_to_incident` tool, making it relevant and tool\u2011specific. It is actionable because the required link can be created by passing the appropriate parameters (incident ID, knowledge article ID, and the `used_as` flag set to 'suggested'). However, full compliance cannot be confirmed before the tool is invoked; we can only verify that the necessary fields are supplied, while the actual presence of the `used_as = suggested` value can only be confirmed after the link is created. The policy statement is self\u2011contained\u2014it clearly defines the required outcome without needing external context. Overall clarity, enforceability, and relevance are high, meriting a score of 4 out of 5.\nThe policy directly governs the behavior of the `link_knowledge_to_incident` tool, making it relevant and tool\u2011specific. It is actionable because the required link can be created by passing the appropriate parameters (incident ID, knowledge article ID, and the `used_as` flag set to 'suggested'). However, full compliance cannot be confirmed before the tool is invoked; we can only verify that the necessary fields are supplied, while the actual presence of the `used_as = suggested` value can only be confirmed after the link is created. The policy statement is self\u2011contained\u2014it clearly defines the required outcome without needing external context. Overall clarity, enforceability, and relevance are high, meriting a score of 4 out of 5.\nThe policy directly governs the behavior of the `link_knowledge_to_incident` tool, making it relevant and tool\u2011specific. It is actionable because the required link can be created by passing the appropriate parameters (incident ID, knowledge article ID, and the `used_as` flag set to 'suggested'). However, full compliance cannot be confirmed before the tool is invoked; we can only verify that the necessary fields are supplied, while the actual presence of the `used_as = suggested` value can only be confirmed after the link is created. The policy statement is self\u2011contained\u2014it clearly defines the required outcome without needing external context. Overall clarity, enforceability, and relevance are high, meriting a score of 4 out of 5.\n"
+        },
+        {
+            "policy_name": "AuditLoggingForKnowledgeLink",
+            "description": "**Audit logging for knowledge\u2011incident linking (self\u2011contained)**\nWhen linking a knowledge article to an incident, the assistant must:\n1. Invoke `link_knowledge_to_incident` with `knowledge_id` and `incident_id` (both non\u2011empty strings).\n2. After a successful response, obtain the current UTC time (ISO\u20118601) and the caller's user identifier (the `user_id` associated with the `x-itsm-user-token` supplied in the request headers).\n3. Call `update_incident` on the same `incident_id` setting `worknotes` to a string formatted as:\n   `[<ISO\u20118601\u2011UTC\u2011timestamp>] Linked knowledge article <knowledge_id> to incident <incident_id> by user <user_id>`.\n4. If step\u202f3 fails, execute `remove_knowledge_link_to_incident` with the same `knowledge_id` and `incident_id` to revert the linking, and return the error to the requester.\nAll steps rely exclusively on the three tools listed in the API catalog; no external systems are required.",
+            "references": [
+                "<strong>Time Tracking:</strong> All work logs must include the timestamp (<code>created_on</code>) and the <code>user_id</code> performing the action."
+            ],
+            "iteration_added": 2,
+            "comments": "The policy is directly applicable to the knowledge\u2011to\u2011incident linking tool, so it is relevant and tool\u2011specific. However, the current set of supplied tools does not include any operation for creating or verifying work\u2011log entries, making it impossible to validate compliance before the link is made and to enforce the requirement using only the provided tool set. Consequently the policy is not actionable with the available tools and is not self\u2011contained; it relies on an external work\u2011log API that is not described. I propose an alternative, self\u2011contained description that explicitly names the required work\u2011log creation step and defines the rollback behavior if logging fails. Score: 2 \u2013 the policy is clear in intent but cannot be enforced or validated with the given tooling.\nThe policy is directly relevant to the `link_knowledge_to_incident` tool and is narrowly focused, so it scores well on relevance and tool specificity. However, it cannot be fully validated before the tool is called because the requirement to create a work\u2011log and potentially roll back the link depends on runtime outcomes. Moreover, the policy references a work\u2011log creation operation that is not defined in the supplied tool catalogue, and it assumes the existence of a rollback operation (`remove_knowledge_link_to_incident`) without describing its parameters. Consequently, the policy is not currently actionable or self\u2011contained with the available tools. To make it enforceable, the policy should explicitly name the work\u2011log tool, list its required parameters, and describe the rollback tool and its usage. Score: 2/5.\nThe policy is directly relevant to the `link_knowledge_to_incident` tool and is narrowly scoped, making it tool\u2011specific. Its intent can be validated: the required fields for the work\u2011log are known, and the error\u2011handling flow (undo on failure) can be checked after the operations. However, the policy references a `create_work_log` tool that is not present in the supplied tool catalog, rendering the policy not actionable with the current tool set and not self\u2011contained. To make it enforceable, either a description for `create_work_log` must be added to the tool list, or the policy should be rewritten to use an existing tool (e.g., `update_incident` with a work note) for audit logging. Overall clarity is good, but missing tool definition lowers practicality. Score: 3/5.\n"
+        }
+    ]
+}

@@ -1,0 +1,118 @@
+{
+    "policies": [
+        {
+            "policy_name": "Mandatory Fields Validation",
+            "description": "All required fields for the update_child_incident operation (child_incident_mapping_id, parent_incident, child_incident) must be provided and non\u2011empty before invoking the tool.",
+            "references": [
+                "<strong>Mandatory Fields:</strong> Any request to create or update a record must validate all mandatory fields."
+            ],
+            "iteration_added": 0
+        },
+        {
+            "policy_name": "Role\u2011Based Access for Updating Incident Relationships",
+            "description": "Only users with roles Administrator, Manager, or Agent may perform update_child_incident, as these roles have full CRUD permissions on incident\u2011related tables.",
+            "references": [
+                "<strong>Administrator</strong> (<code>admin</code>) | System Configuration &amp; Integrity | Full CRUD (Create, Read, Update, Delete) access across all tables.",
+                "<strong>Manager</strong> (<code>manager</code>) | Supervision, Escalation, Approvals | Full CRUD on operational tables (<code>incident</code>, <code>problem</code>, <code>change</code>, <code>knowledge</code>); READ access to all the tables. Can <strong>reassign</strong> incidents/requests. Can <strong>approve/reject</strong> Change Requests. Monitors SLAs and escalations.",
+                "<strong>Agent</strong> (<code>agent</code>) | Frontline Incident/Request fulfillment | <strong>Full CRUD</strong> on <strong>Incidents, Service Requests, Tasks, Work Notes, CMDB, Change, Problem, and Knowledge</strong>. READ access to all the tables. Can update assignment, state, and resolution. | Cannot bypass approvals, or change system administration settings."
+            ],
+            "iteration_added": 0
+        },
+        {
+            "policy_name": "Atomic Operation Requirement",
+            "description": "The update_child_incident must be executed as a single validated operation, not combined with other actions.",
+            "references": [
+                "<strong>Atomic Operations:</strong> Perform <strong>one validated operation at a time</strong>, except when using approved batch endpoints."
+            ],
+            "iteration_added": 0
+        },
+        {
+            "policy_name": "No Assumption of IDs Policy",
+            "description": "Do not fabricate or guess any identifiers (such as child_incident_mapping_id, parent_incident, child_incident). The tool must first verify that each ID exists via a confirmed lookup before performing the update.",
+            "references": [
+                "Never assume or fabricate IDs, responses, or outcomes \u2014 rely solely on verified API results."
+            ],
+            "iteration": 0
+        },
+        {
+            "policy_name": "Referential Integrity Enforcement",
+            "description": "Before updating a child\u2011incident mapping, ensure that the referenced parent and child incidents actually exist and that all required relationships are satisfied; otherwise the operation must be halted.",
+            "references": [
+                "Referential Integrity: Before closing any record, verify that all mandatory dependencies are satisfied."
+            ],
+            "iteration": 0
+        },
+        {
+            "policy_name": "Permission Denied Error Handling",
+            "description": "If the invoking user\u2019s role does not include the required CRUD permissions for incident relationship tables, the operation must be aborted and a 403 Forbidden response returned.",
+            "references": [
+                "403 Forbidden: Permission denied (user role lacks authority for the operation)."
+            ],
+            "iteration": 0
+        },
+        {
+            "policy_name": "Policy Violation Halt Requirement",
+            "description": "Any request that breaches a defined policy (e.g., missing mandatory fields, insufficient role, failed referential integrity) must be stopped immediately, and the specific policy reason must be returned before any further action.",
+            "references": [
+                "Policy Violation: If a user request violates any rule herein, you must halt the operation and provide the specific policy reason before pausing."
+            ],
+            "iteration": 0
+        },
+        {
+            "policy_name": "Identifier Lookup Before Use",
+            "description": "If any required identifier (e.g., child_incident_mapping_id, parent_incident, child_incident) is missing from the request, the assistant must first perform a lookup to retrieve the correct ID and verify it before proceeding with the update_child_incident operation.",
+            "references": [
+                "When identifiers such as names or IDs are missing, perform lookups, verify that you are reusing correct values from previous responses, and proceed using the retrieved data."
+            ],
+            "iteration": 1
+        },
+        {
+            "policy_name": "Conflict Error Handling",
+            "description": "If the update_child_incident request encounters a record locking or state conflict, the assistant must return a 409 Conflict response and halt further processing.",
+            "references": [
+                "<strong>409 Conflict:</strong> Record locking or state conflict."
+            ],
+            "iteration": 1
+        },
+        {
+            "policy_name": "Rate Limiting and Exponential Backoff",
+            "description": "When calling update_child_incident, if the API rate limit is exceeded the assistant must pause and retry the request using exponential backoff rather than failing immediately.",
+            "references": [
+                "<strong>Rate Limiting:</strong> If exceeded, pause and retry using <strong>Exponential Backoff</strong>."
+            ],
+            "iteration": 1
+        },
+        {
+            "policy_name": "User Clarification Policy",
+            "description": "The assistant must not ask the user for additional information. If a request is ambiguous or a mandatory field is missing, it must return a list of required fields and state the ambiguity or missing field without prompting for clarification.",
+            "references": [
+                "<strong>User Clarification:</strong> Do not ask for further information. If the request is ambiguous, return the list and state the ambiguity. If a mandatory field is missing, state which field is required."
+            ],
+            "iteration": 1
+        },
+        {
+            "policy_name": "No Confirmation Required",
+            "description": "The assistant may proceed with the update_child_incident operation without seeking explicit confirmation or permission from the user, provided all other policies are satisfied.",
+            "references": [
+                "You do not need to ask for confirmation or permission before taking action."
+            ],
+            "iteration": 1
+        },
+        {
+            "policy_name": "Confirmed Role and Record Relationship Enforcement",
+            "description": "Before performing an update_child_incident operation, the assistant must verify that the invoking user\u2019s role is confirmed and that the parent and child incident records have verified relationships, adhering to the ITIL/database integrity rules.",
+            "references": [
+                "First you must check the user information and operate exclusively based on <strong>confirmed user roles</strong>, <strong>verified record relationships</strong>, and <strong>ITIL/database integrity rules</strong>."
+            ],
+            "iteration": 2
+        },
+        {
+            "policy_name": "Audit Logging for Incident Relationship Updates",
+            "description": "Every successful update_child_incident call must be recorded in the audit log, capturing the timestamp (created_on) and the user_id that performed the update.",
+            "references": [
+                "<strong>Time Tracking:</strong> All work logs must include the timestamp (<code>created_on</code>) and the <code>user_id</code> performing the action."
+            ],
+            "iteration": 2
+        }
+    ]
+}

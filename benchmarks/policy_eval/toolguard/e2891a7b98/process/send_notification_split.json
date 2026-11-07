@@ -1,0 +1,116 @@
+{
+    "policies": [
+        {
+            "policy_name": "Atomic Operations",
+            "description": "The send_notification call must be performed as a single validated operation; do not combine it with other actions unless using an approved batch endpoint.",
+            "references": [
+                "Atomic Operations: Perform **one validated operation at a time**, except when using approved batch endpoints."
+            ],
+            "iteration_added": 0
+        },
+        {
+            "policy_name": "No Fabricated IDs",
+            "description": "Do not generate or assume incident IDs or email addresses; rely only on IDs that have been retrieved and verified from the system APIs before calling send_notification.",
+            "references": [
+                "Never assume or fabricate IDs, responses, or outcomes \u2014 rely solely on verified API results."
+            ],
+            "iteration_added": 0
+        },
+        {
+            "policy_name": "Mandatory Fields Validation for Notification Creation",
+            "description": "When creating a notification, the request must include all required fields (incident_id and email) and they must be non\u2011empty before calling the send_notification tool.",
+            "references": [
+                "Mandatory Fields: Any request to create or update a record must validate all mandatory fields."
+            ],
+            "iteration": 0
+        },
+        {
+            "policy_name": "Role\u2011Based Permission Enforcement for Sending Notifications",
+            "description": "The system must verify that the invoking user\u2019s role has authority to create a notification; if the role lacks permission, the operation must be halted with a 403 Forbidden response.",
+            "references": [
+                "403 Forbidden: Permission denied (user role lacks authority for the operation)."
+            ],
+            "iteration_added": 0
+        },
+        {
+            "policy_name": "Rate Limiting Handling",
+            "description": "If the send_notification API signals rate\u2011limit exhaustion, the assistant must pause and retry the request using exponential backoff rather than proceeding immediately.",
+            "references": [
+                "Rate Limiting: If exceeded, pause and retry using **Exponential Backoff**."
+            ],
+            "iteration_added": 0
+        },
+        {
+            "policy_name": "Conflict Error Handling",
+            "description": "If a 409 Conflict error is returned (e.g., record locking or state conflict), the assistant must stop the current operation and report the conflict without attempting further changes.",
+            "references": [
+                "409 Conflict: Record locking or state conflict."
+            ],
+            "iteration_added": 0
+        },
+        {
+            "policy_name": "Confirmed User Role Enforcement",
+            "description": "Before invoking the send_notification tool, the assistant must verify that the requesting user\u2019s role is confirmed and authorized for the operation, refusing the request if the role is not permitted.",
+            "references": [
+                "First you must check the user information and operate exclusively based on **confirmed user roles**, **verified record relationships**, and **ITIL/database integrity rules**."
+            ],
+            "iteration_added": 1
+        },
+        {
+            "policy_name": "Prohibition of Bypassing Mandatory Approvals and Audit Violations",
+            "description": "The assistant must never bypass mandatory approvals or violate audit/compliance requirements when creating a notification; any attempt to do so must cause the operation to be halted with an appropriate policy violation response.",
+            "references": [
+                "You are strictly prohibited from assuming data, executing ambiguous commands, bypassing mandatory approvals, or violating audit and compliance requirements."
+            ],
+            "iteration_added": 1
+        },
+        {
+            "policy_name": "Policy Violation Halt Requirement",
+            "description": "If a request to send a notification violates any policy, the assistant must immediately halt the operation and return the specific policy reason before pausing.",
+            "references": [
+                "Policy Violation: If a user request violates any rule herein, you **must halt the operation** and provide the specific policy reason before pausing."
+            ],
+            "iteration_added": 2
+        },
+        {
+            "policy_name": "Identifier Lookup Requirement",
+            "description": "When any required identifier (e.g., incident_id) is missing or unclear, the assistant must first perform a lookup using the appropriate tool, verify the retrieved value, and only then proceed with the send_notification call.",
+            "references": [
+                "When identifiers such as names or IDs are missing, perform lookups, verify that you are reusing correct values from previous responses, and proceed using the retrieved data."
+            ],
+            "iteration_added": 2
+        },
+        {
+            "policy_name": "Verified Incident Existence",
+            "description": "Before creating a notification, confirm that the referenced incident ID exists in the system.",
+            "references": [
+                "First you must check the user information and operate exclusively based on **confirmed user roles**, **verified record relationships**, and **ITIL/database integrity rules**."
+            ],
+            "iteration_added": 1
+        },
+        {
+            "policy_name": "Verified Notification\u2011Incident Relationship",
+            "description": "Before creating a notification, ensure that the relationship between the notification and the incident complies with system integrity rules.",
+            "references": [
+                "First you must check the user information and operate exclusively based on **confirmed user roles**, **verified record relationships**, and **ITIL/database integrity rules**."
+            ],
+            "iteration_added": 1
+        },
+        {
+            "policy_name": "SLA Breach Escalation Flag Enforcement",
+            "description": "If an incident\u2019s SLA is in the **breached** stage, the incident\u2019s **escalation** flag must be set to true.",
+            "references": [
+                "Breach: If the SLA exceeds its duration (**stage = breached**), the **escalation** flag on the Incident **must** be set to true, and an automatic notification sent to the **Manager**."
+            ],
+            "iteration_added": 1
+        },
+        {
+            "policy_name": "SLA Breach Automatic Manager Notification",
+            "description": "If an incident\u2019s SLA is in the **breached** stage, an automatic notification must be sent to the Manager.",
+            "references": [
+                "Breach: If the SLA exceeds its duration (**stage = breached**), the **escalation** flag on the Incident **must** be set to true, and an automatic notification sent to the **Manager**."
+            ],
+            "iteration_added": 1
+        }
+    ]
+}

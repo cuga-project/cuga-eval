@@ -1,0 +1,140 @@
+{
+    "policies": [
+        {
+            "policy_name": "Mandatory Fields Validation",
+            "description": "All mandatory fields required by the tool (group_id and user_id) must be present and validated before invoking add_new_group_member.",
+            "references": [
+                "<strong>Mandatory Fields:</strong> Any request to create or update a record must validate all mandatory fields."
+            ],
+            "iteration_added": 0
+        },
+        {
+            "policy_name": "Existence Verification of Records",
+            "description": "The group and user referenced by group_id and user_id must be verified to exist before adding the membership.",
+            "references": [
+                "First you must check the user information and operate exclusively based on <strong>confirmed user roles</strong>, <strong>verified record relationships</strong>, and <strong>ITIL/database integrity rules</strong>."
+            ],
+            "iteration_added": 0
+        },
+        {
+            "policy_name": "Prevent Duplicate Membership",
+            "description": "The operation must be halted if the user is already a member of the specified group.",
+            "references": [
+                "<strong>Atomic Operations:</strong> Perform <strong>one validated operation at a time</strong>, except when using approved batch endpoints. Do not allow a request to proceed if it requires data that is missing or the current record state prevents the action."
+            ],
+            "iteration_added": 0
+        },
+        {
+            "policy_name": "Role\u2011Based Permission for Group Membership Changes",
+            "description": "Only roles with full CRUD access across all tables (e.g., Administrator) are authorized to create a new group member record.",
+            "references": [
+                "<strong>Administrator</strong> (<code>admin</code>) | System Configuration &amp; Integrity | Full CRUD (Create, Read, Update, Delete) access across all tables."
+            ],
+            "iteration_added": 0
+        },
+        {
+            "policy_name": "No Fabrication of IDs",
+            "description": "Do not fabricate or assume IDs; rely solely on verified API results when referencing group_id and user_id.",
+            "references": [
+                "Never assume or fabricate IDs, responses, or outcomes \u2014 rely solely on verified API results."
+            ],
+            "iteration_added": 0
+        },
+        {
+            "policy_name": "Atomic Operation Requirement",
+            "description": "add_new_group_member must be executed as a single validated operation.",
+            "references": [
+                "<strong>Atomic Operations:</strong> Perform <strong>one validated operation at a time</strong>, except when using approved batch endpoints. Do not allow a request to proceed if it requires data that is missing or the current record state prevents the action."
+            ],
+            "iteration_added": 1
+        },
+        {
+            "policy_name": "Prerequisite Data Validation",
+            "description": "If any prerequisite data is missing or invalid, the operation must be stopped.",
+            "references": [
+                "<strong>Atomic Operations:</strong> Perform <strong>one validated operation at a time</strong>, except when using approved batch endpoints. Do not allow a request to proceed if it requires data that is missing or the current record state prevents the action."
+            ],
+            "iteration_added": 1
+        },
+        {
+            "policy_name": "Same Organizational Context Requirement",
+            "description": "The group and the user must exist within the same organizational context before adding membership.",
+            "references": [
+                "First you must check the user information and operate exclusively based on <strong>confirmed user roles</strong>, <strong>verified record relationships</strong>, and <strong>ITIL/database integrity rules</strong>."
+            ],
+            "iteration_added": 1
+        },
+        {
+            "policy_name": "Verified Relationship Validity",
+            "description": "The relationship between the group and user must be valid and verified before adding membership.",
+            "references": [
+                "First you must check the user information and operate exclusively based on <strong>confirmed user roles</strong>, <strong>verified record relationships</strong>, and <strong>ITIL/database integrity rules</strong>."
+            ],
+            "iteration_added": 1
+        },
+        {
+            "policy_name": "Rate Limiting Enforcement",
+            "description": "If the add_new_group_member request exceeds the service's rate limits, the operation must be paused and retried using exponential backoff rather than proceeding immediately.",
+            "references": [
+                "<strong>Rate Limiting:</strong> If exceeded, pause and retry using <strong>Exponential Backoff</strong>."
+            ],
+            "iteration_added": 0
+        },
+        {
+            "policy_name": "Permission Denial (403) Enforcement",
+            "description": "If the invoking user's role does not have sufficient authority to create a group membership (e.g., non\u2011Administrator roles), the operation must be halted and a 403 Forbidden response returned.",
+            "references": [
+                "<strong>403 Forbidden:</strong> Permission denied (user role lacks authority for the operation)."
+            ],
+            "iteration_added": 0
+        },
+        {
+            "policy_name": "Conflict Response for Duplicate Membership",
+            "description": "If the user is already a member of the specified group, the add_new_group_member operation must be halted and a 409 Conflict response returned, indicating a state conflict.",
+            "references": [
+                "<strong>409 Conflict:</strong> Record locking or state conflict."
+            ],
+            "iteration_added": 1
+        },
+        {
+            "policy_name": "Active User Requirement for Group Membership",
+            "description": "Before adding a user to a group, verify that the user\u2019s account is active (users.active = true). If the user is inactive, the operation must be stopped.",
+            "references": [
+                "<strong>User Status:</strong> Ensure any user being assigned to (<code>assigned_to</code>) or updated is <code>users.active = true</code>."
+            ],
+            "iteration_added": 1
+        },
+        {
+            "policy_name": "Identifier Lookup When Missing",
+            "description": "If a required identifier (group_id or user_id) is not supplied, perform a lookup using the appropriate retrieval tool.",
+            "references": [
+                "When identifiers such as names or IDs are missing, perform lookups, verify that you are reusing correct values from previous responses, and proceed using the retrieved data."
+            ],
+            "iteration_added": 3
+        },
+        {
+            "policy_name": "Identifier Verification After Lookup",
+            "description": "Verify the returned identifier matches the intended record before proceeding with add_new_group_member.",
+            "references": [
+                "When identifiers such as names or IDs are missing, perform lookups, verify that you are reusing correct values from previous responses, and proceed using the retrieved data."
+            ],
+            "iteration_added": 3
+        },
+        {
+            "policy_name": "Existence Check for Referenced Records",
+            "description": "Ensure that the referenced user and group records exist before creating a new group membership.",
+            "references": [
+                "Referential Integrity: Before closing any record, verify that all mandatory dependencies are satisfied."
+            ],
+            "iteration_added": 3
+        },
+        {
+            "policy_name": "Referential Relationship Validation",
+            "description": "Ensure that the user and group satisfy required relationships as per referential integrity rules before creating a new group membership.",
+            "references": [
+                "Referential Integrity: Before closing any record, verify that all mandatory dependencies are satisfied."
+            ],
+            "iteration_added": 3
+        }
+    ]
+}

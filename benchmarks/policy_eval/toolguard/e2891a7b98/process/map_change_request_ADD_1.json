@@ -1,0 +1,78 @@
+{
+    "policies": [
+        {
+            "policy_name": "Mandatory Fields Validation",
+            "description": "Any request to create or update a record must include all required fields. For map_change_request this means the mandatory `change_id` must be provided and at least one of `incident_id` or `problem_id` must be supplied.",
+            "references": [
+                "<strong>Mandatory Fields:</strong> Any request to create or update a record must validate all mandatory fields."
+            ],
+            "iteration_added": 0
+        },
+        {
+            "policy_name": "Atomic Operation Requirement",
+            "description": "Each tool invocation must be a single validated operation. The map_change_request call must be performed alone, not combined with other actions in the same request.",
+            "references": [
+                "<strong>Atomic Operations:</strong> Perform <strong>one validated operation at a time</strong>, except when using approved batch endpoints."
+            ],
+            "iteration_added": 0
+        },
+        {
+            "policy_name": "Role\u2011Based Permission for Change Mapping",
+            "description": "Only users with roles that have full CRUD rights on the Change table may create a change\u2011incident/problem mapping. This includes Administrator, Manager, and Agent roles.",
+            "references": [
+                "| **Administrator** (<code>admin</code>) | System Configuration &amp; Integrity | Full CRUD (Create, Read, Update, Delete) access across all tables.|",
+                "| **Manager** (<code>manager</code>) | Supervision, Escalation, Approvals | Full CRUD on operational tables (<code>incident</code>, <code>problem</code>, <code>change</code>, <code>knowledge</code>); READ access to all the tables.|",
+                "| **Agent** (<code>agent</code>) | Frontline Incident/Request fulfillment | <strong>Full CRUD</strong> on <strong>Incidents, Service Requests, Tasks, Work Notes, CMDB, Change, Problem, and Knowledge</strong>. READ access to all the tables.|"
+            ],
+            "iteration_added": 0
+        },
+        {
+            "policy_name": "ID Existence Verification",
+            "description": "Do not fabricate or guess IDs. The `change_id`, and any provided `incident_id` or `problem_id` must be verified to exist via the appropriate lookup tools before creating the mapping.",
+            "references": [
+                "Never assume or fabricate IDs, responses, or outcomes \u2014 rely solely on verified API results."
+            ],
+            "iteration_added": 0
+        },
+        {
+            "policy_name": "Permission Denied Handling",
+            "description": "If the calling user\u2019s role does not have the required CRUD rights on the Change table, the map_change_request operation must fail with a 403 Forbidden response and provide a clear reason for the denial.",
+            "references": [
+                "<strong>403 Forbidden:</strong> Permission denied (user role lacks authority for the operation)."
+            ],
+            "iteration": 0
+        },
+        {
+            "policy_name": "Conflict Detection for Mapping Creation",
+            "description": "When attempting to create a change\u2011incident or change\u2011problem mapping, if a mapping with the same combination of change_id and incident_id/problem_id already exists, the operation must fail with a 409 Conflict response.",
+            "references": [
+                "<strong>409 Conflict:</strong> Record locking or state conflict."
+            ],
+            "iteration": 0
+        },
+        {
+            "policy_name": "Rate Limiting and Exponential Backoff",
+            "description": "If the map_change_request endpoint returns a rate\u2011limit error, the assistant must pause and retry the request using exponential backoff according to the policy.",
+            "references": [
+                "<strong>Rate Limiting:</strong> If exceeded, pause and retry using <strong>Exponential Backoff</strong>."
+            ],
+            "iteration": 0
+        },
+        {
+            "policy_name": "Missing Mandatory Field Clarification",
+            "description": "When a required field for map_change_request (change_id, incident_id, or problem_id) is absent, the assistant must immediately state which specific field is missing instead of proceeding or asking for additional information.",
+            "references": [
+                "<strong>User Clarification:</strong> Do not ask for further information. If the request is ambiguous, return the list and state the ambiguity. If a mandatory field is missing, state which field is required."
+            ],
+            "iteration": 0
+        },
+        {
+            "policy_name": "Audit Logging for Mapping Operations",
+            "description": "When creating a change\u2011incident or change\u2011problem mapping with the map_change_request tool, the operation must be recorded with a timestamp (created_on) and the user_id of the caller to satisfy audit and compliance requirements.",
+            "references": [
+                "<strong>Time Tracking:</strong> All work logs must include the timestamp (<code>created_on</code>) and the <code>user_id</code> performing the action."
+            ],
+            "iteration": 1
+        }
+    ]
+}

@@ -1,0 +1,80 @@
+{
+    "policies": [
+        {
+            "policy_name": "RolePermissionForLinkKnowledge",
+            "description": "Only users with the Agent or Manager role have Full CRUD permissions on both Incident and Knowledge records, which are required to create a knowledge\u2011incident link.",
+            "references": [
+                "<strong>Agent</strong> (<code>agent</code>) | Frontline Incident/Request fulfillment | <strong>Full CRUD</strong> on <strong>Incidents, Service Requests, Tasks, Work Notes, CMDB, Change, Problem, and Knowledge</strong>. READ access to all the tables. Can update assignment, state, and resolution.",
+                "<strong>Manager</strong> (<code>manager</code>) | Supervision, Escalation, Approvals | Full CRUD on operational tables (<code>incident</code>, <code>problem</code>, <code>change</code>, <code>knowledge</code>); READ access to all the tables. Can <strong>reassign</strong> incidents/requests. Can <strong>approve/reject</strong> Change Requests. Monitors SLAs and escalations."
+            ],
+            "iteration_added": 0
+        },
+        {
+            "policy_name": "KnowledgeLinkUsageTracking",
+            "description": "Every knowledge\u2011incident link must record the `used_as` type, which must be one of the allowed values: suggested, applied, or resolution.",
+            "references": [
+                "<strong>Use Tracking:</strong> All knowledge links must track <code>used_as</code> type: <code>suggested</code>, <code>applied</code>, or <code>resolution</code>."
+            ],
+            "iteration_added": 0
+        },
+        {
+            "policy_name": "KnowledgeArticlePublishedRequirement",
+            "description": "A knowledge article must be in the `published` state before it can be linked to an incident (only published articles are searchable and therefore eligible for linking).",
+            "references": [
+                "<strong>Article Status:</strong> Only articles in <code>knowledge.state = published</code> are searchable by the <code>Reporter</code> role."
+            ],
+            "iteration_added": 0
+        },
+        {
+            "policy_name": "NoAssumptionOfIds",
+            "description": "Do not assume or fabricate `incident_id` or `knowledge_id`; both identifiers must be verified to exist via API results before creating the link.",
+            "references": [
+                "Never assume or fabricate IDs, responses, or outcomes \u2014 rely solely on verified API results."
+            ],
+            "iteration_added": 0
+        },
+        {
+            "policy_name": "AtomicOperation",
+            "description": "The link creation must be performed as a single validated operation; no other actions should be bundled with it.",
+            "references": [
+                "Perform <strong>one validated operation at a time</strong>, except when using approved batch endpoints."
+            ],
+            "iteration_added": 0
+        },
+        {
+            "policy_name": "MandatoryFieldsValidation",
+            "description": "All mandatory fields for the link operation (`incident_id` and `knowledge_id`) must be present and non\u2011empty before invoking the tool.",
+            "references": [
+                "Any request to create or update a record must validate all mandatory fields."
+            ],
+            "iteration_added": 0
+        },
+        {
+            "policy_name": "KnowledgeSuggestionOnIncidentCreation",
+            "description": "When an Incident is created, the system must automatically perform a knowledge search and create incident\u2011knowledge links for any matching articles, using `used_as = suggested`.",
+            "references": [
+                "When an Incident is created, a search for relevant knowledge must be performed, and matching articles linked as <code>used_as = suggested</code>."
+            ],
+            "iteration": 0
+        },
+        {
+            "policy_name": "VerifiedRecordRelationshipBeforeLink",
+            "description": "Before creating a knowledge\u2011incident link, the assistant must verify that both the Incident and the Knowledge article belong to the same organization and that the requesting user has the required role\u2011based access to each record.",
+            "references": [
+                "First you must check the user information and operate exclusively based on <strong>confirmed user roles</strong>, <strong>verified record relationships</strong>, and <strong>ITIL/database integrity rules</strong>."
+            ],
+            "iteration": 0
+        },
+        {
+            "policy_name": "AdministratorPermissionForLinkKnowledge",
+            "description": "Only users with the Administrator, Manager, or Agent roles are permitted to create a knowledge\u2011incident link; users with the Reporter role do not have the required CRUD rights on Knowledge or Incident records.",
+            "references": [
+                "<strong>Administrator</strong> (<code>admin</code>) | System Configuration &amp; Integrity | Full CRUD (Create, Read, Update, Delete) access across all tables.",
+                "<strong>Manager</strong> (<code>manager</code>) | Supervision, Escalation, Approvals | Full CRUD on operational tables (<code>incident</code>, <code>problem</code>, <code>change</code>, <code>knowledge</code>); READ access to all the tables.",
+                "<strong>Agent</strong> (<code>agent</code>) | Frontline Incident/Request fulfillment | <strong>Full CRUD</strong> on <strong>Incidents, Service Requests, Tasks, Work Notes, CMDB, Change, Problem, and Knowledge</strong>. READ access to all the tables.",
+                "<strong>Reporter</strong> (<code>reporter</code>) | IT Service Consumption | Cannot view or modify records opened by other users, CMDB, or internal work notes."
+            ],
+            "iteration": 1
+        }
+    ]
+}

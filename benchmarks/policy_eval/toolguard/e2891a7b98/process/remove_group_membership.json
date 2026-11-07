@@ -1,0 +1,28 @@
+{
+    "policies": [
+        {
+            "policy_name": "Mandatory Fields Validation",
+            "description": "Before calling remove_group_membership, verify that all required parameters (group_id and user_id) are provided and not missing, as the operation requires mandatory fields to be validated.",
+            "references": [
+                "Mandatory Fields: Any request to create or update a record must validate all mandatory fields."
+            ],
+            "iteration_added": 0
+        },
+        {
+            "policy_name": "Atomic Operation Constraint",
+            "description": "Execute remove_group_membership as a single validated operation; do not combine it with other actions in the same request, and ensure the required data is present before proceeding.",
+            "references": [
+                "Atomic Operations: Perform one validated operation at a time, except when using approved batch endpoints. Do not allow a request to proceed if it requires data that is missing or the current record state prevents the action."
+            ],
+            "iteration_added": 0
+        },
+        {
+            "policy_name": "User Active Status Requirement",
+            "description": "Confirm that the user identified by user_id is active (users.active = true) before removing their group membership, as updates involving users must only affect active accounts.",
+            "references": [
+                "User Status: Ensure any user being assigned to (assigned_to) or updated is users.active = true."
+            ],
+            "iteration_added": 0
+        }
+    ]
+}

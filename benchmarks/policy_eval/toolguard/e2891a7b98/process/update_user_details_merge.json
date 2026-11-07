@@ -1,0 +1,109 @@
+{
+    "policies": [
+        {
+            "policy_name": "Administrator Full CRUD Access",
+            "description": "Users with the Administrator role (admin) have full Create, Read, Update, Delete access across all tables.",
+            "references": [
+                "<strong>Administrator</strong> (<code>admin</code>) | System Configuration &amp; Integrity | Full CRUD (Create, Read, Update, Delete) access across all tables."
+            ]
+        },
+        {
+            "policy_name": "Administrator User Update Authorization",
+            "description": "Only users with the Administrator role (admin) are authorized to update user records.",
+            "references": [
+                "<strong>Administrator</strong> (<code>admin</code>) | System Configuration &amp; Integrity | Full CRUD (Create, Read, Update, Delete) access across all tables."
+            ]
+        },
+        {
+            "policy_name": "Mandatory Fields Validation",
+            "description": "Any request to update a record must include and validate all mandatory fields required for that operation.",
+            "references": [
+                "<strong>Mandatory Fields:</strong> Any request to create or update a record must validate all mandatory fields."
+            ]
+        },
+        {
+            "policy_name": "User Active Status Requirement",
+            "description": "When updating a user record, the target user must have the field <code>users.active = true</code>.",
+            "references": [
+                "<strong>User Status:</strong> Ensure any user being assigned to (<code>assigned_to</code>) or updated is <code>users.active = true</code>."
+            ]
+        },
+        {
+            "policy_name": "No ID Fabrication",
+            "description": "The system must never assume or fabricate identifiers; all IDs used in the update must come from verified API results.",
+            "references": [
+                "Never assume or fabricate IDs, responses, or outcomes \u2014 rely solely on verified API results."
+            ]
+        },
+        {
+            "policy_name": "Atomic Operation Requirement",
+            "description": "The update_user_details call must be performed as a single validated operation; no additional operations should be bundled with it.",
+            "references": [
+                "<strong>Atomic Operations:</strong> Perform <strong>one validated operation at a time</strong>, except when using approved batch endpoints."
+            ]
+        },
+        {
+            "policy_name": "Policy Violation Halt",
+            "description": "If any of the above policies would be violated by the requested update, the operation must be halted and the specific policy reason returned before proceeding.",
+            "references": [
+                "<strong>Policy Violation:</strong> If a user request violates any rule herein, you <strong>must halt the operation</strong> and provide the specific policy reason before pausing."
+            ]
+        },
+        {
+            "policy_name": "Role\u2013Based Access Verification",
+            "description": "Before performing any user update, the assistant must check the requester\u2019s information and operate exclusively based on confirmed user roles, ensuring the requester\u2019s role authorizes the operation.",
+            "references": [
+                "First you must check the user information and operate exclusively based on <strong>confirmed user roles</strong>, <strong>verified record relationships</strong>, and <strong>ITIL/database integrity rules</strong>."
+            ]
+        },
+        {
+            "policy_name": "Permission Denied Response (403)",
+            "description": "If the requester\u2019s role does not have authority to update user records, the operation must be halted and a 403 Forbidden error returned, indicating permission denial.",
+            "references": [
+                "<strong>403 Forbidden:</strong> Permission denied (user role lacks authority for the operation)."
+            ]
+        },
+        {
+            "policy_name": "Conflict Error Handling (409)",
+            "description": "If an attempted user update encounters a record locking or state conflict, the operation must be halted and a 409 Conflict response returned.",
+            "references": [
+                "<strong>409 Conflict:</strong> Record locking or state conflict."
+            ]
+        },
+        {
+            "policy_name": "Rate Limiting and Retry",
+            "description": "When the API rate\u2011limit is exceeded during a user\u2011update call, the assistant must pause the operation and retry using exponential backoff rather than proceeding immediately.",
+            "references": [
+                "<strong>Rate Limiting:</strong> If exceeded, pause and retry using <strong>Exponential Backoff</strong>."
+            ]
+        },
+        {
+            "policy_name": "User Clarification Policy",
+            "description": "When a request is ambiguous or missing mandatory fields, the assistant must not ask for further information; instead it should return the list of ambiguities or explicitly state which mandatory field is required.",
+            "references": [
+                "<strong>User Clarification:</strong> Do not ask for further information. If the request is ambiguous, return the list and state the ambiguity. If a mandatory field is missing, state which field is required."
+            ]
+        },
+        {
+            "policy_name": "No Confirmation Required Policy",
+            "description": "The assistant may proceed with the update_user_details operation without seeking additional confirmation or permission from the requester.",
+            "references": [
+                "You do not need to ask for confirmation or permission before taking action."
+            ]
+        },
+        {
+            "policy_name": "Identifier Lookup Policy",
+            "description": "If required identifiers (such as user IDs) are not supplied, the assistant must first perform a lookup to retrieve the correct identifier and then use the verified result for the update operation.",
+            "references": [
+                "When identifiers such as names or IDs are missing, perform lookups, verify that you are reusing correct values from previous responses, and proceed using the retrieved data."
+            ]
+        },
+        {
+            "policy_name": "Role Enumeration Validation Policy",
+            "description": "Any role value supplied in an update_user_details request must match one of the allowed role enumerations defined for the system.",
+            "references": [
+                "| <strong>users.role</strong> | <code>admin</code>, <code>manager</code>, <code>agent</code>, <code>reporter</code> |"
+            ]
+        }
+    ]
+}

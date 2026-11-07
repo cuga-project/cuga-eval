@@ -1,0 +1,112 @@
+{
+    "policies": [
+        {
+            "policy_name": "Validate Mandatory Fields",
+            "description": "Any request to update a Problem must include and validate all mandatory fields required by the record.",
+            "references": [
+                "<strong>Mandatory Fields:</strong> Any request to create or update a record must validate all mandatory fields."
+            ]
+        },
+        {
+            "policy_name": "Role-Based Update Permission",
+            "description": "Only users with a role that has full CRUD permissions on the Problem table (Administrator, Manager, or Agent) are allowed to perform an update on a Problem record.",
+            "references": [
+                "| <strong>Administrator</strong> (<code>admin</code>) | System Configuration &amp; Integrity | Full CRUD (Create, Read, Update, Delete) access across all tables.\u00a0|",
+                "| <strong>Manager</strong> (<code>manager</code>) | Supervision, Escalation, Approvals | Full CRUD on operational tables (<code>incident</code>, <code>problem</code>, <code>change</code>, <code>knowledge</code>); READ access to all the tables. Can <strong>reassign</strong> incidents/requests. Can <strong>approve/reject</strong> Change Requests. Monitors SLAs and escalations. |",
+                "| <strong>Agent</strong> (<code>agent</code>) | Frontline Incident/Request fulfillment | <strong>Full CRUD</strong> on <strong>Incidents, Service Requests, Tasks, Work Notes, CMDB, Change, Problem, and Knowledge</strong>. READ access to all the tables. Can update assignment, state, and resolution. |"
+            ]
+        },
+        {
+            "policy_name": "Assigned User Must Be Active",
+            "description": "When the update includes an `assigned_to` user, that user must have `users.active = true`.",
+            "references": [
+                "<strong>User Status:</strong> Ensure any user being assigned to (<code>assigned_to</code>) or updated is <code>users.active = true</code>."
+            ]
+        },
+        {
+            "policy_name": "Atomic Operation Requirement",
+            "description": "The update must be a single validated operation; it cannot proceed if required data is missing or the current record state prevents the action.",
+            "references": [
+                "<strong>Atomic Operations:</strong> Perform <strong>one validated operation at a time</strong>, except when using approved batch endpoints. Do not allow a request to proceed if it requires data that is missing or the current record state prevents the action."
+            ]
+        },
+        {
+            "policy_name": "Mandatory Field Clarification",
+            "description": "If a mandatory field required for the update is missing, the assistant must state which field is required instead of asking for further information.",
+            "references": [
+                "<strong>User Clarification:</strong> Do not ask for further information. If the request is ambiguous, return the list and state the ambiguity. If a mandatory field is missing, state which field is required."
+            ]
+        },
+        {
+            "policy_name": "Closing Problem Requires Dependency Validation",
+            "description": "Before setting a Problem's status to `closed`, verify that a linked Change Request of type `normal` or `emergency` exists and that all other mandatory dependencies are satisfied.",
+            "references": [
+                "<strong>Final Status:</strong> A Problem transitions to <code>closed</code> only after the permanent fix has been successfully implemented via a linked <code>normal</code> or <code>emergency</code> Change Request.",
+                "<strong>Referential Integrity:</strong> Before closing any record, verify that all mandatory dependencies are satisfied."
+            ]
+        },
+        {
+            "policy_name": "Workaround Update Requires Status and Publication",
+            "description": "If the update includes a `workaround` description, the Problem status must be set to `fix_in_progress` and the `workaround_notes` must be published to all linked Incidents and relevant Knowledge Articles.",
+            "references": [
+                "If workaround/temporary solution found, update workaround field and set status=<code>fix_in_progress</code>. The <code>workaround_notes</code> <strong>must</strong> be published to the linked Incidents and relevant Knowledge Articles."
+            ]
+        },
+        {
+            "policy_name": "Problem Must Link Affected Incidents",
+            "description": "When updating a Problem, ensure that all affected Incidents are linked via the `incident_to_problem` related list.",
+            "references": [
+                "The Problem record <strong>must</strong> link all affected Incidents via the <code>incident_to_problem</code> related list."
+            ]
+        },
+        {
+            "policy_name": "Configuration Item Status Validation for Problem Update",
+            "description": "If a Problem update includes a `configuration_item` reference, the referenced Configuration Item must have `status = in_use` or `status = maintenance`. Linking a Problem to a CI with status `retired` or `disposed` is prohibited.",
+            "references": [
+                "<strong>CI Status:</strong> Only CIs with <code>status = in_use</code> or <code>status = maintenance</code> can be linked to active Incidents. Do not link CIs in <code>status = retired</code> or <code>status = disposed</code>."
+            ]
+        },
+        {
+            "policy_name": "Problem Status Value Constraint",
+            "description": "When updating a Problem record, the `status` field must be set to one of the allowed status values defined for problems: NEW, ASSESS, ROOT_CAUSE, FIX_IN_PROGRESS, RESOLVED, or CLOSED.",
+            "references": [
+                "<strong>status:</strong> Problem status (NEW, ASSESS, ROOT_CAUSE, FIX_IN_PROGRESS, RESOLVED, CLOSED)"
+            ]
+        },
+        {
+            "policy_name": "Problem Priority Enumeration Constraint",
+            "description": "When updating a Problem, the `priority` field (if supplied) must be one of the defined priority enumeration values: critical, high, moderate, low, or planning.",
+            "references": [
+                "<strong>Priority Calculation:</strong> Priority (<code>critical</code>, <code>high</code>, <code>moderate</code>, <code>low</code>, <code>planning</code>) is determined automatically by the system based on a below pre-defined matrix of <strong>Impact x Urgency</strong>."
+            ]
+        },
+        {
+            "policy_name": "Problem Impact Value Constraint",
+            "description": "When updating a Problem, the `impact` field (if supplied) must be one of the allowed values: `high`, `medium`, or `low`.",
+            "references": [
+                "<strong>incident.impact</strong> | <code>high</code>, <code>medium</code>, <code>low</code>"
+            ]
+        },
+        {
+            "policy_name": "Problem Urgency Value Constraint",
+            "description": "When updating a Problem, the `urgency` field (if supplied) must be one of the allowed values: `high`, `medium`, or `low`.",
+            "references": [
+                "<strong>incident.urgency</strong> | <code>high</code>, <code>medium</code>, <code>low</code>"
+            ]
+        },
+        {
+            "policy_name": "Problem Category Enumeration Constraint",
+            "description": "When updating a Problem, the `category` field (if supplied) must be one of the defined problem categories: `network`, `software`, `hardware`, or `database`.",
+            "references": [
+                "<strong>category:</strong> Problem category (network, software, hardware, database)."
+            ]
+        },
+        {
+            "policy_name": "Problem Priority Auto\u2011Calculation Constraint",
+            "description": "The `priority` of a Problem is automatically calculated by the system from the `impact`\u202f\u00d7\u202f`urgency` matrix and must not be set manually; any provided `priority` value must match the system\u2011derived result.",
+            "references": [
+                "<p><strong>Priority Calculation:</strong> Priority (<code>critical</code>, <code>high</code>, <code>moderate</code>, <code>low</code>, <code>planning</code>) is determined automatically by the system based on a below pre-defined matrix of <strong>Impact x Urgency</strong>.</p>"
+            ]
+        }
+    ]
+}

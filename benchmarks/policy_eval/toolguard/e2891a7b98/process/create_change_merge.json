@@ -1,0 +1,85 @@
+{
+    "policies": [
+        {
+            "policy_name": "Role Permission for Change Creation",
+            "description": "Only users whose confirmed role is Administrator, Manager, or Agent may create a Change record (full CRUD permission on the change table).",
+            "references": [
+                "<strong>Administrator</strong> (<code>admin</code>) | System Configuration &amp; Integrity | Full CRUD (Create, Read, Update, Delete) access across all tables.",
+                "<strong>Manager</strong> (<code>manager</code>) | Supervision, Escalation, Approvals | Full CRUD on operational tables (<code>incident</code>, <code>problem</code>, <code>change</code>, <code>knowledge</code>); READ access to all the tables.",
+                "<strong>Agent</strong> (<code>agent</code>) | Frontline Incident/Request fulfillment | <strong>Full CRUD</strong> on <strong>Incidents, Service Requests, Tasks, Work Notes, CMDB, Change, Problem, and Knowledge</strong>."
+            ]
+        },
+        {
+            "policy_name": "Mandatory Fields Validation for Change Creation",
+            "description": "All mandatory fields for the change request (short_description, status, impact, risk, priority) must be present and non\u2011null before calling create_change.",
+            "references": [
+                "<strong>Mandatory Fields:</strong> Any request to create or update a record must validate all mandatory fields."
+            ]
+        },
+        {
+            "policy_name": "Change Status Value Validation",
+            "description": "The status field supplied to create_change must be one of the allowed change status enumeration values.",
+            "references": [
+                "| <strong>change_request.status</strong> | <code>new</code>, <code>assess</code>, <code>authorize</code>, <code>scheduled</code>, <code>implement</code>, <code>review</code>, <code>closed</code>, <code>canceled</code> |"
+            ]
+        },
+        {
+            "policy_name": "Impact Value Validation",
+            "description": "The impact field supplied to create_change must be one of the allowed impact values (high, medium, low).",
+            "references": [
+                "| <strong>incident.impact</strong> | <code>high</code>, <code>medium</code>, <code>low</code> |"
+            ]
+        },
+        {
+            "policy_name": "Priority Value Validation",
+            "description": "The priority field supplied to create_change must be one of the allowed priority values (critical, high, moderate, low, planning).",
+            "references": [
+                "| <strong>incident.priority</strong> | <code>critical</code>, <code>high</code>, <code>moderate</code>, <code>low</code>, <code>planning</code> |"
+            ]
+        },
+        {
+            "policy_name": "Assigned User Active Status",
+            "description": "If an assigned_to user ID is provided, the referenced user must have users.active = true.",
+            "references": [
+                "<strong>User Status:</strong> Ensure any user being assigned to (<code>assigned_to</code>) or updated is <code>users.active = true</code>."
+            ]
+        },
+        {
+            "policy_name": "Change Creation Origin Requirement",
+            "description": "All changes must be created as a Change Request record; the system must not allow creation of a change by any other means.",
+            "references": [
+                "Creation: All changes must originate from a Change Request record."
+            ]
+        },
+        {
+            "policy_name": "Default Status for New Changes",
+            "description": "When a change is created, if the status field is not explicitly provided, it must be set to the default value \"new\".",
+            "references": [
+                "Default Status: All new Changes are set to status = new."
+            ]
+        },
+        {
+            "policy_name": "Change Type Value Validation",
+            "description": "The change type supplied when creating a change must be one of the allowed enumeration values: standard, normal, or emergency.",
+            "references": [
+                "Change Types (Enumeration): `standard` (pre\u2011approved, low risk), `normal` (requires planning/approval), `emergency` (requires immediate CAB approval override)."
+            ]
+        },
+        {
+            "policy_name": "Emergency Change CAB Approval Requirement",
+            "description": "If a change is of type emergency, it must be flagged for immediate CAB approval; the `cab_required` field must be true (or the change must be routed for CAB approval).",
+            "references": [
+                "Change Types (Enumeration): `standard` (pre\u2011approved, low risk), `normal` (requires planning/approval), `emergency` (requires immediate CAB approval override).",
+                "`emergency` (requires immediate CAB approval override)."
+            ],
+            "iteration_added": 1
+        },
+        {
+            "policy_name": "Manager Approval Authority for Change Requests",
+            "description": "Only users with the Manager role are authorized to approve or reject Change Request records.",
+            "references": [
+                "Can **approve/reject** Change Requests."
+            ]
+        }
+    ]
+}

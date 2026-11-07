@@ -1,0 +1,123 @@
+{
+    "policies": [
+        {
+            "policy_name": "User Role Verification",
+            "description": "Before calling **update_location**, the assistant must confirm that the requester\u2019s role is one that is permitted to modify location records. According to the role matrix in the ITSM Assistant Policy, only the **Administrator** role (admin) has full CRUD rights on all tables, including location data. If the user\u2019s role is not *admin*, the assistant must halt the operation and return a policy\u2011violation message.",
+            "references": [
+                "First you must check the user information and operate exclusively based on <strong>confirmed user roles</strong>, <strong>verified record relationships</strong>, and <strong>ITIL/database integrity rules</strong>."
+            ],
+            "iteration_added": 0
+        },
+        {
+            "policy_name": "Mandatory Fields Validation",
+            "description": "When calling the **update_location** tool, the request payload must contain the required **location_id** and at least one of the optional updatable fields (name, active, plot_no, street, city, state, country). The provided values must be non\u2011empty (city and country cannot be empty strings) and must differ from the current stored values; otherwise the tool will reject the request with an idempotency error.",
+            "references": [
+                "Mandatory Fields: Any request to create or update a record must validate all mandatory fields."
+            ],
+            "iteration_added": 0
+        },
+        {
+            "policy_name": "Missing Mandatory Field Handling",
+            "description": "When handling a request to call the **update_location** tool, the assistant must first verify that the mandatory parameter **location_id** is present and that at least one optional updatable field (name, active, plot_no, street, city, state, or country) is provided. If **location_id** is missing, the assistant must reply with: \"The field 'location_id' is required for update_location.\" If none of the optional updatable fields are supplied, the assistant must reply with: \"At least one field to update (name, active, plot_no, street, city, state, country) is required for update_location.\" The assistant must never ask the user for additional clarification; it should only report the missing mandatory information.",
+            "references": [
+                "User Clarification: Do not ask for further information. If the request is ambiguous, return the list and state the ambiguity. If a mandatory field is missing, state which field is required."
+            ],
+            "iteration_added": 0
+        },
+        {
+            "policy_name": "Identifier Existence Check",
+            "description": "Before calling `update_location`, execute a `get_location_by_id` request with the provided `location_id`. If the response indicates the location does not exist, stop the workflow and return a policy\u2011violation message such as \"Location ID <id> not found \u2013 update aborted per Identifier Existence Check policy.\" Only when the lookup succeeds should the assistant invoke `update_location` with the requested field changes.",
+            "references": [
+                "When identifiers such as names or IDs are missing, perform lookups, verify that you are reusing correct values from previous responses, and proceed using the retrieved data."
+            ],
+            "iteration_added": 0
+        },
+        {
+            "policy_name": "No Assumption of IDs or Outcomes",
+            "description": "The assistant must rely only on verified API results when updating a location and must not fabricate IDs, responses, or outcomes.",
+            "references": [
+                "Never assume or fabricate IDs, responses, or outcomes \u2014 rely solely on verified API results. The same is the case of optional or default arguments."
+            ],
+            "iteration_added": 0
+        },
+        {
+            "policy_name": "Administrator\u2011Only Access for Location Updates",
+            "description": "The assistant must verify that the requesting user has the **Administrator** role before invoking **update_location**, because only the Administrator role has full CRUD access across all tables, including locations. If the user lacks this role, the operation must be halted.",
+            "references": [
+                "Administrator (admin) | System Configuration & Integrity | Full CRUD (Create, Read, Update, Delete) access across all tables.",
+                "Manager (manager) | Supervision, Escalation, Approvals | Full CRUD on operational tables (incident, problem, change, knowledge); READ access to all the tables.",
+                "Agent (agent) | Frontline Incident/Request fulfillment | Full CRUD on Incidents, Service Requests, Tasks, Work Notes, CMDB, Change, Problem, and Knowledge"
+            ],
+            "iteration_added": 0
+        },
+        {
+            "policy_name": "Permission Denied Error Handling (403)",
+            "description": "Only users whose role is **admin** or **manager** are authorized to invoke the `update_location` tool. If the requesting user\u2019s role is anything else (e.g., agent, reporter), the assistant must **not** call the tool and must immediately respond with a **403 Forbidden** error stating that the operation is prohibited due to insufficient permissions.",
+            "references": [
+                "403 Forbidden: Permission denied (user role lacks authority for the operation)."
+            ],
+            "iteration_added": 0
+        },
+        {
+            "policy_name": "Policy Violation Halt",
+            "description": "Before calling `update_location`, perform the following pre\u2011validation steps:\n1. Retrieve the caller\u2019s user record (e.g., via `get_user` or `list_users`) using the supplied `x-itsm-user-token` and confirm the `role` field is either `admin` or `manager`. If not, abort with error \"Only Administrators or Managers may modify locations\".\n2. For each optional field in the request:\n   - If the field value is an empty string, treat it as invalid and abort with a message indicating the field cannot be empty.\n   - If `name` is provided, call `list_locations` (or a specific search) to ensure no other location already has that exact name; if a duplicate exists, abort with \"Location name must be unique\".\n   - If `city` or `country` are provided, verify they are non\u2011empty strings; abort if empty.\n3. If all checks pass, proceed to invoke `update_location` with the validated parameters.\n4. If any validation fails, return the specific policy violation text and do not call the tool.",
+            "references": [
+                "Policy Violation: If a user request violates any rule herein, you **must halt the operation** and provide the specific policy reason before pausing."
+            ],
+            "iteration_added": 0
+        },
+        {
+            "policy_name": "Access\u2011Scope Confidentiality",
+            "description": "When a request to update a location arrives, first obtain the authenticated user's identifier from the request context (e.g., the `x-itsm-user-token` header). Use `get_user` (or `list_users` filtered by that identifier) to retrieve the user's `role`. Proceed with `update_location` only if the role is one of `admin`, `manager`, or `agent`. For any other role (including `reporter`), abort the operation and return a refusal message that cites the \"Access\u2011Scope Confidentiality\" policy. No location data may be returned to unauthorized roles.",
+            "references": [
+                "Knowledge Scope: Do not disclose information that is outside the authenticated user's access scope."
+            ],
+            "iteration_added": 2
+        },
+        {
+            "policy_name": "Single Validated Operation Enforcement",
+            "description": "When using the `update_location` tool, the assistant may invoke the tool at most once for a given user request. The call must be preceded by validation that all required parameters are present and that at least one field value differs from the current record (the tool\u2019s idempotency check). No batch\u2011update endpoints may be used in the same request.",
+            "references": [
+                "Atomic Operations: Perform <strong>one validated operation at a time</strong>, except when using approved batch endpoints."
+            ],
+            "iteration_added": 1
+        },
+        {
+            "policy_name": "Location Record State Validation",
+            "description": "Before invoking **update_location**, first call **get_location_by_id** to fetch the target location record. Examine the record for any of the following conditions that make it non\u2011updatable:\n- The record contains a field `status` whose value is `IMMUTABLE` (the only values allowed for `status` are `ACTIVE`, `INACTIVE`, and `IMMUTABLE`).\n- The record contains a boolean field `locked` that is set to `true`.\nIf either condition is true, abort the update and return a policy\u2011violation response indicating that the location is locked/immutable. If neither condition is present (i.e., `status` is `ACTIVE` or `INACTIVE` and `locked` is `false` or absent), proceed with **update_location** as requested. This version explicitly defines the fields (`status`, `locked`) and the permissible values, ensuring the policy can be understood and enforced without external context.",
+            "references": [
+                "Atomic Operations: Do not allow a request to proceed if it requires data that is missing or the current record state prevents the action."
+            ],
+            "iteration_added": 1
+        }
+    ],
+    "archive": [
+        {
+            "policy_name": "Conflict Error Handling (409)",
+            "description": "If the update operation cannot be performed because of a state conflict (e.g., the location record is locked or the requested change conflicts with the current state), the assistant must return a **409 Conflict** error.",
+            "references": [
+                "409 Conflict: Record locking or state conflict."
+            ],
+            "iteration_added": 0,
+            "comments": "The policy is relevant to the `update_location` tool because it governs how the assistant should respond when the tool reports a state conflict (HTTP 409). It is not confined to this specific tool; it applies to any update operation across the system, so it is not tool\u2011specific. Because the policy refers to a conflict that is only discoverable after the tool is invoked (the API returns 409), it cannot be fully validated beforehand. The policy is actionable: the assistant can catch a 409 response from the tool and surface the prescribed error to the user. The description is clear and self\u2011contained, requiring no external context. Overall clarity and enforceability are high, earning a score of 4 out of 5.\nThe policy is relevant to the `update_location` tool because it governs how the assistant should respond when the tool reports a state conflict (HTTP 409). It is not confined to this specific tool; it applies to any update operation across the system, so it is not tool\u2011specific. Because the policy refers to a conflict that is only discoverable after the tool is invoked (the API returns 409), it cannot be fully validated beforehand. The policy is actionable: the assistant can catch a 409 response from the tool and surface the prescribed error to the user. The description is clear and self\u2011contained, requiring no external context. Overall clarity and enforceability are high, earning a score of 4 out of 5.\nThe policy is relevant to the `update_location` tool because it governs how the assistant should respond when the tool reports a state conflict (HTTP 409). It is not confined to this specific tool; it applies to any update operation across the system, so it is not tool\u2011specific. Because the policy refers to a conflict that is only discoverable after the tool is invoked (the API returns 409), it cannot be fully validated beforehand. The policy is actionable: the assistant can catch a 409 response from the tool and surface the prescribed error to the user. The description is clear and self\u2011contained, requiring no external context. Overall clarity and enforceability are high, earning a score of 4 out of 5.\nThe policy is relevant to the `update_location` tool because it governs how the assistant should respond when the tool reports a state conflict (HTTP 409). It is not confined to this specific tool; it applies to any update operation across the system, so it is not tool\u2011specific. Because the policy refers to a conflict that is only discoverable after the tool is invoked (the API returns 409), it cannot be fully validated beforehand. The policy is actionable: the assistant can catch a 409 response from the tool and surface the prescribed error to the user. The description is clear and self\u2011contained, requiring no external context. Overall clarity and enforceability are high, earning a score of 4 out of 5.\nThe policy is relevant to the `update_location` tool because it governs how the assistant should respond when the tool reports a state conflict (HTTP 409). It is not confined to this specific tool; it applies to any update operation across the system, so it is not tool\u2011specific. Because the policy refers to a conflict that is only discoverable after the tool is invoked (the API returns 409), it cannot be fully validated beforehand. The policy is actionable: the assistant can catch a 409 response from the tool and surface the prescribed error to the user. The description is clear and self\u2011contained, requiring no external context. Overall clarity and enforceability are high, earning a score of 4 out of 5.\n"
+        },
+        {
+            "policy_name": "Rate Limiting Handling",
+            "description": "If a call to **update_location** returns a rate\u2011limit error (e.g., HTTP 429), the assistant must stop invoking the tool, wait using exponential backoff (initial wait 1\u202fsecond, double the wait after each subsequent 429 up to a maximum of 32\u202fseconds), then retry the same request. No further attempts are permitted until the calculated backoff delay has elapsed. If the retry also receives a rate\u2011limit response, repeat the backoff sequence.",
+            "references": [
+                "<strong>Rate Limiting:</strong> If exceeded, pause and retry using <strong>Exponential Backoff</strong>."
+            ],
+            "iteration_added": 1,
+            "comments": "The policy directly addresses the *update_location* endpoint, making it fully relevant and tool\u2011specific. The required behavior can be enforced at runtime (after receiving a 429 response) but cannot be validated beforehand, so `can_be_validated` is false. The steps (stop, wait, exponential backoff, retry) are clear and can be implemented solely with the tool\u2019s error response, chat history, and timing logic, so the policy is actionable. All necessary parameters (initial delay, backoff factor, max delay) are included, making the description self\u2011contained; no additional context from the broader policy document is required. \n\n**Suggested minor improvement** (optional): State explicitly that the *update_location* tool returns an HTTP\u202f429 status code on rate\u2011limit, to avoid any ambiguity for implementations that may use a different error format.\n\nOverall score: 4 \u2013 the policy is clear, enforceable, and well scoped; a slight reduction is due to the inability to pre\u2011validate compliance before the tool call.\nThe policy directly addresses the *update_location* endpoint, making it fully relevant and tool\u2011specific. The required behavior can be enforced at runtime (after receiving a 429 response) but cannot be validated beforehand, so `can_be_validated` is false. The steps (stop, wait, exponential backoff, retry) are clear and can be implemented solely with the tool\u2019s error response, chat history, and timing logic, so the policy is actionable. All necessary parameters (initial delay, backoff factor, max delay) are included, making the description self\u2011contained; no additional context from the broader policy document is required. \n\n**Suggested minor improvement** (optional): State explicitly that the *update_location* tool returns an HTTP\u202f429 status code on rate\u2011limit, to avoid any ambiguity for implementations that may use a different error format.\n\nOverall score: 4 \u2013 the policy is clear, enforceable, and well scoped; a slight reduction is due to the inability to pre\u2011validate compliance before the tool call.\nThe policy directly addresses the *update_location* endpoint, making it fully relevant and tool\u2011specific. The required behavior can be enforced at runtime (after receiving a 429 response) but cannot be validated beforehand, so `can_be_validated` is false. The steps (stop, wait, exponential backoff, retry) are clear and can be implemented solely with the tool\u2019s error response, chat history, and timing logic, so the policy is actionable. All necessary parameters (initial delay, backoff factor, max delay) are included, making the description self\u2011contained; no additional context from the broader policy document is required. \n\n**Suggested minor improvement** (optional): State explicitly that the *update_location* tool returns an HTTP\u202f429 status code on rate\u2011limit, to avoid any ambiguity for implementations that may use a different error format.\n\nOverall score: 4 \u2013 the policy is clear, enforceable, and well scoped; a slight reduction is due to the inability to pre\u2011validate compliance before the tool call.\nThe policy directly addresses the *update_location* endpoint, making it fully relevant and tool\u2011specific. The required behavior can be enforced at runtime (after receiving a 429 response) but cannot be validated beforehand, so `can_be_validated` is false. The steps (stop, wait, exponential backoff, retry) are clear and can be implemented solely with the tool\u2019s error response, chat history, and timing logic, so the policy is actionable. All necessary parameters (initial delay, backoff factor, max delay) are included, making the description self\u2011contained; no additional context from the broader policy document is required. \n\n**Suggested minor improvement** (optional): State explicitly that the *update_location* tool returns an HTTP\u202f429 status code on rate\u2011limit, to avoid any ambiguity for implementations that may use a different error format.\n\nOverall score: 4 \u2013 the policy is clear, enforceable, and well scoped; a slight reduction is due to the inability to pre\u2011validate compliance before the tool call.\n"
+        },
+        {
+            "policy_name": "Work Log Timestamp and User Tracking",
+            "description": "When updating a location via `update_location`, first ensure an audit log entry is created. If a tool named `create_work_log` (parameters: location_id, created_on, user_id) is present, invoke it with the target `location_id`, the current UTC timestamp, and the ID of the user making the request. Proceed with `update_location` only if the log call returns a successful (200) response. If the log tool is missing or the call fails, halt the operation and return an error stating that audit logging could not be performed.",
+            "references": [
+                "Time Tracking: All work logs must include the timestamp (created_on) and the user_id performing the action."
+            ],
+            "iteration_added": 2,
+            "comments": "The policy is directly relevant to the `update_location` tool and is clearly targeted at that operation, so it scores high on relevance and tool specificity. However, the current policy cannot be validated before the tool call because there is no listed tool for creating or verifying work\u2011log entries, making pre\u2011execution validation impossible. Likewise, the policy is not actionable with the given toolset\u2014the assistant has no mechanism to record the required audit log using only `update_location` parameters, chat history, or data access. The description also relies on external knowledge (a work\u2011log API) that is not provided, so it is not self\u2011contained. To make it enforceable, the policy should be expanded to reference a concrete work\u2011log creation tool and define the exact fields to include. \nOverall score: 2/5 \u2013 the intent is clear but the policy lacks the necessary context and enforceability given the available tools.\nThe policy is directly related to the `update_location` tool, making it relevant and tool\u2011specific. However, it references a `create_work_log` API that is not defined in the supplied tool catalog, so the requirement cannot be validated or enforced with the available tools. Because the policy depends on an external, undefined capability, it is not actionable nor self\u2011contained. To make the policy usable, either a `create_work_log` tool should be added to the tool set, or the policy should be re\u2011phrased to state that the assistant must log the action only when a work\u2011log tool is available, otherwise it should report the limitation. \n\nScore: 2 \u2013 The policy is clear in intent but cannot be enforced with the current toolset, and it lacks self\u2011containment, reducing its practical applicability.\nThe policy is clearly aimed at the `update_location` operation and therefore is both relevant and tool\u2011specific. Its requirements can be validated beforehand by checking the tool list for a work\u2011log creation endpoint and by confirming the success response of that call before proceeding with the update, so `can_be_validated` is true. However, the policy references a `create_work_log` tool that does not appear in the provided tool catalogue, making the enforcement impossible with the current tool set; thus it is not fully actionable. Additionally, the description assumes the existence and signature of a work\u2011log tool without defining it, so the policy is not self\u2011contained. The suggested alternative description adds the missing context and makes the requirement verifiable and enforceable given any work\u2011log tool that follows the described contract.\nScore: 3 \u2013 the policy is clear and relevant but lacks self\u2011containment and full enforceability due to a missing tool definition.\n"
+        }
+    ]
+}

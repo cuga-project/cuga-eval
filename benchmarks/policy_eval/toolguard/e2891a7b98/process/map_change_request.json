@@ -1,0 +1,38 @@
+{
+    "policies": [
+        {
+            "policy_name": "Mandatory Fields Validation",
+            "description": "Any request to create or update a record must include all required fields. For map_change_request this means the mandatory `change_id` must be provided and at least one of `incident_id` or `problem_id` must be supplied.",
+            "references": [
+                "<strong>Mandatory Fields:</strong> Any request to create or update a record must validate all mandatory fields."
+            ],
+            "iteration_added": 0
+        },
+        {
+            "policy_name": "Atomic Operation Requirement",
+            "description": "Each tool invocation must be a single validated operation. The map_change_request call must be performed alone, not combined with other actions in the same request.",
+            "references": [
+                "<strong>Atomic Operations:</strong> Perform <strong>one validated operation at a time</strong>, except when using approved batch endpoints."
+            ],
+            "iteration_added": 0
+        },
+        {
+            "policy_name": "Role\u2011Based Permission for Change Mapping",
+            "description": "Only users with roles that have full CRUD rights on the Change table may create a change\u2011incident/problem mapping. This includes Administrator, Manager, and Agent roles.",
+            "references": [
+                "| **Administrator** (<code>admin</code>) | System Configuration &amp; Integrity | Full CRUD (Create, Read, Update, Delete) access across all tables.|",
+                "| **Manager** (<code>manager</code>) | Supervision, Escalation, Approvals | Full CRUD on operational tables (<code>incident</code>, <code>problem</code>, <code>change</code>, <code>knowledge</code>); READ access to all the tables.|",
+                "| **Agent** (<code>agent</code>) | Frontline Incident/Request fulfillment | <strong>Full CRUD</strong> on <strong>Incidents, Service Requests, Tasks, Work Notes, CMDB, Change, Problem, and Knowledge</strong>. READ access to all the tables.|"
+            ],
+            "iteration_added": 0
+        },
+        {
+            "policy_name": "ID Existence Verification",
+            "description": "Do not fabricate or guess IDs. The `change_id`, and any provided `incident_id` or `problem_id` must be verified to exist via the appropriate lookup tools before creating the mapping.",
+            "references": [
+                "Never assume or fabricate IDs, responses, or outcomes \u2014 rely solely on verified API results."
+            ],
+            "iteration_added": 0
+        }
+    ]
+}

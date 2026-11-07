@@ -1,0 +1,100 @@
+{
+    "policies": [
+        {
+            "policy_name": "Role\u2011Based Permission for Problem Creation",
+            "description": "Only users whose confirmed role is Administrator, Manager, or Agent may invoke the create_problem tool, because these roles have Full CRUD access on the problem table.",
+            "references": [
+                "Administrator (admin) System Configuration & Integrity Full CRUD (Create, Read, Update, Delete) access across all tables.",
+                "Manager (manager) Supervision, Escalation, Approvals Full CRUD on operational tables (incident, problem, change, knowledge); READ access to all the tables. Can reassign incidents/requests. Can approve/reject Change Requests. Monitors SLAs and escalations.",
+                "Agent (agent) Frontline Incident/Request fulfillment Full CRUD on Incidents, Service Requests, Tasks, Work Notes, CMDB, Change, Problem, and Knowledge READ access to all the tables. Can update assignment, state, and resolution. Cannot bypass approvals, or change system administration settings."
+            ],
+            "iteration_added": 0
+        },
+        {
+            "policy_name": "Mandatory Fields Validation",
+            "description": "Every request to create a Problem must include all mandatory fields defined for the operation (problem_statement, status, impact, urgency, priority).",
+            "references": [
+                "<strong>Mandatory Fields:</strong> Any request to create or update a record must validate all mandatory fields."
+            ],
+            "iteration_added": 0
+        },
+        {
+            "policy_name": "Identifier Verification for Problem Creation",
+            "description": "Before calling **create_problem**, validate every identifier field (assigned_to, configuration_item, original_task, etc.) using the corresponding lookup tools that exist in the environment:\n- For a user ID, call **get_user** with the user_id.\n- For a configuration item ID, call **find_configuration_items** with a filter on configuration_item_id (or use an equivalent \"get\" endpoint if available).\n- For an incident ID, call **find_incident_by_id**.\nProceed with **create_problem** only if all lookups return a successful result. If any lookup fails or the field is omitted when required, respond with an explicit error message describing the missing or invalid identifier. Do not synthesize IDs.\n",
+            "references": [
+                "Never assume or fabricate IDs, responses, or outcomes \u2014 rely solely on verified API results. The same is the case of optional or default arguments.",
+                "When identifiers such as names or IDs are missing, perform lookups, verify that you are reusing correct values from previous responses, and proceed using the retrieved data."
+            ],
+            "iteration_added": 1
+        },
+        {
+            "policy_name": "Default Problem Status",
+            "description": "If the **status** attribute is omitted when invoking **create_problem**, automatically set **status** to the default value **NEW** (the canonical status for newly created problems). This ensures the problem record complies with the system's default\u2011status rule before the tool call.",
+            "references": [
+                "<strong>Default Status:</strong> All new Problems are set to <code>status = new</code>."
+            ],
+            "iteration_added": 0
+        },
+        {
+            "policy_name": "Workaround Status Enforcement",
+            "description": "When a workaround is provided, the Problem\u2019s status must be set to <code>fix_in_progress</code>.",
+            "references": [
+                "<p><strong>Workaround:</strong> If workaround/temporary solution found, update workaround field and set status=<code>fix_in_progress</code>. The <code>workaround_notes</code> <strong>must</strong> be published to the linked Incidents and relevant Knowledge Articles.</p>"
+            ],
+            "iteration_added": 1
+        },
+        {
+            "policy_name": "Priority Must Follow Impact\u2011Urgency Matrix",
+            "description": "The priority for a problem must match the Impact\u202f\u00d7\u202fUrgency matrix shown below. The system will automatically set the priority according to this matrix, so any supplied priority must be consistent with the calculated value.\n\n| Impact | Urgency | Expected Priority |\n|--------|---------|-------------------|\n| low    | low     | planning |\n| low    | medium  | low |\n| low    | high    | moderate |\n| medium | low     | low |\n| medium | medium  | moderate |\n| medium | high    | high |\n| high   | low     | moderate |\n| high   | medium  | high |\n| high   | high    | critical |\n\nWhen creating a problem record, verify that the `priority` field matches the expected value derived from the provided `impact` and `urgency` fields before invoking the `create_problem` tool.",
+            "references": [
+                "<li><strong>Priority Calculation:</strong> Priority (<code>critical</code>, <code>high</code>, <code>moderate</code>, <code>low</code>, <code>planning</code>) is determined automatically by the system based on a below pre-defined matrix of <strong>Impact x Urgency</strong>.</li>",
+                "<p>| Impact | Urgency | Priority |</p>\n<p>| --- | --- | --- |</p>\n<p>| low | low | planning |</p>\n<p>| low | medium | low |</p>\n<p>| low | high | moderate |</p>\n<p>| medium | low | low |</p>\n<p>| medium | medium | moderate |</p>\n<p>| medium | high | high |</p>\n<p>| high | low | moderate |</p>\n<p>| high | medium | high |</p>\n<p>| high | high | critical |</p>"
+            ],
+            "iteration_added": 0
+        },
+        {
+            "policy_name": "Atomic Operation Requirement",
+            "description": "When invoking the **create_problem** tool, execute **only that call** in the request. Ensure all required fields (problem_statement, status, impact, urgency, priority) are supplied and validated before the API call. Do not batch this call with any other tool actions unless the endpoint is explicitly marked as a batch operation.",
+            "references": [
+                "<strong>Atomic Operations:</strong> Perform <strong>one validated operation at a time</strong>, except when using approved batch endpoints. Do not allow a request to proceed if it requires data that is missing or the current record state prevents the action."
+            ],
+            "iteration_added": 0
+        },
+        {
+            "policy_name": "Problem Creation Trigger Requirement",
+            "description": "A Problem may be created only after the system validates one of the following conditions:\n1. **Recurring incident pattern** \u2013 at least two incidents created in the last 30 days share either the same `short_description` **or** the same `configuration_item`.\n2. **Major incident** \u2013 an incident with `impact = HIGH` **and** `priority = CRITICAL`, **or** an incident that has been assigned to a user whose role is `manager` (i.e., `assigned_to.role = manager`).\nThe validation must be performed by querying the incident tables (e.g., using `list_incidents` with appropriate filters) before calling `create_problem`. If neither condition is satisfied, the request must be rejected with a policy\u2011violation message.",
+            "references": [
+                "<strong>Trigger:</strong> A Problem must be created (<code>create_problem</code>) when a recurring incident pattern or a major incident is identified."
+            ],
+            "iteration_added": 0
+        },
+        {
+            "policy_name": "Problem Closure Dependency on Change Request",
+            "description": "When creating or updating a Problem, the field `status` may be set to `CLOSED` only if the Problem already has an associated Change Request record whose `type` is `normal` or `emergency` and whose workflow indicates the fix has been applied (e.g., Change Request status is `closed` or `implemented`). The association is established via the `map_change_request` endpoint, which creates a linkage between the Problem's `problem_id` and the Change Request's `change_id`. If no such linked Change Request exists, the request must be rejected with a policy violation.",
+            "references": [
+                "<p><strong>Final Status:</strong> A Problem transitions to <code>closed</code> only after the permanent fix has been successfully implemented via a linked <code>normal</code> or <code>emergency</code> Change Request.</p>"
+            ],
+            "iteration_added": 0
+        }
+    ],
+    "archive": [
+        {
+            "policy_name": "Problem\u2011Incident Linking Requirement",
+            "description": "After invoking **create_problem**, retrieve the generated **problem_id** from the response. Use **list_incidents** (or **list_incidents** with appropriate filters) to find all incidents that should be associated with this problem (e.g., same service, CI, or category and where the incident's `problem` field is empty). For each incident identified, call **update_incident** with the incident's `incident_id` and set its `problem` field to the newly created `problem_id`. If the incident search returns zero results, record that no links were required. This entire flow can be performed with the existing tools (create_problem, list_incidents, update_incident) and does not require any undocumented API.",
+            "references": [
+                "<strong>Linking:</strong> The Problem record <strong>must</strong> link all affected Incidents via the <code>incident_to_problem</code> related list."
+            ],
+            "iteration_added": 0,
+            "comments": "The policy is clearly relevant to the **create_problem** tool because it describes a post\u2011creation requirement for Problem records. However, it is not tool\u2011specific: the linking action is not part of the **create_problem** API and would need a separate operation, which is not defined in the supplied toolset. Consequently the policy cannot be fully validated before invoking **create_problem** (we cannot know which Incidents need linking until after the Problem exists) and cannot be enforced using only the parameters of **create_problem**. The description also assumes the existence of an \"incident_to_problem\" related list without explaining how to manipulate it, making the policy not self\u2011contained. The alternative description adds the missing operational detail and points out the need for a separate linking API, turning the policy into a complete, stand\u2011alone rule.\n\nScore: 2 \u2013 the policy is relevant and understandable but lacks specificity, pre\u2011validation capability, actionable implementation with the given tools, and complete self\u2011contained guidance.\nThe policy is clearly relevant to the target tool (create_problem) and is narrowly focused on problem\u2011incident linking, so it is tool\u2011specific. However, enforcement cannot be validated before the problem is created because the set of affected incidents is only known after creation, making pre\u2011validation impossible. Moreover, the policy references a non\u2011existent \"link_problem_to_incident\" API, which means the steps cannot be carried out with the provided toolset; the only viable approach is to update each incident via the existing **update_incident** tool. Consequently the policy is not actionable as written and is not self\u2011contained, requiring clarification of the exact linking mechanism. I have supplied an alternative description that uses only the documented tools. Overall the policy is relevant but poorly defined and only partially enforceable, earning a score of 2.\nThe policy directly concerns the creation of a problem record (ToolX) and the mandatory linking of related incidents, making it relevant and specific to the tool. All required actions can be performed with the listed API tools, so it is actionable and self\u2011contained. Validation of the policy can only occur after the problem is created (to obtain the problem_id and discover which incidents need linking), so pre\u2011execution validation is not possible. Overall the policy is clear, enforceable, and aligned with the ITSM policy document, earning a score of 4 out of 5.\nThe policy directly concerns the creation of a problem record (ToolX) and the mandatory linking of related incidents, making it relevant and specific to the tool. All required actions can be performed with the listed API tools, so it is actionable and self\u2011contained. Validation of the policy can only occur after the problem is created (to obtain the problem_id and discover which incidents need linking), so pre\u2011execution validation is not possible. Overall the policy is clear, enforceable, and aligned with the ITSM policy document, earning a score of 4 out of 5.\nThe policy directly concerns the creation of a problem record (ToolX) and the mandatory linking of related incidents, making it relevant and specific to the tool. All required actions can be performed with the listed API tools, so it is actionable and self\u2011contained. Validation of the policy can only occur after the problem is created (to obtain the problem_id and discover which incidents need linking), so pre\u2011execution validation is not possible. Overall the policy is clear, enforceable, and aligned with the ITSM policy document, earning a score of 4 out of 5.\n"
+        },
+        {
+            "policy_name": "Workaround Notes Publication",
+            "description": "When a workaround is provided, the workaround notes must be published to every linked Incident and to relevant Knowledge Articles.",
+            "references": [
+                "<strong>Workaround:</strong> If workaround/temporary solution found, update workaround field and set status=<code>fix_in_progress</code>. The <code>workaround_notes</code> <strong>must</strong> be published to the linked Incidents and relevant Knowledge Articles."
+            ],
+            "iteration_added": 1,
+            "comments": "The policy directly concerns Problem records \u2013 the same domain handled by the `create_problem` tool \u2013 so it is relevant and specifically scoped to this tool. However, compliance cannot be fully validated before invoking `create_problem` because the requirement to publish workaround notes to linked incidents and knowledge articles involves additional actions (e.g., linking knowledge articles, updating incidents) that are performed after the problem is created. Consequently the policy is not enforceable using only the parameters of `create_problem`. The policy description is clear enough without needing external context, so it is self\u2011contained. \nScore: 3/5 \u2013 the policy is clear and relevant but not directly enforceable or pre\u2011validatable with the target tool alone. To improve enforceability, the policy could be rewritten to include the exact post\u2011creation steps (e.g., call `link_knowledge_to_incident` and `update_incident` for each linked incident) that must be performed after a problem with a workaround is created.\nThe policy directly concerns Problem records \u2013 the same domain handled by the `create_problem` tool \u2013 so it is relevant and specifically scoped to this tool. However, compliance cannot be fully validated before invoking `create_problem` because the requirement to publish workaround notes to linked incidents and knowledge articles involves additional actions (e.g., linking knowledge articles, updating incidents) that are performed after the problem is created. Consequently the policy is not enforceable using only the parameters of `create_problem`. The policy description is clear enough without needing external context, so it is self\u2011contained. \nScore: 3/5 \u2013 the policy is clear and relevant but not directly enforceable or pre\u2011validatable with the target tool alone. To improve enforceability, the policy could be rewritten to include the exact post\u2011creation steps (e.g., call `link_knowledge_to_incident` and `update_incident` for each linked incident) that must be performed after a problem with a workaround is created.\nThe policy directly concerns Problem records \u2013 the same domain handled by the `create_problem` tool \u2013 so it is relevant and specifically scoped to this tool. However, compliance cannot be fully validated before invoking `create_problem` because the requirement to publish workaround notes to linked incidents and knowledge articles involves additional actions (e.g., linking knowledge articles, updating incidents) that are performed after the problem is created. Consequently the policy is not enforceable using only the parameters of `create_problem`. The policy description is clear enough without needing external context, so it is self\u2011contained. \nScore: 3/5 \u2013 the policy is clear and relevant but not directly enforceable or pre\u2011validatable with the target tool alone. To improve enforceability, the policy could be rewritten to include the exact post\u2011creation steps (e.g., call `link_knowledge_to_incident` and `update_incident` for each linked incident) that must be performed after a problem with a workaround is created.\nThe policy directly concerns Problem records \u2013 the same domain handled by the `create_problem` tool \u2013 so it is relevant and specifically scoped to this tool. However, compliance cannot be fully validated before invoking `create_problem` because the requirement to publish workaround notes to linked incidents and knowledge articles involves additional actions (e.g., linking knowledge articles, updating incidents) that are performed after the problem is created. Consequently the policy is not enforceable using only the parameters of `create_problem`. The policy description is clear enough without needing external context, so it is self\u2011contained. \nScore: 3/5 \u2013 the policy is clear and relevant but not directly enforceable or pre\u2011validatable with the target tool alone. To improve enforceability, the policy could be rewritten to include the exact post\u2011creation steps (e.g., call `link_knowledge_to_incident` and `update_incident` for each linked incident) that must be performed after a problem with a workaround is created.\nThe policy directly concerns Problem records \u2013 the same domain handled by the `create_problem` tool \u2013 so it is relevant and specifically scoped to this tool. However, compliance cannot be fully validated before invoking `create_problem` because the requirement to publish workaround notes to linked incidents and knowledge articles involves additional actions (e.g., linking knowledge articles, updating incidents) that are performed after the problem is created. Consequently the policy is not enforceable using only the parameters of `create_problem`. The policy description is clear enough without needing external context, so it is self\u2011contained. \nScore: 3/5 \u2013 the policy is clear and relevant but not directly enforceable or pre\u2011validatable with the target tool alone. To improve enforceability, the policy could be rewritten to include the exact post\u2011creation steps (e.g., call `link_knowledge_to_incident` and `update_incident` for each linked incident) that must be performed after a problem with a workaround is created.\n"
+        }
+    ]
+}

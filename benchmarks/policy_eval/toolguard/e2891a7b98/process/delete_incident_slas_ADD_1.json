@@ -1,0 +1,94 @@
+{
+    "policies": [
+        {
+            "policy_name": "Role\u2011Based Deletion Permission for Incident SLA",
+            "description": "Only users with the Administrator role are authorized to delete Incident SLA records because only the Administrator has full CRUD (Create, Read, Update, Delete) access across all tables. Manager and Agent roles have CRUD only on limited tables that do not include SLA tables, so they lack delete permission for Incident SLA records.",
+            "references": [
+                "<strong>Administrator</strong> (<code>admin</code>) | System Configuration &amp; Integrity | Full CRUD (Create, Read, Update, Delete) access across all tables.",
+                "<strong>Manager</strong> (<code>manager</code>) | Supervision, Escalation, Approvals | Full CRUD on operational tables (<code>incident</code>, <code>problem</code>, <code>change</code>, <code>knowledge</code>); READ access to all the tables. Can <strong>reassign</strong> incidents/requests. Can <strong>approve/reject</strong> Change Requests. Monitors SLAs and escalations.",
+                "<strong>Agent</strong> (<code>agent</code>) | Frontline Incident/Request fulfillment | <strong>Full CRUD</strong> on <strong>Incidents, Service Requests, Tasks, Work Notes, CMDB, Change, Problem, and Knowledge</strong>. READ access to all the tables. Can update assignment, state, and resolution. | Cannot bypass approvals, or change system administration settings."
+            ],
+            "iteration_added": 0
+        },
+        {
+            "policy_name": "Permission Denied for Unauthorized Role",
+            "description": "If a user attempts to delete Incident SLA records without having the required Administrator role, the operation must be halted and a 403 Forbidden error returned, indicating that the user role lacks authority for the operation.",
+            "references": [
+                "<strong>403 Forbidden:</strong> Permission denied (user role lacks authority for the operation)."
+            ],
+            "iteration_added": 0
+        },
+        {
+            "policy_name": "No Fabrication of IDs for Deletion",
+            "description": "When deleting Incident SLA records, the assistant must never assume, fabricate, or guess SLA record IDs. It must rely only on verified IDs obtained from prior API calls or trusted sources before issuing a delete request.",
+            "references": [
+                "Never assume or fabricate IDs, responses, or outcomes \u2014 rely solely on verified API results. The same is the case of optional or default arguments."
+            ],
+            "iteration": 0
+        },
+        {
+            "policy_name": "Atomic Deletion Operation",
+            "description": "Each delete_incident_slas call must be performed as a single validated operation. The assistant may not combine deletion with other actions unless using an approved batch endpoint, ensuring the operation is atomic.",
+            "references": [
+                "Atomic Operations: Perform one validated operation at a time, except when using approved batch endpoints."
+            ],
+            "iteration": 0
+        },
+        {
+            "policy_name": "Conflict Error Handling for Deletion",
+            "description": "If a deletion attempt fails because the Incident SLA record is locked or in a state that prevents removal, the assistant must return a 409 Conflict error to indicate the state conflict.",
+            "references": [
+                "409 Conflict: Record locking or state conflict."
+            ],
+            "iteration": 0
+        },
+        {
+            "policy_name": "Rate Limiting Compliance",
+            "description": "If the delete_incident_slas operation exceeds API rate limits, the assistant must pause and retry using exponential backoff rather than immediately retrying or continuing.",
+            "references": [
+                "Rate Limiting: If exceeded, pause and retry using Exponential Backoff."
+            ],
+            "iteration": 0
+        },
+        {
+            "policy_name": "Policy Violation Halt",
+            "description": "If a request to delete Incident SLA records violates any governing rule (e.g., missing required filters, insufficient role), the assistant must halt the operation and return the specific policy reason before pausing.",
+            "references": [
+                "Policy Violation: If a user request violates any rule herein, you must halt the operation and provide the specific policy reason before pausing."
+            ],
+            "iteration": 0
+        },
+        {
+            "policy_name": "No Confirmation Required Before Deletion",
+            "description": "The assistant may proceed with the deletion of Incident SLA records without asking the user for additional confirmation, provided all policy checks (role, filters, ID verification) are satisfied.",
+            "references": [
+                "You do not need to ask for confirmation or permission before taking action."
+            ],
+            "iteration": 0
+        },
+        {
+            "policy_name": "Missing Filter Requirement for Deletion",
+            "description": "If a request to delete Incident SLA records does not include at least one of the required filter fields (incident_sla_id, incident_id, sla_def_id, stage, has_breached, created_before, created_after), the assistant must halt the operation and explicitly state which mandatory filter(s) are missing.",
+            "references": [
+                "<strong>User Clarification:</strong> Do not ask for further information. If the request is ambiguous, return the list and state the ambiguity. If a mandatory field is missing, state which field is required."
+            ],
+            "iteration": 1
+        },
+        {
+            "policy_name": "Identifier Lookup Before Deletion",
+            "description": "When an identifier (e.g., incident_sla_id, incident_id, sla_def_id) is not provided in the delete request, the assistant must first retrieve the correct identifier using appropriate lookup tools (such as get_incident_slas, find_incident_by_number, etc.) and must not fabricate or guess IDs.",
+            "references": [
+                "When identifiers such as names or IDs are missing, perform lookups, verify that you are reusing correct values from previous responses, and proceed using the retrieved data."
+            ],
+            "iteration": 1
+        },
+        {
+            "policy_name": "Referential Integrity Check for SLA Deletion",
+            "description": "Before deleting any Incident SLA record, the assistant must verify that no mandatory dependent records (e.g., active incidents referencing the SLA) would be left in an inconsistent state. If such dependencies exist, the deletion must be halted with a policy violation.",
+            "references": [
+                "<strong>Referential Integrity:</strong> Before closing any record, verify that all mandatory dependencies are satisfied."
+            ],
+            "iteration": 1
+        }
+    ]
+}

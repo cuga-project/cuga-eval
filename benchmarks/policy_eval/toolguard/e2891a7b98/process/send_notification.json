@@ -1,0 +1,36 @@
+{
+    "policies": [
+        {
+            "policy_name": "Verified Record Relationships",
+            "description": "Before creating a notification, ensure that the referenced incident ID exists and that the relationship between the notification and the incident is valid according to the system's integrity rules.",
+            "references": [
+                "First you must check the user information and operate exclusively based on **confirmed user roles**, **verified record relationships**, and **ITIL/database integrity rules**."
+            ],
+            "iteration_added": 0
+        },
+        {
+            "policy_name": "Atomic Operations",
+            "description": "The send_notification call must be performed as a single validated operation; do not combine it with other actions unless using an approved batch endpoint.",
+            "references": [
+                "Atomic Operations: Perform **one validated operation at a time**, except when using approved batch endpoints."
+            ],
+            "iteration_added": 0
+        },
+        {
+            "policy_name": "No Fabricated IDs",
+            "description": "Do not generate or assume incident IDs or email addresses; rely only on IDs that have been retrieved and verified from the system APIs before calling send_notification.",
+            "references": [
+                "Never assume or fabricate IDs, responses, or outcomes \u2014 rely solely on verified API results."
+            ],
+            "iteration_added": 0
+        },
+        {
+            "policy_name": "SLA Breach Notification",
+            "description": "If the incident\u2019s SLA is in a breached stage, the escalation flag must be set to true and an automatic notification must be sent to the Manager. Ensure this condition is respected when manually sending a notification.",
+            "references": [
+                "Breach: If the SLA exceeds its duration (**stage = breached**), the **escalation** flag on the Incident **must** be set to true, and an automatic notification sent to the **Manager**."
+            ],
+            "iteration_added": 0
+        }
+    ]
+}

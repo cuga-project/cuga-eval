@@ -1,0 +1,190 @@
+{
+    "policies": [
+        {
+            "policy_name": "Incident creation must include opened_by",
+            "description": "When registering a new incident, the opened_by (user submitting) field is mandatory.",
+            "references": [
+                "<strong>Mandatory Inputs:</strong> <code>opened_by</code> (user submitting), <code>caller_id</code> (user affected), <code>short_description</code>, <code>impact</code>, and <code>urgency</code>."
+            ],
+            "iteration_added": 0
+        },
+        {
+            "policy_name": "Incident creation must include caller_id",
+            "description": "When registering a new incident, the caller_id (user affected) field is mandatory.",
+            "references": [
+                "<strong>Mandatory Inputs:</strong> <code>opened_by</code> (user submitting), <code>caller_id</code> (user affected), <code>short_description</code>, <code>impact</code>, and <code>urgency</code>."
+            ],
+            "iteration_added": 0
+        },
+        {
+            "policy_name": "Incident creation must include short_description",
+            "description": "When registering a new incident, the short_description field is mandatory.",
+            "references": [
+                "<strong>Mandatory Inputs:</strong> <code>opened_by</code> (user submitting), <code>caller_id</code> (user affected), <code>short_description</code>, <code>impact</code>, and <code>urgency</code>."
+            ],
+            "iteration_added": 0
+        },
+        {
+            "policy_name": "Incident creation must include impact",
+            "description": "When registering a new incident, the impact field is mandatory.",
+            "references": [
+                "<strong>Mandatory Inputs:</strong> <code>opened_by</code> (user submitting), <code>caller_id</code> (user affected), <code>short_description</code>, <code>impact</code>, and <code>urgency</code>."
+            ],
+            "iteration_added": 0
+        },
+        {
+            "policy_name": "Incident creation must include urgency",
+            "description": "When registering a new incident, the urgency field is mandatory.",
+            "references": [
+                "<strong>Mandatory Inputs:</strong> <code>opened_by</code> (user submitting), <code>caller_id</code> (user affected), <code>short_description</code>, <code>impact</code>, and <code>urgency</code>."
+            ],
+            "iteration_added": 0
+        },
+        {
+            "policy_name": "Default incident status must be 'new'",
+            "description": "All newly created incidents must have their status set to \"new\" unless explicitly changed after creation.",
+            "references": [
+                "<strong>Default Status:</strong> All new Incidents are set to <code>status = new</code>."
+            ],
+            "iteration_added": 0
+        },
+        {
+            "policy_name": "Incident priority is auto\u2011calculated from impact\u2011urgency matrix",
+            "description": "The priority of a newly created incident is automatically calculated from the impact and urgency values according to the predefined Impact\u202f\u00d7\u202fUrgency matrix.",
+            "references": [
+                "<strong>Priority Calculation:</strong> Priority (<code>critical</code>, <code>high</code>, <code>moderate</code>, <code>low</code>, <code>planning</code>) is determined automatically by the system based on a below pre-defined matrix of <strong>Impact x Urgency</strong>.",
+                "| Impact | Urgency | Priority |\n| --- | --- | --- |\n| low | low | planning |\n| low | medium | low |\n| low | high | moderate |\n| medium | low | low |\n| medium | medium | moderate |\n| medium | high | high |\n| high | low | moderate |\n| high | medium | high |\n| high | high | critical |"
+            ],
+            "iteration_added": 1
+        },
+        {
+            "policy_name": "Manually supplied incident priority must match calculated priority",
+            "description": "If a priority value is explicitly supplied during incident creation, it must be identical to the priority that would be calculated from the impact and urgency values according to the matrix.",
+            "references": [
+                "<strong>Priority Calculation:</strong> Priority (<code>critical</code>, <code>high</code>, <code>moderate</code>, <code>low</code>, <code>planning</code>) is determined automatically by the system based on a below pre-defined matrix of <strong>Impact x Urgency</strong>.",
+                "| Impact | Urgency | Priority |\n| --- | --- | --- |\n| low | low | planning |\n| low | medium | low |\n| low | high | moderate |\n| medium | low | low |\n| medium | medium | moderate |\n| medium | high | high |\n| high | low | moderate |\n| high | medium | high |\n| high | high | critical |"
+            ],
+            "iteration_added": 1
+        },
+        {
+            "policy_name": "Assigned user must be active",
+            "description": "If an assigned_to user is supplied, that user must have users.active = true.",
+            "references": [
+                "User Status: Ensure any user being assigned to (<code>assigned_to</code>) or updated is <code>users.active = true</code>."
+            ],
+            "iteration_added": 0
+        },
+        {
+            "policy_name": "Assigned user must have Agent or Manager role",
+            "description": "If an assigned_to user is supplied, that user must hold the Agent or Manager role.",
+            "references": [
+                "Constraints: <code>assigned_to</code> must be an <strong>active</strong> user with the <code>Agent</code> or <code>Manager</code> role and must be a member of the specified <code>assignment_group</code>."
+            ],
+            "iteration_added": 0
+        },
+        {
+            "policy_name": "Assigned user must belong to the assignment group",
+            "description": "If an assigned_to user is supplied, the user must be a member of the provided assignment_group.",
+            "references": [
+                "Constraints: <code>assigned_to</code> must be an <strong>active</strong> user with the <code>Agent</code> or <code>Manager</code> role and must be a member of the specified <code>assignment_group</code>."
+            ],
+            "iteration_added": 0
+        },
+        {
+            "policy_name": "All mandatory fields must be validated on creation",
+            "description": "Any request to create a record must validate that every mandatory field defined for that record type is present and correct.",
+            "references": [
+                "Any request to create or update a record must validate all mandatory fields."
+            ],
+            "iteration_added": 0
+        },
+        {
+            "policy_name": "Incident identifiers are system\u2011generated and must not be supplied by the requester",
+            "description": "Incident identifiers (incident_id, number) are generated automatically by the system and must not be provided by the user; the tool must rely on the system\u2011generated values returned by the API.",
+            "references": [
+                "Never assume or fabricate IDs, responses, or outcomes \u2014 rely solely on verified API results.",
+                "Auto-Generated Fields:\n          - incident_id: Unique identifier for the incident (format: INC_001, INC_002, etc.)\n          - number: Incident number (e.g., INC-000001)"
+            ],
+            "iteration_added": 2
+        },
+        {
+            "policy_name": "Perform knowledge search on incident creation",
+            "description": "Every time an incident is created, the system must automatically search for relevant knowledge articles and link any matches to the incident using the relationship type <code>used_as = suggested</code>.",
+            "references": [
+                "Search Policy: When an Incident is created, a search for relevant knowledge must be performed, and matching articles linked as <code>used_as = suggested</code>."
+            ],
+            "iteration_added": 0
+        },
+        {
+            "policy_name": "Lookup missing identifiers before use",
+            "description": "If any identifier (e.g., service, service_offering, configuration_item, assigned_to, assignment_group) is missing or unknown at the time of incident creation, the tool must perform a lookup to retrieve the correct record before proceeding, and must never guess or fabricate the identifier.",
+            "references": [
+                "When identifiers such as names or IDs are missing, perform lookups, verify that you are reusing correct values from previous responses, and proceed using the retrieved data."
+            ],
+            "iteration_added": 0
+        },
+        {
+            "policy_name": "Validate requestor role before creating incident",
+            "description": "Before creating an incident, the tool must verify that the requestor\u2019s role has been confirmed (e.g., Agent, Manager, Administrator) and that the user is authorized to perform incident creation according to the role\u2011based access matrix.",
+            "references": [
+                "First you must check the user information and operate exclusively based on <strong>confirmed user roles</strong>, <strong>verified record relationships</strong>, and <strong>ITIL/database integrity rules</strong>."
+            ],
+            "iteration_added": 0
+        },
+        {
+            "policy_name": "Do not request clarification for missing mandatory fields",
+            "description": "When creating an incident, if any mandatory field is missing the tool must not ask the user for additional information; instead it must immediately state which mandatory field is required.",
+            "references": [
+                "<strong>User Clarification:</strong> Do not ask for further information. If the request is ambiguous, return the list and state the ambiguity. If a mandatory field is missing, state which field is required."
+            ],
+            "iteration_added": 1
+        },
+        {
+            "policy_name": "Caller must be an existing active user",
+            "description": "The `caller_id` supplied for incident creation must reference a user that exists in the system and has `users.active = true`.",
+            "references": [
+                "First you must check the user information and operate exclusively based on <strong>confirmed user roles</strong>, <strong>verified record relationships</strong>, and <strong>ITIL/database integrity rules</strong>."
+            ],
+            "iteration_added": 1
+        },
+        {
+            "policy_name": "All enumerated fields must use allowed values",
+            "description": "Values submitted for enumerated incident fields (status, category, channel, impact, urgency, priority, on_hold_reason, resolution_code) must be taken from the predefined lists; any value outside the allowed set must cause the operation to be halted with a policy violation.",
+            "references": [
+                "| <strong>incident.status</strong> | <code>new</code>, <code>in_progress</code>, <code>on_hold</code>, <code>resolved</code>, <code>closed</code> |",
+                "| <strong>incident.category</strong> | <code>inquiry-help</code>, <code>software</code>, <code>hardware</code>, <code>database</code>, <code>password-reset</code>, <code>network</code> |",
+                "| <strong>incident.channel</strong> | <code>self-service</code>, <code>phone</code>, <code>email</code>, <code>chat</code>, <code>walk-in</code>, <code>virtual-agent</code> |",
+                "| <strong>incident.impact</strong> | <code>high</code>, <code>medium</code>, <code>low</code> |",
+                "| <strong>incident.urgency</strong> | <code>high</code>, <code>medium</code>, <code>low</code> |",
+                "| <strong>incident.priority</strong> | <code>critical</code>, <code>high</code>, <code>moderate</code>, <code>low</code>, <code>planning</code> |",
+                "| <strong>incident.on_hold_reason</strong> | <code>Awaiting Change</code>, <code>Awaiting Caller</code>, <code>Awaiting Problem</code> |",
+                "| <strong>incident.resolution_code</strong> | <code>fixed</code>, <code>workaround</code>, <code>not_reproducible</code>, <code>closed_by_caller</code> |"
+            ],
+            "iteration_added": 1
+        },
+        {
+            "policy_name": "Incident creation must be a single atomic operation",
+            "description": "The `create_incident` tool must be invoked as one validated operation; no other actions may be performed in the same request unless using an approved batch endpoint.",
+            "references": [
+                "<strong>Atomic Operations:</strong> Perform <strong>one validated operation at a time</strong>, except when using approved batch endpoints."
+            ],
+            "iteration_added": 1
+        },
+        {
+            "policy_name": "Incident configuration item must be active (in_use or maintenance)",
+            "description": "When creating an incident, if a `configuration_item` is supplied it must reference a CI whose `status` is either `in_use` or `maintenance`. Linking a retired or disposed CI to an incident is prohibited.",
+            "references": [
+                "<strong>CI Status:</strong> Only CIs with <code>status = in_use</code> or <code>status = maintenance</code> can be linked to active Incidents. Do not link CIs in <code>status = retired</code> or <code>status = disposed</code>."
+            ],
+            "iteration_added": 2
+        },
+        {
+            "policy_name": "Reporter role may only create incidents for themselves",
+            "description": "Users with the `Reporter` role are allowed to create incidents only for their own use; the `caller_id` on a new incident must be the Reporter\u2019s own user ID. Reporters cannot create incidents on behalf of other users.",
+            "references": [
+                "| <strong>Reporter</strong> (<code>reporter</code>) | IT Service Consumption | Can view and update <strong>their own submitted Incidents/Requests</strong>. Can search <strong>Public Knowledge</strong> articles. | Cannot view or modify records opened by other users, CMDB, or internal work notes."
+            ],
+            "iteration_added": 2
+        }
+    ]
+}

@@ -1,0 +1,54 @@
+{
+    "policies": [
+        {
+            "policy_name": "Update Service Offering Permission",
+            "description": "Only a user with the Administrator role may update a Service Offering, because only Administrator has Full CRUD access across all tables; Agent and Manager roles do not have CRUD rights for Service Offerings.",
+            "references": [
+                "Administrator (<code>admin</code>) | System Configuration &amp; Integrity | Full CRUD (Create, Read, Update, Delete) access across all tables.",
+                "Agent (<code>agent</code>) | Frontline Incident/Request fulfillment | <strong>Full CRUD</strong> on <strong>Incidents, Service Requests, Tasks, Work Notes, CMDB, Change, Problem, and Knowledge</strong>. READ access to all the tables. Can update assignment, state, and resolution.",
+                "Manager (<code>manager</code>) | Supervision, Escalation, Approvals | Full CRUD on operational tables (<code>incident</code>, <code>problem</code>, <code>change</code>, <code>knowledge</code>); READ access to all the tables."
+            ],
+            "iteration_added": 0
+        },
+        {
+            "policy_name": "Mandatory Fields Validation",
+            "description": "Any request to update a Service Offering must include all mandatory fields; the tool requires the `service_offering_id` field, and at least one other field to change.",
+            "references": [
+                "Any request to create or update a record must validate all mandatory fields."
+            ],
+            "iteration_added": 0
+        },
+        {
+            "policy_name": "ID Verification",
+            "description": "Do not assume the existence of a Service Offering ID; the ID must be verified via a lookup before calling the update operation.",
+            "references": [
+                "Never assume or fabricate IDs, responses, or outcomes \u2014 rely solely on verified API results."
+            ],
+            "iteration_added": 0
+        },
+        {
+            "policy_name": "Atomic Operation Requirement",
+            "description": "Perform only one validated update operation at a time; do not proceed if required data is missing or the current record state prevents the action.",
+            "references": [
+                "Perform <strong>one validated operation at a time</strong>, except when using approved batch endpoints. Do not allow a request to proceed if it requires data that is missing or the current record state prevents the action."
+            ],
+            "iteration_added": 0
+        },
+        {
+            "policy_name": "User Clarification on Missing Mandatory Fields",
+            "description": "If a mandatory field (e.g., `service_offering_id`) is missing from the request, the assistant must state which field is required instead of asking for more information.",
+            "references": [
+                "If a mandatory field is missing, state which field is required."
+            ],
+            "iteration_added": 0
+        },
+        {
+            "policy_name": "Policy Violation Handling",
+            "description": "If the update request violates any policy (e.g., insufficient role, missing mandatory field), the assistant must halt the operation and provide the specific policy reason before pausing.",
+            "references": [
+                "If a user request violates any rule herein, you <strong>must halt the operation</strong> and provide the specific policy reason before pausing."
+            ],
+            "iteration_added": 0
+        }
+    ]
+}

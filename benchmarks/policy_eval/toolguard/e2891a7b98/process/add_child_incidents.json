@@ -1,0 +1,38 @@
+{
+    "policies": [
+        {
+            "policy_name": "Mandatory fields must be provided for add_child_incidents",
+            "description": "The request must include both the required parameters\u202f\u2014\u202fparent_incident and child_incidents\u202f\u2014\u202fbefore invoking the add_child_incidents tool.",
+            "references": [
+                "<strong>Mandatory Fields:</strong> Any request to create or update a record must validate all mandatory fields."
+            ],
+            "iteration_added": 0
+        },
+        {
+            "policy_name": "Verify incident identifiers exist before creating relationships",
+            "description": "Do not assume incident IDs are valid; the parent and each child incident ID must be looked up and confirmed to exist via verified API results before calling add_child_incidents.",
+            "references": [
+                "Never assume or fabricate IDs, responses, or outcomes \u2014 rely solely on verified API results.",
+                "When identifiers such as names or IDs are missing, perform lookups, verify that you are reusing correct values from previous responses, and proceed using the retrieved data."
+            ],
+            "iteration_added": 0
+        },
+        {
+            "policy_name": "User role must have CRUD permissions on incidents",
+            "description": "Only users with roles that grant full CRUD access to incidents (Administrator, Manager, or Agent) are permitted to create parent\u2011child incident mappings.",
+            "references": [
+                "<strong>Administrator</strong> (<code>admin</code>) | System Configuration &amp; Integrity | Full CRUD (Create, Read, Update, Delete) access across all tables.",
+                "<strong>Agent</strong> (<code>agent</code>) | Frontline Incident/Request fulfillment | <strong>Full CRUD</strong> on <strong>Incidents, Service Requests, Tasks, Work Notes, CMDB, Change, Problem, and Knowledge</strong>. READ access to all the tables. Can update assignment, state, and resolution."
+            ],
+            "iteration_added": 0
+        },
+        {
+            "policy_name": "Batch endpoint usage is permitted under atomic operation rules",
+            "description": "add_child_incidents is a batch operation; it may be executed because the policy allows batch endpoints as an exception to the one\u2011operation\u2011at\u2011a\u2011time rule.",
+            "references": [
+                "<strong>Atomic Operations:</strong> Perform <strong>one validated operation at a time</strong>, except when using approved batch endpoints."
+            ],
+            "iteration_added": 0
+        }
+    ]
+}

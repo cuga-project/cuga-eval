@@ -1,0 +1,74 @@
+{
+    "policies": [
+        {
+            "policy_name": "Mandatory fields validation for incident update",
+            "description": "Any incident update must include all fields that are mandatory for the operation before calling update_incident.",
+            "references": [
+                "<strong>Mandatory Fields:</strong> Any request to create or update a record must validate all mandatory fields."
+            ],
+            "iteration_added": 0
+        },
+        {
+            "policy_name": "Role\u2011based access control for incident updates",
+            "description": "Only users with the appropriate role may update an incident: Administrators, Managers and Agents have full CRUD on incidents; Reporters may update only incidents they originally submitted.",
+            "references": [
+                "| <strong>Administrator</strong> (<code>admin</code>) | System Configuration &amp; Integrity | Full CRUD (Create, Read, Update, Delete) access across all tables.\u00a0|",
+                "| <strong>Manager</strong> (<code>manager</code>) | Supervision, Escalation, Approvals | Full CRUD on operational tables (<code>incident</code>, <code>problem</code>, <code>change</code>, <code>knowledge</code>); READ access to all the tables. Can <strong>reassign</strong> incidents/requests. Can <strong>approve/reject</strong> Change Requests. Monitors SLAs and escalations. |",
+                "| <strong>Agent</strong> (<code>agent</code>) | Frontline Incident/Request fulfillment | <strong>Full CRUD</strong> on <strong>Incidents, Service Requests, Tasks, Work Notes, CMDB, Change, Problem, and Knowledge</strong>. READ access to all the tables. Can update assignment, state, and resolution. | Cannot bypass approvals, or change system administration settings. |",
+                "| <strong>Reporter</strong> (<code>reporter</code>) | IT Service Consumption | Can view and update <strong>their own submitted Incidents/Requests</strong>. Can search <strong>Public Knowledge</strong> articles. | Cannot view or modify records opened by other users, CMDB, or internal work notes. |"
+            ],
+            "iteration_added": 0
+        },
+        {
+            "policy_name": "Assignment user must be active Agent or Manager and member of assignment group",
+            "description": "When the assigned_to field (or assignment_group) is updated, the target user must be active, hold the Agent or Manager role, and belong to the specified assignment group.",
+            "references": [
+                "<strong>Constraints:</strong> <code>assigned_to</code> must be an <strong>active</strong> user with the <code>Agent</code> or <code>Manager</code> role and must be a member of the specified <code>assignment_group</code>."
+            ],
+            "iteration_added": 0
+        },
+        {
+            "policy_name": "Validate incident status transitions",
+            "description": "The new incident status must follow the allowed state transition matrix before invoking update_incident.",
+            "references": [
+                "<p><code>new</code> \u2192 <code>in_progress</code> / <code>on_hold</code> / <code>resolved</code></p>",
+                "<p><code>in_progress</code> \u2192 <code>on_hold</code> / <code>resolved</code></p>",
+                "<p><code>on_hold</code> \u2192 <code>in_progress</code> (Must log <code>on_hold_reason</code> before transition)</p>",
+                "<p><code>resolved</code> \u2192 <code>closed</code> / 'in_progress'</p>"
+            ],
+            "iteration_added": 0
+        },
+        {
+            "policy_name": "Resolution fields required for resolved state",
+            "description": "If the incident status is being set to\u202fresolved, both resolution_code and resolution_notes must be supplied.",
+            "references": [
+                "<strong>Resolution Requirement:</strong> An Incident cannot transition to <code>resolved</code> without mandatory fields: <code>resolution_code</code>, and <code>resolution_notes</code> (free-form text, max 2000 chars)."
+            ],
+            "iteration_added": 0
+        },
+        {
+            "policy_name": "SLA pause requirement when incident is on hold",
+            "description": "When status is changed to on_hold, the on_hold_reason must be one of the allowed enumerations and the SLA timer must be set to paused.",
+            "references": [
+                "<strong>SLA Pause:</strong> The SLA timer <strong>must</strong> be paused (<code>stage = paused</code>) when the Incident is in <code>stage = on_hold</code> and the <code>on_hold_reason</code> is one of the following enumerations: <code>Awaiting Change</code>, <code>Awaiting Caller</code>, or <code>Awaiting Problem</code>."
+            ],
+            "iteration_added": 0
+        },
+        {
+            "policy_name": "User activity check for assignment",
+            "description": "Any user referenced in the assigned_to field must have users.active = true.",
+            "references": [
+                "<strong>User Status:</strong> Ensure any user being assigned to (<code>assigned_to</code>) or updated is <code>users.active = true</code>."
+            ],
+            "iteration_added": 0
+        },
+        {
+            "policy_name": "Referential integrity before closing an incident",
+            "description": "Before changing an incident\u2019s status to closed, verify that all mandatory dependent records (e.g., resolution notes, linked problem/change) are satisfied.",
+            "references": [
+                "<strong>Referential Integrity:</strong> Before closing any record, verify that all mandatory dependencies are satisfied."
+            ],
+            "iteration_added": 0
+        }
+    ]
+}

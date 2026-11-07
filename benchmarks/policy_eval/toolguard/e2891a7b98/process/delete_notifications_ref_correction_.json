@@ -1,0 +1,97 @@
+{
+    "policies": [
+        {
+            "policy_name": "Role\u2011based delete permission",
+            "description": "Only users with the **Administrator** role may invoke `delete_notifications`; users with **Manager** or **Agent** roles do **not** have Delete rights on the notifications table.",
+            "references": [],
+            "iteration_added": 2
+        },
+        {
+            "policy_name": "Ownership and integrity verification before deletion",
+            "description": "Before deleting a notification via `delete_notifications`, first retrieve the notification with `find_notifications` (filtering by the same `notification_id`). Confirm that the notification\u2019s `organization_id` matches the organization ID of the currently authenticated user (derived from the request context). If the system has a linking table such as `incident_notification_link`, ensure no active links exist for this notification; if no dedicated tool exists for that check, rely on the database\u2019s foreign\u2011key constraints to prevent orphaned references. Only after both ownership and referential\u2011integrity checks pass should `delete_notifications` be called with the original `notification_id`.",
+            "references": [
+                "First you must check the user information and operate exclusively based on <strong>confirmed user roles</strong>, <strong>verified record relationships</strong>, and <strong>ITIL/database integrity rules</strong>.",
+                "<strong>Referential Integrity:</strong> Before closing any record, verify that all mandatory dependencies are satisfied.",
+                "Never assume or fabricate IDs, responses, or outcomes \u2014 rely solely on verified API results."
+            ],
+            "iteration_added": 3
+        },
+        {
+            "policy_name": "Single operation atomicity",
+            "description": "Execute `delete_notifications` as a single validated operation; do not combine it with other actions unless using an approved batch endpoint.",
+            "references": [
+                "<strong>Atomic Operations:</strong> Perform <strong>one validated operation at a time</strong>, except when using approved batch endpoints. Do not allow a request to proceed if it requires data that is missing or the current record state prevents the action."
+            ],
+            "iteration_added": 0
+        },
+        {
+            "policy_name": "Do not assume or fabricate IDs",
+            "description": "Before calling the `delete_notifications` tool, first retrieve the notification using a lookup tool such as `find_notifications` (or a more specific search tool) to confirm that the `notification_id` exists and belongs to the requesting organization. Only after this verification should the `notification_id` be passed to `delete_notifications`. Do not guess or fabricate the ID.",
+            "references": [
+                "First you must check the user information and operate exclusively based on <strong>confirmed user roles</strong>, <strong>verified record relationships</strong>, and <strong>ITIL/database integrity rules</strong>. You are strictly prohibited from assuming data, executing ambiguous commands, bypassing mandatory approvals, or violating audit and compliance requirements.",
+                "Never assume or fabricate IDs, responses, or outcomes \u2014 rely solely on verified API results. The same is the case of optional or default arguments."
+            ],
+            "iteration_added": 0
+        },
+        {
+            "policy_name": "Policy violation handling",
+            "description": "Before invoking **delete_notification**, perform the following checks:\n1. Retrieve the caller's confirmed role (via the session or a user\u2011lookup tool such as `get_user` / `list_users`). The role must be **admin** or **manager**; otherwise abort and return \"Insufficient role: only admin/manager may delete notifications\".\n2. Verify ownership of the notification: use a lookup tool (e.g., `find_notifications` with the supplied `notification_id`) and confirm that the returned notification's `organization_id` matches the caller's organization. If it does not match, abort and return \"Notification {notification_id} does not belong to your organization\".\n3. Only when both checks succeed may the `delete_notification` tool be called with the provided `notification_id`.\nIf any validation fails, halt the operation and surface the specific policy reason.",
+            "references": [],
+            "iteration_added": 0
+        },
+        {
+            "policy_name": "Rate limiting with exponential backoff",
+            "description": "If the `delete_notifications` tool returns a 429 (Rate Limit Exceeded) response, wait for an exponentially increasing delay before retrying (e.g., wait 2^n * 1\u202fsecond on the n\u2011th retry, with a maximum of 5 retries). Abort and surface the error if the maximum retry count is reached or if a non\u2011rate\u2011limit error is returned.",
+            "references": [
+                "<li><strong>Rate Limiting:</strong> If exceeded, pause and retry using <strong>Exponential Backoff</strong>.</li>"
+            ],
+            "iteration_added": 0
+        },
+        {
+            "policy_name": "No confirmation required before action",
+            "description": "When a request contains a syntactically valid `notification_id` (e.g., NOTIF_001) and the authenticated user\u2019s role is either **Administrator** or **Manager** (as defined in the Roles & Responsibilities table), the system may invoke the `delete_notifications` tool immediately. No extra confirmation prompt is required, but the role must be verified (e.g., via `get_user` or `list_users`) before calling the tool.",
+            "references": [
+                "You do not need to ask for confirmation or permission before taking action.",
+                "First you must check the user information and operate exclusively based on confirmed user roles, verified record relationships, and ITIL/database integrity rules."
+            ],
+            "iteration_added": 1
+        },
+        {
+            "policy_name": "Mandatory field enforcement for deletion",
+            "description": "When invoking the `delete_notifications` tool, the request must include a non\u2011empty `notification_id` (e.g., \"NOTIF_001\"). If the parameter is omitted, null, or an empty string, the assistant must stop the operation and reply: \"The `notification_id` field is required for deleting a notification.\"",
+            "references": [
+                "<li>\n<p><strong>Mandatory Fields:</strong> Any request to create or update a record must validate all mandatory fields.</p>\n</li>"
+            ],
+            "iteration_added": 2
+        }
+    ],
+    "archive": [
+        {
+            "policy_name": "403 Forbidden permission enforcement",
+            "description": "If the `delete_notifications` call returns a **403 Forbidden** response, halt the operation and report the permission denial to the user, as the user role lacks authority for the deletion.",
+            "references": [
+                "<strong>403 Forbidden:</strong> Permission denied (user role lacks authority for the operation)."
+            ],
+            "iteration_added": 0,
+            "comments": "The policy directly addresses the `delete_notifications` tool, so it is both relevant and tool\u2011specific. The enforcement logic can be applied after the API call by checking for a 403 response, making it actionable. However, the policy does not provide any pre\u2011validation criteria (e.g., which roles are allowed to delete notifications), so compliance cannot be validated before invoking the tool. The description, together with the quoted reference, is clear and does not rely on external text, so it is self\u2011contained. Overall the policy is well\u2011written but could be improved by adding the allowed roles to enable pre\u2011validation. Score: 4/5.\nThe policy directly addresses the `delete_notifications` tool, so it is both relevant and tool\u2011specific. The enforcement logic can be applied after the API call by checking for a 403 response, making it actionable. However, the policy does not provide any pre\u2011validation criteria (e.g., which roles are allowed to delete notifications), so compliance cannot be validated before invoking the tool. The description, together with the quoted reference, is clear and does not rely on external text, so it is self\u2011contained. Overall the policy is well\u2011written but could be improved by adding the allowed roles to enable pre\u2011validation. Score: 4/5.\nThe policy directly addresses the `delete_notifications` tool, so it is both relevant and tool\u2011specific. The enforcement logic can be applied after the API call by checking for a 403 response, making it actionable. However, the policy does not provide any pre\u2011validation criteria (e.g., which roles are allowed to delete notifications), so compliance cannot be validated before invoking the tool. The description, together with the quoted reference, is clear and does not rely on external text, so it is self\u2011contained. Overall the policy is well\u2011written but could be improved by adding the allowed roles to enable pre\u2011validation. Score: 4/5.\nThe policy directly addresses the `delete_notifications` tool, so it is both relevant and tool\u2011specific. The enforcement logic can be applied after the API call by checking for a 403 response, making it actionable. However, the policy does not provide any pre\u2011validation criteria (e.g., which roles are allowed to delete notifications), so compliance cannot be validated before invoking the tool. The description, together with the quoted reference, is clear and does not rely on external text, so it is self\u2011contained. Overall the policy is well\u2011written but could be improved by adding the allowed roles to enable pre\u2011validation. Score: 4/5.\nThe policy directly addresses the `delete_notifications` tool, so it is both relevant and tool\u2011specific. The enforcement logic can be applied after the API call by checking for a 403 response, making it actionable. However, the policy does not provide any pre\u2011validation criteria (e.g., which roles are allowed to delete notifications), so compliance cannot be validated before invoking the tool. The description, together with the quoted reference, is clear and does not rely on external text, so it is self\u2011contained. Overall the policy is well\u2011written but could be improved by adding the allowed roles to enable pre\u2011validation. Score: 4/5.\n"
+        },
+        {
+            "policy_name": "409 Conflict handling",
+            "description": "If the `delete_notifications` call returns a **409 Conflict** response, stop the operation and report the conflict reason, indicating a record lock or state conflict.",
+            "references": [
+                "<strong>409 Conflict:</strong> Record locking or state conflict."
+            ],
+            "iteration_added": 0,
+            "comments": "The policy directly addresses the `delete_notifications` tool, making it relevant and tool\u2011specific. The required action (halt and report) can be enforced using only the tool's response, so it is actionable. Validation of the conflict condition can only occur after the tool is called, therefore it cannot be pre\u2011validated. The description together with the referenced definition fully explains the situation, so the policy is self\u2011contained. Overall the policy is clear, enforceable, and well scoped, but the inability to pre\u2011validate reduces its score slightly.\nThe policy directly addresses the `delete_notifications` tool, making it relevant and tool\u2011specific. The required action (halt and report) can be enforced using only the tool's response, so it is actionable. Validation of the conflict condition can only occur after the tool is called, therefore it cannot be pre\u2011validated. The description together with the referenced definition fully explains the situation, so the policy is self\u2011contained. Overall the policy is clear, enforceable, and well scoped, but the inability to pre\u2011validate reduces its score slightly.\nThe policy directly addresses the `delete_notifications` tool, making it relevant and tool\u2011specific. The required action (halt and report) can be enforced using only the tool's response, so it is actionable. Validation of the conflict condition can only occur after the tool is called, therefore it cannot be pre\u2011validated. The description together with the referenced definition fully explains the situation, so the policy is self\u2011contained. Overall the policy is clear, enforceable, and well scoped, but the inability to pre\u2011validate reduces its score slightly.\nThe policy directly addresses the `delete_notifications` tool, making it relevant and tool\u2011specific. The required action (halt and report) can be enforced using only the tool's response, so it is actionable. Validation of the conflict condition can only occur after the tool is called, therefore it cannot be pre\u2011validated. The description together with the referenced definition fully explains the situation, so the policy is self\u2011contained. Overall the policy is clear, enforceable, and well scoped, but the inability to pre\u2011validate reduces its score slightly.\nThe policy directly addresses the `delete_notifications` tool, making it relevant and tool\u2011specific. The required action (halt and report) can be enforced using only the tool's response, so it is actionable. Validation of the conflict condition can only occur after the tool is called, therefore it cannot be pre\u2011validated. The description together with the referenced definition fully explains the situation, so the policy is self\u2011contained. Overall the policy is clear, enforceable, and well scoped, but the inability to pre\u2011validate reduces its score slightly.\n"
+        },
+        {
+            "policy_name": "Action audit logging",
+            "description": "Before invoking the `delete_notifications` tool, call a dedicated audit\u2011creation tool (e.g., `create_audit_log`) with the fields event_type=\"notification_delete\", notification_id=provided ID, performed_by_user_id=extracted from `x\u2011itsm\u2011user\u2011token`, and event_timestamp=now. Proceed with `delete_notifications` only if the audit\u2011creation call returns success. If the audit tool is unavailable, the policy cannot be enforced.",
+            "references": [
+                "Time Tracking: All work logs must include the timestamp (<code>created_on</code>) and the <code>user_id</code> performing the action."
+            ],
+            "iteration_added": 0,
+            "comments": "The policy is directly relevant to the `delete_notifications` tool and is written specifically for that operation, so it is both relevant and tool\u2011specific. However, the requirement cannot be validated prior to invoking the tool because the audit entry is only generated as a result of the action, making pre\u2011execution validation impossible. Moreover, the policy does not specify how to produce the audit log (no logging tool is described), so it cannot be enforced solely with the given toolset and chat context. The description also relies on an external notion of \"audit log\" that is not defined in the policy document, so it is not self\u2011contained. A clearer, stand\u2011alone version (provided above) names the logging step explicitly and lists the fields that must be captured. Due to these gaps, the policy scores low on clarity and enforceability (2/5).\nThe policy is clearly relevant to the `delete_notifications` tool and is narrowly scoped to that tool, making it tool\u2011specific. However, there is no dedicated logging tool in the provided toolbox, so the requirement cannot be verified before the deletion (validation would have to happen after the fact) and cannot be enforced directly using only the tool\u2019s parameters, chat history, or data access. The description also assumes the existence of an \"appropriate logging mechanism\" without naming it, which makes the policy not self\u2011contained. A refined version that explicitly states that an audit entry must be created (and possibly references a hypothetical `create_audit_log` tool) would improve completeness. Overall the policy is understandable but only partially enforceable, warranting a score of 3 out of 5.\nThe policy is directly relevant to the `delete_notifications` tool and is narrowly scoped, making it tool\u2011specific. However, compliance cannot be verified before the operation; it can only be checked after the delete (e.g., by querying the audit table), so `can_be_validated` is false. There is no provided tool for writing audit entries, so the policy cannot be enforced purely with the listed toolset, making it non\u2011actionable in the current environment. The description also relies on an undefined audit storage mechanism, so it is not self\u2011contained. I rewrote the description to specify a concrete audit table and required fields, which would make the policy self\u2011contained and actionable if an `insert_audit_log` tool existed. Score: 3 \u2013 the intent is clear and relevant, but lack of pre\u2011validation capability, missing enforcement mechanism, and incomplete context lower its overall practicality.\nThe policy is directly relevant to the `delete_notifications` tool and is narrowly scoped, so it is both relevant and tool\u2011specific. However, compliance cannot be verified *before* the tool is used; it can only be checked after the delete operation, so `can_be_validated` is false. The policy also requires an action (inserting an audit log) that is not covered by any of the listed tools, meaning an assistant cannot enforce it using only the available tool parameters and data\u2014hence `is_actionable` is false. The description relies on an external reference to \u201cTime Tracking\u201d for context, making it not fully self\u2011contained; a clearer, stand\u2011alone description is provided in `alternative_description`. Overall clarity is good, but enforceability is limited, leading to a moderate score of 3 out of 5.\nThe policy is directly related to the `delete_notifications` tool and therefore relevant and tool\u2011specific. However, the current toolset does not include any API for writing to an audit_log table, so the requirement cannot be verified or enforced before the delete operation \u2013 it fails the \u2018can_be_validated\u2019 and \u2018is_actionable\u2019 criteria. Additionally, the description assumes the existence of an audit_log table and a mechanism to write to it, which is not documented among the available tools; thus the policy is not self\u2011contained. A refined version that references a concrete `create_audit_log` tool (or similar) would make the policy enforceable and self\u2011contained. Score: 2/5 \u2013 the intent is clear, but practical enforceability is lacking.\n"
+        }
+    ]
+}

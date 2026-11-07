@@ -1,0 +1,91 @@
+{
+    "policies": [
+        {
+            "policy_name": "Administrator Service Creation Permission",
+            "description": "Before invoking the add_new_service tool, verify that the requesting user\u2019s confirmed role is \"admin\" (Administrator). If the user is not an Administrator, halt the operation and return a policy violation message indicating that only Administrators may create Service records.",
+            "references": [
+                "<strong>Administrator</strong> (<code>admin</code>) | System Configuration &amp; Integrity | Full CRUD (Create, Read, Update, Delete) access across all tables."
+            ],
+            "iteration_added": 2
+        },
+        {
+            "policy_name": "Mandatory Fields Validation",
+            "description": "For the **add_new_service** tool, only the **name** field is required (and must be unique). Verify that the **name** argument is present and non\u2011empty before invoking the tool. No other fields (e.g.,\u202fowned_by) are defined as mandatory for this operation.",
+            "references": [
+                "<strong>Mandatory Fields:</strong> Any request to create or update a record must validate all mandatory fields."
+            ],
+            "iteration_added": 0
+        },
+        {
+            "policy_name": "No ID Fabrication",
+            "description": "When using the **add_new_service** tool, do not supply a `service_id` (or any other ID) in the request payload. Allow the API to generate the unique service identifier and use the returned value for any subsequent operations. All other fields must be provided exactly as required; any attempt to guess or construct an ID yourself violates the policy.",
+            "references": [
+                "Never assume or fabricate IDs, responses, or outcomes \u2014 rely solely on verified API results."
+            ],
+            "iteration_added": 0
+        },
+        {
+            "policy_name": "User Clarification on Missing Fields",
+            "description": "When handling an add_new_service request, the assistant must verify that the mandatory field \"name\" (the unique service name) is present. If the request does not include a value for \"name\", the assistant must respond with a clear statement such as: \"The field 'name' is required for creating a new service.\" No other fields are mandatory for this operation.",
+            "references": [
+                "<strong>User Clarification:</strong> Do not ask for further information. If the request is ambiguous, return the list and state the ambiguity. If a mandatory field is missing, state which field is required."
+            ],
+            "iteration_added": 0
+        },
+        {
+            "policy_name": "Policy Violation Halt",
+            "description": "Before calling **add_new_service**, check that the caller is an Administrator or Manager (via user lookup), that the proposed service name is not already present in the system (via `list_services`), and that the request includes a non\u2011empty, unique name. If any check fails, stop the operation and return the specific rule violated.",
+            "references": [
+                "<strong>Policy Violation:</strong> If a user request violates any rule herein, you <strong>must halt the operation</strong> and provide the specific policy reason before pausing."
+            ],
+            "iteration_added": 0
+        },
+        {
+            "policy_name": "Non\u2011Administrator Service Creation Prohibited",
+            "description": "Before invoking `add_new_service`, retrieve the calling user's record (e.g., via `get_user` or `list_users` with the token provided). Verify that the field `users.role` equals `admin`. If the role is anything else, abort the request and return a `403\u202fForbidden` error. This rule applies exclusively to the `add_new_service` tool.",
+            "references": [
+                "<strong>Manager</strong> (<code>manager</code>) | Supervision, Escalation, Approvals | Full CRUD on operational tables (<code>incident</code>, <code>problem</code>, <code>change</code>, <code>knowledge</code>); READ access to all the tables. Can <strong>reassign</strong> incidents/requests. Can <strong>approve/reject</strong> Change Requests. Monitors SLAs and escalations.",
+                "<strong>Agent</strong> (<code>agent</code>) | Frontline Incident/Request fulfillment | <strong>Full CRUD</strong> on <strong>Incidents, Service Requests, Tasks, Work Notes, CMDB, Change, Problem, and Knowledge</strong>. READ access to all the tables. Can update assignment, state, and resolution. | Cannot bypass approvals, or change system administration settings.",
+                "<strong>403 Forbidden:</strong> Permission denied (user role lacks authority for the operation)."
+            ],
+            "iteration_added": 2
+        },
+        {
+            "policy_name": "No Confirmation Prompt Policy",
+            "description": "The assistant must not ask the user for confirmation or additional permission before invoking the `add_new_service` tool; the operation should proceed directly after policy compliance checks.",
+            "references": [
+                "You do not need to ask for confirmation or permission before taking action."
+            ],
+            "iteration_added": 1
+        },
+        {
+            "policy_name": "Optional Argument Default Handling",
+            "description": "When optional parameters for `add_new_service` are omitted or null, the assistant must rely on the API\u2019s default behavior and must not fabricate or assume values for those fields.",
+            "references": [
+                "Never assume or fabricate IDs, responses, or outcomes \u2014 rely solely on verified API results. The same is the case of optional or default arguments."
+            ],
+            "iteration_added": 1
+        }
+    ],
+    "archive": [
+        {
+            "policy_name": "Atomic Operation Requirement",
+            "description": "When invoking any tool, including add_new_service, ensure that the request contains only one validated action. A \"validated operation\" is one that conforms to the tool's parameter schema, passes all mandatory\u2011field checks, and does not rely on any other pending or dependent operations. The only exception is when using officially approved batch endpoints, which are explicitly listed in the tool catalog. Any request that attempts to combine add_new_service with other unrelated actions must be rejected with a policy\u2011violation message.",
+            "references": [
+                "<strong>Atomic Operations:</strong> Perform <strong>one validated operation at a time</strong>, except when using approved batch endpoints."
+            ],
+            "iteration_added": 0,
+            "comments": "The policy is clearly relevant to the target tool because it governs how add_new_service may be used. It is not tool\u2011specific, as it applies to all tool calls, which is reflected in the is_tool_specific flag. The requirement can be verified before the call by inspecting the user's request to confirm that only one operation (add_new_service) is present and that all its parameters are valid, satisfying the can_be_validated criterion. Enforcement is straightforward: the assistant can reject multi\u2011action requests and issue a policy\u2011violation notice, making it actionable. However, the description lacks a concrete definition of \"validated operation\" and does not mention the batch\u2011endpoint exception, so it is not fully self\u2011contained. An improved, stand\u2011alone description is provided in the alternative_description field. Overall, the policy is clear and enforceable, earning a score of 4 out of 5.\nThe policy directly mirrors the \"Atomic Operations\" rule in the ITSM Assistant policy and explicitly mentions the target tool add_new_service, making it relevant. It is not uniquely tailored to add_new_service because it applies to any tool, so it is not tool\u2011specific. All required checks (parameter schema conformity, mandatory\u2011field presence, single\u2011action enforcement) can be performed before the tool call, satisfying the can_be_validated criterion. Enforcement can be achieved using only the request payload and existing validation logic, meeting the actionable requirement. The description provides all necessary definitions without needing external context, so it is self\u2011contained. Overall the policy is clear, enforceable, and pertinent, earning a score of 4 out of 5.\nThe policy directly mirrors the \"Atomic Operations\" rule in the ITSM Assistant policy and explicitly mentions the target tool add_new_service, making it relevant. It is not uniquely tailored to add_new_service because it applies to any tool, so it is not tool\u2011specific. All required checks (parameter schema conformity, mandatory\u2011field presence, single\u2011action enforcement) can be performed before the tool call, satisfying the can_be_validated criterion. Enforcement can be achieved using only the request payload and existing validation logic, meeting the actionable requirement. The description provides all necessary definitions without needing external context, so it is self\u2011contained. Overall the policy is clear, enforceable, and pertinent, earning a score of 4 out of 5.\nThe policy directly mirrors the \"Atomic Operations\" rule in the ITSM Assistant policy and explicitly mentions the target tool add_new_service, making it relevant. It is not uniquely tailored to add_new_service because it applies to any tool, so it is not tool\u2011specific. All required checks (parameter schema conformity, mandatory\u2011field presence, single\u2011action enforcement) can be performed before the tool call, satisfying the can_be_validated criterion. Enforcement can be achieved using only the request payload and existing validation logic, meeting the actionable requirement. The description provides all necessary definitions without needing external context, so it is self\u2011contained. Overall the policy is clear, enforceable, and pertinent, earning a score of 4 out of 5.\nThe policy directly mirrors the \"Atomic Operations\" rule in the ITSM Assistant policy and explicitly mentions the target tool add_new_service, making it relevant. It is not uniquely tailored to add_new_service because it applies to any tool, so it is not tool\u2011specific. All required checks (parameter schema conformity, mandatory\u2011field presence, single\u2011action enforcement) can be performed before the tool call, satisfying the can_be_validated criterion. Enforcement can be achieved using only the request payload and existing validation logic, meeting the actionable requirement. The description provides all necessary definitions without needing external context, so it is self\u2011contained. Overall the policy is clear, enforceable, and pertinent, earning a score of 4 out of 5.\n"
+        },
+        {
+            "policy_name": "Verified Record Relationships Requirement",
+            "description": "When invoking the add_new_service tool, no verification of user\u2011related record relationships is required because the tool does not accept any user reference fields. Consequently, this policy is not applicable to add_new_service and can be ignored for this operation.",
+            "references": [
+                "First you must check the user information and operate exclusively based on <strong>confirmed user roles</strong>, <strong>verified record relationships</strong>, and <strong>ITIL/database integrity rules</strong>.",
+                "User Status: Ensure any user being assigned to (<code>assigned_to</code>) or updated is <code>users.active = true</code>."
+            ],
+            "iteration_added": 1,
+            "comments": "The policy is relevant to the Service\u2011creation tool because it addresses record\u2011relationship integrity before a Service is added. However, it is not fully tool\u2011specific: the **add_new_service** endpoint does not require any user identifiers, so the rule is broader than the tool\u2019s actual parameters. The requirement can be validated in advance by calling user\u2011lookup tools, making it enforceable. The description relies on external context (the existence of an\u202fowned_by\u202ffield) that is not defined in the tool documentation, so the policy is not self\u2011contained. I suggest the alternative description above to make it clear and stand\u2011alone. Overall the policy is clear and enforceable but could be tighter to the tool\u2019s schema, earning a score of 4.\nThe policy mentions a check for user\u2011related fields before calling **add_new_service**, but the tool definition only requires a unique service name and has no user reference parameters. Consequently, the policy is not relevant to the target tool, even though it mentions the tool by name (making it superficially tool\u2011specific). The rule can be validated (by inspecting the request payload) and is actionable (a user\u2011lookup could be performed), but because the required fields do not exist, the policy cannot be satisfied in any meaningful way. The description also relies on external context (what \"owner_id\" means for a service) that is absent from the tool spec, so it is not self\u2011contained. A clearer, self\u2011contained version would either restrict the policy to tools that actually accept user references or explicitly state that it does not apply to **add_new_service**. Overall clarity and applicability are low, resulting in a score of 2 out of 5.\nThe policy concerns verification of user\u2011related record relationships, which is irrelevant for the add_new_service tool as it only requires a unique service name. Because the tool lacks any user\u2011reference parameters, the policy cannot be validated or enforced before the tool call. The policy is broad and not tailored to this specific tool, making it non\u2011relevant and non\u2011actionable in this context. It also relies on external policy language, so it is not fully self\u2011contained. A concise rewrite (provided above) makes the intent clear and stand\u2011alone.\nThe policy explicitly mentions the target tool (add_new_service) and states that user\u2011relationship checks are unnecessary because the tool\u2019s schema contains no user reference fields. This makes it clearly tool\u2011specific. The claim can be validated before calling the tool by inspecting its parameter list, which contains only service\u2011related fields. The action (ignore the verification step) is straightforward and can be enforced using only the tool\u2019s parameters and existing policy context. The description is understandable on its own, though a slight re\u2011phrasing could improve clarity. Overall the policy is clear, enforceable, and properly scoped, earning a score of 4 out of 5.\nThe policy explicitly mentions the target tool (add_new_service) and states that user\u2011relationship checks are unnecessary because the tool\u2019s schema contains no user reference fields. This makes it clearly tool\u2011specific. The claim can be validated before calling the tool by inspecting its parameter list, which contains only service\u2011related fields. The action (ignore the verification step) is straightforward and can be enforced using only the tool\u2019s parameters and existing policy context. The description is understandable on its own, though a slight re\u2011phrasing could improve clarity. Overall the policy is clear, enforceable, and properly scoped, earning a score of 4 out of 5.\n"
+        }
+    ]
+}

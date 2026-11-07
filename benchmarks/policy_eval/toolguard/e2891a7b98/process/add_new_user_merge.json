@@ -1,0 +1,61 @@
+{
+    "policies": [
+        {
+            "policy_name": "Validate Mandatory Fields for Record Creation",
+            "description": "All required parameters for creating a new user must be present before invoking the add_new_user tool.",
+            "references": [
+                "<strong>Mandatory Fields:</strong> Any request to create or update a record must validate all mandatory fields."
+            ],
+            "iteration_added": 0
+        },
+        {
+            "policy_name": "Role Must Be a Confirmed User Role",
+            "description": "The role supplied for the new user must be derived from a confirmed user role; the assistant must verify that the role is a confirmed, allowed role before proceeding.",
+            "references": [
+                "First you must check the user information and operate exclusively based on <strong>confirmed user roles</strong>, <strong>verified record relationships</strong>, and <strong>ITIL/database integrity rules</strong>."
+            ],
+            "iteration_added": 1
+        },
+        {
+            "policy_name": "Enforce Enumerated Role Values",
+            "description": "The role field must match one of the allowed enumeration values defined for users.role.",
+            "references": [
+                "| <strong>users.role</strong> | <code>admin</code>, <code>manager</code>, <code>agent</code>, <code>reporter</code> |"
+            ],
+            "iteration_added": 0
+        },
+        {
+            "policy_name": "Do Not Fabricate IDs or Assume Default Values",
+            "description": "When creating a new user, the assistant must not generate or assume any IDs, usernames, static tokens, or other auto\u2011generated fields; it must rely exclusively on the verified API response.",
+            "references": [
+                "<strong>Never assume or fabricate IDs, responses, and outcomes \u2014 rely solely on verified API results. The same is the case of optional or default arguments.</strong>"
+            ],
+            "iteration_added": 0
+        },
+        {
+            "policy_name": "Atomic Operation Requirement",
+            "description": "The creation of a new user must be performed as a single validated operation; no additional actions should be combined with the add_new_user call unless an approved batch endpoint is used.",
+            "references": [
+                "<strong>Atomic Operations:</strong> Perform <strong>one validated operation at a time</strong>, except when using approved batch endpoints."
+            ],
+            "iteration_added": 0
+        },
+        {
+            "policy_name": "Caller Must Have Administrator Role to Create User",
+            "description": "Before invoking the add_new_user tool, the assistant must verify that the requesting user holds the Administrator role (admin). Only administrators have Full CRUD access across all tables, which includes creating new user records. If the requester does not have the Administrator role, the operation must be halted and a 403\u202fForbidden response should be returned.",
+            "references": [
+                "<strong>Administrator</strong> (<code>admin</code>) | System Configuration &amp; Integrity | Full CRUD (Create, Read, Update, Delete) access across all tables.",
+                "<strong>403 Forbidden:</strong> Permission denied (user role lacks authority for the operation)."
+            ],
+            "iteration_added": 1
+        },
+        {
+            "policy_name": "Verify Referenced Records Existence",
+            "description": "When creating a new user, any supplied foreign\u2011key identifiers (e.g.,\u202flocation_id) must be validated to refer to an existing record in the system before invoking the add_new_user tool; the assistant must not assume the reference is valid.",
+            "references": [
+                "First you must check the user information and operate exclusively based on <strong>confirmed user roles</strong>, <strong>verified record relationships</strong>, and <strong>ITIL/database integrity rules</strong>."
+            ],
+            "iteration_added": 2
+        }
+    ]
+}

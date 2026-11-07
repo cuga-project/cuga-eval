@@ -1,0 +1,104 @@
+{
+    "policies": [
+        {
+            "policy_name": "Mandatory incident_sla_id field",
+            "description": "Any request to update an Incident SLA must include the mandatory field incident_sla_id.",
+            "references": [
+                "<strong>Mandatory Fields:</strong> Any request to create or update a record must validate all mandatory fields."
+            ],
+            "iteration_added": 0
+        },
+        {
+            "policy_name": "Valid stage enumeration values for Incident SLA",
+            "description": "When updating an Incident SLA, the stage field must be set to one of the allowed enumeration values: in_progress, paused, completed, cancelled, or breached.",
+            "references": [
+                "| <strong>incident_sla.stage</strong> | <code>in_progress</code>, <code>paused</code>, <code>completed</code>, <code>cancelled</code>, <code>breached</code> |"
+            ],
+            "iteration_added": 0
+        },
+        {
+            "policy_name": "SLA breach required actions",
+            "description": "When **update_incident_sla_details** is invoked with `stage=\"breached\"`, the system must:\n1. Call **find_incident_slas** (the correct tool name) filtered by the given `incident_sla_id` to obtain the linked `incident_id`.\n2. Use **update_incident** to set `escalation=true` on that incident.\n3. Use **list_users** with filters `role=manager` and `active=true` to get all active managers.\n4. For each manager, call **send_notification** passing the `incident_id`, the manager\u2019s `email`, and a message indicating the SLA breach.\nThese actions enforce the breach policy using only the defined tools and do not rely on any external information.",
+            "references": [
+                "<strong>Breach:</strong> If the SLA exceeds its duration (<code>stage = breached</code>), the <code>escalation</code> flag on the Incident <strong>must</strong> be set to true, and an automatic notification sent to the <code>Manager</code>."
+            ],
+            "iteration_added": 2
+        },
+        {
+            "policy_name": "Atomic update operation for Incident SLA",
+            "description": "Each call to update_incident_sla_details must perform only one validated operation at a time; multiple field updates are not allowed unless using an approved batch endpoint.",
+            "references": [
+                "<strong>Atomic Operations:</strong> Perform <strong>one validated operation at a time</strong>, except when using approved batch endpoints."
+            ],
+            "iteration_added": 0
+        },
+        {
+            "policy_name": "Permission enforcement for Incident SLA updates",
+            "description": "When a request to update an Incident SLA is received, first obtain the caller's user record by invoking get_user with the user_id extracted from the x-itsm-user-token; if the token lacks a user_id, call list_users filtering by the email claim in the token. Verify that the user's role is either \"admin\" or \"manager\". If the role is anything else, immediately return a 403 Forbidden response and do not call update_incident_sla_details.",
+            "references": [
+                "<strong>403 Forbidden:</strong> Permission denied (user role lacks authority for the operation)."
+            ],
+            "iteration_added": 0
+        },
+        {
+            "policy_name": "Conflict handling for Incident SLA state updates",
+            "description": "If an update to an Incident SLA record results in a record lock or an invalid state transition, the system must return a 409 Conflict error.",
+            "references": [
+                "<strong>409 Conflict:</strong> Record locking or state conflict."
+            ],
+            "iteration_added": 0
+        },
+        {
+            "policy_name": "Operation based on confirmed user roles and verified relationships",
+            "description": "Validate the caller\u2019s authority and data ownership before calling `update_incident_sla_details`:\n- Ensure the caller\u2019s user record exists, is active, and has a role in {admin, manager, agent, reporter}.\n- Verify that the caller\u2019s organization ID (`org_id`) matches the organization ID of the Incident SLA record, the Incident record, and the SLA definition record.\n- Confirm that the SLA definition is active.\n- Abort the update if any of these conditions are not met, returning an explicit validation\u2011failure message.\nThese checks can be performed with the existing user, incident, SLA, and related lookup tools, without requiring external context.",
+            "references": [
+                "First you must check the user information and operate exclusively based on <strong>confirmed user roles</strong>, <strong>verified record relationships</strong>, and <strong>ITIL/database integrity rules</strong>."
+            ],
+            "iteration_added": 1
+        },
+        {
+            "policy_name": "Referential integrity for incident_id and sla_def_id updates",
+            "description": "Before calling **update_incident_sla_details**, verify that any new **incident_id** refers to an existing incident (using `find_incident_by_id` or `find_incident_by_number`) and that any new **sla_def_id** refers to an existing SLA definition (using `find_sla_definition_by_name` or `find_sla_definitions`). If either lookup fails, abort the update and return an error indicating the missing reference.",
+            "references": [
+                "<strong>Referential Integrity:</strong> Before closing any record, verify that all mandatory dependencies are satisfied."
+            ],
+            "iteration_added": 1
+        },
+        {
+            "policy_name": "Prohibit fabrication of IDs or assumptions",
+            "description": "The update_incident_sla_details call must never assume, guess, or fabricate incident_sla_id, incident_id, sla_def_id, or any other identifiers; it must rely only on IDs retrieved from verified API responses.",
+            "references": [
+                "Never assume or fabricate IDs, responses, or outcomes \u2014 rely solely on verified API results. The same is the case of optional or default arguments."
+            ],
+            "iteration_added": 1
+        },
+        {
+            "policy_name": "SLA definition must align with incident priority",
+            "description": "When invoking the **update_incident_sla_details** tool, ensure that the **sla_def_id** supplied refers to an SLA definition whose **applies_to_priority** field (if set) matches the **priority** field of the incident linked to the Incident SLA record. If the SLA definition does not specify an applies_to_priority, it is considered applicable to any priority. The update must not change the SLA definition to one that conflicts with the incident's current priority.",
+            "references": [
+                "<strong>SLA Application:</strong> SLAs are automatically aligned based on <code>priority</code> linked to the incident."
+            ],
+            "iteration_added": 2
+        }
+    ],
+    "archive": [
+        {
+            "policy_name": "SLA pause requirements",
+            "description": "When setting the SLA stage to paused, the related Incident must be in on_hold status and its on_hold_reason must be one of: Awaiting Change, Awaiting Caller, or Awaiting Problem.",
+            "references": [
+                "<strong>SLA Pause:</strong> The SLA timer <strong>must</strong> be paused (<code>stage = paused</code>) when the Incident is in <code>stage = on_hold</code> and the <code>on_hold_reason</code> is one of the following enumerations: <code>Awaiting Change</code>, <code>Awaiting Caller</code>, or <code>Awaiting Problem</code>."
+            ],
+            "iteration_added": 2,
+            "comments": "The policy directly governs when the SLA stage can be set to 'paused', which is exactly what the 'update_incident_sla_details' tool does. It is relevant because the tool can modify the SLA stage, but the rule is not exclusive to this tool\u2014it applies to any operation that changes an Incident SLA stage, so it is not tool\u2011specific. Compliance can be validated before invoking the tool by fetching the associated incident (via find_incident_by_id or similar) and confirming its status is 'on_hold' and that the on_hold_reason matches one of the allowed enumerations. This validation can be performed with existing tools and the policy description is complete without needing external context. Overall the policy is clear, enforceable, and testable, earning a score of 4 out of 5.\nThe policy directly governs when the SLA stage can be set to 'paused', which is exactly what the 'update_incident_sla_details' tool does. It is relevant because the tool can modify the SLA stage, but the rule is not exclusive to this tool\u2014it applies to any operation that changes an Incident SLA stage, so it is not tool\u2011specific. Compliance can be validated before invoking the tool by fetching the associated incident (via find_incident_by_id or similar) and confirming its status is 'on_hold' and that the on_hold_reason matches one of the allowed enumerations. This validation can be performed with existing tools and the policy description is complete without needing external context. Overall the policy is clear, enforceable, and testable, earning a score of 4 out of 5.\nThe policy directly governs when the SLA stage can be set to 'paused', which is exactly what the 'update_incident_sla_details' tool does. It is relevant because the tool can modify the SLA stage, but the rule is not exclusive to this tool\u2014it applies to any operation that changes an Incident SLA stage, so it is not tool\u2011specific. Compliance can be validated before invoking the tool by fetching the associated incident (via find_incident_by_id or similar) and confirming its status is 'on_hold' and that the on_hold_reason matches one of the allowed enumerations. This validation can be performed with existing tools and the policy description is complete without needing external context. Overall the policy is clear, enforceable, and testable, earning a score of 4 out of 5.\nThe policy directly governs when the SLA stage can be set to 'paused', which is exactly what the 'update_incident_sla_details' tool does. It is relevant because the tool can modify the SLA stage, but the rule is not exclusive to this tool\u2014it applies to any operation that changes an Incident SLA stage, so it is not tool\u2011specific. Compliance can be validated before invoking the tool by fetching the associated incident (via find_incident_by_id or similar) and confirming its status is 'on_hold' and that the on_hold_reason matches one of the allowed enumerations. This validation can be performed with existing tools and the policy description is complete without needing external context. Overall the policy is clear, enforceable, and testable, earning a score of 4 out of 5.\nThe policy directly governs when the SLA stage can be set to 'paused', which is exactly what the 'update_incident_sla_details' tool does. It is relevant because the tool can modify the SLA stage, but the rule is not exclusive to this tool\u2014it applies to any operation that changes an Incident SLA stage, so it is not tool\u2011specific. Compliance can be validated before invoking the tool by fetching the associated incident (via find_incident_by_id or similar) and confirming its status is 'on_hold' and that the on_hold_reason matches one of the allowed enumerations. This validation can be performed with existing tools and the policy description is complete without needing external context. Overall the policy is clear, enforceable, and testable, earning a score of 4 out of 5.\n"
+        },
+        {
+            "policy_name": "Rate limiting with exponential backoff for Incident SLA updates",
+            "description": "When calling **update_incident_sla_details**, if the response status is 429 (Too Many Requests) or contains a rate\u2011limit header indicating the request limit has been exceeded, abort the current attempt and schedule a retry using exponential backoff: start with a 1\u2011second delay, double the delay after each subsequent 429 response (2\u202fs, 4\u202fs, 8\u202fs, \u2026), and cap the delay at 60\u202fseconds. Stop retrying after a maximum of 5 attempts (or after a total elapsed backoff time of 120\u202fseconds) and surface an error indicating the operation could not be completed due to rate limiting.",
+            "references": [
+                "<strong>Rate Limiting:</strong> If exceeded, pause and retry using <strong>Exponential Backoff</strong>."
+            ],
+            "iteration_added": 0,
+            "comments": "The policy is directly applicable to the target tool (update_incident_sla_details) and is narrowly scoped to handling rate\u2011limit responses, making it both relevant and tool\u2011specific. Its enforcement can be implemented entirely within the agent logic that wraps the tool call, so it is actionable. However, compliance cannot be verified *before* the API call because the need for backoff is only known after receiving a 429 response, so the policy is not pre\u2011validatable. The description lacks explicit bounds (maximum retry count, maximum backoff delay), which means it is not fully self\u2011contained; the suggested alternative adds those missing parameters. Overall the policy is clear, enforceable, and useful, earning a score of 4.\nThe policy directly addresses the *update_incident_sla_details* tool, making it both relevant and tool\u2011specific. It cannot be fully validated **before** the tool call because the 429 status is only known after the request is sent, so `can_be_validated` is false. The required actions (detect 429, abort, apply exponential backoff, limit attempts and total time, surface an error) can be performed using only the tool\u2019s response and internal timing logic, so the policy is actionable. All necessary details (initial delay, backoff factor, caps, max attempts, total backoff limit, error handling) are included in the description, making it self\u2011contained. The policy is clear, enforceable, and well\u2011scoped; a score of 4 reflects its high quality while noting that pre\u2011validation is not possible.\nThe policy directly addresses the *update_incident_sla_details* tool, making it both relevant and tool\u2011specific. It cannot be fully validated **before** the tool call because the 429 status is only known after the request is sent, so `can_be_validated` is false. The required actions (detect 429, abort, apply exponential backoff, limit attempts and total time, surface an error) can be performed using only the tool\u2019s response and internal timing logic, so the policy is actionable. All necessary details (initial delay, backoff factor, caps, max attempts, total backoff limit, error handling) are included in the description, making it self\u2011contained. The policy is clear, enforceable, and well\u2011scoped; a score of 4 reflects its high quality while noting that pre\u2011validation is not possible.\nThe policy directly addresses the *update_incident_sla_details* tool, making it both relevant and tool\u2011specific. It cannot be fully validated **before** the tool call because the 429 status is only known after the request is sent, so `can_be_validated` is false. The required actions (detect 429, abort, apply exponential backoff, limit attempts and total time, surface an error) can be performed using only the tool\u2019s response and internal timing logic, so the policy is actionable. All necessary details (initial delay, backoff factor, caps, max attempts, total backoff limit, error handling) are included in the description, making it self\u2011contained. The policy is clear, enforceable, and well\u2011scoped; a score of 4 reflects its high quality while noting that pre\u2011validation is not possible.\n"
+        }
+    ]
+}

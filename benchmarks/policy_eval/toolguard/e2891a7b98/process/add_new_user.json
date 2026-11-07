@@ -1,0 +1,29 @@
+{
+    "policies": [
+        {
+            "policy_name": "Validate Mandatory Fields for Record Creation",
+            "description": "All required parameters for creating a new user must be present before invoking the add_new_user tool.",
+            "references": [
+                "<strong>Mandatory Fields:</strong> Any request to create or update a record must validate all mandatory fields."
+            ],
+            "iteration_added": 0
+        },
+        {
+            "policy_name": "Role Must Be a Confirmed, Allowed Value",
+            "description": "The role supplied for the new user must be one of the predefined allowed roles (admin, manager, agent, reporter) and therefore a confirmed user role.",
+            "references": [
+                "First you must check the user information and operate exclusively based on <strong>confirmed user roles</strong>, <strong>verified record relationships</strong>, and <strong>ITIL/database integrity rules</strong>.",
+                "| <strong>users.role</strong> | <code>admin</code>, <code>manager</code>, <code>agent</code>, <code>reporter</code> |"
+            ],
+            "iteration_added": 0
+        },
+        {
+            "policy_name": "Enforce Enumerated Role Values",
+            "description": "The role field must match one of the allowed enumeration values defined for users.role.",
+            "references": [
+                "| <strong>users.role</strong> | <code>admin</code>, <code>manager</code>, <code>agent</code>, <code>reporter</code> |"
+            ],
+            "iteration_added": 0
+        }
+    ]
+}
