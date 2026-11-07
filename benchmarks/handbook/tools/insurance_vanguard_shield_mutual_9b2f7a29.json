@@ -1,0 +1,5044 @@
+[
+ {
+  "name": "google_calendar__create_event",
+  "description": "Creates a new event in Google Calendar.\n\nArgs:\n    summary: Event title\n    start: Start time object with either 'dateTime' (ISO format, e.g. '2025-12-10T09:00:00-05:00')\n           for timed events, or 'date' (YYYY-MM-DD, e.g. '2025-12-10') for all-day events.\n           Optionally include 'timeZone' (e.g. 'America/New_York').\n    end: End time object with either 'dateTime' or 'date' (same format as start).\n         For all-day events, 'date' is exclusive (e.g. end '2025-12-11' means the event ends on 2025-12-10).\n    description: Event description\n    location: Event location\n    calendar_id: Calendar to create the event in (default 'primary')\n    recurrence: RRULE strings for recurring events (e.g., ['RRULE:FREQ=WEEKLY;BYDAY=TU;COUNT=10'])\n    reminders: Reminder overrides, e.g. {\"useDefault\": false, \"overrides\": [{\"method\": \"popup\", \"minutes\": 15}]}\n    attendees: List of attendees, e.g. [{\"email\": \"alice@co.com\", \"displayName\": \"Alice\"}]. responseStatus defaults to 'needsAction'.\n    transparency: Whether the event blocks availability. 'opaque' is busy; 'transparent' is free.\n    account_id: Calendar account to use in multi-account worlds. Defaults to the active account.\n\nReturns:\n    The created event object with its ID",
+  "inputSchema": {
+   "type": "object",
+   "properties": {
+    "summary": {
+     "minLength": 1,
+     "type": "string"
+    },
+    "start": {
+     "additionalProperties": false,
+     "description": "Time specification for an event \u2014 mirrors the Google Calendar API shape.",
+     "properties": {
+      "dateTime": {
+       "anyOf": [
+        {
+         "pattern": "^\\d{4}-\\d{2}-\\d{2}T\\d{2}:\\d{2}:\\d{2}(?:\\.\\d+)?(?:Z|[+-]\\d{2}:\\d{2})?$",
+         "type": "string"
+        },
+        {
+         "type": "null"
+        }
+       ],
+       "default": null
+      },
+      "date": {
+       "anyOf": [
+        {
+         "pattern": "^\\d{4}-\\d{2}-\\d{2}$",
+         "type": "string"
+        },
+        {
+         "type": "null"
+        }
+       ],
+       "default": null
+      },
+      "timeZone": {
+       "anyOf": [
+        {
+         "description": "IANA time zone name, e.g. America/New_York",
+         "type": "string"
+        },
+        {
+         "type": "null"
+        }
+       ],
+       "default": null
+      }
+     },
+     "type": "object"
+    },
+    "end": {
+     "additionalProperties": false,
+     "description": "Time specification for an event \u2014 mirrors the Google Calendar API shape.",
+     "properties": {
+      "dateTime": {
+       "anyOf": [
+        {
+         "pattern": "^\\d{4}-\\d{2}-\\d{2}T\\d{2}:\\d{2}:\\d{2}(?:\\.\\d+)?(?:Z|[+-]\\d{2}:\\d{2})?$",
+         "type": "string"
+        },
+        {
+         "type": "null"
+        }
+       ],
+       "default": null
+      },
+      "date": {
+       "anyOf": [
+        {
+         "pattern": "^\\d{4}-\\d{2}-\\d{2}$",
+         "type": "string"
+        },
+        {
+         "type": "null"
+        }
+       ],
+       "default": null
+      },
+      "timeZone": {
+       "anyOf": [
+        {
+         "description": "IANA time zone name, e.g. America/New_York",
+         "type": "string"
+        },
+        {
+         "type": "null"
+        }
+       ],
+       "default": null
+      }
+     },
+     "type": "object"
+    },
+    "description": {
+     "anyOf": [
+      {
+       "type": "string"
+      },
+      {
+       "type": "null"
+      }
+     ],
+     "default": null
+    },
+    "location": {
+     "anyOf": [
+      {
+       "type": "string"
+      },
+      {
+       "type": "null"
+      }
+     ],
+     "default": null
+    },
+    "calendar_id": {
+     "default": "primary",
+     "minLength": 1,
+     "type": "string"
+    },
+    "recurrence": {
+     "anyOf": [
+      {
+       "items": {
+        "pattern": "^(?:RRULE|EXRULE|RDATE|EXDATE):",
+        "type": "string"
+       },
+       "type": "array"
+      },
+      {
+       "type": "null"
+      }
+     ],
+     "default": null
+    },
+    "reminders": {
+     "anyOf": [
+      {
+       "additionalProperties": false,
+       "description": "Reminder settings for an event.",
+       "properties": {
+        "useDefault": {
+         "type": "boolean"
+        },
+        "overrides": {
+         "anyOf": [
+          {
+           "items": {
+            "additionalProperties": false,
+            "description": "Event reminder override \u2014 mirrors Google Calendar API values.",
+            "properties": {
+             "method": {
+              "description": "Event reminder delivery methods supported by Google Calendar.",
+              "enum": [
+               "email",
+               "popup"
+              ],
+              "type": "string"
+             },
+             "minutes": {
+              "maximum": 40320,
+              "minimum": 0,
+              "type": "integer"
+             }
+            },
+            "required": [
+             "method",
+             "minutes"
+            ],
+            "type": "object"
+           },
+           "maxItems": 5,
+           "minItems": 1,
+           "type": "array"
+          },
+          {
+           "type": "null"
+          }
+         ],
+         "default": null
+        }
+       },
+       "required": [
+        "useDefault"
+       ],
+       "type": "object"
+      },
+      {
+       "type": "null"
+      }
+     ],
+     "default": null
+    },
+    "attendees": {
+     "anyOf": [
+      {
+       "items": {
+        "additionalProperties": false,
+        "description": "Attendee on an event \u2014 mirrors the Google Calendar API shape.",
+        "properties": {
+         "email": {
+          "format": "email",
+          "type": "string"
+         },
+         "displayName": {
+          "anyOf": [
+           {
+            "type": "string"
+           },
+           {
+            "type": "null"
+           }
+          ],
+          "default": null
+         },
+         "organizer": {
+          "anyOf": [
+           {
+            "type": "boolean"
+           },
+           {
+            "type": "null"
+           }
+          ],
+          "default": null
+         },
+         "self": {
+          "anyOf": [
+           {
+            "type": "boolean"
+           },
+           {
+            "type": "null"
+           }
+          ],
+          "default": null
+         },
+         "resource": {
+          "anyOf": [
+           {
+            "type": "boolean"
+           },
+           {
+            "type": "null"
+           }
+          ],
+          "default": null
+         },
+         "optional": {
+          "anyOf": [
+           {
+            "type": "boolean"
+           },
+           {
+            "type": "null"
+           }
+          ],
+          "default": null
+         },
+         "responseStatus": {
+          "anyOf": [
+           {
+            "description": "Attendee RSVP state \u2014 mirrors Google Calendar API values.",
+            "enum": [
+             "needsAction",
+             "declined",
+             "tentative",
+             "accepted"
+            ],
+            "type": "string"
+           },
+           {
+            "type": "null"
+           }
+          ],
+          "default": null
+         },
+         "comment": {
+          "anyOf": [
+           {
+            "type": "string"
+           },
+           {
+            "type": "null"
+           }
+          ],
+          "default": null
+         },
+         "additionalGuests": {
+          "anyOf": [
+           {
+            "minimum": 0,
+            "type": "integer"
+           },
+           {
+            "type": "null"
+           }
+          ],
+          "default": null
+         }
+        },
+        "required": [
+         "email"
+        ],
+        "type": "object"
+       },
+       "type": "array"
+      },
+      {
+       "type": "null"
+      }
+     ],
+     "default": null
+    },
+    "creator": {
+     "anyOf": [
+      {
+       "additionalProperties": false,
+       "description": "Creator or organizer person object on an event.",
+       "properties": {
+        "id": {
+         "anyOf": [
+          {
+           "type": "string"
+          },
+          {
+           "type": "null"
+          }
+         ],
+         "default": null
+        },
+        "email": {
+         "anyOf": [
+          {
+           "format": "email",
+           "type": "string"
+          },
+          {
+           "type": "null"
+          }
+         ],
+         "default": null
+        },
+        "displayName": {
+         "anyOf": [
+          {
+           "type": "string"
+          },
+          {
+           "type": "null"
+          }
+         ],
+         "default": null
+        },
+        "self": {
+         "anyOf": [
+          {
+           "type": "boolean"
+          },
+          {
+           "type": "null"
+          }
+         ],
+         "default": null
+        }
+       },
+       "type": "object"
+      },
+      {
+       "type": "null"
+      }
+     ],
+     "default": null
+    },
+    "organizer": {
+     "anyOf": [
+      {
+       "additionalProperties": false,
+       "description": "Creator or organizer person object on an event.",
+       "properties": {
+        "id": {
+         "anyOf": [
+          {
+           "type": "string"
+          },
+          {
+           "type": "null"
+          }
+         ],
+         "default": null
+        },
+        "email": {
+         "anyOf": [
+          {
+           "format": "email",
+           "type": "string"
+          },
+          {
+           "type": "null"
+          }
+         ],
+         "default": null
+        },
+        "displayName": {
+         "anyOf": [
+          {
+           "type": "string"
+          },
+          {
+           "type": "null"
+          }
+         ],
+         "default": null
+        },
+        "self": {
+         "anyOf": [
+          {
+           "type": "boolean"
+          },
+          {
+           "type": "null"
+          }
+         ],
+         "default": null
+        }
+       },
+       "type": "object"
+      },
+      {
+       "type": "null"
+      }
+     ],
+     "default": null
+    },
+    "extendedProperties": {
+     "anyOf": [
+      {
+       "additionalProperties": false,
+       "description": "Arbitrary event metadata supported by Google Calendar.",
+       "properties": {
+        "private": {
+         "anyOf": [
+          {
+           "additionalProperties": {
+            "type": "string"
+           },
+           "type": "object"
+          },
+          {
+           "type": "null"
+          }
+         ],
+         "default": null
+        },
+        "shared": {
+         "anyOf": [
+          {
+           "additionalProperties": {
+            "type": "string"
+           },
+           "type": "object"
+          },
+          {
+           "type": "null"
+          }
+         ],
+         "default": null
+        }
+       },
+       "type": "object"
+      },
+      {
+       "type": "null"
+      }
+     ],
+     "default": null
+    },
+    "source": {
+     "anyOf": [
+      {
+       "additionalProperties": false,
+       "description": "Source metadata for an event.",
+       "properties": {
+        "title": {
+         "anyOf": [
+          {
+           "minLength": 1,
+           "type": "string"
+          },
+          {
+           "type": "null"
+          }
+         ],
+         "default": null
+        }
+       },
+       "type": "object"
+      },
+      {
+       "type": "null"
+      }
+     ],
+     "default": null
+    },
+    "transparency": {
+     "anyOf": [
+      {
+       "description": "Whether an event blocks availability in free/busy calculations.",
+       "enum": [
+        "opaque",
+        "transparent"
+       ],
+       "type": "string"
+      },
+      {
+       "type": "null"
+      }
+     ],
+     "default": null
+    },
+    "eventType": {
+     "description": "Event type values supported by Google Calendar.",
+     "enum": [
+      "default",
+      "outOfOffice",
+      "focusTime",
+      "fromGmail",
+      "workingLocation",
+      "birthday"
+     ],
+     "type": "string",
+     "default": "default"
+    },
+    "outOfOfficeProperties": {
+     "anyOf": [
+      {
+       "additionalProperties": false,
+       "description": "Out-of-office event data.",
+       "properties": {
+        "autoDeclineMode": {
+         "anyOf": [
+          {
+           "description": "Auto-decline behavior for focus time and out-of-office events.",
+           "enum": [
+            "declineNone",
+            "declineAllConflictingInvitations",
+            "declineOnlyNewConflictingInvitations"
+           ],
+           "type": "string"
+          },
+          {
+           "type": "null"
+          }
+         ],
+         "default": null
+        },
+        "declineMessage": {
+         "anyOf": [
+          {
+           "type": "string"
+          },
+          {
+           "type": "null"
+          }
+         ],
+         "default": null
+        }
+       },
+       "type": "object"
+      },
+      {
+       "type": "null"
+      }
+     ],
+     "default": null
+    },
+    "focusTimeProperties": {
+     "anyOf": [
+      {
+       "additionalProperties": false,
+       "description": "Focus time event data.",
+       "properties": {
+        "autoDeclineMode": {
+         "anyOf": [
+          {
+           "description": "Auto-decline behavior for focus time and out-of-office events.",
+           "enum": [
+            "declineNone",
+            "declineAllConflictingInvitations",
+            "declineOnlyNewConflictingInvitations"
+           ],
+           "type": "string"
+          },
+          {
+           "type": "null"
+          }
+         ],
+         "default": null
+        },
+        "declineMessage": {
+         "anyOf": [
+          {
+           "type": "string"
+          },
+          {
+           "type": "null"
+          }
+         ],
+         "default": null
+        },
+        "chatStatus": {
+         "anyOf": [
+          {
+           "description": "Chat status values for focus time events.",
+           "enum": [
+            "available",
+            "doNotDisturb"
+           ],
+           "type": "string"
+          },
+          {
+           "type": "null"
+          }
+         ],
+         "default": null
+        }
+       },
+       "type": "object"
+      },
+      {
+       "type": "null"
+      }
+     ],
+     "default": null
+    },
+    "workingLocationProperties": {
+     "anyOf": [
+      {
+       "additionalProperties": false,
+       "description": "Working location event data.",
+       "properties": {
+        "type": {
+         "description": "Working location type values supported by Google Calendar.",
+         "enum": [
+          "homeOffice",
+          "officeLocation",
+          "customLocation"
+         ],
+         "type": "string"
+        },
+        "homeOffice": {
+         "anyOf": [
+          {
+           "additionalProperties": false,
+           "description": "Home office marker for working location events.",
+           "properties": {},
+           "type": "object"
+          },
+          {
+           "type": "null"
+          }
+         ],
+         "default": null
+        },
+        "customLocation": {
+         "anyOf": [
+          {
+           "additionalProperties": false,
+           "description": "Custom working location details.",
+           "properties": {
+            "label": {
+             "anyOf": [
+              {
+               "type": "string"
+              },
+              {
+               "type": "null"
+              }
+             ],
+             "default": null
+            }
+           },
+           "type": "object"
+          },
+          {
+           "type": "null"
+          }
+         ],
+         "default": null
+        },
+        "officeLocation": {
+         "anyOf": [
+          {
+           "additionalProperties": false,
+           "description": "Office working location details.",
+           "properties": {
+            "buildingId": {
+             "anyOf": [
+              {
+               "type": "string"
+              },
+              {
+               "type": "null"
+              }
+             ],
+             "default": null
+            },
+            "floorId": {
+             "anyOf": [
+              {
+               "type": "string"
+              },
+              {
+               "type": "null"
+              }
+             ],
+             "default": null
+            },
+            "floorSectionId": {
+             "anyOf": [
+              {
+               "type": "string"
+              },
+              {
+               "type": "null"
+              }
+             ],
+             "default": null
+            },
+            "deskId": {
+             "anyOf": [
+              {
+               "type": "string"
+              },
+              {
+               "type": "null"
+              }
+             ],
+             "default": null
+            },
+            "label": {
+             "anyOf": [
+              {
+               "type": "string"
+              },
+              {
+               "type": "null"
+              }
+             ],
+             "default": null
+            }
+           },
+           "type": "object"
+          },
+          {
+           "type": "null"
+          }
+         ],
+         "default": null
+        }
+       },
+       "required": [
+        "type"
+       ],
+       "type": "object"
+      },
+      {
+       "type": "null"
+      }
+     ],
+     "default": null
+    },
+    "birthdayProperties": {
+     "anyOf": [
+      {
+       "additionalProperties": false,
+       "description": "Birthday or special-date event data.",
+       "properties": {
+        "type": {
+         "description": "Birthday or special-date type values supported by Google Calendar.",
+         "enum": [
+          "anniversary",
+          "birthday",
+          "custom",
+          "other",
+          "self"
+         ],
+         "type": "string",
+         "default": "birthday"
+        },
+        "contact": {
+         "anyOf": [
+          {
+           "description": "Google People API resource name used by Calendar birthdays, e.g. \"people/c12345\".",
+           "pattern": "^people/c[0-9]+$",
+           "type": "string"
+          },
+          {
+           "type": "null"
+          }
+         ],
+         "default": null
+        },
+        "customTypeName": {
+         "anyOf": [
+          {
+           "type": "string"
+          },
+          {
+           "type": "null"
+          }
+         ],
+         "default": null
+        }
+       },
+       "type": "object"
+      },
+      {
+       "type": "null"
+      }
+     ],
+     "default": null
+    },
+    "account_id": {
+     "anyOf": [
+      {
+       "minLength": 1,
+       "type": "string"
+      },
+      {
+       "type": "null"
+      }
+     ],
+     "default": null
+    }
+   },
+   "required": [
+    "start",
+    "summary",
+    "end"
+   ],
+   "additionalProperties": false
+  }
+ },
+ {
+  "name": "google_calendar__get_event",
+  "description": "Retrieves details of a specific event.\n\nArgs:\n    eventId: ID of the event to retrieve\n    calendar_id: Calendar to look in (default 'primary')\n    account_id: Calendar account to use in multi-account worlds. Defaults to the active account.\n\nReturns:\n    The event object if found",
+  "inputSchema": {
+   "type": "object",
+   "properties": {
+    "eventId": {
+     "minLength": 1,
+     "type": "string"
+    },
+    "calendar_id": {
+     "default": "primary",
+     "minLength": 1,
+     "type": "string"
+    },
+    "account_id": {
+     "anyOf": [
+      {
+       "minLength": 1,
+       "type": "string"
+      },
+      {
+       "type": "null"
+      }
+     ],
+     "default": null
+    }
+   },
+   "required": [
+    "eventId"
+   ],
+   "additionalProperties": false
+  }
+ },
+ {
+  "name": "google_calendar__update_event",
+  "description": "Updates an existing event.\n\nArgs:\n    eventId: ID of the event to update\n    summary: New event title\n    start: New start time object with either 'dateTime' (ISO format) for timed events,\n           or 'date' (YYYY-MM-DD) for all-day events. Optionally include 'timeZone'.\n    end: New end time object with either 'dateTime' or 'date' (same format as start).\n    description: New event description\n    location: New event location\n    calendar_id: Calendar containing the event (default 'primary')\n    recurrence: RRULE strings for recurring events (pass empty list to remove recurrence)\n    reminders: Reminder overrides (pass {\"useDefault\": true} to reset to defaults)\n    attendees: Replace attendee list (pass empty list to remove all attendees)\n    transparency: Whether the event blocks availability. 'opaque' is busy; 'transparent' is free.\n    eventType: Event type to set. Switching types clears properties that only belong to the old type.\n    clear_fields: Optional event fields to remove, e.g. ['source', 'transparency'].\n    account_id: Calendar account to use in multi-account worlds. Defaults to the active account.\n\nReturns:\n    The updated event object",
+  "inputSchema": {
+   "type": "object",
+   "properties": {
+    "eventId": {
+     "minLength": 1,
+     "type": "string"
+    },
+    "summary": {
+     "anyOf": [
+      {
+       "minLength": 1,
+       "type": "string"
+      },
+      {
+       "type": "null"
+      }
+     ],
+     "default": null
+    },
+    "start": {
+     "anyOf": [
+      {
+       "additionalProperties": false,
+       "description": "Time specification for an event \u2014 mirrors the Google Calendar API shape.",
+       "properties": {
+        "dateTime": {
+         "anyOf": [
+          {
+           "pattern": "^\\d{4}-\\d{2}-\\d{2}T\\d{2}:\\d{2}:\\d{2}(?:\\.\\d+)?(?:Z|[+-]\\d{2}:\\d{2})?$",
+           "type": "string"
+          },
+          {
+           "type": "null"
+          }
+         ],
+         "default": null
+        },
+        "date": {
+         "anyOf": [
+          {
+           "pattern": "^\\d{4}-\\d{2}-\\d{2}$",
+           "type": "string"
+          },
+          {
+           "type": "null"
+          }
+         ],
+         "default": null
+        },
+        "timeZone": {
+         "anyOf": [
+          {
+           "description": "IANA time zone name, e.g. America/New_York",
+           "type": "string"
+          },
+          {
+           "type": "null"
+          }
+         ],
+         "default": null
+        }
+       },
+       "type": "object"
+      },
+      {
+       "type": "null"
+      }
+     ],
+     "default": null
+    },
+    "end": {
+     "anyOf": [
+      {
+       "additionalProperties": false,
+       "description": "Time specification for an event \u2014 mirrors the Google Calendar API shape.",
+       "properties": {
+        "dateTime": {
+         "anyOf": [
+          {
+           "pattern": "^\\d{4}-\\d{2}-\\d{2}T\\d{2}:\\d{2}:\\d{2}(?:\\.\\d+)?(?:Z|[+-]\\d{2}:\\d{2})?$",
+           "type": "string"
+          },
+          {
+           "type": "null"
+          }
+         ],
+         "default": null
+        },
+        "date": {
+         "anyOf": [
+          {
+           "pattern": "^\\d{4}-\\d{2}-\\d{2}$",
+           "type": "string"
+          },
+          {
+           "type": "null"
+          }
+         ],
+         "default": null
+        },
+        "timeZone": {
+         "anyOf": [
+          {
+           "description": "IANA time zone name, e.g. America/New_York",
+           "type": "string"
+          },
+          {
+           "type": "null"
+          }
+         ],
+         "default": null
+        }
+       },
+       "type": "object"
+      },
+      {
+       "type": "null"
+      }
+     ],
+     "default": null
+    },
+    "description": {
+     "anyOf": [
+      {
+       "type": "string"
+      },
+      {
+       "type": "null"
+      }
+     ],
+     "default": null
+    },
+    "location": {
+     "anyOf": [
+      {
+       "type": "string"
+      },
+      {
+       "type": "null"
+      }
+     ],
+     "default": null
+    },
+    "calendar_id": {
+     "default": "primary",
+     "minLength": 1,
+     "type": "string"
+    },
+    "recurrence": {
+     "anyOf": [
+      {
+       "items": {
+        "pattern": "^(?:RRULE|EXRULE|RDATE|EXDATE):",
+        "type": "string"
+       },
+       "type": "array"
+      },
+      {
+       "type": "null"
+      }
+     ],
+     "default": null
+    },
+    "reminders": {
+     "anyOf": [
+      {
+       "additionalProperties": false,
+       "description": "Reminder settings for an event.",
+       "properties": {
+        "useDefault": {
+         "type": "boolean"
+        },
+        "overrides": {
+         "anyOf": [
+          {
+           "items": {
+            "additionalProperties": false,
+            "description": "Event reminder override \u2014 mirrors Google Calendar API values.",
+            "properties": {
+             "method": {
+              "description": "Event reminder delivery methods supported by Google Calendar.",
+              "enum": [
+               "email",
+               "popup"
+              ],
+              "type": "string"
+             },
+             "minutes": {
+              "maximum": 40320,
+              "minimum": 0,
+              "type": "integer"
+             }
+            },
+            "required": [
+             "method",
+             "minutes"
+            ],
+            "type": "object"
+           },
+           "maxItems": 5,
+           "minItems": 1,
+           "type": "array"
+          },
+          {
+           "type": "null"
+          }
+         ],
+         "default": null
+        }
+       },
+       "required": [
+        "useDefault"
+       ],
+       "type": "object"
+      },
+      {
+       "type": "null"
+      }
+     ],
+     "default": null
+    },
+    "attendees": {
+     "anyOf": [
+      {
+       "items": {
+        "additionalProperties": false,
+        "description": "Attendee on an event \u2014 mirrors the Google Calendar API shape.",
+        "properties": {
+         "email": {
+          "format": "email",
+          "type": "string"
+         },
+         "displayName": {
+          "anyOf": [
+           {
+            "type": "string"
+           },
+           {
+            "type": "null"
+           }
+          ],
+          "default": null
+         },
+         "organizer": {
+          "anyOf": [
+           {
+            "type": "boolean"
+           },
+           {
+            "type": "null"
+           }
+          ],
+          "default": null
+         },
+         "self": {
+          "anyOf": [
+           {
+            "type": "boolean"
+           },
+           {
+            "type": "null"
+           }
+          ],
+          "default": null
+         },
+         "resource": {
+          "anyOf": [
+           {
+            "type": "boolean"
+           },
+           {
+            "type": "null"
+           }
+          ],
+          "default": null
+         },
+         "optional": {
+          "anyOf": [
+           {
+            "type": "boolean"
+           },
+           {
+            "type": "null"
+           }
+          ],
+          "default": null
+         },
+         "responseStatus": {
+          "anyOf": [
+           {
+            "description": "Attendee RSVP state \u2014 mirrors Google Calendar API values.",
+            "enum": [
+             "needsAction",
+             "declined",
+             "tentative",
+             "accepted"
+            ],
+            "type": "string"
+           },
+           {
+            "type": "null"
+           }
+          ],
+          "default": null
+         },
+         "comment": {
+          "anyOf": [
+           {
+            "type": "string"
+           },
+           {
+            "type": "null"
+           }
+          ],
+          "default": null
+         },
+         "additionalGuests": {
+          "anyOf": [
+           {
+            "minimum": 0,
+            "type": "integer"
+           },
+           {
+            "type": "null"
+           }
+          ],
+          "default": null
+         }
+        },
+        "required": [
+         "email"
+        ],
+        "type": "object"
+       },
+       "type": "array"
+      },
+      {
+       "type": "null"
+      }
+     ],
+     "default": null
+    },
+    "creator": {
+     "anyOf": [
+      {
+       "additionalProperties": false,
+       "description": "Creator or organizer person object on an event.",
+       "properties": {
+        "id": {
+         "anyOf": [
+          {
+           "type": "string"
+          },
+          {
+           "type": "null"
+          }
+         ],
+         "default": null
+        },
+        "email": {
+         "anyOf": [
+          {
+           "format": "email",
+           "type": "string"
+          },
+          {
+           "type": "null"
+          }
+         ],
+         "default": null
+        },
+        "displayName": {
+         "anyOf": [
+          {
+           "type": "string"
+          },
+          {
+           "type": "null"
+          }
+         ],
+         "default": null
+        },
+        "self": {
+         "anyOf": [
+          {
+           "type": "boolean"
+          },
+          {
+           "type": "null"
+          }
+         ],
+         "default": null
+        }
+       },
+       "type": "object"
+      },
+      {
+       "type": "null"
+      }
+     ],
+     "default": null
+    },
+    "organizer": {
+     "anyOf": [
+      {
+       "additionalProperties": false,
+       "description": "Creator or organizer person object on an event.",
+       "properties": {
+        "id": {
+         "anyOf": [
+          {
+           "type": "string"
+          },
+          {
+           "type": "null"
+          }
+         ],
+         "default": null
+        },
+        "email": {
+         "anyOf": [
+          {
+           "format": "email",
+           "type": "string"
+          },
+          {
+           "type": "null"
+          }
+         ],
+         "default": null
+        },
+        "displayName": {
+         "anyOf": [
+          {
+           "type": "string"
+          },
+          {
+           "type": "null"
+          }
+         ],
+         "default": null
+        },
+        "self": {
+         "anyOf": [
+          {
+           "type": "boolean"
+          },
+          {
+           "type": "null"
+          }
+         ],
+         "default": null
+        }
+       },
+       "type": "object"
+      },
+      {
+       "type": "null"
+      }
+     ],
+     "default": null
+    },
+    "extendedProperties": {
+     "anyOf": [
+      {
+       "additionalProperties": false,
+       "description": "Arbitrary event metadata supported by Google Calendar.",
+       "properties": {
+        "private": {
+         "anyOf": [
+          {
+           "additionalProperties": {
+            "type": "string"
+           },
+           "type": "object"
+          },
+          {
+           "type": "null"
+          }
+         ],
+         "default": null
+        },
+        "shared": {
+         "anyOf": [
+          {
+           "additionalProperties": {
+            "type": "string"
+           },
+           "type": "object"
+          },
+          {
+           "type": "null"
+          }
+         ],
+         "default": null
+        }
+       },
+       "type": "object"
+      },
+      {
+       "type": "null"
+      }
+     ],
+     "default": null
+    },
+    "source": {
+     "anyOf": [
+      {
+       "additionalProperties": false,
+       "description": "Source metadata for an event.",
+       "properties": {
+        "title": {
+         "anyOf": [
+          {
+           "minLength": 1,
+           "type": "string"
+          },
+          {
+           "type": "null"
+          }
+         ],
+         "default": null
+        }
+       },
+       "type": "object"
+      },
+      {
+       "type": "null"
+      }
+     ],
+     "default": null
+    },
+    "transparency": {
+     "anyOf": [
+      {
+       "description": "Whether an event blocks availability in free/busy calculations.",
+       "enum": [
+        "opaque",
+        "transparent"
+       ],
+       "type": "string"
+      },
+      {
+       "type": "null"
+      }
+     ],
+     "default": null
+    },
+    "eventType": {
+     "anyOf": [
+      {
+       "description": "Event type values supported by Google Calendar.",
+       "enum": [
+        "default",
+        "outOfOffice",
+        "focusTime",
+        "fromGmail",
+        "workingLocation",
+        "birthday"
+       ],
+       "type": "string"
+      },
+      {
+       "type": "null"
+      }
+     ],
+     "default": null
+    },
+    "outOfOfficeProperties": {
+     "anyOf": [
+      {
+       "additionalProperties": false,
+       "description": "Out-of-office event data.",
+       "properties": {
+        "autoDeclineMode": {
+         "anyOf": [
+          {
+           "description": "Auto-decline behavior for focus time and out-of-office events.",
+           "enum": [
+            "declineNone",
+            "declineAllConflictingInvitations",
+            "declineOnlyNewConflictingInvitations"
+           ],
+           "type": "string"
+          },
+          {
+           "type": "null"
+          }
+         ],
+         "default": null
+        },
+        "declineMessage": {
+         "anyOf": [
+          {
+           "type": "string"
+          },
+          {
+           "type": "null"
+          }
+         ],
+         "default": null
+        }
+       },
+       "type": "object"
+      },
+      {
+       "type": "null"
+      }
+     ],
+     "default": null
+    },
+    "focusTimeProperties": {
+     "anyOf": [
+      {
+       "additionalProperties": false,
+       "description": "Focus time event data.",
+       "properties": {
+        "autoDeclineMode": {
+         "anyOf": [
+          {
+           "description": "Auto-decline behavior for focus time and out-of-office events.",
+           "enum": [
+            "declineNone",
+            "declineAllConflictingInvitations",
+            "declineOnlyNewConflictingInvitations"
+           ],
+           "type": "string"
+          },
+          {
+           "type": "null"
+          }
+         ],
+         "default": null
+        },
+        "declineMessage": {
+         "anyOf": [
+          {
+           "type": "string"
+          },
+          {
+           "type": "null"
+          }
+         ],
+         "default": null
+        },
+        "chatStatus": {
+         "anyOf": [
+          {
+           "description": "Chat status values for focus time events.",
+           "enum": [
+            "available",
+            "doNotDisturb"
+           ],
+           "type": "string"
+          },
+          {
+           "type": "null"
+          }
+         ],
+         "default": null
+        }
+       },
+       "type": "object"
+      },
+      {
+       "type": "null"
+      }
+     ],
+     "default": null
+    },
+    "workingLocationProperties": {
+     "anyOf": [
+      {
+       "additionalProperties": false,
+       "description": "Working location event data.",
+       "properties": {
+        "type": {
+         "description": "Working location type values supported by Google Calendar.",
+         "enum": [
+          "homeOffice",
+          "officeLocation",
+          "customLocation"
+         ],
+         "type": "string"
+        },
+        "homeOffice": {
+         "anyOf": [
+          {
+           "additionalProperties": false,
+           "description": "Home office marker for working location events.",
+           "properties": {},
+           "type": "object"
+          },
+          {
+           "type": "null"
+          }
+         ],
+         "default": null
+        },
+        "customLocation": {
+         "anyOf": [
+          {
+           "additionalProperties": false,
+           "description": "Custom working location details.",
+           "properties": {
+            "label": {
+             "anyOf": [
+              {
+               "type": "string"
+              },
+              {
+               "type": "null"
+              }
+             ],
+             "default": null
+            }
+           },
+           "type": "object"
+          },
+          {
+           "type": "null"
+          }
+         ],
+         "default": null
+        },
+        "officeLocation": {
+         "anyOf": [
+          {
+           "additionalProperties": false,
+           "description": "Office working location details.",
+           "properties": {
+            "buildingId": {
+             "anyOf": [
+              {
+               "type": "string"
+              },
+              {
+               "type": "null"
+              }
+             ],
+             "default": null
+            },
+            "floorId": {
+             "anyOf": [
+              {
+               "type": "string"
+              },
+              {
+               "type": "null"
+              }
+             ],
+             "default": null
+            },
+            "floorSectionId": {
+             "anyOf": [
+              {
+               "type": "string"
+              },
+              {
+               "type": "null"
+              }
+             ],
+             "default": null
+            },
+            "deskId": {
+             "anyOf": [
+              {
+               "type": "string"
+              },
+              {
+               "type": "null"
+              }
+             ],
+             "default": null
+            },
+            "label": {
+             "anyOf": [
+              {
+               "type": "string"
+              },
+              {
+               "type": "null"
+              }
+             ],
+             "default": null
+            }
+           },
+           "type": "object"
+          },
+          {
+           "type": "null"
+          }
+         ],
+         "default": null
+        }
+       },
+       "required": [
+        "type"
+       ],
+       "type": "object"
+      },
+      {
+       "type": "null"
+      }
+     ],
+     "default": null
+    },
+    "birthdayProperties": {
+     "anyOf": [
+      {
+       "additionalProperties": false,
+       "description": "Birthday or special-date event data.",
+       "properties": {
+        "type": {
+         "description": "Birthday or special-date type values supported by Google Calendar.",
+         "enum": [
+          "anniversary",
+          "birthday",
+          "custom",
+          "other",
+          "self"
+         ],
+         "type": "string",
+         "default": "birthday"
+        },
+        "contact": {
+         "anyOf": [
+          {
+           "description": "Google People API resource name used by Calendar birthdays, e.g. \"people/c12345\".",
+           "pattern": "^people/c[0-9]+$",
+           "type": "string"
+          },
+          {
+           "type": "null"
+          }
+         ],
+         "default": null
+        },
+        "customTypeName": {
+         "anyOf": [
+          {
+           "type": "string"
+          },
+          {
+           "type": "null"
+          }
+         ],
+         "default": null
+        }
+       },
+       "type": "object"
+      },
+      {
+       "type": "null"
+      }
+     ],
+     "default": null
+    },
+    "clear_fields": {
+     "anyOf": [
+      {
+       "items": {
+        "description": "Optional event fields that update_event can remove explicitly.",
+        "enum": [
+         "description",
+         "location",
+         "status",
+         "colorId",
+         "visibility",
+         "transparency",
+         "recurrence",
+         "reminders",
+         "attendees",
+         "creator",
+         "organizer",
+         "extendedProperties",
+         "source",
+         "outOfOfficeProperties",
+         "focusTimeProperties",
+         "workingLocationProperties",
+         "birthdayProperties",
+         "htmlLink",
+         "hangoutLink"
+        ],
+        "type": "string"
+       },
+       "type": "array"
+      },
+      {
+       "type": "null"
+      }
+     ],
+     "default": null
+    },
+    "account_id": {
+     "anyOf": [
+      {
+       "minLength": 1,
+       "type": "string"
+      },
+      {
+       "type": "null"
+      }
+     ],
+     "default": null
+    }
+   },
+   "required": [
+    "eventId"
+   ],
+   "additionalProperties": false
+  }
+ },
+ {
+  "name": "google_calendar__delete_event",
+  "description": "Deletes an event from the calendar.\n\nArgs:\n    eventId: ID of the event to delete\n    calendar_id: Calendar containing the event (default 'primary')\n    account_id: Calendar account to use in multi-account worlds. Defaults to the active account.\n\nReturns:\n    Confirmation of deletion",
+  "inputSchema": {
+   "type": "object",
+   "properties": {
+    "eventId": {
+     "minLength": 1,
+     "type": "string"
+    },
+    "calendar_id": {
+     "default": "primary",
+     "minLength": 1,
+     "type": "string"
+    },
+    "account_id": {
+     "anyOf": [
+      {
+       "minLength": 1,
+       "type": "string"
+      },
+      {
+       "type": "null"
+      }
+     ],
+     "default": null
+    }
+   },
+   "required": [
+    "eventId"
+   ],
+   "additionalProperties": false
+  }
+ },
+ {
+  "name": "google_calendar__list_events",
+  "description": "Lists events within a specified time range.\n\nArgs:\n    timeMin: Lower bound (exclusive) for an event's end time (ISO format).\n             Events that end after this time are included.\n    timeMax: Upper bound (exclusive) for an event's start time (ISO format).\n             Events that start before this time are included.\n    maxResults: Maximum number of events to return\n    orderBy: Sort order ('startTime' or 'updated')\n    calendar_id: Calendar to list events from. If omitted, lists events from all calendars.\n    account_id: Calendar account to use in multi-account worlds. Defaults to the active account.\n\nReturns:\n    List of events that overlap the given time range",
+  "inputSchema": {
+   "type": "object",
+   "properties": {
+    "timeMin": {
+     "pattern": "^\\d{4}-\\d{2}-\\d{2}T\\d{2}:\\d{2}:\\d{2}(?:\\.\\d+)?(?:Z|[+-]\\d{2}:\\d{2})$",
+     "type": "string"
+    },
+    "timeMax": {
+     "pattern": "^\\d{4}-\\d{2}-\\d{2}T\\d{2}:\\d{2}:\\d{2}(?:\\.\\d+)?(?:Z|[+-]\\d{2}:\\d{2})$",
+     "type": "string"
+    },
+    "maxResults": {
+     "anyOf": [
+      {
+       "minimum": 0,
+       "type": "integer"
+      },
+      {
+       "type": "null"
+      }
+     ],
+     "default": null
+    },
+    "orderBy": {
+     "anyOf": [
+      {
+       "description": "Sort options for search_events results.",
+       "enum": [
+        "startTime",
+        "updated"
+       ],
+       "type": "string"
+      },
+      {
+       "type": "null"
+      }
+     ],
+     "default": null
+    },
+    "calendar_id": {
+     "anyOf": [
+      {
+       "minLength": 1,
+       "type": "string"
+      },
+      {
+       "type": "null"
+      }
+     ],
+     "default": null
+    },
+    "account_id": {
+     "anyOf": [
+      {
+       "minLength": 1,
+       "type": "string"
+      },
+      {
+       "type": "null"
+      }
+     ],
+     "default": null
+    }
+   },
+   "required": [
+    "timeMax",
+    "timeMin"
+   ],
+   "additionalProperties": false
+  }
+ },
+ {
+  "name": "google_calendar__search_events",
+  "description": "Search calendar events by keyword, phrase, attendee, location, or calendar.\n\nArgs:\n    query: Search query. Bare words are ANDed across summary, description,\n           location, attendees, and calendar names. Quoted phrases require\n           exact adjacency. May be empty when attendee_email is provided.\n    timeMin: Optional lower bound (exclusive) for an event's end time.\n    timeMax: Optional upper bound (exclusive) for an event's start time.\n    calendar_id: Calendar to search. If omitted, searches all calendars.\n    attendee_email: Optional attendee email or display-name substring.\n    response_status: Optional attendee RSVP filter ('accepted', 'declined',\n                     'tentative', or 'needsAction'). When attendee_email is\n                     provided, applies to that attendee; otherwise matches\n                     any attendee with that status.\n    organizer_email: Optional organizer email substring.\n    creator_email: Optional creator email substring.\n    maxResults: Maximum number of matching events to return. 0 returns no results.\n    orderBy: Sort order ('startTime', 'updated', or None).\n    account_id: Calendar account to use in multi-account worlds. Defaults to the active account.\n\nReturns:\n    Matching events with calendar_id annotated on each result.",
+  "inputSchema": {
+   "type": "object",
+   "properties": {
+    "query": {
+     "default": "",
+     "type": "string"
+    },
+    "timeMin": {
+     "anyOf": [
+      {
+       "pattern": "^\\d{4}-\\d{2}-\\d{2}T\\d{2}:\\d{2}:\\d{2}(?:\\.\\d+)?(?:Z|[+-]\\d{2}:\\d{2})$",
+       "type": "string"
+      },
+      {
+       "type": "null"
+      }
+     ],
+     "default": null
+    },
+    "timeMax": {
+     "anyOf": [
+      {
+       "pattern": "^\\d{4}-\\d{2}-\\d{2}T\\d{2}:\\d{2}:\\d{2}(?:\\.\\d+)?(?:Z|[+-]\\d{2}:\\d{2})$",
+       "type": "string"
+      },
+      {
+       "type": "null"
+      }
+     ],
+     "default": null
+    },
+    "calendar_id": {
+     "anyOf": [
+      {
+       "minLength": 1,
+       "type": "string"
+      },
+      {
+       "type": "null"
+      }
+     ],
+     "default": null
+    },
+    "attendee_email": {
+     "anyOf": [
+      {
+       "type": "string"
+      },
+      {
+       "type": "null"
+      }
+     ],
+     "default": null
+    },
+    "response_status": {
+     "anyOf": [
+      {
+       "description": "Attendee RSVP state \u2014 mirrors Google Calendar API values.",
+       "enum": [
+        "needsAction",
+        "declined",
+        "tentative",
+        "accepted"
+       ],
+       "type": "string"
+      },
+      {
+       "type": "null"
+      }
+     ],
+     "default": null
+    },
+    "organizer_email": {
+     "anyOf": [
+      {
+       "type": "string"
+      },
+      {
+       "type": "null"
+      }
+     ],
+     "default": null
+    },
+    "creator_email": {
+     "anyOf": [
+      {
+       "type": "string"
+      },
+      {
+       "type": "null"
+      }
+     ],
+     "default": null
+    },
+    "maxResults": {
+     "anyOf": [
+      {
+       "minimum": 0,
+       "type": "integer"
+      },
+      {
+       "type": "null"
+      }
+     ],
+     "default": null
+    },
+    "orderBy": {
+     "anyOf": [
+      {
+       "description": "Sort options for search_events results.",
+       "enum": [
+        "startTime",
+        "updated"
+       ],
+       "type": "string"
+      },
+      {
+       "type": "null"
+      }
+     ],
+     "default": "startTime"
+    },
+    "account_id": {
+     "anyOf": [
+      {
+       "minLength": 1,
+       "type": "string"
+      },
+      {
+       "type": "null"
+      }
+     ],
+     "default": null
+    }
+   },
+   "required": [],
+   "additionalProperties": false
+  }
+ },
+ {
+  "name": "google_mail__get_emails",
+  "description": "Get emails from the mailbox, optionally filtered by folder.\n\nReturns a paginated list of emails sorted by date (newest first).\n\nArgs:\n    folder: Folder to filter by (optional)\n    page: Page number (1-indexed)\n    page_size: Results per page (max 100)\n\nReturns:\n    JSON with emails and pagination info.",
+  "inputSchema": {
+   "type": "object",
+   "properties": {
+    "folder": {
+     "anyOf": [
+      {
+       "description": "Folder name.",
+       "minLength": 1,
+       "type": "string"
+      },
+      {
+       "type": "null"
+      }
+     ],
+     "default": null
+    },
+    "page": {
+     "default": 1,
+     "description": "Page number, starting at 1.",
+     "minimum": 1,
+     "type": "integer"
+    },
+    "page_size": {
+     "default": 20,
+     "description": "Number of results per page.",
+     "maximum": 100,
+     "minimum": 1,
+     "type": "integer"
+    },
+    "mailbox_id": {
+     "default": "default",
+     "description": "Mailbox identifier.",
+     "minLength": 1,
+     "type": "string"
+    }
+   },
+   "required": [],
+   "additionalProperties": false
+  }
+ },
+ {
+  "name": "google_mail__read_email",
+  "description": "Read an email and mark it as read.\n\nReturns the full email content including body and attachments.\n\nArgs:\n    email_id: ID of the email to read\n\nReturns:\n    JSON with full email details.",
+  "inputSchema": {
+   "type": "object",
+   "properties": {
+    "email_id": {
+     "description": "Email ID.",
+     "minLength": 1,
+     "type": "string"
+    },
+    "mailbox_id": {
+     "default": "default",
+     "description": "Mailbox identifier.",
+     "minLength": 1,
+     "type": "string"
+    }
+   },
+   "required": [
+    "email_id"
+   ],
+   "additionalProperties": false
+  }
+ },
+ {
+  "name": "google_mail__search_emails",
+  "description": "Search emails by query string. Supports Gmail-style operators.\n\nBare words are ANDed together and matched across subject, body, from,\nand to. Double-quoted segments require exact adjacency. Combine freely,\ne.g. `from:alice after:2026/03/01 invoice`.\n\nOperators:\n  from:alice              match sender substring (alice@... hits this)\n  to:bob                  match to recipient substring (strict; use cc:/bcc: for other fields)\n  cc:alice / bcc:alice    match cc/bcc recipient substring\n  subject:meeting         match subject substring\n  has:attachment          messages with one or more attachments\n  filename:agenda.pdf     match attachment filename substring\n  is:unread               state filters: unread, read, important\n  in:sent                  exact folder match\n  label:client             exact label match when labels exist; otherwise folder-style match\n  \"exact phrase\"          match a contiguous phrase\n  -term                   exclude messages containing term (works with operators, e.g. -from:bob)\n  invoice OR billing      boolean OR (uppercase; lowercase 'or' is literal)\n  before:2026/04/01       messages strictly before date (YYYY/MM/DD or YYYY-MM-DD)\n  after:2026/04/01        messages on or after date\n  newer_than:7d           messages within last N days (d), months (m = 30d), or years (y = 365d)\n  older_than:1y           messages older than N d|m|y\n\nParenthesized boolean grouping is not supported; `OR` joins adjacent terms only.\nUnsupported or malformed search syntax is reported in a `warnings` array\nwhile preserving best-effort search behavior.\n\nArgs:\n    query: Search query (supports the operators above).\n    folder: Folder to limit search (optional).\n    page: Page number (1-indexed).\n    page_size: Results per page (max 100).\n\nReturns:\n    JSON with matching emails and pagination info.",
+  "inputSchema": {
+   "type": "object",
+   "properties": {
+    "query": {
+     "type": "string"
+    },
+    "folder": {
+     "anyOf": [
+      {
+       "description": "Folder name.",
+       "minLength": 1,
+       "type": "string"
+      },
+      {
+       "type": "null"
+      }
+     ],
+     "default": null
+    },
+    "page": {
+     "default": 1,
+     "description": "Page number, starting at 1.",
+     "minimum": 1,
+     "type": "integer"
+    },
+    "page_size": {
+     "default": 20,
+     "description": "Number of results per page.",
+     "maximum": 100,
+     "minimum": 1,
+     "type": "integer"
+    },
+    "mailbox_id": {
+     "default": "default",
+     "description": "Mailbox identifier.",
+     "minLength": 1,
+     "type": "string"
+    }
+   },
+   "required": [
+    "query"
+   ],
+   "additionalProperties": false
+  }
+ },
+ {
+  "name": "google_mail__send_email",
+  "description": "Send an email.\n\nRecipients must be valid contacts in your address book.\nIf sending to a group you're a member of, you'll receive a copy.\n\nArgs:\n    to: Recipient(s), comma-separated\n    subject: Email subject\n    body: Plain text email body\n    html_body: HTML body (optional)\n    cc: CC recipients, comma-separated (optional)\n    bcc: BCC recipients, comma-separated (optional)\n    attachments: Paths to files to attach (optional)\n\nReturns:\n    JSON with sent status and email summary.",
+  "inputSchema": {
+   "type": "object",
+   "properties": {
+    "to": {
+     "type": "string"
+    },
+    "subject": {
+     "type": "string"
+    },
+    "body": {
+     "type": "string"
+    },
+    "html_body": {
+     "anyOf": [
+      {
+       "type": "string"
+      },
+      {
+       "type": "null"
+      }
+     ],
+     "default": null
+    },
+    "cc": {
+     "anyOf": [
+      {
+       "type": "string"
+      },
+      {
+       "type": "null"
+      }
+     ],
+     "default": null
+    },
+    "bcc": {
+     "anyOf": [
+      {
+       "type": "string"
+      },
+      {
+       "type": "null"
+      }
+     ],
+     "default": null
+    },
+    "attachments": {
+     "anyOf": [
+      {
+       "description": "Paths to files to attach.",
+       "items": {
+        "description": "Path to a file to attach.",
+        "minLength": 1,
+        "type": "string"
+       },
+       "minItems": 1,
+       "type": "array"
+      },
+      {
+       "type": "null"
+      }
+     ],
+     "default": null
+    },
+    "mailbox_id": {
+     "default": "default",
+     "description": "Mailbox identifier.",
+     "minLength": 1,
+     "type": "string"
+    }
+   },
+   "required": [
+    "subject",
+    "body",
+    "to"
+   ],
+   "additionalProperties": false
+  }
+ },
+ {
+  "name": "google_mail__reply_email",
+  "description": "Reply to an email.\n\nCreates a reply with proper subject prefix and recipients.\n\nArgs:\n    email_id: ID of the email to reply to\n    body: Reply body text\n    html_body: HTML body (optional)\n    reply_all: Reply to all recipients\n\nReturns:\n    JSON with sent status and reply email summary.",
+  "inputSchema": {
+   "type": "object",
+   "properties": {
+    "email_id": {
+     "description": "Email ID.",
+     "minLength": 1,
+     "type": "string"
+    },
+    "body": {
+     "type": "string"
+    },
+    "html_body": {
+     "anyOf": [
+      {
+       "type": "string"
+      },
+      {
+       "type": "null"
+      }
+     ],
+     "default": null
+    },
+    "reply_all": {
+     "default": false,
+     "type": "boolean"
+    },
+    "mailbox_id": {
+     "default": "default",
+     "description": "Mailbox identifier.",
+     "minLength": 1,
+     "type": "string"
+    }
+   },
+   "required": [
+    "body",
+    "email_id"
+   ],
+   "additionalProperties": false
+  }
+ },
+ {
+  "name": "google_mail__forward_email",
+  "description": "Forward an email to one or more recipients.\n\nIncludes the original message content and any attachments.\n\nArgs:\n    email_id: ID of the email to forward\n    to: Recipient(s) to forward to, comma-separated\n    body: Additional message (optional)\n\nReturns:\n    JSON with sent status and forwarded email summary.",
+  "inputSchema": {
+   "type": "object",
+   "properties": {
+    "email_id": {
+     "description": "Email ID.",
+     "minLength": 1,
+     "type": "string"
+    },
+    "to": {
+     "type": "string"
+    },
+    "body": {
+     "anyOf": [
+      {
+       "type": "string"
+      },
+      {
+       "type": "null"
+      }
+     ],
+     "default": null
+    },
+    "mailbox_id": {
+     "default": "default",
+     "description": "Mailbox identifier.",
+     "minLength": 1,
+     "type": "string"
+    }
+   },
+   "required": [
+    "email_id",
+    "to"
+   ],
+   "additionalProperties": false
+  }
+ },
+ {
+  "name": "google_mail__delete_emails",
+  "description": "Delete one or more emails.\n\nBy default, moves them to Trash. Use permanent=True to skip Trash.\nDeleting from Trash permanently deletes. Partial success is allowed \u2014\nemails that don't exist surface in the errors list but don't abort the batch.\n\nArgs:\n    email_ids: IDs of the emails to delete (pass a single-element list for one)\n    permanent: Permanently delete (skip Trash)\n\nReturns:\n    JSON with per-id status and a deleted/failed count.",
+  "inputSchema": {
+   "type": "object",
+   "properties": {
+    "email_ids": {
+     "description": "One or more email IDs.",
+     "items": {
+      "description": "Email ID.",
+      "minLength": 1,
+      "type": "string"
+     },
+     "minItems": 1,
+     "type": "array"
+    },
+    "permanent": {
+     "default": false,
+     "type": "boolean"
+    },
+    "mailbox_id": {
+     "default": "default",
+     "description": "Mailbox identifier.",
+     "minLength": 1,
+     "type": "string"
+    }
+   },
+   "required": [
+    "email_ids"
+   ],
+   "additionalProperties": false
+  }
+ },
+ {
+  "name": "google_mail__move_emails",
+  "description": "Move one or more emails to a different folder.\n\nPartial success is allowed \u2014 emails or folders that don't exist surface\nin the errors list but don't abort the batch.\n\nArgs:\n    email_ids: IDs of the emails to move (pass a single-element list for one)\n    target_folder: Name of the target folder\n\nReturns:\n    JSON with per-id status and a moved/failed count.",
+  "inputSchema": {
+   "type": "object",
+   "properties": {
+    "email_ids": {
+     "description": "One or more email IDs.",
+     "items": {
+      "description": "Email ID.",
+      "minLength": 1,
+      "type": "string"
+     },
+     "minItems": 1,
+     "type": "array"
+    },
+    "target_folder": {
+     "description": "Folder name.",
+     "minLength": 1,
+     "type": "string"
+    },
+    "mailbox_id": {
+     "default": "default",
+     "description": "Mailbox identifier.",
+     "minLength": 1,
+     "type": "string"
+    }
+   },
+   "required": [
+    "email_ids",
+    "target_folder"
+   ],
+   "additionalProperties": false
+  }
+ },
+ {
+  "name": "google_mail__mark_emails",
+  "description": "Mark emails as read/unread or important/not important.\n\nArgs:\n    email_ids: List of email IDs to mark\n    is_read: Set read status (optional)\n    is_important: Set important status (optional)\n\nReturns:\n    JSON with number of emails updated.",
+  "inputSchema": {
+   "type": "object",
+   "properties": {
+    "email_ids": {
+     "description": "One or more email IDs.",
+     "items": {
+      "description": "Email ID.",
+      "minLength": 1,
+      "type": "string"
+     },
+     "minItems": 1,
+     "type": "array"
+    },
+    "is_read": {
+     "anyOf": [
+      {
+       "type": "boolean"
+      },
+      {
+       "type": "null"
+      }
+     ],
+     "default": null
+    },
+    "is_important": {
+     "anyOf": [
+      {
+       "type": "boolean"
+      },
+      {
+       "type": "null"
+      }
+     ],
+     "default": null
+    },
+    "mailbox_id": {
+     "default": "default",
+     "description": "Mailbox identifier.",
+     "minLength": 1,
+     "type": "string"
+    }
+   },
+   "required": [
+    "email_ids"
+   ],
+   "additionalProperties": false
+  }
+ },
+ {
+  "name": "google_mail__get_folders",
+  "description": "Get all folders with message counts.\n\nReturns system folders (INBOX, Sent, Drafts, Trash) and custom folders.\n\nReturns:\n    JSON with folder list including name, total, unread, is_system.",
+  "inputSchema": {
+   "type": "object",
+   "properties": {
+    "mailbox_id": {
+     "default": "default",
+     "description": "Mailbox identifier.",
+     "minLength": 1,
+     "type": "string"
+    }
+   },
+   "required": [],
+   "additionalProperties": false
+  }
+ },
+ {
+  "name": "google_mail__create_folder",
+  "description": "Create a new custom folder.\n\nArgs:\n    folder_name: Name of the folder to create\n\nReturns:\n    JSON with creation status.",
+  "inputSchema": {
+   "type": "object",
+   "properties": {
+    "folder_name": {
+     "description": "Folder name.",
+     "minLength": 1,
+     "type": "string"
+    },
+    "mailbox_id": {
+     "default": "default",
+     "description": "Mailbox identifier.",
+     "minLength": 1,
+     "type": "string"
+    }
+   },
+   "required": [
+    "folder_name"
+   ],
+   "additionalProperties": false
+  }
+ },
+ {
+  "name": "google_mail__delete_folder",
+  "description": "Delete a custom folder.\n\nSystem folders (INBOX, Sent, Drafts, Trash) cannot be deleted.\nEmails in the deleted folder are moved to INBOX.\n\nArgs:\n    folder_name: Name of the folder to delete\n\nReturns:\n    JSON with deletion status.",
+  "inputSchema": {
+   "type": "object",
+   "properties": {
+    "folder_name": {
+     "description": "Folder name.",
+     "minLength": 1,
+     "type": "string"
+    },
+    "mailbox_id": {
+     "default": "default",
+     "description": "Mailbox identifier.",
+     "minLength": 1,
+     "type": "string"
+    }
+   },
+   "required": [
+    "folder_name"
+   ],
+   "additionalProperties": false
+  }
+ },
+ {
+  "name": "google_mail__get_unread_count",
+  "description": "Get unread email count for folders.\n\nArgs:\n    folder: Specific folder (optional)\n\nReturns:\n    JSON with unread counts per folder.",
+  "inputSchema": {
+   "type": "object",
+   "properties": {
+    "folder": {
+     "anyOf": [
+      {
+       "description": "Folder name.",
+       "minLength": 1,
+       "type": "string"
+      },
+      {
+       "type": "null"
+      }
+     ],
+     "default": null
+    },
+    "mailbox_id": {
+     "default": "default",
+     "description": "Mailbox identifier.",
+     "minLength": 1,
+     "type": "string"
+    }
+   },
+   "required": [],
+   "additionalProperties": false
+  }
+ },
+ {
+  "name": "google_mail__get_mailbox_stats",
+  "description": "Get overall mailbox statistics.\n\nReturns owner info, total counts, and per-folder breakdown.\n\nReturns:\n    JSON with comprehensive mailbox statistics.",
+  "inputSchema": {
+   "type": "object",
+   "properties": {
+    "mailbox_id": {
+     "default": "default",
+     "description": "Mailbox identifier.",
+     "minLength": 1,
+     "type": "string"
+    }
+   },
+   "required": [],
+   "additionalProperties": false
+  }
+ },
+ {
+  "name": "google_mail__save_draft",
+  "description": "Save a new email draft.\n\nArgs:\n    subject: Draft subject\n    body: Draft body\n    html_body: HTML body (optional)\n    to: Recipient(s), comma-separated (optional)\n    cc: CC recipient(s), comma-separated (optional)\n    bcc: BCC recipient(s), comma-separated (optional)\n\nReturns:\n    JSON with saved draft details.",
+  "inputSchema": {
+   "type": "object",
+   "properties": {
+    "subject": {
+     "default": "",
+     "type": "string"
+    },
+    "body": {
+     "default": "",
+     "type": "string"
+    },
+    "html_body": {
+     "anyOf": [
+      {
+       "type": "string"
+      },
+      {
+       "type": "null"
+      }
+     ],
+     "default": null
+    },
+    "to": {
+     "anyOf": [
+      {
+       "type": "string"
+      },
+      {
+       "type": "null"
+      }
+     ],
+     "default": null
+    },
+    "cc": {
+     "anyOf": [
+      {
+       "type": "string"
+      },
+      {
+       "type": "null"
+      }
+     ],
+     "default": null
+    },
+    "bcc": {
+     "anyOf": [
+      {
+       "type": "string"
+      },
+      {
+       "type": "null"
+      }
+     ],
+     "default": null
+    },
+    "mailbox_id": {
+     "default": "default",
+     "description": "Mailbox identifier.",
+     "minLength": 1,
+     "type": "string"
+    }
+   },
+   "required": [],
+   "additionalProperties": false
+  }
+ },
+ {
+  "name": "google_mail__get_drafts",
+  "description": "Get all drafts with pagination.\n\nArgs:\n    page: Page number (1-indexed)\n    page_size: Results per page (max 100)\n\nReturns:\n    JSON with drafts and pagination info.",
+  "inputSchema": {
+   "type": "object",
+   "properties": {
+    "page": {
+     "default": 1,
+     "description": "Page number, starting at 1.",
+     "minimum": 1,
+     "type": "integer"
+    },
+    "page_size": {
+     "default": 20,
+     "description": "Number of results per page.",
+     "maximum": 100,
+     "minimum": 1,
+     "type": "integer"
+    },
+    "mailbox_id": {
+     "default": "default",
+     "description": "Mailbox identifier.",
+     "minLength": 1,
+     "type": "string"
+    }
+   },
+   "required": [],
+   "additionalProperties": false
+  }
+ },
+ {
+  "name": "google_mail__update_draft",
+  "description": "Update an existing draft.\n\nOnly provided fields are updated; others remain unchanged.\n\nArgs:\n    draft_id: ID of the draft to update\n    subject: New subject (optional)\n    body: New body (optional)\n    html_body: New HTML body (optional)\n    to: New recipient(s), comma-separated (optional)\n    cc: New CC recipient(s), comma-separated (optional)\n    bcc: New BCC recipient(s), comma-separated (optional)\n\nReturns:\n    JSON with updated draft details.",
+  "inputSchema": {
+   "type": "object",
+   "properties": {
+    "draft_id": {
+     "description": "Draft ID.",
+     "minLength": 1,
+     "type": "string"
+    },
+    "subject": {
+     "anyOf": [
+      {
+       "type": "string"
+      },
+      {
+       "type": "null"
+      }
+     ],
+     "default": null
+    },
+    "body": {
+     "anyOf": [
+      {
+       "type": "string"
+      },
+      {
+       "type": "null"
+      }
+     ],
+     "default": null
+    },
+    "html_body": {
+     "anyOf": [
+      {
+       "type": "string"
+      },
+      {
+       "type": "null"
+      }
+     ],
+     "default": null
+    },
+    "to": {
+     "anyOf": [
+      {
+       "type": "string"
+      },
+      {
+       "type": "null"
+      }
+     ],
+     "default": null
+    },
+    "cc": {
+     "anyOf": [
+      {
+       "type": "string"
+      },
+      {
+       "type": "null"
+      }
+     ],
+     "default": null
+    },
+    "bcc": {
+     "anyOf": [
+      {
+       "type": "string"
+      },
+      {
+       "type": "null"
+      }
+     ],
+     "default": null
+    },
+    "mailbox_id": {
+     "default": "default",
+     "description": "Mailbox identifier.",
+     "minLength": 1,
+     "type": "string"
+    }
+   },
+   "required": [
+    "draft_id"
+   ],
+   "additionalProperties": false
+  }
+ },
+ {
+  "name": "google_mail__delete_draft",
+  "description": "Delete a draft.\n\nArgs:\n    draft_id: ID of the draft to delete\n\nReturns:\n    JSON with deletion status.",
+  "inputSchema": {
+   "type": "object",
+   "properties": {
+    "draft_id": {
+     "description": "Draft ID.",
+     "minLength": 1,
+     "type": "string"
+    },
+    "mailbox_id": {
+     "default": "default",
+     "description": "Mailbox identifier.",
+     "minLength": 1,
+     "type": "string"
+    }
+   },
+   "required": [
+    "draft_id"
+   ],
+   "additionalProperties": false
+  }
+ },
+ {
+  "name": "google_mail__get_contacts",
+  "description": "Get all contacts.\n\nReturns the person contacts in your address book. Groups are available\nthrough get_groups.\n\nReturns:\n    JSON with contact list.",
+  "inputSchema": {
+   "type": "object",
+   "properties": {
+    "mailbox_id": {
+     "default": "default",
+     "description": "Mailbox identifier.",
+     "minLength": 1,
+     "type": "string"
+    }
+   },
+   "required": [],
+   "additionalProperties": false
+  }
+ },
+ {
+  "name": "google_mail__download_attachment",
+  "description": "Download an attachment from an email.\n\nReturns the attachment content as base64-encoded data.\n\nArgs:\n    email_id: ID of the email\n    filename: Name of the attachment file\n\nReturns:\n    JSON with attachment data.",
+  "inputSchema": {
+   "type": "object",
+   "properties": {
+    "email_id": {
+     "description": "Email ID.",
+     "minLength": 1,
+     "type": "string"
+    },
+    "filename": {
+     "description": "Attachment filename.",
+     "minLength": 1,
+     "type": "string"
+    },
+    "mailbox_id": {
+     "default": "default",
+     "description": "Mailbox identifier.",
+     "minLength": 1,
+     "type": "string"
+    }
+   },
+   "required": [
+    "email_id",
+    "filename"
+   ],
+   "additionalProperties": false
+  }
+ },
+ {
+  "name": "google_mail__search_contacts",
+  "description": "Search contacts by name or email address (case-insensitive).\n\nArgs:\n    query: Search string to match against contact name or email",
+  "inputSchema": {
+   "type": "object",
+   "properties": {
+    "query": {
+     "type": "string"
+    },
+    "mailbox_id": {
+     "default": "default",
+     "description": "Mailbox identifier.",
+     "minLength": 1,
+     "type": "string"
+    }
+   },
+   "required": [
+    "query"
+   ],
+   "additionalProperties": false
+  }
+ },
+ {
+  "name": "google_mail__add_contact",
+  "description": "Add a new contact to the address book.\n\nArgs:\n    email: Email address of the contact\n    name: Display name of the contact",
+  "inputSchema": {
+   "type": "object",
+   "properties": {
+    "email": {
+     "format": "email",
+     "type": "string"
+    },
+    "name": {
+     "type": "string"
+    },
+    "mailbox_id": {
+     "default": "default",
+     "description": "Mailbox identifier.",
+     "minLength": 1,
+     "type": "string"
+    }
+   },
+   "required": [
+    "email",
+    "name"
+   ],
+   "additionalProperties": false
+  }
+ },
+ {
+  "name": "google_mail__edit_contact",
+  "description": "Update an existing contact's name.\n\nArgs:\n    email: Email address of the contact to update (lookup key)\n    name: New display name (optional, omit to keep current)",
+  "inputSchema": {
+   "type": "object",
+   "properties": {
+    "email": {
+     "format": "email",
+     "type": "string"
+    },
+    "name": {
+     "anyOf": [
+      {
+       "type": "string"
+      },
+      {
+       "type": "null"
+      }
+     ],
+     "default": null
+    },
+    "mailbox_id": {
+     "default": "default",
+     "description": "Mailbox identifier.",
+     "minLength": 1,
+     "type": "string"
+    }
+   },
+   "required": [
+    "email"
+   ],
+   "additionalProperties": false
+  }
+ },
+ {
+  "name": "google_mail__delete_contact",
+  "description": "Remove a contact from the address book.\n\nArgs:\n    email: Email address of the contact to delete",
+  "inputSchema": {
+   "type": "object",
+   "properties": {
+    "email": {
+     "format": "email",
+     "type": "string"
+    },
+    "mailbox_id": {
+     "default": "default",
+     "description": "Mailbox identifier.",
+     "minLength": 1,
+     "type": "string"
+    }
+   },
+   "required": [
+    "email"
+   ],
+   "additionalProperties": false
+  }
+ },
+ {
+  "name": "google_mail__get_groups",
+  "description": "Get all addressable contact groups.",
+  "inputSchema": {
+   "type": "object",
+   "properties": {
+    "mailbox_id": {
+     "default": "default",
+     "description": "Mailbox identifier.",
+     "minLength": 1,
+     "type": "string"
+    }
+   },
+   "required": [],
+   "additionalProperties": false
+  }
+ },
+ {
+  "name": "google_mail__search_groups",
+  "description": "Search groups by name or email address (case-insensitive).",
+  "inputSchema": {
+   "type": "object",
+   "properties": {
+    "query": {
+     "type": "string"
+    },
+    "mailbox_id": {
+     "default": "default",
+     "description": "Mailbox identifier.",
+     "minLength": 1,
+     "type": "string"
+    }
+   },
+   "required": [
+    "query"
+   ],
+   "additionalProperties": false
+  }
+ },
+ {
+  "name": "google_mail__add_group",
+  "description": "Add a new addressable contact group.\n\nArgs:\n    email: Email address of the group\n    name: Display name of the group\n    members: Contact emails included in the group",
+  "inputSchema": {
+   "type": "object",
+   "properties": {
+    "email": {
+     "format": "email",
+     "type": "string"
+    },
+    "name": {
+     "type": "string"
+    },
+    "members": {
+     "description": "Contact emails included in the group.",
+     "items": {
+      "format": "email",
+      "type": "string"
+     },
+     "minItems": 1,
+     "type": "array"
+    },
+    "mailbox_id": {
+     "default": "default",
+     "description": "Mailbox identifier.",
+     "minLength": 1,
+     "type": "string"
+    }
+   },
+   "required": [
+    "members",
+    "email",
+    "name"
+   ],
+   "additionalProperties": false
+  }
+ },
+ {
+  "name": "google_mail__edit_group",
+  "description": "Update an existing contact group.",
+  "inputSchema": {
+   "type": "object",
+   "properties": {
+    "email": {
+     "format": "email",
+     "type": "string"
+    },
+    "name": {
+     "anyOf": [
+      {
+       "type": "string"
+      },
+      {
+       "type": "null"
+      }
+     ],
+     "default": null
+    },
+    "members": {
+     "anyOf": [
+      {
+       "description": "Contact emails included in the group.",
+       "items": {
+        "format": "email",
+        "type": "string"
+       },
+       "minItems": 1,
+       "type": "array"
+      },
+      {
+       "type": "null"
+      }
+     ],
+     "default": null
+    },
+    "mailbox_id": {
+     "default": "default",
+     "description": "Mailbox identifier.",
+     "minLength": 1,
+     "type": "string"
+    }
+   },
+   "required": [
+    "email"
+   ],
+   "additionalProperties": false
+  }
+ },
+ {
+  "name": "google_mail__delete_group",
+  "description": "Remove a contact group from the address book.",
+  "inputSchema": {
+   "type": "object",
+   "properties": {
+    "email": {
+     "format": "email",
+     "type": "string"
+    },
+    "mailbox_id": {
+     "default": "default",
+     "description": "Mailbox identifier.",
+     "minLength": 1,
+     "type": "string"
+    }
+   },
+   "required": [
+    "email"
+   ],
+   "additionalProperties": false
+  }
+ },
+ {
+  "name": "handbook__executeBash",
+  "description": "Execute a bash command in an isolated directory.",
+  "inputSchema": {
+   "type": "object",
+   "properties": {
+    "command": {
+     "description": "The bash command to execute",
+     "type": "string"
+    },
+    "timeout_seconds": {
+     "anyOf": [
+      {
+       "maximum": 1800,
+       "minimum": 1,
+       "type": "integer"
+      },
+      {
+       "type": "null"
+      }
+     ],
+     "default": null,
+     "description": "Timeout in seconds (default 120, max 1800)"
+    }
+   },
+   "required": [
+    "command"
+   ],
+   "additionalProperties": false
+  }
+ },
+ {
+  "name": "handbook__executePython",
+  "description": "Execute Python code in an isolated directory.\n\n``executePython`` was dropped from core; this shim reimplements it on core's\nsandbox, piping the source to ``python3 -`` via stdin \u2014 matching the original\nso large scripts aren't capped by the OS command-line length (``python3 -c\n<code>`` would put the whole program in argv and can hit \"Argument list too\nlong\").",
+  "inputSchema": {
+   "type": "object",
+   "properties": {
+    "code": {
+     "description": "The Python code to execute",
+     "type": "string"
+    },
+    "timeout_seconds": {
+     "anyOf": [
+      {
+       "maximum": 1800,
+       "minimum": 1,
+       "type": "integer"
+      },
+      {
+       "type": "null"
+      }
+     ],
+     "default": null,
+     "description": "Timeout in seconds (default 120, max 1800)"
+    }
+   },
+   "required": [
+    "code"
+   ],
+   "additionalProperties": false
+  }
+ },
+ {
+  "name": "handbook__listFiles",
+  "description": "List files and subdirectories in a directory inside the sandbox.",
+  "inputSchema": {
+   "type": "object",
+   "properties": {
+    "directory": {
+     "default": ".",
+     "description": "Directory to list, relative to the sandbox root. Use /workdir/ prefix or an absolute path within the sandbox to be explicit. Defaults to the sandbox root.",
+     "type": "string"
+    }
+   },
+   "required": [],
+   "additionalProperties": false
+  }
+ },
+ {
+  "name": "handbook__readFile",
+  "description": "Read a file from the sandbox, with optional offset/limit (bytes) for paginating large files.",
+  "inputSchema": {
+   "type": "object",
+   "properties": {
+    "file_path": {
+     "description": "Path to the file. Use /workdir/ prefix for sandbox files, or an absolute path within the sandbox.",
+     "type": "string"
+    },
+    "offset": {
+     "default": 0,
+     "description": "Byte offset to start reading from. Use 0 for the beginning or a previous call's next_offset to continue.",
+     "minimum": 0,
+     "type": "integer"
+    },
+    "limit": {
+     "anyOf": [
+      {
+       "minimum": 1,
+       "type": "integer"
+      },
+      {
+       "type": "null"
+      }
+     ],
+     "default": 200000,
+     "description": "Maximum number of bytes to read. Defaults to 200000. Pass null to read from offset to end of file."
+    }
+   },
+   "required": [
+    "file_path"
+   ],
+   "additionalProperties": false
+  }
+ },
+ {
+  "name": "handbook__readPDF",
+  "description": "Extract text from a PDF file inside the sandbox.",
+  "inputSchema": {
+   "type": "object",
+   "properties": {
+    "file_path": {
+     "type": "string"
+    }
+   },
+   "required": [
+    "file_path"
+   ],
+   "additionalProperties": false
+  }
+ },
+ {
+  "name": "handbook__writeFile",
+  "description": "Write content to a file in an isolated sandbox.",
+  "inputSchema": {
+   "type": "object",
+   "properties": {
+    "file_path": {
+     "type": "string"
+    },
+    "content": {
+     "type": "string"
+    }
+   },
+   "required": [
+    "content",
+    "file_path"
+   ],
+   "additionalProperties": false
+  }
+ },
+ {
+  "name": "jira__search",
+  "description": "Search Jira issues using the mock's supported JQL subset.\n\nSupported filters include project, key, status, assignee, reporter, priority,\nissue type, labels, components, sprint/customfield_10002, fixVersion,\nstatusCategory, parent, created, updated, due/duedate, summary ~,\ndescription ~, and text ~. Equality, inequality, IN, NOT IN, IS EMPTY,\nIS NOT EMPTY, date comparisons, top-level OR, and ORDER BY are supported.\n\nUnsupported JQL fields/operators are reported in warningMessages and may be\nignored rather than treated as hard errors. Parenthesized OR clauses are not\nsupported and return no results with a warning. Use fields to request a\ncomma-separated field subset, or *all for the full issue fields.",
+  "inputSchema": {
+   "type": "object",
+   "properties": {
+    "jql": {
+     "description": "JQL query string",
+     "type": "string"
+    },
+    "fields": {
+     "default": "summary,status,assignee,issuetype,priority,created,updated,description,labels",
+     "description": "Comma-separated fields to return",
+     "type": "string"
+    },
+    "limit": {
+     "anyOf": [
+      {
+       "type": "integer"
+      },
+      {
+       "type": "null"
+      }
+     ],
+     "default": 10,
+     "description": "Maximum number of results (1-50)"
+    },
+    "startAt": {
+     "anyOf": [
+      {
+       "type": "integer"
+      },
+      {
+       "type": "null"
+      }
+     ],
+     "default": 0,
+     "description": "Starting index for pagination"
+    },
+    "projects_filter": {
+     "anyOf": [
+      {
+       "type": "string"
+      },
+      {
+       "type": "null"
+      }
+     ],
+     "default": null,
+     "description": "Comma-separated project keys to filter"
+    },
+    "site_id": {
+     "default": "default",
+     "description": "Jira site ID. Defaults to the default site.",
+     "minLength": 1,
+     "type": "string"
+    }
+   },
+   "required": [
+    "jql"
+   ],
+   "additionalProperties": false
+  }
+ },
+ {
+  "name": "jira__get_issue",
+  "description": "Get details of a specific Jira issue.",
+  "inputSchema": {
+   "type": "object",
+   "properties": {
+    "issue_key": {
+     "description": "Jira issue key, for example MOCK-1",
+     "pattern": "^[A-Z][A-Z0-9_]*-\\d+$",
+     "type": "string"
+    },
+    "fields": {
+     "default": "summary,status,assignee,issuetype,priority,created,updated,description,labels",
+     "description": "Fields to return",
+     "type": "string"
+    },
+    "expand": {
+     "anyOf": [
+      {
+       "type": "string"
+      },
+      {
+       "type": "null"
+      }
+     ],
+     "default": null,
+     "description": "Optional fields to expand"
+    },
+    "comment_limit": {
+     "default": 10,
+     "description": "Maximum number of comments",
+     "type": "integer"
+    },
+    "site_id": {
+     "default": "default",
+     "description": "Jira site ID. Defaults to the default site.",
+     "minLength": 1,
+     "type": "string"
+    }
+   },
+   "required": [
+    "issue_key"
+   ],
+   "additionalProperties": false
+  }
+ },
+ {
+  "name": "jira__get_project_issues",
+  "description": "Get all issues for a specific Jira project.",
+  "inputSchema": {
+   "type": "object",
+   "properties": {
+    "project_key": {
+     "description": "Jira project key, for example MOCK",
+     "pattern": "^[A-Z][A-Z0-9_]*$",
+     "type": "string"
+    },
+    "limit": {
+     "default": 10,
+     "description": "Maximum number of results",
+     "maximum": 50,
+     "minimum": 0,
+     "type": "integer"
+    },
+    "startAt": {
+     "default": 0,
+     "description": "Starting index for pagination",
+     "minimum": 0,
+     "type": "integer"
+    },
+    "site_id": {
+     "default": "default",
+     "description": "Jira site ID. Defaults to the default site.",
+     "minLength": 1,
+     "type": "string"
+    }
+   },
+   "required": [
+    "project_key"
+   ],
+   "additionalProperties": false
+  }
+ },
+ {
+  "name": "jira__get_epic_issues",
+  "description": "Get all issues linked to a specific epic.",
+  "inputSchema": {
+   "type": "object",
+   "properties": {
+    "epic_key": {
+     "description": "Jira issue key, for example MOCK-1",
+     "pattern": "^[A-Z][A-Z0-9_]*-\\d+$",
+     "type": "string"
+    },
+    "limit": {
+     "default": 10,
+     "description": "Maximum number of results",
+     "maximum": 50,
+     "minimum": 0,
+     "type": "integer"
+    },
+    "startAt": {
+     "default": 0,
+     "description": "Starting index for pagination",
+     "minimum": 0,
+     "type": "integer"
+    },
+    "site_id": {
+     "default": "default",
+     "description": "Jira site ID. Defaults to the default site.",
+     "minLength": 1,
+     "type": "string"
+    }
+   },
+   "required": [
+    "epic_key"
+   ],
+   "additionalProperties": false
+  }
+ },
+ {
+  "name": "jira__create_issue",
+  "description": "Create a new Jira issue.",
+  "inputSchema": {
+   "type": "object",
+   "properties": {
+    "project_key": {
+     "description": "Jira project key, for example MOCK",
+     "pattern": "^[A-Z][A-Z0-9_]*$",
+     "type": "string"
+    },
+    "summary": {
+     "type": "string"
+    },
+    "issue_type": {
+     "description": "Jira issue type name. Common defaults include Task, Bug, Story, Epic, and Sub-task; custom issue types are allowed.",
+     "examples": [
+      "Task",
+      "Bug",
+      "Story",
+      "Epic",
+      "Sub-task"
+     ],
+     "maxLength": 255,
+     "minLength": 1,
+     "type": "string"
+    },
+    "assignee": {
+     "anyOf": [
+      {
+       "type": "string"
+      },
+      {
+       "type": "null"
+      }
+     ],
+     "default": null
+    },
+    "description": {
+     "default": "",
+     "type": "string"
+    },
+    "components": {
+     "default": "",
+     "type": "string"
+    },
+    "additional_fields": {
+     "default": "{}",
+     "description": "JSON object string of additional fields to set at creation. Supports parent (issue key string), labels (list of strings), and priority (name string or {\"id\",\"name\"} object). Example: {\"parent\":\"PROJ-1\",\"labels\":[\"backend\"],\"priority\":\"High\"}. Other fields, such as duedate or custom fields, are rejected.",
+     "type": "string"
+    },
+    "site_id": {
+     "default": "default",
+     "description": "Jira site ID. Defaults to the default site.",
+     "minLength": 1,
+     "type": "string"
+    }
+   },
+   "required": [
+    "project_key",
+    "summary",
+    "issue_type"
+   ],
+   "additionalProperties": false
+  }
+ },
+ {
+  "name": "jira__update_issue",
+  "description": "Update editable Jira issue fields. Use transition_issue for status/workflow changes.",
+  "inputSchema": {
+   "type": "object",
+   "properties": {
+    "issue_key": {
+     "description": "Jira issue key, for example MOCK-1",
+     "pattern": "^[A-Z][A-Z0-9_]*-\\d+$",
+     "type": "string"
+    },
+    "fields": {
+     "description": "JSON object string of editable issue fields. Supports summary, description, priority, assignee, and labels. Example: {\"summary\":\"New title\",\"description\":\"Updated details\",\"labels\":[\"backend\"]}. Do not use this for status changes; use get_transitions and transition_issue instead.",
+     "type": "string"
+    },
+    "site_id": {
+     "default": "default",
+     "description": "Jira site ID. Defaults to the default site.",
+     "minLength": 1,
+     "type": "string"
+    }
+   },
+   "required": [
+    "fields",
+    "issue_key"
+   ],
+   "additionalProperties": false
+  }
+ },
+ {
+  "name": "jira__delete_issue",
+  "description": "Delete an existing Jira issue.",
+  "inputSchema": {
+   "type": "object",
+   "properties": {
+    "issue_key": {
+     "description": "Jira issue key, for example MOCK-1",
+     "pattern": "^[A-Z][A-Z0-9_]*-\\d+$",
+     "type": "string"
+    },
+    "site_id": {
+     "default": "default",
+     "description": "Jira site ID. Defaults to the default site.",
+     "minLength": 1,
+     "type": "string"
+    }
+   },
+   "required": [
+    "issue_key"
+   ],
+   "additionalProperties": false
+  }
+ },
+ {
+  "name": "jira__link_issues",
+  "description": "Create a bidirectional link between two Jira issues.\n\nlink_type may be a configured link type name or one of its inward/outward\nlabels, such as Blocks, blocks, or is blocked by. Inward labels resolve to\nthe same canonical link type with direction reversed. Default link types are\nBlocks, Cloners, Duplicate, and Relates; call get_link_types to inspect the\ncurrent world's configured link types.",
+  "inputSchema": {
+   "type": "object",
+   "properties": {
+    "inward_issue_key": {
+     "description": "Jira issue key, for example MOCK-1",
+     "pattern": "^[A-Z][A-Z0-9_]*-\\d+$",
+     "type": "string"
+    },
+    "outward_issue_key": {
+     "description": "Jira issue key, for example MOCK-1",
+     "pattern": "^[A-Z][A-Z0-9_]*-\\d+$",
+     "type": "string"
+    },
+    "link_type": {
+     "type": "string"
+    },
+    "comment": {
+     "anyOf": [
+      {
+       "type": "string"
+      },
+      {
+       "type": "null"
+      }
+     ],
+     "default": null
+    },
+    "site_id": {
+     "default": "default",
+     "description": "Jira site ID. Defaults to the default site.",
+     "minLength": 1,
+     "type": "string"
+    }
+   },
+   "required": [
+    "inward_issue_key",
+    "link_type",
+    "outward_issue_key"
+   ],
+   "additionalProperties": false
+  }
+ },
+ {
+  "name": "jira__search_fields",
+  "description": "Search Jira fields by keyword.",
+  "inputSchema": {
+   "type": "object",
+   "properties": {
+    "keyword": {
+     "default": "",
+     "type": "string"
+    },
+    "limit": {
+     "default": 10,
+     "description": "Maximum number of results",
+     "maximum": 50,
+     "minimum": 0,
+     "type": "integer"
+    },
+    "refresh": {
+     "default": false,
+     "type": "boolean"
+    },
+    "site_id": {
+     "default": "default",
+     "description": "Jira site ID. Defaults to the default site.",
+     "minLength": 1,
+     "type": "string"
+    }
+   },
+   "required": [],
+   "additionalProperties": false
+  }
+ },
+ {
+  "name": "jira__get_link_types",
+  "description": "Get all available issue link types.",
+  "inputSchema": {
+   "type": "object",
+   "properties": {
+    "site_id": {
+     "default": "default",
+     "description": "Jira site ID. Defaults to the default site.",
+     "minLength": 1,
+     "type": "string"
+    }
+   },
+   "required": [],
+   "additionalProperties": false
+  }
+ },
+ {
+  "name": "jira__get_transitions",
+  "description": "Get available workflow transitions for an issue.",
+  "inputSchema": {
+   "type": "object",
+   "properties": {
+    "issue_key": {
+     "description": "Jira issue key, for example MOCK-1",
+     "pattern": "^[A-Z][A-Z0-9_]*-\\d+$",
+     "type": "string"
+    },
+    "site_id": {
+     "default": "default",
+     "description": "Jira site ID. Defaults to the default site.",
+     "minLength": 1,
+     "type": "string"
+    }
+   },
+   "required": [
+    "issue_key"
+   ],
+   "additionalProperties": false
+  }
+ },
+ {
+  "name": "jira__transition_issue",
+  "description": "Move an issue through a workflow transition.\n\ntransition_id must be one of the transitions currently available for the\nissue's status. Call get_transitions(issue_key) immediately before this tool\nto discover valid transition IDs and their target statuses.",
+  "inputSchema": {
+   "type": "object",
+   "properties": {
+    "issue_key": {
+     "description": "Jira issue key, for example MOCK-1",
+     "pattern": "^[A-Z][A-Z0-9_]*-\\d+$",
+     "type": "string"
+    },
+    "transition_id": {
+     "description": "Jira workflow transition ID",
+     "pattern": "^\\d+$",
+     "type": "string"
+    },
+    "site_id": {
+     "default": "default",
+     "description": "Jira site ID. Defaults to the default site.",
+     "minLength": 1,
+     "type": "string"
+    }
+   },
+   "required": [
+    "transition_id",
+    "issue_key"
+   ],
+   "additionalProperties": false
+  }
+ },
+ {
+  "name": "jira__get_users",
+  "description": "Get Jira users, optionally filtered by query text or active status.",
+  "inputSchema": {
+   "type": "object",
+   "properties": {
+    "query": {
+     "default": "",
+     "type": "string"
+    },
+    "active": {
+     "anyOf": [
+      {
+       "type": "boolean"
+      },
+      {
+       "type": "null"
+      }
+     ],
+     "default": null
+    },
+    "startAt": {
+     "default": 0,
+     "description": "Starting index for pagination",
+     "minimum": 0,
+     "type": "integer"
+    },
+    "limit": {
+     "default": 10,
+     "description": "Maximum number of results",
+     "maximum": 50,
+     "minimum": 0,
+     "type": "integer"
+    },
+    "site_id": {
+     "default": "default",
+     "description": "Jira site ID. Defaults to the default site.",
+     "minLength": 1,
+     "type": "string"
+    }
+   },
+   "required": [],
+   "additionalProperties": false
+  }
+ },
+ {
+  "name": "jira__get_current_user",
+  "description": "Get the Jira user whose account is currently authenticated for tool calls.",
+  "inputSchema": {
+   "type": "object",
+   "properties": {
+    "site_id": {
+     "default": "default",
+     "description": "Jira site ID. Defaults to the default site.",
+     "minLength": 1,
+     "type": "string"
+    }
+   },
+   "required": [],
+   "additionalProperties": false
+  }
+ },
+ {
+  "name": "jira__add_comment",
+  "description": "Add a comment to a Jira issue.",
+  "inputSchema": {
+   "type": "object",
+   "properties": {
+    "issue_key": {
+     "description": "Jira issue key, for example MOCK-1",
+     "pattern": "^[A-Z][A-Z0-9_]*-\\d+$",
+     "type": "string"
+    },
+    "comment": {
+     "type": "string"
+    },
+    "site_id": {
+     "default": "default",
+     "description": "Jira site ID. Defaults to the default site.",
+     "minLength": 1,
+     "type": "string"
+    }
+   },
+   "required": [
+    "comment",
+    "issue_key"
+   ],
+   "additionalProperties": false
+  }
+ },
+ {
+  "name": "jira__get_sprints_from_board",
+  "description": "Get Jira sprints from board by state.",
+  "inputSchema": {
+   "type": "object",
+   "properties": {
+    "board_id": {
+     "default": "1000",
+     "description": "Jira board ID, for example 1000",
+     "pattern": "^\\d+$",
+     "type": "string"
+    },
+    "state": {
+     "anyOf": [
+      {
+       "enum": [
+        "active",
+        "closed",
+        "future"
+       ],
+       "type": "string"
+      },
+      {
+       "type": "null"
+      }
+     ],
+     "default": null
+    },
+    "startAt": {
+     "default": 0,
+     "description": "Starting index for pagination",
+     "minimum": 0,
+     "type": "integer"
+    },
+    "limit": {
+     "default": 10,
+     "description": "Maximum number of results",
+     "maximum": 50,
+     "minimum": 0,
+     "type": "integer"
+    },
+    "site_id": {
+     "default": "default",
+     "description": "Jira site ID. Defaults to the default site.",
+     "minLength": 1,
+     "type": "string"
+    }
+   },
+   "required": [],
+   "additionalProperties": false
+  }
+ },
+ {
+  "name": "jira__create_sprint",
+  "description": "Create Jira sprint for a board.",
+  "inputSchema": {
+   "type": "object",
+   "properties": {
+    "board_id": {
+     "description": "Jira board ID, for example 1000",
+     "pattern": "^\\d+$",
+     "type": "string"
+    },
+    "sprint_name": {
+     "type": "string"
+    },
+    "start_date": {
+     "pattern": "^\\d{4}-\\d{2}-\\d{2}T\\d{2}:\\d{2}:\\d{2}(?:\\.\\d+)?(?:Z|[+-]\\d{2}:?\\d{2})$",
+     "type": "string"
+    },
+    "end_date": {
+     "pattern": "^\\d{4}-\\d{2}-\\d{2}T\\d{2}:\\d{2}:\\d{2}(?:\\.\\d+)?(?:Z|[+-]\\d{2}:?\\d{2})$",
+     "type": "string"
+    },
+    "goal": {
+     "anyOf": [
+      {
+       "type": "string"
+      },
+      {
+       "type": "null"
+      }
+     ],
+     "default": null
+    },
+    "site_id": {
+     "default": "default",
+     "description": "Jira site ID. Defaults to the default site.",
+     "minLength": 1,
+     "type": "string"
+    }
+   },
+   "required": [
+    "sprint_name",
+    "end_date",
+    "board_id",
+    "start_date"
+   ],
+   "additionalProperties": false
+  }
+ },
+ {
+  "name": "jira__get_sprint_issues",
+  "description": "Get Jira issues from sprint.",
+  "inputSchema": {
+   "type": "object",
+   "properties": {
+    "sprint_id": {
+     "description": "Jira sprint ID, for example 1001",
+     "pattern": "^\\d+$",
+     "type": "string"
+    },
+    "fields": {
+     "default": "summary,status,assignee,issuetype,priority,created,updated,description,labels",
+     "type": "string"
+    },
+    "startAt": {
+     "default": 0,
+     "description": "Starting index for pagination",
+     "minimum": 0,
+     "type": "integer"
+    },
+    "limit": {
+     "default": 10,
+     "description": "Maximum number of results",
+     "maximum": 50,
+     "minimum": 0,
+     "type": "integer"
+    },
+    "site_id": {
+     "default": "default",
+     "description": "Jira site ID. Defaults to the default site.",
+     "minLength": 1,
+     "type": "string"
+    }
+   },
+   "required": [
+    "sprint_id"
+   ],
+   "additionalProperties": false
+  }
+ },
+ {
+  "name": "jira__update_sprint",
+  "description": "Update Jira sprint.",
+  "inputSchema": {
+   "type": "object",
+   "properties": {
+    "sprint_id": {
+     "description": "Jira sprint ID, for example 1001",
+     "pattern": "^\\d+$",
+     "type": "string"
+    },
+    "sprint_name": {
+     "anyOf": [
+      {
+       "type": "string"
+      },
+      {
+       "type": "null"
+      }
+     ],
+     "default": null
+    },
+    "state": {
+     "anyOf": [
+      {
+       "enum": [
+        "active",
+        "closed",
+        "future"
+       ],
+       "type": "string"
+      },
+      {
+       "type": "null"
+      }
+     ],
+     "default": null
+    },
+    "start_date": {
+     "anyOf": [
+      {
+       "pattern": "^\\d{4}-\\d{2}-\\d{2}T\\d{2}:\\d{2}:\\d{2}(?:\\.\\d+)?(?:Z|[+-]\\d{2}:?\\d{2})$",
+       "type": "string"
+      },
+      {
+       "type": "null"
+      }
+     ],
+     "default": null
+    },
+    "end_date": {
+     "anyOf": [
+      {
+       "pattern": "^\\d{4}-\\d{2}-\\d{2}T\\d{2}:\\d{2}:\\d{2}(?:\\.\\d+)?(?:Z|[+-]\\d{2}:?\\d{2})$",
+       "type": "string"
+      },
+      {
+       "type": "null"
+      }
+     ],
+     "default": null
+    },
+    "goal": {
+     "anyOf": [
+      {
+       "type": "string"
+      },
+      {
+       "type": "null"
+      }
+     ],
+     "default": null
+    },
+    "site_id": {
+     "default": "default",
+     "description": "Jira site ID. Defaults to the default site.",
+     "minLength": 1,
+     "type": "string"
+    }
+   },
+   "required": [
+    "sprint_id"
+   ],
+   "additionalProperties": false
+  }
+ },
+ {
+  "name": "shopify__search_shop_catalog",
+  "description": "Search for products from the online store, hosted on Shopify.\n\nThis tool can be used to search for products using natural language queries,\nspecific filter criteria, or both.\n\nBest practices:\n- Searches return available_filters which can be used for refined follow-up searches\n- When filtering, use ONLY the filters from available_filters in follow-up searches\n- For specific filter searches, use simple terms without the filter name\n- Results are paginated, with initial results limited to improve experience\n- Use the after parameter with endCursor to fetch additional pages\n\nArgs:\n    query: A natural language query\n    context: Additional information about the request such as user demographics, mood, location\n    filters: Filters to apply to the search from available_filters in previous response\n    country: ISO 3166-1 alpha-2 country code for localized results (e.g., 'US', 'CA')\n    language: ISO 639-1 language code for localized results (e.g., 'EN', 'FR')\n    limit: Maximum number of products to return (default 10, max 250)\n    after: Pagination cursor to fetch the next page of results\n\nReturns:\n    Search results including products, available filters, and pagination info",
+  "inputSchema": {
+   "type": "object",
+   "properties": {
+    "query": {
+     "type": "string"
+    },
+    "context": {
+     "type": "string"
+    },
+    "filters": {
+     "anyOf": [
+      {
+       "items": {
+        "additionalProperties": true,
+        "type": "object"
+       },
+       "type": "array"
+      },
+      {
+       "type": "null"
+      }
+     ],
+     "default": null
+    },
+    "country": {
+     "anyOf": [
+      {
+       "type": "string"
+      },
+      {
+       "type": "null"
+      }
+     ],
+     "default": null
+    },
+    "language": {
+     "anyOf": [
+      {
+       "type": "string"
+      },
+      {
+       "type": "null"
+      }
+     ],
+     "default": null
+    },
+    "limit": {
+     "default": 10,
+     "minimum": 0,
+     "type": "integer"
+    },
+    "after": {
+     "anyOf": [
+      {
+       "type": "string"
+      },
+      {
+       "type": "null"
+      }
+     ],
+     "default": null
+    },
+    "store_id": {
+     "default": "default",
+     "type": "string"
+    }
+   },
+   "required": [
+    "query",
+    "context"
+   ],
+   "additionalProperties": false
+  }
+ },
+ {
+  "name": "shopify__get_cart",
+  "description": "Get the cart including items, shipping options, discount info, and checkout url.\n\nArgs:\n    cart_id: Shopify cart id, formatted like: gid://shopify/Cart/c1-66330c6d752c2b242bb8487474949791?key=fa8913e951098d30d68033cf6b7b50f3\n\nReturns:\n    Cart details including items, costs, delivery options, and checkout URL",
+  "inputSchema": {
+   "type": "object",
+   "properties": {
+    "cart_id": {
+     "type": "string"
+    },
+    "store_id": {
+     "default": "default",
+     "type": "string"
+    }
+   },
+   "required": [
+    "cart_id"
+   ],
+   "additionalProperties": false
+  }
+ },
+ {
+  "name": "shopify__list_carts",
+  "description": "List all shopping carts.\n\nUse this tool to discover existing cart IDs before using get_cart or update_cart.\nReturns a list of all carts with their IDs, item counts, and totals.\n\nArgs:\n    store_id: Which store to query in multi-store worlds. Defaults to \"default\".\n\nReturns:\n    List of carts with summary information including cart IDs",
+  "inputSchema": {
+   "type": "object",
+   "properties": {
+    "store_id": {
+     "default": "default",
+     "type": "string"
+    }
+   },
+   "required": [],
+   "additionalProperties": false
+  }
+ },
+ {
+  "name": "shopify__update_cart",
+  "description": "Perform updates to a cart, including adding/removing/updating line items,\nbuyer information, shipping details, discount codes, gift cards and notes.\n\nShipping options become available after adding items and delivery address.\nWhen creating a new cart, only add_items is required.\n\nArgs:\n    cart_id: Identifier for the cart. If not provided, a new cart will be created\n    add_items: Items to add to the cart (list of {merchandiseId, quantity})\n    update_items: Items to update (list of {id, quantity}). Use quantity 0 to remove\n    remove_line_ids: List of line item IDs to remove explicitly\n    buyer_identity: Buyer info including email, phone, countryCode\n    delivery_addresses_to_add: Delivery addresses to add\n    delivery_addresses_to_replace: Delivery addresses to replace all existing\n    selected_delivery_options: Delivery options to select\n    discount_codes: Discount or promo codes to apply\n    gift_card_codes: Gift card codes to apply\n    note: A note or special instructions for the cart\n\nReturns:\n    Updated cart details",
+  "inputSchema": {
+   "type": "object",
+   "properties": {
+    "cart_id": {
+     "anyOf": [
+      {
+       "type": "string"
+      },
+      {
+       "type": "null"
+      }
+     ],
+     "default": null
+    },
+    "add_items": {
+     "anyOf": [
+      {
+       "items": {
+        "additionalProperties": true,
+        "type": "object"
+       },
+       "type": "array"
+      },
+      {
+       "type": "null"
+      }
+     ],
+     "default": null
+    },
+    "update_items": {
+     "anyOf": [
+      {
+       "items": {
+        "additionalProperties": true,
+        "type": "object"
+       },
+       "type": "array"
+      },
+      {
+       "type": "null"
+      }
+     ],
+     "default": null
+    },
+    "remove_line_ids": {
+     "anyOf": [
+      {
+       "items": {
+        "type": "string"
+       },
+       "type": "array"
+      },
+      {
+       "type": "null"
+      }
+     ],
+     "default": null
+    },
+    "buyer_identity": {
+     "anyOf": [
+      {
+       "additionalProperties": true,
+       "type": "object"
+      },
+      {
+       "type": "null"
+      }
+     ],
+     "default": null
+    },
+    "delivery_addresses_to_add": {
+     "anyOf": [
+      {
+       "items": {
+        "additionalProperties": true,
+        "type": "object"
+       },
+       "type": "array"
+      },
+      {
+       "type": "null"
+      }
+     ],
+     "default": null
+    },
+    "delivery_addresses_to_replace": {
+     "anyOf": [
+      {
+       "items": {
+        "additionalProperties": true,
+        "type": "object"
+       },
+       "type": "array"
+      },
+      {
+       "type": "null"
+      }
+     ],
+     "default": null
+    },
+    "selected_delivery_options": {
+     "anyOf": [
+      {
+       "items": {
+        "additionalProperties": true,
+        "type": "object"
+       },
+       "type": "array"
+      },
+      {
+       "type": "null"
+      }
+     ],
+     "default": null
+    },
+    "discount_codes": {
+     "anyOf": [
+      {
+       "items": {
+        "type": "string"
+       },
+       "type": "array"
+      },
+      {
+       "type": "null"
+      }
+     ],
+     "default": null
+    },
+    "gift_card_codes": {
+     "anyOf": [
+      {
+       "items": {
+        "type": "string"
+       },
+       "type": "array"
+      },
+      {
+       "type": "null"
+      }
+     ],
+     "default": null
+    },
+    "note": {
+     "anyOf": [
+      {
+       "type": "string"
+      },
+      {
+       "type": "null"
+      }
+     ],
+     "default": null
+    },
+    "store_id": {
+     "default": "default",
+     "type": "string"
+    }
+   },
+   "required": [],
+   "additionalProperties": false
+  }
+ },
+ {
+  "name": "shopify__search_shop_policies_and_faqs",
+  "description": "Get facts about the store's policies, products, or services.\n\nExamples of questions you can ask:\n- What is your return policy?\n- What is your shipping policy?\n- What is your phone number?\n- What are your hours of operation?\n\nArgs:\n    query: A natural language query\n    context: Additional information about the request\n\nReturns:\n    Matching policies and FAQ answers",
+  "inputSchema": {
+   "type": "object",
+   "properties": {
+    "query": {
+     "type": "string"
+    },
+    "context": {
+     "anyOf": [
+      {
+       "type": "string"
+      },
+      {
+       "type": "null"
+      }
+     ],
+     "default": null
+    },
+    "store_id": {
+     "default": "default",
+     "type": "string"
+    }
+   },
+   "required": [
+    "query"
+   ],
+   "additionalProperties": false
+  }
+ },
+ {
+  "name": "shopify__get_product_details",
+  "description": "Look up a product by ID and optionally specify variant options to select a specific variant.\n\nArgs:\n    product_id: The product ID, e.g. gid://shopify/Product/123\n    options: Optional variant options to select a specific variant, e.g. {\"Size\": \"10\", \"Color\": \"Black\"}\n    country: ISO 3166-1 alpha-2 country code for localized results\n    language: ISO 639-1 language code for localized results\n\nReturns:\n    Product details including variants, images, and pricing",
+  "inputSchema": {
+   "type": "object",
+   "properties": {
+    "product_id": {
+     "type": "string"
+    },
+    "options": {
+     "anyOf": [
+      {
+       "additionalProperties": true,
+       "type": "object"
+      },
+      {
+       "type": "null"
+      }
+     ],
+     "default": null
+    },
+    "country": {
+     "anyOf": [
+      {
+       "type": "string"
+      },
+      {
+       "type": "null"
+      }
+     ],
+     "default": null
+    },
+    "language": {
+     "anyOf": [
+      {
+       "type": "string"
+      },
+      {
+       "type": "null"
+      }
+     ],
+     "default": null
+    },
+    "store_id": {
+     "default": "default",
+     "type": "string"
+    }
+   },
+   "required": [
+    "product_id"
+   ],
+   "additionalProperties": false
+  }
+ },
+ {
+  "name": "shopify__create_order",
+  "description": "Place an order from an existing cart. Requires payment, addresses, and shipping method.\n\nArgs:\n    cart_id: The cart ID to convert into an order\n    payment_method: Payment info. For credit card: {type: \"credit_card\", card_number: \"4111111111111111\", cvv: \"123\", expiry: \"12/26\"}. For digital wallets: {type: \"google_pay\"|\"apple_pay\"|\"paypal\", email: \"user@example.com\"}\n    shipping_address: Shipping address (required: address1, city, countryCode)\n    billing_address: Billing address (same format as shipping)\n    shipping_method_id: Shipping method ID (e.g., 'standard', 'express'). If omitted, checkout uses the cart's selected delivery option.\n    discount_code: Discount code to apply (optional). PERCENTAGE/FIXED_AMOUNT discounts reduce the item subtotal. FREE_SHIPPING removes shipping cost. Product-scoped discounts only apply to matching items.\n    email: Customer email (falls back to cart buyer identity email, then current customer email)\n    phone: Customer phone (falls back to cart buyer identity phone)\n    note: Order note or special instructions\n    tags: Tags for categorizing the order\n    redeem_points: Loyalty points to redeem on this order. Requires a matching customer email.\n    apply_tier_discount: Whether to auto-apply the customer's loyalty tier discount.\n\nReturns:\n    The created order with line items, totals, shipping, discount, payment info, and status",
+  "inputSchema": {
+   "type": "object",
+   "properties": {
+    "cart_id": {
+     "type": "string"
+    },
+    "payment_method": {
+     "additionalProperties": true,
+     "type": "object"
+    },
+    "shipping_address": {
+     "additionalProperties": true,
+     "type": "object"
+    },
+    "billing_address": {
+     "additionalProperties": true,
+     "type": "object"
+    },
+    "shipping_method_id": {
+     "anyOf": [
+      {
+       "type": "string"
+      },
+      {
+       "type": "null"
+      }
+     ],
+     "default": null
+    },
+    "discount_code": {
+     "anyOf": [
+      {
+       "type": "string"
+      },
+      {
+       "type": "null"
+      }
+     ],
+     "default": null
+    },
+    "email": {
+     "anyOf": [
+      {
+       "type": "string"
+      },
+      {
+       "type": "null"
+      }
+     ],
+     "default": null
+    },
+    "phone": {
+     "anyOf": [
+      {
+       "type": "string"
+      },
+      {
+       "type": "null"
+      }
+     ],
+     "default": null
+    },
+    "note": {
+     "anyOf": [
+      {
+       "type": "string"
+      },
+      {
+       "type": "null"
+      }
+     ],
+     "default": null
+    },
+    "tags": {
+     "anyOf": [
+      {
+       "items": {
+        "type": "string"
+       },
+       "type": "array"
+      },
+      {
+       "type": "null"
+      }
+     ],
+     "default": null
+    },
+    "redeem_points": {
+     "anyOf": [
+      {
+       "type": "integer"
+      },
+      {
+       "type": "null"
+      }
+     ],
+     "default": null
+    },
+    "apply_tier_discount": {
+     "default": true,
+     "type": "boolean"
+    },
+    "store_id": {
+     "default": "default",
+     "type": "string"
+    }
+   },
+   "required": [
+    "cart_id",
+    "payment_method",
+    "billing_address",
+    "shipping_address"
+   ],
+   "additionalProperties": false
+  }
+ },
+ {
+  "name": "shopify__get_order",
+  "description": "Get an order by its ID.\n\nArgs:\n    order_id: The order ID, e.g. gid://shopify/Order/o2001\n\nReturns:\n    Order details including line items, status, and totals",
+  "inputSchema": {
+   "type": "object",
+   "properties": {
+    "order_id": {
+     "type": "string"
+    },
+    "store_id": {
+     "default": "default",
+     "type": "string"
+    }
+   },
+   "required": [
+    "order_id"
+   ],
+   "additionalProperties": false
+  }
+ },
+ {
+  "name": "shopify__list_orders",
+  "description": "List orders with optional filtering by status.\n\nArgs:\n    status: Filter by financial status (PENDING, PAID, REFUNDED, PARTIALLY_REFUNDED) or fulfillment status (UNFULFILLED, FULFILLED, PARTIALLY_FULFILLED)\n    limit: Maximum number of orders to return (default 20)\n    after: Pagination cursor from a previous call\n\nReturns:\n    List of orders with pagination info",
+  "inputSchema": {
+   "type": "object",
+   "properties": {
+    "status": {
+     "anyOf": [
+      {
+       "type": "string"
+      },
+      {
+       "type": "null"
+      }
+     ],
+     "default": null
+    },
+    "limit": {
+     "default": 20,
+     "type": "integer"
+    },
+    "after": {
+     "anyOf": [
+      {
+       "type": "string"
+      },
+      {
+       "type": "null"
+      }
+     ],
+     "default": null
+    },
+    "store_id": {
+     "default": "default",
+     "type": "string"
+    }
+   },
+   "required": [],
+   "additionalProperties": false
+  }
+ },
+ {
+  "name": "shopify__list_shipping_methods",
+  "description": "List all available shipping methods, sorted by price.\n\nArgs:\n    active_only: If true, only return active methods\n\nReturns:\n    List of shipping methods with prices and estimated delivery times",
+  "inputSchema": {
+   "type": "object",
+   "properties": {
+    "active_only": {
+     "default": false,
+     "type": "boolean"
+    },
+    "store_id": {
+     "default": "default",
+     "type": "string"
+    }
+   },
+   "required": [],
+   "additionalProperties": false
+  }
+ },
+ {
+  "name": "slack__list_channels",
+  "description": "List active public/private channels visible to the bot.\n\nThis mirrors Slack's default conversations.list shape for normal named\nchannels: archived channels, DMs, and MPIMs are excluded. Results are\npaginated with a numeric cursor returned in response_metadata.next_cursor.\n\nArgs:\n    limit: Maximum number of channels to return, capped at 200.\n    cursor: Pagination cursor from a previous response.\n\nReturns:\n    Slack-style response with channels and response_metadata.next_cursor.",
+  "inputSchema": {
+   "type": "object",
+   "properties": {
+    "limit": {
+     "default": 100,
+     "description": "Maximum number of items to return.",
+     "minimum": 0,
+     "type": "integer"
+    },
+    "cursor": {
+     "anyOf": [
+      {
+       "description": "Pagination cursor returned by a previous response.",
+       "type": "string"
+      },
+      {
+       "type": "null"
+      }
+     ],
+     "default": null
+    },
+    "workspace_id": {
+     "anyOf": [
+      {
+       "description": "Slack workspace ID. Defaults to the default workspace.",
+       "minLength": 1,
+       "type": "string"
+      },
+      {
+       "type": "null"
+      }
+     ],
+     "default": null
+    }
+   },
+   "required": [],
+   "additionalProperties": false
+  }
+ },
+ {
+  "name": "slack__post_message",
+  "description": "Post a new top-level message to a channel, DM, or MPIM.",
+  "inputSchema": {
+   "type": "object",
+   "properties": {
+    "channel_id": {
+     "description": "Slack channel, private channel, DM, or MPIM ID.",
+     "pattern": "^[CDG][A-Za-z0-9_]+$",
+     "type": "string"
+    },
+    "text": {
+     "description": "Message text.",
+     "minLength": 1,
+     "type": "string"
+    },
+    "workspace_id": {
+     "anyOf": [
+      {
+       "description": "Slack workspace ID. Defaults to the default workspace.",
+       "minLength": 1,
+       "type": "string"
+      },
+      {
+       "type": "null"
+      }
+     ],
+     "default": null
+    }
+   },
+   "required": [
+    "text",
+    "channel_id"
+   ],
+   "additionalProperties": false
+  }
+ },
+ {
+  "name": "slack__reply_to_thread",
+  "description": "Reply to an existing message thread.\n\nArgs:\n    channel_id: Channel, DM, or MPIM containing the parent message.\n    thread_ts: Timestamp of the parent message to reply to.\n    text: Reply text.\n\nReturns:\n    Slack-style response with the new reply timestamp and message.",
+  "inputSchema": {
+   "type": "object",
+   "properties": {
+    "channel_id": {
+     "description": "Slack channel, private channel, DM, or MPIM ID.",
+     "pattern": "^[CDG][A-Za-z0-9_]+$",
+     "type": "string"
+    },
+    "thread_ts": {
+     "description": "Slack message timestamp, such as 1700000001.000.",
+     "pattern": "^\\d{10}\\.\\d{3,6}$",
+     "type": "string"
+    },
+    "text": {
+     "description": "Message text.",
+     "minLength": 1,
+     "type": "string"
+    },
+    "workspace_id": {
+     "anyOf": [
+      {
+       "description": "Slack workspace ID. Defaults to the default workspace.",
+       "minLength": 1,
+       "type": "string"
+      },
+      {
+       "type": "null"
+      }
+     ],
+     "default": null
+    }
+   },
+   "required": [
+    "text",
+    "channel_id",
+    "thread_ts"
+   ],
+   "additionalProperties": false
+  }
+ },
+ {
+  "name": "slack__add_reaction",
+  "description": "Add a reaction emoji to a message.\n\nThe reaction may be provided with or without surrounding colons, e.g.\n`thumbsup` and `:thumbsup:` are equivalent.",
+  "inputSchema": {
+   "type": "object",
+   "properties": {
+    "channel_id": {
+     "description": "Slack channel, private channel, DM, or MPIM ID.",
+     "pattern": "^[CDG][A-Za-z0-9_]+$",
+     "type": "string"
+    },
+    "timestamp": {
+     "description": "Slack message timestamp, such as 1700000001.000.",
+     "pattern": "^\\d{10}\\.\\d{3,6}$",
+     "type": "string"
+    },
+    "reaction": {
+     "description": "Emoji reaction name, with or without surrounding colons.",
+     "minLength": 1,
+     "type": "string"
+    },
+    "workspace_id": {
+     "anyOf": [
+      {
+       "description": "Slack workspace ID. Defaults to the default workspace.",
+       "minLength": 1,
+       "type": "string"
+      },
+      {
+       "type": "null"
+      }
+     ],
+     "default": null
+    }
+   },
+   "required": [
+    "reaction",
+    "channel_id",
+    "timestamp"
+   ],
+   "additionalProperties": false
+  }
+ },
+ {
+  "name": "slack__get_channel_history",
+  "description": "Get recent top-level messages from a channel, DM, or MPIM.\n\nThread replies are not returned here unless the reply is itself the\nthread parent. Use get_thread_replies with the parent timestamp to inspect\na full thread.\n\nArgs:\n    channel_id: Channel, DM, or MPIM to read.\n    limit: Maximum number of top-level messages to return.\n\nReturns:\n    Slack-style response with messages ordered newest first.",
+  "inputSchema": {
+   "type": "object",
+   "properties": {
+    "channel_id": {
+     "description": "Slack channel, private channel, DM, or MPIM ID.",
+     "pattern": "^[CDG][A-Za-z0-9_]+$",
+     "type": "string"
+    },
+    "limit": {
+     "default": 10,
+     "description": "Maximum number of items to return.",
+     "minimum": 0,
+     "type": "integer"
+    },
+    "workspace_id": {
+     "anyOf": [
+      {
+       "description": "Slack workspace ID. Defaults to the default workspace.",
+       "minLength": 1,
+       "type": "string"
+      },
+      {
+       "type": "null"
+      }
+     ],
+     "default": null
+    }
+   },
+   "required": [
+    "channel_id"
+   ],
+   "additionalProperties": false
+  }
+ },
+ {
+  "name": "slack__get_thread_replies",
+  "description": "Get a thread parent and all replies.\n\nArgs:\n    channel_id: Channel, DM, or MPIM containing the thread.\n    thread_ts: Timestamp of the thread parent message.\n\nReturns:\n    Slack-style response with the parent message followed by replies.",
+  "inputSchema": {
+   "type": "object",
+   "properties": {
+    "channel_id": {
+     "description": "Slack channel, private channel, DM, or MPIM ID.",
+     "pattern": "^[CDG][A-Za-z0-9_]+$",
+     "type": "string"
+    },
+    "thread_ts": {
+     "description": "Slack message timestamp, such as 1700000001.000.",
+     "pattern": "^\\d{10}\\.\\d{3,6}$",
+     "type": "string"
+    },
+    "workspace_id": {
+     "anyOf": [
+      {
+       "description": "Slack workspace ID. Defaults to the default workspace.",
+       "minLength": 1,
+       "type": "string"
+      },
+      {
+       "type": "null"
+      }
+     ],
+     "default": null
+    }
+   },
+   "required": [
+    "channel_id",
+    "thread_ts"
+   ],
+   "additionalProperties": false
+  }
+ },
+ {
+  "name": "slack__get_users",
+  "description": "Get workspace users with basic profile information.\n\nArgs:\n    cursor: Pagination cursor from a previous response.\n    limit: Maximum number of users to return, capped at 200.\n\nReturns:\n    Slack-style response with members and response_metadata.next_cursor.",
+  "inputSchema": {
+   "type": "object",
+   "properties": {
+    "cursor": {
+     "anyOf": [
+      {
+       "description": "Pagination cursor returned by a previous response.",
+       "type": "string"
+      },
+      {
+       "type": "null"
+      }
+     ],
+     "default": null
+    },
+    "limit": {
+     "default": 100,
+     "description": "Maximum number of items to return.",
+     "minimum": 0,
+     "type": "integer"
+    },
+    "workspace_id": {
+     "anyOf": [
+      {
+       "description": "Slack workspace ID. Defaults to the default workspace.",
+       "minLength": 1,
+       "type": "string"
+      },
+      {
+       "type": "null"
+      }
+     ],
+     "default": null
+    }
+   },
+   "required": [],
+   "additionalProperties": false
+  }
+ },
+ {
+  "name": "slack__get_user_profile",
+  "description": "Get detailed profile information for a specific user.",
+  "inputSchema": {
+   "type": "object",
+   "properties": {
+    "user_id": {
+     "description": "Slack user ID.",
+     "pattern": "^[UW][A-Za-z0-9_]+$",
+     "type": "string"
+    },
+    "workspace_id": {
+     "anyOf": [
+      {
+       "description": "Slack workspace ID. Defaults to the default workspace.",
+       "minLength": 1,
+       "type": "string"
+      },
+      {
+       "type": "null"
+      }
+     ],
+     "default": null
+    }
+   },
+   "required": [
+    "user_id"
+   ],
+   "additionalProperties": false
+  }
+ },
+ {
+  "name": "slack__search_messages",
+  "description": "Search messages across channels, DMs, and MPIMs.\n\nBare words are ANDed together and matched against message text plus sender\nnames/profile fields. Double-quoted text requires exact adjacency.\n\nSupported filters:\n  in:general          match channel name or channel ID\n  from:alice          match sender by username, display name, real name, email, or user ID\n  from:@alice         match sender username exactly\n  after:2026-05-01    messages at or after a date or Unix timestamp\n  before:2026-05-02   messages before a date or Unix timestamp\n  during:2026-05      messages during a year, month, day, or parseable date\n  has:link            messages containing a URL or linked attachment/file\n  has:reaction        messages with reactions\n  has:pin             pinned messages\n\nUnsupported or malformed operators are reported in response_metadata.warnings\nwhile preserving best-effort search behavior. `from:me` is unsupported\nbecause caller identity is not modeled and will match no users.\n\nArgs:\n    query: Search text with optional Slack-style filters.\n    channel_id: Optional channel/DM/MPIM scope.\n    limit: Maximum matches to return, capped at 100.\n    cursor: Pagination cursor from a previous response.\n\nReturns:\n    Slack-style search response with matches, total, next_cursor, and warnings.",
+  "inputSchema": {
+   "type": "object",
+   "properties": {
+    "query": {
+     "description": "Slack search query.",
+     "minLength": 1,
+     "type": "string"
+    },
+    "channel_id": {
+     "anyOf": [
+      {
+       "description": "Slack channel, private channel, DM, or MPIM ID.",
+       "pattern": "^[CDG][A-Za-z0-9_]+$",
+       "type": "string"
+      },
+      {
+       "type": "null"
+      }
+     ],
+     "default": null
+    },
+    "limit": {
+     "anyOf": [
+      {
+       "minimum": 0,
+       "type": "integer"
+      },
+      {
+       "type": "null"
+      }
+     ],
+     "default": null,
+     "description": "Maximum number of matches to return. Values above 100 are capped."
+    },
+    "cursor": {
+     "anyOf": [
+      {
+       "description": "Pagination cursor returned by a previous response.",
+       "type": "string"
+      },
+      {
+       "type": "null"
+      }
+     ],
+     "default": null
+    },
+    "workspace_id": {
+     "anyOf": [
+      {
+       "description": "Slack workspace ID. Defaults to the default workspace.",
+       "minLength": 1,
+       "type": "string"
+      },
+      {
+       "type": "null"
+      }
+     ],
+     "default": null
+    }
+   },
+   "required": [
+    "query"
+   ],
+   "additionalProperties": false
+  }
+ },
+ {
+  "name": "slack__list_dms",
+  "description": "List direct message and multi-party direct message conversations.",
+  "inputSchema": {
+   "type": "object",
+   "properties": {
+    "limit": {
+     "default": 20,
+     "description": "Maximum number of items to return.",
+     "minimum": 0,
+     "type": "integer"
+    },
+    "workspace_id": {
+     "anyOf": [
+      {
+       "description": "Slack workspace ID. Defaults to the default workspace.",
+       "minLength": 1,
+       "type": "string"
+      },
+      {
+       "type": "null"
+      }
+     ],
+     "default": null
+    }
+   },
+   "required": [],
+   "additionalProperties": false
+  }
+ },
+ {
+  "name": "slack__send_dm",
+  "description": "Send a direct message to a user.\n\nOpens or reuses the DM first, then posts the message.",
+  "inputSchema": {
+   "type": "object",
+   "properties": {
+    "user_id": {
+     "description": "Slack user ID.",
+     "pattern": "^[UW][A-Za-z0-9_]+$",
+     "type": "string"
+    },
+    "text": {
+     "description": "Message text.",
+     "minLength": 1,
+     "type": "string"
+    },
+    "workspace_id": {
+     "anyOf": [
+      {
+       "description": "Slack workspace ID. Defaults to the default workspace.",
+       "minLength": 1,
+       "type": "string"
+      },
+      {
+       "type": "null"
+      }
+     ],
+     "default": null
+    }
+   },
+   "required": [
+    "text",
+    "user_id"
+   ],
+   "additionalProperties": false
+  }
+ },
+ {
+  "name": "slack__send_mpim",
+  "description": "Send a message to a multi-party direct message conversation.\n\nOpens or reuses the MPIM for the provided member set, then posts the\nmessage. At least two non-bot users are required.",
+  "inputSchema": {
+   "type": "object",
+   "properties": {
+    "user_ids": {
+     "description": "Slack user IDs to include in a multi-party direct message.",
+     "items": {
+      "pattern": "^[UW][A-Za-z0-9_]+$",
+      "type": "string"
+     },
+     "minItems": 2,
+     "type": "array"
+    },
+    "text": {
+     "description": "Message text.",
+     "minLength": 1,
+     "type": "string"
+    },
+    "workspace_id": {
+     "anyOf": [
+      {
+       "description": "Slack workspace ID. Defaults to the default workspace.",
+       "minLength": 1,
+       "type": "string"
+      },
+      {
+       "type": "null"
+      }
+     ],
+     "default": null
+    }
+   },
+   "required": [
+    "text",
+    "user_ids"
+   ],
+   "additionalProperties": false
+  }
+ }
+]
