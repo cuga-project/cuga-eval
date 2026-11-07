@@ -237,13 +237,13 @@ SPECS = [
         "heldout",
         "file",
     ),
-    S(
+    S(  # tuning since 2026-11-07: its failures were traced after the one frozen run (Haiku 5.5 and gpt-oss, 3 trials)
         "ab-policy-types-fresh3",
         "automationbench",
         f"{AB}/policy_types_fresh3.json",
         "tasks",
         "task",
-        "heldout",
+        "tuning",
         "file",
     ),
     # HANDBOOK

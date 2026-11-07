@@ -125,7 +125,7 @@ def use_snapshot(src: Path) -> None:
 def profile_path(name: str) -> Path:
     path = PROFILES / f"{name}.yaml"
     if not path.is_file():
-        known = ", ".join(sorted(p.stem for p in PROFILES.glob("*.yaml")))
+        known = ", ".join(sorted(str(p.relative_to(PROFILES).with_suffix("")) for p in PROFILES.rglob("*.yaml")))
         raise HarnessError(f"no profile {name}; known: {known}")
     return path
 
@@ -485,7 +485,7 @@ async def run_many(tasks: List[str], adapter: BenchmarkAdapter, args: argparse.N
 def main() -> int:
     ap = argparse.ArgumentParser(description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter)
     ap.add_argument("--bench", required=True, choices=sorted(ADAPTERS))
-    ap.add_argument("--profile", required=True, help="a file name in policy_eval/profiles, without .yaml")
+    ap.add_argument("--profile", required=True, help="a file name in policy_eval/profiles, without .yaml; experiments/<name> for a variant that is not a best profile")
     ap.add_argument("--set", required=True, help="a set id of policy_eval/sets/registry.json")
     ap.add_argument("--snapshot", required=True, help="a name under ~/dev/cuga_snapshots")
     ap.add_argument("--trial", type=int, default=1)
