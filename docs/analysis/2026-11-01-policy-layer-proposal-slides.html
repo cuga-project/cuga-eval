@@ -1,0 +1,306 @@
+<!doctype html>
+<html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<title>A policy layer for CUGA: proposal and evaluation plan</title>
+<style>
+:root{--ink:#000;--ink2:#374151;--muted:#6b7280;--line:#e5e7eb;--accent:#1d4ed8;--bar:#9ca3af;--surface:#fff}
+*{box-sizing:border-box}
+html,body{height:100%;overflow:hidden;background:#fff}
+body{margin:0;color:var(--ink);font:18px/1.5 system-ui,-apple-system,"Segoe UI",sans-serif;-webkit-font-smoothing:antialiased}
+svg{font-family:system-ui,-apple-system,"Segoe UI",sans-serif;display:block;margin:6px 0}
+#deck{position:relative;width:100vw;height:100vh;height:100dvh}
+.slide{position:absolute;top:0;bottom:0;left:50%;right:auto;width:100%;max-width:1000px;transform:translateX(-50%);
+ background:#fff;opacity:0;pointer-events:none;margin:0;overflow-y:auto;-webkit-overflow-scrolling:touch;padding:40px 40px 96px}
+.slide.wide{max-width:1240px}
+.slide.active{opacity:1;pointer-events:auto}
+.slide.title{display:flex;flex-direction:column;justify-content:center}
+.num{font-size:12px;font-weight:700;letter-spacing:.09em;text-transform:uppercase;color:var(--muted)}
+h1{font-size:44px;line-height:1.12;margin:8px 0 14px;letter-spacing:-.02em}
+h2{font-size:29px;line-height:1.2;margin:6px 0 18px;letter-spacing:-.015em}
+.lead{font-size:21px;color:var(--ink2);margin:0 0 26px;max-width:760px}
+ul{margin:14px 0 0;padding-left:22px}li{margin:5px 0}
+.big{display:flex;gap:34px;flex-wrap:wrap;margin:4px 0 8px}
+.big .v{font-size:46px;font-weight:700;font-variant-numeric:tabular-nums;line-height:1.1}
+.big .k{color:var(--muted);font-size:14px;max-width:170px}
+.src{color:var(--muted);font-size:12.5px;margin-top:14px;line-height:1.45}
+.shot{max-width:100%;width:auto;height:auto;border:1px solid var(--line);border-radius:8px;display:block;max-height:calc(100vh - 290px);max-height:calc(100dvh - 290px)}
+.tw{overflow-x:auto}
+table.glance{border-collapse:collapse;width:100%;font-size:14.5px;line-height:1.35}
+.glance th{text-align:left;font-size:13px;padding:0 10px 8px 0;border-bottom:2px solid #111827;color:#111827}
+.glance td{padding:7px 10px 7px 0;border-bottom:1px solid #f1f3f5;vertical-align:top;font-variant-numeric:tabular-nums}
+.glance td.rh{color:var(--muted);font-size:12px;font-weight:700;text-transform:uppercase;letter-spacing:.04em;white-space:nowrap}
+.glance td.pol{background:#fef3c7}
+.cards{display:grid;grid-template-columns:repeat(4,1fr);gap:14px}
+.card{border:1px solid var(--line);border-radius:10px;padding:14px 16px;background:#fafafa}
+.card .ct{font-weight:700;font-size:16px;margin-bottom:6px}.card .cx{font-size:14.5px;color:var(--ink2);line-height:1.4}
+.two{display:grid;grid-template-columns:1fr 1fr;gap:28px;align-items:start}
+.cap{font-size:13px;color:var(--muted);margin:10px 0 4px}
+pre.code{font:13.5px/1.5 ui-monospace,SFMono-Regular,Menlo,monospace;background:#f6f7f9;border:1px solid var(--line);
+ border-radius:8px;padding:12px 14px;margin:0;overflow-x:auto;white-space:pre}
+.legend{display:flex;flex-wrap:wrap;gap:6px 18px;font-size:13.5px;color:var(--ink2)}
+.legend .fb{display:inline-block;width:18px;height:18px;border-radius:50%;background:#1f2937;color:#fff;font-size:10.5px;text-align:center;line-height:18px;margin-right:3px}
+.lgnew{background:#eff6ff;border:1px solid #93c5fd;border-radius:10px;padding:0 8px}
+ol.qs{font-size:22px;line-height:1.4;padding-left:30px;margin:10px 0 0}ol.qs li{margin:0 0 16px}
+.push-exit-l,.push-exit-r,.push-enter-r,.push-enter-l{animation-duration:.45s;animation-timing-function:cubic-bezier(.65,0,.35,1);
+ animation-fill-mode:both;will-change:transform;backface-visibility:hidden}
+.push-exit-l{animation-name:pushExitL}.push-enter-r{animation-name:pushEnterR}
+.push-exit-r{animation-name:pushExitR}.push-enter-l{animation-name:pushEnterL}
+@keyframes pushExitL {from{transform:translateX(-50%)}to{transform:translateX(calc(-50% - 100vw))}}
+@keyframes pushEnterR{from{transform:translateX(calc(-50% + 100vw))}to{transform:translateX(-50%)}}
+@keyframes pushExitR {from{transform:translateX(-50%)}to{transform:translateX(calc(-50% + 100vw))}}
+@keyframes pushEnterL{from{transform:translateX(calc(-50% - 100vw))}to{transform:translateX(-50%)}}
+@media (prefers-reduced-motion:reduce){.push-exit-l,.push-exit-r,.push-enter-r,.push-enter-l{animation:none}}
+#progress{position:fixed;top:0;left:0;height:3px;background:var(--accent);width:0;transition:width .35s cubic-bezier(.22,1,.36,1);z-index:20}
+#nav{position:fixed;bottom:0;left:0;right:0;display:flex;align-items:center;justify-content:center;gap:14px;z-index:20;
+ background:rgba(255,255,255,.92);border-top:1px solid var(--line);padding:8px 12px calc(8px + env(safe-area-inset-bottom))}
+.navbtn{border:1px solid var(--line);background:#fff;color:var(--ink2);border-radius:8px;padding:9px 14px;font:inherit;font-size:13px;cursor:pointer;min-height:44px}
+#count{font-size:13px;color:var(--muted);font-variant-numeric:tabular-nums;min-width:56px;text-align:center}
+#dots{display:flex}
+#dots button{width:7px;height:7px;padding:9px;border:none;background:transparent;cursor:pointer;box-sizing:content-box}
+#dots button::after{content:'';display:block;width:7px;height:7px;border-radius:50%;background:#d1d5db}
+#dots button.on::after{background:var(--accent)}
+.ex{display:grid;grid-template-columns:1.6fr 1fr;gap:26px;align-items:start}
+.ex ul{margin-top:12px;font-size:16.5px}
+.xp{border:1px solid #d1d5db;border-radius:9px;overflow:hidden;margin:0 0 10px;background:#fff}
+.xbar{background:#f3f4f6;border-bottom:1px solid var(--line);padding:5px 12px;font:12px ui-monospace,Menlo,monospace;color:#374151}
+.xbd{padding:9px 14px;font-size:16px;line-height:1.45}
+.xp.flush .xbd{padding:0}
+.xh{font-weight:700;font-size:16.5px;margin:0 0 4px}.xh2{font-weight:700;margin:8px 0 2px}
+.xmeta{font-size:13.5px;color:#4b5563;margin:0 0 6px}
+.xp mark{background:#fde68a;padding:0 2px;border-radius:3px}
+.mono,.xp code{font:14px ui-monospace,Menlo,monospace}
+.chip{display:inline-block;border:1px solid #d1d5db;border-radius:6px;padding:1px 8px;margin:2px;font:13.5px ui-monospace,Menlo,monospace;background:#f9fafb}
+table.xt{border-collapse:collapse;width:100%;font-size:15px}.xt td{border-top:1px solid var(--line);padding:7px 10px;vertical-align:top}
+.xt tr:first-child td{border-top:none}.xt td.rn{color:#6b7280;background:#f3f4f6;width:30px;text-align:center}.xt tr.hl td{background:#fef3c7}
+.thumb{display:block;width:100%;padding:0;border:1px solid var(--line);border-radius:8px;background:#fff;cursor:zoom-in;overflow:hidden}
+.thumb img{display:block;width:100%;height:auto}
+#zoom{position:fixed;inset:0;background:rgba(17,24,39,.88);display:none;z-index:50;align-items:center;justify-content:center;padding:14px;cursor:zoom-out}
+#zoom.on{display:flex}#zoom img{max-width:100%;max-height:100%;border-radius:8px;background:#fff}
+@media (max-width:900px){.ex{grid-template-columns:1fr}}
+@media print{#zoom{display:none!important}}
+@media (max-width:900px){.cards{grid-template-columns:repeat(2,1fr)}.two{grid-template-columns:1fr}}
+@media (max-width:640px){body{font-size:16px}.slide{padding:26px 16px 92px}h1{font-size:30px}h2{font-size:22px}
+ .big{gap:18px}.big .v{font-size:32px}#dots{display:none}.cards{grid-template-columns:1fr}ol.qs{font-size:18px}
+ table.glance{font-size:12.5px;min-width:720px}.shot{max-height:none}}
+@media print{html,body{height:auto;overflow:visible}#nav,#progress{display:none}
+ .slide{position:static;opacity:1;transform:none;left:auto;margin:0 auto;min-height:100vh;page-break-after:always;animation:none!important;overflow:visible}}
+
+.note{border-left:3px solid var(--accent);background:#f8fafc;padding:12px 16px;margin-top:16px;font-size:15px;color:var(--ink2);border-radius:0 8px 8px 0}
+.note.warn{border-left-color:#b45309;background:#fffbeb}
+tr.ours td{background:#eff6ff}
+table{border-collapse:collapse;width:100%;margin:10px 0;font-size:15px}
+ol,ul{margin:10px 0 0;padding-left:22px}li{margin:5px 0}
+code{font:13px ui-monospace,Menlo,monospace;background:#f3f4f6;padding:1px 5px;border-radius:4px}
+</style></head>
+<body><div id="progress"></div><div id="deck"><section class="slide title"><div class="num">Proposal · 2026-11-01</div>
+<h1>A policy layer for CUGA: any policy becomes checks at the agent's hooks</h1>
+<p class="lead">Follow-up to "Policy enforcement for tool-using agents" (2026-10-21). That deck showed the field; this one proposes our system, says which published method each part comes from and why, and how we will prove it works.</p>
+<div class="big"><div><div class="v">2</div><div class="k">entry paths: documents before the run, policies found during it</div></div><div><div class="v">19</div><div class="k">statement types, each routed to the cheapest checker that is good enough</div></div><div><div class="v">9</div><div class="k">CUGA hooks; only tool and plan hooks can block</div></div><div><div class="v">10+10</div><div class="k">unseen tasks (ITSM + AutomationBench), 3 trials, fixed before any run</div></div></div>
+<div class="src">Code: cuga-agent-gate, branch feat/policy-gate, package cuga.policy_layer (uncommitted). Design: docs/superpowers/specs/2026-11-01-policy-intake-design.md.</div></section>
+
+<section class="slide"><div class="num">1 · The problem</div>
+<h2>Agents break policies, and no single method family covers what the benchmarks need</h2>
+<div class="tw"><table>
+<tr><th>Finding (SOTA deck, 2026-10-21)</th><th>Number</th></tr>
+<tr><td>Top models on policy benchmarks pass about half of the tasks or fewer</td><td>HANDBOOK.md ~22% strict · τ³ 51.3% · EnterpriseOps-Gym 51.1%</td></tr>
+<tr><td>Small open models fail even with the right document in context</td><td>gpt-oss-120b 13% on τ³ golden retrieval</td></tr>
+<tr><td>Policy text in the prompt is only advice</td><td>AppWorld playbooks: gpt-oss 32% → 50%, still advice</td></tr>
+<tr><td>Most methods compile the policy before the run; few take in a new policy during it</td><td>34 offline-compiled · 12 both · 1 compiles online</td></tr>
+<tr><td>The policy reaches the agent in four ways (prompt, document, knowledge base, business data)</td><td>4 benchmarks, 4 placements</td></tr>
+</table></div>
+<p class="lead" style="font-size:18px;margin-top:18px">Proposal: one system that combines the families. Code where the rule is exact, a model where meaning is needed, a step graph for procedures, and intake both before and during the run.</p>
+<div class="src">Sources: 2026-10-21-policy-sota-benchmarks-slides.html (Artificial Analysis leaderboards, checked 2026-10-21); 2026-10-20-agent-policy-enforcement-sota.md.</div></section>
+
+<section class="slide"><div class="num">2 · The system</div>
+<h2>One policy model, filled before or during the run, enforced at CUGA's hooks</h2>
+<svg viewBox="0 0 900 250" width="100%" role="img" aria-label="Sources, intake, policy model, adherence layer, agent">
+<defs><marker id="a" markerWidth="8" markerHeight="8" refX="7" refY="4" orient="auto"><path d="M0 0 L8 4 L0 8 z" fill="#6b7280"/></marker></defs>
+<g font-size="13" fill="#111827" font-family="system-ui,-apple-system,Segoe UI,sans-serif">
+<text x="10" y="18" font-size="11.5" font-weight="700" fill="#6b7280">SOURCES</text>
+<rect x="10" y="30" width="165" height="44" rx="8" fill="#fafafa" stroke="#e5e7eb"/><text x="92" y="49" text-anchor="middle">Documents</text><text x="92" y="65" text-anchor="middle" font-size="11.5" fill="#6b7280">PDF, Word, Markdown; several</text>
+<rect x="10" y="88" width="165" height="44" rx="8" fill="#fafafa" stroke="#e5e7eb"/><text x="92" y="107" text-anchor="middle">User request</text><text x="92" y="123" text-anchor="middle" font-size="11.5" fill="#6b7280">"only if none is linked"</text>
+<rect x="10" y="146" width="165" height="44" rx="8" fill="#fafafa" stroke="#e5e7eb"/><text x="92" y="165" text-anchor="middle">Tool output</text><text x="92" y="181" text-anchor="middle" font-size="11.5" fill="#6b7280">sheet, email, ticket</text>
+<text x="215" y="18" font-size="11.5" font-weight="700" fill="#6b7280">INTAKE</text>
+<rect x="215" y="30" width="170" height="44" rx="8" fill="#eff6ff" stroke="#1d4ed8"/><text x="300" y="49" text-anchor="middle">Offline build</text><text x="300" y="65" text-anchor="middle" font-size="11.5" fill="#374151">pipeline or skill, validated</text>
+<rect x="215" y="117" width="170" height="44" rx="8" fill="#eff6ff" stroke="#1d4ed8"/><text x="300" y="136" text-anchor="middle">Online intake</text><text x="300" y="152" text-anchor="middle" font-size="11.5" fill="#374151">code → Kev → small LLM</text>
+<path d="M175 52 H211" stroke="#6b7280" stroke-width="1.5" marker-end="url(#a)"/><path d="M175 110 L211 134" stroke="#6b7280" stroke-width="1.5" marker-end="url(#a)"/><path d="M175 168 L211 145" stroke="#6b7280" stroke-width="1.5" marker-end="url(#a)"/>
+<text x="425" y="18" font-size="11.5" font-weight="700" fill="#6b7280">POLICY MODEL</text>
+<rect x="425" y="30" width="180" height="131" rx="8" fill="#fafafa" stroke="#e5e7eb"/>
+<text x="515" y="54" text-anchor="middle">documents → statements</text><text x="515" y="72" text-anchor="middle">→ typed rules, steps</text>
+<text x="515" y="98" text-anchor="middle" font-size="11.5" fill="#374151">links: exception, supersedes,</text><text x="515" y="114" text-anchor="middle" font-size="11.5" fill="#374151">source of truth, defines</text>
+<text x="515" y="142" text-anchor="middle" font-size="11.5" fill="#374151">trust, date, authority</text>
+<path d="M385 52 H421" stroke="#6b7280" stroke-width="1.5" marker-end="url(#a)"/><path d="M385 139 H421" stroke="#6b7280" stroke-width="1.5" marker-end="url(#a)"/>
+<text x="645" y="18" font-size="11.5" font-weight="700" fill="#6b7280">ADHERENCE LAYER</text>
+<rect x="645" y="30" width="245" height="131" rx="8" fill="#eff6ff" stroke="#1d4ed8"/>
+<text x="767" y="54" text-anchor="middle">9 lifecycle hooks</text>
+<text x="767" y="78" text-anchor="middle" font-size="11.5" fill="#374151">code → Cedar → step monitor →</text><text x="767" y="94" text-anchor="middle" font-size="11.5" fill="#374151">verifier (with the named records)</text>
+<text x="767" y="120" text-anchor="middle" font-size="11.5" fill="#374151">deny + remedy, remind, follow-up</text><text x="767" y="136" text-anchor="middle" font-size="11.5" fill="#374151">checker per type: measured</text>
+<path d="M605 95 H641" stroke="#6b7280" stroke-width="1.5" marker-end="url(#a)"/>
+<rect x="645" y="196" width="245" height="44" rx="8" fill="#fafafa" stroke="#e5e7eb"/><text x="767" y="215" text-anchor="middle">CUGA agent (SDK)</text><text x="767" y="231" text-anchor="middle" font-size="11.5" fill="#6b7280">CugaAgent(hooks=[...])</text>
+<path d="M745 161 V192" stroke="#6b7280" stroke-width="1.5" marker-end="url(#a)"/><path d="M790 196 V165" stroke="#6b7280" stroke-width="1.5" marker-end="url(#a)"/>
+<path d="M645 218 H300 V165" stroke="#6b7280" stroke-width="1.5" stroke-dasharray="4 3" marker-end="url(#a)"/><text x="470" y="234" text-anchor="middle" font-size="11.5" fill="#6b7280">tool results feed online intake</text>
+</g></svg>
+<ul><li>CUGA does not import the layer; it plugs in only through the hooks API.</li><li>Nothing is specific to a benchmark: the same code reads any new document or record.</li></ul></section>
+
+<section class="slide wide"><div class="num">3 · Why these choices</div>
+<h2>Each part takes the method that published evidence supports, and fixes its known gap</h2>
+<div class="tw"><table>
+<tr><th>Our part</th><th>Taken from (evidence)</th><th>Gap in that method → our addition</th></tr>
+<tr><td>Code and Cedar checks for exact rules</td><td>ToolGuard (IBM), AgentCore Policy (Cedar); PolicyKG: 79.2% of rules through the logic path</td><td>Built per domain by hand or one model → typed rules from any document, validated against tool schemas</td></tr>
+<tr><td>Verifier for rules that need meaning</td><td>PolicyGuard: τ²-airline pass^4 +6 to +12 pts</td><td>Judges without the data → gets the records the call names (our false deny 5/5 → 0/5 in replay)</td></tr>
+<tr><td>Procedures as step graphs</td><td>STAGE: up to +55 pts pass^3; PolicyGuide 0.42 → 0.62</td><td>Graph drives the agent → we monitor and remind first; driving later, measured</td></tr>
+<tr><td>Decision model only where proven</td><td>JevAct: Kev-27B questions; code checks alone 68.0 vs full 72.0 vs questions alone 57.1</td><td>Used for every question → Kev only for detection, where it measured better (94.5% recall, 1.1% false alarms)</td></tr>
+<tr><td>Policies found during the run</td><td>Only 1 of 59 surveyed methods compiles a new policy during the run (Conseca)</td><td>→ three-tier intake, trust labels, overlay rules for the thread</td></tr>
+<tr><td>Precision filters on compiled checks</td><td>JevAct: drop checks firing > 10%; repair round 11.3% → 1.4% false alarms</td><td>→ same filters on our tuning-run calls</td></tr>
+<tr><td>Long documents (later)</td><td>PageIndex: section tree, ~$0.001 per page</td><td>Retrieval only → offline, to scope verify statements per tool</td></tr>
+</table></div>
+<div class="src">Results as reported by the authors (abstracts or papers; not reproduced): STAGE arXiv 2608.22538, PolicyGuide 2608.19861, PolicyGuard 2606.29225, PolicyKG 2608.09028, JevAct 2610.38620, ToolGuard 2507.16459. Kev probe and replay: our measurements, 2026-10-31 and 2026-11-01.</div></section>
+
+<section class="slide"><div class="num">4 · The policy model</div>
+<h2>A documented model: every rule points back to a sentence, and precedence is explicit</h2>
+<div class="two"><div>
+<div class="tw"><table>
+<tr><th>Object</th><th>Holds</th></tr>
+<tr><td>PolicySet → Document</td><td>trust, effective date, authority rank</td></tr>
+<tr><td>Section → Statement</td><td>up to 2 of 19 types, modality, verbatim quote</td></tr>
+<tr><td>Rule · Procedure/Step · Definition</td><td>what code, Cedar, the monitor or the verifier checks</td></tr>
+<tr><td>Link (7 kinds)</td><td>refers_to, defines, exception_of, supersedes, depends_on, next, source_of_truth</td></tr>
+<tr><td>Fact · Verdict</td><td>records from tool output; allow, deny + remedy, remind</td></tr>
+</table></div></div><div>
+<p style="margin-top:0"><b>Precedence</b> when two statements disagree:</p>
+<ol><li>trusted beats untrusted</li><li>explicit <code>supersedes</code></li><li>newer effective date</li><li>higher authority</li><li>otherwise both only remind; neither blocks</li></ol>
+<p><b>Types</b> come from the benchmark scan: filters 74, format 54, overrides 52, prohibitions 47 of 304 AutomationBench statements; ITSM mostly value lists, transitions, required fields.</p>
+</div></div>
+<div class="src">model.py and MODEL.md in the package. Type counts: docs/analysis/2026-11-01-policy-xref-and-types.md (hand labels, approximate).</div></section>
+
+<section class="slide"><div class="num">5 · Offline intake</div>
+<h2>Documents become validated rules: code first, a small model only for prose</h2>
+<svg viewBox="0 0 900 120" width="100%" role="img" aria-label="Offline pipeline steps">
+<defs><marker id="b" markerWidth="8" markerHeight="8" refX="7" refY="4" orient="auto"><path d="M0 0 L8 4 L0 8 z" fill="#6b7280"/></marker></defs>
+<g font-size="12.5" fill="#111827" text-anchor="middle" font-family="system-ui,-apple-system,Segoe UI,sans-serif">
+<rect x="4" y="12" width="104" height="54" rx="7" fill="#fafafa" stroke="#e5e7eb"/><text x="56" y="34">Convert</text><text x="56" y="52" font-size="11" fill="#6b7280">docling</text>
+<rect x="117" y="12" width="104" height="54" rx="7" fill="#eff6ff" stroke="#1d4ed8"/><text x="169" y="34">Structure</text><text x="169" y="52" font-size="11" fill="#374151">learned styles</text>
+<rect x="230" y="12" width="104" height="54" rx="7" fill="#fafafa" stroke="#e5e7eb"/><text x="282" y="34">Classify</text><text x="282" y="52" font-size="11" fill="#6b7280">code + model</text>
+<rect x="343" y="12" width="104" height="54" rx="7" fill="#fafafa" stroke="#e5e7eb"/><text x="395" y="34">Link</text><text x="395" y="52" font-size="11" fill="#6b7280">code + checked</text>
+<rect x="456" y="12" width="104" height="54" rx="7" fill="#fafafa" stroke="#e5e7eb"/><text x="508" y="34">Handle</text><text x="508" y="52" font-size="11" fill="#6b7280">by type</text>
+<rect x="569" y="12" width="104" height="54" rx="7" fill="#fffbeb" stroke="#b45309"/><text x="621" y="34">Validate</text><text x="621" y="52" font-size="11" fill="#374151">+ repair</text>
+<rect x="682" y="12" width="104" height="54" rx="7" fill="#fafafa" stroke="#e5e7eb"/><text x="734" y="34">Coverage</text><text x="734" y="52" font-size="11" fill="#6b7280">every sentence</text>
+<rect x="795" y="12" width="100" height="54" rx="7" fill="#fafafa" stroke="#e5e7eb"/><text x="845" y="34">Publish</text><text x="845" y="52" font-size="11" fill="#6b7280">hash cache</text>
+<g stroke="#6b7280" stroke-width="1.5"><path d="M108 39 H114" marker-end="url(#b)"/><path d="M221 39 H227" marker-end="url(#b)"/><path d="M334 39 H340" marker-end="url(#b)"/><path d="M447 39 H453" marker-end="url(#b)"/><path d="M560 39 H566" marker-end="url(#b)"/><path d="M673 39 H679" marker-end="url(#b)"/><path d="M786 39 H792" marker-end="url(#b)"/></g>
+<text x="169" y="92" font-size="11.5" fill="#374151">"Article II", "(a)", "R7.1"</text><text x="395" y="92" font-size="11.5" fill="#374151">§, page, title, term</text><text x="508" y="92" font-size="11.5" fill="#374151">tables · prose · steps</text><text x="621" y="92" font-size="11.5" fill="#374151">schemas, exact quotes</text>
+</g></svg>
+<div class="tw"><table>
+<tr><th>Two generators, one contract</th><th>Use</th><th>Measured so far</th></tr>
+<tr><td>Pipeline: fixed steps, gpt-oss-120b</td><td>product path, CI, rebuilds</td><td>ITSM policy: 0 errors, 26 s (sections in parallel)</td></tr>
+<tr><td>Skill: SKILL.md + CLI, any harness (Claude Code, Bob, CUGA)</td><td>authoring, hard documents, gold sets</td><td>gold ITSM build: 96 rules vs 48 in the pipeline draft</td></tr>
+</table></div>
+<div class="src">Both must pass the same validators. The gap between 48 and 96 rules is what the generator comparison will measure per step (types, rules, links).</div></section>
+
+<section class="slide"><div class="num">6 · Online intake</div>
+<h2>Policies in data are found cheaply, read by a small model, and enforced before the next write</h2>
+<div class="tw"><table>
+<tr><th>Tier</th><th>What</th><th>Cost and speed</th></tr>
+<tr><td>0 · code</td><td>policy words in any text field; seen-before hash</td><td>microseconds</td></tr>
+<tr><td>1 · Kev-4B decision model</td><td>"is this record a policy?" on every text record</td><td>94.5% recall, 1.1% false alarms, 0.8 s p50, $0.000015 per record</td></tr>
+<tr><td>2 · small LLM</td><td>statements, types, trust, what it replaces; rule tables compiled by code</td><td>one call per tool output, in the background</td></tr>
+<tr><td>At the write</td><td>compiled rules by code; the rest by the verifier with the named records</td><td>waits at most 45 s for pending intake</td></tr>
+</table></div>
+<div class="big"><div><div class="v">5/5 → 0/5</div><div class="k">false denies on the same write, after giving the verifier the named records</div></div><div><div class="v">0/3 → 3/3</div><div class="k">reply check catches the missing action, after it gets the data</div></div><div><div class="v">advice</div><div class="k">untrusted senders and the user's own request never block</div></div><div><div class="v">7.5%</div><div class="k">gpt-oss-120b false alarms as detector (why Kev)</div></div></div>
+<div class="src">Detector probe: 400 AutomationBench records, test half, 2026-10-31. Replays: pilot runs re-checked offline, 2026-11-01.</div></section>
+
+<section class="slide"><div class="num">7 · Runtime adherence</div>
+<h2>Checks run at the hooks in cost order; a check that blocks correct work is turned into a reminder</h2>
+<div class="tw"><table>
+<tr><th>Hook</th><th>What the layer does</th><th>Effect</th></tr>
+<tr><td>before_llm_call</td><td>brief: rules for the tools in play, next procedure step</td><td>remind</td></tr>
+<tr><td>after_tool_call</td><td>facts; online intake; procedure progress</td><td>info</td></tr>
+<tr><td><b>before_tool_call</b></td><td>code → Cedar → monitor → verifier</td><td><b>deny with remedy</b> or remind</td></tr>
+<tr><td>before_reply</td><td>missing duties and procedure steps, with data</td><td>follow-up once</td></tr>
+</table></div>
+<div class="note warn">Main risk, seen in our own runs: false denies. The pilot verifier invented a hold code; on the ITSM tuning set, rules on valid tool options and a policy/schema conflict cost 3 tasks. Safeguards: deny only for types with ≤ 2% measured false denies, schema conflicts only remind, repeated-deny cap, firing-rate filter.</div>
+<div class="src">Tuning set, 1 trial, partial (2026-11-01): ITSM A 7/10, B 4/10, 8 denies; causes and general fixes in benchmarks/policy_eval/changes.md.</div></section>
+
+<section class="slide"><div class="num">8 · Choosing methods</div>
+<h2>Measured: code never blocked correct work; model verifiers did, so for 5 types they only remind</h2>
+<svg viewBox="0 0 760 210" width="100%" role="img" aria-label="False deny rate by checker on five statement types">
+<g font-size="13" fill="#111827" font-family="system-ui,-apple-system,Segoe UI,sans-serif">
+<text x="0" y="16" font-size="12" font-weight="700" fill="#6b7280">FALSE DENIES (correct writes blocked), gpt-oss-120b verifier vs code</text>
+<text x="0" y="46">derived value</text><rect x="150" y="32" width="458" height="20" fill="#b91c1c"/><text x="614" y="47" font-weight="700">28.6%</text>
+<text x="0" y="76">threshold</text><rect x="150" y="62" width="267" height="20" fill="#b91c1c"/><text x="423" y="77" font-weight="700">16.7%</text>
+<text x="0" y="106">role permission</text><rect x="150" y="92" width="200" height="20" fill="#b91c1c"/><text x="356" y="107" font-weight="700">12.5%</text>
+<text x="0" y="136">prohibition</text><rect x="150" y="122" width="189" height="20" fill="#b91c1c"/><text x="345" y="137" font-weight="700">11.8%</text>
+<text x="0" y="166">filter</text><rect x="150" y="152" width="94" height="20" fill="#b45309"/><text x="250" y="167" font-weight="700">5.9%</text>
+<text x="0" y="198" fill="#047857" font-weight="700">code, all types it covers</text><text x="200" y="198" fill="#047857" font-weight="700">0.0%</text>
+</g></svg>
+<ul><li>Check set: 552 cases from reviewed gold builds of the tuning policies (17 types).</li>
+<li>Rule: deny only with ≤ 2% false denies and ≥ 50% of violations caught; else remind.</li>
+<li>Kev as a compliance judge caught 0–42% of violations: kept for detection only.</li>
+<li>Cheaper models won 2 types (gpt-oss-20b), safeguard-20b won filters (0% false denies).</li></ul>
+<div class="src">benchmarks/policy_eval/method_comparison.md and method_choice.json (2026-11-01). Gemini 3.8 Flash (reference, never picked) had 6–29% false denies on the same types. The 50% recall floor was added after the first choice picked a judge with recall 0.06 (logged as a change).</div></section>
+
+<section class="slide"><div class="num">9 · Evaluation plan</div>
+<h2>Tune on 10+10 tasks, freeze, then report only on 10+10 unseen tasks</h2>
+<div class="tw"><table>
+<tr><th>Set</th><th>EnterpriseOps-Gym ITSM</th><th>AutomationBench</th><th>Use</th></tr>
+<tr><td>Tuning</td><td class="n">10</td><td class="n">10</td><td>1 trial; find general fixes; build gold and check set</td></tr>
+<tr class="ours"><td><b>Unseen</b></td><td class="n">10</td><td class="n">10</td><td>3 trials per arm after the freeze; the only reported result</td></tr>
+<tr><td>Cross-reference study</td><td class="n">2</td><td class="n">5</td><td>does the agent follow "supersedes", "see …" across records?</td></tr>
+</table></div>
+<ul><li><b>Arms:</b> A = CUGA alone, B = CUGA + policy layer; same model (Gemini 3.8 Flash), same code otherwise.</li>
+<li><b>Primary metrics:</b> AutomationBench AA-style score (any guardrail break = 0); ITSM task pass rate.</li>
+<li><b>Also reported:</b> denies, denies the agent went around, reminders, latency, cost, every change made after tuning.</li>
+<li><b>Integrity:</b> rules never from graders; task rules fixed before runs; sandbox checks on; run logs scanned for file access.</li>
+<li><b>Gold builds</b> (reference for measuring methods): written with the skill by one Claude agent, checked by a second; not reviewed by a person.</li></ul>
+<div class="src">Selection rules and seed 20261101: benchmarks/policy_eval/policy_eval_tasks.json (sha256 5e0bf39b…). ITSM unseen tasks share the policy text with tuning (near-identical versions), so ITSM tests new tasks, not a new document.</div></section>
+
+<section class="slide"><div class="num">10 · Status</div>
+<h2>The system runs end to end; it has not yet shown a gain on unseen tasks</h2>
+<div class="tw"><table>
+<tr><th>Result</th><th>What it shows</th><th>How much to trust it</th></tr>
+<tr><td>Pilot AutomationBench: AA-style 36.2% → 72.2%, guardrail breaks 3 → 0</td><td>the online path changes behavior</td><td>low: 5 tasks; no break was stopped by a correct deny</td></tr>
+<tr><td>Pilot ITSM: 2/5 = 2/5</td><td>failures were values no policy decides</td><td>low: 5 tasks</td></tr>
+<tr><td>Tuning ITSM: B 4/10 vs A 7/10</td><td>false denies dominate; 3 general causes found</td><td>tuning only; fixes pending re-check</td></tr>
+<tr><td>Sandbox incident: an agent read benchmark files after repeated denies</td><td>benchmark mode had turned off CUGA's sandbox checks</td><td>fixed: new setting; that run discarded; all other logs clean</td></tr>
+</table></div>
+<div class="big"><div><div class="v">85</div><div class="k">policy-layer tests, + 3 sandbox tests</div></div><div><div class="v">12</div><div class="k">general changes logged after tuning data</div></div><div><div class="v">$36</div><div class="k">spent of the $500 budget (ledger, upper bound)</div></div><div><div class="v">0</div><div class="k">unseen tasks opened so far</div></div></div></section>
+
+<section class="slide"><div class="num">11 · Answers and decisions</div>
+<h2>Our answers to the open questions, and what we ask for next</h2>
+<div class="tw"><table>
+<tr><th>Question (SOTA deck)</th><th>Our answer</th></tr>
+<tr><td>How much of a long policy can become exact rules?</td><td>Measured per document by the coverage report; ITSM gold: 64 typed rules, 17 checked from text, 15 guidance (96 in all). Handbook-length documents: next, with a section tree</td></tr>
+<tr><td>Policy found mid-task: compile or check as text?</td><td>Both: rule tables compiled at once by code; prose checked as text until compiled; untrusted never enforced</td></tr>
+<tr><td>Judgment rules: small open model or large LLM?</td><td>Small open models by default; picked per type by measurement; large models only as a reference</td></tr>
+<tr><td>On a violation: block, or block with an alternative?</td><td>Deny with a remedy; remind instead when a type's false-deny rate is above 2%</td></tr>
+<tr><td>τ2 first, then EnterpriseOps-Gym?</td><td>Changed: EnterpriseOps-Gym (offline) + AutomationBench (online) first; τ² and HANDBOOK.md next</td></tr>
+</table></div>
+<ol><li>Apply the 3 false-deny fixes and re-check on the tuning set; then freeze.</li><li>Run the unseen set: 20 tasks × 2 arms × 3 trials, about $90.</li><li>Next: a long-document test (HANDBOOK.md or a 40-page SOP) with a PageIndex-style section tree.</li></ol>
+<div class="src">Cost estimate from pilot averages ($0.63 per AutomationBench run, $0.13 per ITSM run); projected, not measured.</div></section>
+</div><nav id="nav"><button class="navbtn" id="prev">← Prev</button><div id="dots"></div><span id="count"></span><button class="navbtn" id="next">Next →</button></nav><div id="zoom" role="dialog" aria-label="Full input"><img alt=""></div><script>
+const slides=[...document.querySelectorAll('.slide')];let cur=0;
+const dots=document.getElementById('dots'),count=document.getElementById('count'),prog=document.getElementById('progress');
+slides.forEach((s,i)=>{const b=document.createElement('button');b.setAttribute('aria-label','Slide '+(i+1));b.onclick=()=>goTo(i);dots.appendChild(b)});
+function update(){[...dots.children].forEach((d,i)=>d.classList.toggle('on',i===cur));count.textContent=(cur+1)+' / '+slides.length;
+ prog.style.width=((cur+1)/slides.length*100)+'%';history.replaceState(null,'','#'+(cur+1))}
+let seq=0;const PUSH_MS=450,ANIM=['push-exit-l','push-exit-r','push-enter-r','push-enter-l'];
+const reduce=matchMedia('(prefers-reduced-motion: reduce)');
+function goTo(n){if(n<0||n>=slides.length||n===cur)return;const fwd=n>cur,out=slides[cur],inn=slides[n],my=++seq;
+ slides.forEach(s=>{if(s!==out&&s!==inn)s.classList.remove('active');s.classList.remove(...ANIM)});
+ inn.scrollTop=0;inn.classList.add('active');
+ if(reduce.matches)out.classList.remove('active');
+ else{void inn.offsetWidth;out.classList.add(fwd?'push-exit-l':'push-exit-r');inn.classList.add(fwd?'push-enter-r':'push-enter-l');
+  setTimeout(()=>{if(my!==seq)return;out.classList.remove('active',...ANIM);inn.classList.remove(...ANIM)},PUSH_MS+30)}
+ cur=n;update()}
+document.getElementById('prev').onclick=()=>goTo(cur-1);document.getElementById('next').onclick=()=>goTo(cur+1);
+const zoom=document.getElementById('zoom'),zimg=zoom.querySelector('img');
+document.querySelectorAll('.thumb').forEach(b=>b.onclick=()=>{zimg.src=b.querySelector('img').src;zoom.classList.add('on')});
+zoom.onclick=()=>zoom.classList.remove('on');
+addEventListener('keydown',e=>{if(zoom.classList.contains('on')){if(['Escape','Enter',' '].includes(e.key)||e.key.startsWith('Arrow')){e.preventDefault();zoom.classList.remove('on')}return}
+ if(['ArrowRight','ArrowDown',' ','PageDown','j'].includes(e.key)){e.preventDefault();goTo(cur+1)}
+ else if(['ArrowLeft','ArrowUp','PageUp','k'].includes(e.key)){e.preventDefault();goTo(cur-1)}
+ else if(e.key==='Home')goTo(0);else if(e.key==='End')goTo(slides.length-1);
+ else if(e.key==='f'||e.key==='F'){document.fullscreenElement?document.exitFullscreen():document.documentElement.requestFullscreen()}});
+let tx=null,ty=null;addEventListener('touchstart',e=>{tx=e.touches[0].clientX;ty=e.touches[0].clientY},{passive:true});
+addEventListener('touchend',e=>{if(tx===null)return;const dx=e.changedTouches[0].clientX-tx,dy=e.changedTouches[0].clientY-ty;
+ if(Math.abs(dx)>60&&Math.abs(dx)>Math.abs(dy)*1.5)goTo(cur+(dx<0?1:-1));tx=null},{passive:true});
+const h=parseInt(location.hash.slice(1));cur=(h>=1&&h<=slides.length)?h-1:0;slides[cur].classList.add('active');update();
+</script></body></html>

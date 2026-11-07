@@ -1,0 +1,782 @@
+<!doctype html>
+<html lang="en"><head><meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Policy methods on CUGA</title>
+<style>
+:root{--ink:#000;--ink2:#374151;--muted:#6b7280;--line:#e5e7eb;--surface:#fff;--accent:#1d4ed8;--good:#047857;--warn:#b45309;--bad:#b91c1c}
+*{box-sizing:border-box}
+/* 1rem = 16px at 1280x720 and grows with a larger screen, so the slide keeps its proportions when projected */
+html{font-size:clamp(16px,min(1.25vw,2.2222vh),40px)}
+html,body{height:100%;overflow:hidden;background:var(--surface)}
+body{margin:0;color:var(--ink);font:1.25rem/1.4 system-ui,-apple-system,"Segoe UI",sans-serif;-webkit-font-smoothing:antialiased}
+#deck{position:relative;width:100vw;height:100vh;height:100dvh}
+.slide{position:absolute;top:0;bottom:0;left:50%;right:auto;width:100%;max-width:74rem;transform:translateX(-50%);
+  background:var(--surface);opacity:0;pointer-events:none;margin:0;border:none;border-radius:0;
+  overflow-y:auto;-webkit-overflow-scrolling:touch;padding:2.5rem 2.5rem 5.5rem;display:flex;flex-direction:column}
+.slide.active{opacity:1;pointer-events:auto}
+.push-exit-l,.push-exit-r,.push-enter-r,.push-enter-l{animation-duration:.45s;animation-timing-function:cubic-bezier(.65,0,.35,1);
+  animation-fill-mode:both;will-change:transform;backface-visibility:hidden}
+.push-exit-l{animation-name:pushExitL}.push-enter-r{animation-name:pushEnterR}
+.push-exit-r{animation-name:pushExitR}.push-enter-l{animation-name:pushEnterL}
+@keyframes pushExitL {from{transform:translateX(-50%)}to{transform:translateX(calc(-50% - 100vw))}}
+@keyframes pushEnterR{from{transform:translateX(calc(-50% + 100vw))}to{transform:translateX(-50%)}}
+@keyframes pushExitR {from{transform:translateX(-50%)}to{transform:translateX(calc(-50% + 100vw))}}
+@keyframes pushEnterL{from{transform:translateX(calc(-50% - 100vw))}to{transform:translateX(-50%)}}
+@media (prefers-reduced-motion:reduce){.push-exit-l,.push-exit-r,.push-enter-r,.push-enter-l{animation:none}}
+#progress{position:fixed;top:0;left:0;height:3px;background:var(--accent);width:0;transition:width .35s cubic-bezier(.22,1,.36,1);z-index:20}
+#nav{position:fixed;bottom:0;left:0;right:0;display:flex;align-items:center;justify-content:center;gap:14px;z-index:20;
+  background:rgba(255,255,255,.92);padding:12px 12px calc(12px + env(safe-area-inset-bottom));opacity:.6}
+#nav:hover,#nav:focus-within{opacity:1}
+.navbtn{border:1px solid var(--line);background:#fff;color:var(--ink2);border-radius:8px;padding:9px 14px;font:inherit;font-size:14px;cursor:pointer;min-height:44px;min-width:44px}
+.navbtn:disabled{opacity:.4;cursor:default}
+#count{font-size:14px;color:var(--ink2);font-variant-numeric:tabular-nums;white-space:nowrap}
+#dots button{width:19px;height:27px;padding:10px 6px;border:none;background:transparent;cursor:pointer}
+#dots button::after{content:'';display:block;width:7px;height:7px;border-radius:50%;background:var(--line)}
+#dots button.on::after{background:var(--accent)}
+
+h2{font-size:1.875rem;line-height:1.2;margin:0 0 1.25rem;letter-spacing:-.015em;font-weight:700;flex:0 0 auto}
+.vis{flex:1 0 auto;display:flex;flex-direction:column;justify-content:center;min-width:0}
+ul{margin:1rem 0 0;padding-left:1.4rem;flex:0 0 auto}li{margin:.3rem 0}
+.src{color:var(--muted);font-size:.875rem;line-height:1.35;margin-top:.9rem;flex:0 0 auto}
+.tw{overflow-x:auto;max-width:100%}
+svg{display:block;width:100%;height:auto}
+svg text{font-family:system-ui,-apple-system,"Segoe UI",sans-serif}
+
+.big{display:grid;grid-template-columns:repeat(3,1fr);gap:2.5rem}
+.big .v{font-size:4.75rem;font-weight:700;line-height:1;letter-spacing:-.02em;font-variant-numeric:tabular-nums;white-space:nowrap}
+.big .v span{font-size:1.5rem;letter-spacing:0;font-weight:600;margin-left:.35rem}
+.big .k{font-size:1.3125rem;line-height:1.3;margin-top:.9rem}
+.big .m{font-size:1.125rem;line-height:1.3;color:var(--muted);margin-top:.4rem;font-variant-numeric:tabular-nums}
+.good{color:var(--good)}.warn{color:var(--warn)}.bad{color:var(--bad)}
+
+table{border-collapse:collapse;width:100%}
+th{text-align:left;font-size:.9375rem;font-weight:700;color:var(--muted);padding:0 1.25rem .55rem 0;border-bottom:1px solid var(--line)}
+td{padding:.8rem 1.25rem .8rem 0;border-bottom:1px solid var(--line);vertical-align:top;font-size:1.25rem;line-height:1.3}
+td.b{font-weight:600;white-space:nowrap}
+tr:last-child td{border-bottom:none}
+td.new{color:var(--accent);font-weight:600}
+
+.ev td{font-size:1.375rem;font-weight:600;vertical-align:middle;padding:1rem 1.5rem 1rem 0}
+.ev td.r{text-align:right;font-size:1.25rem;font-weight:400;color:var(--ink2);padding-right:0;white-space:nowrap;font-variant-numeric:tabular-nums}
+
+.cols{display:grid;grid-template-columns:repeat(3,1fr);gap:2rem}
+.cols>div{border-top:4px solid var(--line);padding-top:.75rem}
+.cols>div.g{border-top-color:var(--good)}.cols>div.a{border-top-color:var(--warn)}.cols>div.n{border-top-color:var(--muted)}
+.cols h3{font-size:1.3125rem;line-height:1.25;margin:0 0 1rem}
+.it{margin-bottom:1.35rem}
+.it .n{font-size:2.75rem;font-weight:700;line-height:1.1;font-variant-numeric:tabular-nums}
+.it .t{font-size:1.25rem;line-height:1.3;margin-top:.2rem}
+.it .q{font-size:1.125rem;line-height:1.3;color:var(--muted)}
+.pl{font-size:1.25rem;line-height:1.3;margin-bottom:1.1rem}
+
+.dec{display:grid;grid-template-columns:4rem 1fr;row-gap:2.25rem;align-items:start}
+.dec .d{font-size:3rem;font-weight:700;line-height:1;color:var(--accent);font-variant-numeric:tabular-nums}
+.dec .a{font-size:1.75rem;font-weight:700;line-height:1.25}
+.dec .s{font-size:1.25rem;color:var(--ink2);line-height:1.3;margin-top:.3rem}
+
+@media (max-width:900px){.tw svg{min-width:820px}}
+@media (max-width:640px){.slide{padding:30px 18px 92px}h2{font-size:23px}#dots{display:none}
+  .big,.cols{grid-template-columns:1fr;gap:1.5rem}.big .v{font-size:40px}.big .v span{font-size:18px}
+  .dec{grid-template-columns:2.5rem 1fr}.dec .d{font-size:30px}.dec .a{font-size:19px}.dec .s{font-size:16px}
+  td,.ev td{font-size:16px}.ev td.r{font-size:15px;white-space:normal}td.b{white-space:normal}}
+@media print{html{font-size:16px}html,body{height:auto;overflow:visible}#nav,#progress{display:none}#deck{height:auto;width:auto}
+  .slide{position:static;display:block;opacity:1;transform:none;left:auto;margin:0 auto;max-width:none;overflow:visible;
+    min-height:100vh;page-break-after:always;animation:none!important}}
+
+.sec{font-size:.8125rem;font-weight:700;letter-spacing:.06em;text-transform:uppercase;color:var(--muted);margin:0 0 .45rem;flex:0 0 auto}
+.ex{font-size:1.0625rem;line-height:1.3;color:var(--ink2);border-left:3px solid var(--line);padding:.15rem 0 .15rem .8rem;margin:0 0 1.1rem}
+.facts{display:grid;grid-template-columns:repeat(3,1fr);gap:1.75rem;margin-top:1.35rem}
+.facts .l{font-size:.9375rem;font-weight:700;color:var(--muted);border-top:3px solid var(--line);padding-top:.45rem}
+.facts .t{font-size:1.125rem;line-height:1.3;margin-top:.3rem}
+.tight td{font-size:1.0625rem;padding:.6rem 1rem .6rem 0}
+.tight th{padding-right:1rem}
+td.n,th.n{text-align:right;font-variant-numeric:tabular-nums;white-space:nowrap}
+td.c,th.c{text-align:center;padding-right:0}
+.shapes{display:grid;grid-template-columns:1fr 1fr;gap:1.5rem 2.5rem}
+.shapes>div{border-top:3px solid var(--line);padding-top:.6rem}
+.shapes h3{font-size:1.3125rem;line-height:1.25;margin:0 0 .3rem}
+.shapes .d{font-size:1.125rem;line-height:1.3}
+.shapes .e{font-size:1.0625rem;line-height:1.3;color:var(--muted);margin-top:.35rem}
+.big.four{grid-template-columns:repeat(4,1fr);gap:1.75rem}
+.big.four .v{font-size:3.25rem}
+.big.four .k{font-size:1.125rem}.big.four .m{font-size:1rem}
+.big.small .v{font-size:3.25rem}.big.small .k{font-size:1.125rem;margin-top:.4rem}
+.ten{display:grid;grid-template-columns:1fr 1fr;gap:.85rem 2.5rem;font-size:1.1875rem;line-height:1.3}
+.ten b{display:inline-block;width:2rem;color:var(--accent);font-variant-numeric:tabular-nums}
+@media (max-width:640px){.facts,.shapes,.ten,.big.four{grid-template-columns:1fr}}
+
+.card{border:1px solid var(--line);border-radius:8px;padding:.75rem 1rem;background:#fafafa;font-size:1.0625rem;line-height:1.38}
+.card .h{font-size:.9375rem;font-weight:700;color:var(--muted);margin-bottom:.35rem}
+.card code,.mono{font-family:ui-monospace,SFMono-Regular,Menlo,monospace;font-size:.95rem}
+.two{display:grid;grid-template-columns:1.15fr 1fr;gap:1.75rem;align-items:start}
+.two.eq{grid-template-columns:1fr 1fr}
+.res{border-top:4px solid var(--line);padding-top:.5rem;margin-bottom:1.1rem}
+.res.fail{border-top-color:var(--bad)}.res.ok{border-top-color:var(--good)}
+.res h3{font-size:1.1875rem;line-height:1.25;margin:0 0 .25rem}
+.res div{font-size:1.0625rem;line-height:1.35}
+@media (max-width:640px){.two,.two.eq{grid-template-columns:1fr}}
+</style></head><body>
+<div id="progress"></div>
+<div id="deck">
+
+<section class="slide active">
+  <div class="sec">1 · Why it is hard</div>
+  <h2>We tested the published methods on CUGA. No single one fits every case.</h2>
+  <div class="vis">
+    <div class="big">
+      <div><div class="v good">+19<span>points</span></div>
+        <div class="k">Small model, full policy system</div>
+        <div class="m">New tasks: 23.8% → 42.7%, significant</div></div>
+      <div><div class="v warn">+25<span>points</span></div>
+        <div class="k">Strong model, check before each action</div>
+        <div class="m">Only the 3 tasks we tuned on</div></div>
+      <div><div class="v bad">−6<span>points</span></div>
+        <div class="k">Strong model, same full policy system</div>
+        <div class="m">New tasks; rules broken 24 vs 1</div></div>
+    </div>
+    <ul style="margin-top:2.5rem"><li>One design combines what worked.</li></ul>
+    <div class="src">Full policy system: finds rules in the data, checks each action, lists required work.</div>
+  </div>
+</section>
+
+<section class="slide">
+  <div class="sec">1 · Why it is hard</div>
+  <h2>The hour: how the methods work, what we learned and what we need.</h2>
+  <div class="vis"><div class="tw"><svg viewBox="0 0 1104 356" role="img" aria-label="Time plan for the hour, in six parts"><text x="0" y="24" font-size="19" font-weight="700" fill="#000">1  Why it is hard</text><text x="310" y="24" font-size="16" fill="#6b7280">Slides 1–5</text><rect x="420" y="4" width="144" height="30" fill="#1d4ed8"/><text x="574" y="26" font-size="18" font-weight="700" fill="#000">6 min</text><text x="0" y="86" font-size="19" font-weight="700" fill="#000">2  How the methods work</text><text x="310" y="86" font-size="16" fill="#6b7280">Slides 6–20</text><rect x="420" y="66" width="576" height="30" fill="#1d4ed8"/><text x="1006" y="88" font-size="18" font-weight="700" fill="#000">24 min</text><text x="0" y="148" font-size="19" font-weight="700" fill="#000">3  What we measured</text><text x="310" y="148" font-size="16" fill="#6b7280">Slides 21–28</text><rect x="420" y="128" width="216" height="30" fill="#1d4ed8"/><text x="646" y="150" font-size="18" font-weight="700" fill="#000">9 min</text><text x="0" y="210" font-size="19" font-weight="700" fill="#000">4  The design</text><text x="310" y="210" font-size="16" fill="#6b7280">Slides 29–33</text><rect x="420" y="190" width="144" height="30" fill="#1d4ed8"/><text x="574" y="212" font-size="18" font-weight="700" fill="#000">6 min</text><text x="0" y="272" font-size="19" font-weight="700" fill="#000">5  Plan and help</text><text x="310" y="272" font-size="16" fill="#6b7280">Slides 34–38</text><rect x="420" y="252" width="120" height="30" fill="#1d4ed8"/><text x="550" y="274" font-size="18" font-weight="700" fill="#000">5 min</text><text x="0" y="334" font-size="19" font-weight="700" fill="#000">Discussion and decisions</text><rect x="420" y="314" width="240" height="30" fill="#9ca3af"/><text x="670" y="336" font-size="18" font-weight="700" fill="#000">10 min</text></svg></div></div>
+</section>
+
+<section class="slide">
+  <div class="sec">1 · Why it is hard</div>
+  <h2>Even top models often fail tasks with a written policy.</h2>
+  <div class="vis"><div class="tw"><svg viewBox="0 0 1104 280" role="img" aria-label="Best published results on four policy task sets, from 77.5 percent down to about 22 percent"><text x="0" y="26" font-size="18" font-weight="700" fill="#000">Business-rule tasks</text><text x="0" y="49" font-size="15" fill="#6b7280">Best score; one broken rule scores the task zero</text><rect x="430" y="12" width="434.0" height="32" fill="#1d4ed8"/><text x="874.0" y="35" font-size="19" font-weight="700" fill="#000">77.5%</text><text x="0" y="100" font-size="18" font-weight="700" fill="#000">Banking knowledge tasks</text><text x="0" y="123" font-size="15" fill="#6b7280">Best result on the first try</text><rect x="430" y="86" width="287.3" height="32" fill="#1d4ed8"/><text x="727.3" y="109" font-size="19" font-weight="700" fill="#000">51.3%</text><text x="0" y="174" font-size="18" font-weight="700" fill="#000">Enterprise operations tasks</text><text x="0" y="197" font-size="15" fill="#6b7280">Best task success</text><rect x="430" y="160" width="286.2" height="32" fill="#1d4ed8"/><text x="726.2" y="183" font-size="19" font-weight="700" fill="#000">51.1%</text><text x="0" y="248" font-size="18" font-weight="700" fill="#000">Long handbook tasks</text><text x="0" y="271" font-size="15" fill="#6b7280">Top models, strict pass on the first try</text><rect x="430" y="234" width="123.2" height="32" fill="#1d4ed8"/><text x="563.2" y="257" font-size="19" font-weight="700" fill="#000">20–22%</text><line x1="430" y1="6" x2="430" y2="274" stroke="#374151" stroke-width="1.25"/></svg></div><div class="src">Best published results by top models; each task set has its own measure. Public leaderboards and the Surge blog, checked 2026-10-21.</div></div>
+</section>
+
+<section class="slide">
+  <div class="sec">1 · Why it is hard</div>
+  <h2>Policies come in four shapes, and each needs a different method.</h2>
+  <div class="vis"><div class="tw"><div class="shapes"><div><h3>Long document with procedures</h3><div class="d">20 to 124 pages for one task</div><div class="e">Example: offboarding needs written authorization.</div></div><div><h3>Rules scattered in business data</h3><div class="d">A policy sheet, or an email that changes a rule</div><div class="e">Example: an email from the COO replaces an older rule.</div></div><div><h3>Step-by-step flow</h3><div class="d">A troubleshooting manual with paths and links</div><div class="e">Example: one fault leads to another manual section.</div></div><div><h3>Rule list with exceptions</h3><div class="d">Short rules; the exceptions decide many cases</div><div class="e">Example: basic economy cannot be modified, unless the cabin changes first.</div></div></div></div></div>
+</section>
+
+<section class="slide">
+  <div class="sec">1 · Why it is hard</div>
+  <h2>What a violation looks like: four real cases.</h2>
+  <div class="vis"><div class="tw"><table class="tight"><thead><tr><th>Task</th><th>The rule</th><th>What the agent did</th></tr></thead><tbody><tr><td class="b">HR<br><span style="font-weight:400;color:#6b7280">strong model</span></td><td>“Do not initiate involuntary offboarding without written authorization” from two named people</td><td>The notice came from another manager. The agent opened the ticket, emailed final pay and access removal, and posted “OFFBOARDING COMPLETE”.</td></tr><tr><td class="b">Payments<br><span style="font-weight:400;color:#6b7280">small model</span></td><td>“Over $25,000: Requires CFO approval”</td><td>A $32,500 invoice had only department-head approval. The agent told the vendor it was being processed.</td></tr><tr><td class="b">Medical<br><span style="font-weight:400;color:#6b7280">strong model</span></td><td>Lab result from the last 6 months</td><td>The result was one day too old. The agent submitted the prior authorization.</td></tr><tr><td class="b">Insurance<br><span style="font-weight:400;color:#6b7280">strong model</span></td><td>Manager approval in Slack above $5,000</td><td>A junior analyst had approved a $7,500 item. The agent marked it cleared.</td></tr></tbody></table></div><div class="src">Real CUGA runs with no policy checks. The next slides show how each method handles cases like these.</div></div>
+</section>
+
+<section class="slide">
+  <div class="sec">2 · How the methods work, with real cases</div>
+  <h2>Published methods differ in when they act.</h2>
+  <div class="vis"><div class="tw">
+  <svg viewBox="0 0 1104 342" role="img" aria-label="Timeline of four stages, with the published method families that act at each stage">
+    <defs><marker id="ah" markerWidth="9" markerHeight="9" refX="8" refY="4.5" orient="auto"><path d="M0 0 L9 4.5 L0 9 z" fill="#6b7280"/></marker></defs>
+    <line x1="0" y1="46" x2="1100" y2="46" stroke="#6b7280" stroke-width="1.5" marker-end="url(#ah)"/>
+    <g font-size="19" font-weight="700" text-anchor="middle" fill="#000">
+      <text x="130.5" y="28">Before the run</text>
+      <text x="411.5" y="28">Agent reads</text>
+      <text x="692.5" y="28">Agent acts</text>
+      <text x="973.5" y="28">End of the task</text>
+    </g>
+    <g fill="#000"><circle cx="130.5" cy="46" r="6"/><circle cx="411.5" cy="46" r="6"/><circle cx="692.5" cy="46" r="6"/><circle cx="973.5" cy="46" r="6"/></g>
+    <g stroke="#9ca3af" stroke-width="1">
+      <line x1="130.5" y1="52" x2="130.5" y2="72"/><line x1="411.5" y1="52" x2="411.5" y2="72"/><line x1="692.5" y1="52" x2="692.5" y2="72"/><line x1="973.5" y1="52" x2="973.5" y2="72"/>
+      <line x1="411.5" y1="194" x2="411.5" y2="212"/><line x1="692.5" y1="194" x2="692.5" y2="212"/>
+    </g>
+    <g fill="#fafafa" stroke="#e5e7eb">
+      <rect x="0" y="72" width="261" height="122" rx="8"/>
+      <rect x="281" y="72" width="261" height="122" rx="8"/>
+      <rect x="281" y="212" width="261" height="122" rx="8"/>
+      <rect x="562" y="72" width="261" height="122" rx="8"/>
+      <rect x="562" y="212" width="261" height="122" rx="8"/>
+      <rect x="843" y="72" width="261" height="98" rx="8"/>
+    </g>
+    <g fill="#000">
+      <g font-size="19" font-weight="700">
+        <text x="14" y="101">Compile rules</text>
+        <text x="295" y="101">Policy as text</text>
+        <text x="295" y="241">Procedure graphs</text>
+        <text x="576" y="101">Runtime monitors</text>
+        <text x="576" y="241">Model checkers</text>
+        <text x="857" y="101">After the run</text>
+      </g>
+      <g font-size="17">
+        <text x="14" y="126">Turn policy text into rules</text><text x="14" y="148">that code checks</text>
+        <text x="295" y="126">The agent reads the rules</text><text x="295" y="148">and can ignore them</text>
+        <text x="295" y="266">The SOP becomes steps</text><text x="295" y="288">that guide the agent</text>
+        <text x="576" y="126">A layer allows or blocks</text><text x="576" y="148">each action</text>
+        <text x="576" y="266">A second model judges</text><text x="576" y="288">each action</text>
+        <text x="857" y="126">Check the finished work</text>
+      </g>
+    </g>
+    <g font-size="15" fill="#6b7280">
+      <text x="14" y="176">e.g. ToolGuard</text>
+      <text x="295" y="176">e.g. Parlant</text>
+      <text x="295" y="316">e.g. STAGE</text>
+      <text x="576" y="176">e.g. Cedar</text>
+      <text x="576" y="316">e.g. PolicyGuard</text>
+      <text x="857" y="152">e.g. NearMiss</text>
+    </g>
+  </svg>
+  </div></div>
+  <div class="src">Not tested: security by design, training the model.</div>
+</section>
+
+<section class="slide">
+  <div class="sec">2 · How the methods work, with real cases</div>
+  <h2>Compile rules: turn policy text into checks that code runs.</h2>
+  <div class="vis"><div class="tw"><div class="ex">Example rule: basic economy cannot be modified, unless the cabin changes first.</div><svg viewBox="0 0 1104 134" role="img" aria-label="Policy text is compiled once into a code rule that checks each action"><defs><marker id="m11" markerWidth="9" markerHeight="9" refX="8" refY="4.5" orient="auto"><path d="M0 0 L9 4.5 L0 9 z" fill="#6b7280"/></marker></defs><rect x="0.0" y="2" width="243.0" height="130" rx="8" fill="#fafafa" stroke="#e5e7eb"/><text x="121.5" y="61.5" font-size="18" font-weight="700" fill="#000" text-anchor="middle">Policy text</text><text x="121.5" y="85.5" font-size="16" fill="#374151" text-anchor="middle">The rule as written</text><path d="M246.0 67.0 H284.0" stroke="#6b7280" stroke-width="1.5" fill="none" marker-end="url(#m11)"/><rect x="287.0" y="2" width="243.0" height="130" rx="8" fill="#fafafa" stroke="#e5e7eb"/><text x="408.5" y="51.0" font-size="18" font-weight="700" fill="#000" text-anchor="middle">A model compiles it</text><text x="408.5" y="75.0" font-size="16" fill="#374151" text-anchor="middle">Once, before any run;</text><text x="408.5" y="96.0" font-size="16" fill="#374151" text-anchor="middle">a person can review</text><path d="M533.0 67.0 H571.0" stroke="#6b7280" stroke-width="1.5" fill="none" marker-end="url(#m11)"/><rect x="574.0" y="2" width="243.0" height="130" rx="8" fill="#eff6ff" stroke="#1d4ed8"/><text x="695.5" y="51.0" font-size="18" font-weight="700" fill="#000" text-anchor="middle">Code rule</text><text x="695.5" y="75.0" font-size="16" fill="#374151" text-anchor="middle">Basic economy + change</text><text x="695.5" y="96.0" font-size="16" fill="#374151" text-anchor="middle">other than cabin = block</text><path d="M820.0 67.0 H858.0" stroke="#6b7280" stroke-width="1.5" fill="none" marker-end="url(#m11)"/><rect x="861.0" y="2" width="243.0" height="130" rx="8" fill="#fafafa" stroke="#e5e7eb"/><text x="982.5" y="61.5" font-size="18" font-weight="700" fill="#000" text-anchor="middle">Code checks actions</text><text x="982.5" y="85.5" font-size="16" fill="#374151" text-anchor="middle">Same answer every time</text></svg></div><div class="facts"><div><div class="l">Published</div><div class="t">ToolGuard (IBM) writes guard code for each tool.</div></div><div><div class="l">On CUGA</div><div class="t">Our best rule set: 104 of 182 rule-breaking tests caught, 1 wrong block in 165 allowed tests.</div></div><div><div class="l">Limit</div><div class="t">Catches about half. The rest needs someone to read meaning.</div></div></div><div class="src">The example shows how each method works; it is not a measured run. Same for the next slides.</div></div>
+</section>
+
+<section class="slide">
+  <div class="sec">2 · How the methods work, with real cases</div>
+  <h2>How code rules worked: four real rules, four real blocks.</h2>
+  <div class="vis"><div class="tw"><table class="tight"><thead><tr><th>Policy text</th><th>Action tested</th><th>What the code answered</th></tr></thead><tbody><tr><td>“assigned_to must be an active user”</td><td>Assign an incident to user-999</td><td><span class="mono">user-999 has active=False</span></td></tr><tr><td>“Do not link CIs [configuration items] in status = retired or status = disposed.”</td><td>Link a retired laptop to an incident</td><td><span class="mono">record CI1001 has status in [retired, disposed]</span></td></tr><tr><td>Priority table: impact × urgency</td><td>Set priority to low on a medium × medium incident</td><td><span class="mono">priority=low does not match the policy table (medium x medium → moderate)</span></td></tr><tr><td>Table of valid status changes</td><td>Close an incident that is in progress</td><td><span class="mono">status cannot go from in_progress to closed</span></td></tr></tbody></table></div><ul><li>The code checks the action against the records the agent has read.</li><li>The one wrong block in 165: a priority change when impact and urgency were not in the call.</li></ul><div class="src">Tests on one IT service policy, written from its text by the mid model, without seeing our rules.</div></div>
+</section>
+
+<section class="slide">
+  <div class="sec">2 · How the methods work, with real cases</div>
+  <h2>Policy as text: the agent reads the rule and decides alone.</h2>
+  <div class="vis"><div class="tw"><div class="ex">Example rule: basic economy cannot be modified, unless the cabin changes first.</div><svg viewBox="0 0 1104 134" role="img" aria-label="The policy goes into the prompt, the agent decides alone and nothing checks the action"><defs><marker id="m12" markerWidth="9" markerHeight="9" refX="8" refY="4.5" orient="auto"><path d="M0 0 L9 4.5 L0 9 z" fill="#6b7280"/></marker></defs><rect x="0.0" y="2" width="243.0" height="130" rx="8" fill="#fafafa" stroke="#e5e7eb"/><text x="121.5" y="61.5" font-size="18" font-weight="700" fill="#000" text-anchor="middle">Policy text</text><text x="121.5" y="85.5" font-size="16" fill="#374151" text-anchor="middle">Goes into the prompt</text><path d="M246.0 67.0 H284.0" stroke="#6b7280" stroke-width="1.5" fill="none" marker-end="url(#m12)"/><rect x="287.0" y="2" width="243.0" height="130" rx="8" fill="#fafafa" stroke="#e5e7eb"/><text x="408.5" y="61.5" font-size="18" font-weight="700" fill="#000" text-anchor="middle">Agent reads</text><text x="408.5" y="85.5" font-size="16" fill="#374151" text-anchor="middle">The request and the rule</text><path d="M533.0 67.0 H571.0" stroke="#6b7280" stroke-width="1.5" fill="none" marker-end="url(#m12)"/><rect x="574.0" y="2" width="243.0" height="130" rx="8" fill="#fffbeb" stroke="#b45309"/><text x="695.5" y="51.0" font-size="18" font-weight="700" fill="#000" text-anchor="middle">Agent decides</text><text x="695.5" y="75.0" font-size="16" fill="#374151" text-anchor="middle">It may miss</text><text x="695.5" y="96.0" font-size="16" fill="#374151" text-anchor="middle">the exception</text><path d="M820.0 67.0 H858.0" stroke="#6b7280" stroke-width="1.5" fill="none" marker-end="url(#m12)"/><rect x="861.0" y="2" width="243.0" height="130" rx="8" fill="#fafafa" stroke="#e5e7eb"/><text x="982.5" y="61.5" font-size="18" font-weight="700" fill="#000" text-anchor="middle">Action runs</text><text x="982.5" y="85.5" font-size="16" fill="#374151" text-anchor="middle">Nothing checks it</text></svg></div><div class="facts"><div><div class="l">Published</div><div class="t">Parlant restates the matched rule just before the decision: 90.2% vs 81.5% on its own tests (vendor's number).</div></div><div><div class="l">On CUGA</div><div class="t">Small model with written guidance: 30.0% → 45.6%, on the same tasks the guidance came from.</div></div><div><div class="l">Limit</div><div class="t">Only advice. Nothing stops a wrong action.</div></div></div></div>
+</section>
+
+<section class="slide">
+  <div class="sec">2 · How the methods work, with real cases</div>
+  <h2>Procedure graphs: the SOP becomes steps that guide the agent.</h2>
+  <div class="vis"><div class="tw"><div class="ex">Example rule: basic economy cannot be modified, unless the cabin changes first.</div><svg viewBox="0 0 1104 196" role="img" aria-label="The SOP becomes a graph of steps with a branch on basic economy"><defs><marker id="m13" markerWidth="9" markerHeight="9" refX="8" refY="4.5" orient="auto"><path d="M0 0 L9 4.5 L0 9 z" fill="#6b7280"/></marker></defs><rect x="0" y="52" width="180" height="104" rx="8" fill="#fafafa" stroke="#e5e7eb"/><text x="90.0" y="98.5" font-size="18" font-weight="700" fill="#000" text-anchor="middle">SOP</text><text x="90.0" y="122.5" font-size="16" fill="#374151" text-anchor="middle">The manual</text><rect x="236" y="52" width="216" height="104" rx="8" fill="#fafafa" stroke="#e5e7eb"/><text x="344.0" y="98.5" font-size="18" font-weight="700" fill="#000" text-anchor="middle">Basic economy?</text><text x="344.0" y="122.5" font-size="16" fill="#374151" text-anchor="middle">Agent checks this</text><rect x="516" y="2" width="222" height="84" rx="8" fill="#eff6ff" stroke="#1d4ed8"/><text x="627.0" y="38.5" font-size="18" font-weight="700" fill="#000" text-anchor="middle">Change the cabin</text><text x="627.0" y="62.5" font-size="16" fill="#374151" text-anchor="middle">This step comes first</text><rect x="802" y="52" width="302" height="104" rx="8" fill="#eff6ff" stroke="#1d4ed8"/><text x="953.0" y="98.5" font-size="18" font-weight="700" fill="#000" text-anchor="middle">Update the flight</text><text x="953.0" y="122.5" font-size="16" fill="#374151" text-anchor="middle">Next step, shown to the agent</text><path d="M183 104 H233" stroke="#6b7280" stroke-width="1.5" fill="none" marker-end="url(#m13)"/><path d="M455 92 H484 V44 H513" stroke="#6b7280" stroke-width="1.5" fill="none" marker-end="url(#m13)"/><path d="M741 44 H953 V49" stroke="#6b7280" stroke-width="1.5" fill="none" marker-end="url(#m13)"/><path d="M344 159 V190 H953 V159" stroke="#6b7280" stroke-width="1.5" fill="none" marker-end="url(#m13)"/><text x="470" y="38" font-size="16" font-weight="700" fill="#374151">yes</text><text x="356" y="182" font-size="16" font-weight="700" fill="#374151">no</text></svg></div><div class="facts"><div><div class="l">Published</div><div class="t">STAGE: up to +55 points on telecom support. PolicyGuide: repeat-run pass score 0.42 → 0.62. Authors' numbers.</div></div><div><div class="l">On CUGA</div><div class="t">SOP as a reference only: no gain, 16 of 22 in every run. Step tracker on telecom: +12.5, could be chance.</div></div><div><div class="l">Limit</div><div class="t">Fits flows. On a rule list it hurt: 17 → 11 of 20.</div></div></div></div>
+</section>
+
+<section class="slide">
+  <div class="sec">2 · How the methods work, with real cases</div>
+  <h2>How the agent queried the SOP: it read the rule and broke it anyway.</h2>
+  <div class="vis"><div class="tw"><table class="tight"><thead><tr><th></th><th>What the agent did</th><th>What came back or happened</th></tr></thead><tbody><tr><td class="b">1</td><td><span class="mono">list_procedures</span></td><td>All procedures and the general rules of the SOP</td></tr><tr><td class="b">2</td><td><span class="mono">get_procedure</span> for 11.1 to 12.6</td><td>Procedure 12.1: “Do not initiate involuntary offboarding without written authorization”</td></tr><tr><td class="b">3</td><td><span class="mono">get_template</span> for 7 templates</td><td>Their exact text</td></tr><tr><td class="b">4</td><td>Acted on the notice from another manager</td><td>Ticket, Slack post, 3 emails, “OFFBOARDING COMPLETE”</td></tr></tbody></table></div><ul><li>16 of 22 items with these queries, 16 of 22 without, in all 6 runs.</li><li>The agent had the knowledge. It needed a check at the moment of the action.</li></ul><div class="src">HR task, strong model, one run shown. Claude built the graph by hand from the SOP text.</div></div>
+</section>
+
+<section class="slide">
+  <div class="sec">2 · How the methods work, with real cases</div>
+  <h2>How the step tracker worked: a note before each agent reply.</h2>
+  <div class="vis"><div class="tw"><div class="ex">Before each reply, a small model picks the SOP sections and marks each step done, pending or not needed, with a quote.</div><div class="two"><div class="card"><div class="h">The real note the agent received (SOP quotes shortened)</div>[SOP progress check, written by the company's procedure checker, not by the customer]<br>Next per the SOP (not done yet, in order):<br>1. Verify cellular service prerequisite<br>2. Check if Airplane Mode is ON<br>3. Check if Mobile Data is turned OFF<br><b>4. Check Roaming status (if user is abroad)</b></div><div><div class="res fail"><h3>Without the tracker: failed</h3><div>Many fixes, but Data Roaming stayed off. It transferred the customer to a person: “Needs network-side investigation.”</div></div><div class="res ok"><h3>With the tracker: passed</h3><div>It found Data Roaming OFF on the phone. The customer turned it on. Speed: excellent.</div></div></div></div></div><div class="src">One telecom task, customer abroad, mid model. Over all 40 tasks: 9 better, 3 worse, could be chance.</div></div>
+</section>
+
+<section class="slide">
+  <div class="sec">2 · How the methods work, with real cases</div>
+  <h2>The same tracker on a rule list: it refused an allowed change.</h2>
+  <div class="vis"><div class="tw"><div class="two"><div><div class="card" style="margin-bottom:1rem"><div class="h">The real note</div>4. Check that flights are not basic economy (cannot be modified) (SOP: “Basic economy flights cannot be modified.”)</div><div class="card"><div class="h">What the note left out, from the same policy</div>“all reservations, including basic economy, can change cabin without changing the flights.”</div></div><div><div class="res fail"><h3>With the tracker: failed</h3><div>“basic economy flights cannot be modified … I'm unable to make changes”. It made no change.</div></div><div class="res ok"><h3>Without the tracker: passed</h3><div>It changed the cabin to Economy, then the passenger and the bags.</div></div></div></div></div><div class="src">One airline task, mid model. Over 20 tasks: 17 → 11 passed, 0 better, 6 worse. So the tracker stays off for rule lists.</div></div>
+</section>
+
+<section class="slide">
+  <div class="sec">2 · How the methods work, with real cases</div>
+  <h2>Runtime monitors: a fixed layer allows or blocks each action.</h2>
+  <div class="vis"><div class="tw"><div class="ex">Example rule: basic economy cannot be modified, unless the cabin changes first.</div><svg viewBox="0 0 1104 270" role="img" aria-label="A rule engine allows the action or blocks it and returns the reason to the agent"><defs><marker id="m14" markerWidth="9" markerHeight="9" refX="8" refY="4.5" orient="auto"><path d="M0 0 L9 4.5 L0 9 z" fill="#6b7280"/></marker></defs><rect x="0" y="62" width="240" height="104" rx="8" fill="#fafafa" stroke="#e5e7eb"/><text x="120.0" y="108.5" font-size="18" font-weight="700" fill="#000" text-anchor="middle">Agent wants to act</text><text x="120.0" y="132.5" font-size="16" fill="#374151" text-anchor="middle">Update the flight</text><rect x="292" y="62" width="300" height="104" rx="8" fill="#eff6ff" stroke="#1d4ed8"/><text x="442.0" y="98.0" font-size="18" font-weight="700" fill="#000" text-anchor="middle">Rule engine</text><text x="442.0" y="122.0" font-size="16" fill="#374151" text-anchor="middle">Reads role, tool and values;</text><text x="442.0" y="143.0" font-size="16" fill="#374151" text-anchor="middle">no model involved</text><rect x="680" y="2" width="424" height="86" rx="8" fill="#ecfdf5" stroke="#047857"/><text x="892.0" y="39.5" font-size="18" font-weight="700" fill="#000" text-anchor="middle">Allow</text><text x="892.0" y="63.5" font-size="16" fill="#374151" text-anchor="middle">The tool runs</text><rect x="680" y="142" width="424" height="86" rx="8" fill="#fef2f2" stroke="#b91c1c"/><text x="892.0" y="179.5" font-size="18" font-weight="700" fill="#000" text-anchor="middle">Block + reason</text><text x="892.0" y="203.5" font-size="16" fill="#374151" text-anchor="middle">Basic economy: change the cabin first</text><path d="M243 114 H289" stroke="#6b7280" stroke-width="1.5" fill="none" marker-end="url(#m14)"/><path d="M595 100 H636 V45 H677" stroke="#6b7280" stroke-width="1.5" fill="none" marker-end="url(#m14)"/><path d="M595 128 H636 V185 H677" stroke="#6b7280" stroke-width="1.5" fill="none" marker-end="url(#m14)"/><path d="M892 231 V256 H120 V169" stroke="#6b7280" stroke-width="1.5" stroke-dasharray="5 4" fill="none" marker-end="url(#m14)"/><rect x="400" y="244" width="240" height="24" fill="#fff"/><text x="520" y="261" font-size="16" fill="#374151" text-anchor="middle">agent tries again</text></svg></div><div class="facts"><div><div class="l">Published</div><div class="t">Cedar in AWS AgentCore checks each tool call, with a log-only mode first.</div></div><div><div class="l">On CUGA</div><div class="t">Rule engine: 372 of 372 decisions match the rule file.</div></div><div><div class="l">Limit</div><div class="t">It enforces only what the file says. Turning text into rules missed 3 of 3 permission rules.</div></div></div></div>
+</section>
+
+<section class="slide">
+  <div class="sec">2 · How the methods work, with real cases</div>
+  <h2>A row of a role table becomes a rule the engine enforces.</h2>
+  <div class="vis"><div class="tw"><div class="two eq"><div class="card"><div class="h">Policy table row</div>Reporter: “Can view and update their own submitted Incidents/Requests.”<br><br><div class="h">One model call reads the row</div>Allowed write tool: <span class="mono">update_incident</span>. The other 41 are forbidden.</div><div class="card"><div class="h">Rule engine text (Cedar)</div><div class="mono">forbid(principal,<br>&nbsp;&nbsp;action in [Action::"add_location", … 41 tools],<br>&nbsp;&nbsp;resource)<br>when { ["reporter"].contains(principal.role) };</div></div></div></div><div class="facts"><div><div class="l">Checked</div><div class="t">372 of 372 role and tool decisions match the rule file.</div></div><div><div class="l">Surprise</div><div class="t">Graders expect managers to update records the table forbids: as a block, this hit 20 of 93 passed runs.</div></div><div><div class="l">Decision</div><div class="t">Role rules only remind, until the policy owner decides.</div></div></div></div>
+</section>
+
+<section class="slide">
+  <div class="sec">2 · How the methods work, with real cases</div>
+  <h2>Model checkers: a second model judges each action.</h2>
+  <div class="vis"><div class="tw"><div class="ex">Example rule: basic economy cannot be modified, unless the cabin changes first.</div><svg viewBox="0 0 1104 270" role="img" aria-label="A second model passes the action or blocks it and returns a reason to the agent"><defs><marker id="m15" markerWidth="9" markerHeight="9" refX="8" refY="4.5" orient="auto"><path d="M0 0 L9 4.5 L0 9 z" fill="#6b7280"/></marker></defs><rect x="0" y="62" width="240" height="104" rx="8" fill="#fafafa" stroke="#e5e7eb"/><text x="120.0" y="108.5" font-size="18" font-weight="700" fill="#000" text-anchor="middle">Agent wants to act</text><text x="120.0" y="132.5" font-size="16" fill="#374151" text-anchor="middle">Update the flight</text><rect x="292" y="62" width="300" height="104" rx="8" fill="#eff6ff" stroke="#1d4ed8"/><text x="442.0" y="98.0" font-size="18" font-weight="700" fill="#000" text-anchor="middle">Second model reads</text><text x="442.0" y="122.0" font-size="16" fill="#374151" text-anchor="middle">The action, the policy and</text><text x="442.0" y="143.0" font-size="16" fill="#374151" text-anchor="middle">the data read so far</text><rect x="680" y="2" width="424" height="86" rx="8" fill="#ecfdf5" stroke="#047857"/><text x="892.0" y="39.5" font-size="18" font-weight="700" fill="#000" text-anchor="middle">Pass</text><text x="892.0" y="63.5" font-size="16" fill="#374151" text-anchor="middle">The tool runs</text><rect x="680" y="142" width="424" height="86" rx="8" fill="#fef2f2" stroke="#b91c1c"/><text x="892.0" y="179.5" font-size="18" font-weight="700" fill="#000" text-anchor="middle">Block + reason</text><text x="892.0" y="203.5" font-size="16" fill="#374151" text-anchor="middle">A reason the agent can act on</text><path d="M243 114 H289" stroke="#6b7280" stroke-width="1.5" fill="none" marker-end="url(#m15)"/><path d="M595 100 H636 V45 H677" stroke="#6b7280" stroke-width="1.5" fill="none" marker-end="url(#m15)"/><path d="M595 128 H636 V185 H677" stroke="#6b7280" stroke-width="1.5" fill="none" marker-end="url(#m15)"/><path d="M892 231 V256 H120 V169" stroke="#6b7280" stroke-width="1.5" stroke-dasharray="5 4" fill="none" marker-end="url(#m15)"/><rect x="400" y="244" width="240" height="24" fill="#fff"/><text x="520" y="261" font-size="16" fill="#374151" text-anchor="middle">agent tries again</text></svg></div><div class="facts"><div><div class="l">Published</div><div class="t">PolicyGuard: +6 to +12 points on airline tasks. Authors' numbers.</div></div><div><div class="l">On CUGA</div><div class="t">Strong agent and checker: +25 on tasks we tuned on. Small agent and checker: +3.</div></div><div><div class="l">Limit</div><div class="t">A wrong block is costly. In our first pilot, 5 of 5 blocks were wrong.</div></div></div></div>
+</section>
+
+<section class="slide">
+  <div class="sec">2 · How the methods work, with real cases</div>
+  <h2>How the checker blocked: the real message.</h2>
+  <div class="vis"><div class="tw"><div class="card" style="margin-bottom:1.25rem">Blocked by an SOP check: this action seems to break the rule “[12.1] MUST NOT: Do not initiate involuntary offboarding without written authorization from Nicole Ashford (HR Director) or Marta Voss (Employee Relations Specialist).” … The request was sent by Victor Osei, but the rule requires written authorization directly from Nicole Ashford or Marta Voss … Follow the SOP for this case (hold, ask for the missing approval, or escalate as the SOP says). If the rule does not apply, say why and retry.</div><div class="two eq"><div class="res fail"><h3>Without the check: 16 of 22 items</h3><div>Six actions, ending with “OFFBOARDING COMPLETE”.</div></div><div class="res ok"><h3>With the check: 20 to 21 of 22 items</h3><div>It stopped the offboarding and asked the two people for authorization.</div></div></div></div><div class="src">HR task, strong model as agent and checker, task we tuned on. In 2 of 3 runs the ticket was created before the block came.</div></div>
+</section>
+
+<section class="slide">
+  <div class="sec">2 · How the methods work, with real cases</div>
+  <h2>Narrow questions: code asks, a very small model answers yes or no.</h2>
+  <div class="vis"><div class="tw"><svg viewBox="0 0 1104 134" role="img" aria-label="Code asks one narrow question, a small model answers and code decides"><defs><marker id="m16" markerWidth="9" markerHeight="9" refX="8" refY="4.5" orient="auto"><path d="M0 0 L9 4.5 L0 9 z" fill="#6b7280"/></marker></defs><rect x="0.0" y="2" width="243.0" height="130" rx="8" fill="#fafafa" stroke="#e5e7eb"/><text x="121.5" y="61.5" font-size="18" font-weight="700" fill="#000" text-anchor="middle">Agent wants to act</text><text x="121.5" y="85.5" font-size="16" fill="#374151" text-anchor="middle">Send the customer email</text><path d="M246.0 67.0 H284.0" stroke="#6b7280" stroke-width="1.5" fill="none" marker-end="url(#m16)"/><rect x="287.0" y="2" width="243.0" height="130" rx="8" fill="#eff6ff" stroke="#1d4ed8"/><text x="408.5" y="51.0" font-size="18" font-weight="700" fill="#000" text-anchor="middle">Code asks one question</text><text x="408.5" y="75.0" font-size="16" fill="#374151" text-anchor="middle">Does this message</text><text x="408.5" y="96.0" font-size="16" fill="#374151" text-anchor="middle">change a rule?</text><path d="M533.0 67.0 H571.0" stroke="#6b7280" stroke-width="1.5" fill="none" marker-end="url(#m16)"/><rect x="574.0" y="2" width="243.0" height="130" rx="8" fill="#eff6ff" stroke="#1d4ed8"/><text x="695.5" y="51.0" font-size="18" font-weight="700" fill="#000" text-anchor="middle">Small yes/no model</text><text x="695.5" y="75.0" font-size="16" fill="#374151" text-anchor="middle">About 1 second</text><text x="695.5" y="96.0" font-size="16" fill="#374151" text-anchor="middle">and $0.000002</text><path d="M820.0 67.0 H858.0" stroke="#6b7280" stroke-width="1.5" fill="none" marker-end="url(#m16)"/><rect x="861.0" y="2" width="243.0" height="130" rx="8" fill="#fafafa" stroke="#e5e7eb"/><text x="982.5" y="51.0" font-size="18" font-weight="700" fill="#000" text-anchor="middle">Code decides</text><text x="982.5" y="75.0" font-size="16" fill="#374151" text-anchor="middle">The model answers;</text><text x="982.5" y="96.0" font-size="16" fill="#374151" text-anchor="middle">code takes the action</text></svg></div><div class="facts"><div><div class="l">Published</div><div class="t">A 2026 method: +16.9 points on telecom support, average of 8 agents. Authors' number.</div></div><div><div class="l">On CUGA</div><div class="t">Against the same system without it: rules broken 44 → 34, about the same score.</div></div><div><div class="l">Limit</div><div class="t">Good on narrow questions, 8 of 9. As a judge of a whole action it caught at most 42%.</div></div></div></div>
+</section>
+
+<section class="slide">
+  <div class="sec">2 · How the methods work, with real cases</div>
+  <h2>After the run: check the finished work.</h2>
+  <div class="vis"><div class="tw"><svg viewBox="0 0 1104 134" role="img" aria-label="After the run a checker lists problems, which are reported or sent back to the agent"><defs><marker id="m17" markerWidth="9" markerHeight="9" refX="8" refY="4.5" orient="auto"><path d="M0 0 L9 4.5 L0 9 z" fill="#6b7280"/></marker></defs><rect x="0.0" y="2" width="243.0" height="130" rx="8" fill="#fafafa" stroke="#e5e7eb"/><text x="121.5" y="61.5" font-size="18" font-weight="700" fill="#000" text-anchor="middle">Run ends</text><text x="121.5" y="85.5" font-size="16" fill="#374151" text-anchor="middle">The agent has replied</text><path d="M246.0 67.0 H284.0" stroke="#6b7280" stroke-width="1.5" fill="none" marker-end="url(#m17)"/><rect x="287.0" y="2" width="243.0" height="130" rx="8" fill="#fafafa" stroke="#e5e7eb"/><text x="408.5" y="61.5" font-size="18" font-weight="700" fill="#000" text-anchor="middle">Checker reads the run</text><text x="408.5" y="85.5" font-size="16" fill="#374151" text-anchor="middle">Actions and results</text><path d="M533.0 67.0 H571.0" stroke="#6b7280" stroke-width="1.5" fill="none" marker-end="url(#m17)"/><rect x="574.0" y="2" width="243.0" height="130" rx="8" fill="#fffbeb" stroke="#b45309"/><text x="695.5" y="61.5" font-size="18" font-weight="700" fill="#000" text-anchor="middle">List of problems</text><text x="695.5" y="85.5" font-size="16" fill="#374151" text-anchor="middle">Missing or wrong work</text><path d="M820.0 67.0 H858.0" stroke="#6b7280" stroke-width="1.5" fill="none" marker-end="url(#m17)"/><rect x="861.0" y="2" width="243.0" height="130" rx="8" fill="#fafafa" stroke="#e5e7eb"/><text x="982.5" y="51.0" font-size="18" font-weight="700" fill="#000" text-anchor="middle">Report or send back</text><text x="982.5" y="75.0" font-size="16" fill="#374151" text-anchor="middle">The agent can finish</text><text x="982.5" y="96.0" font-size="16" fill="#374151" text-anchor="middle">what is missing</text></svg></div><div class="facts"><div><div class="l">Published</div><div class="t">NearMiss (IBM) finds runs with the right outcome but a skipped policy check.</div></div><div><div class="l">On CUGA</div><div class="t">A second model reading the run: only 17.5% to 38.5% of its findings were right.</div></div><div><div class="l">Limit</div><div class="t">Wrong items do harm: −7 to −13 points on IT service tasks.</div></div></div></div>
+</section>
+
+<section class="slide">
+  <div class="sec">2 · How the methods work, with real cases</div>
+  <h2>Each method found its place in our design.</h2>
+  <div class="vis"><div class="tw">
+    <table>
+      <thead><tr><th>Method</th><th>What happened on CUGA</th><th>Role in our design</th></tr></thead>
+      <tbody>
+        <tr><td class="b">Policy as text</td><td>Helps a small model; only advice</td><td>Background guidance</td></tr>
+        <tr><td class="b">Procedure graphs</td><td>Knowledge alone: no gain</td><td>Source of the rules</td></tr>
+        <tr><td class="b">Compile rules</td><td>Very accurate; catches about half</td><td>Rules code can decide</td></tr>
+        <tr><td class="b">Runtime monitors</td><td>Reliable</td><td>How rules are enforced</td></tr>
+        <tr><td class="b">Model checkers</td><td>Largest gains, with the right model</td><td>Rules that need judgment</td></tr>
+        <tr><td class="b">After the run</td><td>Small gains; wrong items cause harm</td><td class="new">Finding missing work (new)</td></tr>
+      </tbody>
+    </table>
+  </div></div>
+</section>
+
+<section class="slide">
+  <div class="sec">3 · What we measured</div>
+  <h2>We tested on six task sets and three model sizes.</h2>
+  <div class="vis"><div class="tw"><table class="tight"><thead><tr><th>Task set</th><th>Policy shape</th><th>Tasks</th><th class="c">Small</th><th class="c">Mid</th><th class="c">Strong</th></tr></thead><tbody><tr><td class="b">Business-rule tasks</td><td>Rules in data</td><td>Small: 35 tuning, 35 + 31 new. Mid 10, strong 31.</td><td class="c">●</td><td class="c">●</td><td class="c">●</td></tr><tr><td class="b">Long handbook tasks</td><td>Long document</td><td>3 public</td><td class="c">●</td><td class="c">●</td><td class="c">●</td></tr><tr><td class="b">IT service tasks</td><td>Policy in the prompt</td><td>5 to 20 per test</td><td class="c">●</td><td class="c">●</td><td class="c">●</td></tr><tr><td class="b">Telecom support tasks</td><td>Step-by-step flow</td><td>40, each run twice</td><td class="c" style="color:#d1d5db">–</td><td class="c">●</td><td class="c" style="color:#d1d5db">–</td></tr><tr><td class="b">Airline rule tasks</td><td>Rule list</td><td>20</td><td class="c" style="color:#d1d5db">–</td><td class="c">●</td><td class="c" style="color:#d1d5db">–</td></tr><tr><td class="b">Multi-app tasks</td><td>No written policy</td><td>90</td><td class="c">●</td><td class="c" style="color:#d1d5db">–</td><td class="c" style="color:#d1d5db">–</td></tr></tbody></table></div><div class="src">Small = gpt-oss-120b, mid = DeepSeek-V4-Pro, strong = Gemini 3.8 Flash. Only the step-by-step loop ran on all three models.</div></div>
+</section>
+
+<section class="slide">
+  <div class="sec">3 · What we measured</div>
+  <h2>The same method helps one model and hurts another.</h2>
+  <div class="vis"><div class="tw">
+  <svg viewBox="0 0 1104 432" role="img" aria-label="Bar chart of the change in task score against the same model alone, from plus 25.5 points down to minus 30 points">
+    <g font-size="15" fill="#374151">
+      <rect x="0" y="3" width="14" height="14" fill="#047857"/><rect x="16" y="3" width="14" height="14" fill="#b91c1c"/>
+      <text x="36" y="15">New tasks</text>
+      <rect x="130" y="3" width="14" height="14" fill="#b7e0d3" stroke="#047857"/><rect x="146" y="3" width="14" height="14" fill="#f5c6c6" stroke="#b91c1c"/>
+      <text x="166" y="15">Tasks we tuned on or had seen</text>
+    </g>
+    <text x="755" y="20" font-size="15" fill="#6b7280" text-anchor="middle">0</text>
+    <g font-size="17" fill="#000">
+      <text x="0" y="51">Strong model + check before each action</text>
+      <text x="0" y="95">Small model + full policy system</text>
+      <text x="0" y="139">Mid model + SOP step-by-step loop</text>
+      <text x="0" y="183">Mid model + SOP step tracker</text>
+      <text x="0" y="227">Small model + full policy system, second set</text>
+      <text x="0" y="271">Small model + check before each action</text>
+      <text x="0" y="315">Strong model + full policy system</text>
+      <text x="0" y="359">Strong model + SOP step-by-step loop</text>
+      <text x="0" y="403">Mid model + SOP step tracker</text>
+    </g>
+    <g font-size="14.5" fill="#6b7280">
+      <text x="0" y="69">long handbook tasks</text>
+      <text x="0" y="113">business-rule tasks</text>
+      <text x="0" y="157">long handbook tasks</text>
+      <text x="0" y="201">telecom support tasks</text>
+      <text x="0" y="245">business-rule tasks</text>
+      <text x="0" y="289">long handbook tasks</text>
+      <text x="0" y="333">business-rule tasks</text>
+      <text x="0" y="377">long handbook tasks</text>
+      <text x="0" y="421">airline rule tasks</text>
+    </g>
+    <rect x="755" y="40" width="255" height="24" fill="#b7e0d3" stroke="#047857"/>
+    <rect x="755" y="84" width="189" height="24" fill="#047857"/>
+    <rect x="755" y="128" width="142" height="24" fill="#b7e0d3" stroke="#047857"/>
+    <rect x="755" y="172" width="125" height="24" fill="#b7e0d3" stroke="#047857"/>
+    <rect x="755" y="216" width="88" height="24" fill="#047857"/>
+    <rect x="755" y="260" width="33" height="24" fill="#b7e0d3" stroke="#047857"/>
+    <rect x="697" y="304" width="58" height="24" fill="#b91c1c"/>
+    <rect x="676" y="348" width="79" height="24" fill="#f5c6c6" stroke="#b91c1c"/>
+    <rect x="455" y="392" width="300" height="24" fill="#b91c1c"/>
+    <line x1="755" y1="28" x2="755" y2="428" stroke="#374151" stroke-width="1.25"/>
+    <g font-size="18" font-weight="700" fill="#000" style="font-variant-numeric:tabular-nums">
+      <text x="1018" y="58">+25.5</text>
+      <text x="952" y="102">+18.9</text>
+      <text x="905" y="146">+14.2</text>
+      <text x="888" y="190">+12.5</text>
+      <text x="851" y="234">+8.8</text>
+      <text x="796" y="278">+3.3</text>
+      <text x="689" y="322" text-anchor="end">−5.8</text>
+      <text x="668" y="366" text-anchor="end">−7.8</text>
+      <text x="447" y="410" text-anchor="end">−30.0</text>
+    </g>
+  </svg>
+  </div></div>
+  <div class="src">Points: percentage points of the task score, against the same model alone. Small = gpt-oss-120b, mid = DeepSeek-V4-Pro, strong = Gemini 3.8 Flash.</div>
+</section>
+
+<section class="slide">
+  <div class="sec">3 · What we measured</div>
+  <h2>Small model: the full policy system gained on new tasks; a second set agrees.</h2>
+  <div class="vis"><div class="tw"><svg viewBox="0 0 1104 232" role="img" aria-label="Small model alone against the full policy system on two sets of new tasks"><g font-size="16" fill="#374151"><rect x="320" y="2" width="14" height="14" fill="#9ca3af"/><text x="340" y="15">Small model alone</text><rect x="510" y="2" width="14" height="14" fill="#1d4ed8"/><text x="530" y="15">With the full policy system</text></g><text x="0" y="56" font-size="19" font-weight="700" fill="#000">First set: 35 new tasks</text><text x="0" y="81" font-size="16" fill="#374151">24 better, 6 worse</text><text x="0" y="102" font-size="16" fill="#374151">Significant</text><rect x="320" y="36" width="261.8" height="30" fill="#9ca3af"/><text x="591.8" y="58" font-size="19" font-weight="700" fill="#000">23.8%</text><rect x="320" y="72" width="469.7" height="30" fill="#1d4ed8"/><text x="799.7" y="94" font-size="19" font-weight="700" fill="#000">42.7%</text><text x="1104" y="80" font-size="34" font-weight="700" fill="#047857" text-anchor="end">+18.9</text><text x="0" y="166" font-size="19" font-weight="700" fill="#000">Second set: 31 new tasks</text><text x="0" y="191" font-size="16" fill="#374151">14 better, 6 worse</text><text x="0" y="212" font-size="16" fill="#374151">Could be chance</text><rect x="320" y="146" width="338.8" height="30" fill="#9ca3af"/><text x="668.8" y="168" font-size="19" font-weight="700" fill="#000">30.8%</text><rect x="320" y="182" width="435.6" height="30" fill="#1d4ed8"/><text x="765.6" y="204" font-size="19" font-weight="700" fill="#000">39.6%</text><text x="1104" y="190" font-size="34" font-weight="700" fill="#047857" text-anchor="end">+8.8</text></svg></div><ul><li>It finds rules in the data; the newer rule wins.</li><li>A yes/no model checks each action; a list tracks required work.</li><li>Runs that broke a rule, first set: 24 of 64 → 19 of 64.</li></ul></div>
+</section>
+
+<section class="slide">
+  <div class="sec">3 · What we measured</div>
+  <h2>How rules in the data worked: the $32,500 payment.</h2>
+  <div class="vis"><div class="tw"><svg viewBox="0 0 1104 120" role="img" aria-label="Rules are found in mail, read by a small model, shown to the agent and checked before each action"><defs><marker id="m42" markerWidth="9" markerHeight="9" refX="8" refY="4.5" orient="auto"><path d="M0 0 L9 4.5 L0 9 z" fill="#6b7280"/></marker></defs><rect x="0.0" y="2" width="246.0" height="116" rx="8" fill="#fafafa" stroke="#e5e7eb"/><text x="123.0" y="44.0" font-size="18" font-weight="700" fill="#000" text-anchor="middle">Search for rules</text><text x="123.0" y="68.0" font-size="16" fill="#374151" text-anchor="middle">Finds the CFO's rules</text><text x="123.0" y="89.0" font-size="16" fill="#374151" text-anchor="middle">in company mail</text><path d="M249.0 60.0 H283.0" stroke="#6b7280" stroke-width="1.5" fill="none" marker-end="url(#m42)"/><rect x="286.0" y="2" width="246.0" height="116" rx="8" fill="#fafafa" stroke="#e5e7eb"/><text x="409.0" y="44.0" font-size="18" font-weight="700" fill="#000" text-anchor="middle">Small model reads</text><text x="409.0" y="68.0" font-size="16" fill="#374151" text-anchor="middle">Finds 5 rules; marks</text><text x="409.0" y="89.0" font-size="16" fill="#374151" text-anchor="middle">the source as trusted</text><path d="M535.0 60.0 H569.0" stroke="#6b7280" stroke-width="1.5" fill="none" marker-end="url(#m42)"/><rect x="572.0" y="2" width="246.0" height="116" rx="8" fill="#fafafa" stroke="#e5e7eb"/><text x="695.0" y="44.0" font-size="18" font-weight="700" fill="#000" text-anchor="middle">Agent sees the rules</text><text x="695.0" y="68.0" font-size="16" fill="#374151" text-anchor="middle">“Over $25,000: Requires</text><text x="695.0" y="89.0" font-size="16" fill="#374151" text-anchor="middle">CFO approval”</text><path d="M821.0 60.0 H855.0" stroke="#6b7280" stroke-width="1.5" fill="none" marker-end="url(#m42)"/><rect x="858.0" y="2" width="246.0" height="116" rx="8" fill="#fafafa" stroke="#e5e7eb"/><text x="981.0" y="44.0" font-size="18" font-weight="700" fill="#000" text-anchor="middle">Check before actions</text><text x="981.0" y="68.0" font-size="16" fill="#374151" text-anchor="middle">Each email and</text><text x="981.0" y="89.0" font-size="16" fill="#374151" text-anchor="middle">sheet update</text></svg></div><div class="two eq" style="margin-top:1.4rem"><div class="res fail"><h3>Alone: 33% of the checks</h3><div>It never read the rule, and told the vendor that $32,500 was being processed.</div></div><div class="res ok"><h3>With the full system: 100%</h3><div>It skipped that payment: “CFO approval is missing”. One check was wrong: it demanded a [PRIORITY] flag on an invoice only 23 days late, not 60. No harm here.</div></div></div><div class="src">One new task, small model. Same result in the second run (29% alone, 100% with the system).</div></div>
+</section>
+
+<section class="slide">
+  <div class="sec">3 · What we measured</div>
+  <h2>A check before each action stopped real mistakes by a strong model.</h2>
+  <div class="vis"><div class="tw"><table class="tight"><thead><tr><th>Task</th><th>What the SOP requires</th><th>What the case showed</th><th class="n">Items passed</th></tr></thead><tbody><tr><td class="b">HR</td><td>Written authorization from one of two named people</td><td>The notice came from another manager</td><td class="n">48 → 62 of 66</td></tr><tr><td class="b">Medical</td><td>Lab result from the last 6 months</td><td>The result was one day too old</td><td class="n">30 → 45 of 51</td></tr><tr><td class="b">Insurance</td><td>Manager approval in Slack above $5,000</td><td>A $7,500 item was approved by a junior analyst</td><td class="n">22 → 32 of 36</td></tr></tbody></table></div><ul><li>Without the check, the agent offboarded in every HR run, with the rule open.</li><li>Total: 100 → 139 of 153 items, better in 9 of 9 comparisons.</li></ul><div class="src">3 public tasks that we tuned on; latest version. Counting all rounds: +19 points. Claude built the procedure graphs by hand from the SOPs.</div></div>
+</section>
+
+<section class="slide">
+  <div class="sec">3 · What we measured</div>
+  <h2>Most of the gain comes from the check, and the checker must be strong.</h2>
+  <div class="vis"><div class="tw"><svg viewBox="0 0 1104 280" role="img" aria-label="Gain in points for four setups of the check, from plus 25.5 to zero"><text x="0" y="26" font-size="18" font-weight="700" fill="#000">Strong agent: check + SOP as a graph</text><text x="0" y="49" font-size="15" fill="#6b7280">100 → 139 of 153 items</text><rect x="430" y="12" width="476.0" height="32" fill="#b7e0d3" stroke="#047857"/><text x="916.0" y="35" font-size="19" font-weight="700" fill="#000">+25.5</text><text x="0" y="100" font-size="18" font-weight="700" fill="#000">Strong agent: check over the plain SOP</text><text x="0" y="123" font-size="15" fill="#6b7280">109 → 133 of 153 items</text><rect x="430" y="86" width="293.1" height="32" fill="#b7e0d3" stroke="#047857"/><text x="733.1" y="109" font-size="19" font-weight="700" fill="#000">+15.7</text><text x="0" y="174" font-size="18" font-weight="700" fill="#000">Small agent with a small checker</text><text x="0" y="197" font-size="15" fill="#6b7280">49 → 54 of 153 items</text><rect x="430" y="160" width="61.6" height="32" fill="#b7e0d3" stroke="#047857"/><text x="501.6" y="183" font-size="19" font-weight="700" fill="#000">+3.3</text><text x="0" y="248" font-size="18" font-weight="700" fill="#000">Strong agent: SOP as a graph, no check</text><text x="0" y="271" font-size="15" fill="#6b7280">16 → 16 of 22 items, one task</text><rect x="430" y="234" width="2.0" height="32" fill="#b7e0d3" stroke="#047857"/><text x="442.0" y="257" font-size="19" font-weight="700" fill="#000">0</text><line x1="430" y1="6" x2="430" y2="274" stroke="#374151" stroke-width="1.25"/></svg></div><div class="src">Points against the same model alone, on tasks we tuned on. Baselines differ between rounds; the direct comparison is 139 vs 133 of 153.</div></div>
+</section>
+
+<section class="slide">
+  <div class="sec">3 · What we measured</div>
+  <h2>Control can hurt: three harms we measured.</h2>
+  <div class="vis"><div class="tw"><div class="big"><div><div class="v bad">−30<span>points</span></div><div class="k">Step tracker on airline rules</div><div class="m">17 → 11 of 20. A rule was shown without its exception, so the agent refused an allowed change.</div></div><div><div class="v bad">24 vs 1</div><div class="k">Rules broken: strong model with the full system vs alone</div><div class="m">On new tasks. The score fell 80.9% → 75.1%, which could be chance. Example: it emailed 2 people who should get no training email.</div></div><div><div class="v bad">−7 to −13</div><div class="k">Points lost: wrong items in a checklist, IT service tasks</div><div class="m">The agent changed correct records. 0 better, 5 to 9 worse of 20. Compared with runs earlier and later that day, so a rough number.</div></div></div></div><ul style="margin-top:2rem"><li>Each harm changed the design: show exceptions, match control to strength, report only missing work.</li></ul></div>
+</section>
+
+<section class="slide">
+  <div class="sec">3 · What we measured</div>
+  <h2>Five lessons decided the design.</h2>
+  <div class="vis"><div class="tw">
+    <table class="ev"><tbody>
+      <tr><td>The stronger the agent, the less control it needs</td><td class="r">+19 small, −6 strong</td></tr>
+      <tr><td>A check at the action beats more knowledge</td><td class="r">Knowledge: no gain. Check: +25.</td></tr>
+      <tr><td>The checker must be strong enough</td><td class="r">+25 strong, +3 small</td></tr>
+      <tr><td>Feedback needs the right values</td><td class="r">Missing only: +4 to +6<br>With values: +16 to +34 at most</td></tr>
+      <tr><td>The rule engine works; errors come from reading the text</td><td class="r">Engine: 372 of 372 decisions match the rules<br>Reading: missed 3 of 3 permission rules</td></tr>
+    </tbody></table>
+  </div></div>
+</section>
+
+<section class="slide">
+  <div class="sec">4 · The design</div>
+  <h2>With a perfect policy file, the best design has three checks.</h2>
+  <div class="vis"><div class="tw">
+  <svg viewBox="0 0 1104 420" width="100%" role="img" aria-label="Policy sources go through an offline build or are found during work. They become one policy file with rules, procedures, required work and priorities. The file feeds the procedure search and three checks, which act in CUGA through agent steps, guides and effects.">
+    <defs><marker id="ah2" markerWidth="8" markerHeight="8" refX="7" refY="4" orient="auto"><path d="M0 0 L8 4 L0 8 z" fill="#9ca3af"/></marker></defs>
+    <g font-size="13.5" font-weight="700" letter-spacing=".06em" fill="#6b7280"><text x="0" y="14">POLICY SOURCES</text><text x="228" y="14">BUILD AND FIND RULES</text><text x="456" y="14">ONE POLICY FILE</text><text x="684" y="14">DECIDE</text><text x="912" y="14">ACT IN CUGA</text></g>
+    <rect x="448" y="20" width="206" height="316" rx="11" fill="#f9fafb" stroke="#e5e7eb"/>
+    <g stroke="#9ca3af" stroke-width="1.5" fill="none"><path d="M190 54 H207 M190 116 H207 M190 178 H207 M190 240 H207 M190 302 H207 M207 54 V302"/><path d="M418 72 H433 M418 178 H433 M418 284 H433"/><path d="M433 72 V284"/><path d="M654 178 H669 M669 61 V295"/><path d="M874 61 H893 M874 139 H893 M874 217 H893 M874 295 H893 M893 61 V295"/></g>
+    <g stroke="#9ca3af" stroke-width="1.5" fill="none" marker-end="url(#ah2)"><path d="M207 72 H225"/><path d="M207 178 H225"/><path d="M207 284 H225"/><path d="M433 139 H445"/><path d="M433 217 H445"/><path d="M669 61 H681"/><path d="M669 139 H681"/><path d="M669 217 H681"/><path d="M669 295 H681"/><path d="M893 72 H909"/><path d="M893 178 H909"/><path d="M893 284 H909"/></g>
+    <path d="M1007 328 V350 H323 V332" fill="none" stroke="#9ca3af" stroke-width="1.5" stroke-dasharray="4 4" marker-end="url(#ah2)"/>
+    <text x="770" y="345" font-size="14" fill="#6b7280" text-anchor="middle">tool results feed back</text>
+    <g>
+      <rect x="0" y="28" width="190" height="52" rx="9" fill="#fff" stroke="#d1d5db" stroke-width="1.25"/>
+      <text x="95.0" y="51" font-size="16" font-weight="700" fill="#111827" text-anchor="middle">Company documents</text>
+      <text x="95.0" y="71" font-size="14" fill="#4b5563" text-anchor="middle">SOPs, handbooks</text>
+      <rect x="0" y="90" width="190" height="52" rx="9" fill="#fff" stroke="#d1d5db" stroke-width="1.25"/>
+      <text x="95.0" y="113" font-size="16" font-weight="700" fill="#111827" text-anchor="middle">Rules in data</text>
+      <text x="95.0" y="133" font-size="14" fill="#4b5563" text-anchor="middle">emails, sheets</text>
+      <rect x="0" y="152" width="190" height="52" rx="9" fill="#fff" stroke="#d1d5db" stroke-width="1.25"/>
+      <text x="95.0" y="175" font-size="16" font-weight="700" fill="#111827" text-anchor="middle">Step-by-step manuals</text>
+      <text x="95.0" y="195" font-size="14" fill="#4b5563" text-anchor="middle">support flows</text>
+      <rect x="0" y="214" width="190" height="52" rx="9" fill="#fff" stroke="#d1d5db" stroke-width="1.25"/>
+      <text x="95.0" y="237" font-size="16" font-weight="700" fill="#111827" text-anchor="middle">Rule lists</text>
+      <text x="95.0" y="257" font-size="14" fill="#4b5563" text-anchor="middle">with exceptions</text>
+      <rect x="0" y="276" width="190" height="52" rx="9" fill="#fff" stroke="#d1d5db" stroke-width="1.25"/>
+      <text x="95.0" y="299" font-size="16" font-weight="700" fill="#111827" text-anchor="middle">User request</text>
+      <text x="95.0" y="319" font-size="14" fill="#4b5563" text-anchor="middle">what was asked</text>
+      <rect x="228" y="28" width="190" height="88" rx="9" fill="#fff" stroke="#d1d5db" stroke-width="1.25"/>
+      <text x="323.0" y="60" font-size="16" font-weight="700" fill="#111827" text-anchor="middle">Offline build</text>
+      <text x="323.0" y="80" font-size="14" fill="#4b5563" text-anchor="middle">by Claude now,</text>
+      <text x="323.0" y="98" font-size="14" fill="#4b5563" text-anchor="middle">automatic later</text>
+      <rect x="228" y="134" width="190" height="88" rx="9" fill="#fff" stroke="#d1d5db" stroke-width="1.25"/>
+      <text x="323.0" y="175" font-size="16" font-weight="700" fill="#111827" text-anchor="middle">Found during work</text>
+      <text x="323.0" y="195" font-size="14" fill="#4b5563" text-anchor="middle">rules in tool results</text>
+      <rect x="228" y="240" width="190" height="88" rx="9" fill="#fff" stroke="#d1d5db" stroke-width="1.25"/>
+      <text x="323.0" y="281" font-size="16" font-weight="700" fill="#111827" text-anchor="middle">Search for rules</text>
+      <text x="323.0" y="301" font-size="14" fill="#4b5563" text-anchor="middle">in mail and documents</text>
+      <rect x="456" y="28" width="190" height="66" rx="9" fill="#fff" stroke="#d1d5db" stroke-width="1.25"/>
+      <text x="551.0" y="58" font-size="16" font-weight="700" fill="#111827" text-anchor="middle">Rules</text>
+      <text x="551.0" y="78" font-size="14" fill="#4b5563" text-anchor="middle">hard · judgment · guidance</text>
+      <rect x="456" y="106" width="190" height="66" rx="9" fill="#fff" stroke="#d1d5db" stroke-width="1.25"/>
+      <text x="551.0" y="127" font-size="16" font-weight="700" fill="#111827" text-anchor="middle">Procedures</text>
+      <text x="551.0" y="147" font-size="14" fill="#4b5563" text-anchor="middle">steps, templates,</text>
+      <text x="551.0" y="165" font-size="14" fill="#4b5563" text-anchor="middle">what must not happen</text>
+      <rect x="456" y="184" width="190" height="66" rx="9" fill="#fff" stroke="#1d4ed8" stroke-width="1.75" stroke-dasharray="6 4"/>
+      <text x="551.0" y="214" font-size="16" font-weight="700" fill="#111827" text-anchor="middle">Required work</text>
+      <text x="551.0" y="234" font-size="14" fill="#4b5563" text-anchor="middle">what must exist at the end</text>
+      <rect x="456" y="262" width="190" height="66" rx="9" fill="#fff" stroke="#1d4ed8" stroke-width="1.75" stroke-dasharray="6 4"/>
+      <text x="551.0" y="292" font-size="16" font-weight="700" fill="#111827" text-anchor="middle">Priorities</text>
+      <text x="551.0" y="312" font-size="14" fill="#4b5563" text-anchor="middle">date, rank, open questions</text>
+      <rect x="684" y="28" width="190" height="66" rx="9" fill="#fff" stroke="#1d4ed8" stroke-width="1.75" stroke-dasharray="6 4"/>
+      <text x="779.0" y="58" font-size="16" font-weight="700" fill="#111827" text-anchor="middle">Find the procedure</text>
+      <text x="779.0" y="78" font-size="14" fill="#4b5563" text-anchor="middle">swappable search method</text>
+      <rect x="684" y="106" width="190" height="66" rx="9" fill="#fff" stroke="#d1d5db" stroke-width="1.25"/>
+      <text x="779.0" y="136" font-size="16" font-weight="700" fill="#111827" text-anchor="middle">1 Hard rules</text>
+      <text x="779.0" y="156" font-size="14" fill="#4b5563" text-anchor="middle">code decides, always first</text>
+      <rect x="684" y="184" width="190" height="66" rx="9" fill="#fff" stroke="#d1d5db" stroke-width="1.25"/>
+      <text x="779.0" y="205" font-size="16" font-weight="700" fill="#111827" text-anchor="middle">2 Judgment rules</text>
+      <text x="779.0" y="225" font-size="14" fill="#4b5563" text-anchor="middle">yes/no model, then</text>
+      <text x="779.0" y="243" font-size="14" fill="#4b5563" text-anchor="middle">strong checker + evidence</text>
+      <rect x="684" y="262" width="190" height="66" rx="9" fill="#fff" stroke="#1d4ed8" stroke-width="1.75" stroke-dasharray="6 4"/>
+      <text x="779.0" y="283" font-size="16" font-weight="700" fill="#111827" text-anchor="middle">3 Required work</text>
+      <text x="779.0" y="303" font-size="14" fill="#4b5563" text-anchor="middle">at the end, asks for</text>
+      <text x="779.0" y="321" font-size="14" fill="#4b5563" text-anchor="middle">what is missing</text>
+      <rect x="912" y="28" width="190" height="88" rx="9" fill="#fff" stroke="#d1d5db" stroke-width="1.25"/>
+      <text x="1007.0" y="69" font-size="16" font-weight="700" fill="#111827" text-anchor="middle">Agent steps</text>
+      <text x="1007.0" y="89" font-size="14" fill="#4b5563" text-anchor="middle">checks run at 9 points</text>
+      <rect x="912" y="134" width="190" height="88" rx="9" fill="#fff" stroke="#d1d5db" stroke-width="1.25"/>
+      <text x="1007.0" y="166" font-size="16" font-weight="700" fill="#111827" text-anchor="middle">Guides</text>
+      <text x="1007.0" y="186" font-size="14" fill="#4b5563" text-anchor="middle">step guide, loop, tracker,</text>
+      <text x="1007.0" y="204" font-size="14" fill="#4b5563" text-anchor="middle">by type of policy</text>
+      <rect x="912" y="240" width="190" height="88" rx="9" fill="#fff" stroke="#d1d5db" stroke-width="1.25"/>
+      <text x="1007.0" y="272" font-size="16" font-weight="700" fill="#111827" text-anchor="middle">Effects</text>
+      <text x="1007.0" y="292" font-size="14" fill="#4b5563" text-anchor="middle">allow · remind · block once</text>
+      <text x="1007.0" y="310" font-size="14" fill="#4b5563" text-anchor="middle">hold · follow-up</text>
+      <rect x="0" y="366" width="261" height="52" rx="9" fill="#fff" stroke="#1d4ed8" stroke-width="1.75" stroke-dasharray="6 4"/>
+      <text x="130.5" y="389" font-size="16" font-weight="700" fill="#111827" text-anchor="middle">One configuration</text>
+      <text x="130.5" y="409" font-size="14" fill="#4b5563" text-anchor="middle">one file per deployment</text>
+      <rect x="281" y="366" width="261" height="52" rx="9" fill="#fff" stroke="#1d4ed8" stroke-width="1.75" stroke-dasharray="6 4"/>
+      <text x="411.5" y="389" font-size="16" font-weight="700" fill="#111827" text-anchor="middle">Control level</text>
+      <text x="411.5" y="409" font-size="14" fill="#4b5563" text-anchor="middle">by agent strength and risk</text>
+      <rect x="562" y="366" width="261" height="52" rx="9" fill="#fff" stroke="#1d4ed8" stroke-width="1.75" stroke-dasharray="6 4"/>
+      <text x="692.5" y="389" font-size="16" font-weight="700" fill="#111827" text-anchor="middle">Trace + audit log</text>
+      <text x="692.5" y="409" font-size="14" fill="#4b5563" text-anchor="middle">every decision, rule, version</text>
+      <rect x="843" y="366" width="261" height="52" rx="9" fill="#fff" stroke="#1d4ed8" stroke-width="1.75" stroke-dasharray="6 4"/>
+      <text x="973.5" y="389" font-size="16" font-weight="700" fill="#111827" text-anchor="middle">Tests on new tasks</text>
+      <text x="973.5" y="409" font-size="14" fill="#4b5563" text-anchor="middle">saved runs first, one way to run</text>
+    </g>
+  </svg>
+  </div></div>
+  <div class="src">Dashed blue boxes are new in the latest plan.</div>
+</section>
+
+<section class="slide">
+  <div class="sec">4 · The design</div>
+  <h2>One real case through the three checks.</h2>
+  <div class="vis"><div class="tw"><svg viewBox="0 0 1104 142" role="img" aria-label="One action from a real task goes through hard rules, the judgment check and the required-work check"><defs><marker id="m18" markerWidth="9" markerHeight="9" refX="8" refY="4.5" orient="auto"><path d="M0 0 L9 4.5 L0 9 z" fill="#6b7280"/></marker></defs><rect x="0.0" y="2" width="195.2" height="136" rx="8" fill="#fafafa" stroke="#e5e7eb"/><text x="97.6" y="54.0" font-size="18" font-weight="700" fill="#000" text-anchor="middle">Agent wants to act</text><text x="97.6" y="78.0" font-size="16" fill="#374151" text-anchor="middle">Create the</text><text x="97.6" y="99.0" font-size="16" fill="#374151" text-anchor="middle">offboarding ticket</text><path d="M197.2 70 H225.2" stroke="#6b7280" stroke-width="1.5" fill="none" marker-end="url(#m18)"/><rect x="227.2" y="2" width="195.2" height="136" rx="8" fill="#fafafa" stroke="#e5e7eb" stroke-dasharray="6 5"/><text x="324.8" y="54.0" font-size="18" font-weight="700" fill="#000" text-anchor="middle">1 Hard rules</text><text x="324.8" y="78.0" font-size="16" fill="#374151" text-anchor="middle">Code checks tool</text><text x="324.8" y="99.0" font-size="16" fill="#374151" text-anchor="middle">and fields: allowed</text><path d="M424.4 70 H452.4" stroke="#6b7280" stroke-width="1.5" fill="none" marker-end="url(#m18)"/><rect x="454.4" y="2" width="195.2" height="136" rx="8" fill="#fef2f2" stroke="#b91c1c"/><text x="552.0" y="43.5" font-size="18" font-weight="700" fill="#000" text-anchor="middle">2 Judgment rules</text><text x="552.0" y="67.5" font-size="16" fill="#374151" text-anchor="middle">SOP: written approval.</text><text x="552.0" y="88.5" font-size="16" fill="#374151" text-anchor="middle">The notice is from</text><text x="552.0" y="109.5" font-size="16" fill="#374151" text-anchor="middle">another manager.</text><path d="M651.6 70 H679.6" stroke="#6b7280" stroke-width="1.5" fill="none" marker-end="url(#m18)"/><rect x="681.6" y="2" width="195.2" height="136" rx="8" fill="#ecfdf5" stroke="#047857"/><text x="779.2" y="54.0" font-size="18" font-weight="700" fill="#000" text-anchor="middle">Agent reacts</text><text x="779.2" y="78.0" font-size="16" fill="#374151" text-anchor="middle">Stops the offboarding,</text><text x="779.2" y="99.0" font-size="16" fill="#374151" text-anchor="middle">posts to HR escalations</text><path d="M878.8 70 H906.8" stroke="#6b7280" stroke-width="1.5" fill="none" marker-end="url(#m18)"/><rect x="908.8" y="2" width="195.2" height="136" rx="8" fill="#eff6ff" stroke="#1d4ed8" stroke-dasharray="6 5"/><text x="1006.4" y="43.5" font-size="18" font-weight="700" fill="#000" text-anchor="middle">3 Required work</text><text x="1006.4" y="67.5" font-size="16" fill="#374151" text-anchor="middle">Escalation is there.</text><text x="1006.4" y="88.5" font-size="16" fill="#374151" text-anchor="middle">The blocked ticket</text><text x="1006.4" y="109.5" font-size="16" fill="#374151" text-anchor="middle">is not asked for.</text></svg></div><ul><li>Cheapest check first: code, then the yes/no model, then the strong checker.</li><li>A block needs a quote from the case data, not from the SOP.</li><li>Every decision is logged with its rule, source and version.</li></ul><div class="src">The block and the agent's reaction happened in our runs, on a task we tuned on. The dashed boxes show how the design would handle this case.</div></div>
+</section>
+
+<section class="slide">
+  <div class="sec">4 · The design</div>
+  <h2>Telling the agent what failed helps most with the exact value.</h2>
+  <div class="vis"><div class="tw"><svg viewBox="0 0 1104 250" role="img" aria-label="Gain in points from three kinds of feedback on two task sets"><g font-size="16" fill="#374151"><rect x="300" y="2" width="14" height="14" fill="#d1d5db"/><text x="320" y="15">Our own checklist</text><rect x="500" y="2" width="14" height="14" fill="#9ca3af"/><text x="520" y="15">Names what failed</text><rect x="700" y="2" width="14" height="14" fill="#1d4ed8"/><text x="720" y="15">Names it + the expected value</text></g><text x="0" y="70" font-size="19" font-weight="700" fill="#000">Business-rule tasks</text><rect x="300" y="34" width="52.5" height="26" fill="#d1d5db"/><text x="362.5" y="54" font-size="18" font-weight="700" fill="#000">+3.5</text><rect x="300" y="64" width="96.0" height="26" fill="#9ca3af"/><text x="406.0" y="84" font-size="18" font-weight="700" fill="#000">+6.4</text><rect x="300" y="94" width="511.5" height="26" fill="#1d4ed8"/><text x="821.5" y="114" font-size="18" font-weight="700" fill="#000">+34.1</text><text x="0" y="186" font-size="19" font-weight="700" fill="#000">IT service tasks</text><rect x="300" y="150" width="15.0" height="26" fill="#d1d5db"/><text x="325.0" y="170" font-size="18" font-weight="700" fill="#000">+1.0</text><rect x="300" y="180" width="58.5" height="26" fill="#9ca3af"/><text x="368.5" y="200" font-size="18" font-weight="700" fill="#000">+3.9</text><rect x="300" y="210" width="238.5" height="26" fill="#1d4ed8"/><text x="548.5" y="230" font-size="18" font-weight="700" fill="#000">+15.9</text></svg></div><ul><li>So required work must carry values whose source is known.</li></ul><div class="src">Mid model. The two darker bars use grader answers, so they are upper limits for testing, not forecasts. +3.5 and +6.4 could be chance.</div></div>
+</section>
+
+<section class="slide">
+  <div class="sec">4 · The design</div>
+  <h2>Required work finds what never happened.</h2>
+  <div class="vis"><div class="tw"><svg viewBox="0 0 1104 212" role="img" aria-label="An example item of required work and its three end states: met, not needed or held"><defs><marker id="m19" markerWidth="9" markerHeight="9" refX="8" refY="4.5" orient="auto"><path d="M0 0 L9 4.5 L0 9 z" fill="#6b7280"/></marker></defs><rect x="0" y="2" width="680" height="206" rx="8" fill="#fafafa" stroke="#e5e7eb"/><text x="20" y="32" font-size="18" font-weight="700" fill="#000">One item of required work (example)</text><text x="20" y="68" font-size="16" font-weight="700" fill="#6b7280">Required</text><text x="120" y="68" font-size="17" fill="#000">Create ticket OFFBOARD-{last name}-{date}</text><text x="20" y="104" font-size="16" font-weight="700" fill="#6b7280">Source</text><text x="120" y="104" font-size="17" fill="#000">SOP section 12.1, step 3</text><text x="20" y="140" font-size="16" font-weight="700" fill="#6b7280">Values</text><text x="120" y="140" font-size="17" fill="#000">Last name from the case; date computed by code</text><text x="20" y="176" font-size="16" font-weight="700" fill="#6b7280">Check</text><text x="120" y="176" font-size="17" fill="#000">Code looks for a matching action</text><rect x="730" y="76" width="100" height="58" rx="8" fill="#fafafa" stroke="#e5e7eb"/><text x="780.0" y="110.0" font-size="18" font-weight="700" fill="#000" text-anchor="middle">Open</text><rect x="880" y="2" width="224" height="62" rx="8" fill="#ecfdf5" stroke="#047857"/><text x="992.0" y="27.5" font-size="18" font-weight="700" fill="#000" text-anchor="middle">Met</text><text x="992.0" y="51.5" font-size="16" fill="#374151" text-anchor="middle">A matching action ran</text><rect x="880" y="74" width="224" height="62" rx="8" fill="#fafafa" stroke="#e5e7eb"/><text x="992.0" y="99.5" font-size="18" font-weight="700" fill="#000" text-anchor="middle">Not needed</text><text x="992.0" y="123.5" font-size="16" fill="#374151" text-anchor="middle">The case excludes it</text><rect x="880" y="146" width="224" height="62" rx="8" fill="#fffbeb" stroke="#b45309"/><text x="992.0" y="171.5" font-size="18" font-weight="700" fill="#000" text-anchor="middle">Held</text><text x="992.0" y="195.5" font-size="16" fill="#374151" text-anchor="middle">The work was blocked</text><path d="M833 96 H855 V33 H877" stroke="#6b7280" stroke-width="1.5" fill="none" marker-end="url(#m19)"/><path d="M833 105 H877" stroke="#6b7280" stroke-width="1.5" fill="none" marker-end="url(#m19)"/><path d="M833 114 H855 V177 H877" stroke="#6b7280" stroke-width="1.5" fill="none" marker-end="url(#m19)"/></svg></div><div class="facts"><div><div class="l">Why</div><div class="t">Checks at an action cannot see work that was never done.</div></div><div><div class="l">Expected</div><div class="t">At most about +4 to +6 points from names alone. More only where values are known.</div></div><div><div class="l">Bar before going live</div><div class="t">On saved runs first: false alarms at most 10%, catches at least 30%.</div></div></div><div class="src">Designed, not built yet.</div></div>
+</section>
+
+<section class="slide">
+  <div class="sec">4 · The design</div>
+  <h2>The stronger the agent, the less control we switch on.</h2>
+  <div class="vis"><div class="tw"><svg viewBox="0 0 1104 274" role="img" aria-label="Four control levels from observe to control, with the default agent for each"><rect x="0" y="122" width="258" height="150" rx="8" fill="#f3f4f6"/><text x="16" y="152" font-size="20" font-weight="700" fill="#000">0 Observe</text><text x="16" y="178" font-size="16" fill="#000">Records what each check</text><text x="16" y="199" font-size="16" fill="#000">would do. Nothing stops.</text><text x="16" y="230" font-size="15" font-weight="600" fill="#374151">For testing</text><rect x="282" y="82" width="258" height="190" rx="8" fill="#dbeafe"/><text x="298" y="112" font-size="20" font-weight="700" fill="#000">1 Advise</text><text x="298" y="138" font-size="16" fill="#000">Shows rules and a checklist.</text><text x="298" y="159" font-size="16" fill="#000">Hard rules stop work.</text><text x="298" y="190" font-size="15" font-weight="600" fill="#374151">Strong agent,</text><text x="298" y="210" font-size="15" font-weight="600" fill="#374151">rules only in data</text><rect x="564" y="42" width="258" height="230" rx="8" fill="#bfdbfe"/><text x="580" y="72" font-size="20" font-weight="700" fill="#000">2 Check</text><text x="580" y="98" font-size="16" fill="#000">Adds the strong checker</text><text x="580" y="119" font-size="16" fill="#000">and one follow-up.</text><text x="580" y="150" font-size="15" font-weight="600" fill="#374151">Strong or mid agent</text><text x="580" y="170" font-size="15" font-weight="600" fill="#374151">with a policy file</text><rect x="846" y="2" width="258" height="270" rx="8" fill="#93c5fd"/><text x="862" y="32" font-size="20" font-weight="700" fill="#000">3 Control</text><text x="862" y="58" font-size="16" fill="#000">Adds step guides, more</text><text x="862" y="79" font-size="16" fill="#000">checks, a second follow-up.</text><text x="862" y="110" font-size="15" font-weight="600" fill="#374151">Small agent</text></svg></div><ul><li>Hard rules stop work at levels 1 to 3.</li><li>Money, external email and delete get level 3 checks with any model.</li></ul><div class="src">The defaults are a hypothesis until measured. The level switch is not built yet.</div></div>
+</section>
+
+<section class="slide">
+  <div class="sec">5 · Plan and help</div>
+  <h2>One gain is proven on new tasks. The rest still needs proof.</h2>
+  <div class="vis">
+    <div class="cols">
+      <div class="g">
+        <h3>Proven on new tasks</h3>
+        <div class="it"><div class="n">+19</div><div class="t">Small model + full policy system</div><div class="q">Significant</div></div>
+        <div class="it"><div class="n">+9</div><div class="t">Second set of new tasks</div><div class="q">Could be chance</div></div>
+      </div>
+      <div class="a">
+        <h3>Promising</h3>
+        <div class="it"><div class="n">+25</div><div class="t">Check before each action</div><div class="q">On 3 tuned tasks</div></div>
+        <div class="it"><div class="n">+12.5</div><div class="t">Step tracker on telecom</div><div class="q">Could be chance</div></div>
+      </div>
+      <div class="n">
+        <h3>Not tested yet</h3>
+        <div class="pl">Required-work check</div>
+        <div class="pl">A strong checker for a small model</div>
+        <div class="pl">Rule lists with their exceptions</div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<section class="slide">
+  <div class="sec">5 · Plan and help</div>
+  <h2>First a stable base, then experiments.</h2>
+  <div class="vis"><div class="tw"><svg viewBox="0 0 1104 140" role="img" aria-label="Seven steps of the plan from clean up to ten checks; step 0 is in progress"><defs><marker id="m20" markerWidth="9" markerHeight="9" refX="8" refY="4.5" orient="auto"><path d="M0 0 L9 4.5 L0 9 z" fill="#6b7280"/></marker></defs><text x="70" y="16" font-size="15" font-weight="700" fill="#1d4ed8" text-anchor="middle">We are here</text><rect x="0.0" y="26" width="146" height="110" rx="8" fill="#eff6ff" stroke="#1d4ed8"/><text x="73.0" y="60" font-size="16" font-weight="700" fill="#000" text-anchor="middle">0 Clean up</text><text x="73.0" y="86" font-size="14.5" fill="#374151" text-anchor="middle">All work saved</text><text x="73.0" y="106" font-size="14.5" fill="#374151" text-anchor="middle">in one place</text><path d="M147.0 81 H158.7" stroke="#6b7280" stroke-width="1.5" fill="none" marker-end="url(#m20)"/><rect x="159.7" y="26" width="146" height="110" rx="8" fill="#fafafa" stroke="#e5e7eb"/><text x="232.7" y="60" font-size="16" font-weight="700" fill="#000" text-anchor="middle">1 Policy file</text><text x="232.7" y="86" font-size="14.5" fill="#374151" text-anchor="middle">One format,</text><text x="232.7" y="106" font-size="14.5" fill="#374151" text-anchor="middle">validated</text><path d="M306.7 81 H318.4" stroke="#6b7280" stroke-width="1.5" fill="none" marker-end="url(#m20)"/><rect x="319.3" y="26" width="146" height="110" rx="8" fill="#fafafa" stroke="#e5e7eb"/><text x="392.3" y="60" font-size="16" font-weight="700" fill="#000" text-anchor="middle">2 One way to run</text><text x="392.3" y="86" font-size="14.5" fill="#374151" text-anchor="middle">One configuration,</text><text x="392.3" y="106" font-size="14.5" fill="#374151" text-anchor="middle">one result format</text><path d="M466.3 81 H478.0" stroke="#6b7280" stroke-width="1.5" fill="none" marker-end="url(#m20)"/><rect x="479.0" y="26" width="146" height="110" rx="8" fill="#fafafa" stroke="#e5e7eb"/><text x="552.0" y="60" font-size="16" font-weight="700" fill="#000" text-anchor="middle">3 Coverage</text><text x="552.0" y="86" font-size="14.5" fill="#374151" text-anchor="middle">A policy file for</text><text x="552.0" y="106" font-size="14.5" fill="#374151" text-anchor="middle">each task set</text><path d="M626.0 81 H637.7" stroke="#6b7280" stroke-width="1.5" fill="none" marker-end="url(#m20)"/><rect x="638.7" y="26" width="146" height="110" rx="8" fill="#fafafa" stroke="#e5e7eb"/><text x="711.7" y="60" font-size="16" font-weight="700" fill="#000" text-anchor="middle">4 Required work</text><text x="711.7" y="86" font-size="14.5" fill="#374151" text-anchor="middle">Built, tested</text><text x="711.7" y="106" font-size="14.5" fill="#374151" text-anchor="middle">on saved runs</text><path d="M785.7 81 H797.4" stroke="#6b7280" stroke-width="1.5" fill="none" marker-end="url(#m20)"/><rect x="798.3" y="26" width="146" height="110" rx="8" fill="#fafafa" stroke="#e5e7eb"/><text x="871.3" y="60" font-size="16" font-weight="700" fill="#000" text-anchor="middle">5 Levels, search</text><text x="871.3" y="86" font-size="14.5" fill="#374151" text-anchor="middle">Control levels,</text><text x="871.3" y="106" font-size="14.5" fill="#374151" text-anchor="middle">priorities, search</text><path d="M945.3 81 H957.0" stroke="#6b7280" stroke-width="1.5" fill="none" marker-end="url(#m20)"/><rect x="958.0" y="26" width="146" height="110" rx="8" fill="#fafafa" stroke="#e5e7eb"/><text x="1031.0" y="60" font-size="16" font-weight="700" fill="#000" text-anchor="middle">6 Ten checks</text><text x="1031.0" y="86" font-size="14.5" fill="#374151" text-anchor="middle">The base is</text><text x="1031.0" y="106" font-size="14.5" fill="#374151" text-anchor="middle">stable</text></svg></div><div class="big small" style="margin-top:2.25rem"><div><div class="v">$25</div><div class="k">Most this plan can spend, not counting policy files built by Claude</div></div><div><div class="v">$1,622</div><div class="k">Spent so far, of the $2,000 budget</div></div><div><div class="v">0</div><div class="k">New experiments until all ten checks pass</div></div></div></div>
+</section>
+
+<section class="slide">
+  <div class="sec">5 · Plan and help</div>
+  <h2>After that, five questions come first.</h2>
+  <div class="vis"><div class="tw"><table class="ev"><tbody><tr><td>Does the check hold on new handbook tasks?</td><td class="r">Needs the unseen tasks from Surge, who publish them</td></tr><tr><td>Does a stronger checker help a small agent?</td><td class="r">Small agent, stronger checker</td></tr><tr><td>Does required work reach its +4 to +6?</td><td class="r">Saved runs first, then live</td></tr><tr><td>Which control level fits each model?</td><td class="r">Each level on each model</td></tr><tr><td>Which search finds the right procedure?</td><td class="r">Test on saved actions; needs more SOPs</td></tr></tbody></table></div><div class="src">Proposed list. We decide the experiments when the base is stable.</div></div>
+</section>
+
+<section class="slide">
+  <div class="sec">5 · Plan and help</div>
+  <h2>We estimate 3 people for 1 month; two areas need help.</h2>
+  <div class="vis"><div class="tw">
+  <svg viewBox="0 0 1104 420" width="100%" role="img" aria-label="The same architecture, with each part colored by work area: proof, product or policies.">
+    <defs><marker id="ah3" markerWidth="8" markerHeight="8" refX="7" refY="4" orient="auto"><path d="M0 0 L8 4 L0 8 z" fill="#d1d5db"/></marker></defs>
+    <g font-size="13.5" font-weight="700" letter-spacing=".06em" fill="#6b7280"><text x="0" y="14">POLICY SOURCES</text><text x="228" y="14">BUILD AND FIND RULES</text><text x="456" y="14">ONE POLICY FILE</text><text x="684" y="14">DECIDE</text><text x="912" y="14">ACT IN CUGA</text></g>
+    <rect x="448" y="20" width="206" height="316" rx="11" fill="#f9fafb" stroke="#e5e7eb"/>
+    <g stroke="#d1d5db" stroke-width="1.5" fill="none"><path d="M190 54 H207 M190 116 H207 M190 178 H207 M190 240 H207 M190 302 H207 M207 54 V302"/><path d="M418 72 H433 M418 178 H433 M418 284 H433"/><path d="M433 72 V284"/><path d="M654 178 H669 M669 61 V295"/><path d="M874 61 H893 M874 139 H893 M874 217 H893 M874 295 H893 M893 61 V295"/></g>
+    <g stroke="#d1d5db" stroke-width="1.5" fill="none" marker-end="url(#ah3)"><path d="M207 72 H225"/><path d="M207 178 H225"/><path d="M207 284 H225"/><path d="M433 139 H445"/><path d="M433 217 H445"/><path d="M669 61 H681"/><path d="M669 139 H681"/><path d="M669 217 H681"/><path d="M669 295 H681"/><path d="M893 72 H909"/><path d="M893 178 H909"/><path d="M893 284 H909"/></g>
+    <path d="M1007 328 V350 H323 V332" fill="none" stroke="#d1d5db" stroke-width="1.5" stroke-dasharray="4 4" marker-end="url(#ah3)"/>
+    <text x="770" y="345" font-size="14" fill="#6b7280" text-anchor="middle">tool results feed back</text>
+    <g>
+      <rect x="0" y="28" width="190" height="52" rx="9" fill="#fff" stroke="#e5e7eb" stroke-width="1"/>
+      <text x="95.0" y="51" font-size="16" font-weight="700" fill="#6b7280" text-anchor="middle">Company documents</text>
+      <text x="95.0" y="71" font-size="14" fill="#9ca3af" text-anchor="middle">SOPs, handbooks</text>
+      <rect x="0" y="90" width="190" height="52" rx="9" fill="#fff" stroke="#e5e7eb" stroke-width="1"/>
+      <text x="95.0" y="113" font-size="16" font-weight="700" fill="#6b7280" text-anchor="middle">Rules in data</text>
+      <text x="95.0" y="133" font-size="14" fill="#9ca3af" text-anchor="middle">emails, sheets</text>
+      <rect x="0" y="152" width="190" height="52" rx="9" fill="#fff" stroke="#e5e7eb" stroke-width="1"/>
+      <text x="95.0" y="175" font-size="16" font-weight="700" fill="#6b7280" text-anchor="middle">Step-by-step manuals</text>
+      <text x="95.0" y="195" font-size="14" fill="#9ca3af" text-anchor="middle">support flows</text>
+      <rect x="0" y="214" width="190" height="52" rx="9" fill="#fff" stroke="#e5e7eb" stroke-width="1"/>
+      <text x="95.0" y="237" font-size="16" font-weight="700" fill="#6b7280" text-anchor="middle">Rule lists</text>
+      <text x="95.0" y="257" font-size="14" fill="#9ca3af" text-anchor="middle">with exceptions</text>
+      <rect x="0" y="276" width="190" height="52" rx="9" fill="#fff" stroke="#e5e7eb" stroke-width="1"/>
+      <text x="95.0" y="299" font-size="16" font-weight="700" fill="#6b7280" text-anchor="middle">User request</text>
+      <text x="95.0" y="319" font-size="14" fill="#9ca3af" text-anchor="middle">what was asked</text>
+      <rect x="228" y="28" width="190" height="88" rx="9" fill="#fffbeb" stroke="#b45309" stroke-width="2"/>
+      <text x="323.0" y="60" font-size="16" font-weight="700" fill="#111827" text-anchor="middle">Offline build</text>
+      <text x="323.0" y="80" font-size="14" fill="#4b5563" text-anchor="middle">by Claude now,</text>
+      <text x="323.0" y="98" font-size="14" fill="#4b5563" text-anchor="middle">automatic later</text>
+      <rect x="228" y="134" width="190" height="88" rx="9" fill="#fff" stroke="#e5e7eb" stroke-width="1"/>
+      <text x="323.0" y="175" font-size="16" font-weight="700" fill="#6b7280" text-anchor="middle">Found during work</text>
+      <text x="323.0" y="195" font-size="14" fill="#9ca3af" text-anchor="middle">rules in tool results</text>
+      <rect x="228" y="240" width="190" height="88" rx="9" fill="#fff" stroke="#e5e7eb" stroke-width="1"/>
+      <text x="323.0" y="281" font-size="16" font-weight="700" fill="#6b7280" text-anchor="middle">Search for rules</text>
+      <text x="323.0" y="301" font-size="14" fill="#9ca3af" text-anchor="middle">in mail and documents</text>
+      <rect x="456" y="28" width="190" height="66" rx="9" fill="#f3f4f6" stroke="#374151" stroke-width="2"/>
+      <text x="551.0" y="58" font-size="16" font-weight="700" fill="#111827" text-anchor="middle">Rules</text>
+      <text x="551.0" y="78" font-size="14" fill="#4b5563" text-anchor="middle">hard · judgment · guidance</text>
+      <rect x="456" y="106" width="190" height="66" rx="9" fill="#f3f4f6" stroke="#374151" stroke-width="2"/>
+      <text x="551.0" y="127" font-size="16" font-weight="700" fill="#111827" text-anchor="middle">Procedures</text>
+      <text x="551.0" y="147" font-size="14" fill="#4b5563" text-anchor="middle">steps, templates,</text>
+      <text x="551.0" y="165" font-size="14" fill="#4b5563" text-anchor="middle">what must not happen</text>
+      <rect x="456" y="184" width="190" height="66" rx="9" fill="#f3f4f6" stroke="#374151" stroke-width="2"/>
+      <text x="551.0" y="214" font-size="16" font-weight="700" fill="#111827" text-anchor="middle">Required work</text>
+      <text x="551.0" y="234" font-size="14" fill="#4b5563" text-anchor="middle">what must exist at the end</text>
+      <rect x="456" y="262" width="190" height="66" rx="9" fill="#f3f4f6" stroke="#374151" stroke-width="2"/>
+      <text x="551.0" y="292" font-size="16" font-weight="700" fill="#111827" text-anchor="middle">Priorities</text>
+      <text x="551.0" y="312" font-size="14" fill="#4b5563" text-anchor="middle">date, rank, open questions</text>
+      <rect x="684" y="28" width="190" height="66" rx="9" fill="#eff6ff" stroke="#1d4ed8" stroke-width="2"/>
+      <text x="779.0" y="58" font-size="16" font-weight="700" fill="#111827" text-anchor="middle">Find the procedure</text>
+      <text x="779.0" y="78" font-size="14" fill="#4b5563" text-anchor="middle">swappable search method</text>
+      <rect x="684" y="106" width="190" height="66" rx="9" fill="#fff" stroke="#e5e7eb" stroke-width="1"/>
+      <text x="779.0" y="136" font-size="16" font-weight="700" fill="#6b7280" text-anchor="middle">1 Hard rules</text>
+      <text x="779.0" y="156" font-size="14" fill="#9ca3af" text-anchor="middle">code decides, always first</text>
+      <rect x="684" y="184" width="190" height="66" rx="9" fill="#eff6ff" stroke="#1d4ed8" stroke-width="2"/>
+      <text x="779.0" y="205" font-size="16" font-weight="700" fill="#111827" text-anchor="middle">2 Judgment rules</text>
+      <text x="779.0" y="225" font-size="14" fill="#4b5563" text-anchor="middle">yes/no model, then</text>
+      <text x="779.0" y="243" font-size="14" fill="#4b5563" text-anchor="middle">strong checker + evidence</text>
+      <rect x="684" y="262" width="190" height="66" rx="9" fill="#f3f4f6" stroke="#374151" stroke-width="2"/>
+      <text x="779.0" y="283" font-size="16" font-weight="700" fill="#111827" text-anchor="middle">3 Required work</text>
+      <text x="779.0" y="303" font-size="14" fill="#4b5563" text-anchor="middle">at the end, asks for</text>
+      <text x="779.0" y="321" font-size="14" fill="#4b5563" text-anchor="middle">what is missing</text>
+      <rect x="912" y="28" width="190" height="88" rx="9" fill="#fffbeb" stroke="#b45309" stroke-width="2"/>
+      <text x="1007.0" y="69" font-size="16" font-weight="700" fill="#111827" text-anchor="middle">Agent steps</text>
+      <text x="1007.0" y="89" font-size="14" fill="#4b5563" text-anchor="middle">checks run at 9 points</text>
+      <rect x="912" y="134" width="190" height="88" rx="9" fill="#fff" stroke="#e5e7eb" stroke-width="1"/>
+      <text x="1007.0" y="166" font-size="16" font-weight="700" fill="#6b7280" text-anchor="middle">Guides</text>
+      <text x="1007.0" y="186" font-size="14" fill="#9ca3af" text-anchor="middle">step guide, loop, tracker,</text>
+      <text x="1007.0" y="204" font-size="14" fill="#9ca3af" text-anchor="middle">by type of policy</text>
+      <rect x="912" y="240" width="190" height="88" rx="9" fill="#fff" stroke="#e5e7eb" stroke-width="1"/>
+      <text x="1007.0" y="272" font-size="16" font-weight="700" fill="#6b7280" text-anchor="middle">Effects</text>
+      <text x="1007.0" y="292" font-size="14" fill="#9ca3af" text-anchor="middle">allow · remind · block once</text>
+      <text x="1007.0" y="310" font-size="14" fill="#9ca3af" text-anchor="middle">hold · follow-up</text>
+      <rect x="0" y="366" width="261" height="52" rx="9" fill="#fffbeb" stroke="#b45309" stroke-width="2"/>
+      <text x="130.5" y="389" font-size="16" font-weight="700" fill="#111827" text-anchor="middle">One configuration</text>
+      <text x="130.5" y="409" font-size="14" fill="#4b5563" text-anchor="middle">one file per deployment</text>
+      <rect x="281" y="366" width="261" height="52" rx="9" fill="#eff6ff" stroke="#1d4ed8" stroke-width="2"/>
+      <text x="411.5" y="389" font-size="16" font-weight="700" fill="#111827" text-anchor="middle">Control level</text>
+      <text x="411.5" y="409" font-size="14" fill="#4b5563" text-anchor="middle">by agent strength and risk</text>
+      <rect x="562" y="366" width="261" height="52" rx="9" fill="#fffbeb" stroke="#b45309" stroke-width="2"/>
+      <text x="692.5" y="389" font-size="16" font-weight="700" fill="#111827" text-anchor="middle">Trace + audit log</text>
+      <text x="692.5" y="409" font-size="14" fill="#4b5563" text-anchor="middle">every decision, rule, version</text>
+      <rect x="843" y="366" width="261" height="52" rx="9" fill="#eff6ff" stroke="#1d4ed8" stroke-width="2"/>
+      <text x="973.5" y="389" font-size="16" font-weight="700" fill="#111827" text-anchor="middle">Tests on new tasks</text>
+      <text x="973.5" y="409" font-size="14" fill="#4b5563" text-anchor="middle">saved runs first, one way to run</text>
+    </g>
+  </svg>
+  </div>
+  <div style="display:grid;grid-template-columns:repeat(3,1fr);gap:1.5rem;margin-top:.9rem;font-size:1rem;line-height:1.35">
+    <div><b><span style="display:inline-block;width:.85rem;height:.85rem;border-radius:3px;background:#1d4ed8;margin-right:.45rem;vertical-align:-1px"></span>Proof: needs help</b><br>Tests on new tasks, checker model, control per model</div>
+    <div><b><span style="display:inline-block;width:.85rem;height:.85rem;border-radius:3px;background:#b45309;margin-right:.45rem;vertical-align:-1px"></span>Product: needs help</b><br>Bring into CUGA, audit log, automatic policy file</div>
+    <div><b><span style="display:inline-block;width:.85rem;height:.85rem;border-radius:3px;background:#374151;margin-right:.45rem;vertical-align:-1px"></span>Policies: covered</b><br>Airline and retail policy files, required-work check</div>
+  </div></div>
+</section>
+
+<section class="slide">
+  <div class="sec">5 · Plan and help</div>
+  <h2>Four decisions for today.</h2>
+  <div class="vis">
+    <div class="dec">
+      <div class="d">1</div>
+      <div><div class="a">Make the architecture stable before more experiments.</div>
+        <div class="s">One policy file format, one configuration, one way to run. At most $25.</div></div>
+      <div class="d">2</div>
+      <div><div class="a">May a small agent use a stronger model as its checker?</div>
+        <div class="s">The small model failed in that role.</div></div>
+      <div class="d">3</div>
+      <div><div class="a">Can you help us get the unseen handbook tasks from Surge?</div>
+        <div class="s">They are the main missing proof.</div></div>
+      <div class="d">4</div>
+      <div><div class="a">Can we get 2 more people for 1 month?</div>
+        <div class="s">One on proof, one on bringing it into CUGA.</div></div>
+    </div>
+  </div>
+</section>
+
+<section class="slide">
+  <div class="sec">Backup</div>
+  <h2>Early results misled us, so we set six test rules.</h2>
+  <div class="vis"><div class="tw"><table class="ev"><tbody><tr><td>Run everything at the same time</td><td class="r">A run from hours earlier gave a false +13.8</td></tr><tr><td>Count each task once</td><td class="r">Counting runs made a chance result look significant</td></tr><tr><td>Report all rounds, not the best</td><td class="r">+20.3 became +14.2</td></tr><tr><td>Use the official task sets</td><td class="r">First 20 tasks: 18 of 20. Official set: 19 of 40.</td></tr><tr><td>Keep grader answers out of the system</td><td class="r">Used to score, and once to measure an upper limit</td></tr><tr><td>Try saved runs before paying for new ones</td><td class="r">Predicted no gain for about $0.53</td></tr></tbody></table></div></div>
+</section>
+
+<section class="slide">
+  <div class="sec">Backup</div>
+  <h2>The shape of the policy decides what runs.</h2>
+  <div class="vis"><div class="tw"><table class="tight"><thead><tr><th>Shape</th><th>What runs</th><th>Evidence</th><th>Status</th></tr></thead><tbody><tr><td class="b">Long document</td><td>Check before each action + required work</td><td>Strong: 100 → 139 of 153. Mid, with the step-by-step loop: 59.3% → 73.4%.</td><td class="warn" style="font-weight:600;white-space:nowrap">Tuned tasks</td></tr><tr><td class="b">Rules in data</td><td>Find rules during work + yes/no checks</td><td>Small: +18.9 and +8.8. Strong: −6.</td><td class="good" style="font-weight:600;white-space:nowrap">New tasks</td></tr><tr><td class="b">Step-by-step flow</td><td>Step tracker + check before transfer to a person</td><td>Telecom +12.5; 24 of 26 failures caught on saved runs we tuned on</td><td class="warn" style="font-weight:600;white-space:nowrap">Not proven</td></tr><tr><td class="b">Rule list</td><td>Hard rules with exceptions; no step tracker</td><td>Tracker without exceptions: 17 → 11 of 20</td><td class="bad" style="font-weight:600;white-space:nowrap">Not built</td></tr></tbody></table></div><ul><li>One run can mix shapes: the route is chosen per policy source.</li></ul></div>
+</section>
+
+<section class="slide">
+  <div class="sec">Backup</div>
+  <h2>Four changes to CUGA are open for review.</h2>
+  <div class="vis"><div class="tw"><div class="big four"><div><div class="v">9</div><div class="k">Agent steps where checks can run</div><div class="m">With none set, CUGA behaves as before</div></div><div><div class="v">12–43</div><div class="k">Tools per call, out of 549</div><div class="m">Only the tools of apps in use</div></div><div><div class="v">1 retry</div><div class="k">When the agent says done with zero tool calls</div><div class="m">The small model did this</div></div><div><div class="v">By app</div><div class="k">Tools from the SDK grouped by app</div><div class="m">Needed for the smaller tool lists</div></div></div></div><div class="src" style="margin-top:2rem">Changes #1103, #1104, #1105 and #1107; all four wait for review (checked 2026-11-04).</div></div>
+</section>
+
+<section class="slide">
+  <div class="sec">Backup</div>
+  <h2>Stable means these ten checks pass.</h2>
+  <div class="vis"><div class="tw"><div class="ten"><div><b>1</b>One command runs the four main task sets</div><div><b>2</b>With the policy off, CUGA behaves the same</div><div><b>3</b>All policy settings are in one configuration file</div><div><b>4</b>Old reports still give the same numbers</div><div><b>5</b>Rule tests still reach 104 of 182, 1 wrong block</div><div><b>6</b>Every written policy has a policy file; no statement unexplained</div><div><b>7</b>Code tests pass</div><div><b>8</b>Each result names its exact code version</div><div><b>9</b>Each kind of required work has a level chosen by test</div><div><b>10</b>The documents match the code</div></div></div></div>
+</section>
+
+</div>
+<nav id="nav" aria-label="Slide controls">
+  <button class="navbtn" id="prev" aria-label="Previous slide">Prev</button>
+  <div id="dots"></div>
+  <span id="count"></span>
+  <button class="navbtn" id="next" aria-label="Next slide">Next</button>
+</nav>
+<script>
+const slides=[...document.querySelectorAll('.slide')],dots=document.getElementById('dots');
+const prog=document.getElementById('progress'),count=document.getElementById('count');
+const prev=document.getElementById('prev'),next=document.getElementById('next');
+let cur=0,seq=0;const PUSH_MS=450,ANIM=['push-exit-l','push-exit-r','push-enter-r','push-enter-l'];
+const reduce=matchMedia('(prefers-reduced-motion: reduce)');
+slides.forEach((s,i)=>{const b=document.createElement('button');b.setAttribute('aria-label','Go to slide '+(i+1));
+  b.addEventListener('click',()=>goTo(i));dots.appendChild(b)});
+function update(){
+  prog.style.width=((cur+1)/slides.length*100)+'%';
+  count.textContent=(cur+1)+' / '+slides.length;
+  [...dots.children].forEach((b,i)=>b.classList.toggle('on',i===cur));
+  prev.disabled=cur===0;next.disabled=cur===slides.length-1;
+  history.replaceState(null,'','#'+(cur+1));
+}
+function goTo(n){
+  if(n<0||n>=slides.length||n===cur)return;
+  const fwd=n>cur,out=slides[cur],inn=slides[n],my=++seq;
+  slides.forEach(s=>{if(s!==out&&s!==inn)s.classList.remove('active');s.classList.remove(...ANIM)});
+  inn.scrollTop=0;inn.classList.add('active');
+  if(reduce.matches)out.classList.remove('active');
+  else{
+    void inn.offsetWidth;
+    out.classList.add(fwd?'push-exit-l':'push-exit-r');
+    inn.classList.add(fwd?'push-enter-r':'push-enter-l');
+    setTimeout(()=>{if(my!==seq)return;out.classList.remove('active',...ANIM);inn.classList.remove(...ANIM)},PUSH_MS+30);
+  }
+  cur=n;update();
+}
+prev.addEventListener('click',()=>goTo(cur-1));
+next.addEventListener('click',()=>goTo(cur+1));
+addEventListener('keydown',e=>{
+  if(e.metaKey||e.ctrlKey||e.altKey)return;
+  const k=e.key;
+  if(k==='ArrowRight'||k==='ArrowDown'||k===' '||k==='PageDown'||k==='j'){e.preventDefault();goTo(cur+1)}
+  else if(k==='ArrowLeft'||k==='ArrowUp'||k==='PageUp'||k==='k'){e.preventDefault();goTo(cur-1)}
+  else if(k==='Home'){e.preventDefault();goTo(0)}
+  else if(k==='End'){e.preventDefault();goTo(slides.length-1)}
+  else if(k==='f'||k==='F'){document.fullscreenElement?document.exitFullscreen():document.documentElement.requestFullscreen&&document.documentElement.requestFullscreen()}
+});
+let tx=null,ty=null;
+addEventListener('touchstart',e=>{if(e.target.closest('.tw')){tx=null;return}tx=e.touches[0].clientX;ty=e.touches[0].clientY},{passive:true});
+addEventListener('touchend',e=>{if(tx===null)return;const dx=e.changedTouches[0].clientX-tx,dy=e.changedTouches[0].clientY-ty;
+  tx=null;if(Math.abs(dx)>50&&Math.abs(dx)>Math.abs(dy))goTo(cur+(dx<0?1:-1))},{passive:true});
+const h=parseInt(location.hash.slice(1),10);
+if(h>=1&&h<=slides.length&&h!==1){slides[0].classList.remove('active');cur=h-1;slides[cur].classList.add('active')}
+update();
+</script>
+</body></html>

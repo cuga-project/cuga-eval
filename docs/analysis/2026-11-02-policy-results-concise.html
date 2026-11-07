@@ -1,0 +1,274 @@
+<!doctype html>
+<html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Policy layer for CUGA: what we learned (2026-11-02)</title>
+<style>
+:root{--ink:#000;--muted:#6b7280;--line:#e5e7eb;--accent:#1d4ed8;--bar:#9ca3af;--warn:#b45309}
+*{box-sizing:border-box}
+body{margin:0;background:#fff;color:var(--ink);
+ font:18px/1.5 system-ui,-apple-system,"Segoe UI",sans-serif;-webkit-font-smoothing:antialiased}
+.deck{max-width:960px;margin:0 auto;padding:24px 16px 64px}
+.slide{padding:44px 8px 36px;border-bottom:1px solid var(--line);page-break-after:always}
+h1{font-size:40px;line-height:1.15;margin:0 0 16px;letter-spacing:-.02em}
+h2{font-size:30px;line-height:1.2;margin:0 0 22px;letter-spacing:-.015em}
+h1,h2{text-wrap:balance}
+.sub{font-size:20px;color:#374151;margin:0}
+ul{margin:20px 0 0;padding-left:22px}li{margin:6px 0}
+.src{color:var(--muted);font-size:13px;margin-top:18px}
+svg{display:block;max-width:100%;height:auto;font-family:inherit;font-variant-numeric:tabular-nums}
+.tw{overflow-x:auto}
+table{border-collapse:collapse;width:100%;font-size:17px}
+th{text-align:left;font-size:13px;font-weight:700;text-transform:uppercase;letter-spacing:.05em;
+ color:var(--muted);padding:0 16px 8px 0;border-bottom:1px solid #000}
+td{padding:14px 16px 14px 0;border-bottom:1px solid var(--line);vertical-align:top}
+td.k{font-weight:700;white-space:nowrap;width:24%}
+.pending{border:2px dashed var(--warn);border-radius:8px;min-height:200px;display:flex;
+ align-items:center;justify-content:center;text-align:center;padding:24px;
+ color:var(--warn);font-weight:700;font-size:18px}
+@media (max-width:640px){body{font-size:16px}h1{font-size:30px}h2{font-size:23px}
+ .sub{font-size:17px}table{font-size:15px}td.k{white-space:normal}.pending{font-size:16px;min-height:160px}}
+@media print{.slide{border:none;min-height:100vh}}
+tr.ours td{background:#eff6ff}
+</style></head>
+<body><div class="deck">
+
+<!-- 1 -->
+<div class="slide">
+  <h1>Policy layer for CUGA: what we learned (2026-11-02)</h1>
+  <p class="sub">Four benchmarks, held-out tests. Agent: DeepSeek-V4-Pro (function calling). Policy layer: gpt-oss-120b.</p>
+  <div class="src">Benchmarks: AutomationBench, ITSM (EnterpriseOps-Gym), HANDBOOK, τ2 airline. Source: docs/analysis/2026-11-02-overnight-log.md.</div>
+</div>
+
+<!-- 2 -->
+<div class="slide">
+  <h2>The policy layer did not improve held-out scores.</h2>
+  <svg viewBox="0 0 640 244" width="100%" role="img" aria-label="Paired difference versus CUGA alone in points: AutomationBench unseen3 plus 3.2, AutomationBench unseen2 minus 1.6, ITSM unseen2 minus 6.8">
+    <g font-size="13" fill="#6b7280">
+      <text x="419" y="14" text-anchor="end">← worse</text>
+      <text x="431" y="14">better →</text>
+    </g>
+    <line x1="425" y1="22" x2="425" y2="206" stroke="#000"/>
+    <g font-size="16" fill="#000">
+      <text x="0" y="42">AutomationBench unseen3</text>
+      <text x="0" y="122">AutomationBench unseen2</text>
+      <text x="0" y="182">ITSM unseen2</text>
+    </g>
+    <g font-size="13" fill="#6b7280">
+      <text x="0" y="59">policy layer + request checklist</text>
+      <text x="0" y="75">+ reminders in tool results; 3 trials</text>
+      <text x="0" y="139">partial, 3 trials</text>
+      <text x="0" y="199">verifiers, 3 trials</text>
+    </g>
+    <g fill="#9ca3af">
+      <rect x="425" y="30" width="40" height="26"/>
+      <rect x="405" y="110" width="20" height="26"/>
+      <rect x="340" y="170" width="85" height="26"/>
+    </g>
+    <path d="M361.25 65 H580 M361.25 60 V70 M580 60 V70" stroke="#374151" stroke-width="1.5" fill="none"/>
+    <g font-size="13" fill="#6b7280">
+      <text x="355" y="69" text-anchor="end">95% CI −5.1</text>
+      <text x="586" y="69">+12.4</text>
+    </g>
+    <g font-size="17" font-weight="700" fill="#000">
+      <text x="471" y="49">+3.2</text>
+      <text x="399" y="129" text-anchor="end">−1.6</text>
+      <text x="334" y="189" text-anchor="end">−6.8</text>
+    </g>
+    <text x="0" y="236" font-size="13" fill="#6b7280">Paired difference vs CUGA alone (pts); the line at 0 is CUGA alone</text>
+  </svg>
+  <ul>
+    <li>unseen3: the 95% interval includes 0, so the gain is not proven.</li>
+    <li>The configuration was frozen before each held-out run.</li>
+  </ul>
+  <div class="src">10 tasks per set; noise about ±6 pts per trial. AutomationBench: partial; ITSM: verifiers. Source: overnight log (02:40, 14:40).</div>
+</div>
+
+<!-- 3 -->
+<div class="slide">
+  <h2>There are few policy violations to catch.</h2>
+  <svg viewBox="0 0 640 272" width="100%" role="img" aria-label="Policy violations: AutomationBench 12 percent of failed checks, tau2 airline gpt-oss 10 percent and DeepSeek 5 percent of tasks, ITSM 0 reminders and 0 denies; the bar for running a gate is 30 percent">
+    <text x="520" y="14" text-anchor="middle" font-size="13" fill="#000">our bar for running a gate: 30%</text>
+    <line x1="520" y1="22" x2="520" y2="242" stroke="#000" stroke-dasharray="4 3"/>
+    <line x1="250" y1="26" x2="250" y2="242" stroke="#6b7280"/>
+    <g font-size="16" fill="#000">
+      <text x="0" y="45">AutomationBench</text>
+      <text x="0" y="103">τ2 airline, gpt-oss</text>
+      <text x="0" y="161">τ2 airline, DeepSeek</text>
+      <text x="0" y="219">ITSM, DeepSeek</text>
+    </g>
+    <g font-size="13" fill="#6b7280">
+      <text x="0" y="62">guardrails among failed checks</text>
+      <text x="0" y="120">tasks with a policy violation</text>
+      <text x="0" y="178">tasks with a policy violation</text>
+      <text x="0" y="236">policy layer actions</text>
+    </g>
+    <g fill="#9ca3af">
+      <rect x="250" y="34" width="108" height="26"/>
+      <rect x="250" y="92" width="90" height="26"/>
+      <rect x="250" y="150" width="45" height="26"/>
+    </g>
+    <g font-size="17" font-weight="700" fill="#000">
+      <text x="366" y="53">12% (23 of 187)</text>
+      <text x="348" y="111">10%</text>
+      <text x="303" y="169">5%</text>
+      <text x="258" y="227">0 reminders, 0 denies</text>
+    </g>
+    <text x="0" y="266" font-size="13" fill="#6b7280">% of failed checks (AutomationBench) or of 20 tasks (τ2 airline)</text>
+  </svg>
+  <ul>
+    <li>AutomationBench: the other failed checks are missing or wrong work.</li>
+    <li>ITSM: the agent already follows the checkable rules.</li>
+    <li>All are below our 30% bar for running a gate.</li>
+  </ul>
+  <div class="src">AutomationBench: failed checks of CUGA alone on unseen2 (30 runs). τ2 airline: CUGA alone, first 20 tasks, 1 trial. ITSM: policy layer actions with the DeepSeek-V4-Pro agent. Source: history.md (2026-11-02), overnight log (01:32, 19:30, 21:00).</div>
+</div>
+
+<!-- 4 -->
+<div class="slide">
+  <h2>A checklist of required effects matches what graders check.</h2>
+  <svg viewBox="0 0 640 292" width="100%" role="img" aria-label="Covered by the compiled checklist, full plus partial: AutomationBench 89 percent, ITSM 82 percent, HANDBOOK 66 percent with the data read and 33 percent without it">
+    <rect x="250" y="5" width="12" height="12" fill="#1d4ed8"/>
+    <text x="268" y="16" font-size="13" fill="#000">full</text>
+    <rect x="318" y="5" width="12" height="12" fill="#93c5fd"/>
+    <text x="336" y="16" font-size="13" fill="#000">partial</text>
+    <line x1="250" y1="28" x2="250" y2="252" stroke="#6b7280"/>
+    <g font-size="16" fill="#000">
+      <text x="0" y="48">AutomationBench</text>
+      <text x="0" y="108">ITSM</text>
+      <text x="0" y="168">HANDBOOK</text>
+      <text x="0" y="228">HANDBOOK</text>
+    </g>
+    <g font-size="13" fill="#6b7280">
+      <text x="0" y="65">failed checks</text>
+      <text x="0" y="125">failed checks</text>
+      <text x="0" y="185">all rubric items, with data read</text>
+      <text x="0" y="245">without the data read</text>
+    </g>
+    <g fill="#1d4ed8">
+      <rect x="250" y="36" width="140" height="28"/>
+      <rect x="250" y="96" width="122.5" height="28"/>
+      <rect x="250" y="156" width="94.5" height="28"/>
+    </g>
+    <g fill="#93c5fd">
+      <rect x="390" y="36" width="171.5" height="28"/>
+      <rect x="372.5" y="96" width="164.5" height="28"/>
+      <rect x="344.5" y="156" width="136.5" height="28"/>
+    </g>
+    <rect x="250" y="216" width="115.5" height="28" fill="#9ca3af"/>
+    <g font-size="15" font-weight="700" text-anchor="middle">
+      <text x="320" y="56" fill="#fff">40%</text>
+      <text x="475.75" y="56" fill="#000">49%</text>
+      <text x="311.25" y="116" fill="#fff">35%</text>
+      <text x="454.75" y="116" fill="#000">47%</text>
+      <text x="297.25" y="176" fill="#fff">27%</text>
+      <text x="412.75" y="176" fill="#000">39%</text>
+    </g>
+    <g font-size="17" font-weight="700" fill="#000">
+      <text x="569.5" y="56">89%</text>
+      <text x="545" y="116">82%</text>
+      <text x="489" y="176">66%</text>
+      <text x="373.5" y="236">33%</text>
+    </g>
+    <text x="0" y="284" font-size="13" fill="#6b7280">Covered by the compiled checklist, full + partial (%)</text>
+  </svg>
+  <ul>
+    <li>AutomationBench, ITSM: failed checks. HANDBOOK: all rubric items.</li>
+    <li>HANDBOOK coverage needs the data the agent read.</li>
+  </ul>
+  <div class="src">Offline replay against the grader checks; no agent run. HANDBOOK compiler: DeepSeek-V4-Pro. Source: overnight log (15:30, 16:40).</div>
+</div>
+
+<!-- 5 -->
+<div class="slide">
+  <h2>But tracker feedback did not help: wrong feedback costs more than right feedback gains.</h2>
+  <svg viewBox="0 0 640 252" width="100%" role="img" aria-label="Paired difference, tracker versus CUGA alone, run at the same time: AutomationBench unseen3 plus 3.5 points, ITSM plus 1.0 points, HANDBOOK minus 10 of 153 rubric items">
+    <g font-size="13" fill="#6b7280">
+      <text x="419" y="14" text-anchor="end">← worse</text>
+      <text x="431" y="14">better →</text>
+    </g>
+    <line x1="425" y1="22" x2="425" y2="222" stroke="#000"/>
+    <g font-size="16" fill="#000">
+      <text x="0" y="42">AutomationBench unseen3</text>
+      <text x="0" y="122">ITSM</text>
+      <text x="0" y="182">HANDBOOK</text>
+    </g>
+    <g font-size="13" fill="#6b7280">
+      <text x="0" y="59">3 trials</text>
+      <text x="0" y="75">follow-up sent in only 4 of 30 runs</text>
+      <text x="0" y="139">1 trial</text>
+      <text x="0" y="199">88 → 78 of 153 rubric items</text>
+      <text x="0" y="215">3 trials</text>
+    </g>
+    <g fill="#9ca3af">
+      <rect x="425" y="30" width="43.75" height="26"/>
+      <rect x="425" y="110" width="12.5" height="26"/>
+      <rect x="343.3" y="170" width="81.7" height="26"/>
+    </g>
+    <path d="M393.75 65 H542.5 M393.75 60 V70 M542.5 60 V70" stroke="#374151" stroke-width="1.5" fill="none"/>
+    <g font-size="13" fill="#6b7280">
+      <text x="387.75" y="69" text-anchor="end">95% CI −2.5</text>
+      <text x="548.5" y="69">+9.4</text>
+    </g>
+    <g font-size="17" font-weight="700" fill="#000">
+      <text x="474.75" y="49">+3.5</text>
+      <text x="443.5" y="129">+1.0</text>
+      <text x="337.3" y="189" text-anchor="end">−10 items</text>
+    </g>
+    <text x="0" y="244" font-size="13" fill="#6b7280">Paired difference, tracker vs CUGA alone, run at the same time (pts; HANDBOOK bar: items / 153)</text>
+  </svg>
+  <ul>
+    <li>The gate wrongly flags 17–40% of checks that passed.</li>
+    <li>Follow-ups on inferred values made the agent change correct records (ITSM −13.2 pts, first round).</li>
+  </ul>
+  <div class="src">17–40%: ITSM gate replay, two gate versions. Source: overnight log (16:40, 18:00, 21:00).</div>
+</div>
+
+<!-- ORACLE-SLIDE -->
+<div class="slide" id="oracle">
+  <h2>When told exactly what failed, the agent fixes most of it.</h2>
+  <svg viewBox="0 0 640 210" width="100%" role="img" aria-label="Score, CUGA alone versus oracle follow-up: AutomationBench unseen3 55.9 versus 91.8 percent partial credit; ITSM 72.0 versus 97.3 percent verifiers">
+    <g font-size="16" fill="#000">
+      <text x="0" y="44">AutomationBench</text>
+      <text x="0" y="134">ITSM</text>
+    </g>
+    <g font-size="13" fill="#6b7280">
+      <text x="0" y="61">unseen3, 3 trials</text><text x="0" y="77">partial credit</text>
+      <text x="0" y="151">1 trial, verifiers</text>
+      <text x="232" y="41" text-anchor="end">alone</text>
+      <text x="232" y="67" text-anchor="end">oracle</text>
+      <text x="232" y="131" text-anchor="end">alone</text>
+      <text x="232" y="157" text-anchor="end">oracle</text>
+    </g>
+    <rect x="240" y="26" width="184.5" height="22" fill="#9ca3af"/>
+    <rect x="240" y="52" width="302.9" height="22" fill="#1d4ed8"/>
+    <rect x="240" y="116" width="237.6" height="22" fill="#9ca3af"/>
+    <rect x="240" y="142" width="321.1" height="22" fill="#1d4ed8"/>
+    <g font-size="15" font-weight="700" fill="#000">
+      <text x="430.5" y="42">55.9%</text>
+      <text x="548.9" y="68">91.8%</text>
+      <text x="483.6" y="132">72.0%</text>
+      <text x="567.1" y="158">97.3%</text>
+    </g>
+    <text x="0" y="198" font-size="13" fill="#6b7280">Score, CUGA alone vs CUGA + oracle follow-up, paired, run at the same time (%)</text>
+  </svg>
+  <ul>
+    <li>AutomationBench: +35.9 pts (95% CI +15.8 to +58.2); tasks passed 2.0 → 6.0 of 10.</li>
+    <li>ITSM: +25.3 pts; tasks passed 9 → 18 of 20.</li>
+    <li>One feedback round cut failed checks from 93 to 24 (AutomationBench).</li>
+  </ul>
+  <div class="src">Oracle: the grader's failed checks, with expected values, sent back after the answer (at most 2 rounds). An upper bound, not a method. Source: overnight log (2026-11-02, oracle).</div>
+</div>
+
+<!-- 7 -->
+<div class="slide">
+  <h2>Next: decide by the oracle result.</h2>
+  <div class="tw"><table>
+    <thead><tr><th>Oracle result</th><th>Next step</th></tr></thead>
+    <tbody>
+      <tr class="ours"><td class="k">Large gain (above +15 pts) — this result</td><td>Work on checklist precision: stronger compiler, per-record exceptions, policy retrieval.<br>Test on HANDBOOK.</td></tr>
+      <tr><td class="k">Small gain (below +5 pts)</td><td>Stop feedback layers for these benchmarks.<br>Improve the agent itself: planning, record selection.<br>Keep the policy layer for its product value: audit trail, exact guards.</td></tr>
+    </tbody>
+  </table></div>
+  <div class="src">Oracle result: AutomationBench +35.9 pts, ITSM +25.3 pts, so a large gain. Feedback works; the checklist is the weak part.</div>
+</div>
+
+</div></body></html>

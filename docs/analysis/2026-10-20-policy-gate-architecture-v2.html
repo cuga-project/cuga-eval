@@ -1,0 +1,387 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>CUGA policy gate v2: architecture</title>
+<style>
+:root{--ink:#111827;--muted:#6b7280;--line:#e5e7eb;--accent:#1d4ed8}
+*{box-sizing:border-box}
+body{margin:0;background:#fff;color:var(--ink);font:16px/1.55 system-ui,-apple-system,"Segoe UI",sans-serif;-webkit-font-smoothing:antialiased}
+main{max-width:960px;margin:0 auto;padding:28px 16px 64px;padding-left:max(16px,env(safe-area-inset-left));padding-right:max(16px,env(safe-area-inset-right))}
+h1{font-size:30px;line-height:1.2;margin:0 0 8px;letter-spacing:-.02em}
+h2{font-size:21px;margin:36px 0 10px}
+.sub{color:var(--muted);margin:0 0 20px}
+.wrap{overflow-x:auto;-webkit-overflow-scrolling:touch}
+.wrap svg{display:block;min-width:640px;max-width:900px;width:100%;height:auto}
+.tw{overflow-x:auto}
+table{border-collapse:collapse;width:100%;font-size:14.5px;min-width:620px}
+th{text-align:left;font-size:12px;text-transform:uppercase;letter-spacing:.05em;color:var(--muted);padding:0 10px 8px 0;border-bottom:1px solid var(--line)}
+td{padding:9px 10px 9px 0;border-bottom:1px solid #f1f3f5;vertical-align:top}
+.tag{display:inline-block;border:1px dashed var(--accent);color:var(--accent);border-radius:6px;padding:0 6px;font-size:12px}
+code{font-family:ui-monospace,SFMono-Regular,Menlo,monospace;font-size:13px;background:#f3f4f6;padding:1px 5px;border-radius:4px}
+ul{padding-left:20px}li{margin:4px 0}
+h3{font-size:17px;margin:28px 0 8px}
+h4{font-size:15px;margin:22px 0 6px}
+pre{background:#f3f4f6;border-radius:8px;padding:14px 16px;overflow-x:auto;font:13px/1.55 ui-monospace,SFMono-Regular,Menlo,monospace;margin:12px 0}
+.v-allow{color:#047857;font-weight:700}.v-deny{color:#b91c1c;font-weight:700}.v-ask{color:#b45309;font-weight:700}.v-transfer{color:#4b5563;font-weight:700}
+tr.ours td{background:#eff6ff}
+.src{color:var(--muted);font-size:13px;margin-top:16px}
+@media (max-width:640px){h1{font-size:24px}}
+</style>
+</head>
+<body>
+<main>
+<h1>CUGA policy gate v2: architecture</h1>
+<p class="sub">Policy text is compiled into rules ahead of time, or when it arrives during a task. At runtime every CUGA lifecycle hook sends an event to the decision gate, which decides with code first, then Jev, then a semantic verifier. After the run, a retrospective check and a learner propose a new, reviewed version. Dashed boxes are plugins.</p>
+<div class="wrap">
+<svg viewBox="0 0 760 772" role="img" aria-label="Policy gate v2: policy intake ahead of time or on arrival; at runtime every CUGA lifecycle hook sends events to the decision gate (dispatcher, facts, layers code then Jev then verifier, stateful monitor, effects, observers); after the run a retrospective check and a learner feed a reviewed new version back to intake">
+  <defs><marker id="av2" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse"><path d="M0 0L10 5L0 10z" fill="#6b7280"/></marker></defs>
+  <g font-family="system-ui,-apple-system,Segoe UI,sans-serif">
+
+  <!-- 1 INTAKE -->
+  <rect x="8" y="8" width="744" height="236" rx="14" fill="#f9fafb" stroke="#e5e7eb"/>
+  <text x="24" y="36" font-size="13" font-weight="700" fill="#6b7280" letter-spacing="1">1 · POLICY INTAKE</text>
+  <rect x="24" y="50" width="160" height="112" rx="10" fill="#fff" stroke="#d1d5db"/>
+  <text x="38" y="72" font-size="14" font-weight="700" fill="#111827">Policy sources</text>
+  <text x="38" y="92" font-size="12" fill="#111827">system prompt</text>
+  <text x="38" y="108" font-size="12" fill="#111827">documents, PDFs</text>
+  <text x="38" y="124" font-size="12" fill="#111827">KB results, data sheets</text>
+  <text x="38" y="140" font-size="12" fill="#111827">BPMN, event logs</text>
+  <text x="38" y="156" font-size="11" fill="#6b7280">trusted locations only</text>
+  <rect x="208" y="50" width="260" height="176" rx="10" fill="#eff6ff" stroke="#1d4ed8" stroke-width="1.5" stroke-dasharray="6 4"/>
+  <text x="460" y="64" font-size="10.5" fill="#1d4ed8" text-anchor="end">plugins</text>
+  <text x="222" y="74" font-size="14" font-weight="700" fill="#111827">Intake and compile</text>
+  <text x="222" y="96" font-size="12" fill="#111827">1 detect: trusted source only</text>
+  <text x="222" y="114" font-size="12" fill="#111827">2 parse · split · classify</text>
+  <text x="222" y="132" font-size="12" fill="#111827">3 link: 5 edge types</text>
+  <text x="222" y="150" font-size="12" fill="#111827">4 compile rules per trigger</text>
+  <text x="222" y="168" font-size="12" fill="#111827">5 verify: coverage, conflicts, tests</text>
+  <text x="222" y="192" font-size="11" fill="#6b7280">ahead: + 2nd model, human sign-off</text>
+  <text x="222" y="208" font-size="11" fill="#6b7280">on arrival: unsure rules → advisory</text>
+  <rect x="492" y="50" width="252" height="44" rx="9" fill="#fff" stroke="#111827" stroke-width="1.5"/>
+  <text x="506" y="77" font-size="13" font-weight="700" fill="#111827">Rule index, by trigger</text>
+  <rect x="492" y="104" width="252" height="44" rx="9" fill="#fff" stroke="#111827" stroke-width="1.5"/>
+  <text x="506" y="131" font-size="13" font-weight="700" fill="#111827">Statement store (thin graph)</text>
+  <text x="506" y="170" font-size="11" fill="#6b7280">versioned, hashed</text>
+  <g fill="none" stroke="#6b7280" stroke-width="1.5">
+    <path d="M184 106H206" marker-end="url(#av2)"/>
+    <path d="M468 72H490" marker-end="url(#av2)"/>
+    <path d="M468 126H490" marker-end="url(#av2)"/>
+  </g>
+
+  <!-- 2 RUNTIME -->
+  <rect x="8" y="262" width="744" height="384" rx="14" fill="#f9fafb" stroke="#e5e7eb"/>
+  <text x="24" y="288" font-size="13" font-weight="700" fill="#6b7280" letter-spacing="1">2 · RUNTIME: EVERY CUGA LIFECYCLE HOOK</text>
+  <g font-family="ui-monospace,SFMono-Regular,Menlo,monospace" font-size="11" fill="#111827" text-anchor="middle">
+    <rect x="24" y="304" width="140" height="24" rx="6" fill="#fff" stroke="#111827"/><text x="94" y="320">session_start</text>
+    <rect x="24" y="336" width="140" height="24" rx="6" fill="#fff" stroke="#111827"/><text x="94" y="352">on_user_message</text>
+    <rect x="24" y="368" width="140" height="24" rx="6" fill="#fff" stroke="#111827"/><text x="94" y="384">before_llm_call</text>
+    <rect x="24" y="400" width="140" height="24" rx="6" fill="#fff" stroke="#111827"/><text x="94" y="416">after_llm_call</text>
+    <rect x="24" y="432" width="140" height="24" rx="6" fill="#fff" stroke="#111827"/><text x="94" y="448">after_plan</text>
+    <rect x="24" y="464" width="140" height="24" rx="6" fill="#fff" stroke="#111827"/><text x="94" y="480">before_tool_call</text>
+    <rect x="24" y="496" width="140" height="24" rx="6" fill="#f3f4f6" stroke="#d1d5db" stroke-dasharray="4 3"/><text x="94" y="512" font-family="system-ui,-apple-system,Segoe UI,sans-serif" fill="#6b7280">tool runs</text>
+    <rect x="24" y="528" width="140" height="24" rx="6" fill="#fff" stroke="#111827"/><text x="94" y="544">after_tool_call</text>
+    <rect x="24" y="560" width="140" height="24" rx="6" fill="#fff" stroke="#111827"/><text x="94" y="576">before_reply</text>
+    <rect x="24" y="592" width="140" height="24" rx="6" fill="#fff" stroke="#111827"/><text x="94" y="608">on_task_end</text>
+  </g>
+  <g font-size="11" fill="#6b7280">
+    <text x="172" y="320">load rule version, start monitor</text>
+    <text x="172" y="352">label the source; authority rules</text>
+    <text x="172" y="384">add checklist; restate key rules</text>
+    <text x="172" y="416">stopped early? one reminder</text>
+    <text x="172" y="448">pre-scan writes; prefetch facts</text>
+    <text x="172" y="480">action, order, flow rules; can block</text>
+    <text x="172" y="512">environment</text>
+    <text x="172" y="544">cache facts; redact; new policy → intake</text>
+    <text x="172" y="576">message rules, grounding; rewrite</text>
+    <text x="172" y="608">required steps; one reminder</text>
+  </g>
+  <g fill="none" stroke="#6b7280" stroke-width="1.5">
+    <path d="M94 328V336"/><path d="M94 360V368"/><path d="M94 392V400"/><path d="M94 424V432"/><path d="M94 456V464"/>
+    <path d="M94 488V496"/><path d="M94 520V528"/><path d="M94 552V560"/><path d="M94 584V592"/>
+    <path d="M24 540H14V380H22" marker-end="url(#av2)"/>
+  </g>
+  <text x="11" y="470" font-size="10" fill="#6b7280" transform="rotate(-90 11 470)" text-anchor="middle">next step</text>
+  <!-- bus -->
+  <g fill="none" stroke="#9ca3af" stroke-width="1.2">
+    <path d="M400 316H412"/><path d="M400 348H412"/><path d="M400 380H412"/><path d="M400 412H412"/><path d="M400 444H412"/>
+    <path d="M400 476H412"/><path d="M400 540H412"/><path d="M400 572H412"/><path d="M400 604H412"/>
+    <path d="M412 316V604"/>
+  </g>
+  <path d="M412 460H430" fill="none" stroke="#6b7280" stroke-width="1.5" marker-end="url(#av2)"/>
+  <!-- gate -->
+  <rect x="432" y="298" width="312" height="330" rx="12" fill="#fff" stroke="#111827" stroke-width="1.5"/>
+  <text x="446" y="320" font-size="15" font-weight="700" fill="#111827">Decision gate</text>
+  <text x="446" y="338" font-size="11" fill="#6b7280">one hook handler; most severe verdict wins</text>
+  <rect x="446" y="348" width="284" height="40" rx="8" fill="#fafafa" stroke="#d1d5db"/>
+  <text x="458" y="364" font-size="12.5" font-weight="700" fill="#111827">Dispatcher</text>
+  <text x="458" y="380" font-size="11" fill="#6b7280">rules for this hook + matcher</text>
+  <rect x="446" y="396" width="284" height="40" rx="8" fill="#eff6ff" stroke="#1d4ed8" stroke-width="1.2" stroke-dasharray="5 3"/>
+  <text x="458" y="412" font-size="12.5" font-weight="700" fill="#111827">Facts</text>
+  <text x="458" y="428" font-size="11" fill="#6b7280">args · cache · read tools · source labels</text>
+  <rect x="446" y="444" width="284" height="40" rx="8" fill="#eff6ff" stroke="#1d4ed8" stroke-width="1.2" stroke-dasharray="5 3"/>
+  <text x="458" y="460" font-size="12.5" font-weight="700" fill="#111827">Layers: code → Jev → verifier</text>
+  <text x="458" y="476" font-size="11" fill="#6b7280">each runs only for what is still unknown</text>
+  <rect x="446" y="492" width="284" height="40" rx="8" fill="#fafafa" stroke="#d1d5db"/>
+  <text x="458" y="508" font-size="12.5" font-weight="700" fill="#111827">Stateful monitor</text>
+  <text x="458" y="524" font-size="11" fill="#6b7280">order rules, required steps (finish)</text>
+  <rect x="446" y="540" width="284" height="40" rx="8" fill="#fff" stroke="#047857" stroke-width="1.5"/>
+  <text x="458" y="556" font-size="12.5" font-weight="700" fill="#047857">Combine → effect</text>
+  <text x="458" y="572" font-size="11" fill="#6b7280">allow, deny, ask, transfer, redact, remind</text>
+  <rect x="446" y="588" width="284" height="32" rx="8" fill="#eff6ff" stroke="#1d4ed8" stroke-width="1.2" stroke-dasharray="5 3"/>
+  <text x="458" y="609" font-size="12" fill="#111827">Observers: decision records</text>
+
+  <!-- 3 AFTER THE RUN -->
+  <rect x="8" y="664" width="744" height="100" rx="14" fill="#f9fafb" stroke="#e5e7eb"/>
+  <text x="736" y="688" font-size="13" font-weight="700" fill="#6b7280" letter-spacing="1" text-anchor="end">3 · AFTER THE RUN AND IMPROVE (OFFLINE)</text>
+  <g>
+    <rect x="22" y="700" width="130" height="50" rx="9" fill="#fff" stroke="#d1d5db"/>
+    <rect x="168" y="700" width="130" height="50" rx="9" fill="#eff6ff" stroke="#1d4ed8" stroke-width="1.2" stroke-dasharray="5 3"/>
+    <rect x="314" y="700" width="130" height="50" rx="9" fill="#fff" stroke="#d1d5db"/>
+    <rect x="460" y="700" width="130" height="50" rx="9" fill="#eff6ff" stroke="#1d4ed8" stroke-width="1.2" stroke-dasharray="5 3"/>
+    <rect x="606" y="700" width="130" height="50" rx="9" fill="#fff" stroke="#d1d5db"/>
+  </g>
+  <g font-size="12.5" font-weight="700" fill="#111827">
+    <text x="34" y="721">Event log</text><text x="180" y="721">Retro checker</text><text x="326" y="721">Conformance</text><text x="472" y="721">Learner</text><text x="618" y="721">Human review</text>
+  </g>
+  <g font-size="11" fill="#6b7280">
+    <text x="34" y="739">every hook event</text><text x="180" y="739">whole-run rules</text><text x="326" y="739">% per run, per rule</text><text x="472" y="739">proposes rule edits</text><text x="618" y="739">→ new version</text>
+  </g>
+  <g fill="none" stroke="#6b7280" stroke-width="1.5">
+    <path d="M152 725H166" marker-end="url(#av2)"/><path d="M298 725H312" marker-end="url(#av2)"/><path d="M444 725H458" marker-end="url(#av2)"/><path d="M590 725H604" marker-end="url(#av2)"/>
+  </g>
+
+  <!-- cross-section lines, drawn last -->
+  <g fill="none" stroke="#6b7280" stroke-width="1.5">
+    <path d="M618 148V296" marker-end="url(#av2)"/>
+    <path d="M446 604H424V656H87V698" marker-end="url(#av2)"/>
+    <path d="M736 725H748V16H338V48" marker-end="url(#av2)"/>
+  </g>
+  <text x="626" y="236" font-size="11" fill="#6b7280">loaded</text>
+  <text x="742" y="28" font-size="11" fill="#6b7280" text-anchor="end">new version is verified again</text>
+  </g>
+</svg>
+</div>
+
+<h2>What changed from v1</h2>
+<ul>
+  <li><strong>All lifecycle hooks, not only writes:</strong> each hook may observe, modify, block or remind, as listed below.</li>
+  <li><strong>Rules keyed by trigger</strong> (action, message, order, state, data flow, authority, obligation, plan), not only by tool.</li>
+  <li><strong>Intake runs ahead of time or on arrival</strong>, so policy from a knowledge base, a workspace file or task data is covered.</li>
+  <li><strong>Three decision layers:</strong> code, then Jev, then the semantic verifier (Boaz) only for what is still unknown.</li>
+  <li><strong>Stateful monitor</strong> for order rules and required steps; <strong>source labels</strong> for authority and data flow.</li>
+</ul>
+
+<h2>What each lifecycle hook may do</h2>
+<p class="sub" style="margin-bottom:0">As in CPEX's plugin modes, each hook allows only some effects. Blocking happens only where an action has not happened yet.</p>
+<div class="tw">
+<table>
+  <tr><th>Hook</th><th>Observe</th><th>Modify</th><th>Block</th><th>Remind</th><th>Main use</th></tr>
+  <tr><td><code>session_start</code></td><td>yes</td><td></td><td></td><td></td><td>Load the rule version; start the monitor; show the checklist</td></tr>
+  <tr><td><code>on_user_message</code></td><td>yes</td><td></td><td></td><td></td><td>Label the source; authority rules; record facts lazily</td></tr>
+  <tr><td><code>before_llm_call</code></td><td>yes</td><td>yes</td><td></td><td></td><td>Add the checklist and re-state the rules that apply now (ARQ-style)</td></tr>
+  <tr><td><code>after_llm_call</code></td><td>yes</td><td></td><td></td><td>yes</td><td>Catch a reply that announces a step without doing it</td></tr>
+  <tr><td><code>after_plan</code></td><td>yes</td><td></td><td>hint</td><td></td><td>Pre-scan a CodeAct block for writes; prefetch facts; one write per block</td></tr>
+  <tr><td><code>before_tool_call</code></td><td>yes</td><td></td><td>yes</td><td></td><td>Action, order, data-flow and authority rules on writes; reads pass</td></tr>
+  <tr><td><code>after_tool_call</code></td><td>yes</td><td>yes</td><td></td><td></td><td>Cache facts; propagate labels; redact results; state checks; send new policy text to intake</td></tr>
+  <tr><td><code>before_reply</code></td><td>yes</td><td>yes</td><td>yes</td><td></td><td>Message and data-flow rules; grounding check; one rewrite</td></tr>
+  <tr><td><code>on_task_end</code></td><td>yes</td><td></td><td>once</td><td>yes</td><td>Required steps and open order rules; one reminder before finishing</td></tr>
+</table>
+</div>
+<p class="src">Cost: code checks take milliseconds; Jev about 1 s per batch; the verifier is one LLM call and runs rarely. Intake on arrival runs in the background while the agent reads.</p>
+
+<h2>Rules are keyed by trigger, not only by tool</h2>
+<p>A tool key indexes only action rules. The selected benchmarks also grade replies, order, required actions and refusals of in-environment requests, so each rule has a <strong>trigger</strong>: the hook it runs at plus a matcher.</p>
+<div class="tw">
+<table>
+  <tr><th>Rule kind</th><th>Runs at</th><th>Matcher</th><th>Example</th><th>Effect</th></tr>
+  <tr><td>Action</td><td><code>before_tool_call</code></td><td>tool name, tool category (read / write / transfer), argument predicate</td><td>Cancel only if booked within 24 h, business cabin, airline-cancelled, or insured with a covered reason (τ2)</td><td>DENY, ASK USER, TRANSFER</td></tr>
+  <tr><td>Message</td><td><code>before_reply</code></td><td>Jev question or string check on the draft reply</td><td>Offer compensation only if the user asked (τ2)</td><td>rewrite once</td></tr>
+  <tr><td>Order</td><td>every event (event log)</td><td>pattern over past events</td><td>Verify identity before reading account data (τ³); confirm before any write</td><td>DENY, ASK USER</td></tr>
+  <tr><td>State</td><td><code>after_tool_call</code> on writes, or before via a preview read</td><td>condition on environment state</td><td>Cart holds only this order's items before checkout; passenger count unchanged</td><td>DENY next write, alert</td></tr>
+  <tr><td>Data flow</td><td>outbound tools, <code>before_reply</code></td><td>labels on values (PII, internal) and destination</td><td>Salary data never leaves HR channels (HANDBOOK-style)</td><td>DENY, redact</td></tr>
+  <tr><td>Authority</td><td>when a request arrives (<code>on_user_message</code>, inbox or ticket results)</td><td>who sent it, through which source</td><td>Termination needs written approval from one of two named people (HANDBOOK); only Payroll processes severance (AutomationBench)</td><td>DENY + reason</td></tr>
+  <tr><td>Obligation</td><td>task start (checklist) and <code>on_task_end</code></td><td>required event exists</td><td>Post a farewell in #departures and notify IT (AutomationBench)</td><td>one reminder</td></tr>
+  <tr><td>Plan</td><td><code>after_plan</code></td><td>write calls in the code block</td><td>At most one write per CodeAct block</td><td>hint</td></tr>
+</table>
+</div>
+<p>The rule index is a map from hook to matchers: action rules by tool name, then tool category, then "any write"; message rules are few and all run; order and obligation rules live in the stateful monitor (<code>preview</code> / <code>step</code> / <code>finish</code>); data-flow labels are always on.</p>
+
+<h2>Data model</h2>
+<div class="tw">
+<table>
+  <tr><th>Object</th><th>Fields</th></tr>
+  <tr><td>Statement</td><td>id, text, source (document hash, section, page), kind (rule · guidance · definition · out of scope), trust (trusted policy or plain data)</td></tr>
+  <tr><td>Rule</td><td>id, kind, trigger, condition (expression over facts), effect, level (constraint · guideline · best practice), source statement ids, mode (enforce · advisory), compiled when (ahead · on arrival)</td></tr>
+  <tr><td>Fact</td><td>id, source (argument · cached read · read tool · state · Jev question · verifier), cache rule (until the next write to that entity)</td></tr>
+  <tr><td>Edge</td><td><code>applies-to</code>, <code>depends-on</code>, <code>defines</code>, <code>exception-of</code>, <code>supersedes</code></td></tr>
+  <tr><td>Event</td><td>hook, time, actor, tool and arguments or message, source label, result</td></tr>
+  <tr><td>Verdict</td><td>effect, rule id, facts used, deciding layer (code · Jev · verifier), reason, latency</td></tr>
+</table>
+</div>
+<pre>{"id": "cancel.eligible", "kind": "action", "level": "constraint", "mode": "enforce",
+ "trigger": {"hook": "before_tool_call", "tool": "cancel_reservation"},
+ "condition": {"any": ["booked_within_24h", "airline_cancelled", "is_business",
+                       {"all": ["has_insurance", "reason_covered"]}]},
+ "effect": {"else": "DENY", "message": "Not eligible for cancellation."},
+ "facts": {"reason_covered": {"source": "jev", "type": "noul",
+           "q": "Is the user's reason health or weather?"}},
+ "sources": ["policy.md#cancel-flight/s4", "policy.md#cancel-flight/s5"]}</pre>
+
+<h2>Intake pipeline</h2>
+<div class="tw">
+<table>
+  <tr><th>#</th><th>Step</th><th>How</th><th>Check before moving on</th></tr>
+  <tr><td>1</td><td>Detect</td><td>A source registry says which locations hold policy: system prompt, workspace documents, KB results, named sheets</td><td>Text from emails, chats or tickets is never policy</td></tr>
+  <tr><td>2</td><td>Parse</td><td>Sections with ids, pages, tables kept as tables</td><td>Every section is accounted for</td></tr>
+  <tr><td>3</td><td>Split</td><td>Atomic statements, linked to their section</td><td>No section loses text (character coverage)</td></tr>
+  <tr><td>4</td><td>Classify</td><td>rule · guidance · definition · out of scope</td><td>Each statement has exactly one class</td></tr>
+  <tr><td>5</td><td>Link</td><td>The 5 edge types; definitions and exceptions found by section references and wording</td><td>No rule depends on a missing statement</td></tr>
+  <tr><td>6</td><td>Compile</td><td>Rules into the policy language with trigger, condition, effect, facts</td><td>Types and tool names match the tool schemas</td></tr>
+  <tr><td>7</td><td>Verify</td><td>Coverage map, conflict check, generated allow / deny tests; ahead of time also a second-model cross-check and human sign-off</td><td>Unsure rules become advisory (verifier-only), not enforced</td></tr>
+  <tr><td>8</td><td>Publish</td><td>Rules into the index, statements into the store, guidance into the task checklist; cache by document hash</td><td>Version recorded on every verdict</td></tr>
+</table>
+</div>
+
+<h2>Inside one write check</h2>
+<div class="wrap">
+<svg viewBox="0 0 772 200" role="img" aria-label="Inside one before_tool_call check: event, rule lookup, facts, evaluate, Jev, semantic verifier, combine, effect and record">
+  <defs><marker id="ah3" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse"><path d="M0 0L10 5L0 10z" fill="#6b7280"/></marker></defs>
+  <g font-family="system-ui,-apple-system,Segoe UI,sans-serif">
+  <text x="16" y="14" font-size="12" font-weight="700" fill="#6b7280" letter-spacing="1">INSIDE ONE WRITE CHECK</text>
+  <g fill="#fff" stroke="#d1d5db">
+    <rect x="16" y="24" width="170" height="62" rx="9"/><rect x="206" y="24" width="170" height="62" rx="9"/>
+    <rect x="396" y="24" width="170" height="62" rx="9"/><rect x="586" y="24" width="170" height="62" rx="9"/>
+    <rect x="16" y="124" width="170" height="62" rx="9"/><rect x="396" y="124" width="170" height="62" rx="9"/>
+  </g>
+  <rect x="206" y="124" width="170" height="62" rx="9" fill="#eff6ff" stroke="#1d4ed8" stroke-width="1.5" stroke-dasharray="6 4"/>
+  <rect x="586" y="124" width="170" height="62" rx="9" fill="#fff" stroke="#047857" stroke-width="1.5"/>
+  <g font-size="13" font-weight="700" fill="#111827">
+    <text x="28" y="48">1 Event</text><text x="218" y="48">2 Rule lookup</text><text x="408" y="48">3 Facts</text><text x="598" y="48">4 Evaluate</text>
+    <text x="28" y="148">5 Jev</text><text x="218" y="148">6 Semantic verifier</text><text x="408" y="148">7 Combine</text><text x="598" y="148" fill="#047857">8 Effect + record</text>
+  </g>
+  <g font-size="11.5" fill="#6b7280">
+    <text x="28" y="68">tool, args, source labels</text>
+    <text x="218" y="68">tool → category → any write</text>
+    <text x="408" y="68">args · cache · read tools</text>
+    <text x="598" y="68">true / false / unknown</text>
+    <text x="28" y="168">one batch, unknown facts</text>
+    <text x="218" y="168">still unknown, or no rule</text>
+    <text x="408" y="168">most severe; level decides</text>
+    <text x="598" y="168">allow, deny, ask, redact</text>
+  </g>
+  <g fill="none" stroke="#6b7280" stroke-width="1.5">
+    <path d="M186 55H204" marker-end="url(#ah3)"/><path d="M376 55H394" marker-end="url(#ah3)"/><path d="M566 55H584" marker-end="url(#ah3)"/>
+    <path d="M671 86V105H101V122" marker-end="url(#ah3)"/>
+    <path d="M186 155H204" marker-end="url(#ah3)"/><path d="M376 155H394" marker-end="url(#ah3)"/><path d="M566 155H584" marker-end="url(#ah3)"/>
+  </g>
+  </g>
+</svg>
+</div>
+
+<h2>Decision rules</h2>
+<ol>
+  <li>Earliest decisive layer wins: code, then Jev, then the verifier. Each layer runs only for what is still unknown.</li>
+  <li>Several rules fire: the most severe effect wins (TRANSFER, then DENY, then ASK USER, then ALLOW).</li>
+  <li>Level sets what a failed rule does: constraint blocks, guideline sends a hint, best practice is only recorded.</li>
+  <li>Unknown after all layers: a constraint asks the user (or blocks if no user exists); a guideline lets the step through.</li>
+  <li>Gate error or timeout: the step goes through and the error is recorded, as in the base design.</li>
+  <li>Same rule denied 3 times: the agent is told to stop trying that action.</li>
+</ol>
+
+<h2>Authority and obligations</h2>
+<ul>
+  <li><strong>Labels:</strong> every message and value carries its source: policy, user, environment content. A request found in an email or ticket can start work but cannot satisfy a rule that needs approval; approval facts must come from the named source, checked with a tool (e.g. the sender and the approver list).</li>
+  <li><strong>Checklist:</strong> obligation rules become a short list shown to the agent before its first action and re-stated before each write (ARQ-style). The monitor marks items done from events; <code>on_task_end</code> sends one reminder for open items.</li>
+</ul>
+
+
+<h2>Compiling ahead of time vs. on arrival</h2>
+<div class="tw">
+<table>
+  <tr><th></th><th>Ahead of time</th><th>On arrival</th></tr>
+  <tr><td>Used for</td><td>τ2, EnterpriseOps-Gym, τ³'s static knowledge base, HANDBOOK's 10 base handbooks</td><td>HANDBOOK's per-task changes (before the first write), AutomationBench rule rows, unseen KB documents</td></tr>
+  <tr><td>Review</td><td>Build verifiers + human sign-off; frozen version</td><td>Build verifiers only; unsure rules go to the semantic verifier instead of blocking</td></tr>
+  <tr><td>Latency</td><td>None at runtime</td><td>Mostly hidden: compiles while the agent does its first reads; small inputs compile in one short call</td></tr>
+  <tr><td>Safety net</td><td colspan="2">The full policy text stays visible to the agent and the verifier, so a rule dropped while compiling does not hide the policy</td></tr>
+</table>
+</div>
+
+<h2>Statement store: a thin graph, not a knowledge graph</h2>
+<p>Five edge types cover the failures seen so far: <code>applies-to</code> (rule → tool), <code>depends-on</code> (preconditions, always followed), <code>defines</code>, <code>exception-of</code>, <code>supersedes</code> (versions). Stored as JSON, no graph database. Order and time come from the event log, entity facts from the environment's tools.</p>
+
+
+<h2>Plugins</h2>
+<div class="tw">
+<table>
+  <tr><th>Plugin</th><th>Phase</th><th>Built in</th><th>Examples to add</th></tr>
+  <tr><td><span class="tag">Importer</span></td><td>Intake</td><td>text, PDF, Word, HTML, KB documents</td><td>BPMN models, event logs</td></tr>
+  <tr><td><span class="tag">Policy language</span></td><td>Intake + runtime</td><td>JSON graph</td><td>Cedar, Rego, CEL, AgDECLARE</td></tr>
+  <tr><td><span class="tag">Build verifier</span></td><td>Intake</td><td>coverage, conflicts, tests, second-model cross-check, human sign-off</td><td>compliance checker</td></tr>
+  <tr><td><span class="tag">Hook handler</span></td><td>Runtime</td><td>decision gate</td><td>AgMentor guardian, PII redaction</td></tr>
+  <tr><td><span class="tag">Fact source</span></td><td>Runtime</td><td>arguments, cache, read tools, source labels</td><td>context graph (Boaz), CRM lookup</td></tr>
+  <tr><td><span class="tag">Runtime verifier</span></td><td>Runtime</td><td>code rules, Jev, semantic verifier</td><td>trained small verifier, human approval</td></tr>
+  <tr><td><span class="tag">Verdict handler</span></td><td>Runtime</td><td>allow, deny, ask, transfer, redact, remind</td><td>open a ticket, notify a supervisor</td></tr>
+  <tr><td><span class="tag">Observer</span></td><td>Runtime</td><td>decision records, event log</td><td>dashboard, audit export</td></tr>
+  <tr><td><span class="tag">Retrospective checker</span></td><td>After the run</td><td>gate replay on the log</td><td>Declare4Py</td></tr>
+  <tr><td><span class="tag">Learner</span></td><td>Improve</td><td>thresholds, false blocks, missing rules</td><td>active learning</td></tr>
+</table>
+</div>
+<h2>CodeAct (CUGA) vs ReAct and function calling</h2>
+<p class="sub">In CUGA the model writes a Python block that can call many tools, in loops and branches. The gate does not judge the block as text. It wraps each tool function in the block's namespace, where CUGA already counts tool calls (<code>counted_tool_call</code> in <code>code_executor.py</code>). The block awaits each call, so the gate checks every guarded call when it happens, with the real argument values.</p>
+<div class="tw">
+<table>
+  <tr><th></th><th>ReAct / function calling</th><th>CodeAct (CUGA)</th></tr>
+  <tr><td>What the model proposes</td><td>one tool call per step, arguments as JSON</td><td>a Python block: many calls, loops, computed arguments</td></tr>
+  <tr><td>When <code>before_tool_call</code> fires</td><td>before the step runs; nothing in the step has run yet</td><td>at each call while the block runs; earlier calls in the block already ran</td></tr>
+  <tr><td>Arguments the gate sees</td><td>the literal values the model wrote</td><td>runtime values: variables, results of earlier calls</td></tr>
+  <tr><td>Does execution wait for the gate?</td><td>yes, once per step</td><td>yes, at each guarded write; reads are only recorded, so they do not wait</td></tr>
+  <tr><td>After DENY or ASK USER</td><td>the verdict is the tool result; the model picks the next step</td><td>the call raises; the rest of the block does not run; writes made earlier in the block stay done</td></tr>
+  <tr><td>Jev questions</td><td>asked per step</td><td>can be asked once per block: a pre-scan finds the write tools before the block runs</td></tr>
+  <tr><td>Time limit</td><td>gate time adds to the step</td><td>gate time counts inside the sandbox limit (120 s); the gate is capped at 20 s</td></tr>
+  <tr><td>Parallel calls</td><td>parallel tool calls in one step</td><td><code>asyncio.gather</code> is possible; writes are serialized so order rules see one order</td></tr>
+</table>
+</div>
+
+<h3>The CodeAct problem: a block can stop half-way</h3>
+<p>Example: a block calls <code>update_reservation_flights</code>, then <code>send_certificate</code>. The gate denies the certificate. The flight change has already happened, and the code the model wrote after the denied call (prints, the summary) never runs. The model must read the denial and write a new block.</p>
+<div class="tw">
+<table>
+  <tr><th>Option</th><th>How</th><th>Pro</th><th>Con</th></tr>
+  <tr><td><strong>1. Check each call</strong> (planned)</td><td>wrapper on each tool function</td><td>exact runtime arguments; works with loops and branches</td><td>a block can stop half-way</td></tr>
+  <tr><td><strong>2. Pre-scan the block</strong> (add to 1)</td><td>at <code>after_plan</code>, read the code (Python AST) and list the write tools it may call</td><td>fetch facts and ask Jev before the first write; can enforce "at most one write per block"</td><td>cannot decide alone: arguments and branches are known only at runtime</td></tr>
+  <tr><td><strong>3. Dry run, then commit</strong></td><td>run the block with writes recorded but not executed, check them all, then run again for real</td><td>all-or-nothing blocks</td><td>reads run twice; code that depends on a write's result breaks; slower</td></tr>
+</table>
+</div>
+<p><strong>Recommendation:</strong> option 1 with the option 2 pre-scan. The "one write per block" rule fits PR #800's plan-then-step rule (each block does only the next step). Then a denial never cuts a block between two writes. Order rules (Declare) work the same in all styles, because every call is one event.</p>
+
+
+<h2>Why not a single method</h2>
+<div class="tw">
+<table>
+  <tr><th>Architecture</th><th>τ2</th><th>EnterpriseOps-Gym</th><th>τ³ knowledge</th><th>HANDBOOK.md</th><th>AutomationBench-AA</th></tr>
+  <tr><td>Prompt + playbooks</td><td>partial</td><td>partial</td><td>poor</td><td>poor</td><td>poor</td></tr>
+  <tr><td>Compiled reference monitor (AgentCore, CPEX, Smith)</td><td>good</td><td>good</td><td>partial</td><td>partial</td><td>poor</td></tr>
+  <tr><td>LLM verifier loop (Boaz, PolicyGuard)</td><td>partial</td><td>partial</td><td>good</td><td>partial</td><td>partial</td></tr>
+  <tr><td>Plan + capability control (CaMeL, FIDES)</td><td>poor</td><td>good</td><td>partial</td><td>good</td><td>good</td></tr>
+  <tr><td>Flow-based (Rasa CALM, workflow graphs)</td><td>good</td><td>partial</td><td>poor</td><td>poor</td><td>poor</td></tr>
+  <tr class="ours"><td><strong>Hybrid gate</strong></td><td>good</td><td>good</td><td>good</td><td>good</td><td>good</td></tr>
+</table>
+</div>
+
+<h2>How to test it: one ladder on the same small model</h2>
+<ol>
+  <li>Prompt + playbooks (baseline).</li>
+  <li>+ compiled rules.</li>
+  <li>+ semantic verifier (= hybrid gate).</li>
+  <li>+ authority ranking.</li>
+</ol>
+<p>Order of benchmarks: τ2 airline (tests enforcement alone), then AutomationBench-AA (adapter exists; one violation zeroes a task, so the gate's value is measurable), then HANDBOOK.md (long per-task handbooks; runs on Harbor).</p>
+<p class="src">Methods and benchmarks: <code>docs/analysis/2026-10-20-agent-policy-enforcement-sota.md</code> and <code>docs/analysis/2026-10-20-policy-benchmarks.md</code>. The fit ratings are our judgement from those notes, not measurements.</p>
+
+
+<p class="src">v1 with the worked examples (tau2 airline, AgMentor, Boaz): <code>2026-10-15-decision-gate-architecture.html</code>. Methods and benchmarks: <code>2026-10-20-agent-policy-enforcement-sota.md</code>, <code>2026-10-20-policy-benchmarks.md</code>. CUGA does not have these hooks yet; they are proposed.</p>
+</main>
+</body>
+</html>

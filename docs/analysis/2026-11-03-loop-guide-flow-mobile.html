@@ -1,0 +1,67 @@
+<!doctype html>
+<html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1">
+<title>SOP loop + guide: LLM calls and decisions</title>
+<style>
+:root{--ink:#111827;--muted:#6b7280;--line:#e5e7eb;--teal-bg:#E1F5EE;--teal-b:#0F6E56;--teal-t:#085041;--pur-bg:#EEEDFE;--pur-b:#534AB7;--pur-t:#3C3489;--gray-bg:#f4f4f5;--gray-b:#a1a1aa}
+@media (prefers-color-scheme:dark){:root{--ink:#f4f4f5;--muted:#a1a1aa;--line:#3f3f46;--teal-bg:#085041;--teal-b:#5DCAA5;--teal-t:#E1F5EE;--pur-bg:#3C3489;--pur-b:#AFA9EC;--pur-t:#EEEDFE;--gray-bg:#27272a;--gray-b:#71717a}body{background:#18181b}}
+*{box-sizing:border-box}body{margin:0;color:var(--ink);font:16px/1.45 system-ui,-apple-system,"Segoe UI",sans-serif}
+.wrap{max-width:520px;margin:0 auto;padding:20px 16px 48px}h1{font-size:22px;margin:0 0 4px}h2{font-size:18px;margin:28px 0 10px}
+.sub{color:var(--muted);font-size:14px;margin:0 0 14px}
+.card{border:1px solid var(--gray-b);background:var(--gray-bg);border-radius:10px;padding:10px 12px;text-align:center}
+.card b{display:block;font-weight:500}.card span{font-size:13px;color:var(--muted)}
+.agent{background:var(--teal-bg);border-color:var(--teal-b)}.agent b{color:var(--teal-t)}.agent span{color:var(--teal-b)}
+.q{background:var(--pur-bg);border-color:var(--pur-b)}.q b{color:var(--pur-t)}.q span{color:var(--pur-b)}
+.arrow{text-align:center;color:var(--muted);font-size:18px;line-height:22px;margin:2px 0}
+.loop{border:1px dashed var(--gray-b);border-radius:12px;padding:10px 10px 6px;margin:2px 0}
+.loop .tag{font-size:13px;color:var(--muted);margin:0 0 6px}.back{font-size:13px;color:var(--muted);text-align:right;margin-top:4px}
+.stop{font-size:13px;color:var(--muted);text-align:right;margin:2px 4px 0}
+.legend{display:flex;flex-wrap:wrap;gap:12px;font-size:13px;color:var(--muted);margin-top:14px}
+.legend i{display:inline-block;width:12px;height:12px;border-radius:3px;margin-right:5px;vertical-align:-1px;border:1px solid}
+</style></head><body><div class="wrap">
+<h1>SOP loop + guide</h1>
+<p class="sub">Which calls go to which model, and where code decides.</p>
+<div class="legend"><span><i style="background:var(--teal-bg);border-color:var(--teal-b)"></i>Agent LLM (DeepSeek)</span><span><i style="background:var(--pur-bg);border-color:var(--pur-b)"></i>Question / check LLM</span><span><i style="background:var(--gray-bg);border-color:var(--gray-b)"></i>Code</span></div>
+
+<h2>1. Per task (the loop)</h2>
+<div class="card"><b>Request</b></div>
+<div class="arrow">↓</div>
+<div class="card agent"><b>Explore turn</b><span>Agent calls; writes blocked</span></div>
+<div class="arrow">↓</div>
+<div class="card q"><b>Find the cases</b><span>1 call</span></div>
+<div class="arrow">↓</div>
+<div class="loop"><div class="tag">For each case</div>
+<div class="card q"><b>Which procedure?</b><span>1 call</span></div>
+<div class="arrow">↓</div>
+<div class="card q"><b>Preconditions, exceptions</b><span>1 call each, up to 12</span></div>
+<div class="arrow">↓</div>
+<div class="card q"><b>General rules? Already done?</b><span>2 calls</span></div>
+<div class="arrow">↓</div>
+<div class="card"><b>Decide in code</b><span>Follow, stop, hold, escalate</span></div>
+<div class="arrow">↓</div>
+<div class="card agent"><b>Case turn</b><span>Agent calls; guide checks writes (part 2)</span></div>
+<div class="back">↻ next case</div></div>
+<div class="arrow">↓</div>
+<div class="card agent"><b>Finish turn</b><span>Request again; decisions stand</span></div>
+<div class="arrow">↓</div>
+<div class="card"><b>Final answer</b></div>
+
+<h2>2. On every write (the guide)</h2>
+<div class="card agent"><b>Agent LLM call</b><span>Proposes a write</span></div>
+<div class="arrow">↓</div>
+<div class="card"><b>Which procedure?</b><span>Code: tool, template, address</span></div>
+<div class="arrow">↓</div>
+<div class="card"><b>First write of it?</b><span>Yes: stop once, show its rules</span></div>
+<div class="stop">stop → back to the agent</div>
+<div class="arrow">↓ on retry</div>
+<div class="card q"><b>Evidence check</b><span>gpt-oss, 1 call per needed proof</span></div>
+<div class="arrow">↓</div>
+<div class="card"><b>Proof found?</b><span>No: stop again (max 2)</span></div>
+<div class="stop">stop → back to the agent</div>
+<div class="arrow">↓</div>
+<div class="card"><b>Template matches?</b><span>No: stop with the format</span></div>
+<div class="stop">stop → back to the agent</div>
+<div class="arrow">↓</div>
+<div class="card"><b>Tool runs</b><span>Result back to the agent</span></div>
+<div class="back">↻ next agent call</div>
+<p class="sub" style="margin-top:18px">Cost: the agent's own calls dominate. The loop adds about 5–15 short question calls per case; the guide is code except the evidence check.</p>
+</div></body></html>

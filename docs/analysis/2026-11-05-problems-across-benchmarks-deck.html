@@ -1,0 +1,350 @@
+<!doctype html>
+<html lang="en"><head><meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Policy adherence: seven problems across benchmarks</title>
+
+<style>
+:root{--ink:#000;--ink2:#374151;--muted:#6b7280;--line:#e5e7eb;--surface:#fff;--accent:#1d4ed8;--good:#047857;--warn:#b45309;--bad:#b91c1c}
+*{box-sizing:border-box}
+/* 1rem = 16px at 1280x720 and grows with a larger screen, so the slide keeps its proportions when projected */
+html{font-size:clamp(16px,min(1.25vw,2.2222vh),40px)}
+html,body{height:100%;overflow:hidden;background:var(--surface)}
+body{margin:0;color:var(--ink);font:1.25rem/1.4 system-ui,-apple-system,"Segoe UI",sans-serif;-webkit-font-smoothing:antialiased}
+#deck{position:relative;width:100vw;height:100vh;height:100dvh}
+.slide{position:absolute;top:0;bottom:0;left:50%;right:auto;width:100%;max-width:74rem;transform:translateX(-50%);
+  background:var(--surface);opacity:0;pointer-events:none;margin:0;border:none;border-radius:0;
+  overflow-y:auto;-webkit-overflow-scrolling:touch;padding:2.5rem 2.5rem 5.5rem;display:flex;flex-direction:column}
+.slide.active{opacity:1;pointer-events:auto}
+.push-exit-l,.push-exit-r,.push-enter-r,.push-enter-l{animation-duration:.45s;animation-timing-function:cubic-bezier(.65,0,.35,1);
+  animation-fill-mode:both;will-change:transform;backface-visibility:hidden}
+.push-exit-l{animation-name:pushExitL}.push-enter-r{animation-name:pushEnterR}
+.push-exit-r{animation-name:pushExitR}.push-enter-l{animation-name:pushEnterL}
+@keyframes pushExitL {from{transform:translateX(-50%)}to{transform:translateX(calc(-50% - 100vw))}}
+@keyframes pushEnterR{from{transform:translateX(calc(-50% + 100vw))}to{transform:translateX(-50%)}}
+@keyframes pushExitR {from{transform:translateX(-50%)}to{transform:translateX(calc(-50% + 100vw))}}
+@keyframes pushEnterL{from{transform:translateX(calc(-50% - 100vw))}to{transform:translateX(-50%)}}
+@media (prefers-reduced-motion:reduce){.push-exit-l,.push-exit-r,.push-enter-r,.push-enter-l{animation:none}}
+#progress{position:fixed;top:0;left:0;height:3px;background:var(--accent);width:0;transition:width .35s cubic-bezier(.22,1,.36,1);z-index:20}
+#nav{position:fixed;bottom:0;left:0;right:0;display:flex;align-items:center;justify-content:center;gap:14px;z-index:20;
+  background:rgba(255,255,255,.92);padding:12px 12px calc(12px + env(safe-area-inset-bottom));opacity:.6}
+#nav:hover,#nav:focus-within{opacity:1}
+.navbtn{border:1px solid var(--line);background:#fff;color:var(--ink2);border-radius:8px;padding:9px 14px;font:inherit;font-size:14px;cursor:pointer;min-height:44px;min-width:44px}
+.navbtn:disabled{opacity:.4;cursor:default}
+#count{font-size:14px;color:var(--ink2);font-variant-numeric:tabular-nums;white-space:nowrap}
+#dots button{width:19px;height:27px;padding:10px 6px;border:none;background:transparent;cursor:pointer}
+#dots button::after{content:'';display:block;width:7px;height:7px;border-radius:50%;background:var(--line)}
+#dots button.on::after{background:var(--accent)}
+
+h2{font-size:1.875rem;line-height:1.2;margin:0 0 1.25rem;letter-spacing:-.015em;font-weight:700;flex:0 0 auto}
+.vis{flex:1 0 auto;display:flex;flex-direction:column;justify-content:center;min-width:0}
+ul{margin:1rem 0 0;padding-left:1.4rem;flex:0 0 auto}li{margin:.3rem 0}
+.src{color:var(--muted);font-size:.875rem;line-height:1.35;margin-top:.9rem;flex:0 0 auto}
+.tw{overflow-x:auto;max-width:100%}
+svg{display:block;width:100%;height:auto}
+svg text{font-family:system-ui,-apple-system,"Segoe UI",sans-serif}
+
+.big{display:grid;grid-template-columns:repeat(3,1fr);gap:2.5rem}
+.big .v{font-size:4.75rem;font-weight:700;line-height:1;letter-spacing:-.02em;font-variant-numeric:tabular-nums;white-space:nowrap}
+.big .v span{font-size:1.5rem;letter-spacing:0;font-weight:600;margin-left:.35rem}
+.big .k{font-size:1.3125rem;line-height:1.3;margin-top:.9rem}
+.big .m{font-size:1.125rem;line-height:1.3;color:var(--muted);margin-top:.4rem;font-variant-numeric:tabular-nums}
+.good{color:var(--good)}.warn{color:var(--warn)}.bad{color:var(--bad)}
+
+table{border-collapse:collapse;width:100%}
+th{text-align:left;font-size:.9375rem;font-weight:700;color:var(--muted);padding:0 1.25rem .55rem 0;border-bottom:1px solid var(--line)}
+td{padding:.8rem 1.25rem .8rem 0;border-bottom:1px solid var(--line);vertical-align:top;font-size:1.25rem;line-height:1.3}
+td.b{font-weight:600;white-space:nowrap}
+tr:last-child td{border-bottom:none}
+td.new{color:var(--accent);font-weight:600}
+
+.ev td{font-size:1.375rem;font-weight:600;vertical-align:middle;padding:1rem 1.5rem 1rem 0}
+.ev td.r{text-align:right;font-size:1.25rem;font-weight:400;color:var(--ink2);padding-right:0;white-space:nowrap;font-variant-numeric:tabular-nums}
+
+.cols{display:grid;grid-template-columns:repeat(3,1fr);gap:2rem}
+.cols>div{border-top:4px solid var(--line);padding-top:.75rem}
+.cols>div.g{border-top-color:var(--good)}.cols>div.a{border-top-color:var(--warn)}.cols>div.n{border-top-color:var(--muted)}
+.cols h3{font-size:1.3125rem;line-height:1.25;margin:0 0 1rem}
+.it{margin-bottom:1.35rem}
+.it .n{font-size:2.75rem;font-weight:700;line-height:1.1;font-variant-numeric:tabular-nums}
+.it .t{font-size:1.25rem;line-height:1.3;margin-top:.2rem}
+.it .q{font-size:1.125rem;line-height:1.3;color:var(--muted)}
+.pl{font-size:1.25rem;line-height:1.3;margin-bottom:1.1rem}
+
+.dec{display:grid;grid-template-columns:4rem 1fr;row-gap:2.25rem;align-items:start}
+.dec .d{font-size:3rem;font-weight:700;line-height:1;color:var(--accent);font-variant-numeric:tabular-nums}
+.dec .a{font-size:1.75rem;font-weight:700;line-height:1.25}
+.dec .s{font-size:1.25rem;color:var(--ink2);line-height:1.3;margin-top:.3rem}
+
+@media (max-width:900px){.tw svg{min-width:820px}}
+@media (max-width:640px){.slide{padding:30px 18px 92px}h2{font-size:23px}#dots{display:none}
+  .big,.cols{grid-template-columns:1fr;gap:1.5rem}.big .v{font-size:40px}.big .v span{font-size:18px}
+  .dec{grid-template-columns:2.5rem 1fr}.dec .d{font-size:30px}.dec .a{font-size:19px}.dec .s{font-size:16px}
+  td,.ev td{font-size:16px}.ev td.r{font-size:15px;white-space:normal}td.b{white-space:normal}}
+@media print{html{font-size:16px}html,body{height:auto;overflow:visible}#nav,#progress{display:none}#deck{height:auto;width:auto}
+  .slide{position:static;display:block;opacity:1;transform:none;left:auto;margin:0 auto;max-width:none;overflow:visible;
+    min-height:100vh;page-break-after:always;animation:none!important}}
+
+.sec{font-size:.8125rem;font-weight:700;letter-spacing:.06em;text-transform:uppercase;color:var(--muted);margin:0 0 .45rem;flex:0 0 auto}
+.ex{font-size:1.0625rem;line-height:1.3;color:var(--ink2);border-left:3px solid var(--line);padding:.15rem 0 .15rem .8rem;margin:0 0 1.1rem}
+.facts{display:grid;grid-template-columns:repeat(3,1fr);gap:1.75rem;margin-top:1.35rem}
+.facts .l{font-size:.9375rem;font-weight:700;color:var(--muted);border-top:3px solid var(--line);padding-top:.45rem}
+.facts .t{font-size:1.125rem;line-height:1.3;margin-top:.3rem}
+.tight td{font-size:1.0625rem;padding:.6rem 1rem .6rem 0}
+.tight th{padding-right:1rem}
+td.n,th.n{text-align:right;font-variant-numeric:tabular-nums;white-space:nowrap}
+td.c,th.c{text-align:center;padding-right:0}
+.shapes{display:grid;grid-template-columns:1fr 1fr;gap:1.5rem 2.5rem}
+.shapes>div{border-top:3px solid var(--line);padding-top:.6rem}
+.shapes h3{font-size:1.3125rem;line-height:1.25;margin:0 0 .3rem}
+.shapes .d{font-size:1.125rem;line-height:1.3}
+.shapes .e{font-size:1.0625rem;line-height:1.3;color:var(--muted);margin-top:.35rem}
+.big.four{grid-template-columns:repeat(4,1fr);gap:1.75rem}
+.big.four .v{font-size:3.25rem}
+.big.four .k{font-size:1.125rem}.big.four .m{font-size:1rem}
+.big.small .v{font-size:3.25rem}.big.small .k{font-size:1.125rem;margin-top:.4rem}
+.ten{display:grid;grid-template-columns:1fr 1fr;gap:.85rem 2.5rem;font-size:1.1875rem;line-height:1.3}
+.ten b{display:inline-block;width:2rem;color:var(--accent);font-variant-numeric:tabular-nums}
+@media (max-width:640px){.facts,.shapes,.ten,.big.four{grid-template-columns:1fr}}
+
+.card{border:1px solid var(--line);border-radius:8px;padding:.75rem 1rem;background:#fafafa;font-size:1.0625rem;line-height:1.38}
+.card .h{font-size:.9375rem;font-weight:700;color:var(--muted);margin-bottom:.35rem}
+.card code,.mono{font-family:ui-monospace,SFMono-Regular,Menlo,monospace;font-size:.95rem}
+.two{display:grid;grid-template-columns:1.15fr 1fr;gap:1.75rem;align-items:start}
+.two.eq{grid-template-columns:1fr 1fr}
+.res{border-top:4px solid var(--line);padding-top:.5rem;margin-bottom:1.1rem}
+.res.fail{border-top-color:var(--bad)}.res.ok{border-top-color:var(--good)}
+.res h3{font-size:1.1875rem;line-height:1.25;margin:0 0 .25rem}
+.res div{font-size:1.0625rem;line-height:1.35}
+@media (max-width:640px){.two,.two.eq{grid-template-columns:1fr}}
+
+.case{border:1px solid var(--line);border-radius:8px;background:#fafafa;padding:.85rem 1.1rem}
+.case .h{font-size:1.1875rem;font-weight:700;line-height:1.25}
+.case .m{font-size:.9375rem;color:var(--muted);margin:.1rem 0 .5rem}
+.case p{font-size:1.0625rem;line-height:1.34;margin:.5rem 0}
+.case ol{margin:.4rem 0;padding-left:1.3rem;font-size:1.0625rem;line-height:1.32}
+.case ol li{margin:.3rem 0}
+.case q{font-weight:600;quotes:'“' '”'}
+.case .r{margin-top:.65rem;border-top:3px solid var(--bad);padding-top:.45rem;font-size:1.0625rem;line-height:1.32;font-weight:600}
+.case .r.ok{border-top-color:var(--good)}
+.across .hd{font-size:.8125rem;font-weight:700;letter-spacing:.06em;text-transform:uppercase;color:var(--muted);margin-bottom:.1rem}
+.across .row{display:grid;grid-template-columns:7.75rem 1fr;gap:.8rem;padding:.55rem 0;border-bottom:1px solid var(--line)}
+.across .row:last-child{border-bottom:none}
+.across .l{font-size:.9375rem;font-weight:700;line-height:1.25;color:var(--ink2)}
+.across .t{font-size:1.0625rem;line-height:1.32}
+.tri{display:grid;grid-template-columns:repeat(3,1fr);gap:1.6rem;align-items:stretch}
+.tri>div{border-top:4px solid var(--line);padding-top:.55rem;display:flex;flex-direction:column}
+.tri>div.o{border-top-color:var(--muted)}.tri>div.u{border-top-color:var(--accent)}.tri>div.t{border-top-color:#111827}
+.tri h3{font-size:1.125rem;line-height:1.25;margin:0 0 .6rem}
+.tri .i{margin-bottom:.8rem;font-size:1.0625rem;line-height:1.32}
+.tri .i .n{display:block;font-size:1.625rem;font-weight:700;line-height:1.2;font-variant-numeric:tabular-nums}
+.tri .i .w{color:var(--muted);font-size:.9375rem;line-height:1.3;display:block;margin-top:.1rem}
+.tri .i b.nm{font-weight:700}
+.chip{display:inline-block;font-size:.9375rem;font-weight:700;border:1.5px solid currentColor;border-radius:999px;padding:.08rem .7rem;margin-top:auto;align-self:flex-start;white-space:nowrap}
+.chip.g{color:var(--good)}.chip.a{color:var(--warn)}.chip.n{color:var(--ink2)}
+.mini{font-size:1rem;margin:.1rem 0 .7rem}
+.mini th{font-size:.8125rem;padding:0 .6rem .3rem 0}
+.mini td{font-size:1rem;padding:.3rem .6rem .3rem 0}
+.matrix th{text-align:center;font-size:.9375rem;color:var(--ink);padding:0 .35rem .5rem;line-height:1.2;vertical-align:bottom}
+.matrix th small{display:block;font-weight:400;color:var(--muted);font-size:.75rem;margin-top:.1rem}
+.matrix th:first-child{text-align:left;padding-left:0}
+.matrix td{text-align:center;font-size:1.375rem;line-height:1;padding:.62rem .35rem;vertical-align:middle}
+.matrix td:first-child{text-align:left;font-size:1.0938rem;font-weight:600;line-height:1.25;padding-left:0;white-space:nowrap}
+.matrix td:first-child b{display:inline-block;width:1.5rem;color:var(--accent)}
+.dot{color:var(--accent)}.ring{color:var(--muted)}
+.st{font-weight:700}
+.st.g{color:var(--good)}.st.a{color:var(--warn)}.st.k{color:var(--ink2)}
+.legend{display:flex;flex-wrap:nowrap;justify-content:space-between;gap:.3rem .6rem;margin-top:.55rem;font-size:.875rem;line-height:1.3;white-space:nowrap}
+.legend b{display:inline-flex;align-items:center;justify-content:center;width:1.25rem;height:1.25rem;border-radius:50%;background:#111827;color:#fff;font-size:.75rem;margin-right:.25rem}
+@media (max-width:900px){.legend{flex-wrap:wrap;white-space:normal}}
+.srcs{columns:2;column-gap:2.5rem;font-size:.9375rem;line-height:1.35}
+.srcs div{break-inside:avoid;margin-bottom:.45rem}
+.srcs b{font-weight:700}
+@media (max-width:640px){.tri{grid-template-columns:1fr}.srcs{columns:1}.across .row{grid-template-columns:1fr;gap:.1rem}.matrix td:first-child{white-space:normal}}
+</style>
+</head>
+<body>
+<div id="progress"></div>
+<div id="deck">
+
+<section class="slide active">
+  <div class="sec">Where we start</div>
+  <h2>Even top models still fail tasks with a written policy.</h2>
+  <div class="vis"><svg viewBox="0 0 1104 312" role="img" aria-label="Best published score per task set"><g><title>Telecom support: 97.8</title><text x="0" y="21" font-size="16.5" font-weight="700" fill="#111827">Telecom support</text><text x="0" y="40" font-size="14" fill="#6b7280">Short policy and a manual</text><rect x="250" y="11" width="685" height="26" rx="4" fill="#9ca3af"/><text x="945" y="30" font-size="17" font-weight="700" fill="#111827">97.8</text></g><g><title>Airline rules: 84.0</title><text x="0" y="71" font-size="16.5" font-weight="700" fill="#111827">Airline rules</text><text x="0" y="90" font-size="14" fill="#6b7280">Short rule list</text><rect x="250" y="61" width="588" height="26" rx="4" fill="#9ca3af"/><text x="848" y="80" font-size="17" font-weight="700" fill="#111827">84.0</text></g><g><title>Business rules: 77.8</title><text x="0" y="121" font-size="16.5" font-weight="700" fill="#111827">Business rules</text><text x="0" y="140" font-size="14" fill="#6b7280">Hidden in emails and sheets</text><rect x="250" y="111" width="545" height="26" rx="4" fill="#9ca3af"/><text x="805" y="130" font-size="17" font-weight="700" fill="#111827">77.8</text></g><g><title>Banking knowledge: 55.2</title><text x="0" y="171" font-size="16.5" font-weight="700" fill="#111827">Banking knowledge</text><text x="0" y="190" font-size="14" fill="#6b7280">698 documents to search</text><rect x="250" y="161" width="386" height="26" rx="4" fill="#1d4ed8"/><text x="646" y="180" font-size="17" font-weight="700" fill="#111827">55.2</text></g><g><title>Long handbook: 52.3</title><text x="0" y="221" font-size="16.5" font-weight="700" fill="#111827">Long handbook</text><text x="0" y="240" font-size="14" fill="#6b7280">20 to 124 pages per task</text><rect x="250" y="211" width="366" height="26" rx="4" fill="#1d4ed8"/><text x="626" y="230" font-size="17" font-weight="700" fill="#111827">52.3</text></g><g><title>Enterprise operations: 51.1</title><text x="0" y="271" font-size="16.5" font-weight="700" fill="#111827">Enterprise operations</text><text x="0" y="290" font-size="14" fill="#6b7280">Long policy in the prompt</text><rect x="250" y="261" width="358" height="26" rx="4" fill="#1d4ed8"/><text x="618" y="280" font-size="17" font-weight="700" fill="#111827">51.1</text></g></svg><ul><li>Short policies score highest. Blue bars: long policies or large document sets reach about half.</li><li>Business rules: 77.8 with partial credit, 53.9 on the strict board.</li></ul><div class="src">Best score on each public board, read 2026-11-05: τ²-bench (telecom, airline), AutomationBench, τ³ banking, HANDBOOK.md, EnterpriseOps-Gym. Each board has its own measure, so compare loosely. The handbook board does not label its measure; strict pass was 21.9% in June.</div></div>
+</section>
+
+<section class="slide">
+  <div class="sec">Where we start</div>
+  <h2>On CUGA, the result depends on the policy shape and the model size.</h2>
+  <div class="vis"><div class="tw"><table class="tight"><thead><tr><th>Task set</th><th>Where the policy is</th><th class="n">Small model</th><th class="n">Mid model</th><th class="n">Strong model</th></tr></thead><tbody><tr><td class="b">Business rules<br><span style="font-weight:400;color:#6b7280;font-size:.9375rem">AutomationBench</span></td><td>Emails and sheets</td><td class="n">23.8%</td><td class="n">49.7%</td><td class="n">80.9%</td></tr><tr><td class="b">Long handbook<br><span style="font-weight:400;color:#6b7280;font-size:.9375rem">HANDBOOK.md</span></td><td>One long document per task</td><td class="n">32%</td><td class="n">59%</td><td class="n">65%</td></tr><tr><td class="b">IT service<br><span style="font-weight:400;color:#6b7280;font-size:.9375rem">EnterpriseOps-Gym</span></td><td>Long prompt with tables</td><td class="n">1 of 10</td><td class="n">5 of 10</td><td class="n">7 of 10</td></tr><tr><td class="b">Telecom support<br><span style="font-weight:400;color:#6b7280;font-size:.9375rem">τ²-bench</span></td><td>Manual with paths and links</td><td class="n">–</td><td class="n">63.8%</td><td class="n">–</td></tr><tr><td class="b">Airline rules<br><span style="font-weight:400;color:#6b7280;font-size:.9375rem">τ²-bench</span></td><td>Short rule list with exceptions</td><td class="n">–</td><td class="n">17 of 20</td><td class="n">–</td></tr><tr><td class="b">Multi-app tasks<br><span style="font-weight:400;color:#6b7280;font-size:.9375rem">AppWorld</span></td><td>No written policy</td><td class="n">30.0%</td><td class="n">–</td><td class="n">–</td></tr></tbody></table></div><div class="src">CUGA with no policy system. Small = gpt-oss-120b, mid = DeepSeek-V4-Pro, strong = Gemini 3.8 Flash. Each cell uses its own tasks and tool setup, so compare loosely. Our own scoring (partial score, items or tasks passed) does not compare with the public boards. – means not run on the official set.</div></div>
+</section>
+
+<section class="slide">
+  <div class="sec">Where we start</div>
+  <h2>The failures come down to seven problems, and each task set shows several.</h2>
+  <div class="vis"><div class="tw"><table class="matrix"><thead><tr><th>Problem</th><th>Business rules</th><th>Long handbook</th><th>IT service</th><th>Telecom</th><th>Airline</th><th>Multi-app</th><th>Banking<small>not run here</small></th></tr></thead><tbody><tr><td><b>1</b>The agent never sees the rule</td><td><span class="dot" title="seen in our runs">●</span></td><td></td><td></td><td></td><td></td><td></td><td><span class="ring" title="reported by others or visible in the task files">○</span></td></tr><tr><td><b>2</b>It reads the rule and breaks it anyway</td><td><span class="dot" title="seen in our runs">●</span></td><td><span class="dot" title="seen in our runs">●</span></td><td><span class="dot" title="seen in our runs">●</span></td><td></td><td><span class="dot" title="seen in our runs">●</span></td><td></td><td><span class="ring" title="reported by others or visible in the task files">○</span></td></tr><tr><td><b>3</b>Required work never happens</td><td><span class="dot" title="seen in our runs">●</span></td><td><span class="dot" title="seen in our runs">●</span></td><td><span class="dot" title="seen in our runs">●</span></td><td></td><td></td><td></td><td><span class="ring" title="reported by others or visible in the task files">○</span></td></tr><tr><td><b>4</b>It loses its place in a flow</td><td></td><td><span class="ring" title="reported by others or visible in the task files">○</span></td><td></td><td><span class="dot" title="seen in our runs">●</span></td><td></td><td></td><td><span class="ring" title="reported by others or visible in the task files">○</span></td></tr><tr><td><b>5</b>Policy text becomes wrong rules</td><td><span class="dot" title="seen in our runs">●</span></td><td><span class="dot" title="seen in our runs">●</span></td><td><span class="dot" title="seen in our runs">●</span></td><td><span class="dot" title="seen in our runs">●</span></td><td><span class="dot" title="seen in our runs">●</span></td><td></td><td><span class="ring" title="reported by others or visible in the task files">○</span></td></tr><tr><td><b>6</b>Control breaks correct work</td><td><span class="dot" title="seen in our runs">●</span></td><td><span class="dot" title="seen in our runs">●</span></td><td><span class="dot" title="seen in our runs">●</span></td><td></td><td><span class="dot" title="seen in our runs">●</span></td><td><span class="dot" title="seen in our runs">●</span></td><td></td></tr><tr><td><b>7</b>Gains are hard to prove</td><td><span class="dot" title="seen in our runs">●</span></td><td><span class="dot" title="seen in our runs">●</span></td><td><span class="dot" title="seen in our runs">●</span></td><td><span class="dot" title="seen in our runs">●</span></td><td><span class="dot" title="seen in our runs">●</span></td><td><span class="dot" title="seen in our runs">●</span></td><td><span class="ring" title="reported by others or visible in the task files">○</span></td></tr></tbody></table></div><div class="src"><span class="dot">●</span> seen in our runs. ○ reported by others or visible in the task files. Empty: not seen or not tested. Our reading of the runs, not a formal count. Banking comes from an internal study and the public task files.</div></div>
+</section>
+
+<section class="slide">
+  <div class="sec">Problem 1 of 7</div>
+  <h2>The agent never sees the rule.</h2>
+  <div class="vis"><div class="two"><div class="case"><div class="h">Real run: a $32,500 invoice</div><div class="m">Business-rule task, small model, a new task</div><p>The rule sits in company mail: <q>Over $25,000: Requires CFO approval</q></p><p>The invoice had only department-head approval.</p><p>The agent never read the rule. It told the vendor the payment was being processed.</p><div class="r">Result: 33% of the checks passed.</div></div><div class="across"><div class="hd">Across benchmarks</div><div class="row"><div class="l">Business rules</div><div class="t">With 549 tools, <b>about 60%</b> of runs open the app that holds the rules. With only the right tools: 90%.</div></div><div class="row"><div class="l">Business rules</div><div class="t">In <b>13 to 28%</b> of tasks per domain, the request never mentions a policy.</div></div><div class="row"><div class="l">Banking</div><div class="t"><b>698 documents.</b> The agent must search them, and some rules exist only there.</div></div><div class="row"><div class="l">Long handbook</div><div class="t">Less of a problem: the right procedure is picked <b>88%</b> of the time on saved actions.</div></div></div></div><div class="src">The 88% is agreement between two models on 65 saved actions, not ground truth. Public task files read 2026-10-20.</div></div>
+</section>
+
+<section class="slide">
+  <div class="sec">Problem 1 of 7</div>
+  <h2>Most published methods assume the policy is known before the run.</h2>
+  <div class="vis"><div class="tri"><div class="o"><h3>How others solve it</h3><div class="i"><span class="n">38 of 59</span>of the methods we reviewed work offline only. Only 1 works online alone (Conseca); 12 mix offline and online.<span class="w">Our review, 2026-10-21.</span></div><div class="i">Search tools over the documents reach 55.2% on banking tasks.<span class="w">Public board.</span></div><div class="i">Search by section can miss conditions that sit in another section.</div></div><div class="u"><h3>What we tried on CUGA</h3><div class="i"><span class="n">+18.9 points</span>Small model with the full system, 35 new tasks. Significant.</div><div class="i"><span class="n">+8.8 points</span>On 31 more new tasks. Could be chance.</div><div class="i">It searches mail for rules, a yes/no model marks which records are rules, and the newer rule wins.<span class="w">Measured on the whole system, not on search alone.</span></div><span class="chip g">Proven for the small model</span></div><div class="t"><h3>What we think now</h3><div class="i">Find rules during work only where the policy lives in data.</div><div class="i">A rule found during work applies only to that session. An untrusted source cannot change a trusted rule.</div><div class="i">On long documents, better search gave no gain in live runs. Search stays a part we can swap.</div></div></div></div>
+</section>
+
+<section class="slide">
+  <div class="sec">Problem 2 of 7</div>
+  <h2>The agent reads the rule and breaks it anyway.</h2>
+  <div class="vis"><div class="two"><div class="case"><div class="h">Real run: an offboarding request</div><div class="m">HR handbook task, strong model</div><ol><li>It asked for the list of procedures.</li><li>It read: <q>Do not initiate involuntary offboarding without written authorization</q>, from two named people.</li><li>The notice came from another manager.</li><li>It opened the ticket, sent 3 emails and posted <q>OFFBOARDING COMPLETE</q>.</li></ol><div class="r">Result: 16 of 22 items with the SOP queries, 16 of 22 without, in all 6 runs.</div></div><div class="across"><div class="hd">Across benchmarks</div><div class="row"><div class="l">Medical handbook</div><div class="t">A lab result must be from the last 6 months. It was <b>one day too old</b>. The strong agent submitted anyway.</div></div><div class="row"><div class="l">Insurance handbook</div><div class="t">Manager approval is needed above $5,000. A junior analyst approved <b>$7,500</b>. The strong agent marked it cleared.</div></div><div class="row"><div class="l">IT service</div><div class="t">The policy is in the prompt. On 182 saved runs, code rules give <b>11 blocks on failed runs</b> and 2 on passed runs.</div></div><div class="row"><div class="l">Banking</div><div class="t">Internal study: with the right documents in hand, <b>83%</b> of small-model failures were about using them.</div></div></div></div></div>
+</section>
+
+<section class="slide">
+  <div class="sec">Problem 2 of 7</div>
+  <h2>A check at the moment of action is the strongest answer so far.</h2>
+  <div class="vis"><div class="tri"><div class="o"><h3>How others solve it</h3><div class="i"><span class="n">+6 to +12</span>A second model reads each write. Airline, passing all 4 runs.<span class="w">PolicyGuard, authors’ number.</span></div><div class="i"><span class="n">+16.9</span>Whole harness: code checks, yes/no questions, hand-off checklist. Telecom, passing all 3 runs, average of 8 agents.<span class="w">A paper from our group.</span></div><div class="i">A model judges each tool call against plain-English rules.<span class="w">Google Semantic Governance. Preview; Google warns verdicts can be wrong.</span></div></div><div class="u"><h3>What we tried on CUGA</h3><div class="i"><span class="n">100 → 139</span>of 153 items, latest version. Strong agent, strong checker. All rounds: +19 points.</div><div class="i"><span class="n">109 → 133</span>Same check over the plain SOP. Most of the gain is the check.</div><div class="i"><span class="n">49 → 54</span>Small agent, small checker.</div><span class="chip a">Only 3 tasks we tuned on</span></div><div class="t"><h3>What we think now</h3><div class="i">Run the cheapest check first: code, then yes/no, then the strong checker.</div><div class="i">A block must quote the case data. In our first pilot, 5 of 5 blocks were wrong because the checker invented a hold code.</div><div class="i">Next test: unseen handbook tasks, and a stronger checker for a small agent.</div></div></div></div>
+</section>
+
+<section class="slide">
+  <div class="sec">Problem 3 of 7</div>
+  <h2>Required work never happens, and a check at an action cannot see it.</h2>
+  <div class="vis"><div class="two"><div class="case"><div class="h">Real run: a timer that was never paused</div><div class="m">IT service task, mid model</div><p>The policy: <q>The SLA timer must be paused (stage = paused)</q> when an incident is on hold for one of three reasons.</p><p>The agent never paused it. There was no action for a check to look at.</p><div class="r">Result: this check failed in all 5 runs of the agent alone.</div></div><div class="across"><div class="hd">Across benchmarks</div><div class="row"><div class="l">IT service</div><div class="t">Up to <b>54 of 104</b> failed checks want a value the policy states: a paused timer, a priority from the table, a knowledge draft before closing.</div></div><div class="row"><div class="l">IT service</div><div class="t"><b>870 of 876</b> policy checks looked at actions the agent made. A skipped step has no action.</div></div><div class="row"><div class="l">Business rules</div><div class="t">The strong agent handled 4 of 5 social media mentions. A policy email required the fifth. The end check said “complete”.</div></div><div class="row"><div class="l">Long handbook</div><div class="t">Graders ask for exact records: ticket IDs in a set format, template text, audit rows.</div></div></div></div><div class="src">Up to 54 of 104 is a rough count over 90 runs, with 3 checked by hand. The mentions case is one task from our first pilot.</div></div>
+</section>
+
+<section class="slide">
+  <div class="sec">Problem 3 of 7</div>
+  <h2>Telling the agent what is missing helps most with the exact value.</h2>
+  <div class="vis"><div class="tri"><div class="o"><h3>How others solve it</h3><div class="i">After the run, it finds correct outcomes where a policy check was skipped: 8 to 17% of runs. No gain reported.<span class="w">NearMiss (IBM).</span></div><div class="i">Code checks rules over a whole session: approval before an action, at most N calls.<span class="w">Dogwood (AWS), open source.</span></div><div class="i">Our reading: few published methods check for work that never happened.</div></div><div class="u"><h3>What we tried on CUGA</h3><table class="mini"><thead><tr><th>Told the agent</th><th class="n">Business</th><th class="n">IT</th></tr></thead><tbody><tr><td>Our own checklist</td><td class="n">+3.5</td><td class="n">+1.0</td></tr><tr><td>Name of failed check*</td><td class="n">+6.4</td><td class="n">+3.9</td></tr><tr><td>Name + exact value*</td><td class="n"><b>+34.1</b></td><td class="n"><b>+15.9</b></td></tr></tbody></table><div class="i"><span class="w">*Uses grader answers, so upper limits for testing. The first two rows could all be chance.</span></div><div class="i">A “when X, do Y” reminder passed the timer check in 4 of 4 runs; the task still failed. Overall effect unknown: −4.9 to +1.4 against runs from other times.</div><div class="i">A second model reading the whole run: 17.5% to 38.5% of its findings were right.</div><span class="chip n">New design not used at run time</span></div><div class="t"><h3>What we think now</h3><div class="i">Each required item says what must exist, where its value comes from, and how code recognizes it.</div><div class="i">It goes live only with false alarms at most 10% and catches at least 30%, tested on saved runs.</div><div class="i">Expect at most +4 to +6 from names alone. More only where the values are known.</div></div></div></div>
+</section>
+
+<section class="slide">
+  <div class="sec">Problem 4 of 7</div>
+  <h2>The agent loses its place in a step-by-step flow.</h2>
+  <div class="vis"><div class="two"><div class="case"><div class="h">Real run: no mobile data abroad</div><div class="m">Telecom support task, mid model</div><p>The manual says: <q>guide them to use toggle_roaming() to ensure Data Roaming is ON.</q></p><p>The agent tried many fixes, but Data Roaming stayed off.</p><p>It transferred the customer to a person: <q>Needs network-side investigation.</q></p><div class="r">Result: failed. The fix was a toggle on the phone.</div></div><div class="across"><div class="hd">Across benchmarks</div><div class="row"><div class="l">Telecom</div><div class="t"><b>24 of 26</b> failed runs had the fix among the first 5 open steps when the agent handed off. Only 7 of 26 without the manual’s links.</div></div><div class="row"><div class="l">Long handbook</div><div class="t">Procedures have ordered steps, templates and stop conditions. The mid model alone passes <b>59.3%</b> of items.</div></div><div class="row"><div class="l">Banking</div><div class="t">Some steps must run <q style="font-weight:400">in the exact order listed</q>.</div></div><div class="row"><div class="l">Top models</div><div class="t">Best public telecom score is <b>97.8%</b>. This problem shrinks fast with stronger models.</div></div></div></div><div class="src">The 24 of 26 comes from saved runs that we had looked at, so it needs fresh tasks. “Shrinks fast” is our reading of the public boards.</div></div>
+</section>
+
+<section class="slide">
+  <div class="sec">Problem 4 of 7</div>
+  <h2>Flow methods show the largest published gains, mostly on telecom.</h2>
+  <div class="vis"><div class="tri"><div class="o"><h3>How others solve it</h3><div class="i"><span class="n">32.5 → 92.5%</span>The policy becomes a fixed graph, and the model works only inside its steps. Telecom, passing all 3 runs.<span class="w">STAGE, authors’ number, GPT-5.6 Luna.</span></div><div class="i"><span class="n">25.0 → 67.5%</span>Guides the agent through a workflow. New telecom tasks, passing all 4 runs. Retail gain not significant.<span class="w">PolicyGuide. Closest to independent.</span></div><div class="i">Code runs required steps before and after the model.<span class="w">Salesforce Agent Script. No score.</span></div></div><div class="u"><h3>What we tried on CUGA</h3><div class="i"><span class="n">63.8 → 76.2%</span>Step tracker: a note before each reply with steps done and pending. 9 tasks better, 3 worse.</div><div class="i">Check of open steps at hand-off: on saved runs 24 of 26 failed runs caught, 15 of 112 passed runs flagged. Not run live.</div><span class="chip a">Could be chance</span></div><div class="t"><h3>What we think now</h3><div class="i">Use step help only on flow policies. On a rule list it hurt (problem 6).</div><div class="i">Check open steps before a transfer to a person.</div><div class="i">Confirm on 100 fresh telecom tasks, with the test fixed in advance.</div></div></div></div>
+</section>
+
+<section class="slide">
+  <div class="sec">Problem 5 of 7</div>
+  <h2>Policy text turns into missing or wrong rules.</h2>
+  <div class="vis"><div class="tw"><table class="tight"><thead><tr><th>Policy part</th><th>What the text says</th><th>What our build did</th></tr></thead><tbody><tr><td class="b">IT role table</td><td>Reporter: “Can view and update their own submitted Incidents/Requests.”</td><td><b>0 of 3</b> role rules. Rows list what is allowed; our rule type only forbids.</td></tr><tr><td class="b">IT policy sentence</td><td>“create and link a new knowledge draft before final closure”</td><td>Became <b>guidance</b> in every build, so nothing checked it.</td></tr><tr><td class="b">Telecom manual</td><td>The flow is prose: “If it shows Locked … escalate”</td><td>Tool lists and cause lists became “procedures”. <b>Unusable.</b></td></tr><tr><td class="b">Business-rule emails</td><td>Two policy emails in one search result</td><td>Only the <b>first</b> was stored, so the override was lost.</td></tr></tbody></table></div><ul><li>We patched each case. The cause remains: one build path reads every policy.</li><li>It types each statement, not the policy as a whole.</li></ul></div>
+</section>
+
+<section class="slide">
+  <div class="sec">Problem 5 of 7</div>
+  <h2>Reading the text is the weak step. The rule engine is exact.</h2>
+  <div class="vis"><div class="tri"><div class="o"><h3>How others solve it</h3><div class="i">Plain English becomes Cedar rules, checked against the tool schema. It flags rules that are too wide, too narrow or impossible.<span class="w">AWS Policy in AgentCore. Generally available.</span></div><div class="i"><span class="n">45.0 → 68.5%</span>Guard code per tool. Airline, first try, on 22 selected tasks.<span class="w">ToolGuard (IBM), authors’ number.</span></div><div class="i">We found no independent test of these methods.</div></div><div class="u"><h3>What we tried on CUGA</h3><div class="i"><span class="n">372 of 372</span>rule engine decisions match the rule file.</div><div class="i"><span class="n">104 of 182</span>rule-breaking tests caught: 84 by our rules, 20 by the tool schema. 1 wrong block in 165 allowed tests.<span class="w">One IT service policy; tests written from its text.</span></div><div class="i">ToolGuard’s first step on the same policy: same catches as ours, 43 of 54. False flags 34 vs 12 of 49.</div><span class="chip a">Engine exact; parsing by type not built</span></div><div class="t"><h3>What we think now</h3><div class="i">Parse each policy by its type: most tables by code, procedures with steps, rule lists with exceptions, flows with links.</div><div class="i">Claude builds the policy file for now. A validator and tests check every file. An automatic build comes later.</div></div></div></div>
+</section>
+
+<section class="slide">
+  <div class="sec">Problem 6 of 7</div>
+  <h2>Control can break correct work.</h2>
+  <div class="vis"><div class="two"><div class="case"><div class="h">Real run: a rule shown without its exception</div><div class="m">Airline rule task, mid model, with the step tracker</div><p>The note said: <q>Check that flights are not basic economy (cannot be modified)</q></p><p>The same policy also says: <q>all reservations, including basic economy, can change cabin without changing the flights.</q></p><p>The agent refused. Without the note, it changed the cabin, the passenger and the bags, and passed.</p><div class="r">Result over 20 tasks: 17 → 11 passed. 0 better, 6 worse.</div></div><div class="across"><div class="hd">Across benchmarks</div><div class="row"><div class="l">Business rules</div><div class="t">Strong agent with small-model checks: <b>80.9% → 75.1%</b>, could be chance. Rules broken: <b>1 → 24</b>.</div></div><div class="row"><div class="l">Long handbook</div><div class="t">Strong model with the step-by-step loop: <b>−7.8 points</b>. A small model’s questions marked real work as an exception.</div></div><div class="row"><div class="l">IT service</div><div class="t">Wrong checklist items: <b>−7 to −13</b>, a rough number. Role rules as blocks hit <b>20 of 93</b> passed runs.</div></div><div class="row"><div class="l">Multi-app</div><div class="t">Written guidance for the small model: 19 tasks fixed, <b>5 broken</b>.</div></div></div></div></div>
+</section>
+
+<section class="slide">
+  <div class="sec">Problem 6 of 7</div>
+  <h2>A strong agent gains less, and small-model checks can hurt it.</h2>
+  <div class="vis"><div class="tri"><div class="o"><h3>How others solve it</h3><div class="i">A log-only or dry-run mode tests rules before they block.<span class="w">AWS AgentCore, Google Semantic Governance. Optional.</span></div><div class="i">It drops checks that fire on over 10% of development calls. Gain did not follow strength: weakest +6.1, Opus 4.6 +41.2, strongest +7.9.<span class="w">A paper from our group.</span></div><div class="i">A second model blocks about half as often as checks on arguments alone.<span class="w">PolicyGuard, authors’ claim.</span></div></div><div class="u"><h3>What we tried on CUGA</h3><div class="i"><span class="n">+8.8</span>Small agent, same 31 new tasks. Could be chance.</div><div class="i"><span class="n">−5.8</span>Strong agent, same tasks, small-model checks. Could be chance.</div><div class="i">With a strong checker, the strong agent gained on handbook tasks (problem 2).</div><div class="i">Rules from the harms: show exceptions, block once with a quote from the case, report only missing work.</div><span class="chip n">Level switch not built</span></div><div class="t"><h3>What we think now</h3><div class="i">Match the checker to the agent, and never give a strong agent weak checks.</div><div class="i">Four control levels: observe, advise, check, control. Hard rules stop work at every level except observe.</div><div class="i">Money, external email and delete get strict checks with any model.</div><div class="i">The levels are a hypothesis until measured.</div></div></div></div>
+</section>
+
+<section class="slide">
+  <div class="sec">Problem 7 of 7</div>
+  <h2>Most gains are not proven yet, including ours.</h2>
+  <div class="vis"><div class="tri"><div class="o"><h3>How others solve it</h3><div class="i">We found no independent repeat of the compile and flow papers.</div><div class="i"><span class="n">−1.8 points</span>Telecom gain with a different simulated user, in a paper from our group.</div><div class="i">Only 3 of 65 handbook tasks are public, and each paper reports on its own setup.</div></div><div class="u"><h3>What we tried on CUGA</h3><div class="i"><span class="n">False +13.8</span>A run from hours earlier gave this gain. It went away when both ran at the same time.</div><div class="i"><span class="n">18 of 20</span>on the first 20 tasks became 19 of 40 on the official set.</div><div class="i"><span class="n">+20.3</span>The best round became +14.2 over all rounds.</div><div class="i">Graders can disagree with the policy: IT service graders expect managers to update records the role table forbids.</div><span class="chip g">One significant gain so far</span></div><div class="t"><h3>What we think now</h3><div class="i">Six test rules: same time, each task once, all rounds, official sets, no grader answers in the system, saved runs first.</div><div class="i">We need unseen handbook tasks and fresh telecom tasks.</div><div class="i">No new experiments until the base is stable. Then measure each setup again.</div></div></div></div>
+</section>
+
+<section class="slide">
+  <div class="sec">The fix</div>
+  <h2>Others solved parts of this. So did we. Nobody has all seven.</h2>
+  <div class="vis"><div class="tw"><table class="tight"><thead><tr><th></th><th>Problem</th><th>Best published answer</th><th>Best on CUGA</th><th>Our status</th></tr></thead><tbody><tr><td class="b" style="color:var(--accent)">1</td><td class="b">Never sees the rule</td><td>Search over documents; 1 of 59 methods works online alone</td><td>Small model +18.9, whole system, new tasks</td><td class="st g">Proven for small</td></tr><tr><td class="b" style="color:var(--accent)">2</td><td class="b">Breaks a rule it read</td><td>Second model at each write +6 to +12; whole harness with yes/no checks +16.9</td><td>Strong agent +19 over all rounds (+25.5 latest)</td><td class="st a">Tuned tasks only</td></tr><tr><td class="b" style="color:var(--accent)">3</td><td class="b">Required work missing</td><td>After-run finders; no gain reported</td><td>Own checklist +1.0 to +3.5</td><td class="st k">New design not live</td></tr><tr><td class="b" style="color:var(--accent)">4</td><td class="b">Loses its place in a flow</td><td>Fixed graph, telecom: 32.5 → 92.5%</td><td>Step tracker +12.5</td><td class="st a">Could be chance</td></tr><tr><td class="b" style="color:var(--accent)">5</td><td class="b">Text becomes wrong rules</td><td>Text to Cedar at AWS; guard code</td><td>Engine 372 of 372; 104 of 182 caught</td><td class="st k">Parsing by type not built</td></tr><tr><td class="b" style="color:var(--accent)">6</td><td class="b">Control breaks work</td><td>Log-only first; drop noisy checks</td><td>Same 31 tasks: small +8.8, strong −5.8</td><td class="st k">Level switch not built</td></tr><tr><td class="b" style="color:var(--accent)">7</td><td class="b">Hard to prove</td><td>No independent repeats found</td><td>One significant gain</td><td class="st a">Needs unseen tasks</td></tr></tbody></table></div><div class="src">“Nobody has all seven” is our reading of the papers and products we reviewed. Published numbers are the authors’ own, and each uses its own tasks and measure. Points are against the same model alone.</div></div>
+</section>
+
+<section class="slide">
+  <div class="sec">The fix</div>
+  <h2>The fix starts with parsing each policy by its type.</h2>
+  <div class="vis"><div class="tw"><table class="tight"><thead><tr><th>Type of policy</th><th>Real example</th><th>How to parse it</th><th>What runs</th><th>Status</th></tr></thead><tbody><tr><td class="b">Long document</td><td>Offboarding needs written authorization</td><td>Procedures, must-not rules, templates; required work in the file only</td><td>Agent opens the procedure; check before each action</td><td class="st a">Built; tuned tasks only</td></tr><tr><td class="b">Rules in data</td><td>An email from the COO replaces an older rule</td><td>Nothing ahead of time; read during work, with source and date</td><td>Search; newer rule wins; yes/no checks</td><td class="st g">Built; proven for small</td></tr><tr><td class="b">Step-by-step flow</td><td>One fault leads to another manual section</td><td>Sections by heading; links kept</td><td>Step note; check before hand-off</td><td class="st a">Note built; check not live</td></tr><tr><td class="b">Rule list</td><td>Basic economy cannot be modified, unless the cabin changes first</td><td>Each rule together with its exceptions</td><td>Hard rules; no step tracker</td><td class="st k">Not built</td></tr><tr><td class="b">Tables, in any policy</td><td>Status changes, priority matrix, role table</td><td>Status changes and matrix: code. Role table: one model call per row</td><td>Hard rules by code; role rules only remind</td><td class="st g">Built; engine exact, reading not</td></tr></tbody></table></div><ul><li>Today one build path reads every policy, and we choose the method by hand for each experiment.</li><li>Choosing the route automatically by policy type is designed, not built.</li></ul></div>
+</section>
+
+<section class="slide">
+  <div class="sec">The fix</div>
+  <h2>One design: each part answers one of the seven problems.</h2>
+  <div class="vis"><svg viewBox="0 0 1112 420" role="img" aria-label="Design: policy sources are routed by type, built into one policy file, three checks decide, CUGA acts. Each part carries the number of the problem it answers."><defs><marker id="pa" markerWidth="8" markerHeight="8" refX="7" refY="4" orient="auto"><path d="M0 0 L8 4 L0 8 z" fill="#9ca3af"/></marker></defs><g font-size="13.5" font-weight="700" letter-spacing=".06em" fill="#6b7280"><text x="0" y="14">POLICY SOURCES</text><text x="244" y="14">BUILD AND FIND RULES</text><text x="456" y="14">ONE POLICY FILE</text><text x="686" y="14">DECIDE</text><text x="916" y="14">ACT IN CUGA</text></g><rect x="448" y="20" width="212" height="316" rx="11" fill="#f9fafb" stroke="#e5e7eb"/><g stroke="#9ca3af" stroke-width="1.5" fill="none"><path d="M422 72 H436"/><path d="M422 178 H436"/><path d="M422 284 H436"/><path d="M436 72 V284"/><path d="M652 178 H668"/><path d="M668 61 V295"/><path d="M882 61 H899"/><path d="M882 139 H899"/><path d="M882 217 H899"/><path d="M882 295 H899"/><path d="M899 72 V295"/></g><g stroke="#9ca3af" stroke-width="1.5" fill="none" marker-end="url(#pa)"><path d="M172 54 H186" marker-end="url(#pa)"/><path d="M172 116 H186" marker-end="url(#pa)"/><path d="M172 178 H186" marker-end="url(#pa)"/><path d="M172 240 H186" marker-end="url(#pa)"/><path d="M172 302 H186" marker-end="url(#pa)"/><path d="M226 72 H242" marker-end="url(#pa)"/><path d="M226 178 H242" marker-end="url(#pa)"/><path d="M226 284 H242" marker-end="url(#pa)"/><path d="M436 139 H454" marker-end="url(#pa)"/><path d="M436 217 H454" marker-end="url(#pa)"/><path d="M668 61 H684" marker-end="url(#pa)"/><path d="M668 139 H684" marker-end="url(#pa)"/><path d="M668 217 H684" marker-end="url(#pa)"/><path d="M668 295 H684" marker-end="url(#pa)"/><path d="M899 72 H914" marker-end="url(#pa)"/><path d="M899 178 H914" marker-end="url(#pa)"/><path d="M899 284 H914" marker-end="url(#pa)"/></g><path d="M1014 328 V350 H333 V332" fill="none" stroke="#9ca3af" stroke-width="1.5" stroke-dasharray="4 4" marker-end="url(#pa)"/><text x="690" y="345" font-size="14" fill="#6b7280" text-anchor="middle">tool results feed back</text><rect x="188" y="28" width="38" height="300" rx="9" fill="#fff" stroke="#1d4ed8" stroke-width="1.75" stroke-dasharray="6 4"/><text transform="translate(212,178) rotate(-90)" font-size="16" font-weight="700" fill="#111827" text-anchor="middle">Route by type of policy</text><circle cx="221" cy="31" r="11" fill="#111827"/><text x="221" y="35.5" font-size="13" font-weight="700" fill="#fff" text-anchor="middle">5</text><rect x="0" y="28" width="172" height="52" rx="9" fill="#fff" stroke="#d1d5db" stroke-width="1.25"/><text x="86.0" y="51" font-size="16" font-weight="700" fill="#111827" text-anchor="middle">Long documents</text><text x="86.0" y="71" font-size="14" fill="#4b5563" text-anchor="middle">SOPs, handbooks</text><rect x="0" y="90" width="172" height="52" rx="9" fill="#fff" stroke="#d1d5db" stroke-width="1.25"/><text x="86.0" y="113" font-size="16" font-weight="700" fill="#111827" text-anchor="middle">Rules in data</text><text x="86.0" y="133" font-size="14" fill="#4b5563" text-anchor="middle">emails, sheets</text><rect x="0" y="152" width="172" height="52" rx="9" fill="#fff" stroke="#d1d5db" stroke-width="1.25"/><text x="86.0" y="175" font-size="16" font-weight="700" fill="#111827" text-anchor="middle">Step-by-step flows</text><text x="86.0" y="195" font-size="14" fill="#4b5563" text-anchor="middle">support manuals</text><rect x="0" y="214" width="172" height="52" rx="9" fill="#fff" stroke="#d1d5db" stroke-width="1.25"/><text x="86.0" y="237" font-size="16" font-weight="700" fill="#111827" text-anchor="middle">Rule lists</text><text x="86.0" y="257" font-size="14" fill="#4b5563" text-anchor="middle">with exceptions</text><rect x="0" y="276" width="172" height="52" rx="9" fill="#fff" stroke="#d1d5db" stroke-width="1.25"/><text x="86.0" y="299" font-size="16" font-weight="700" fill="#111827" text-anchor="middle">User request</text><text x="86.0" y="319" font-size="14" fill="#4b5563" text-anchor="middle">what was asked</text><rect x="244" y="28" width="178" height="88" rx="9" fill="#fff" stroke="#d1d5db" stroke-width="1.25"/><text x="333.0" y="60" font-size="16" font-weight="700" fill="#111827" text-anchor="middle">Offline build</text><text x="333.0" y="80" font-size="14" fill="#4b5563" text-anchor="middle">by Claude now,</text><text x="333.0" y="98" font-size="14" fill="#4b5563" text-anchor="middle">automatic later</text><circle cx="417" cy="31" r="11" fill="#111827"/><text x="417" y="35.5" font-size="13" font-weight="700" fill="#fff" text-anchor="middle">5</text><rect x="244" y="134" width="178" height="88" rx="9" fill="#fff" stroke="#d1d5db" stroke-width="1.25"/><text x="333.0" y="175" font-size="16" font-weight="700" fill="#111827" text-anchor="middle">Found during work</text><text x="333.0" y="195" font-size="14" fill="#4b5563" text-anchor="middle">rules in tool results</text><circle cx="417" cy="137" r="11" fill="#111827"/><text x="417" y="141.5" font-size="13" font-weight="700" fill="#fff" text-anchor="middle">1</text><rect x="244" y="240" width="178" height="88" rx="9" fill="#fff" stroke="#d1d5db" stroke-width="1.25"/><text x="333.0" y="281" font-size="16" font-weight="700" fill="#111827" text-anchor="middle">Search for rules</text><text x="333.0" y="301" font-size="14" fill="#4b5563" text-anchor="middle">in mail and documents</text><circle cx="417" cy="243" r="11" fill="#111827"/><text x="417" y="247.5" font-size="13" font-weight="700" fill="#fff" text-anchor="middle">1</text><rect x="456" y="28" width="196" height="66" rx="9" fill="#fff" stroke="#d1d5db" stroke-width="1.25"/><text x="554.0" y="58" font-size="16" font-weight="700" fill="#111827" text-anchor="middle">Rules</text><text x="554.0" y="78" font-size="14" fill="#4b5563" text-anchor="middle">hard · judgment · guidance</text><circle cx="647" cy="31" r="11" fill="#111827"/><text x="647" y="35.5" font-size="13" font-weight="700" fill="#fff" text-anchor="middle">5</text><rect x="456" y="106" width="196" height="66" rx="9" fill="#fff" stroke="#d1d5db" stroke-width="1.25"/><text x="554.0" y="127" font-size="16" font-weight="700" fill="#111827" text-anchor="middle">Procedures</text><text x="554.0" y="147" font-size="14" fill="#4b5563" text-anchor="middle">steps, templates,</text><text x="554.0" y="165" font-size="14" fill="#4b5563" text-anchor="middle">what must not happen</text><circle cx="647" cy="109" r="11" fill="#111827"/><text x="647" y="113.5" font-size="13" font-weight="700" fill="#fff" text-anchor="middle">4</text><rect x="456" y="184" width="196" height="66" rx="9" fill="#fff" stroke="#1d4ed8" stroke-width="1.75" stroke-dasharray="6 4"/><text x="554.0" y="214" font-size="16" font-weight="700" fill="#111827" text-anchor="middle">Required work</text><text x="554.0" y="234" font-size="14" fill="#4b5563" text-anchor="middle">what must exist at the end</text><circle cx="647" cy="187" r="11" fill="#111827"/><text x="647" y="191.5" font-size="13" font-weight="700" fill="#fff" text-anchor="middle">3</text><rect x="456" y="262" width="196" height="66" rx="9" fill="#fff" stroke="#d1d5db" stroke-width="1.25"/><text x="554.0" y="292" font-size="16" font-weight="700" fill="#111827" text-anchor="middle">Priorities</text><text x="554.0" y="312" font-size="14" fill="#4b5563" text-anchor="middle">date and rank of a rule</text><circle cx="647" cy="265" r="11" fill="#111827"/><text x="647" y="269.5" font-size="13" font-weight="700" fill="#fff" text-anchor="middle">1</text><rect x="686" y="28" width="196" height="66" rx="9" fill="#fff" stroke="#d1d5db" stroke-width="1.25"/><text x="784.0" y="58" font-size="16" font-weight="700" fill="#111827" text-anchor="middle">Find the procedure</text><text x="784.0" y="78" font-size="14" fill="#4b5563" text-anchor="middle">the agent opens it</text><circle cx="877" cy="31" r="11" fill="#111827"/><text x="877" y="35.5" font-size="13" font-weight="700" fill="#fff" text-anchor="middle">1</text><rect x="686" y="106" width="196" height="66" rx="9" fill="#fff" stroke="#d1d5db" stroke-width="1.25"/><text x="784.0" y="136" font-size="16" font-weight="700" fill="#111827" text-anchor="middle">Check: hard rules</text><text x="784.0" y="156" font-size="14" fill="#4b5563" text-anchor="middle">code decides, always first</text><circle cx="877" cy="109" r="11" fill="#111827"/><text x="877" y="113.5" font-size="13" font-weight="700" fill="#fff" text-anchor="middle">2</text><rect x="686" y="184" width="196" height="66" rx="9" fill="#fff" stroke="#d1d5db" stroke-width="1.25"/><text x="784.0" y="205" font-size="16" font-weight="700" fill="#111827" text-anchor="middle">Check: judgment</text><text x="784.0" y="225" font-size="14" fill="#4b5563" text-anchor="middle">yes/no model or</text><text x="784.0" y="243" font-size="14" fill="#4b5563" text-anchor="middle">strong checker + evidence</text><circle cx="877" cy="187" r="11" fill="#111827"/><text x="877" y="191.5" font-size="13" font-weight="700" fill="#fff" text-anchor="middle">2</text><rect x="686" y="262" width="196" height="66" rx="9" fill="#fff" stroke="#1d4ed8" stroke-width="1.75" stroke-dasharray="6 4"/><text x="784.0" y="283" font-size="16" font-weight="700" fill="#111827" text-anchor="middle">Check: required work</text><text x="784.0" y="303" font-size="14" fill="#4b5563" text-anchor="middle">at the end, asks for</text><text x="784.0" y="321" font-size="14" fill="#4b5563" text-anchor="middle">what is missing</text><circle cx="877" cy="265" r="11" fill="#111827"/><text x="877" y="269.5" font-size="13" font-weight="700" fill="#fff" text-anchor="middle">3</text><rect x="916" y="28" width="196" height="88" rx="9" fill="#fff" stroke="#d1d5db" stroke-width="1.25"/><text x="1014.0" y="69" font-size="16" font-weight="700" fill="#111827" text-anchor="middle">Agent steps</text><text x="1014.0" y="89" font-size="14" fill="#4b5563" text-anchor="middle">checks run at 9 points</text><rect x="916" y="134" width="196" height="88" rx="9" fill="#fff" stroke="#d1d5db" stroke-width="1.25"/><text x="1014.0" y="166" font-size="16" font-weight="700" fill="#111827" text-anchor="middle">Guides</text><text x="1014.0" y="186" font-size="14" fill="#4b5563" text-anchor="middle">step guide, loop, tracker,</text><text x="1014.0" y="204" font-size="14" fill="#4b5563" text-anchor="middle">by type of policy</text><circle cx="1107" cy="137" r="11" fill="#111827"/><text x="1107" y="141.5" font-size="13" font-weight="700" fill="#fff" text-anchor="middle">4</text><rect x="916" y="240" width="196" height="88" rx="9" fill="#fff" stroke="#d1d5db" stroke-width="1.25"/><text x="1014.0" y="272" font-size="16" font-weight="700" fill="#111827" text-anchor="middle">Effects</text><text x="1014.0" y="292" font-size="14" fill="#4b5563" text-anchor="middle">allow · remind · block once</text><text x="1014.0" y="310" font-size="14" fill="#4b5563" text-anchor="middle">hold · follow-up</text><circle cx="1107" cy="243" r="11" fill="#111827"/><text x="1107" y="247.5" font-size="13" font-weight="700" fill="#fff" text-anchor="middle">6</text><rect x="0" y="366" width="263" height="52" rx="9" fill="#fff" stroke="#d1d5db" stroke-width="1.25"/><text x="131.5" y="389" font-size="16" font-weight="700" fill="#111827" text-anchor="middle">One configuration</text><text x="131.5" y="409" font-size="14" fill="#4b5563" text-anchor="middle">one file per deployment</text><rect x="283" y="366" width="263" height="52" rx="9" fill="#fff" stroke="#1d4ed8" stroke-width="1.75" stroke-dasharray="6 4"/><text x="414.5" y="389" font-size="16" font-weight="700" fill="#111827" text-anchor="middle">Control level</text><text x="414.5" y="409" font-size="14" fill="#4b5563" text-anchor="middle">by agent strength and risk</text><circle cx="541" cy="369" r="11" fill="#111827"/><text x="541" y="373.5" font-size="13" font-weight="700" fill="#fff" text-anchor="middle">6</text><rect x="566" y="366" width="263" height="52" rx="9" fill="#fff" stroke="#d1d5db" stroke-width="1.25"/><text x="697.5" y="389" font-size="16" font-weight="700" fill="#111827" text-anchor="middle">Trace + audit log</text><text x="697.5" y="409" font-size="14" fill="#4b5563" text-anchor="middle">every decision, rule, version</text><circle cx="824" cy="369" r="11" fill="#111827"/><text x="824" y="373.5" font-size="13" font-weight="700" fill="#fff" text-anchor="middle">7</text><rect x="849" y="366" width="263" height="52" rx="9" fill="#fff" stroke="#d1d5db" stroke-width="1.25"/><text x="980.5" y="389" font-size="16" font-weight="700" fill="#111827" text-anchor="middle">Tests on new tasks</text><text x="980.5" y="409" font-size="14" fill="#4b5563" text-anchor="middle">saved runs first, one way to run</text><circle cx="1107" cy="369" r="11" fill="#111827"/><text x="1107" y="373.5" font-size="13" font-weight="700" fill="#fff" text-anchor="middle">7</text></svg><div class="legend"><span><b>1</b>Never sees the rule</span><span><b>2</b>Breaks a rule it read</span><span><b>3</b>Required work missing</span><span><b>4</b>Loses its place</span><span><b>5</b>Text becomes wrong rules</span><span><b>6</b>Control breaks work</span><span><b>7</b>Hard to prove</span></div><div class="src">Dashed blue: not used at run time yet. Also not built: the order of the checks and a swappable search. The rest runs on a local branch, not yet in CUGA. The whole design has not run as one system.</div></div>
+</section>
+
+<section class="slide">
+  <div class="sec">Backup</div>
+  <h2>Stronger models shrink some problems. They do not remove limits and evidence.</h2>
+  <div class="vis"><div class="tw"><table class="tight"><thead><tr><th>Problem</th><th>As models get stronger</th><th>Evidence</th></tr></thead><tbody><tr><td class="b">1 Never sees the rule</td><td class="b">Still open, rising fast</td><td>Business rules, strict board: best 53.9%, about 6 points a month</td></tr><tr><td class="b">2 Breaks a rule it read</td><td class="b">Stays for now</td><td>The strong model offboarded in every run with no check</td></tr><tr><td class="b">3 Required work missing</td><td class="b">Shrinks slowly</td><td>Enterprise operations grades final records: best 51.1%</td></tr><tr><td class="b">4 Loses its place</td><td class="b">Shrinks fast</td><td>Telecom: best 97.8% on the public board</td></tr><tr><td class="b">5 Text becomes wrong rules</td><td class="b">Gets easier</td><td>A strong model can build the file; it still needs review</td></tr><tr><td class="b">6 Control breaks work</td><td class="b">Grows if checks are weaker than the agent</td><td>Same 31 tasks: small +8.8, strong −5.8, both could be chance</td></tr><tr><td class="b">7 Hard to prove</td><td class="b">Stays</td><td>Needs unseen tasks whatever the model</td></tr></tbody></table></div><ul><li>Best scores rise about 2 to 6 points a month on the two comparable series.</li><li>Law still asks for logs, access limits, a named owner and a stop function.</li></ul><div class="src">The middle column is our reading, not a measurement. Research report, 2026-11-05.</div></div>
+</section>
+
+<section class="slide">
+  <div class="sec">Backup</div>
+  <h2>Where the published numbers come from.</h2>
+  <div class="vis"><div class="srcs"><div><b>Conseca</b><br>arXiv 2501.17070</div><div><b>PolicyGuard</b><br>arXiv 2606.29225</div><div><b>Narrow questions (our group)</b><br>JevAct, arXiv 2610.38620</div><div><b>Google Semantic Governance</b><br>Google Cloud docs, Preview 2026-06-29</div><div><b>NearMiss</b><br>IBM, builds on ToolGuard</div><div><b>Dogwood temporal policies</b><br>AWS docs, open source, August 2026</div><div><b>STAGE</b><br>arXiv 2608.22538, v3 2026-11-01</div><div><b>PolicyGuide</b><br>arXiv 2608.19861</div><div><b>Salesforce Agent Script</b><br>GA per Salesforce blog, 2026-02-20</div><div><b>AWS Policy in AgentCore</b><br>GA 2026-03-03, AWS docs</div><div><b>ToolGuard</b><br>IBM, arXiv 2507.16459</div><div><b>Public boards</b><br>taubench.com, Surge, Zapier, Artificial Analysis; read 2026-11-05</div><div><b>Our numbers</b><br>benchmarks/policy_eval/changes.md, best_profiles.json</div><div><b>Our review</b><br>docs/analysis/2026-10-20-agent-policy-enforcement-sota.md; reports/Future of agent policies.md</div></div><div class="src">Published numbers are the authors’ or vendors’ own unless stated. We did not re-run them, apart from the first step of ToolGuard.</div></div>
+</section>
+
+</div>
+<nav id="nav" aria-label="Slide controls">
+  <button class="navbtn" id="prev" aria-label="Previous slide">Prev</button>
+  <div id="dots"></div>
+  <span id="count"></span>
+  <button class="navbtn" id="next" aria-label="Next slide">Next</button>
+</nav>
+<script>
+const slides=[...document.querySelectorAll('.slide')],dots=document.getElementById('dots');
+const prog=document.getElementById('progress'),count=document.getElementById('count');
+const prev=document.getElementById('prev'),next=document.getElementById('next');
+let cur=0,seq=0;const PUSH_MS=450,ANIM=['push-exit-l','push-exit-r','push-enter-r','push-enter-l'];
+const reduce=matchMedia('(prefers-reduced-motion: reduce)');
+slides.forEach((s,i)=>{const b=document.createElement('button');b.setAttribute('aria-label','Go to slide '+(i+1));
+  b.addEventListener('click',()=>goTo(i));dots.appendChild(b)});
+function update(){
+  prog.style.width=((cur+1)/slides.length*100)+'%';
+  count.textContent=(cur+1)+' / '+slides.length;
+  [...dots.children].forEach((b,i)=>b.classList.toggle('on',i===cur));
+  prev.disabled=cur===0;next.disabled=cur===slides.length-1;
+  history.replaceState(null,'','#'+(cur+1));
+}
+function goTo(n){
+  if(n<0||n>=slides.length||n===cur)return;
+  const fwd=n>cur,out=slides[cur],inn=slides[n],my=++seq;
+  slides.forEach(s=>{if(s!==out&&s!==inn)s.classList.remove('active');s.classList.remove(...ANIM)});
+  inn.scrollTop=0;inn.classList.add('active');
+  if(reduce.matches)out.classList.remove('active');
+  else{
+    void inn.offsetWidth;
+    out.classList.add(fwd?'push-exit-l':'push-exit-r');
+    inn.classList.add(fwd?'push-enter-r':'push-enter-l');
+    setTimeout(()=>{if(my!==seq)return;out.classList.remove('active',...ANIM);inn.classList.remove(...ANIM)},PUSH_MS+30);
+  }
+  cur=n;update();
+}
+prev.addEventListener('click',()=>goTo(cur-1));
+next.addEventListener('click',()=>goTo(cur+1));
+addEventListener('keydown',e=>{
+  if(e.metaKey||e.ctrlKey||e.altKey)return;
+  const k=e.key;
+  if(k==='ArrowRight'||k==='ArrowDown'||k===' '||k==='PageDown'||k==='j'){e.preventDefault();goTo(cur+1)}
+  else if(k==='ArrowLeft'||k==='ArrowUp'||k==='PageUp'||k==='k'){e.preventDefault();goTo(cur-1)}
+  else if(k==='Home'){e.preventDefault();goTo(0)}
+  else if(k==='End'){e.preventDefault();goTo(slides.length-1)}
+  else if(k==='f'||k==='F'){document.fullscreenElement?document.exitFullscreen():document.documentElement.requestFullscreen&&document.documentElement.requestFullscreen()}
+});
+let tx=null,ty=null;
+addEventListener('touchstart',e=>{if(e.target.closest('.tw')){tx=null;return}tx=e.touches[0].clientX;ty=e.touches[0].clientY},{passive:true});
+addEventListener('touchend',e=>{if(tx===null)return;const dx=e.changedTouches[0].clientX-tx,dy=e.changedTouches[0].clientY-ty;
+  tx=null;if(Math.abs(dx)>50&&Math.abs(dx)>Math.abs(dy))goTo(cur+(dx<0?1:-1))},{passive:true});
+const h=parseInt(location.hash.slice(1),10);
+if(h>=1&&h<=slides.length&&h!==1){slides[0].classList.remove('active');cur=h-1;slides[cur].classList.add('active')}
+update();
+</script>
+</body></html>

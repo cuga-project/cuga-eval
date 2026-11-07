@@ -1,0 +1,274 @@
+<!doctype html>
+<html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<title>A policy layer for CUGA: proposal (concise)</title>
+<style>
+:root{--ink:#000;--muted:#6b7280;--line:#e5e7eb;--accent:#1d4ed8;--bar:#9ca3af;--good:#047857;--bad:#b91c1c}
+*{box-sizing:border-box}
+body{margin:0;background:#fff;color:var(--ink);
+ font:18px/1.5 system-ui,-apple-system,"Segoe UI",sans-serif;-webkit-font-smoothing:antialiased}
+.deck{max-width:960px;margin:0 auto;padding:24px 16px 64px}
+.slide{padding:44px 8px 36px;border-bottom:1px solid var(--line);page-break-after:always}
+h1{font-size:40px;line-height:1.15;margin:0 0 28px;letter-spacing:-.02em}
+h2{font-size:30px;line-height:1.2;margin:0 0 22px;letter-spacing:-.015em}
+h1,h2{text-wrap:balance}
+ul{margin:20px 0 0;padding-left:22px}li{margin:6px 0}
+.big{display:flex;gap:40px;flex-wrap:wrap}.big .v{font-size:56px;font-weight:700;
+ font-variant-numeric:tabular-nums;line-height:1.1}.big .k{color:var(--muted);font-size:15px;max-width:220px}
+.big .v.bad{color:var(--bad)}.big .v.good{color:var(--good)}
+.src{color:var(--muted);font-size:13px;margin-top:18px}
+.meta{color:var(--muted);font-size:14px;margin:0 0 10px}
+svg{display:block;max-width:100%;height:auto;font-family:inherit}
+code{font-family:ui-monospace,SFMono-Regular,Menlo,monospace;font-size:.9em;overflow-wrap:anywhere}
+.tw{overflow-x:auto}
+@media (max-width:640px){body{font-size:16px}h1{font-size:30px}h2{font-size:23px}.big{gap:24px}.big .v{font-size:40px}}
+@media print{.slide{border:none;min-height:100vh}}
+</style></head>
+<body><div class="deck">
+
+<!-- 1 -->
+<div class="slide">
+  <div class="meta">Proposal · 2026-11-01</div>
+  <h1>A policy layer for CUGA: any policy becomes checks at the agent's hooks</h1>
+  <div class="big">
+    <div><div class="v">2</div><div class="k">intake paths: before and during the run</div></div>
+    <div><div class="v">19</div><div class="k">statement types, each routed to a checker</div></div>
+    <div><div class="v">9</div><div class="k">CUGA hooks; only tool and plan hooks block</div></div>
+  </div>
+  <ul>
+    <li>Status: runs end to end; no violating write stopped in replay yet.</li>
+    <li>Ask: agree to the next two steps, both measured by replay.</li>
+  </ul>
+  <div class="src">Design: docs/superpowers/specs/2026-11-01-policy-intake-design.md (19 types, section 4). Hooks: policy-flow.html section 3. Code: cuga-agent-gate, branch feat/policy-gate, package cuga.policy_layer (uncommitted).</div>
+</div>
+
+<!-- 2 -->
+<div class="slide">
+  <h2>Even top models pass about half of policy tasks or fewer</h2>
+  <svg viewBox="0 0 640 176" width="100%" role="img" aria-label="Best reported pass rate per policy benchmark">
+    <g font-size="17" fill="#000">
+      <text x="0" y="35">τ³ banking_knowledge</text>
+      <rect x="200" y="14" width="205" height="30" fill="#9ca3af"/>
+      <text x="413" y="35" font-weight="700">51.3%</text>
+      <text x="0" y="85">EnterpriseOps-Gym</text>
+      <rect x="200" y="64" width="204" height="30" fill="#9ca3af"/>
+      <text x="412" y="85" font-weight="700">51.1%</text>
+      <text x="0" y="135">HANDBOOK.md</text>
+      <rect x="200" y="114" width="88" height="30" fill="#9ca3af"/>
+      <text x="296" y="135" font-weight="700">~22%</text>
+    </g>
+    <text x="200" y="170" font-size="14" fill="#6b7280">Best reported model per benchmark (%); metrics differ</text>
+  </svg>
+  <ul>
+    <li>gpt-oss-120b: 13% on τ³, even with the right documents given.</li>
+    <li>83% of its failures came from not using the given context.</li>
+    <li>Policy text in the prompt is only advice; nothing enforces it.</li>
+  </ul>
+  <div class="src">Leaderboards checked 2026-10-21 (2026-10-21-policy-sota-benchmarks-slides.html): τ³ pass@1, EnterpriseOps-Gym task success, HANDBOOK.md strict pass@1. gpt-oss-120b: CUGA on τ³ with golden retrieval, Boaz internship report, in 2026-10-20-agent-policy-enforcement-sota.md.</div>
+</div>
+
+<!-- 3 -->
+<div class="slide">
+  <h2>Policies enter before or during the run; checks run at CUGA's hooks</h2>
+  <svg viewBox="0 0 640 262" width="100%" role="img" aria-label="Sources feed offline and online intake, which fill one policy model; checks at the hooks act on the CUGA agent">
+    <defs><marker id="a3" markerWidth="8" markerHeight="8" refX="7" refY="4" orient="auto"><path d="M0 0 L8 4 L0 8 z" fill="#6b7280"/></marker></defs>
+    <g font-size="13" font-weight="700" fill="#6b7280" letter-spacing=".05em">
+      <text x="0" y="14">SOURCES</text><text x="170" y="14">INTAKE</text>
+      <text x="340" y="14">POLICY MODEL</text><text x="510" y="14">AT THE HOOKS</text>
+    </g>
+    <g font-size="17" fill="#000" text-anchor="middle">
+      <rect x="0" y="26" width="130" height="44" rx="8" fill="#fafafa" stroke="#e5e7eb"/><text x="65" y="53">Documents</text>
+      <rect x="0" y="112" width="130" height="44" rx="8" fill="#fafafa" stroke="#e5e7eb"/><text x="65" y="139">User request</text>
+      <rect x="0" y="168" width="130" height="44" rx="8" fill="#fafafa" stroke="#e5e7eb"/><text x="65" y="195">Tool output</text>
+
+      <rect x="170" y="26" width="130" height="44" rx="8" fill="#eff6ff" stroke="#1d4ed8"/><text x="235" y="45">Offline build</text>
+      <text x="235" y="62" font-size="14" fill="#374151">before the run</text>
+      <rect x="170" y="112" width="130" height="100" rx="8" fill="#eff6ff" stroke="#1d4ed8"/><text x="235" y="157">Online intake</text>
+      <text x="235" y="175" font-size="14" fill="#374151">during the run</text>
+
+      <rect x="340" y="26" width="130" height="186" rx="8" fill="#eff6ff" stroke="#1d4ed8"/><text x="405" y="58">Policy model</text>
+      <g font-size="14" fill="#374151"><text x="405" y="90">statements</text><text x="405" y="112">typed rules</text>
+      <text x="405" y="134">step graphs</text><text x="405" y="156">links</text><text x="405" y="178">trust, dates</text></g>
+
+      <rect x="510" y="26" width="130" height="100" rx="8" fill="#eff6ff" stroke="#1d4ed8"/><text x="575" y="50">Checks</text>
+      <g font-size="14" fill="#374151"><text x="575" y="72">code → Cedar</text><text x="575" y="90">→ step monitor</text><text x="575" y="108">→ verifier</text></g>
+      <rect x="510" y="168" width="130" height="44" rx="8" fill="#fafafa" stroke="#e5e7eb"/><text x="575" y="195">CUGA agent</text>
+    </g>
+    <g stroke="#6b7280" stroke-width="1.5" fill="none">
+      <path d="M130 48 H166" marker-end="url(#a3)"/>
+      <path d="M130 134 H166" marker-end="url(#a3)"/>
+      <path d="M130 190 H166" marker-end="url(#a3)"/>
+      <path d="M300 48 H336" marker-end="url(#a3)"/>
+      <path d="M300 162 H336" marker-end="url(#a3)"/>
+      <path d="M470 76 H506" marker-end="url(#a3)"/>
+      <path d="M560 126 V164" marker-end="url(#a3)"/>
+      <path d="M590 168 V130" marker-end="url(#a3)"/>
+      <path d="M575 212 V238 H65 V216" stroke-dasharray="4 3" marker-end="url(#a3)"/>
+    </g>
+    <g font-size="13" fill="#6b7280">
+      <text x="554" y="150" text-anchor="end">verdict</text><text x="596" y="150">call</text>
+      <text x="320" y="256" text-anchor="middle">the agent's tool calls return tool output</text>
+    </g>
+  </svg>
+  <ul>
+    <li>Online intake: code filter, then Kev-4B, then a small LLM.</li>
+    <li>A write waits for pending intake, at most 45 s.</li>
+    <li>Outcome: allow, deny with a remedy, or remind.</li>
+    <li>CUGA plugs in the layer only through its hooks API.</li>
+  </ul>
+  <div class="src">Blue: the policy layer. Design spec sections 3, 5, 6 and 7 (docs/superpowers/specs/2026-11-01-policy-intake-design.md); hooks: policy-flow.html section 3.</div>
+</div>
+
+<!-- 4 -->
+<div class="slide">
+  <h2>Code blocked no correct write; on 5 types models may only remind</h2>
+  <svg viewBox="0 0 640 244" width="100%" role="img" aria-label="False deny rate of the gpt-oss-120b verifier versus code on four statement types">
+    <g font-size="13" font-weight="700" fill="#6b7280">
+      <text x="150" y="16">gpt-oss-120b verifier</text><text x="640" y="16" text-anchor="end">code</text>
+    </g>
+    <line x1="174" y1="26" x2="174" y2="194" stroke="#000" stroke-width="1" stroke-dasharray="3 3"/>
+    <g font-size="17" fill="#000">
+      <text x="0" y="51">derived value</text>
+      <rect x="150" y="32" width="343" height="26" fill="#b91c1c"/>
+      <text x="501" y="51" font-weight="700">28.6%</text>
+      <text x="0" y="93">threshold</text>
+      <rect x="150" y="74" width="200" height="26" fill="#b91c1c"/>
+      <text x="358" y="93" font-weight="700">16.7%</text>
+      <text x="0" y="135">prohibition</text>
+      <rect x="150" y="116" width="142" height="26" fill="#b91c1c"/>
+      <text x="300" y="135" font-weight="700">11.8%</text>
+      <text x="0" y="177">lookup matrix</text>
+      <rect x="150" y="158" width="26" height="26" fill="#b91c1c"/>
+      <text x="184" y="177" font-weight="700">2.2%</text>
+      <g fill="#047857" font-weight="700" text-anchor="end">
+        <text x="640" y="51">0.0%</text><text x="640" y="93">0.0%</text>
+        <text x="640" y="135">0.0%</text><text x="640" y="177">0.0%</text>
+      </g>
+    </g>
+    <text x="180" y="212" font-size="13" fill="#000">2% deny limit</text>
+    <text x="150" y="236" font-size="14" fill="#6b7280">False denies on the check set: correct writes blocked (%)</text>
+  </svg>
+  <ul>
+    <li>Code first: value lists, matrices, transitions, thresholds, formats.</li>
+    <li>Cedar for roles; a step graph monitor for procedures.</li>
+    <li>Deny allowed only at ≤ 2% false denies, ≥ 50% caught.</li>
+    <li>Bug fixed 2026-11-01: reminders had blocked writes in arm-B runs.</li>
+  </ul>
+  <div class="src">benchmarks/policy_eval/method_comparison.md and method_choice.json (2026-11-01): check set of 552 cases, 17 types, from the tuning policies. Code ran only on the cases it could compile (3–72 per type here; models 28–92). Remind-only for models: derived value, lookup matrix, prohibition, role permission, threshold. Routing: design spec section 4.</div>
+</div>
+
+<!-- 5 -->
+<div class="slide">
+  <h2>Each part reuses a published method; few take in policy mid-run</h2>
+  <svg viewBox="0 0 480 330" width="100%" style="max-width:640px" role="img" aria-label="Five published methods and what the policy layer takes from each">
+    <defs><marker id="a5" markerWidth="8" markerHeight="8" refX="7" refY="4" orient="auto"><path d="M0 0 L8 4 L0 8 z" fill="#6b7280"/></marker></defs>
+    <g font-size="12" font-weight="700" fill="#6b7280" letter-spacing=".05em"><text x="0" y="14">PUBLISHED METHOD</text><text x="176" y="14">WHAT WE TAKE</text></g>
+    <rect x="0" y="26" width="150" height="50" rx="8" fill="#fafafa" stroke="#e5e7eb"/>
+    <text x="75" y="47" font-size="15" font-weight="700" text-anchor="middle">ToolGuard</text><text x="75" y="65" font-size="15" font-weight="700" text-anchor="middle">AgentCore Policy</text>
+    <path d="M154 51 H170" stroke="#6b7280" stroke-width="1.5" marker-end="url(#a5)"/>
+    <text x="178" y="47" font-size="15" fill="#000">rules as code and Cedar checks</text>
+    <text x="178" y="66" font-size="13" fill="#6b7280">checked before each tool call</text>
+    <rect x="0" y="86" width="150" height="50" rx="8" fill="#fafafa" stroke="#e5e7eb"/>
+    <text x="75" y="116" font-size="15" font-weight="700" text-anchor="middle">PolicyGuard</text>
+    <path d="M154 111 H170" stroke="#6b7280" stroke-width="1.5" marker-end="url(#a5)"/>
+    <text x="178" y="107" font-size="15" fill="#000">a verifier on each write</text>
+    <text x="178" y="126" font-size="13" fill="#6b7280">τ²-bench airline: pass^4 +6 to +12 pts</text>
+    <rect x="0" y="146" width="150" height="50" rx="8" fill="#fafafa" stroke="#e5e7eb"/>
+    <text x="75" y="167" font-size="15" font-weight="700" text-anchor="middle">STAGE</text><text x="75" y="185" font-size="15" font-weight="700" text-anchor="middle">PolicyGuide</text>
+    <path d="M154 171 H170" stroke="#6b7280" stroke-width="1.5" marker-end="url(#a5)"/>
+    <text x="178" y="167" font-size="15" fill="#000">SOPs as step graphs; we only remind</text>
+    <text x="178" y="186" font-size="13" fill="#6b7280">STAGE: pass^3 up to +55 pts</text>
+    <rect x="0" y="206" width="150" height="50" rx="8" fill="#fafafa" stroke="#e5e7eb"/>
+    <text x="75" y="236" font-size="15" font-weight="700" text-anchor="middle">JevAct</text>
+    <path d="M154 231 H170" stroke="#6b7280" stroke-width="1.5" marker-end="url(#a5)"/>
+    <text x="178" y="227" font-size="15" fill="#000">filters on checks that fire too often</text>
+    <text x="178" y="246" font-size="13" fill="#6b7280">repair round: false alarms 11.3% → 1.4%</text>
+    <rect x="0" y="266" width="150" height="50" rx="8" fill="#fafafa" stroke="#e5e7eb"/>
+    <text x="75" y="296" font-size="15" font-weight="700" text-anchor="middle">Conseca</text>
+    <path d="M154 291 H170" stroke="#6b7280" stroke-width="1.5" marker-end="url(#a5)"/>
+    <text x="178" y="287" font-size="15" fill="#000">compile new policy during the run</text>
+    <text x="178" y="306" font-size="13" fill="#6b7280">1 of 59 surveyed methods does this</text>
+  </svg>
+  <ul>
+    <li>We add online intake, trust labels, and links across documents.</li>
+    <li>Kev-4B only for detection: 94.5% recall, 1.1% false alarms.</li>
+    <li>Later: a PageIndex-style section tree for long documents.</li>
+  </ul>
+  <div class="src">Results as reported by the authors, not reproduced (2026-10-20-agent-policy-enforcement-sota.md): ToolGuard arXiv 2507.16459, PolicyGuard 2606.29225, STAGE 2608.22538, JevAct 2610.38620, Conseca 2501.17070; 59 methods classified by intake, 2026-10-21. Kev-4B: our detector probe, 400 AutomationBench records, test half, 2026-10-31 (policy-flow.html section 5).</div>
+</div>
+
+<!-- 6 -->
+<div class="slide">
+  <h2>Each change is measured by replay first; end-to-end runs come last</h2>
+  <svg viewBox="0 0 640 170" width="100%" role="img" aria-label="Loop: change, shadow replay, held-out target check, then end-to-end runs">
+    <defs><marker id="a6" markerWidth="8" markerHeight="8" refX="7" refY="4" orient="auto"><path d="M0 0 L8 4 L0 8 z" fill="#6b7280"/></marker></defs>
+    <g text-anchor="middle" fill="#000">
+      <rect x="0" y="20" width="136" height="76" rx="8" fill="#fafafa" stroke="#e5e7eb"/>
+      <text x="68" y="52" font-size="15" font-weight="700">Change</text>
+      <text x="68" y="74" font-size="14" fill="#374151">one general rule</text>
+      <rect x="168" y="20" width="136" height="76" rx="8" fill="#fafafa" stroke="#e5e7eb"/>
+      <text x="236" y="52" font-size="15" font-weight="700">Shadow replay</text>
+      <text x="236" y="74" font-size="14" fill="#374151">tuning + held-out</text>
+      <rect x="336" y="20" width="136" height="76" rx="8" fill="#eff6ff" stroke="#1d4ed8"/>
+      <text x="404" y="44" font-size="15" font-weight="700">Held-out target</text>
+      <text x="404" y="66" font-size="14" fill="#374151">≥ 50% stopped</text>
+      <text x="404" y="84" font-size="14" fill="#374151">≤ 2% denied</text>
+      <rect x="504" y="20" width="136" height="76" rx="8" fill="#fafafa" stroke="#e5e7eb"/>
+      <text x="572" y="44" font-size="15" font-weight="700">End-to-end</text>
+      <text x="572" y="66" font-size="14" fill="#374151">unseen tasks</text>
+      <text x="572" y="84" font-size="14" fill="#374151">arm A vs arm B</text>
+    </g>
+    <g stroke="#6b7280" stroke-width="1.5" fill="none">
+      <path d="M136 58 H164" marker-end="url(#a6)"/>
+      <path d="M304 58 H332" marker-end="url(#a6)"/>
+      <path d="M472 58 H500" marker-end="url(#a6)"/>
+      <path d="M404 96 V132 H68 V100" marker-end="url(#a6)"/>
+    </g>
+    <g font-size="13" fill="#6b7280" text-anchor="middle">
+      <text x="487" y="48">met</text>
+      <text x="236" y="154" font-size="14">not met: keep or revert, try the next change</text>
+    </g>
+  </svg>
+  <ul>
+    <li>Replay re-runs arm A's calls and asks the layer before each write.</li>
+    <li>Target: ≥ 50% violating writes stopped, ≤ 2% correct writes denied.</li>
+    <li>One replay round on 10 tasks: $0.05 and 105 s.</li>
+    <li>Arm A: CUGA alone; arm B: CUGA + policy layer; 3 trials.</li>
+  </ul>
+  <div class="src">policy-flow.html section 6 (Shadow replay, Next): tuning set and held-out set of 10 AutomationBench tasks each; the held-out score is reported next to the tuning score. 3 trials per task on the unseen set: design spec section 8.</div>
+</div>
+
+<!-- 7 -->
+<div class="slide">
+  <h2>The layer has not yet stopped a violating write in shadow replay</h2>
+  <div class="big">
+    <div><div class="v bad">0 of 10</div><div class="k">violating writes stopped, tuning (target ≥ 50%)</div></div>
+    <div><div class="v bad">0 of 3</div><div class="k">violating writes stopped, held-out</div></div>
+    <div><div class="v good">1 of 112</div><div class="k">correct writes denied, tuning (held-out: 1 of 69)</div></div>
+  </div>
+  <ul>
+    <li>9 of 10: nobody read the rule's source; the layer saw nothing.</li>
+    <li>1 of 10: rule found; the verifier did not compute it.</li>
+    <li>All 10 are selection rules: dates, thresholds, exclusions.</li>
+    <li>End-to-end tuning runs: no gain yet for either agent.</li>
+  </ul>
+  <div class="src">policy-flow.html section 6 (Shadow replay; Tuning runs): <code>shadow_replay.py oss2_A_t1</code> (tuning) and <code>oss2u_A_t1</code> (held-out), gpt-oss-120b agent, 1 trial. Held-out: no policy found for all 3. The layer only reads what the agent reads.</div>
+</div>
+
+<!-- 8 -->
+<div class="slide">
+  <h2>Next: remind the agent to read referenced policies, then check rules by code</h2>
+  <div class="big">
+    <div><div class="v">7 of 10</div><div class="k">breaks after a referenced policy went unread</div></div>
+    <div><div class="v">1 of 10</div><div class="k">rule found, needs a computed value</div></div>
+    <div><div class="v">&lt; $10</div><div class="k">projected cost of the replay steps</div></div>
+  </div>
+  <ul>
+    <li>Read before write: remind when a referenced policy is still unread.</li>
+    <li>The agent finds and reads the policy; the layer does not.</li>
+    <li>Rules it reads become code checks on each record.</li>
+    <li>Ask: agree to this order; end-to-end runs wait for the target.</li>
+  </ul>
+  <div class="src">policy-flow.html section 6 (Next), steps 2–3; coverage counts are tuning breaks. Spent so far: $57.88 of the $500 budget (benchmarks/policy_pilot_ledger.jsonl).</div>
+</div>
+
+</div></body></html>

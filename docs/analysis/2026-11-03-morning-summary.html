@@ -1,0 +1,91 @@
+<!doctype html>
+<html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Overnight 2026-11-03: SOP tracker and HANDBOOK</title>
+<style>
+:root{--ink:#000;--muted:#6b7280;--line:#e5e7eb;--accent:#1d4ed8;--bar:#9ca3af;--bad:#b91c1c}
+*{box-sizing:border-box}
+body{margin:0;background:#fff;color:var(--ink);font:17px/1.5 system-ui,-apple-system,"Segoe UI",sans-serif;-webkit-font-smoothing:antialiased}
+.deck{max-width:760px;margin:0 auto;padding:20px 16px 56px}
+.slide{padding:28px 4px 28px;border-bottom:1px solid var(--line)}
+h1{font-size:28px;line-height:1.2;margin:0 0 10px;letter-spacing:-.02em}
+h2{font-size:22px;line-height:1.25;margin:0 0 16px;letter-spacing:-.01em}
+ul{margin:16px 0 0;padding-left:20px}li{margin:6px 0}
+.src{color:var(--muted);font-size:13px;margin-top:14px}
+.tw{overflow-x:auto}
+code{overflow-wrap:anywhere;font-size:13px}.src,li,td{overflow-wrap:anywhere}
+table{border-collapse:collapse;width:100%;font-size:15px;margin-top:6px}
+th{text-align:left;font-size:12px;text-transform:uppercase;letter-spacing:.04em;color:var(--muted);padding:0 8px 6px 0;border-bottom:1px solid var(--line)}
+td{padding:7px 8px 7px 0;border-bottom:1px solid #f1f3f5}td.n{font-variant-numeric:tabular-nums;white-space:nowrap}
+@media (max-width:640px){body{font-size:16px}h1{font-size:23px}h2{font-size:19px}}
+</style></head><body><div class="deck">
+
+<div class="slide">
+  <h1>The SOP tracker raised CUGA on a held-out test, but it hurt a second domain</h1>
+  <svg viewBox="0 0 640 330" width="100%" role="img" aria-label="Pass rate, CUGA alone vs with the method, four comparisons">
+    <g font-size="14" fill="#000">
+      <text x="0" y="22" font-weight="700">τ²-Telecom test, held out</text>
+      <text x="0" y="40" fill="#6b7280" font-size="12">40 tasks × 2 runs, tracker</text>
+      <rect x="250" y="12" width="226" height="16" fill="#9ca3af"/><text x="482" y="25">63.8% alone</text>
+      <rect x="250" y="31" width="270" height="16" fill="#1d4ed8"/><text x="526" y="44" font-weight="700">76.2%</text>
+
+      <text x="0" y="102" font-weight="700">τ²-Telecom train (dev)</text>
+      <text x="0" y="120" fill="#6b7280" font-size="12">20 tasks, tracker v3</text>
+      <rect x="250" y="92" width="231" height="16" fill="#9ca3af"/><text x="487" y="105">65.0% alone</text>
+      <rect x="250" y="111" width="284" height="16" fill="#1d4ed8"/><text x="540" y="124" font-weight="700">80.0%</text>
+
+      <text x="0" y="182" font-weight="700">τ²-Airline test, no-harm</text>
+      <text x="0" y="200" fill="#6b7280" font-size="12">20 tasks, same tracker</text>
+      <rect x="250" y="172" width="302" height="16" fill="#9ca3af"/><text x="558" y="185">85.0% alone</text>
+      <rect x="250" y="191" width="195" height="16" fill="#b91c1c"/><text x="451" y="204" font-weight="700">55.0%</text>
+
+      <text x="0" y="262" font-weight="700">HANDBOOK, 3 tasks</text>
+      <text x="0" y="280" fill="#6b7280" font-size="12">in-sample, loop + guide</text>
+      <rect x="250" y="252" width="200" height="16" fill="#9ca3af"/><text x="456" y="265">56.2% alone</text>
+      <rect x="250" y="271" width="272" height="16" fill="#1d4ed8"/><text x="528" y="284" font-weight="700">76.5%</text>
+    </g>
+    <text x="0" y="318" font-size="12" fill="#6b7280">Grey: CUGA alone. Blue: with the method. Red: harm. Arms ran at the same time.</text>
+  </svg>
+  <ul>
+    <li>Telecom held out: 15 wins, 5 losses, p = 0.041; 95% CI 0 to +25 pts.</li>
+    <li>Code frozen after train-split work; the test split was run twice.</li>
+    <li>Airline: rules became checks without their exceptions. Agent refused allowed changes.</li>
+    <li>So: helps flow-type SOPs, hurts rule-type policies as built.</li>
+  </ul>
+  <div class="src">DeepSeek-V4-Pro agent; gpt-4.1 user simulator (τ² reference); tracker model gpt-oss-120b (~$0.02/task). Spend $1055.92 of $1200.</div>
+</div>
+
+<div class="slide">
+  <h2>The tracker says where the agent is in the SOP before each turn</h2>
+  <ul>
+    <li>SOP split at headings; a small model picks the chapters for the issue.</li>
+    <li>It lists SOP checks as done, pending or not needed, each with a verbatim quote.</li>
+    <li>"Not needed" without proof counts as pending: the agent must ask (e.g. abroad?).</li>
+    <li>Telecom gains: roaming steps the agent skipped; out-of-steps endings 16 → 6.</li>
+  </ul>
+  <div class="src">Code: <code>cuga-agent-gate/src/cuga/policy_layer/sop_tracker.py</code>; τ² flag <code>SOP_TRACKER=1</code>. Not committed.</div>
+</div>
+
+<div class="slide">
+  <h2>Other results from the night</h2>
+  <div class="tw"><table>
+    <tr><th>Finding</th><th>Number</th></tr>
+    <tr><td>gpt-5-mini simulator ended calls mid-fix; gpt-4.1 fixes it (CUGA alone, Telecom test)</td><td class="n">19 → 27 of 40</td></tr>
+    <tr><td>HANDBOOK parser: bulleted labelled steps are now procedure steps (Vanguard §2.1)</td><td class="n">+31 of 153 items</td></tr>
+    <tr><td>HANDBOOK later fixes (hold enforcement, [TAG] templates, sibling sections)</td><td class="n">+20, +14: no extra gain</td></tr>
+    <tr><td>Ever a full HANDBOOK pass?</td><td class="n">No (best 21/22, 11/12)</td></tr>
+  </table></div>
+  <div class="src">HANDBOOK numbers are in-sample (3 public tasks used to build the method). Tuning stopped there.</div>
+</div>
+
+<div class="slide">
+  <h2>Next: make the tracker safe for rule-type policies, then re-test on unseen splits</h2>
+  <ul>
+    <li>Show each rule with its exceptions, or use the tracker only for flow content.</li>
+    <li>Develop on airline train; test on airline base and τ² retail (never seen).</li>
+    <li>Keep the Telecom test frozen for a final re-check.</li>
+    <li>Commit the work after your review (nothing committed yet).</li>
+  </ul>
+  <div class="src">Details: <code>benchmarks/policy_eval/changes.md</code> rows 72–87; <code>docs/analysis/2026-11-02-overnight-log.md</code>.</div>
+</div>
+
+</div></body></html>

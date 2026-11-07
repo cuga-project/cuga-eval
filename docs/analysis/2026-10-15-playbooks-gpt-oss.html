@@ -1,0 +1,156 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Playbooks raise gpt-oss-120b from 32% to 50%</title>
+<style>
+:root{--ink:#000;--muted:#6b7280;--line:#e5e7eb;--accent:#1d4ed8;--bar:#9ca3af;--ref:#d1d5db}
+*{box-sizing:border-box}
+body{margin:0;background:#fff;color:var(--ink);
+ font:18px/1.5 system-ui,-apple-system,"Segoe UI",sans-serif;-webkit-font-smoothing:antialiased}
+.deck{max-width:960px;margin:0 auto;padding:24px 16px 64px;
+ padding-left:max(16px,env(safe-area-inset-left));padding-right:max(16px,env(safe-area-inset-right))}
+.slide{padding:44px 8px 36px;border-bottom:1px solid var(--line);page-break-after:always}
+.num{font-size:12px;font-weight:700;letter-spacing:.09em;text-transform:uppercase;color:var(--muted);margin-bottom:8px}
+h1{font-size:40px;line-height:1.15;margin:0 0 24px;letter-spacing:-.02em}
+h2{font-size:30px;line-height:1.2;margin:0 0 22px;letter-spacing:-.015em}
+ul{margin:20px 0 0;padding-left:22px}li{margin:6px 0}
+svg{display:block;max-width:600px;height:auto}
+.big{display:flex;gap:28px 44px;flex-wrap:wrap}
+.big .v{font-size:56px;font-weight:700;line-height:1.1;font-variant-numeric:tabular-nums;white-space:nowrap}
+.big .v .a{color:var(--muted)}.big .v .b{color:var(--accent)}
+.big .k{color:var(--muted);font-size:15px;max-width:230px}
+.chips{display:flex;flex-wrap:wrap;gap:10px;max-width:640px}
+.chips span{border:1px solid var(--line);border-radius:8px;padding:8px 12px;font-size:16px}
+.src{color:var(--muted);font-size:13px;margin-top:18px}
+@media (max-width:640px){body{font-size:16px}h1{font-size:30px}h2{font-size:23px}.big .v{font-size:40px}.slide{padding:32px 4px 28px}}
+@media print{.slide{border:none;min-height:100vh}}
+</style>
+</head>
+<body>
+<main class="deck">
+
+<section class="slide">
+  <div class="num">CUGA on AppWorld · 15 Oct 2026</div>
+  <h1>With playbooks, gpt-oss-120b solves 50% of tasks instead of 32%</h1>
+  <div class="big">
+    <div><div class="v"><span class="a">32%</span> → <span class="b">50%</span></div><div class="k">tasks solved by gpt-oss-120b, without → with playbooks</div></div>
+    <div><div class="v">17 / 3</div><div class="k">tasks fixed / broken by the playbooks</div></div>
+    <div><div class="v">83%</div><div class="k">GLM-5.3-flash, the model we learned from, on the same tasks</div></div>
+  </div>
+  <div class="src">Not final: 78 of 90 tasks done in both runs at 00:19.</div>
+</section>
+
+<section class="slide">
+  <div class="num">What we did</div>
+  <h2>We turned a strong model's mistakes into playbooks for a smaller model</h2>
+  <svg viewBox="0 0 480 452" role="img" aria-label="GLM-5.3-flash solves 90 tasks, Claude reviews 180 attempts, Claude writes 7 playbooks, gpt-oss-120b solves the same tasks with and without them">
+    <defs><marker id="ar" markerWidth="9" markerHeight="9" refX="8" refY="4.5" orient="auto"><path d="M0 0L9 4.5L0 9z" fill="#6b7280"/></marker></defs>
+    <g stroke="#6b7280" stroke-width="1.5" fill="none">
+      <path d="M240 90V118" marker-end="url(#ar)"/><path d="M240 208V236" marker-end="url(#ar)"/><path d="M240 326V354" marker-end="url(#ar)"/>
+    </g>
+    <rect x="20" y="8" width="440" height="80" rx="10" fill="#fafafa" stroke="#e5e7eb"/>
+    <text x="40" y="42" font-size="18" font-weight="700">1 · GLM-5.3-flash solves 90 AppWorld tasks</text>
+    <text x="40" y="68" font-size="15" fill="#6b7280">strong model · run twice</text>
+    <rect x="20" y="126" width="440" height="80" rx="10" fill="#fafafa" stroke="#e5e7eb"/>
+    <text x="40" y="160" font-size="18" font-weight="700">2 · Claude reviews its 180 attempts</text>
+    <text x="40" y="186" font-size="15" fill="#6b7280">finds 8 repeated mistakes and their causes</text>
+    <rect x="20" y="244" width="440" height="80" rx="10" fill="#fafafa" stroke="#e5e7eb"/>
+    <text x="40" y="278" font-size="18" font-weight="700">3 · Claude writes 7 playbooks</text>
+    <text x="40" y="304" font-size="15" fill="#6b7280">using CUGA's playbook skill</text>
+    <rect x="20" y="362" width="440" height="80" rx="10" fill="#eff6ff" stroke="#1d4ed8" stroke-width="2"/>
+    <text x="40" y="396" font-size="18" font-weight="700">4 · gpt-oss-120b solves the same tasks</text>
+    <text x="40" y="422" font-size="15" fill="#6b7280">smaller model · with and without playbooks</text>
+  </svg>
+  <ul><li>The playbooks are the only difference between the two runs</li><li>Same tasks, same agent version, same time limits</li></ul>
+</section>
+
+<section class="slide">
+  <div class="num">The playbooks</div>
+  <h2>A playbook is a short how-to for one type of task</h2>
+  <div class="chips"><span>Changing many items</span><span>Shopping</span><span>Splitting money</span><span>Counting questions</span><span>Using notes</span><span>Files and email</span><span>Following a message</span></div>
+  <ul>
+    <li>Email "from or to" a person: they sent it, or you did</li>
+    <li>Before ordering, remove other items from the cart</li>
+    <li>General rules only: no task names, no answers</li>
+    <li>Written with CUGA's playbook skill, in CUGA's own format</li>
+  </ul>
+  <div class="src">For each task, CUGA picks the one playbook that best matches it.</div>
+</section>
+
+<section class="slide">
+  <div class="num">Tasks</div>
+  <h2>gpt-oss-120b solves 50% of tasks with playbooks, 32% without</h2>
+  <svg viewBox="0 0 480 238" role="img" aria-label="Tasks solved: GLM-5.3-flash 83.3%, gpt-oss-120b with playbooks 50.0%, without 32.1%">
+    <g font-size="16">
+      <text x="0" y="20">GLM-5.3-flash (strong model)</text>
+      <rect x="0" y="30" width="317" height="28" rx="3" fill="#d1d5db"/>
+      <text x="327" y="51" font-weight="700">83.3%</text>
+      <text x="0" y="96" font-weight="700">gpt-oss-120b with playbooks</text>
+      <rect x="0" y="106" width="190" height="28" rx="3" fill="#1d4ed8"/>
+      <text x="200" y="127" font-weight="700">50.0%</text>
+      <text x="0" y="172">gpt-oss-120b without playbooks</text>
+      <rect x="0" y="182" width="122" height="28" rx="3" fill="#9ca3af"/>
+      <text x="132" y="203" font-weight="700">32.1%</text>
+    </g>
+    <text x="0" y="234" font-size="13" fill="#6b7280">Tasks solved, same 78 tasks for all three (%)</text>
+  </svg>
+  <ul><li>Playbooks fixed 17 tasks and broke 3</li><li>If playbooks did nothing, a 17–3 split has 0.3% odds</li><li>Leaving out tasks that ended in an error: 38% vs 53%</li></ul>
+  <div class="src">gpt-oss-120b: cuga-eval runs 20261014_201432 and 20261014_201614, default reasoning. GLM-5.3-flash: Harbor run cuga-glm-agent-fixed.</div>
+</section>
+
+<section class="slide">
+  <div class="num">Scenarios</div>
+  <h2>Scenarios fully solved: 7 of 18 with playbooks, 3 without</h2>
+  <svg viewBox="0 0 480 238" role="img" aria-label="Scenarios fully solved: GLM-5.3-flash 66.7%, gpt-oss-120b with playbooks 38.9%, without 16.7%">
+    <g font-size="16">
+      <text x="0" y="20">GLM-5.3-flash (strong model)</text>
+      <rect x="0" y="30" width="253" height="28" rx="3" fill="#d1d5db"/>
+      <text x="263" y="51" font-weight="700">66.7%</text>
+      <text x="0" y="96" font-weight="700">gpt-oss-120b with playbooks</text>
+      <rect x="0" y="106" width="148" height="28" rx="3" fill="#1d4ed8"/>
+      <text x="158" y="127" font-weight="700">38.9%</text>
+      <text x="0" y="172">gpt-oss-120b without playbooks</text>
+      <rect x="0" y="182" width="63" height="28" rx="3" fill="#9ca3af"/>
+      <text x="73" y="203" font-weight="700">16.7%</text>
+    </g>
+    <text x="0" y="234" font-size="13" fill="#6b7280">Scenarios with all 3 versions solved (%)</text>
+  </svg>
+  <ul><li>A scenario is 3 versions of one task; all 3 must pass</li><li>18 of the 30 scenarios are finished in both runs</li></ul>
+</section>
+
+<section class="slide">
+  <div class="num">Getting stuck</div>
+  <h2>Without playbooks, gpt-oss-120b gets stuck far more often</h2>
+  <div class="big">
+    <div><div class="v"><span class="a">12</span> vs <span class="b">0</span></div><div class="k">tasks that ended with a time-limit error</div></div>
+    <div><div class="v"><span class="a">65</span> vs <span class="b">4</span></div><div class="k">times a step ran past its time limit</div></div>
+    <div><div class="v"><span class="a">8.0</span> vs <span class="b">3.6</span></div><div class="k">minutes per task (median)</div></div>
+  </div>
+  <ul><li>Stuck step: CUGA's tool search waits over 120 s for the model</li><li>Both runs have the same limits; we don't know why yet</li></ul>
+  <div class="src">Grey = without playbooks, blue = with playbooks.</div>
+</section>
+
+<section class="slide">
+  <div class="num">Next</div>
+  <h2>Next: test on tasks the playbooks were not built from</h2>
+  <svg viewBox="0 0 480 252" role="img" aria-label="Now the 90 tasks the playbooks came from, next new tasks, then longer time limits">
+    <defs><marker id="ar2" markerWidth="9" markerHeight="9" refX="8" refY="4.5" orient="auto"><path d="M0 0L9 4.5L0 9z" fill="#6b7280"/></marker></defs>
+    <g stroke="#6b7280" stroke-width="1.5" fill="none"><path d="M240 72V96" marker-end="url(#ar2)"/><path d="M240 170V194" marker-end="url(#ar2)"/></g>
+    <rect x="20" y="8" width="440" height="62" rx="10" fill="#fafafa" stroke="#e5e7eb"/>
+    <text x="40" y="34" font-size="17" font-weight="700">Now: the 90 tasks the playbooks came from</text>
+    <text x="40" y="56" font-size="15" fill="#6b7280">so these results may be too optimistic</text>
+    <rect x="20" y="104" width="440" height="62" rx="10" fill="#eff6ff" stroke="#1d4ed8" stroke-width="2"/>
+    <text x="40" y="130" font-size="17" font-weight="700">Next: new AppWorld tasks</text>
+    <text x="40" y="152" font-size="15" fill="#6b7280">same comparison, with and without playbooks</text>
+    <rect x="20" y="202" width="440" height="42" rx="10" fill="#fafafa" stroke="#e5e7eb"/>
+    <text x="40" y="229" font-size="17" font-weight="700">Then: rerun with longer time limits</text>
+  </svg>
+  <ul><li>Longer limits show how much of the gain is fewer stalls</li></ul>
+  <div class="src">Still running: 85 of 90 tasks done without playbooks, 83 of 90 with.</div>
+</section>
+
+</main>
+</body>
+</html>

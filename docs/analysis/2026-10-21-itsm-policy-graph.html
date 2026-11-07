@@ -1,0 +1,348 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>ITSM policy as a hybrid graph, used at every lifecycle hook</title>
+<style>
+:root{--ink:#111827;--ink2:#374151;--muted:#6b7280;--line:#e5e7eb;--acc:#1d4ed8}
+*{box-sizing:border-box}
+body{margin:0;background:#fff;color:var(--ink);font:15px/1.5 system-ui,-apple-system,"Segoe UI",sans-serif;-webkit-font-smoothing:antialiased}
+.wrap{max-width:1360px;margin:0 auto;padding:24px 20px 64px}
+.num{font-size:12px;font-weight:700;letter-spacing:.09em;text-transform:uppercase;color:var(--muted)}
+h1{font-size:28px;line-height:1.2;margin:6px 0 6px;letter-spacing:-.02em}
+h2{font-size:20px;margin:28px 0 6px;letter-spacing:-.01em}
+.sub{color:var(--ink2);margin:0 0 12px;max-width:980px}
+.cards{display:grid;grid-template-columns:repeat(4,1fr);gap:12px;margin:12px 0 14px}
+.card{border:1px solid var(--line);border-radius:10px;padding:10px 14px;background:#fafafa}
+.card .k{font-size:11px;text-transform:uppercase;letter-spacing:.05em;color:var(--muted);font-weight:700}
+.card .v{font-size:22px;font-weight:700;font-variant-numeric:tabular-nums}
+.card .n{font-size:12.5px;color:var(--ink2)}
+.legend{display:flex;flex-wrap:wrap;gap:6px 16px;font-size:13px;margin:4px 0 10px;color:var(--ink2)}
+.legend span{display:inline-flex;align-items:center;gap:6px;white-space:nowrap}
+.sw{width:16px;height:12px;border-radius:3px;border:2px solid;display:inline-block}
+.stepper{display:flex;flex-wrap:wrap;gap:6px;margin:6px 0 12px}
+.stepper button{border:1px solid var(--line);background:#fff;border-radius:8px;padding:5px 10px;font:inherit;font-size:12.5px;cursor:pointer;min-height:40px;text-align:left;color:var(--ink)}
+.stepper button .h{font:11px ui-monospace,SFMono-Regular,Menlo,monospace;color:var(--acc);display:block}
+.stepper button.on{border-color:var(--acc);background:#eff6ff;box-shadow:inset 0 0 0 1px var(--acc)}
+.main{display:grid;grid-template-columns:minmax(0,1fr) 400px;gap:16px;align-items:start}
+.graph{border:1px solid var(--line);border-radius:10px;padding:6px}
+.panel{border:1px solid var(--line);border-radius:10px;padding:14px 16px;position:sticky;top:12px;max-height:calc(100vh - 24px);overflow:auto;background:#fff}
+.panel h3{font-size:16px;margin:2px 0 6px}
+.panel .tag{display:inline-block;font-size:11.5px;font-weight:700;border-radius:6px;padding:1px 8px;border:1.5px solid;margin-right:6px}
+.panel blockquote{margin:8px 0;padding:6px 10px;border-left:3px solid #f59e0b;background:#fffbeb;font-size:13.5px;color:var(--ink2)}
+.panel pre{font:12px/1.45 ui-monospace,SFMono-Regular,Menlo,monospace;background:#f6f7f9;border:1px solid var(--line);border-radius:6px;padding:8px 10px;white-space:pre-wrap;margin:6px 0}
+.panel .lbl{font-size:11px;text-transform:uppercase;letter-spacing:.05em;color:var(--muted);font-weight:700;margin:10px 0 3px}
+.chip{display:inline-block;border:1px solid #d1d5db;border-radius:6px;padding:0 7px;margin:2px 3px 2px 0;font:12px ui-monospace,Menlo,monospace;background:#f9fafb}
+.panel table{border-collapse:collapse;width:100%;font-size:12.5px;margin:6px 0}
+.panel td{border-top:1px solid #f1f3f5;padding:5px 6px 5px 0;vertical-align:top}
+.ok{color:#047857;font-weight:700}.no{color:#b91c1c;font-weight:700}.na{color:var(--muted)}
+.whatif{border:1px dashed #d1d5db;border-radius:8px;padding:6px 10px;margin-top:8px;font-size:13px;background:#fafafa}
+.back{font-size:12.5px;color:var(--acc);cursor:pointer;text-decoration:underline;background:none;border:0;padding:0}
+svg{display:block;width:100%;height:auto;font-family:system-ui,-apple-system,"Segoe UI",sans-serif}
+svg .node{cursor:pointer;transition:opacity .15s}
+svg .node.dim{opacity:.16}
+svg .node.hl rect{stroke-width:3.2}
+svg .edge{transition:opacity .15s}
+svg .edge.dim{opacity:.12}
+table.ix{border-collapse:collapse;width:100%;font-size:13.5px;margin:8px 0}
+table.ix th{text-align:left;font-size:11.5px;text-transform:uppercase;letter-spacing:.05em;color:var(--muted);border-bottom:1px solid var(--line);padding:0 10px 6px 0}
+table.ix td{border-bottom:1px solid #f1f3f5;padding:7px 10px 7px 0;vertical-align:top}
+.src{color:var(--muted);font-size:12.5px;margin-top:10px}
+.note{border-left:3px solid var(--acc);background:#f8fafc;padding:10px 14px;font-size:14px;color:var(--ink2);border-radius:0 8px 8px 0;margin:10px 0}
+@media (max-width:1000px){.main{grid-template-columns:1fr}.panel{position:static;max-height:none}.cards{grid-template-columns:repeat(2,1fr)}}
+@media print{.panel{position:static;max-height:none}}
+</style>
+</head>
+<body>
+<div class="wrap">
+<div class="num">Design illustration · 2026-10-21 · not a result</div>
+<h1>The ITSM policy as a hybrid graph, used by the agent at every lifecycle hook</h1>
+<p class="sub">Built by hand from the EnterpriseOps-Gym ITSM policy (<code>docs/analysis/samples/enterpriseops-gym/itsm_policy.md</code>, 10,668 characters).
+Each node is one policy rule, checked by the cheapest checker that can decide it. Step through the hooks to see what the system looks up and decides for the task on slide 11 of the deck.
+Click any node for its source line and compiled form.</p>
+
+<div class="cards" id="cards"></div>
+<div class="legend" id="legend"></div>
+
+<div class="stepper" id="stepper"></div>
+<div class="main">
+  <div class="graph"><svg id="g" viewBox="0 0 1000 640" role="img" aria-label="ITSM policy graph"></svg></div>
+  <div class="panel" id="panel"></div>
+</div>
+
+<h2>What the system indexes for this policy</h2>
+<p class="sub">The system, not the agent, finds every rule that can block an action, by exact keys. The agent can only ask the graph for guidance (<code>policy_next_steps()</code>, <code>policy_search()</code>).</p>
+<table class="ix" id="ixtable"></table>
+
+<h2>Notes</h2>
+<div class="note">
+<b>Illustrative, not built.</b> The graph, the Cedar text and the check results are drawn by hand to show the idea. Values marked <i>inferred</i> come from the task's SQL verifiers, not from the seed database
+(for example: priority <code>high</code> implies urgency <code>medium</code> with impact <code>high</code>; <code>SLA_002</code> is the SLA the verifier expects).
+The task file lists 12 SQL verifiers, but only 3 distinct checks (incident update, SLA link, notification), each repeated 4 times.
+</div>
+<div class="src">Task: EnterpriseOps-Gym ITSM oracle row (acting user Priya Sharma, USER_002, manager token). Lifecycle hooks as in the policy-gate v2 design (<code>2026-10-20-policy-gate-architecture-v2.html</code>).</div>
+</div>
+
+<script>
+const TYPES = {
+  cedar:   {name:'Cedar rule',            fill:'#eff6ff', stroke:'#1d4ed8'},
+  code:    {name:'Code check',            fill:'#f3f4f6', stroke:'#374151'},
+  monitor: {name:'Monitor duty',          fill:'#fffbeb', stroke:'#b45309'},
+  decision:{name:'Decision model',        fill:'#f5f3ff', stroke:'#7c3aed'},
+  semantic:{name:'Semantic verifier',     fill:'#f0fdfa', stroke:'#0f766e'},
+  llm:     {name:'LLM judgment',          fill:'#fdf2f8', stroke:'#be185d'},
+  human:   {name:'Human or hand-off',     fill:'#fef2f2', stroke:'#b91c1c'},
+  step:    {name:'Procedure step',        fill:'#ffffff', stroke:'#111827'},
+  state:   {name:'Incident state',        fill:'#ffffff', stroke:'#9ca3af'},
+};
+const RW=126, RH=40;
+// x, y, w, h, label lines
+const N = [
+ // lifecycle states (zone A)
+ {id:'st_new',lab:['new'],type:'state',x:20,y:52,w:118,h:36,src:'§3.3 L91–99',quote:'new → in_progress / on_hold / resolved',form:'state machine: allowed transitions from new = {in_progress, on_hold, resolved}',keys:['state: incident.state=new'],hooks:['before_tool_call','after_tool_call']},
+ {id:'st_prog',lab:['in_progress'],type:'state',x:228,y:52,w:118,h:36,src:'§3.3 L95',quote:'in_progress → on_hold / resolved',form:'allowed from in_progress = {on_hold, resolved}',keys:['state: incident.state=in_progress'],hooks:['before_tool_call','after_tool_call']},
+ {id:'st_hold',lab:['on_hold'],type:'state',x:436,y:52,w:118,h:36,src:'§3.3 L97',quote:'on_hold → in_progress (Must log on_hold_reason before transition)',form:'allowed from on_hold = {in_progress}; guard: on_hold_reason logged',keys:['state: incident.state=on_hold'],hooks:['before_tool_call','after_tool_call']},
+ {id:'st_res',lab:['resolved'],type:'state',x:644,y:52,w:118,h:36,src:'§3.3 L99',quote:'resolved → closed',form:'allowed from resolved = {closed}',keys:['state: incident.state=resolved'],hooks:['before_tool_call','after_tool_call']},
+ {id:'st_closed',lab:['closed'],type:'state',x:852,y:52,w:118,h:36,src:'§3.3',quote:'(final state)',form:'no transitions out',keys:['state: incident.state=closed'],hooks:['before_tool_call']},
+ // guards and lifecycle duties
+ {id:'gd_reason',lab:['Reason before','leaving hold'],type:'code',x:290,y:128,w:140,h:RH,src:'§3.3 L97',quote:'on_hold → in_progress (Must log on_hold_reason before transition)',form:'precondition on update_incident(state=in_progress)\n  when current state = on_hold:\n  require fact incident.on_hold_reason ∈ enum',keys:['tool: update_incident','state: incident.state=on_hold'],hooks:['before_tool_call']},
+ {id:'sla_pause',lab:['Pause SLA','when on hold'],type:'monitor',x:440,y:128,w:140,h:RH,src:'§6 L173',quote:'The SLA timer must be paused (stage = paused) when the Incident is in state = on_hold and the on_hold_reason is one of the following enumerations: Awaiting Change, Awaiting Caller, or Awaiting Problem.',form:'duty: on fact incident.state=on_hold ∧ on_hold_reason ∈ {Awaiting Change, Awaiting Caller, Awaiting Problem}\n  → require incident_sla.stage = paused before the task ends',keys:['state: incident.state=on_hold'],hooks:['after_tool_call','before_reply']},
+ {id:'gd_resolve',lab:['Resolution fields','to resolve'],type:'code',x:590,y:128,w:140,h:RH,src:'§3.3 L101',quote:'An Incident cannot transition to resolved without mandatory fields: resolution_code, and resolution_notes (free-form text, max 2000 chars).',form:'precondition on update_incident(state=resolved):\n  resolution_code ∈ {fixed, workaround, not_reproducible, closed_by_caller}\n  len(resolution_notes) in 1..2000',keys:['tool: update_incident','arg: state=resolved'],hooks:['before_tool_call']},
+ {id:'gd_close',lab:['Auto-close','after 72 h'],type:'monitor',x:840,y:128,w:140,h:RH,src:'§3.3 L103',quote:'The incidents that are in resolved states will transition to closed after 72 hours.',form:'timer duty owned by the system; a manual close earlier than 72 h is flagged',keys:['state: incident.state=resolved','tool: update_incident'],hooks:['before_tool_call']},
+ // procedure steps (zone B)
+ {id:'p1',lab:['Find the incident','find_incident_by_number'],type:'step',x:14,y:212,w:132,h:54,src:'request + §1 L25',quote:'When identifiers such as names or IDs are missing, perform lookups …',form:'step 1 · read',keys:['procedure: progress an incident'],hooks:['before_llm_call']},
+ {id:'p2',lab:['Judge impact','(no tool)'],type:'step',x:154,y:212,w:132,h:54,src:'request',quote:'… highly impacting his Wi-Fi networks, indicating a high business impact that should be updated accordingly.',form:'step 2 · decide a value from the request',keys:['procedure: progress an incident'],hooks:['on_user_message']},
+ {id:'p3',lab:['Update incident','update_incident'],type:'step',x:294,y:212,w:132,h:54,src:'request + §3',quote:'Progress the work on this incident …',form:'step 3 · write',keys:['tool: update_incident'],hooks:['before_tool_call','after_tool_call']},
+ {id:'p4',lab:['Check linked SLAs','find_incident_slas'],type:'step',x:434,y:212,w:132,h:54,src:'request',quote:'… check if there are any SLAs already linked …',form:'step 4 · read',keys:['tool: find_incident_slas'],hooks:['before_tool_call']},
+ {id:'p5',lab:['Link an SLA','link_new_incident_sla'],type:'step',x:574,y:212,w:132,h:54,src:'request + §6',quote:'… if not provide a valid and appropriate SLA and align it to the incident.',form:'step 5 · write',keys:['tool: link_new_incident_sla'],hooks:['before_tool_call']},
+ {id:'p6',lab:['Notify the caller','send_notification'],type:'step',x:714,y:212,w:132,h:54,src:'request',quote:'Also notify Carlos regarding the same.',form:'step 6 · write',keys:['tool: send_notification'],hooks:['before_tool_call']},
+ {id:'p7',lab:['Reply','final answer'],type:'step',x:854,y:212,w:132,h:54,src:'§1',quote:'… provide the specific policy reason …',form:'step 7 · reply',keys:['hook: before_reply'],hooks:['before_reply']},
+ // step-specific rules (zone C)
+ {id:'c_lookup',lab:['Look up IDs','before use'],type:'code',x:13,y:300,w:RW,h:RH,src:'§1 L25',quote:'When identifiers such as names or IDs are missing, perform lookups, verify that you are reusing correct values from previous responses, and proceed using the retrieved data.',form:'order rule: an ID argument of a write must come from an earlier lookup in this task',keys:['tool args of type ID'],hooks:['before_tool_call']},
+ {id:'d_impact',lab:['Impact from the','request text'],type:'decision',x:153,y:300,w:RW,h:RH,src:'request + §3.1 L57, §9 L223',quote:'incident.impact: high, medium, low',form:'typed question to the decision model:\n  "Which impact level does the request describe?"\n  choices {high, medium, low} → high (confidence 0.9)\nbelow the confidence band → semantic verifier',keys:['procedure step: judge impact'],hooks:['on_user_message']},
+ {id:'c_trans',lab:['Valid state','transition'],type:'code',x:293,y:300,w:RW,h:RH,src:'§3.3 L91–99',quote:'Valid State Transitions …',form:'state machine lookup: (current state, requested state) ∈ allowed set',keys:['tool: update_incident','arg: state'],hooks:['before_tool_call']},
+ {id:'c_calc',lab:['Priority =','Impact × Urgency'],type:'code',x:293,y:350,w:RW,h:RH,src:'§3.1 L59–81',quote:'Priority … is determined automatically by the system based on the below pre-defined matrix of Impact x Urgency.',form:'calculator: priority = MATRIX[impact][urgency]\n  high × medium = high\n  a priority argument must equal the computed value',keys:['tool: update_incident','arg: impact, urgency, priority'],hooks:['before_tool_call']},
+ {id:'c_prereq',lab:['Link only if','none is linked'],type:'code',x:433,y:300,w:RW,h:RH,overlay:true,src:'request (online, task overlay)',quote:'… check if there are any SLAs already linked, if not provide a valid and appropriate SLA …',form:'overlay order rule, added at on_user_message:\n  link_new_incident_sla allowed only after\n  find_incident_slas returned no SLA for this incident\nscope: this task only; source: user text',keys:['tool: link_new_incident_sla'],hooks:['on_user_message','before_tool_call']},
+ {id:'c_sla',lab:['SLA matches','priority'],type:'code',x:573,y:300,w:RW,h:RH,src:'§6 L169',quote:'SLAs are automatically aligned based on priority linked to the incident.',form:'check: sla_definition.priority == incident.priority\n  (facts from find_sla_definitions and the incident record)',keys:['tool: link_new_incident_sla','arg: sla_def_id'],hooks:['before_tool_call']},
+ {id:'e_caller',lab:['Recipient is','the caller'],type:'code',x:713,y:300,w:RW,h:RH,src:'request + entity index',quote:'Also notify Carlos regarding the same.',form:'entity check: notification.email == email of the user named in the request\n  and that user is the incident caller (fact)',keys:['tool: send_notification','entity: Carlos Rodriguez'],hooks:['before_tool_call']},
+ {id:'s_scope',lab:['Message within','access scope'],type:'semantic',x:713,y:350,w:RW,h:RH,src:'§1 L17',quote:'Do not disclose information that is outside the authenticated user\'s access scope.',form:'semantic verifier on the message text:\n  does it disclose data about other users or internal notes? → pass / reject + reason',keys:['tool: send_notification','hook: before_reply'],hooks:['before_tool_call','before_reply']},
+ {id:'c_duties',lab:['Open steps','done?'],type:'code',x:853,y:300,w:RW,h:RH,src:'request + §1 L29',quote:'Complete each task in a logical, and efficient execution flow.',form:'monitor: all required steps of the active procedure finished\n  (impact updated · SLA ensured · caller notified)',keys:['hook: before_reply','hook: on_task_end'],hooks:['before_reply','on_task_end']},
+ {id:'g_noask',lab:['No clarifying','questions'],type:'decision',x:853,y:350,w:RW,h:RH,src:'§1 L19',quote:'Do not ask for further information. If the request is ambiguous, return the list and state the ambiguity. If a mandatory field is missing, state which field is required.',form:'typed question: "Does this reply ask the user for information?" yes/no\n  yes → rewrite: state the ambiguity or the missing field',keys:['hook: after_llm_call','hook: before_reply'],hooks:['after_llm_call','before_reply']},
+ // always-on (zone D)
+ {id:'r_roles',lab:['Role permissions','(4 roles)'],type:'cedar',x:13,y:432,w:130,h:RH,src:'§2 L41–47',quote:'Manager … Full CRUD on operational tables (incident, problem, change, knowledge); READ access to all the tables. … Can approve/reject Change Requests.',form:'// illustrative Cedar, generated from the role table\npermit (principal in Role::"manager",\n        action in Action::"write",\n        resource in Table::"incident");\npermit (principal in Role::"agent",\n        action in Action::"write",\n        resource in Table::"incident");\nforbid (principal in Role::"reporter",\n        action == Action::"update",\n        resource is Incident)\n  unless { resource.caller_id == principal.id };\npermit (principal in Role::"manager",\n        action in [Action::"approve", Action::"reject"],\n        resource is ChangeRequest);',keys:['every write tool','principal role'],hooks:['session_start','before_tool_call']},
+ {id:'g_scope',lab:['Access scope','(reads)'],type:'cedar',x:153,y:432,w:130,h:RH,src:'§1 L17, §2 L47',quote:'Cannot view or modify records opened by other users, CMDB, or internal work notes.',form:'Cedar read permissions from the same policy set;\nreply text is checked by the semantic verifier (node "Message within access scope")',keys:['read tools','principal role'],hooks:['before_tool_call']},
+ {id:'g_mand',lab:['Mandatory','fields'],type:'code',x:293,y:432,w:130,h:RH,src:'§1 L21, §3.1 L57',quote:'Any request to create or update a record must validate all mandatory fields.',form:'JSON schema per write tool, with defaults:\n  channel=chat, impact=low, urgency=low (create)',keys:['every write tool'],hooks:['before_tool_call']},
+ {id:'g_enum',lab:['Allowed values','(12 lists)'],type:'code',x:433,y:432,w:130,h:RH,src:'§9 L213–241',quote:'Predefined Lists (Enumerations)',form:'enum validators per field, generated from §9\n  e.g. incident.impact ∈ {high, medium, low}',keys:['tool argument names'],hooks:['before_tool_call']},
+ {id:'g_ground',lab:['Never fabricate','IDs or values'],type:'semantic',x:573,y:432,w:130,h:RH,src:'§1 L27',quote:'Never assume or fabricate IDs, responses, or outcomes — rely solely on verified API results.',form:'1) code: every ID argument appears in an earlier tool result (provenance facts)\n2) if not traceable → semantic verifier: is the value grounded in the trajectory?',keys:['tool args of type ID'],hooks:['before_tool_call']},
+ {id:'g_atomic',lab:['One write','at a time'],type:'code',x:713,y:432,w:130,h:RH,src:'§1 L15',quote:'Perform one validated operation at a time, except when using approved batch endpoints.',form:'after_plan pre-scan of a code block: at most one write per block\n  (our interpretation; batch endpoints exempt)',keys:['hook: after_plan'],hooks:['after_plan','before_tool_call']},
+ {id:'g_halt',lab:['Halt with the','policy reason'],type:'human',x:853,y:432,w:130,h:RH,src:'§1 L13',quote:'If a user request violates any rule herein, you must halt the operation and provide the specific policy reason before pausing.',form:'effect of every DENY: stop the write, reply with rule id + policy line.\nIn this benchmark the hand-off is the reply itself (no human, no clarifying question).',keys:['every DENY'],hooks:['before_tool_call','before_reply']},
+ // elsewhere (zone E)
+ {id:'o_assign',lab:['Assignee active,','role, group'],type:'cedar',x:13,y:512,w:150,h:RH,src:'§3.2 L87, §8.1 L197',quote:'assigned_to must be an active user with the Agent or Manager role and must be a member of the specified assignment_group.',form:'// illustrative Cedar\nforbid (principal, action == Action::"assign", resource is Incident)\n  unless { context.assignee.active &&\n           context.assignee.role in ["agent", "manager"] &&\n           context.assignee in context.group };',keys:['tool: update_incident','arg: assigned_to'],hooks:['before_tool_call']},
+ {id:'o_ci',lab:['Link only in-use','or maintenance CIs'],type:'cedar',x:178,y:512,w:150,h:RH,src:'§5.1 L161',quote:'Only CIs with status = in_use or status = maintenance can be linked to active Incidents.',form:'// illustrative Cedar\nforbid (principal, action == Action::"link_ci", resource)\n  unless { resource.ci.status in ["in_use", "maintenance"] };',keys:['tool: link CI'],hooks:['before_tool_call']},
+ {id:'o_kbsearch',lab:['Search knowledge','on create'],type:'monitor',x:343,y:512,w:150,h:RH,src:'§7 L183',quote:'When an Incident is created, a search for relevant knowledge must be performed, and matching articles should be linked.',form:'duty after create_incident: knowledge search done; matches linked\n  "matching" judged by the semantic verifier',keys:['tool: create_incident'],hooks:['after_tool_call','before_reply']},
+ {id:'o_kbuse',lab:['Which kb_use','type?'],type:'decision',x:508,y:512,w:150,h:RH,src:'§7 L187–189',quote:'All knowledge links must track kb_use type: suggested …, applied …, or resolution …',form:'typed question: "How was this article used?" {suggested, applied, resolution}\n  must equal the kb_use argument',keys:['tool: link knowledge','arg: kb_use'],hooks:['before_tool_call']},
+ {id:'o_kbdraft',lab:['Draft knowledge','before closure'],type:'decision',x:673,y:512,w:150,h:RH,src:'§7 L185',quote:'… and the resolution is not a simple password reset, the Agent must be prompted to create and link a new knowledge draft before final closure.',form:'typed question: "Is the resolution a simple password reset?" yes/no\n  no and no linked article → duty: prompt the Agent (hand-off) before closure',keys:['arg: state=resolved'],hooks:['after_tool_call','before_reply']},
+ {id:'o_problem',lab:['Recurring or','major incident?'],type:'llm',x:838,y:512,w:150,h:RH,src:'§4.2 L119',quote:'A Problem must be created (create_problem) when a recurring incident pattern or a major incident is identified.',form:'LLM judgment over the incident history (no fixed threshold in the policy)\n  yes → duty: create_problem and link all affected incidents',keys:['hook: after_tool_call (incident facts)'],hooks:['after_tool_call']},
+ {id:'o_plink',lab:['Problem links all','affected incidents'],type:'monitor',x:13,y:562,w:150,h:RH,src:'§4.2 L121',quote:'The Problem record must link all affected Incidents via the incident_to_problem related list.',form:'duty after create_problem: every affected incident linked',keys:['tool: create_problem'],hooks:['after_tool_call','before_reply']},
+ {id:'o_cab',lab:['Emergency change','needs CAB'],type:'human',x:178,y:562,w:150,h:RH,src:'§4.1 L115',quote:'emergency (requires immediate CAB approval override)',form:'hand-off: ask for CAB approval; until approved, hold the change',keys:['tool: change request','arg: type=emergency'],hooks:['before_tool_call']},
+ {id:'sla_breach',lab:['Breach → escalate,','notify Manager'],type:'monitor',x:343,y:562,w:150,h:RH,src:'§6 L175',quote:'If the SLA exceeds its duration (stage = breached), the escalation flag on the Incident must be set to true, and an automatic notification sent to the Manager.',form:'duty: on fact incident_sla.stage=breached →\n  require incident.escalation=true and a notification to the Manager',keys:['state: incident_sla.stage=breached'],hooks:['after_tool_call','before_reply']},
+ {id:'o_deps',lab:['Dependencies','before closing'],type:'code',x:508,y:562,w:150,h:RH,src:'§8.1 L199',quote:'Before closing any record, verify that all mandatory dependencies are satisfied.',form:'precondition on any close: linked records complete',keys:['arg: state=closed'],hooks:['before_tool_call']},
+ {id:'o_worklog',lab:['Work log has','time and user'],type:'code',x:673,y:562,w:150,h:RH,src:'§8.1 L201',quote:'All work logs must include the timestamp (created_on) and the user_id performing the action.',form:'argument check on work-log writes',keys:['tool: work log'],hooks:['before_tool_call']},
+ {id:'o_backoff',lab:['Rate limit →','backoff'],type:'code',x:838,y:562,w:150,h:RH,src:'§8.2 L209',quote:'If exceeded, pause and retry using Exponential Backoff.',form:'harness retry policy (not a decision)',keys:['tool error: rate limit'],hooks:['after_tool_call']},
+];
+const BY = Object.fromEntries(N.map(n => [n.id, n]));
+const c = (id, side) => { const n = BY[id]; if (side === 'b') return [n.x + n.w / 2, n.y + n.h]; if (side === 't') return [n.x + n.w / 2, n.y];
+  if (side === 'r') return [n.x + n.w, n.y + n.h / 2]; return [n.x, n.y + n.h / 2]; };
+// edges: [path d, kind, ids]
+const E = [];
+const L = (a, b, kind) => E.push({d:`M${a[0]} ${a[1]} L${b[0]} ${b[1]}`, kind, ids:[]});
+const P = (d, kind, ids) => E.push({d, kind, ids});
+// lifecycle transitions
+P('M138 70 L228 70','trans',['st_new','st_prog']);
+P('M346 64 L436 64','trans',['st_prog','st_hold']);
+P('M436 78 L346 78','trans',['st_hold','st_prog']);
+P('M762 70 L852 70','trans',['st_res','st_closed']);
+P('M79 52 C 170 18, 410 18, 495 52','trans',['st_new','st_hold']);
+P('M79 52 C 200 2, 600 2, 703 52','trans',['st_new','st_res']);
+P('M287 88 C 380 120, 610 120, 703 88','trans',['st_prog','st_res']);
+// guards to transitions
+P('M360 128 L391 80','guard',['gd_reason']); P('M510 128 L495 88','guard',['sla_pause']);
+P('M660 128 L640 112','guard',['gd_resolve']); P('M890 128 L807 72','guard',['gd_close']);
+// procedure flow
+for (let i = 1; i < 7; i++) P(`M${14 + (i - 1) * 140 + 132} 239 L${14 + i * 140} 239`, 'flow', ['p' + i, 'p' + (i + 1)]);
+// step to rules
+[['p1','c_lookup'],['p2','d_impact'],['p3','c_trans'],['p4','c_prereq'],['p5','c_sla'],['p6','e_caller'],['p7','c_duties']].forEach(([s, r]) => {
+  const a = c(s, 'b'), b = c(r, 't'); P(`M${a[0]} ${a[1]} L${b[0]} ${b[1]}`, 'guard', [s, r]); });
+
+const svg = document.getElementById('g');
+const NS = 'http://www.w3.org/2000/svg';
+const el = (t, a = {}, p = svg) => { const e = document.createElementNS(NS, t); for (const k in a) if (a[k] !== null && a[k] !== undefined) e.setAttribute(k, a[k]); p.appendChild(e); return e; };
+const defs = el('defs');
+const mk = el('marker', {id:'ar', markerWidth:8, markerHeight:8, refX:7, refY:4, orient:'auto'}, defs);
+el('path', {d:'M0 0 L8 4 L0 8 z', fill:'#6b7280'}, mk);
+const mk2 = el('marker', {id:'ar2', markerWidth:8, markerHeight:8, refX:7, refY:4, orient:'auto'}, defs);
+el('path', {d:'M0 0 L8 4 L0 8 z', fill:'#111827'}, mk2);
+const zt = (x, y, s, anchor = 'start') => { const t = el('text', {x, y, 'font-size':11, fill:'#6b7280', 'font-weight':700, 'letter-spacing':'.06em', 'text-anchor':anchor}); t.textContent = s; };
+zt(995, 14, 'INCIDENT LIFECYCLE · §3.3 · STATE MACHINE (CODE)', 'end');
+zt(14, 200, 'PROCEDURE FOR THIS REQUEST · PROGRESS AN INCIDENT');
+zt(14, 290, 'RULES FOR EACH STEP');
+zt(14, 424, 'APPLY TO EVERY WRITE · ALWAYS ON');
+zt(14, 504, 'ELSEWHERE IN THIS POLICY · OTHER PROCEDURES AND DUTIES');
+zt(995, 290, 'dashed border = task overlay (from the request)', 'end');
+const edgeEls = E.map(e => el('path', {d:e.d, class:'edge', fill:'none',
+  stroke: e.kind === 'flow' ? '#111827' : e.kind === 'trans' ? '#9ca3af' : '#cbd5e1',
+  'stroke-width': e.kind === 'flow' ? 1.8 : 1.4, 'stroke-dasharray': e.kind === 'guard' ? '3 3' : null,
+  'marker-end': e.kind === 'flow' ? 'url(#ar2)' : e.kind === 'trans' ? 'url(#ar)' : null}));
+const nodeEls = {};
+N.forEach(n => {
+  const t = TYPES[n.type];
+  const g = el('g', {class:'node', 'data-id':n.id, tabindex:0, role:'button', 'aria-label':n.lab.join(' ')});
+  el('rect', {x:n.x, y:n.y, width:n.w, height:n.h, rx: n.type === 'state' ? 18 : 8, fill:t.fill, stroke:t.stroke,
+    'stroke-width': n.type === 'step' ? 2 : 1.6, 'stroke-dasharray': n.overlay ? '5 3' : null}, g);
+  const lines = n.lab; const lh = 14; const y0 = n.y + n.h / 2 - (lines.length - 1) * lh / 2 + 4.5;
+  lines.forEach((s, i) => { const tx = el('text', {x:n.x + n.w / 2, y:y0 + i * lh, 'text-anchor':'middle',
+    'font-size': n.type === 'step' && i === 1 ? 9 : 12, fill: n.type === 'step' && i === 1 ? '#1d4ed8' : '#111827',
+    'font-weight': (n.type === 'step' && i === 0) || n.type === 'state' ? 700 : 500,
+    'font-family': n.type === 'step' && i === 1 ? 'ui-monospace,Menlo,monospace' : null}, g); tx.textContent = s; });
+  g.addEventListener('click', () => showNode(n.id));
+  g.addEventListener('keydown', ev => { if (ev.key === 'Enter' || ev.key === ' ') { ev.preventDefault(); showNode(n.id); } });
+  nodeEls[n.id] = g;
+});
+
+// cards and legend
+const rules = N.filter(n => !['step', 'state'].includes(n.type));
+const counts = {}; rules.forEach(n => counts[n.type] = (counts[n.type] || 0) + 1);
+document.getElementById('cards').innerHTML = [
+  ['Policy', '9 sections', 'ITSM system_prompt, 10,668 characters, 241 lines'],
+  ['Rule nodes', rules.length, Object.entries(counts).map(([k, v]) => `${v} ${TYPES[k].name.toLowerCase()}`).join(' · ')],
+  ['Checked by code or Cedar', (counts.code || 0) + (counts.cedar || 0) + (counts.monitor || 0), 'no model call at check time (incl. monitor duties)'],
+  ['Need a model or a person', (counts.decision || 0) + (counts.semantic || 0) + (counts.llm || 0) + (counts.human || 0), 'decision model, semantic verifier, LLM, hand-off'],
+].map(([k, v, n]) => `<div class="card"><div class="k">${k}</div><div class="v">${v}</div><div class="n">${n}</div></div>`).join('');
+document.getElementById('legend').innerHTML = Object.entries(TYPES).map(([k, t]) =>
+  `<span><i class="sw" style="background:${t.fill};border-color:${t.stroke}"></i>${t.name}</span>`).join('') +
+  '<br style="flex-basis:100%">' +
+  '<span><svg width="34" height="10" style="width:34px;height:10px;display:inline-block;flex:none"><path d="M2 5 L28 5" stroke="#9ca3af" stroke-width="1.6" marker-end="url(#ar)"/></svg>allowed state change (§3.3)</span>' +
+  '<span><svg width="34" height="10" style="width:34px;height:10px;display:inline-block;flex:none"><path d="M2 5 L28 5" stroke="#111827" stroke-width="1.8" marker-end="url(#ar2)"/></svg>order of procedure steps</span>' +
+  '<span><svg width="34" height="10" style="width:34px;height:10px;display:inline-block;flex:none"><path d="M2 5 L30 5" stroke="#94a3b8" stroke-width="1.6" stroke-dasharray="3 3"/></svg>rule checks this step or state change</span>' +
+  '<span>"Every write" rules attach to all write steps (lines not drawn)</span>';
+
+// lifecycle-hook walkthrough of the slide 11 task
+const OK = '<span class="ok">ALLOW</span>', NO = '<span class="no">DENY</span>', NA = '<span class="na">n/a</span>';
+const EV = [
+ {hook:'session_start', t:'Load the graph', hl:['r_roles','g_scope','g_mand','g_enum','g_ground','g_atomic','g_halt'],
+  body:`<p>Policy text hash is already in the cache → load the compiled graph (version v1). <b>0 model calls.</b></p>
+  <p>Bind the principal from the session: <b>Priya Sharma (USER_002), role manager</b> → Cedar principal <code>Role::"manager"</code>.</p>
+  <p>Build the indexes: 8 selected tools → trigger index; 12 enum lists; 5 incident states → state index. Expose only tools the manager may use (8 of 8 here).</p>`},
+ {hook:'on_user_message', t:'Match the request', hl:['p1','p2','p3','p4','p5','p6','p7','d_impact','c_prereq'],
+  body:`<p>Semantic match of the request against procedure entries → <b>"Progress an incident"</b> (7 steps).</p>
+  <p>Decision model, one typed question: impact from <i>"highly impacting his Wi-Fi networks, indicating a high business impact"</i> → <code>high</code>.</p>
+  <p>The request adds one <b>overlay rule</b> for this task only: link an SLA only if none is linked (dashed node). Source: user text, not the policy.</p>
+  <p>Required steps opened: update impact · ensure SLA · notify caller.</p>`},
+ {hook:'before_llm_call', t:'Give the agent its position', hl:['p1','c_lookup','g_ground','g_scope'],
+  body:`<p>The agent gets its position and only the rules for it, not the 10,668-character policy:</p>
+  <pre>POLICY POSITION  progress an incident · step 1 of 7: find the incident
+NEXT ALLOWED     find_incident_by_number
+RULES HERE       look up IDs before use (§1 L25) · never fabricate IDs (§1 L27)
+OPEN DUTIES      impact → high · ensure an SLA · notify the caller</pre>
+  <p>About 60 words. The full policy stays available through <code>policy_search()</code>.</p>`},
+ {hook:'after_llm_call', t:'Check the model output', hl:['g_noask'],
+  body:`<p>Decision model: "Does this output ask the user for information?" → <b>no</b> → pass.</p>
+  <div class="whatif"><b>What if</b> the model wrote "Which SLA should I use?": <b>rewrite</b> per §1 L19 — state the ambiguity or the missing field, do not ask.</div>`},
+ {hook:'after_plan', t:'Pre-scan the code block', hl:['g_atomic','p3','p5','p6'],
+  body:`<p>The CodeAct block calls 3 writes: <code>update_incident</code>, <code>link_new_incident_sla</code>, <code>send_notification</code>.</p>
+  <p>§1 L15 "one validated operation at a time" → run the first write, return the other two as the next steps (our interpretation).</p>
+  <p>Prefetch facts for the coming checks: incident state and caller, SLA definitions. Each call in the block is still checked when it runs.</p>`},
+ {hook:'before_tool_call', t:'update_incident', hl:['p3','r_roles','c_trans','c_calc','g_enum','g_mand','g_ground','c_lookup'],
+  body:`<p><code>update_incident(INC_016, impact=high, state=in_progress)</code> — exact lookup by tool name → 7 rule nodes, 6 checks.</p>
+  <table>
+  <tr><td>Role permissions (Cedar)</td><td>manager may write incident</td><td>${OK}</td></tr>
+  <tr><td>Valid state transition</td><td>current → in_progress (from record)</td><td>${OK}</td></tr>
+  <tr><td>Allowed values</td><td>impact ∈ {high, medium, low}</td><td>${OK}</td></tr>
+  <tr><td>Priority = Impact × Urgency</td><td>high × medium = high (<i>inferred</i>)</td><td>${OK}</td></tr>
+  <tr><td>Mandatory fields</td><td>none missing for an update</td><td>${OK}</td></tr>
+  <tr><td>Look up IDs / never fabricate</td><td>INC_016 came from find_incident_by_number</td><td>${OK}</td></tr>
+  </table><p>Verdict: <b>ALLOW</b> · 0 model calls.</p>
+  <div class="whatif"><b>What if</b> it set <code>state=resolved</code> without <code>resolution_code</code>: ${NO} by "Resolution fields" (§3.3 L101), remedy: add resolution_code ∈ {fixed, workaround, not_reproducible, closed_by_caller} and resolution_notes. Reply states the rule (Halt with the policy reason).</div>`},
+ {hook:'after_tool_call', t:'Update facts', hl:['st_prog','sla_pause','p4','c_duties'],
+  body:`<p>Facts updated from the result: <code>state=in_progress</code>, <code>impact=high</code>, <code>priority=high</code>. Step "impact" done.</p>
+  <p>State index lookup <code>incident.state=in_progress</code> → no duty. Pointer moves to step 4, check linked SLAs.</p>
+  <div class="whatif"><b>What if</b> the state were <code>on_hold</code> with reason "Awaiting Caller": the state index fires <b>Pause SLA when on hold</b> (§6 L173) → duty: set <code>incident_sla.stage = paused</code> before the task ends.</div>`},
+ {hook:'before_tool_call', t:'link_new_incident_sla', hl:['p5','c_prereq','c_sla','r_roles','g_ground'],
+  body:`<p><code>link_new_incident_sla(INC_016, SLA_002)</code></p>
+  <table>
+  <tr><td>Link only if none is linked (overlay)</td><td>find_incident_slas returned none</td><td>${OK}</td></tr>
+  <tr><td>SLA matches priority</td><td>SLA_002 is the high-priority SLA (<i>inferred</i>)</td><td>${OK}</td></tr>
+  <tr><td>Role permissions (Cedar)</td><td>manager may write incident_sla</td><td>${OK}</td></tr>
+  <tr><td>Never fabricate IDs</td><td>SLA_002 came from find_sla_definitions</td><td>${OK}</td></tr>
+  </table><p>Verdict: <b>ALLOW</b> · 0 model calls.</p>
+  <div class="whatif"><b>What if</b> it linked a moderate-priority SLA: ${NO}, remedy: "use the SLA definition for priority high (SLA_002)".</div>`},
+ {hook:'before_tool_call', t:'send_notification', hl:['p6','e_caller','s_scope','r_roles'],
+  body:`<p><code>send_notification(INC_016, carlos.rodriguez@techcorp.com, type=update)</code></p>
+  <table>
+  <tr><td>Recipient is the caller</td><td>entity index: Carlos Rodriguez → this email; caller of INC_016 (<i>inferred</i>)</td><td>${OK}</td></tr>
+  <tr><td>Message within access scope</td><td>semantic verifier: only his incident, no internal notes</td><td>${OK}</td></tr>
+  <tr><td>Role permissions (Cedar)</td><td>manager may notify</td><td>${OK}</td></tr>
+  </table><p>Verdict: <b>ALLOW</b> · 1 small-model call (semantic verifier).</p>`},
+ {hook:'before_reply', t:'Check before answering', hl:['p7','c_duties','g_noask','s_scope','g_halt'],
+  body:`<p>Open required steps: <b>0 of 3</b> (impact updated · SLA linked · caller notified) → may finish.</p>
+  <p>Reply asks no question (§1 L19) ✓ · discloses nothing outside scope (§1 L17) ✓.</p>
+  <div class="whatif"><b>What if</b> the notification was skipped: the reply is blocked with a reminder "required step open: notify the caller".</div>`},
+ {hook:'on_task_end', t:'Record and clean up', hl:['c_duties'],
+  body:`<p>Write one record per verdict: rule id, policy line, checker, result, inputs → audit log (19 checks in this run: 18 passed, 1 split the code block).</p>
+  <p>Discard the overlay rule (it came from this request). Nothing to promote to the base graph.</p>
+  <p>Benchmark view: the task's 3 distinct SQL checks (incident update, SLA link, notification) match the 3 write steps of the procedure.</p>`},
+];
+const stepper = document.getElementById('stepper');
+EV.forEach((e, i) => { const b = document.createElement('button'); b.innerHTML = `<span class="h">${i + 1} · ${e.hook}</span>${e.t}`;
+  b.onclick = () => showEvent(i); stepper.appendChild(b); });
+let cur = 0;
+const panel = document.getElementById('panel');
+function highlight(ids) {
+  const set = new Set(ids || []);
+  Object.entries(nodeEls).forEach(([id, g]) => { g.classList.toggle('dim', set.size > 0 && !set.has(id)); g.classList.toggle('hl', set.has(id)); });
+  E.forEach((e, i) => edgeEls[i].classList.toggle('dim', set.size > 0 && !(e.ids.length && e.ids.every(x => set.has(x)))));
+}
+function showEvent(i) {
+  cur = i; const e = EV[i];
+  [...stepper.children].forEach((b, j) => b.classList.toggle('on', j === i));
+  highlight(e.hl);
+  panel.innerHTML = `<div class="num">Hook ${i + 1} of ${EV.length}</div><h3><code>${e.hook}</code> · ${e.t}</h3>${e.body}
+   <div class="lbl">Nodes used</div>${e.hl.map(id => `<span class="chip" style="cursor:pointer" onclick="showNode('${id}')">${BY[id].lab.join(' ')}</span>`).join('')}
+   <p style="margin-top:12px"><button class="back" onclick="showEvent(Math.max(0,cur-1))">← previous</button> &nbsp; <button class="back" onclick="showEvent(Math.min(EV.length-1,cur+1))">next →</button></p>`;
+}
+function showNode(id) {
+  const n = BY[id], t = TYPES[n.type];
+  highlight([id]);
+  panel.innerHTML = `<div class="num">Node</div><h3>${n.lab.join(' ')}</h3>
+   <span class="tag" style="border-color:${t.stroke};color:${t.stroke};background:${t.fill}">${t.name}</span>${n.overlay ? '<span class="tag" style="border-style:dashed;color:#374151;border-color:#9ca3af">task overlay</span>' : ''}
+   <div class="lbl">Source</div><div>${n.src}</div><blockquote>${n.quote}</blockquote>
+   <div class="lbl">Compiled to</div><pre>${n.form.replace(/&/g, '&amp;').replace(/</g, '&lt;')}</pre>
+   <div class="lbl">Index keys</div>${n.keys.map(k => `<span class="chip">${k}</span>`).join('')}
+   <div class="lbl">Runs at hooks</div>${n.hooks.map(k => `<span class="chip">${k}</span>`).join('')}
+   <p style="margin-top:12px"><button class="back" onclick="showEvent(cur)">← back to hook ${cur + 1}</button></p>`;
+}
+window.showNode = showNode; window.showEvent = showEvent;
+document.addEventListener('keydown', ev => { if (ev.target.closest && ev.target.closest('.node')) return;
+  if (ev.key === 'ArrowRight') showEvent(Math.min(EV.length - 1, cur + 1)); if (ev.key === 'ArrowLeft') showEvent(Math.max(0, cur - 1)); });
+
+// index table
+const groups = {};
+N.forEach(n => n.keys.forEach(k => { const [kind] = k.split(':'); const g = (groups[kind.trim()] = groups[kind.trim()] || {keys:new Set(), nodes:new Set()}); g.keys.add(k); g.nodes.add(n.id); }));
+const IXDESC = {
+  'tool':['Trigger index','exact','before_tool_call'], 'every write tool':['Trigger index (all writes)','exact','before_tool_call'],
+  'arg':['Argument index','exact','before_tool_call'], 'tool args of type ID':['Provenance facts','exact, then semantic','before_tool_call'],
+  'tool argument names':['Argument index','exact','before_tool_call'], 'state':['State index','exact, on fact change','after_tool_call'],
+  'procedure':['Procedure entries','embeddings + small model','on_user_message'], 'procedure step':['Procedure entries','pointer','on_user_message'],
+  'entity':['Entity index','exact','before_tool_call'], 'principal role':['Cedar store','exact (Cedar)','before_tool_call'],
+  'hook':['Hook index','exact','that hook'], 'every DENY':['Effect handler','exact','before_tool_call, before_reply'],
+  'read tools':['Trigger index (reads)','exact','before_tool_call'], 'tool error':['Error index','exact','after_tool_call'],
+};
+document.getElementById('ixtable').innerHTML = '<tr><th>Index</th><th>Keys (examples)</th><th>Rule nodes</th><th>Search</th><th>Used at</th></tr>' +
+  Object.entries(groups).map(([k, g]) => { const d = IXDESC[k] || [k, 'exact', '']; const ex = [...g.keys].slice(0, 4).map(s => `<span class="chip">${s}</span>`).join('');
+    return `<tr><td><b>${d[0]}</b></td><td>${ex}${g.keys.size > 4 ? ' …' : ''}</td><td>${g.nodes.size}</td><td>${d[1]}</td><td><code>${d[2]}</code></td></tr>`; }).join('');
+
+showEvent(0);
+</script>
+</body>
+</html>

@@ -1,0 +1,871 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>CUGA policy and SOP adherence: what we built, tested and learned</title>
+<style>
+:root{--ink:#0f172a;--ink2:#334155;--muted:#64748b;--line:#e2e8f0;--plane:#f8fafc;
+ --ours:#1d4ed8;--oursbg:#eff6ff;--good:#047857;--goodbg:#ecfdf5;--warn:#b45309;--warnbg:#fffbeb;
+ --bad:#b91c1c;--badbg:#fef2f2;--flat:#64748b;--flatbg:#f1f5f9;--nav:56px}
+*{box-sizing:border-box}
+html{scroll-behavior:smooth;scroll-padding-top:calc(var(--nav) + 12px)}
+body{margin:0;background:#fff;color:var(--ink);font:16px/1.6 system-ui,-apple-system,"Segoe UI",Roboto,sans-serif;-webkit-font-smoothing:antialiased}
+a{color:var(--ours)}
+code{font-family:ui-monospace,SFMono-Regular,Menlo,monospace;font-size:.86em;background:#f1f5f9;padding:1px 5px;border-radius:4px}
+.wrap{max-width:1120px;margin:0 auto;padding:0 20px}
+
+/* nav */
+#bar{position:fixed;top:0;left:0;height:3px;background:var(--ours);width:0;z-index:60}
+nav.top{position:sticky;top:0;z-index:50;background:rgba(255,255,255,.94);backdrop-filter:saturate(1.4) blur(8px);-webkit-backdrop-filter:saturate(1.4) blur(8px);border-bottom:1px solid var(--line)}
+nav.top .wrap{display:flex;align-items:center;gap:18px;height:var(--nav)}
+nav.top .brand{font-weight:700;white-space:nowrap;font-size:15px;color:var(--ink);text-decoration:none}
+nav.top .links{display:flex;gap:4px;overflow-x:auto;scrollbar-width:none;flex:1}
+nav.top .links::-webkit-scrollbar{display:none}
+nav.top .links a{color:var(--ink2);text-decoration:none;font-size:14px;padding:8px 10px;border-radius:8px;white-space:nowrap;min-height:40px;display:flex;align-items:center}
+nav.top .links a:hover{background:var(--plane)}
+nav.top .links a.on{color:var(--ours);background:var(--oursbg);font-weight:600}
+
+/* hero */
+.hero{position:relative;overflow:hidden;background:var(--plane);border-bottom:1px solid var(--line);min-height:88vh;min-height:88dvh;display:flex;align-items:center}
+.hero .layer{position:absolute;inset:-8% -4%;pointer-events:none;will-change:transform}
+.hero .content{position:relative;z-index:3;padding:72px 20px 64px;width:100%}
+.eyebrow{font-size:13px;font-weight:700;letter-spacing:.09em;text-transform:uppercase;color:var(--muted)}
+.hero h1{font-size:clamp(34px,5.2vw,62px);line-height:1.08;letter-spacing:-.03em;margin:14px 0 18px;max-width:720px}
+.hero h1 span{color:var(--ours)}
+.hero .lead{font-size:clamp(17px,1.6vw,20px);color:var(--ink2);max-width:640px;margin:0 0 28px}
+@media (max-width:1180px){.hero .layer.fg{display:none}.hero .layer.mid{opacity:.35}}
+.cta{display:flex;gap:12px;flex-wrap:wrap;margin-bottom:40px}
+.btn{display:inline-flex;align-items:center;gap:8px;min-height:44px;padding:10px 18px;border-radius:10px;font-weight:600;font-size:15px;text-decoration:none;border:1px solid var(--line);background:#fff;color:var(--ink)}
+.btn.primary{background:var(--ours);border-color:var(--ours);color:#fff}
+.kpis{display:grid;grid-template-columns:repeat(auto-fit,minmax(200px,1fr));gap:14px;max-width:1000px}
+.kpi{background:#fff;border:1px solid var(--line);border-radius:14px;padding:16px 18px}
+.kpi .v{font-size:32px;font-weight:750;letter-spacing:-.02em;font-variant-numeric:tabular-nums}
+.kpi .v.ours{color:var(--ours)}
+.kpi .k{font-size:14px;color:var(--ink2);margin-top:2px}
+.kpi .n{font-size:12.5px;color:var(--muted);margin-top:6px}
+
+/* sections */
+section.s{padding:84px 0 24px}
+section.s.alt{background:var(--plane);border-top:1px solid var(--line);border-bottom:1px solid var(--line);padding-bottom:72px}
+.s h2{font-size:clamp(26px,3vw,36px);line-height:1.15;letter-spacing:-.02em;margin:8px 0 10px}
+.s .sub{color:var(--ink2);font-size:17px;max-width:780px;margin:0 0 30px}
+.s h3{font-size:19px;margin:34px 0 12px}
+.grid{display:grid;gap:16px;grid-template-columns:repeat(auto-fit,minmax(260px,1fr))}
+.card{background:#fff;border:1px solid var(--line);border-radius:14px;padding:18px 20px}
+.card h4{margin:0 0 6px;font-size:16.5px}
+.card p{margin:0;color:var(--ink2);font-size:15px}
+.card .k{font-size:12px;font-weight:700;letter-spacing:.06em;text-transform:uppercase;color:var(--muted);margin-bottom:6px}
+.big{font-size:30px;font-weight:750;letter-spacing:-.02em;font-variant-numeric:tabular-nums}
+.note{border-left:3px solid var(--ours);background:var(--oursbg);padding:12px 16px;border-radius:0 10px 10px 0;color:var(--ink2);font-size:15px;margin-top:22px}
+.note.warn{border-left-color:var(--warn);background:var(--warnbg)}
+.src{color:var(--muted);font-size:13px;margin-top:14px}
+
+/* tables */
+.tw{overflow-x:auto;-webkit-overflow-scrolling:touch;border:1px solid var(--line);border-radius:14px;background:#fff}
+table{border-collapse:collapse;width:100%;font-size:14.5px}
+th{text-align:left;font-size:12px;text-transform:uppercase;letter-spacing:.05em;color:var(--muted);font-weight:700;padding:12px 14px;border-bottom:1px solid var(--line);background:#fcfcfd;white-space:nowrap}
+td{padding:12px 14px;border-bottom:1px solid #f1f5f9;vertical-align:top}
+tr:last-child td{border-bottom:none}
+td.n{font-variant-numeric:tabular-nums;white-space:nowrap}
+
+/* chips */
+.chip{display:inline-flex;align-items:center;gap:6px;font-size:12.5px;font-weight:600;padding:3px 9px;border-radius:999px;border:1px solid transparent;white-space:nowrap}
+.chip.good{color:var(--good);background:var(--goodbg);border-color:#a7f3d0}
+.chip.bad{color:var(--bad);background:var(--badbg);border-color:#fecaca}
+.chip.warn{color:var(--warn);background:var(--warnbg);border-color:#fde68a}
+.chip.flat{color:var(--flat);background:var(--flatbg);border-color:var(--line)}
+.chip.ours{color:var(--ours);background:var(--oursbg);border-color:#bfdbfe}
+
+/* timeline */
+.tl{position:relative;margin-left:8px;padding-left:28px;border-left:2px solid var(--line)}
+.tl .item{position:relative;margin:0 0 26px}
+.tl .item::before{content:"";position:absolute;left:-36px;top:6px;width:14px;height:14px;border-radius:50%;background:#fff;border:3px solid var(--ours)}
+.tl .date{font-size:13px;font-weight:700;color:var(--ours);letter-spacing:.04em}
+.tl h4{margin:2px 0 6px;font-size:17px}
+.tl p{margin:0;color:var(--ink2);font-size:15px;max-width:820px}
+.tl .tags{margin-top:8px;display:flex;gap:6px;flex-wrap:wrap}
+
+/* filters */
+.filters{display:flex;gap:8px;flex-wrap:wrap;margin:0 0 20px}
+.filters button{font:inherit;font-size:14px;border:1px solid var(--line);background:#fff;color:var(--ink2);padding:8px 14px;border-radius:999px;cursor:pointer;min-height:40px}
+.filters button.on{background:var(--ink);color:#fff;border-color:var(--ink)}
+
+/* method cards */
+.mcard{display:flex;flex-direction:column;gap:10px}
+.mcard .top{display:flex;justify-content:space-between;gap:10px;align-items:flex-start}
+.mcard h4{margin:0;font-size:16.5px}
+.mcard .from{font-size:13px;color:var(--muted)}
+.mcard .from b{color:var(--ink2);font-weight:600}
+.mcard .what{font-size:14.5px;color:var(--ink2);margin:0}
+.mcard .res{font-size:14px;border-top:1px solid #f1f5f9;padding-top:10px;display:flex;flex-direction:column;gap:6px}
+.mcard .res div{display:flex;gap:6px 8px;align-items:baseline;flex-wrap:wrap}
+.mcard .res .chip{white-space:normal;line-height:1.35}
+.mcard .res .m{font-size:12px;color:var(--muted);min-width:74px;font-weight:600}
+.hook{font-family:ui-monospace,Menlo,monospace;font-size:12px;color:var(--ink2);background:#f1f5f9;border-radius:6px;padding:2px 7px}
+.hidden{display:none!important}
+
+/* chart */
+.chart{background:#fff;border:1px solid var(--line);border-radius:14px;padding:20px 20px 12px}
+.row{display:grid;grid-template-columns:minmax(150px,330px) 1fr;gap:14px;align-items:center;padding:6px 0;border-bottom:1px dashed #f1f5f9}
+.row:last-child{border-bottom:none}
+.row .lab{font-size:14px;line-height:1.3}
+.row .lab small{display:block;color:var(--muted);font-size:12px}
+.track{position:relative;height:26px}
+.track .zero{position:absolute;left:50%;top:-6px;bottom:-6px;width:1px;background:#94a3b8}
+.bar{position:absolute;top:3px;height:20px;border-radius:4px}
+.bar.good{background:var(--good)}.bar.bad{background:var(--bad)}.bar.flat{background:#94a3b8}
+.bar.ins{opacity:.42}
+.val{position:absolute;top:2px;font-size:13px;font-weight:700;font-variant-numeric:tabular-nums;white-space:nowrap}
+.legend{display:flex;gap:16px;flex-wrap:wrap;font-size:13px;color:var(--muted);margin-top:12px}
+.legend i{display:inline-block;width:14px;height:10px;border-radius:2px;margin-right:6px;vertical-align:middle}
+
+/* matrix */
+.mx td{min-width:190px}
+.mx td:first-child{min-width:220px}
+.cell{display:flex;flex-direction:column;gap:6px}
+.res-chip{display:flex;flex-direction:column;border-radius:9px;padding:6px 9px;font-size:13px;line-height:1.35}
+.res-chip b{font-variant-numeric:tabular-nums}
+.res-chip.good{background:var(--goodbg);color:#065f46}
+.res-chip.bad{background:var(--badbg);color:#7f1d1d}
+.res-chip.flat{background:var(--flatbg);color:var(--ink2)}
+.res-chip.ours{background:var(--oursbg);color:#1e3a8a}
+.res-chip small{color:inherit;opacity:.8}
+.res-chip .ho{font-size:11px;font-weight:700;letter-spacing:.04em;text-transform:uppercase}
+.empty{color:#cbd5e1}
+.toggle{display:inline-flex;align-items:center;gap:10px;font-size:14px;color:var(--ink2);margin-bottom:14px;cursor:pointer;min-height:40px}
+.toggle input{width:18px;height:18px}
+
+/* lessons */
+.lesson{display:grid;grid-template-columns:56px 1fr;gap:14px;background:#fff;border:1px solid var(--line);border-radius:14px;padding:18px 20px}
+.lesson .no{font-size:30px;font-weight:800;color:#cbd5e1;font-variant-numeric:tabular-nums;line-height:1}
+.lesson h4{margin:0 0 6px;font-size:17px}
+.lesson p{margin:0 0 10px;color:var(--ink2);font-size:15px}
+.lesson .ev{display:flex;gap:8px;flex-wrap:wrap}
+p code,.note code,.lesson code{overflow-wrap:anywhere}
+.lesson>div{min-width:0}
+.lesson .chip,.panel .chip{white-space:normal}
+.lessons{display:grid;gap:14px;grid-template-columns:repeat(auto-fit,minmax(440px,1fr))}
+
+/* architecture */
+.arch{background:#fff;border:1px solid var(--line);border-radius:14px;padding:12px}
+.arch svg{display:block;width:100%;height:auto}
+.arch .node{cursor:pointer}
+.arch .node rect{fill:#fff;stroke:#cbd5e1;stroke-width:1.2;transition:stroke .15s,fill .15s}
+.arch .node:hover rect,.arch .node.sel rect{stroke:var(--ours);stroke-width:2;fill:var(--oursbg)}
+.arch .node:focus{outline:none}
+.arch .node:focus-visible rect{stroke:var(--ours);stroke-width:2.5}
+.arch .node.design rect{stroke-dasharray:5 4}
+.arch text{font-family:system-ui,-apple-system,"Segoe UI",sans-serif}
+.panel{margin-top:14px;border:1px solid var(--line);border-radius:14px;padding:18px 20px;background:var(--plane);min-height:150px}
+.panel h4{margin:0 0 6px;font-size:17px}
+.panel p{margin:0 0 10px;color:var(--ink2);font-size:15px}
+.panel .meta{display:flex;gap:8px;flex-wrap:wrap}
+.hooks{display:grid;grid-template-columns:repeat(6,1fr);gap:10px;margin-top:8px}
+.hk{background:#fff;border:1px solid var(--line);border-radius:12px;padding:12px 12px 10px;position:relative}
+.hk .h{font-family:ui-monospace,Menlo,monospace;font-size:12.5px;font-weight:700;color:var(--ours);margin-bottom:8px}
+.hk ul{margin:0;padding-left:16px;font-size:13.5px;color:var(--ink2)}
+.hk li{margin:3px 0}
+.hk:not(:last-child)::after{content:"→";position:absolute;right:-10px;top:10px;color:#94a3b8;font-size:14px}
+.levels{display:grid;grid-template-columns:repeat(4,1fr);gap:10px}
+.lv{border:1px solid var(--line);border-radius:12px;padding:14px;background:#fff}
+.lv .t{font-weight:700;font-size:15px}
+.lv .t span{display:inline-block;width:24px;height:24px;line-height:24px;text-align:center;border-radius:6px;background:var(--ink);color:#fff;font-size:13px;margin-right:6px}
+.lv p{margin:6px 0 8px;font-size:14px;color:var(--ink2)}
+.lv .for{font-size:13px;color:var(--muted)}
+
+/* reveal */
+.rv{opacity:0;transform:translateY(18px);transition:opacity .6s ease,transform .6s ease}
+.rv.in{opacity:1;transform:none}
+footer{padding:40px 0 60px;color:var(--muted);font-size:13.5px;border-top:1px solid var(--line);margin-top:60px}
+
+@media (max-width:900px){.hooks{grid-template-columns:repeat(2,1fr)}.hk::after{display:none}.levels{grid-template-columns:repeat(2,1fr)}.lessons{grid-template-columns:minmax(0,1fr)}}
+@media (max-width:640px){body{font-size:15px}.hero{min-height:auto}.hero .content{padding:48px 20px 40px}.row{grid-template-columns:1fr;gap:4px}.levels{grid-template-columns:1fr}.hooks{grid-template-columns:1fr}.lesson{grid-template-columns:1fr}.lesson .no{font-size:22px}nav.top .brand{display:none}section.s{padding-top:60px}}
+@media (prefers-reduced-motion:reduce){html{scroll-behavior:auto}.rv{opacity:1;transform:none;transition:none}.hero .layer{transform:none!important}}
+@media print{nav.top,#bar{display:none}.rv{opacity:1;transform:none}.hero{min-height:auto}section.s{page-break-inside:avoid}}
+</style>
+</head>
+<body>
+<div id="bar"></div>
+<nav class="top" aria-label="Sections">
+  <div class="wrap">
+    <a class="brand" href="#top">CUGA · Policy research</a>
+    <div class="links">
+      <a href="#overview">Overview</a>
+      <a href="#problem">Problem</a>
+      <a href="#timeline">Timeline</a>
+      <a href="#benchmarks">Benchmarks</a>
+      <a href="#methods">Methods</a>
+      <a href="#results">Results</a>
+      <a href="#learnings">Learnings</a>
+      <a href="#architecture">Architecture</a>
+      <a href="#testing">How we test</a>
+      <a href="#code">Code</a>
+      <a href="#next">Next</a>
+      <a href="#sources">Sources</a>
+    </div>
+  </div>
+</nav>
+
+<header class="hero" id="top">
+  <svg class="layer" data-depth="0.12" viewBox="0 0 1200 800" preserveAspectRatio="xMidYMid slice" aria-hidden="true">
+    <defs><pattern id="dots" width="28" height="28" patternUnits="userSpaceOnUse"><circle cx="2" cy="2" r="1.3" fill="#cbd5e1"/></pattern></defs>
+    <rect width="1200" height="800" fill="url(#dots)" opacity=".7"/>
+  </svg>
+  <svg class="layer mid" data-depth="0.35" data-mouse="0.5" viewBox="0 0 1200 800" preserveAspectRatio="xMaxYMid slice" aria-hidden="true">
+    <g stroke="#bfdbfe" stroke-width="2" fill="none">
+      <path d="M872 120 L984 210 L1112 160 M984 210 L968 360 L1096 420 M968 360 L856 450 L904 600 M1096 420 L1152 560 M856 450 L760 560"/>
+    </g>
+    <g fill="#fff" stroke="#93c5fd" stroke-width="2">
+      <circle cx="872" cy="120" r="10"/><circle cx="984" cy="210" r="14"/><circle cx="1112" cy="160" r="9"/>
+      <circle cx="968" cy="360" r="16"/><circle cx="1096" cy="420" r="11"/><circle cx="856" cy="450" r="12"/>
+      <circle cx="904" cy="600" r="9"/><circle cx="1152" cy="560" r="8"/><circle cx="760" cy="560" r="8"/>
+    </g>
+  </svg>
+  <svg class="layer fg" data-depth="0.75" data-mouse="1.1" viewBox="0 0 1200 800" preserveAspectRatio="xMaxYMid slice" aria-hidden="true">
+    <g font-family="ui-monospace,Menlo,monospace" font-size="15" font-weight="600">
+      <g transform="translate(944 250)"><rect x="0" y="0" width="150" height="34" rx="17" fill="#eff6ff" stroke="#bfdbfe"/><text x="75" y="22" text-anchor="middle" fill="#1d4ed8">before_tool_call</text></g>
+      <g transform="translate(988 335)"><rect x="0" y="0" width="112" height="34" rx="17" fill="#ecfdf5" stroke="#a7f3d0"/><text x="56" y="22" text-anchor="middle" fill="#047857">allow</text></g>
+      <g transform="translate(924 470)"><rect x="0" y="0" width="130" height="34" rx="17" fill="#fef2f2" stroke="#fecaca"/><text x="65" y="22" text-anchor="middle" fill="#b91c1c">block once</text></g>
+      <g transform="translate(760 380)"><rect x="0" y="0" width="120" height="34" rx="17" fill="#fff" stroke="#cbd5e1"/><text x="60" y="22" text-anchor="middle" fill="#334155">§2.1 step 4</text></g>
+      <g transform="translate(832 170)"><rect x="0" y="0" width="96" height="34" rx="17" fill="#fffbeb" stroke="#fde68a"/><text x="48" y="22" text-anchor="middle" fill="#b45309">must_not</text></g>
+    </g>
+  </svg>
+  <div class="wrap content">
+    <div class="eyebrow">CUGA research · policy and SOP adherence · updated 2026-11-05</div>
+    <h1>Making CUGA follow <span>policies and SOPs</span> it was not built for</h1>
+    <p class="lead">Three weeks, 6 benchmark domains, 3 agent models and 23 methods and setups, most of them built from published work, plus one new design: obligations. This page shows what we built, what we measured, and what we learned, including the methods that did not work.</p>
+    <div class="cta">
+      <a class="btn primary" href="#learnings">Read the learnings</a>
+      <a class="btn" href="#results">See the results</a>
+      <a class="btn" href="#architecture">Explore the architecture</a>
+    </div>
+    <div class="kpis">
+      <div class="kpi"><div class="v ours" data-count="18.9" data-prefix="+" data-dec="1">+18.9</div><div class="k">points on AutomationBench tasks held out when first run, gpt-oss-120b</div><div class="n">23.8% → 42.7%, p = 0.001 · held-out when first run, the set is now labeled seen; second set +8.8 (p = 0.115)</div></div>
+      <div class="kpi"><div class="v" data-count="139" data-suffix=" / 153">139 / 153</div><div class="k">HANDBOOK rubric items, Gemini 3.8 + write gate</div><div class="n">vs 100 for CUGA alone · in-sample · no gain with gpt-oss as gate</div></div>
+      <div class="kpi"><div class="v" data-count="-30" data-dec="0">−30</div><div class="k">points on τ² airline with the Telecom SOP tracker</div><div class="n">17/20 → 11/20 · rules lost their exceptions</div></div>
+      <div class="kpi"><div class="v" data-count="143" data-dec="0">143</div><div class="k">logged changes, each with its reason</div><div class="n"><code>policy_eval/changes.md</code></div></div>
+    </div>
+  </div>
+</header>
+
+<main>
+<!-- OVERVIEW -->
+<section class="s" id="overview">
+  <div class="wrap">
+    <div class="eyebrow">Overview</div>
+    <h2>The short version</h2>
+    <p class="sub">One configurable policy system for CUGA, with no benchmark-specific rules. Every result is reported next to whether the tasks were seen during development.</p>
+    <div class="grid">
+      <div class="card rv"><div class="k">Goal</div><h4>Follow rules that arrive with the task</h4><p>Rules hidden in emails and sheets, long SOP documents, step-by-step support flows and rule lists with exceptions. Start with small open models (gpt-oss-120b), not frontier models.</p></div>
+      <div class="card rv"><div class="k">What works</div><h4>Control for weak agents, narrow checks for strong ones</h4><p>Full control raised gpt-oss by +18.9 and +8.8 points on two sets that were held out when first run (now labeled seen). The same control hurt Gemini 3.8. For Gemini, a narrow check before each write helped; with gpt-oss as the checker, the same check gave no gain.</p></div>
+      <div class="card rv"><div class="k">What does not</div><h4>More knowledge, and imprecise feedback</h4><p>The SOP as a graph of tools gave no gain. Checklists with wrong items made the agent change correct work. Naming a failed check without its value adds only +4 to +6 points. Rules shown without their exceptions caused refusals.</p></div>
+      <div class="card rv"><div class="k">Still open</div><h4>Held-out proof on the stable code</h4><p>The stable base is built: one policy package, one config, one runner, an obligation ledger. No package is held-out, HANDBOOK gains are on the 3 public tasks we built on, and the Telecom gain is not significant (p = 0.146). The best profiles are measured again on the stable code first. See <a href="#next">what comes next</a>.</p></div>
+    </div>
+  </div>
+</section>
+
+<!-- PROBLEM -->
+<section class="s alt" id="problem">
+  <div class="wrap">
+    <div class="eyebrow">The problem</div>
+    <h2>Even top models pass about half of policy tasks or fewer</h2>
+    <p class="sub">Published leaderboards for benchmarks where the agent must follow a policy it reads during the task (checked 2026-10-21).</p>
+    <div class="grid">
+      <div class="card rv"><div class="k">HANDBOOK.md · Surge</div><div class="big">~20–22%</div><p>strict pass@1 for the top models. Long SOP per task, 20–124 pages.</p></div>
+      <div class="card rv"><div class="k">τ³ banking knowledge</div><div class="big">51.3%</div><p>pass@1, best on the AA leaderboard. 698 documents to search.</p></div>
+      <div class="card rv"><div class="k">EnterpriseOps-Gym</div><div class="big">51.1%</div><p>task success, best on the AA leaderboard. Policy in the system prompt.</p></div>
+      <div class="card rv"><div class="k">AutomationBench-AA</div><div class="big">77.5%</div><p>AA score; any broken guardrail scores the task 0. Rules sit in business data.</p></div>
+    </div>
+    <h3>Policies come in four shapes, and each shape needs a different method</h3>
+    <div class="grid">
+      <div class="card rv"><div class="k">Shape 1</div><h4>Given SOP with procedures</h4><p>A long document with procedures, templates and exceptions. Example: HANDBOOK.</p></div>
+      <div class="card rv"><div class="k">Shape 2</div><h4>Rules scattered in data</h4><p>A "Policy" sheet, an email from the COO that overrides an older rule. Example: AutomationBench.</p></div>
+      <div class="card rv"><div class="k">Shape 3</div><h4>Step-by-step flow</h4><p>A troubleshooting manual with paths and branch questions. Example: τ² Telecom.</p></div>
+      <div class="card rv"><div class="k">Shape 4</div><h4>Rule list with exceptions</h4><p>"Basic economy cannot be modified", unless the cabin changes first. Example: τ² airline.</p></div>
+    </div>
+    <p class="src">Sources: <code>docs/analysis/2026-10-20-policy-benchmarks.md</code>; Artificial Analysis leaderboards; Surge AI blog.</p>
+  </div>
+</section>
+
+<!-- TIMELINE -->
+<section class="s" id="timeline">
+  <div class="wrap">
+    <div class="eyebrow">What we did</div>
+    <h2>Three weeks, day by day</h2>
+    <p class="sub">Each step came from a measured result in the step before it.</p>
+    <div class="tl">
+      <div class="item rv"><div class="date">2026-10-14 · 15</div><h4>Playbooks on AppWorld</h4><p>Claude wrote 7 general playbooks from GLM-5.3-flash failures; gpt-oss-120b with playbooks went from 30.0% to 45.6% of tasks. In-sample: the playbooks came from the same 90 tasks.</p><div class="tags"><span class="chip flat">AppWorld</span><span class="chip flat">gpt-oss-120b</span></div></div>
+      <div class="item rv"><div class="date">2026-10-20 · 21</div><h4>State-of-the-art survey and gate design</h4><p>Eight families of methods, from policy-as-text to compiled checks, procedure graphs and model verifiers. Design v2: a hybrid gate at every CUGA hook, small open models only.</p><div class="tags"><span class="chip flat">survey</span><span class="chip flat">design</span></div></div>
+      <div class="item rv"><div class="date">2026-10-31</div><h4>First pilot: EnterpriseOps-Gym ITSM and AutomationBench</h4><p>Gemini 3.8 Flash: ITSM 2/5 in both arms. On AutomationBench all 5 blocks were false: the verifier invented a hold code.</p><div class="tags"><span class="chip flat">ITSM</span><span class="chip flat">AutomationBench</span><span class="chip flat">Gemini 3.8</span></div></div>
+      <div class="item rv"><div class="date">2026-11-01</div><h4>Base-rate finding</h4><p>A strong agent rarely breaks a checkable rule, and false blocks cost more than the catches. The agent model was switched to gpt-oss-120b. The policy layer moved to <code>src/cuga/policy_layer/</code>.</p><div class="tags"><span class="chip warn">lesson</span></div></div>
+      <div class="item rv"><div class="date">2026-11-02</div><h4>Requirements tracker, oracle bound, HANDBOOK guide</h4><p>Correct feedback from the grader: +35.9 points; our own checklist: +3.5. Function calling beat CodeAct for gpt-oss (20.9% → 33.7%). On HANDBOOK, the procedure guide and the SOP loop.</p><div class="tags"><span class="chip flat">DeepSeek-V4-Pro</span><span class="chip flat">gpt-oss-120b</span></div></div>
+      <div class="item rv"><div class="date">2026-11-03</div><h4>First held-out gain, and first measured harm</h4><p>B4T-F on AutomationBench tasks that were held out when first run (the set is now labeled seen): +18.9 (p = 0.001). τ² Telecom SOP tracker: +12.4 (p = 0.146). The same tracker on airline: −30. Four CUGA pull requests opened (#1103–#1107).</p><div class="tags"><span class="chip good">held-out when run</span><span class="chip bad">harm on airline</span></div></div>
+      <div class="item rv"><div class="date">2026-11-04</div><h4>Control by agent strength, graphs and the write gate</h4><p>Gemini: B4T-F −5.8 and SOP loop −7.8, so control hurts a strong agent. τ² navigator offline: 24 of 26 failures caught. HANDBOOK with Gemini: graph tools alone 0; graph + write gate 100 → 139 of 153.</p><div class="tags"><span class="chip ours">design principle</span><span class="chip flat">Gemini 3.8</span></div></div>
+    </div>
+  </div>
+</section>
+
+<!-- BENCHMARKS -->
+<section class="s alt" id="benchmarks">
+  <div class="wrap">
+    <div class="eyebrow">Benchmarks and models</div>
+    <h2>Six benchmark domains, three agent models</h2>
+    <p class="sub">The policy layer itself uses small models: gpt-oss-120b for reading and checking, and Kev-4B for narrow yes/no questions (about 1 s and $0.000002 per question).</p>
+    <div class="tw rv">
+      <table>
+        <thead><tr><th>Benchmark</th><th>Policy shape</th><th>Score</th><th>Tasks we ran</th><th>Agent models</th></tr></thead>
+        <tbody>
+          <tr><td><b>AutomationBench</b> (Zapier)</td><td>Rules scattered in data</td><td>partial; AA (broken guardrail = 0)</td><td>35-task subset; 35 held out when run; 31 held out when run (set 2); both sets now labeled seen</td><td>gpt-oss-120b, DeepSeek-V4-Pro, Gemini 3.8 Flash</td></tr>
+          <tr><td><b>HANDBOOK.md</b> (Surge)</td><td>Given SOP with procedures</td><td>rubric items</td><td>3 public tasks (full set requested from Surge)</td><td>gpt-oss-120b, DeepSeek-V4-Pro, Gemini 3.8 Flash</td></tr>
+          <tr><td><b>τ² Telecom</b></td><td>Step-by-step flow</td><td>task pass</td><td>test 40 × 2; dev 20; fresh 40 prepared</td><td>DeepSeek-V4-Pro</td></tr>
+          <tr><td><b>τ² airline</b></td><td>Rule list with exceptions</td><td>task pass</td><td>test 20</td><td>DeepSeek-V4-Pro</td></tr>
+          <tr><td><b>EnterpriseOps-Gym ITSM</b></td><td>Policy document in the prompt</td><td>SQL verifiers</td><td>pilot 5; tuning 10; 20</td><td>Gemini 3.8 Flash, gpt-oss-120b, DeepSeek-V4-Pro</td></tr>
+          <tr><td><b>AppWorld</b></td><td>No policy; playbooks learned from failures</td><td>task goal completion</td><td>90-task subset</td><td>gpt-oss-120b</td></tr>
+        </tbody>
+      </table>
+    </div>
+    <h3>Agent models, from weakest to strongest on these tasks</h3>
+    <div class="grid">
+      <div class="card rv"><div class="k">Small, open</div><h4>gpt-oss-120b</h4><p>The target model. CUGA alone: 23.8% partial on AutomationBench tasks held out when first run (set now labeled seen), 33.3% of HANDBOOK items.</p></div>
+      <div class="card rv"><div class="k">Large</div><h4>DeepSeek-V4-Pro</h4><p>58.8% of HANDBOOK items alone; 19 of 40 τ² Telecom test tasks alone.</p></div>
+      <div class="card rv"><div class="k">Strong</div><h4>Gemini 3.8 Flash</h4><p>80.9% partial on AutomationBench set 2, with 1 broken guardrail in 60 runs. Needs 400 steps on HANDBOOK.</p></div>
+    </div>
+  </div>
+</section>
+
+<!-- METHODS -->
+<section class="s" id="methods">
+  <div class="wrap">
+    <div class="eyebrow">Methods</div>
+    <h2>23 methods and setups we tested, and one new design</h2>
+    <p class="sub">Each card names the published method it reuses, the CUGA hook where it acts, and what it did. Filter by where the method acts.</p>
+    <div class="filters" id="mfilters" role="group" aria-label="Filter methods">
+      <button class="on" data-f="all">All</button>
+      <button data-f="advice">Advice and knowledge</button>
+      <button data-f="graph">Procedure graphs</button>
+      <button data-f="check">Checks before actions</button>
+      <button data-f="reply">Checks at the reply</button>
+      <button data-f="compile">Rule compile and testing</button>
+      <button data-f="bound">Setup and upper bounds</button>
+    </div>
+    <div class="grid" id="mgrid"></div>
+  </div>
+</section>
+
+<!-- RESULTS -->
+<section class="s alt" id="results">
+  <div class="wrap">
+    <div class="eyebrow">Results</div>
+    <h2>The same method helps one model and hurts another</h2>
+    <p class="sub">Change against CUGA alone with the same agent model, run at the same time. Solid bars: tasks not used for development. Light bars: in-sample.</p>
+    <div class="chart rv" id="chart" role="img" aria-label="Gain over CUGA alone by benchmark, model and method"></div>
+    <div class="legend"><span><i style="background:var(--good)"></i>gain</span><span><i style="background:var(--bad)"></i>loss</span><span><i style="background:#94a3b8"></i>no change</span><span><i style="background:var(--good);opacity:.42"></i>in-sample (light)</span></div>
+    <p class="src">Units: AutomationBench partial score; HANDBOOK share of rubric items; τ² share of tasks passed. All points are percentage points.</p>
+
+    <h3>Every method against every model</h3>
+    <label class="toggle"><input type="checkbox" id="hoOnly"> Show only results on sets held out when run</label>
+    <div class="tw rv">
+      <table class="mx">
+        <thead><tr><th>Method · from</th><th>gpt-oss-120b (small)</th><th>DeepSeek-V4-Pro (large)</th><th>Gemini 3.8 Flash (strong)</th></tr></thead>
+        <tbody id="mxbody"></tbody>
+      </table>
+    </div>
+    <div class="note warn"><b>Read with care:</b> no method was tested on all three models. Only one result was held out when first run and is significant (its set is now labeled seen): B4T-F with gpt-oss on AutomationBench (+18.9, p = 0.001). Its second held-out check gave +8.8 (p = 0.115), on newer code. AB = AutomationBench, HB = HANDBOOK.</div>
+  </div>
+</section>
+
+<!-- LEARNINGS -->
+<section class="s" id="learnings">
+  <div class="wrap">
+    <div class="eyebrow">Learnings</div>
+    <h2>Twenty-three lessons, each with its number and source</h2>
+    <p class="sub">These lessons set the current design. "Changes N" means entry N of <code>benchmarks/policy_eval/changes.md</code>.</p>
+    <div class="lessons" id="lessons"></div>
+  </div>
+</section>
+
+<!-- ARCHITECTURE -->
+<section class="s alt" id="architecture">
+  <div class="wrap">
+    <div class="eyebrow">System architecture</div>
+    <h2>One policy package, one runtime, attached to CUGA's lifecycle hooks</h2>
+    <p class="sub">The architecture as built at the stability gate (2026-11-05, gate commit <code>b2d6e0e96</code>). Click any box to see what it does, where the code is, and how far it is built. Dashed boxes were built in the stabilization plan and have not run live. Full text: <a href="../superpowers/specs/2026-11-04-policy-system-design.md">design spec</a>.</p>
+    <div class="arch rv">
+      <svg id="archsvg" viewBox="0 0 1000 520" role="group" aria-label="Policy system architecture">
+        <defs><marker id="ar" markerWidth="8" markerHeight="8" refX="7" refY="4" orient="auto"><path d="M0 0 L8 4 L0 8 z" fill="#94a3b8"/></marker></defs>
+        <g font-size="12" fill="#64748b" font-weight="700" letter-spacing=".06em">
+          <text x="20" y="26">POLICY SOURCES</text><text x="222" y="26">BUILD AND INTAKE</text><text x="424" y="26">POLICY PACKAGE</text><text x="626" y="26">DECIDE</text><text x="828" y="26">ACT IN CUGA</text>
+        </g>
+        <g stroke="#94a3b8" stroke-width="1.4" fill="none" marker-end="url(#ar)">
+          <path d="M200 110 H216"/><path d="M200 210 H216"/><path d="M200 310 H216"/>
+          <path d="M403 100 H418"/><path d="M403 250 H418"/>
+          <path d="M605 82 H620"/><path d="M605 142 H620"/><path d="M605 202 H620"/><path d="M605 262 H620"/><path d="M605 322 H620"/>
+          <path d="M807 100 H822"/><path d="M807 200 H822"/><path d="M807 320 H822"/>
+          <path d="M903 372 V404 H302 V356" stroke-dasharray="4 4"/>
+        </g>
+        <g stroke="#94a3b8" stroke-width="1.4" fill="none">
+          <path d="M180 82 H200 M180 146 H200 M180 210 H200 M180 274 H200 M180 338 H200 M200 82 V338"/>
+          <path d="M382 110 H403 M382 210 H403 M382 310 H403 M403 100 V310"/>
+          <path d="M584 91 H605 M584 171 H605 M584 251 H605 M584 326 H605 M605 82 V326"/>
+          <path d="M786 82 H807 M786 142 H807 M786 202 H807 M786 262 H807 M786 322 H807 M807 82 V322"/>
+        </g>
+        <g id="archnodes"></g>
+        <text x="480" y="397" font-size="12" fill="#64748b">tool results feed back into intake</text>
+      </svg>
+    </div>
+    <div class="panel" id="panel" aria-live="polite"><h4>Select a box</h4><p>Each box shows the component, its files in <code>~/dev/cuga-agent-gate/src/cuga/policy_layer/</code>, its status and the evidence for it.</p></div>
+
+    <h3>Where each method acts during one agent turn</h3>
+    <div class="hooks rv">
+      <div class="hk"><div class="h">on_user_message</div><ul><li>Policy discovery</li><li>Obligations from the request</li><li>SOP tracker picks chapters (τ²)</li></ul></div>
+      <div class="hk"><div class="h">before_llm_call</div><ul><li>Brief and checklist</li><li>SOP loop: one case per turn</li></ul></div>
+      <div class="hk"><div class="h">before_tool_call</div><ul><li>1. Code rules + Cedar</li><li>2. Judgment gate</li><li>3. Verifier (level 3)</li><li>Kev questions: online intake only</li><li>Guide check before the first write</li></ul></div>
+      <div class="hk"><div class="h">after_tool_call</div><ul><li>Online intake of rules</li><li>Reminders in tool results</li><li>Write log, ledger update</li></ul></div>
+      <div class="hk"><div class="h">before_reply</div><ul><li>Bind cases, check ledger</li><li>One exact follow-up</li><li>Hand-off check (navigator)</li></ul></div>
+      <div class="hk"><div class="h">on_task_end</div><ul><li>Nothing from the policy layer</li><li>The audit file is written at each decision, not here</li></ul></div>
+    </div>
+
+    <h3>Control levels: the stronger the agent, the less control</h3>
+    <div class="levels rv">
+      <div class="lv"><div class="t"><span>0</span>Observe</div><p>Trace and audit only.</p><div class="for">Measuring, shadow mode</div></div>
+      <div class="lv"><div class="t"><span>1</span>Advise</div><p>Find the rules and SOP parts; show the brief and notes. Only hard rules stop work. The obligation ledger records and sends nothing at this level (it builds no checklist).</p><div class="for">Strong agent, rules only in data (Gemini on AutomationBench)</div></div>
+      <div class="lv"><div class="t"><span>2</span>Check</div><p>Level 1, plus procedure tools, narrow questions, the judgment gate and one obligation follow-up.</p><div class="for">Strong or mid agent with a package (Gemini + gate on HANDBOOK)</div></div>
+      <div class="lv"><div class="t"><span>3</span>Control</div><p>Level 2, plus a verifier on specific statements, guide, SOP loop, tracker and a second obligation follow-up.</p><div class="for">Small models (gpt-oss)</div></div>
+    </div>
+    <div class="note">Hard rules deny at levels 1–3; level 0 only records what it would do. High-risk actions (money, external email, delete) get level-3 checks for any model. Each rule can also set its own level. <b>The level switch is built</b> (<code>levels.py</code>), but no profile uses it: the 9 profiles list their components, so the table is a hypothesis until the level by model experiment. Read-before-write is a setting of the online intake, not a level. Adaptive selection is deferred until static levels are measured.</div>
+
+    <h3>Routing by the shape of the policy source</h3>
+    <div class="tw rv">
+      <table>
+        <thead><tr><th>Policy shape</th><th>Route</th><th>Evidence</th><th>Status</th></tr></thead>
+        <tbody>
+          <tr><td>Given SOP with procedures</td><td>Package + procedure tools + judgment gate + obligations; guide and loop at level 3</td><td>Gemini 100 → 139 of 153; DeepSeek loop + guide +14.2; gpt-oss as gate: 49 → 54</td><td><span class="chip warn">in-sample</span></td></tr>
+          <tr><td>Rules scattered in data</td><td>Online intake + discovery + newer rule wins + Kev write checks + tracker (B4T-F)</td><td>gpt-oss +18.9 and +8.8; Gemini −5.8</td><td><span class="chip good">held-out</span></td></tr>
+          <tr><td>Step-by-step flow</td><td>SOP tracker, only when the profile declares a flow; navigator at hand-off</td><td>Telecom +12.5 (p = 0.146); navigator 24/26 offline</td><td><span class="chip warn">not proven</span></td></tr>
+          <tr><td>Rule list with exceptions</td><td>Hard rules; the brief shows each rule with its exceptions; no SOP tracker</td><td>Tracker without exceptions: 17/20 → 11/20</td><td><span class="chip warn">built, not run</span></td></tr>
+        </tbody>
+      </table>
+    </div>
+    <div class="note">Routing is per source, not per run, so one enterprise run can mix these shapes.</div>
+
+    <h3>The policy package: one file per policy version</h3>
+    <p class="src">Built offline with a Claude skill; the open-model pipeline does not pass the audit on any of 7 documents, so it does not replace the skill. 84 package files exist. Rules found during a run use the same slots.</p>
+    <div class="tw rv">
+      <table>
+        <thead><tr><th>Part</th><th>Content</th><th>Where it comes from</th></tr></thead>
+        <tbody>
+          <tr><td>Rules</td><td>Class (hard, judgment, guidance), typed slots, level, source, exact quote</td><td><code>PolicyBuild.rules</code>, extended</td></tr>
+          <tr><td>Procedures</td><td>When each applies, decisions, steps, must-not rules, templates, links, calendar</td><td>Union of <code>Procedure</code> and the store graph</td></tr>
+          <tr><td>Obligations</td><td>Required work, target, expected values with their origin, level</td><td>Built; skill step and ledger</td></tr>
+          <tr><td>Coverage</td><td>At least one outcome per statement</td><td><code>CoverageItem</code>, extended</td></tr>
+          <tr><td>Policy questions</td><td>Ambiguities only the policy owner can settle, with a safe default level</td><td>Built; no owner has answered any yet</td></tr>
+          <tr><td>Tests</td><td>Decision tests written blind from the text</td><td><code>rule_audit.py</code></td></tr>
+        </tbody>
+      </table>
+    </div>
+
+    <h3>Obligations: work that must exist by the end</h3>
+    <p class="src">Write-time checks cannot see work that never happened. Six components tracked required work. The ledger is built and takes over their follow-ups on a profile that names a producer; all three producers stay at level 1 (lesson 19).</p>
+    <div class="tw rv">
+      <table>
+        <thead><tr><th>What we measured</th><th>What the design requires</th></tr></thead>
+        <tbody>
+          <tr><td>Names only: +6.4 AB, +3.9 ITSM. With values: +34.1, +15.9</td><td>Show the expected value whenever its origin is known. Expect about +4 to +6 from names alone</td></tr>
+          <tr><td>Up to 54 of 104 failed ITSM checks want a value the policy prescribes</td><td>Values come from the package, not from a model's guess</td></tr>
+          <tr><td>Wrong items cost ITSM −13.2 and HANDBOOK −10 items</td><td>Only missing items by default; "wrong" only for values from the SOP text, a template or code</td></tr>
+          <tr><td>A generic "do every output" turn led the agent to submit held work</td><td>A follow-up never asks for work on a held or blocked case</td></tr>
+          <tr><td>The end verifier gave no gain on Crestwood</td><td>Match by code first; a model only at level 3</td></tr>
+          <tr><td>The earlier gate flagged 17–40% of passed checks</td><td>Replay first: false-open ≤ 10%, recall ≥ 30%, or the item stays at level 1</td></tr>
+        </tbody>
+      </table>
+    </div>
+
+    <h3>Compile coverage at the gate</h3>
+    <div class="tw rv">
+      <table>
+        <thead><tr><th>Benchmark</th><th>Representation</th><th>Gap</th></tr></thead>
+        <tbody>
+          <tr><td>ITSM (9 policy versions)</td><td>Skill package for all 9; older builds for e2891a7b98</td><td>Decision tests for 1 version (347); the other 8 have none</td></tr>
+          <tr><td>AutomationBench</td><td>Online intake; 10 gold builds for tuning tasks, audited</td><td>A gold build has no text and no tests</td></tr>
+          <tr><td>HANDBOOK (3 public tasks)</td><td>Skill package, hand-built graphs, pipeline builds</td><td>133 deny tests on 126 statements have no outcome because the author left them unmarked (all packages)</td></tr>
+          <tr><td>τ² Telecom</td><td>Skill package, older build, pipeline builds</td><td>The workflow file is noted, not read</td></tr>
+          <tr><td>τ² airline, retail</td><td>Skill package, pipeline builds</td><td>Airline: seen, not tuned. Retail: unseen, no run</td></tr>
+        </tbody>
+      </table>
+    </div>
+    <p class="src">Rule test results by build: <a href="2026-11-04-graph-and-rule-testing-research.md">research notes, section 3</a>. ITSM e2891a7b98, code checks only, a tuning version: skill package 106 of 182 caught, 0 false denies, 2 of 93 passed runs denied; v4A 104, 1, 2; pipeline v5 102, 1, 2. The skill package validates with 0 errors in all 15 files; the pipeline packages have recorded errors (<code>packages/VALIDATION.md</code>).</p>
+
+    <h3>Known gaps at the gate</h3>
+    <div class="tw rv">
+      <table>
+        <thead><tr><th>Gap before the plan</th><th>State at the gate</th><th>Phase</th></tr></thead>
+        <tbody>
+          <tr><td>Work spread out</td><td>Closed for the code: the gate repo is clean on one branch with local tags. cuga-eval has 6 uncommitted paths that belong to other work (manager deck, a second deck, <code>reports/</code>, <code>research_notes/</code>)</td><td class="n">0</td></tr>
+          <tr><td>Two representations</td><td>Closed: one package format, 84 package files, converters with no lost fields</td><td class="n">1</td></tr>
+          <tr><td>No contradiction detection</td><td><code>validate</code> reports <code>rule_conflict</code>. <code>resolve_conflicts</code> has no caller outside tests, so a reported conflict stays until a person acts</td><td class="n">1</td></tr>
+          <tr><td>Scattered settings</td><td>Closed: 9 profile files; the policy layer reads no policy switch from the environment. <code>authority.company_domains</code> and <code>authority.may_change_rules</code> are not read</td><td class="n">0, 2</td></tr>
+          <tr><td>Runners differ</td><td>Closed: one runner (<code>harness/run.py</code>), one result schema, 4 adapters; old runners in an archive</td><td class="n">2</td></tr>
+          <tr><td>Audit</td><td>Closed: every policy run writes <code>audit.jsonl</code>, one line at each decision</td><td class="n">2</td></tr>
+          <tr><td>Compile coverage</td><td>Skill packages for 15 policies; the pipeline cannot replace the skill; <code>compile_sop</code> misses <code>**Step 1:**</code> and <code>*</code> bullets</td><td class="n">3</td></tr>
+          <tr><td>Omissions</td><td>Ledger built; every producer at level 1; no held-out check</td><td class="n">4</td></tr>
+          <tr><td>Level switch, priorities, retrieval methods, rule-list route</td><td>Level switch, swappable retrieval and the rule-list route are built and not run live. <code>priority_classes</code> is validate only. Only <code>agent_opened</code> has a live measurement</td><td class="n">5</td></tr>
+          <tr><td>Versions and sign-off</td><td>Package hash and <code>package_version</code> in every result; sign-off is process</td><td class="n">2, then process</td></tr>
+          <tr><td>Held-out proof</td><td>One significant result; no package is held-out; HANDBOOK in-sample</td><td class="n">After the gate</td></tr>
+        </tbody>
+      </table>
+    </div>
+  </div>
+</section>
+
+<!-- HOW WE TEST -->
+<section class="s" id="testing">
+  <div class="wrap">
+    <div class="eyebrow">How we test</div>
+    <h2>Nine rules for a fair result</h2>
+    <p class="sub">Most were added after a result turned out to be wrong.</p>
+    <div class="grid">
+      <div class="card rv"><div class="k">Rule 1</div><h4>All arms at the same time</h4><p>From one frozen code snapshot. An arm A run 3 hours earlier gave a false +13.8.</p></div>
+      <div class="card rv"><div class="k">Rule 2</div><h4>Held-out next to tuning</h4><p>Tune on one split, run the test split once. Report both numbers.</p></div>
+      <div class="card rv"><div class="k">Rule 3</div><h4>No task-specific fixes</h4><p>Every change is a general rule, logged with its reason in <code>changes.md</code>.</p></div>
+      <div class="card rv"><div class="k">Rule 4</div><h4>No grader data in the system</h4><p>Rubrics and tests are for scoring only. Graphs are built from the SOP text alone.</p></div>
+      <div class="card rv"><div class="k">Rule 5</div><h4>Count each task once</h4><p>Per-task sign test. Counting runs instead of tasks turned p = 0.146 into a false 0.041.</p></div>
+      <div class="card rv"><div class="k">Rule 6</div><h4>Pool all rounds</h4><p>Report the pooled result, not the best round: HANDBOOK +14.2 pooled, not +20.3.</p></div>
+      <div class="card rv"><div class="k">Rule 7</div><h4>Official splits and simulator</h4><p>The first 20 Telecom tasks gave 18/20; the official test split gave 19/40.</p></div>
+      <div class="card rv"><div class="k">Rule 8</div><h4>Replay before live</h4><p>Run a new checker over saved runs first. Replay predicted no gate effect on ITSM for about $0.53.</p></div>
+      <div class="card rv"><div class="k">Rule 9</div><h4>Two fidelity reports</h4><p>Test rules against the policy text and against real use. On ITSM the two disagree.</p></div>
+    </div>
+  </div>
+</section>
+
+<!-- CODE -->
+<section class="s alt" id="code">
+  <div class="wrap">
+    <div class="eyebrow">Where the code is</div>
+    <h2>Best version per benchmark and model, kept in code</h2>
+    <p class="sub">The policy layer lives on local branches of <code>~/dev/cuga-agent-gate</code> and is never pushed. Switches and recipes are in <code>benchmarks/policy_eval/best_profiles.json</code>. The stable code is on branch <code>policy/stable</code> (tag <code>policy/stable-v1</code>); these branches stay as records of measured code.</p>
+    <div class="tw rv">
+      <table>
+        <thead><tr><th>Benchmark · model</th><th>Profile</th><th>Branch · commit</th><th>Result</th></tr></thead>
+        <tbody>
+          <tr><td>AutomationBench · gpt-oss-120b</td><td>B4T-F</td><td><code>best/automationbench-gptoss-b4tf</code> · 2107a0756</td><td class="n">42.7% vs 23.8% held-out</td></tr>
+          <tr><td>AutomationBench · Gemini 3.8</td><td>CUGA alone</td><td><code>best/automationbench-gemini-alone</code> · 2107a0756</td><td class="n">80.9% partial; B4T-F lower</td></tr>
+          <tr><td>τ² Telecom · DeepSeek-V4-Pro</td><td>SOP tracker v3</td><td><code>best/tau2-telecom-tracker-sop-trk4</code> · 81061c37b</td><td class="n">76.2% vs 63.8%</td></tr>
+          <tr><td>τ² Telecom · gpt-oss-120b</td><td>SOP navigator</td><td><code>best/tau2-navigator-exp</code> · e7647c57b</td><td class="n">offline only</td></tr>
+          <tr><td>HANDBOOK · DeepSeek-V4-Pro</td><td>SOP loop + guide</td><td><code>best/handbook-loop-guide-sop-trk1</code> · 4b3bcb9be</td><td class="n">76.5% vs 56.2% (round 1)</td></tr>
+          <tr><td>HANDBOOK · gpt-oss-120b</td><td>SOP loop + guide, evidence</td><td><code>best/handbook-gptoss-loop</code> · 42c73e491</td><td class="n">23 vs 20 of 51 (1 trial)</td></tr>
+          <tr><td>HANDBOOK · Gemini 3.8</td><td>Graph + must-not write gate</td><td><code>best/handbook-gemini-graph-gate</code> · f69ebbec8</td><td class="n">139 vs 100 of 153</td></tr>
+        </tbody>
+      </table>
+    </div>
+    <h3>Delivered to CUGA: four open pull requests</h3>
+    <div class="grid">
+      <div class="card rv"><div class="k">#1103</div><h4>Lifecycle hooks</h4><p>9 hooks in <code>CugaAgent</code>. Every policy check runs at a hook.</p></div>
+      <div class="card rv"><div class="k">#1104</div><h4>Dynamic tool binding</h4><p>With 549 tools, binds only the tools of apps in use: 12–43 per call.</p></div>
+      <div class="card rv"><div class="k">#1105</div><h4>Retry on an empty claim</h4><p>gpt-oss reported actions as done with zero tool calls; CUGA now retries once.</p></div>
+      <div class="card rv"><div class="k">#1107</div><h4>SDK tools grouped by app</h4><p>Closes issue #1106. Binding by app and <code>find_tools</code> need each tool's app.</p></div>
+    </div>
+  </div>
+</section>
+
+<!-- NEXT -->
+<section class="s" id="next">
+  <div class="wrap">
+    <div class="eyebrow">Next</div>
+    <h2>The stable architecture is built; experiments come next</h2>
+    <p class="sub">Phases 0 to 6 of the <a href="../superpowers/plans/2026-11-04-policy-architecture-stabilization.md">stabilization plan</a> are done. The gate has 10 checks: 9 pass and 1 is a partial pass (compile coverage). The gate report is <code>benchmarks/policy_eval/STABILITY_REPORT.md</code>; the stable code is tagged <code>policy/stable-v1</code> on a local branch of the gate repo. No experiment was run: the 12 smoke runs of the gate cost $1.40.</p>
+    <div class="grid">
+      <div class="card rv"><div class="k">Phase 0</div><h4>Freeze and clean</h4><p>Commit everything locally on one branch, durable snapshots, composed env files, task-set registry, old prototype removed.</p></div>
+      <div class="card rv"><div class="k">Phase 1</div><h4>Policy package</h4><p>One format, converters with no lost fields, validator with coverage and conflicts.</p></div>
+      <div class="card rv"><div class="k">Phase 2</div><h4>Config, runtime, runner</h4><p>One YAML, one assembly, one runner and result schema for 4 benchmarks. Saved results must reproduce known numbers.</p></div>
+      <div class="card rv"><div class="k">Phase 3</div><h4>Compile coverage</h4><p>Repairs in the pipeline, audit for any package, skill makes full packages, pipeline vs skill measured.</p></div>
+      <div class="card rv"><div class="k">Phase 4</div><h4>Obligations</h4><p>Ledger, producers, replay report. Live only after the acceptance bar.</p></div>
+      <div class="card rv"><div class="k">Phase 5</div><h4>Levels, priorities, retrieval</h4><p>Level switch, priority classes, swappable retrieval with an offline test bench, rule-list route.</p></div>
+      <div class="card rv"><div class="k">Phase 6</div><h4>Stability gate</h4><p>10 checks run, migration code removed, local tag set, docs updated to match the code.</p></div>
+      <div class="card rv"><div class="k">After the gate</div><h4>Re-baseline, then plan experiments</h4><p>Best profiles are measured again on stable code first. The open decisions are listed in the gate report and are decided with the user, not in advance.</p></div>
+    </div>
+  </div>
+</section>
+
+<!-- SOURCES -->
+<section class="s alt" id="sources">
+  <div class="wrap">
+    <div class="eyebrow">Sources and related pages</div>
+    <h2>Read further</h2>
+    <div class="grid">
+      <div class="card rv"><div class="k">Published methods we reused</div>
+        <p>ToolGuard (IBM, arXiv 2507.16459) · PolicyGuard (arXiv 2606.29225) · STAGE (arXiv 2608.22538) · PolicyGuide (arXiv 2608.19861) · JevAct (arXiv 2610.38620) · PolicyKG (arXiv 2608.09028) · AWS AgentCore Policy (Cedar) · Parlant ARQs · Rasa CALM · Boaz's semantic verifier (IBM internship report, October 2026) · GraphCompliance (arXiv 2510.26309) · SOPRAG (arXiv 2602.01858) · AWS Automated Reasoning checks (arXiv 2511.09008) · FORGE (arXiv 2602.16708) · AutoCedar (arXiv 2607.03656). Authors' numbers are not reproduced by us. <a href="2026-11-04-graph-and-rule-testing-research.md">Open-source graph and rule-testing notes</a>.</p></div>
+      <div class="card rv"><div class="k">Our decks and pages</div>
+        <p><a href="2026-10-21-policy-sota-benchmarks-slides.html">SOTA and benchmarks slides</a> · <a href="2026-11-03-policy-summary-deck.html">Summary deck (11-03)</a> · <a href="2026-11-03-policy-proposal-methods.html">Methods proposal</a> · <a href="2026-11-03-checkpoint-lessons.html">Checkpoint lessons</a> · <a href="policy-flow.html">Policy flow</a> · <a href="2026-10-20-policy-gate-architecture-v2.html">Gate architecture v2</a></p></div>
+      <div class="card rv"><div class="k">HANDBOOK SOP graphs</div>
+        <p><a href="2026-11-02-crestwood-sop-graph.html">Crestwood (HR)</a> · <a href="2026-11-02-medical-sop-graph.html">CareIG (medical)</a> · <a href="2026-11-02-insurance-sop-graph.html">Vanguard (insurance)</a> · <a href="2026-11-02-handbook-side-by-side.html">Side-by-side runs</a></p></div>
+      <div class="card rv"><div class="k">Records</div>
+        <p><code>benchmarks/policy_eval/changes.md</code> (143 changes) · <code>best_profiles.json</code> · <code>policy_eval/rule_audit/</code> · <code>policy_eval/store_gate_replay/</code> · <a href="../superpowers/specs/2026-11-04-policy-system-design.md">Design spec v2</a> · <a href="../superpowers/plans/2026-11-04-policy-architecture-stabilization.md">Stabilization plan</a> · spend ledger <code>benchmarks/policy_pilot_ledger.jsonl</code> ($1,633.54 of $2,000)</p></div>
+    </div>
+  </div>
+</section>
+</main>
+
+<footer><div class="wrap">CUGA policy and SOP adherence research · updated 2026-11-05 · Numbers from <code>changes.md</code>, <code>best_profiles.json</code> and the run records. In-sample results are marked as such.</div></footer>
+
+<script>
+(function(){
+const reduce = matchMedia('(prefers-reduced-motion: reduce)').matches;
+
+/* ---------- methods ---------- */
+const M = [
+ {f:'advice', n:'Playbooks', from:'Parlant guidelines (policy as text)', hook:'system prompt', what:'General playbooks written from another model\'s failures, given to the agent as guidance.', r:[['gpt-oss','AppWorld +15.6 (30.0% → 45.6%)','warn','in-sample']], st:['warn','in-sample only']},
+ {f:'advice', n:'Procedure guide', from:'Boaz verifier (relevant statements)', hook:'before_tool_call', what:'Before the first write, shows the procedure\'s steps and checks that hard preconditions have evidence.', r:[['DeepSeek','HB +13.4 pooled','good','in-sample'],['gpt-oss','HB +0.7','flat','in-sample']], st:['warn','given SOPs']},
+ {f:'advice', n:'Procedure router', from:'SOPRAG · GraphCompliance (card stage)', hook:'before_tool_call', what:'A small model picks the procedure for a tool call from short cards (name, when it applies).', r:[['offline','gpt-oss 87.7% top-1, BM25 69.2% (agreement with DeepSeek labels)','ours','offline']], st:['flat','not live yet']},
+ {f:'advice', n:'SOP graph as agent tools', from:'STAGE · PolicyGuide · PolicyKG', hook:'tools', what:'The SOP as a graph the agent can query: list procedures, open one with its links, templates and rules, add business days.', r:[['Gemini','HB 0 (Crestwood 16 = 16, 6 runs)','flat','in-sample']], st:['bad','no gain alone']},
+ {f:'advice', n:'Long-SOP discovery', from:'Boaz retrieval + expansion', hook:'on_user_message', what:'Finds the procedure for each case (BM25 + Kev) and expands one hop along links, templates and general rules.', r:[['offline','right procedure 74% vs 64%; checklist recall 24% → 47%','ours','offline']], st:['flat','not live yet']},
+ {f:'graph', n:'SOP tracker', from:'STAGE · PolicyGuide, without a graph', hook:'on_user_message', what:'Before each turn, picks SOP chapters and lists checks as done, pending or not needed, with exact quotes.', r:[['DeepSeek','τ² Telecom +12.5 (p = 0.146)','good','test set seen before the freeze'],['DeepSeek','τ² airline −30 (p = 0.031)','bad','held-out']], st:['warn','flow SOPs only']},
+ {f:'graph', n:'SOP loop (control mode)', from:'Parlant ARQs · Rasa CALM · Jev', hook:'before_llm_call', what:'Explores, splits the work into cases, asks typed questions, decides in code, then gives CUGA one turn per case.', r:[['DeepSeek','HB +14.2 pooled; AB −8.6 (no SOP)','good','in-sample'],['gpt-oss','HB +6.6','good','in-sample'],['Gemini','HB −7.8','bad','in-sample']], st:['warn','small and mid models']},
+ {f:'graph', n:'SOP loop (advisory mode)', from:'Parlant ARQs · Jev', hook:'before_llm_call', what:'The same loop, but decisions need quoted evidence and the agent keeps control: one work turn, no stops.', r:[['Gemini','HB 63 vs 63 of 102 (2 trials)','flat','in-sample']], st:['flat','tie']},
+ {f:'graph', n:'SOP navigator', from:'STAGE graph walk + JevAct (Kev)', hook:'before_reply', what:'Walks the manual\'s headings and "refer to" links; blocks a hand-off while required actions are still open.', r:[['DeepSeek runs','τ² Telecom offline: 24/26 failures caught (7/26 without links)','ours','offline']], st:['flat','live run pending']},
+ {f:'check', n:'Online intake + write verifier (B-F)', from:'ToolGuard · AgentCore Policy · PolicyGuard', hook:'after_tool_call', what:'Finds rules in tool output, marks trust, and checks each write with a model verifier; reminders go into tool results.', r:[['gpt-oss','AB +2.6 / +3.0','flat','in-sample'],['DeepSeek','AB +3.2 (CI −5.1..+12.4)','flat','held-out'],['Gemini','ITSM 4 vs 7 of 10 (early)','bad','tuning']], st:['ours','base of B4T-F']},
+ {f:'check', n:'B4T-F (best for small models)', from:'ToolGuard · PolicyGuard · JevAct', hook:'before_tool_call', what:'B-F, plus policy discovery, "newer rule wins", the requirements tracker, Kev write decisions, block once and skip after repeated denials.', r:[['gpt-oss','AB +18.9 (p = 0.001)','good','held-out'],['gpt-oss','AB second set +8.8 (p = 0.115)','good','held-out'],['Gemini','AB −5.8; 24 vs 1 guardrails broken','bad','held-out']], st:['good','best: gpt-oss']},
+ {f:'check', n:'Must-not write gate', from:'PolicyGuard · ToolGuard · Boaz', hook:'before_tool_call', what:'Before each write, one model check against the must-not and decision rules of the procedures the agent opened. Blocks once, only with evidence quoted from the data.', r:[['Gemini','HB +25.5 (100 → 139 of 153, 9/9 paired)','good','in-sample'],['Gemini','raw SOP, no graph: +15.7','good','in-sample'],['gpt-oss','HB as agent and gate: +3.3; raw SOP +1.3','flat','in-sample'],['gpt-oss','ITSM replay: 2 blocks in 52 runs','flat','offline'],['DeepSeek runs','ITSM replay: 5 blocks, all on passed runs','bad','offline']], st:['good','best: Gemini HB']},
+ {f:'check', n:'Record-level checks + hold (V5)', from:'JevAct per-record questions', hook:'before_tool_call', what:'Checks each record a write touches and holds the write when one fails.', r:[['gpt-oss','AB 30.6% vs 35.2% for B4T-F','bad','in-sample']], st:['bad','not kept']},
+ {f:'reply', n:'Requirements tracker (T-F)', from:'JevAct hand-off checklist, at most 2 revisions', hook:'before_reply', what:'Builds a checklist of required work from the request and rules; at the reply, asks for missing items.', r:[['DeepSeek','AB +3.5 (CI includes 0); ITSM +1.0; HB −10 items','flat','mixed'],['gpt-oss','AB −0.3 / +1.1','flat','in-sample']], st:['warn','kept only in B4T-F']},
+ {f:'reply', n:'Deliverables check (D-F)', from:'JevAct hand-off checklist', hook:'before_reply', what:'At the reply, checks that every requested deliverable exists.', r:[['gpt-oss','AB +3.4 / +11.0','good','in-sample']], st:['flat','not in B4T-F']},
+ {f:'reply', n:'Obligation ledger (new design)', from:'our oracle results + JevAct hand-off + GraphCompliance', hook:'before_reply', what:'What must exist by the end of a case, with its target and expected values. Checked by code against the write log. Never asks for blocked work.', r:[['bound','names only +3.9 to +6.4; with values +15.9 to +34.1','ours','bound']], st:['warn','design only']},
+ {f:'reply', n:'Critic replay', from:'Model verifiers (PolicyGuard style)', hook:'before_reply', what:'A second model reads the run and lists violations. Tested offline on 31 Gemini runs.', r:[['offline','precision 17.5–38.5%','bad','offline']], st:['bad','not ready']},
+ {f:'bound', n:'Function calling instead of CodeAct', from:'setup choice', hook:'agent mode', what:'gpt-oss writes tool calls directly instead of Python code blocks.', r:[['gpt-oss','AB 20.9% → 33.7%','good','tuning']], st:['good','kept']},
+ {f:'bound', n:'Hook text as newest message', from:'user idea', hook:'before_llm_call', what:'Sends the brief and notes as the newest message of each model call instead of in the system prompt. A CUGA setting.', r:[['gpt-oss','AB −4.2 vs system prompt (6/10/15, p = 0.454)','flat','held-out']], st:['flat','default stays system']},
+ {f:'compile', n:'Rule compile audit', from:'AWS Automated Reasoning · FORGE · AutoCedar', hook:'offline', what:'Tests compiled rules 5 ways: static coverage, decision tests written blind from the policy text, back-translation, replay on real runs, Cedar validator and batch check.', r:[['ITSM','Cedar layer correct: 372 of 372 decisions match','good','offline'],['ITSM','text tests favor gold (97 vs 87 of 182); replay favors the pipeline (2 vs 9 of 93 passed runs denied)','ours','offline']], st:['good','kept']},
+ {f:'compile', n:'Rule repair + code rules (v4A)', from:'ToolGuard idea: guards as code, without generated Python', hook:'build', what:'Role grants become Cedar forbids on the other write tools. Verify statements become code rules when a rule type fits (membership, conditional values, required fields).', r:[['ITSM','104 of 182 caught vs 87; 1 false deny; no new denies on real runs','good','offline']], st:['good','best rule set']},
+ {f:'compile', n:'ToolGuard step 1', from:'IBM ToolGuard (arXiv 2507.16459)', hook:'build', what:'Per-tool policies with exact quotes, checked by the same verifier. Step 2 (LLM-written guard code) was not run.', r:[['ITSM','43 vs 43 of 54 caught; false flags 34 vs 12 of 49 (21 tools)','bad','offline']], st:['bad','dropped']},
+ {f:'compile', n:'Second-opinion judge', from:'AWS Automated Reasoning (translations must agree)', hook:'before_tool_call', what:'A model of another family reviews each verifier flag before it counts.', r:[['ITSM','gold: −13 false flags, −7 catches; v4A: no change','flat','offline']], st:['bad','dropped']},
+ {f:'bound', n:'Oracle feedback (upper bound)', from:'grader data, never inside a system', hook:'before_reply', what:'Sends the grader\'s failed checks back to the agent. Shows how much correct feedback could give.', r:[['DeepSeek','AB +35.9; ITSM +25.3','ours','bound'],['DeepSeek','names only, no values: AB +6.4','ours','bound']], st:['ours','upper bound']}
+];
+const mgrid = document.getElementById('mgrid');
+mgrid.innerHTML = M.map(m => `
+ <div class="card mcard rv" data-f="${m.f}">
+  <div class="top"><h4>${m.n}</h4><span class="chip ${m.st[0]}">${m.st[1]}</span></div>
+  <div class="from">From <b>${m.from}</b> · acts at <span class="hook">${m.hook}</span></div>
+  <p class="what">${m.what}</p>
+  <div class="res">${m.r.map(x=>`<div><span class="m">${x[0]}</span><span class="chip ${x[2]}">${x[1]}</span><small style="color:var(--muted)">${x[3]}</small></div>`).join('')}</div>
+ </div>`).join('');
+document.querySelectorAll('#mfilters button').forEach(b => b.addEventListener('click', () => {
+  document.querySelectorAll('#mfilters button').forEach(x => x.classList.toggle('on', x === b));
+  const f = b.dataset.f;
+  mgrid.querySelectorAll('.mcard').forEach(c => c.classList.toggle('hidden', f !== 'all' && c.dataset.f !== f));
+}));
+
+/* ---------- chart ---------- */
+const C = [
+ ['HANDBOOK · Gemini 3.8','graph + must-not write gate',25.5,false],
+ ['AutomationBench · gpt-oss-120b','B4T-F · p = 0.001',18.9,true],
+ ['HANDBOOK · DeepSeek-V4-Pro','SOP loop + guide, pooled 3 rounds',14.2,false],
+ ['τ² Telecom · DeepSeek-V4-Pro','SOP tracker · p = 0.146; test set seen before the freeze',12.5,false],
+ ['AutomationBench · gpt-oss-120b','B4T-F, second held-out set · p = 0.115',8.8,true],
+ ['HANDBOOK · gpt-oss-120b','SOP loop + guide',6.6,false],
+ ['AutomationBench · gpt-oss-120b','B4T-F, hook text as newest message · p = 0.523',4.6,true],
+ ['AutomationBench · DeepSeek-V4-Pro','requirements tracker · CI includes 0',3.5,true],
+ ['HANDBOOK · gpt-oss-120b','graph + write gate, gpt-oss as gate',3.3,false],
+ ['HANDBOOK · gpt-oss-120b','raw-SOP gate, gpt-oss as gate',1.3,false],
+ ['HANDBOOK · Gemini 3.8','graph as tools only (Crestwood)',0,false],
+ ['HANDBOOK · Gemini 3.8','SOP loop, advisory mode',0,false],
+ ['AutomationBench · Gemini 3.8','B4T-F',-5.8,true],
+ ['HANDBOOK · Gemini 3.8','SOP loop + guide, control mode',-7.8,false],
+ ['AutomationBench · DeepSeek-V4-Pro','SOP loop + guide, no SOP (3 tasks)',-8.6,false],
+ ['τ² airline · DeepSeek-V4-Pro','SOP tracker · p = 0.031',-30,true]
+];
+const MAX = 32;
+document.getElementById('chart').innerHTML = C.map(([a,b,v,ho]) => {
+  const w = Math.abs(v)/MAX*50, cls = v>0?'good':v<0?'bad':'flat';
+  const left = v>=0 ? 50 : 50-w;
+  const lbl = (v>0?'+':v<0?'−':'')+Math.abs(v).toFixed(1);
+  const vpos = v>=0 ? `left:calc(${50+w}% + 6px)` : `right:calc(${50+w}% + 6px)`;
+  return `<div class="row"><div class="lab">${a}<small>${b} · ${ho?'held-out when run':'in-sample'}</small></div>
+   <div class="track"><div class="zero"></div><div class="bar ${cls} ${ho?'':'ins'}" style="left:${left}%;width:${Math.max(w,0.6)}%"></div><div class="val" style="${vpos}">${lbl}</div></div></div>`;
+}).join('');
+
+/* ---------- matrix ---------- */
+const X = [
+ ['Rule checks on writes (B-F → B4T-F)','ToolGuard · AgentCore Policy · PolicyGuard · JevAct',
+  [['AB','+18.9','p = 0.001, 35 tasks × 2','good',1],['AB','+8.8','p = 0.115, 31 other tasks × 2','good',1]],
+  [['AB','+3.2','policy layer, CI −5.1..+12.4','flat',1]],
+  [['AB','−5.8','24 vs 1 guardrails broken','bad',1],['ITSM','4 vs 7 of 10','early version, tuning','bad',0]]],
+ ['Requirements tracker','JevAct',
+  [['AB','−0.3 / +1.1','2 trials','flat',0]],
+  [['AB','+3.5','CI includes 0','flat',1],['ITSM','+1.0','','flat',1],['HB','−10 items','','bad',0]],
+  []],
+ ['SOP tracker','STAGE · PolicyGuide',
+  [],
+  [['τ² Telecom','+12.5','p = 0.146; test set seen before the freeze','good',0],['τ² airline','−30','p = 0.031','bad',1]],
+  []],
+ ['Procedure guide','Boaz verifier',
+  [['HB','+0.7','','flat',0]],
+  [['HB','+13.4','pooled 3 rounds','good',0]],
+  []],
+ ['SOP loop + guide','Parlant ARQs · Rasa CALM · Jev',
+  [['HB','+6.6','','good',0]],
+  [['HB','+14.2','pooled 3 rounds','good',0],['AB','−8.6','no SOP, 3 tasks','bad',0]],
+  [['HB','−7.8','control mode','bad',0],['HB','0.0','advisory mode, 2 trials','flat',0]]],
+ ['SOP graph as agent tools','STAGE · PolicyGuide · PolicyKG',
+  [],[],
+  [['HB','0','Crestwood, 6 runs','flat',0]]],
+ ['Graph + must-not write gate','PolicyGuard · ToolGuard · Boaz',
+  [['HB','+3.3','gpt-oss as gate; 2 better, 2 worse, 5 ties','flat',0],['HB','+1.3','raw SOP, gpt-oss as gate','flat',0],['ITSM','no effect','offline replay: 2 blocks in 52 runs','flat',0]],
+  [['ITSM','harm','offline replay: 5 blocks, all on passed runs','bad',0]],
+  [['HB','+25.5','100 → 139 of 153, 9/9 paired','good',0],['HB','+15.7','raw SOP, no graph','good',0]]],
+ ['SOP navigator','STAGE · JevAct',
+  [],
+  [['τ² Telecom','24/26','failures caught, offline replay','ours',0]],
+  []],
+ ['Playbooks','Parlant guidelines',
+  [['AppWorld','+15.6','learned on the same tasks','good',0]],[],[]],
+ ['Hook text as newest message','user idea',
+  [['AB','−4.2','vs B4T-F in the system prompt, p = 0.454','flat',1]],[],[]],
+ ['Oracle feedback (upper bound)','grader data, scoring only',
+  [],
+  [['AB','+35.9','with expected values','ours',1],['ITSM','+25.3','with expected values','ours',1],['AB','+6.4','names only, no values','ours',1],['ITSM','+3.9','names only, no values','ours',1]],
+  []]
+];
+const body = document.getElementById('mxbody');
+function renderMx(hoOnly){
+  body.innerHTML = X.map(([n,from,...cols]) => {
+    const cells = cols.map(list => {
+      const items = list.filter(x => !hoOnly || x[4]);
+      if (!items.length) return `<td><span class="empty">${list.length ? 'in-sample only' : 'not tested'}</span></td>`;
+      return `<td><div class="cell">${items.map(x=>`<div class="res-chip ${x[3]}"><span class="ho">${x[0]} · ${x[4]?'held-out when run':'in-sample'}</span><b>${x[1]}</b>${x[2]?`<small>${x[2]}</small>`:''}</div>`).join('')}</div></td>`;
+    }).join('');
+    return `<tr><td><b>${n}</b><div style="color:var(--muted);font-size:13px">${from}</div></td>${cells}</tr>`;
+  }).join('');
+}
+renderMx(false);
+document.getElementById('hoOnly').addEventListener('change', e => renderMx(e.target.checked));
+
+/* ---------- lessons ---------- */
+const L = [
+ ['There are few violations to catch','A capable agent rarely breaks a checkable rule. Most failures are wrong values or missed rows that no rule decides.',[['flat','τ² airline violations: 5–10% of tasks'],['flat','Gemini broke a guardrail in 1 of 9 tasks']],'<code>2026-11-02-overnight-log.md</code>; <a href="2026-11-03-checkpoint-lessons.html">checkpoint lessons</a>'],
+ ['A wrong block costs more than a caught violation','Because violations are rare, even 5% false blocks cost more than the catches. Code rules may block; model verdicts must be precise first.',[['good','code rules: 0% correct writes blocked'],['bad','gpt-oss verifier: 6–29% blocked'],['bad','pilot: 5 of 5 blocks were false']],'<code>policy_eval/method_comparison.md</code>; <a href="2026-11-03-checkpoint-lessons.html">checkpoint lessons</a>'],
+ ['Feedback works only when it is exact and carries values','Told what failed and the expected value, the agent fixes most of it. Naming the failed check without its value adds only +4 to +6 points. Wrong items make the agent change correct work. Obligations must therefore carry values whose origin is known.',[['ours','with values: +34.1 AB, +15.9 ITSM'],['flat','names only: +6.4 AB, +3.9 ITSM'],['bad','wrong items: ITSM −13.2, HB −10 items']],'<code>2026-11-02-overnight-log.md</code> (oracle, names-only oracle); changes 55–57'],
+ ['The agent model matters more than the method','The model gap is about 25 points; SOP methods add 7–10 points on top of it.',[['flat','HB alone: gpt-oss 33.3%, DeepSeek 58.8%'],['good','loop + guide: 39.9% and 69.3%']],'<code>2026-11-02-overnight-log.md</code> (head-to-head runs)'],
+ ['The stronger the agent, the less control','Full control helps a weak agent and hurts a strong one. Choose the control level by agent strength.',[['good','gpt-oss B4T-F: +18.9 and +8.8 held-out'],['bad','Gemini B4T-F: −5.8'],['bad','Gemini SOP loop: −7.8']],'changes 93, 111; <code>best_profiles.json</code>'],
+ ['Knowledge alone does not change decisions','Gemini had the rule and broke it anyway. A check at the moment of the action changed the outcome.',[['flat','graph as tools: 0'],['good','graph + write gate: +25.5 (in-sample)']],'changes 99–103'],
+ ['A stop must quote evidence about the case, and code must do the date math','A block needs a word-for-word quote from data the agent read. A quote from the SOP itself is a rule, not evidence. Date windows are computed in code: both the agent and the checker missed a lab result one day outside its window.',[['good','Vanguard: 1–2 flags per run vs 15–18 without the graph'],['bad','6 false blocks quoted the SOP']],'changes 100–103, 108'],
+ ['Rules need their exceptions','A rule shown without its exception makes the agent refuse allowed changes.',[['bad','τ² airline with tracker: 17/20 → 11/20']],'change 87'],
+ ['Setup choices moved scores more than most methods','Simulator, split, agent mode and timing changed results by 10–14 points.',[['flat','simulator: 19 vs 27 of 40'],['flat','function calling: 20.9% → 33.7%'],['bad','time drift: false +13.8']],'changes 29, 55, 72, 79'],
+ ['Report the honest number','Count each task once and pool all rounds. Both corrections cut our first claims. Runs also differ by chance, even on a model that gives the same answer to the same request: the same method twice differed on 19 of 35 tasks.',[['warn','Telecom p 0.041 → 0.146'],['warn','HB +20.3 → +14.2 pooled'],['flat','HB: 0 of 9 cells repeated over 3 trials']],'changes 86, 93; runs <code>hbq_*</code>'],
+ ['The gate needs a strong enough checker','The same write gate that raised Gemini by 25.5 points gave no real gain with gpt-oss as agent and gate. In replay, gpt-oss missed the catches Gemini made (Navarro, Webb PA) and blocked a perfect Vanguard run twice.',[['good','Gemini: 100 → 139 of 153'],['flat','gpt-oss: 49 → 54, 2 better / 2 worse / 5 ties']],'changes 103, 108, 110; <code>policy_eval/store_gate_replay/</code>'],
+ ['The rule engine is sound; errors come from turning text into rules','Cedar and code checks did what the rule JSON said. The pipeline dropped the role table because our role rule could only forbid, wrote verify rules with no tool so they never fired, and once turned "all CIs must have an owner" into "every update must pass an owner".',[['good','Cedar: validator passes, 372 of 372 match'],['good','code checks: 1 false deny in 165'],['bad','pipeline: 0 Cedar rules vs 3 in gold']],'changes 105, 107, 112–116; <code>policy_eval/rule_audit/</code>'],
+ ['Test rules against the text and against use: they can disagree','Tests from the policy text favor the gold rules. Replay against graders favors the pipeline, because the ITSM graders expect managers to update CIs and services, which the role table forbids. No engine can settle that; the policy owner must.',[['ours','text: gold 97 vs pipeline 87 of 182'],['ours','use: 9 vs 2 of 93 passed runs denied']],'change 114; <code>2026-11-04-graph-and-rule-testing-research.md</code>'],
+ ['General statements do not belong in a per-call check','Broad rules checked on every write create most false alarms, and a second model removes only part of them. ToolGuard policies, which are broad, showed the same effect.',[['bad','one sentence: 36 of 53 false flags'],['flat','second opinion: −13 false flags, −7 catches'],['bad','ToolGuard: 34 vs 12 of 49 false flags']],'changes 115, 118'],
+ ['Finding the procedure is not the bottleneck','A small model over short procedure cards already agrees with a larger model most of the time. Open-source GraphRAG tools build entity graphs and do not model steps, conditions or exceptions.',[['good','router: 87.7% top-1'],['flat','BM25: 69.2% top-1']],'change 106; <a href="2026-11-04-graph-and-rule-testing-research.md">research notes</a>'],
+ ['Replay on saved runs predicts live results cheaply','Before paying for live runs, replaying a checker over saved trajectories showed no effect on ITSM and weak results on HANDBOOK. The live HANDBOOK run confirmed it. Replay is now the first step for any new checker.',[['good','ITSM replay of 161 runs: about $0.53'],['good','HB live confirmed the prediction']],'changes 104, 106, 108, 110'],
+ ['A skill working from the policy text alone makes a usable package','A Claude skill that reads only the policy text and the tool schemas made packages for 15 policies. On ITSM version e2891a7b98 its rules caught 106 of 182 deny tests with no false deny, two more than the best hand-repaired rule set. It is a tuning version: the pipeline was repaired on it.',[['good','ITSM e2891a7b98: 106 of 182 caught, 0 of 165 false denies, 2 of 93 passed runs denied (tuning)'],['flat','earlier v4A 104 / 1 / 2; gold 97 / 1 / 9'],['good','15 of 15 skill packages validate with 0 errors']],'<code>packages/COVERAGE.md</code>; changes 134'],
+ ['The open-model pipeline cannot replace the skill yet','The pipeline (gpt-oss-120b or DeepSeek-V4-Pro) was run on 7 documents. On none of them did it meet all three conditions: catches within 5 points, false denies not higher, must-not recall at least 80%. The usual miss is false denies: retail 18 against 0, Crestwood 143 against 0.',[['bad','0 of 7 documents pass the bar'],['bad','9 of 9 builds_v5 packages have a quote_not_verbatim error'],['flat','$6.16 for 14 builds, $6.42 with the judge calls']],'<code>packages/PIPELINE_VS_SKILL.md</code>; change 135'],
+ ['The obligation ledger may not send follow-ups yet: every producer stays at level 1','Each of the three producers (package, request, duty) was replayed on saved runs of three benchmarks. None met the rule (false-open at most 10% of passed checks and recall at least 30% of failed checks). ITSM request came closest: 0 of 95 false-open, 37 of 134 recall (27.6%). All runs are on tuning policies or on sets that a model has already seen, so none of this is a held-out result.',[['warn','HANDBOOK package: 9 of 158 false-open, 18 of 127 recall (14.2%)'],['warn','ITSM request: 0 of 95, 37 of 134 (27.6%)'],['flat','Telecom: 2 failed checks a write could meet, so recall is not known']],'<code>obligation_replay/REPORT.md</code>; change 138'],
+ ['Package structure cannot tell a step flow from a rule list','The Telecom package has 9 procedures, 59 steps and 10 references; the airline package has 5, 55 and 6. A tracker chosen by structure would run on both. It helped Telecom (not proven) and hurt airline. So a step flow must be declared in the profile; the system never infers it.',[['bad','airline with tracker: 0 wins, 6 losses (p = 0.031)'],['warn','Telecom 63.8% to 76.2% (p = 0.146)']],'changes 86, 87, 141; spec section 8'],
+ ['A graph walk needs links in the package and labels to score it','The hand-built HANDBOOK graphs hold no link to walk, so k_hops changes nothing on them and the system refuses it. Of 49 packages with procedures, 8 have a pair to walk. The saved retrieval labels use the hand-built procedure ids, so they cannot score a walk on the skill packages.',[['flat','8 of 49 packages have a pair to walk'],['warn','0 labelled walks on skill packages'],['flat','bm25 on saved labels: 69.2% top-1, 80.0% top-3']],'change 140; spec section 11'],
+ ['No package is held-out','A task set called held-out is only held-out until a model has run it. Every held-out set has been run by at least one agent model, so the registry now labels them seen. Airline is "seen, not tuned"; retail and ITSM 80cd3ebb50 are "unseen, no run"; the rest are tuning.',[['warn','0 packages with a held-out label'],['flat','the 17/20 to 11/20 airline result shaped a design decision']],'<code>sets/registry.json</code>; change 134'],
+ ['Three earlier readings were wrong, and one was checked','The pilot arm B on ITSM most likely ran with no brief: a crash in the brief code was caught and hidden on 7 older runs. The old τ² navigator smoke runs were invalid: a local variable error stopped every wrapped call. The old τ² runner could also drop a gateway error and grade it as 0, so the Telecom result was checked: 0 of 160 runs had one, and 63.8% to 76.2% (p = 0.146) stands.',[['warn','7 ITSM arm-B runs without the brief (pilot1 5, ds1u_t1_legacyrules 2)'],['warn','2 τ² navigator smoke runs invalid'],['good','Telecom gateway errors: 0 of 160 runs']],'changes 125, 128, 129 (fix round 1)']
+];
+document.getElementById('lessons').innerHTML = L.map((l,i)=>`
+ <div class="lesson rv"><div class="no">${String(i+1).padStart(2,'0')}</div><div><h4>${l[0]}</h4><p>${l[1]}</p><div class="ev">${l[2].map(e=>`<span class="chip ${e[0]}">${e[1]}</span>`).join('')}</div><p class="src" style="margin:10px 0 0">Source: ${l[3]}</p></div></div>`).join('');
+
+/* ---------- architecture ---------- */
+const A = [
+ {id:'s1',x:20,y:56,w:160,h:52,t:'SOP documents',s:'HANDBOOK, ITSM',d:{h:'Given SOP with procedures',p:'A long document given with the task: procedures, templates, exceptions, holidays. Goes through the offline build into the package.',m:[['flat','HANDBOOK: 20–124 pages']]}},
+ {id:'s2',x:20,y:120,w:160,h:52,t:'Rules in data',s:'AutomationBench',d:{h:'Rules scattered in business data',p:'A "Policy" sheet, or an email that overrides an older rule. Found while the agent works, by the online intake and discovery. Never written back to the package.',m:[['flat','AutomationBench: 47 apps, 549 tools']]}},
+ {id:'s3',x:20,y:184,w:160,h:52,t:'Step-flow manual',s:'τ² Telecom',d:{h:'Step-by-step flow',p:'A troubleshooting manual with paths and "refer to" links. The roaming step was missed 26 times, 19 of them through one MMS → mobile data link.',m:[['flat','τ² Telecom']]}},
+ {id:'s4',x:20,y:248,w:160,h:52,t:'Rule list',s:'τ² airline',d:{h:'Rule list with exceptions',p:'Short rules whose exceptions decide most cases. Shown without exceptions, they made the agent refuse allowed changes.',m:[['bad','17/20 → 11/20 with the tracker'],['warn','route built (Task 5.3), not run']]}},
+ {id:'s5',x:20,y:312,w:160,h:52,t:'User request',s:'what was asked',d:{h:'User request',p:'The largest recoverable class of failures is the request itself: ITSM 45 of 104, AutomationBench 119 of 414 failed checks. The request produces obligations at the start of the run.',m:[['ours','change 48'],['ours','deliverables.py']]}},
+ {id:'i1',x:222,y:70,w:160,h:80,t:'Offline build',s:'Claude skill now|pipeline later',d:{h:'Offline build',p:'Document → package. Now: Claude skill + validator, with humans able to review. Later: builder.py + rule_repair.py and procedure_compiler.py, when they pass the same audit (catches within 5 points, false denies not higher, must-not recall ≥ 80%). The compiler was measured on 7 documents: the pipeline does not pass the bar today.',m:[['ours','skill/SKILL.md, cli.py, validate.py'],['ours','builder.py, handlers/, rule_repair.py'],['bad','procedure_compiler.py: 0 of 7 documents pass the bar'],['flat','ITSM rules build: 11 calls, about $0.01']]}},
+ {id:'i2',x:222,y:170,w:160,h:80,t:'Online intake',s:'session overlay',d:{h:'Online intake',p:'Code filter, then one extraction call per tool output: policies with trust and "newer rule wins". Uses the same slots as the package, lives only in the session. Untrusted text cannot change a trusted rule. A B4T-F run costs about $0.03 with gpt-oss.',m:[['ours','intake.py'],['good','part of B4T-F: +18.9, +8.8 held-out']]}},
+ {id:'i3',x:222,y:270,w:160,h:80,t:'Discovery',s:'search for rules',d:{h:'Policy discovery',p:'Searches mail and documents for rules at the start of the task (built and measured). For long SOPs, the router picks the procedure and expands one hop along links.',m:[['good','online: in B4T-F'],['flat','long-SOP retrieval: offline only']]}},
+ {id:'p1',x:424,y:56,w:160,h:70,t:'Rules',s:'hard · judgment · guidance',d:{h:'Rules with a class and a level',p:'Hard: decided fully by code or Cedar. Judgment: one specific statement with a scope, checked by Kev or the gate. Guidance: shown only. Each rule has a level: observe, remind, block once or deny. General statements stay guidance or use code rules; they never go to a per-call model.',m:[['ours','ruleset.py, cedar_engine.py'],['good','Cedar 372 of 372; 1 false deny in 165'],['warn','classes and levels: plan phase 1']]}},
+ {id:'p2',x:424,y:136,w:160,h:70,t:'Procedures',s:'steps · must_not · templates',d:{h:'Procedures',p:'Cards (when each applies), decisions, ordered steps, must-not rules, templates, links, a business-day calendar. One package format now holds both the old rule build and the store graph; the converters lost no field.',m:[['ours','model.py, procedure_store.py'],['flat','as agent tools alone: no gain'],['good','feeds the write gate'],['good','one package format: 84 files']]}},
+ {id:'p4',x:424,y:216,w:160,h:70,t:'Obligations',s:'what must exist at the end',design:true,d:{h:'Obligations',p:'Required work per procedure: target, expected values and where each value comes from (SOP text, template, computed, case fact, request). A value with no origin is not asserted. Built from procedure steps at build time; request and duty items are added at runtime.',m:[['warn','built; no producer passes the replay rule'],['ours','names only +3.9 to +6.4; with values +15.9 to +34.1']]}},
+ {id:'p3',x:424,y:296,w:160,h:60,t:'Meta + questions',s:'trust · date · rank · tests',design:true,d:{h:'Meta, policy questions, tests',p:'Trust, effective date, authority rank, priority class. Coverage: one outcome per statement. Policy questions: ambiguities for the policy owner, such as the ITSM role table vs its graders. Decision tests written blind from the text.',m:[['ours','date and rank: model.resolve_conflict'],['warn','priority classes: validate only'],['warn','resolve_conflicts: no caller outside tests']]}},
+ {id:'d0',x:626,y:56,w:160,h:52,t:'Router',s:'which procedures apply',design:true,d:{h:'Router',p:'agent_opened: the agent opens procedures with policy__ tools; the measured gate used this. bm25_kev and llm_cards exist offline only (87.7% top-1 by agreement). The interface receives the whole package, so graph walks, PageRank, two-stage search or a wrapped GraphRAG tool can be swapped in by config and compared offline.',m:[['ours','procedure_store.py, sop_retrieval.py'],['good','Router and Expander by name; test bench built'],['warn','only agent_opened measured live']]}},
+ {id:'d1',x:626,y:116,w:160,h:52,t:'Code rules + Cedar',s:'cheapest, always first',d:{h:'Code rules and Cedar',p:'Deterministic checks on tool arguments, state, membership and roles. Deny at control levels 1–3; level 0 only records.',m:[['ours','ruleset.py, Cedar'],['good','1 false deny in 165 test cases'],['good','9 of 9 denials were code rules (B3T-F trial 2)']]}},
+ {id:'d2',x:626,y:176,w:160,h:52,t:'Kev-4B questions',s:'narrow yes/no',d:{h:'Kev-4B decision model',p:'Typed questions: is this record excluded, is a limit broken, does a record change a rule, does a rule apply. About 0.9 s and $0.000002 per question. Good on narrow questions, weak as a whole-write verifier. Jev binds values but cannot plan. Wired in the online intake only, not as a write check of a package.',m:[['ours','decisions.py, detectors.py'],['warn','online intake only; not a stage of WriteChecks'],['good','guardrails broken 44 → 34 at the same score'],['bad','whole-write recall 0.00–0.42']]}},
+ {id:'d3',x:626,y:236,w:160,h:52,t:'Judgment gate',s:'evidence from the case',d:{h:'Judgment gate (and scoped verifier)',p:'One model check per acting call on the rules in scope. Blocks once, only with a word-for-word quote from case data, not from the policy. Dates are computed in code. The gate model must be strong enough. At level 3, a verifier reminds on specific statements.',m:[['ours','store_gate.py, verifier.py'],['good','Gemini +25.5 (in-sample)'],['flat','gpt-oss as gate: +3.3']]}},
+ {id:'d4',x:626,y:296,w:160,h:52,t:'Obligation ledger',s:'open items at the reply',design:true,d:{h:'Obligation ledger',p:'Binds items to cases at the reply or hand-off, then matches them by code against the write log. Sends one follow-up with targets and known values. Never asks for work on a held or blocked case. Takes over the follow-ups from deliverables and duties on a profile that names a producer. The replay rule (false-open ≤ 10%, recall ≥ 30%) was not met by any producer, so all stay at level 1.',m:[['warn','built; all producers at level 1'],['ours','obligations.py']]}},
+ {id:'a1',x:828,y:70,w:150,h:60,t:'Hooks',s:'9 in CugaAgent',d:{h:'Lifecycle hooks',p:'on_user_message, before_llm_call, before_tool_call, after_tool_call, before_reply, on_task_end and more. Every check and organizer runs at a hook; with no hooks set, CUGA behaves as before. Brief text stays in the system prompt (measured).',m:[['good','PR #1103 (open)'],['flat','newest-message option: −4.2']]}},
+ {id:'a2',x:828,y:170,w:150,h:60,t:'Organizers',s:'by policy shape',d:{h:'Organizers',p:'Procedure guide, SOP loop, SOP tracker, navigator, requirements tracker. Chosen by level and policy shape. They shape the work instead of judging single writes.',m:[['ours','procedure_guide.py, sop_loop.py, sop_tracker.py, sop_navigator.py, tracker.py']]}},
+ {id:'a3',x:828,y:270,w:150,h:100,t:'Effects',s:'allow · remind|block once · hold|follow-up',d:{h:'Effects',p:'Precedence: deny, hold, block once, remind, allow. Reminders go inside the tool result. After repeated denials: skip. At the reply: one follow-up (two at level 3). Every verdict names rule, source and package version.',m:[['ours','reminders in tool results since 2026-11-02']]}},
+ {id:'lv',x:20,y:440,w:470,h:56,t:'Policy config + level switch 0–3',s:'one YAML · by model and risk',design:true,d:{h:'Policy config and level switch',p:'One YAML replaces 42 environment switches. Level per model, level-3 checks for risky tools, level per rule. A new method is one component plus one config key, and then runs on every benchmark.',m:[['good','built: 9 profiles, no policy switch in the environment'],['warn','no profile uses auto yet'],['ours','policy_config.py, runtime.py, levels.py']]}},
+ {id:'tr',x:510,y:440,w:468,h:56,t:'Trace + audit log',s:'every decision, with rule and version',d:{h:'Trace and audit log',p:'Every model and Kev call is recorded, and each verdict goes to an audit file with rule, evidence and package version. All four adapters of the runner write it, one line at each decision.',m:[['ours','trace.py'],['good','all 4 adapters write audit.jsonl']]}}
+];
+const g = document.getElementById('archnodes');
+g.innerHTML = A.map(n => {
+  const cy = n.y + n.h/2;
+  const two = n.s && n.h >= 50;
+  return `<g class="node${n.design?' design':''}" data-id="${n.id}" tabindex="0" role="button" aria-label="${n.t}">
+   <rect x="${n.x}" y="${n.y}" width="${n.w}" height="${n.h}" rx="10"/>
+   <text x="${n.x+n.w/2}" y="${two?cy-3-(n.s.split('|').length-1)*5:cy+5}" text-anchor="middle" font-size="${n.h<30?12:14}" font-weight="650" fill="#0f172a">${n.t}</text>
+   ${two?n.s.split('|').map((s,i,a)=>`<text x="${n.x+n.w/2}" y="${cy+15+i*15-(a.length-1)*5}" text-anchor="middle" font-size="11.5" fill="#64748b">${s}</text>`).join(''):''}
+  </g>`;
+}).join('');
+const panel = document.getElementById('panel');
+function show(id){
+  const n = A.find(a => a.id === id); if (!n) return;
+  g.querySelectorAll('.node').forEach(x => x.classList.toggle('sel', x.dataset.id === id));
+  panel.innerHTML = `<h4>${n.d.h}</h4><p>${n.d.p}</p><div class="meta">${n.d.m.map(m=>`<span class="chip ${m[0]}">${m[1]}</span>`).join('')}</div>`;
+}
+g.querySelectorAll('.node').forEach(el => {
+  el.addEventListener('click', () => show(el.dataset.id));
+  el.addEventListener('keydown', e => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); show(el.dataset.id); } });
+});
+show('p4');
+
+/* ---------- nav: progress + scrollspy ---------- */
+const bar = document.getElementById('bar');
+const links = [...document.querySelectorAll('nav.top .links a')];
+const secs = links.map(a => document.querySelector(a.getAttribute('href')));
+const spy = new IntersectionObserver(es => {
+  es.forEach(e => { if (e.isIntersecting) {
+    links.forEach(a => a.classList.toggle('on', a.getAttribute('href') === '#'+e.target.id));
+    const on = links.find(a => a.classList.contains('on')), c = on && on.parentElement;
+    if (on && (on.offsetLeft < c.scrollLeft || on.offsetLeft + on.offsetWidth > c.scrollLeft + c.clientWidth)) c.scrollTo({left: on.offsetLeft - 20, behavior: reduce ? 'auto' : 'smooth'});
+  }});
+}, {rootMargin:'-45% 0px -50% 0px'});
+secs.forEach(s => s && spy.observe(s));
+
+/* ---------- reveal ---------- */
+const rv = new IntersectionObserver(es => es.forEach(e => { if (e.isIntersecting) { e.target.classList.add('in'); rv.unobserve(e.target); } }), {rootMargin:'0px 0px -8% 0px'});
+document.querySelectorAll('.rv').forEach(el => reduce ? el.classList.add('in') : rv.observe(el));
+
+/* ---------- hero parallax + counters ---------- */
+const layers = [...document.querySelectorAll('.hero .layer')];
+const hero = document.querySelector('.hero');
+let mx = 0, my = 0, tx = 0, ty = 0, sy = 0, ticking = false;
+function frame(){
+  ticking = false;
+  const h = document.documentElement.scrollHeight - innerHeight;
+  bar.style.width = (h > 0 ? scrollY / h * 100 : 0) + '%';
+  if (reduce) return;
+  tx += (mx - tx) * 0.08; ty += (my - ty) * 0.08;
+  sy = scrollY;
+  if (sy < hero.offsetHeight * 1.2) {
+    layers.forEach(l => {
+      const d = +l.dataset.depth, m = +(l.dataset.mouse || 0);
+      l.style.transform = `translate3d(${tx*m*22}px, ${-sy*d*0.45 + ty*m*16}px, 0)`;
+    });
+  }
+  if (Math.abs(mx - tx) > 0.001 || Math.abs(my - ty) > 0.001) req();
+}
+function req(){ if (!ticking) { ticking = true; requestAnimationFrame(frame); } }
+addEventListener('scroll', req, {passive:true});
+addEventListener('resize', req);
+hero.addEventListener('pointermove', e => { if (e.pointerType !== 'mouse') return; mx = e.clientX / innerWidth - .5; my = e.clientY / innerHeight - .5; req(); });
+req();
+
+if (!reduce) {
+  document.querySelectorAll('[data-count]').forEach(el => {
+    const to = +el.dataset.count, dec = +(el.dataset.dec || 0), pre = el.dataset.prefix || '', suf = el.dataset.suffix || '';
+    const fmt = v => (v < 0 ? '−' : pre) + Math.abs(v).toFixed(dec) + suf;
+    const t0 = performance.now(), dur = 1100;
+    el.textContent = fmt(0);
+    (function step(t){ const k = Math.min(1, (t - t0) / dur), e = 1 - Math.pow(1 - k, 3); el.textContent = fmt(to * e); if (k < 1) requestAnimationFrame(step); })(t0);
+  });
+}
+})();
+</script>
+</body>
+</html>

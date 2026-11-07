@@ -1,0 +1,302 @@
+<!doctype html>
+<html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<title>CUGA policy adherence: five methods, chosen by policy type (proposal v2)</title>
+<style>
+:root{--ink:#000;--muted:#6b7280;--line:#e5e7eb;--accent:#1d4ed8;--bar:#9ca3af;--good:#047857;--bad:#b91c1c}
+*{box-sizing:border-box}
+body{margin:0;background:#fff;color:var(--ink);
+ font:18px/1.5 system-ui,-apple-system,"Segoe UI",sans-serif;-webkit-font-smoothing:antialiased}
+.deck{max-width:960px;margin:0 auto;padding:24px 16px 64px}
+.slide{padding:44px 8px 36px;border-bottom:1px solid var(--line);page-break-after:always}
+h1{font-size:40px;line-height:1.15;margin:0 0 28px;letter-spacing:-.02em}
+h2{font-size:30px;line-height:1.2;margin:0 0 22px;letter-spacing:-.015em}
+h1,h2{text-wrap:balance}
+ul{margin:20px 0 0;padding-left:22px}li{margin:6px 0}
+.big{display:flex;gap:40px;flex-wrap:wrap}.big .v{font-size:56px;font-weight:700;
+ font-variant-numeric:tabular-nums;line-height:1.1}.big .k{color:var(--muted);font-size:15px;max-width:230px}
+.big .v.ours{color:var(--accent)}.big .v.bad{color:var(--bad)}
+.src{color:var(--muted);font-size:13px;margin-top:18px}
+.meta{color:var(--muted);font-size:14px;margin:0 0 10px}
+svg{display:block;max-width:100%;height:auto;font-family:inherit}
+code{font-family:ui-monospace,SFMono-Regular,Menlo,monospace;font-size:.9em;overflow-wrap:anywhere}
+.tw{overflow-x:auto}
+table{border-collapse:collapse;width:100%;font-size:15px}
+th{text-align:left;font-size:12px;text-transform:uppercase;letter-spacing:.04em;color:var(--muted);padding:0 10px 8px 0;border-bottom:1px solid var(--line)}
+td{padding:9px 10px 9px 0;border-bottom:1px solid #f1f3f5;vertical-align:top}
+@media (max-width:640px){body{font-size:16px}h1{font-size:30px}h2{font-size:23px}.big{gap:24px}.big .v{font-size:40px}table{font-size:14px}}
+@media print{.slide{border:none;min-height:100vh}}
+</style></head>
+<body><div class="deck">
+
+<!-- 1 -->
+<div class="slide">
+  <div class="meta">Proposal v2 · 2026-11-03 · replaces the single-method proposal of 2026-11-01</div>
+  <h1>CUGA policy adherence: five methods, chosen by the type of policy</h1>
+  <div class="big">
+    <div><div class="v">5</div><div class="k">methods, each plugged in at a CUGA hook</div></div>
+    <div><div class="v ours">+18.9 pts</div><div class="k">AutomationBench held out, B4T-F with gpt-oss-120b (p = 0.001)</div></div>
+    <div><div class="v">+14.2 pts</div><div class="k">HANDBOOK, procedure guide + SOP loop (pooled, in-sample)</div></div>
+  </div>
+  <ul>
+    <li>No single method helped on every benchmark.</li>
+    <li>Proposal: one toolkit; pick the method by policy type.</li>
+  </ul>
+  <div class="src">Agents: DeepSeek-V4-Pro (τ², HANDBOOK) and gpt-oss-120b (AutomationBench B4T-F); policy model gpt-oss-120b; arms run at the same time. τ²-Telecom SOP tracker: +12.5 pts, per-task p = 0.146 (not proven). Code: cuga-agent-gate, branch feat/policy-gate, package cuga.policy_layer (local commits).</div>
+</div>
+
+<!-- 2 -->
+<div class="slide">
+  <h2>Even top models pass about half of policy tasks or fewer</h2>
+  <svg viewBox="0 0 640 176" width="100%" role="img" aria-label="Best reported pass rate per policy benchmark">
+    <g font-size="17" fill="#000">
+      <text x="0" y="35">τ³ banking_knowledge</text>
+      <rect x="200" y="14" width="205" height="30" fill="#9ca3af"/>
+      <text x="413" y="35" font-weight="700">51.3%</text>
+      <text x="0" y="85">EnterpriseOps-Gym</text>
+      <rect x="200" y="64" width="204" height="30" fill="#9ca3af"/>
+      <text x="412" y="85" font-weight="700">51.1%</text>
+      <text x="0" y="135">HANDBOOK.md</text>
+      <rect x="200" y="114" width="88" height="30" fill="#9ca3af"/>
+      <text x="296" y="135" font-weight="700">~22%</text>
+    </g>
+    <text x="200" y="170" font-size="14" fill="#6b7280">Best reported model per benchmark (%); metrics differ</text>
+  </svg>
+  <ul>
+    <li>gpt-oss-120b: 13% on τ³, even with the right documents given.</li>
+    <li>83% of its failures came from not using the given context.</li>
+    <li>Policy text in the prompt is only advice; nothing enforces it.</li>
+  </ul>
+  <div class="src">Leaderboards checked 2026-10-21 (2026-10-21-policy-sota-benchmarks-slides.html): τ³ pass@1, EnterpriseOps-Gym task success, HANDBOOK.md strict pass@1. gpt-oss-120b: CUGA on τ³ with golden retrieval, Boaz internship report.</div>
+</div>
+
+<!-- 3 -->
+<div class="slide">
+  <h2>The five methods act at different points of the agent's turn</h2>
+  <svg viewBox="-8 0 676 250" width="100%" role="img" aria-label="CUGA turn with five methods attached at its hooks">
+    <defs><marker id="a3" markerWidth="8" markerHeight="8" refX="7" refY="4" orient="auto"><path d="M0 0 L8 4 L0 8 z" fill="#6b7280"/></marker></defs>
+    <rect x="-6" y="94" width="668" height="64" rx="10" fill="none" stroke="#1d4ed8" stroke-dasharray="5 4"/>
+    <g font-size="15" text-anchor="middle" fill="#000">
+      <rect x="0" y="104" width="104" height="44" rx="8" fill="#fafafa" stroke="#e5e7eb"/><text x="52" y="131">User message</text>
+      <rect x="138" y="104" width="104" height="44" rx="8" fill="#fafafa" stroke="#e5e7eb"/><text x="190" y="131">Model call</text>
+      <rect x="276" y="104" width="104" height="44" rx="8" fill="#fafafa" stroke="#e5e7eb"/><text x="328" y="131">Tool call</text>
+      <rect x="414" y="104" width="104" height="44" rx="8" fill="#fafafa" stroke="#e5e7eb"/><text x="466" y="131">Tool result</text>
+      <rect x="552" y="104" width="104" height="44" rx="8" fill="#fafafa" stroke="#e5e7eb"/><text x="604" y="131">Reply</text>
+    </g>
+    <g stroke="#6b7280" stroke-width="1.5" fill="none">
+      <path d="M106 126 H134" marker-end="url(#a3)"/><path d="M244 126 H272" marker-end="url(#a3)"/>
+      <path d="M382 126 H410" marker-end="url(#a3)"/><path d="M520 126 H548" marker-end="url(#a3)"/>
+    </g>
+    <g stroke="#1d4ed8" stroke-width="1.5">
+      <path d="M52 70 V104"/><path d="M328 70 V104"/><path d="M604 70 V104"/>
+      <path d="M100 158 V182"/><path d="M328 148 V182"/>
+    </g>
+    <g text-anchor="middle">
+      <rect x="0" y="14" width="170" height="56" rx="8" fill="#eff6ff" stroke="#1d4ed8"/>
+      <text x="85" y="38" font-size="15" font-weight="700">SOP tracker</text><text x="85" y="58" font-size="12.5" fill="#374151">done / pending steps</text>
+      <rect x="243" y="14" width="170" height="56" rx="8" fill="#eff6ff" stroke="#1d4ed8"/>
+      <text x="328" y="38" font-size="15" font-weight="700">Rule checks</text><text x="328" y="58" font-size="12.5" fill="#374151">code blocks; LLM reminds</text>
+      <rect x="486" y="14" width="170" height="56" rx="8" fill="#eff6ff" stroke="#1d4ed8"/>
+      <text x="571" y="38" font-size="15" font-weight="700">Requirements check</text><text x="571" y="58" font-size="12.5" fill="#374151">asks for missing items</text>
+      <rect x="0" y="182" width="200" height="56" rx="8" fill="#eff6ff" stroke="#1d4ed8"/>
+      <text x="100" y="206" font-size="15" font-weight="700">SOP loop (dashed box)</text><text x="100" y="226" font-size="12.5" fill="#374151">one turn per case; code decides</text>
+      <rect x="243" y="182" width="170" height="56" rx="8" fill="#eff6ff" stroke="#1d4ed8"/>
+      <text x="328" y="206" font-size="15" font-weight="700">Procedure guide</text><text x="328" y="226" font-size="12.5" fill="#374151">evidence at first write</text>
+    </g>
+  </svg>
+  <ul>
+    <li>All five plug in through the SDK and its hooks API.</li>
+    <li>Each can be turned on alone, so each is measured alone.</li>
+    <li>All checks come from the policy text, never from graders.</li>
+  </ul>
+  <div class="src">Blue: our methods. Code: policy_layer/ruleset.py and intake.py (rule checks), requirements.py and tracker.py (requirements check), procedure_guide.py, sop_loop.py, sop_tracker.py.</div>
+</div>
+
+<!-- 4 -->
+<div class="slide">
+  <h2>Each method reuses a published method and adds what it lacks</h2>
+  <svg viewBox="0 0 640 340" width="100%" role="img" aria-label="Published methods and the method we built from each">
+    <defs><marker id="a4" markerWidth="8" markerHeight="8" refX="7" refY="4" orient="auto"><path d="M0 0 L8 4 L0 8 z" fill="#6b7280"/></marker></defs>
+    <g font-size="12" font-weight="700" fill="#6b7280" letter-spacing=".05em"><text x="0" y="14">PUBLISHED METHOD</text><text x="214" y="14">OUR METHOD: WHAT WE ADD</text></g>
+    <g font-size="14" font-weight="700" text-anchor="middle">
+      <rect x="0" y="26" width="190" height="52" rx="8" fill="#fafafa" stroke="#e5e7eb"/><text x="95" y="48">ToolGuard, AgentCore</text><text x="95" y="66">Policy, PolicyGuard</text>
+      <rect x="0" y="88" width="190" height="52" rx="8" fill="#fafafa" stroke="#e5e7eb"/><text x="95" y="119">STAGE, PolicyGuide</text>
+      <rect x="0" y="150" width="190" height="52" rx="8" fill="#fafafa" stroke="#e5e7eb"/><text x="95" y="172">Parlant ARQs,</text><text x="95" y="190">Rasa CALM, Jev</text>
+      <rect x="0" y="212" width="190" height="52" rx="8" fill="#fafafa" stroke="#e5e7eb"/><text x="95" y="243">Boaz verifier</text>
+      <rect x="0" y="274" width="190" height="52" rx="8" fill="#fafafa" stroke="#e5e7eb"/><text x="95" y="305">JevAct</text>
+    </g>
+    <g stroke="#6b7280" stroke-width="1.5">
+      <path d="M194 52 H208" marker-end="url(#a4)"/><path d="M194 114 H208" marker-end="url(#a4)"/>
+      <path d="M194 176 H208" marker-end="url(#a4)"/><path d="M194 238 H208" marker-end="url(#a4)"/>
+      <path d="M194 300 H208" marker-end="url(#a4)"/>
+    </g>
+    <g font-size="15">
+      <text x="214" y="48"><tspan font-weight="700">Rule checks:</tspan> policies found mid-run; code blocks</text>
+      <text x="214" y="67" font-size="13" fill="#6b7280">PolicyGuard: τ²-airline pass^4 +6 to +12 pts</text>
+      <text x="214" y="110"><tspan font-weight="700">SOP tracker:</tspan> step status with quotes, no graph</text>
+      <text x="214" y="129" font-size="13" fill="#6b7280">STAGE: τ²-telecom pass^3 up to +55 pts</text>
+      <text x="214" y="172"><tspan font-weight="700">SOP loop:</tspan> typed questions; code picks the case</text>
+      <text x="214" y="191" font-size="13" fill="#6b7280">Parlant (vendor): 90.2% vs 86.1% chain of thought</text>
+      <text x="214" y="234"><tspan font-weight="700">Procedure guide:</tspan> evidence before the first write</text>
+      <text x="214" y="253" font-size="13" fill="#6b7280">Boaz: relevant statements +7.9 pts balanced accuracy</text>
+      <text x="214" y="296"><tspan font-weight="700">Requirements check:</tspan> at most 2 follow-ups</text>
+      <text x="214" y="315" font-size="13" fill="#6b7280">JevAct: τ²-telecom pass^3 +16.9 pts, mean of 8 agents</text>
+    </g>
+  </svg>
+  <ul>
+    <li>Published results need a strong compiler or per-domain tuning.</li>
+    <li>Ours: one generic intake with small open models.</li>
+  </ul>
+  <div class="src">Authors' numbers, not reproduced (2026-10-20-agent-policy-enforcement-sota.md): ToolGuard arXiv 2507.16459, PolicyGuard 2606.29225, STAGE 2608.22538, PolicyGuide 2608.19861, JevAct 2610.38620; Parlant vendor-reported; Boaz internship report, October 2026.</div>
+</div>
+
+<!-- 5 -->
+<div class="slide">
+  <h2>No method helped everywhere; the policy type decides</h2>
+  <svg viewBox="0 0 680 350" width="100%" role="img" aria-label="Change vs CUGA alone by method and benchmark">
+    <g font-size="14" fill="#000">
+      <line x1="462" y1="14" x2="462" y2="322" stroke="#6b7280" stroke-width="1"/>
+
+      <text x="0" y="36" font-weight="700">HANDBOOK, long SOPs</text>
+      <text x="0" y="53" font-size="12" fill="#6b7280">guide + loop, in-sample</text>
+      <rect x="462" y="31" width="85.2" height="18" fill="#9ca3af" fill-opacity=".5"/>
+      <text x="554" y="45" font-weight="700">+14.2</text>
+
+      <text x="0" y="88" font-weight="700">τ²-Telecom, step flow</text>
+      <text x="0" y="105" font-size="12" fill="#6b7280">SOP tracker, held out, p = 0.146</text>
+      <rect x="462" y="83" width="75" height="18" fill="#1d4ed8"/>
+      <path d="M462 92 H612 M462 86 V98 M612 86 V98" stroke="#374151" stroke-width="1.5" fill="none"/>
+      <text x="618" y="97" font-weight="700">+12.5</text>
+
+      <text x="0" y="140" font-weight="700">AutomationBench</text>
+      <text x="0" y="157" font-size="12" fill="#6b7280">requirements check, held out</text>
+      <rect x="462" y="135" width="21" height="18" fill="#9ca3af"/>
+      <path d="M447 144 H518.4 M447 138 V150 M518.4 138 V150" stroke="#374151" stroke-width="1.5" fill="none"/>
+      <text x="524" y="149" font-weight="700">+3.5</text>
+
+      <text x="0" y="192" font-weight="700">AutomationBench</text>
+      <text x="0" y="209" font-size="12" fill="#6b7280">rule checks + follow-up, held out</text>
+      <rect x="462" y="187" width="19.2" height="18" fill="#9ca3af"/>
+      <path d="M431.4 196 H536.4 M431.4 190 V202 M536.4 190 V202" stroke="#374151" stroke-width="1.5" fill="none"/>
+      <text x="542" y="201" font-weight="700">+3.2</text>
+
+      <text x="0" y="244" font-weight="700">ITSM</text>
+      <text x="0" y="261" font-size="12" fill="#6b7280">rule checks, held out</text>
+      <rect x="421.2" y="239" width="40.8" height="18" fill="#9ca3af"/>
+      <text x="415" y="253" font-weight="700" text-anchor="end">−6.8</text>
+
+      <text x="0" y="296" font-weight="700">τ²-Airline, rule list</text>
+      <text x="0" y="313" font-size="12" fill="#6b7280">SOP tracker, held out</text>
+      <rect x="282" y="291" width="180" height="18" fill="#b91c1c"/>
+      <text x="276" y="305" font-weight="700" text-anchor="end">−30.0</text>
+    </g>
+    <text x="462" y="342" font-size="12" fill="#6b7280" text-anchor="middle">Change vs CUGA alone (pts). Whisker: 95% CI where measured.</text>
+  </svg>
+  <ul>
+    <li>Step flows: the tracker made the agent ask skipped questions.</li>
+    <li>Rule lists: the tracker dropped exceptions; the agent refused allowed changes.</li>
+    <li>Rule checks rarely fire: these agents seldom break checkable rules.</li>
+    <li>Later (2026-11-03): AutomationBench B4T-F, gpt-oss: +18.9 pts held out (p = 0.001).</li>
+  </ul>
+  <div class="src">Paired runs, 2026-11-02 and 11-03. Telecom 40 tasks × 2; Airline 20; AutomationBench unseen3 and ITSM unseen2, 10 tasks × 3; HANDBOOK 3 tasks × 3 (rubric items). All methods and numbers: the results doc.</div>
+</div>
+
+<!-- 6 -->
+<div class="slide">
+  <h2>Proposal: route each policy type to the method that fits it</h2>
+  <svg viewBox="0 0 680 330" width="100%" role="img" aria-label="Policy types routed to methods">
+    <defs><marker id="a6" markerWidth="8" markerHeight="8" refX="7" refY="4" orient="auto"><path d="M0 0 L8 4 L0 8 z" fill="#6b7280"/></marker></defs>
+    <g font-size="12" font-weight="700" fill="#6b7280" letter-spacing=".05em"><text x="0" y="12">POLICY TYPE</text><text x="330" y="12">METHOD</text></g>
+    <g>
+      <rect x="0" y="22" width="270" height="52" rx="8" fill="#fafafa" stroke="#e5e7eb"/>
+      <text x="12" y="44" font-size="15" font-weight="700">Step-by-step flow</text><text x="12" y="63" font-size="12.5" fill="#6b7280">troubleshooting (τ²-Telecom)</text>
+      <rect x="0" y="84" width="270" height="52" rx="8" fill="#fafafa" stroke="#e5e7eb"/>
+      <text x="12" y="106" font-size="15" font-weight="700">Long handbook, many procedures</text><text x="12" y="125" font-size="12.5" fill="#6b7280">HR, insurance, pharmacy (HANDBOOK)</text>
+      <rect x="0" y="146" width="270" height="52" rx="8" fill="#fafafa" stroke="#e5e7eb"/>
+      <text x="12" y="168" font-size="15" font-weight="700">Rules with exceptions</text><text x="12" y="187" font-size="12.5" fill="#6b7280">booking changes (τ²-Airline)</text>
+      <rect x="0" y="208" width="270" height="52" rx="8" fill="#fafafa" stroke="#e5e7eb"/>
+      <text x="12" y="230" font-size="15" font-weight="700">Policies found in data</text><text x="12" y="249" font-size="12.5" fill="#6b7280">emails, sheets (AutomationBench)</text>
+      <rect x="0" y="270" width="270" height="52" rx="8" fill="#fafafa" stroke="#e5e7eb"/>
+      <text x="12" y="292" font-size="15" font-weight="700">Request with many deliverables</text><text x="12" y="311" font-size="12.5" fill="#6b7280">AutomationBench, ITSM</text>
+    </g>
+    <g stroke="#6b7280" stroke-width="1.5">
+      <path d="M274 48 H324" marker-end="url(#a6)"/><path d="M274 110 H324" marker-end="url(#a6)"/>
+      <path d="M274 172 H324" marker-end="url(#a6)"/><path d="M274 234 H324" marker-end="url(#a6)"/>
+      <path d="M274 296 H324" marker-end="url(#a6)"/>
+    </g>
+    <g>
+      <rect x="330" y="22" width="346" height="52" rx="8" fill="#eff6ff" stroke="#1d4ed8"/>
+      <text x="342" y="44" font-size="15" font-weight="700">SOP tracker</text><text x="342" y="63" font-size="12.5" fill="#374151">+12.5 pts held out, not proven (p = 0.146)</text>
+      <rect x="330" y="84" width="346" height="52" rx="8" fill="#eff6ff" stroke="#1d4ed8"/>
+      <text x="342" y="106" font-size="15" font-weight="700">Procedure guide + SOP loop</text><text x="342" y="125" font-size="12.5" fill="#374151">+14.2 pts pooled, in-sample only</text>
+      <rect x="330" y="146" width="346" height="52" rx="8" fill="#fffbeb" stroke="#b45309" stroke-dasharray="5 4"/>
+      <text x="342" y="168" font-size="15" font-weight="700">Code rules + each rule with its exceptions</text><text x="342" y="187" font-size="12.5" fill="#374151">to build: the tracker lost 30 pts here</text>
+      <rect x="330" y="208" width="346" height="52" rx="8" fill="#eff6ff" stroke="#1d4ed8"/>
+      <text x="342" y="230" font-size="15" font-weight="700">Discovery + rule checks + tracker (B4T-F)</text><text x="342" y="249" font-size="12.5" fill="#374151">measured: +18.9 pts held out (gpt-oss, p = 0.001)</text>
+      <rect x="330" y="270" width="346" height="52" rx="8" fill="#fafafa" stroke="#e5e7eb"/>
+      <text x="342" y="292" font-size="15" font-weight="700">Requirements check at the reply</text><text x="342" y="311" font-size="12.5" fill="#374151">measured: +3.5 pts, CI includes 0</text>
+    </g>
+  </svg>
+  <ul>
+    <li>Intake already separates procedures from rules; it can label each section.</li>
+    <li>One document can use several methods, one per section.</li>
+    <li>Not built yet: today each method runs alone.</li>
+  </ul>
+  <div class="src">Blue: gain measured. Amber, dashed: to build. Grey: no clear gain yet. Numbers from the paired runs on the previous slide.</div>
+</div>
+
+<!-- 6b -->
+<div class="slide">
+  <h2>Second axis: the stronger the agent, the less control the policy system takes</h2>
+  <div class="tw"><table>
+    <tr><th>Level</th><th>What the policy system does</th><th>For</th><th>Evidence</th></tr>
+    <tr><td>0 Observe</td><td>Trace and audit only</td><td>Measuring, shadow mode</td><td>—</td></tr>
+    <tr><td>1 Advise</td><td>Find the rules and SOP parts (discovery) and show them as a checklist; notes; no blocks</td><td>Strong models (Gemini 3.8)</td><td>Advisory loop ties Gemini alone (63 vs 63 of 102 HANDBOOK items, 2 trials); discovery checklist under test</td></tr>
+    <tr><td>2 Check</td><td>Level 1 + end check of missing work (one follow-up) + block once on high-confidence violations</td><td>Mid models (DeepSeek)</td><td>To measure</td></tr>
+    <tr><td>3 Control</td><td>Level 2 + checks on every write, read-before-write, SOP loop per case, holds kept in code</td><td>Small models (gpt-oss)</td><td>B4T-F: gpt-oss 23.8% → 42.7% held out (p = 0.001)</td></tr>
+    <tr><td>All levels</td><td>Hard rules checked by code always block</td><td>Every model</td><td>—</td></tr>
+  </table></div>
+  <ul>
+    <li>Control hurts a strong agent: Gemini 3.8 loses 7.9 pts (HANDBOOK loop) and breaks 15 vs 1 guardrails (AutomationBench B4T-F)</li>
+    <li>Pick the level per model from evaluation, or adaptively: start at 1, escalate on evidence</li>
+    <li>Escalate on a skipped checklist item, a violation flag or a loop; step down when checks stay clean</li>
+    <li>High-risk actions (money, external email, delete) get level-3 checks for any model</li>
+  </ul>
+  <div class="src">Gemini 3.8 Flash: AutomationBench policy_types_holdout2.json, 31 tasks, trial 1, partial −2.7 paired, guardrails broken 15 vs 1; HANDBOOK 3 public tasks (in-sample), loop + guide 62.7% vs alone 70.6% of items (2 trials), advisory loop 63 vs 63 of 102 items (2 trials, same time). gpt-oss-120b: AutomationBench held out, 35 tasks × 2 trials. Not built yet: the level switch and the escalation rules. Design: docs/superpowers/specs/2026-11-04-policy-system-design.md.</div>
+</div>
+
+<!-- 7 -->
+<div class="slide">
+  <h2>Each method is tuned on one split and judged on an unseen one</h2>
+  <div class="tw"><table>
+    <tr><th>Method</th><th>Tune on</th><th>Held-out test</th><th>Status</th></tr>
+    <tr><td>SOP tracker</td><td>τ²-Telecom train, 20 tasks</td><td>τ²-Telecom test, 40 tasks × 2</td><td>Done: +12.5 pts, not proven (p = 0.146)</td></tr>
+    <tr><td>Rules with exceptions</td><td>τ²-Airline train</td><td>τ²-Airline base, τ² retail</td><td>Next</td></tr>
+    <tr><td>Procedure guide + SOP loop</td><td>3 public HANDBOOK tasks</td><td>HANDBOOK full set</td><td>Waiting for data (Surge)</td></tr>
+    <tr><td>Rule checks, requirements check</td><td>AutomationBench and ITSM tuning</td><td>unseen2, unseen3</td><td>Done: no clear gain</td></tr>
+    <tr><td>B4T-F (discovery + checks + tracker)</td><td>AutomationBench 35-task subset</td><td>AutomationBench held out, 35 tasks × 2</td><td>Done: +18.9 pts (gpt-oss, p = 0.001)</td></tr>
+  </table></div>
+  <ul>
+    <li>Arms run at the same time, from frozen code.</li>
+    <li>Every method also gets a no-harm check in a second domain.</li>
+    <li>Held-out score always reported next to the tuning score.</li>
+  </ul>
+  <div class="src">τ² official splits: airline train 30, test 20, base 50; telecom train 74, test 40. The airline test is now seen (used as the no-harm check on 2026-11-03).</div>
+</div>
+
+<!-- 8 -->
+<div class="slide">
+  <h2>Ask: build the router, then test it on unseen domains</h2>
+  <div class="big">
+    <div><div class="v ours">1</div><div class="k">significant held-out gain so far (AutomationBench, gpt-oss)</div></div>
+    <div><div class="v">3</div><div class="k">next tests: airline base, τ² retail, HANDBOOK full set</div></div>
+    <div><div class="v">$290</div><div class="k">left of the $1,500 budget</div></div>
+  </div>
+  <ul>
+    <li>Agree to route methods by policy type, and to set the control level by agent strength.</li>
+    <li>Help to get the full HANDBOOK set.</li>
+    <li>Review the code, then commit it.</li>
+  </ul>
+  <div class="src">Spend from benchmarks/policy_pilot_ledger.jsonl: about $1,210 on 2026-11-04 (budget raised from $1,200 to $1,500).</div>
+</div>
+
+</div></body></html>

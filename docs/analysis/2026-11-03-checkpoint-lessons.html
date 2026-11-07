@@ -1,0 +1,308 @@
+<!doctype html>
+<html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Policy and SOP adherence: what we learned (checkpoint 2026-11-03)</title>
+<style>
+:root{--ink:#000;--muted:#6b7280;--line:#e5e7eb;--accent:#1d4ed8;--bar:#9ca3af;--bad:#b91c1c}
+*{box-sizing:border-box}
+body{margin:0;background:#fff;color:var(--ink);font:18px/1.5 system-ui,-apple-system,"Segoe UI",sans-serif;-webkit-font-smoothing:antialiased}
+.deck{max-width:960px;margin:0 auto;padding:24px 16px 64px}
+.slide{padding:44px 8px 36px;border-bottom:1px solid var(--line);page-break-after:always}
+.num{font-size:12px;font-weight:700;letter-spacing:.09em;text-transform:uppercase;color:var(--muted);margin-bottom:6px}
+h1{font-size:40px;line-height:1.15;margin:0 0 22px;letter-spacing:-.02em}
+h2{font-size:30px;line-height:1.2;margin:0 0 22px;letter-spacing:-.015em}
+ul{margin:20px 0 0;padding-left:22px}li{margin:6px 0}
+.big{display:flex;gap:40px;flex-wrap:wrap}.big>div{flex:1 1 220px}
+.big .v{font-size:56px;font-weight:700;font-variant-numeric:tabular-nums;line-height:1.1}
+.big .v.ours{color:var(--accent)}.big .v.bad{color:var(--bad)}
+.big .k{color:var(--muted);font-size:15px;margin-top:4px}
+.src{color:var(--muted);font-size:13px;margin-top:18px}
+.tw{overflow-x:auto}
+table{border-collapse:collapse;width:100%;font-size:15px}
+th{text-align:left;font-size:12px;text-transform:uppercase;letter-spacing:.04em;color:var(--muted);padding:0 10px 8px 0;border-bottom:1px solid var(--line)}
+td{padding:9px 10px 9px 0;border-bottom:1px solid #f1f3f5;vertical-align:top}
+td.n{font-variant-numeric:tabular-nums}
+@media (max-width:640px){body{font-size:16px}h1{font-size:30px}h2{font-size:23px}.big .v{font-size:40px}table{font-size:14px}}
+@media print{.slide{border:none;min-height:100vh}}
+</style></head><body><div class="deck">
+
+<!-- 1 -->
+<div class="slide">
+  <div class="num">Checkpoint · 2026-11-03</div>
+  <h1>Policy experiments: one held-out gain, and why the rest failed</h1>
+  <div class="big">
+    <div><div class="v ours">+12.5 pts</div><div class="k">τ²-Telecom held-out test, SOP tracker (p = 0.041)</div></div>
+    <div><div class="v bad">−30 pts</div><div class="k">τ²-Airline test, same tracker: rules lost their exceptions</div></div>
+    <div><div class="v">0</div><div class="k">held-out gains from rule checks on AutomationBench and ITSM</div></div>
+  </div>
+  <ul>
+    <li>Next slides: lessons, not methods</li>
+    <li>All methods and numbers: the results doc</li>
+  </ul>
+  <div class="src">DeepSeek-V4-Pro agent, gpt-oss-120b policy model, arms run at the same time. Telecom: 40 test tasks × 2 runs, gpt-4.1 user simulator.</div>
+</div>
+
+<!-- 2 -->
+<div class="slide">
+  <div class="num">Lesson 1</div>
+  <h2>Methods helped only where agents skipped SOP steps</h2>
+  <svg viewBox="0 0 680 300" width="100%" role="img" aria-label="Change vs CUGA alone by benchmark">
+    <g font-size="14" fill="#000">
+      <line x1="462" y1="14" x2="462" y2="270" stroke="#6b7280" stroke-width="1"/>
+
+      <text x="0" y="36" font-weight="700">HANDBOOK, 3 tasks</text>
+      <text x="0" y="53" font-size="12" fill="#6b7280">in-sample, loop + guide</text>
+      <rect x="462" y="31" width="121.8" height="18" fill="#9ca3af" fill-opacity=".5"/>
+      <text x="590" y="45" font-weight="700">+20.3</text>
+
+      <text x="0" y="88" font-weight="700">τ²-Telecom test</text>
+      <text x="0" y="105" font-size="12" fill="#6b7280">held out, SOP tracker</text>
+      <rect x="462" y="83" width="75" height="18" fill="#1d4ed8"/>
+      <path d="M462 92 H612 M462 86 V98 M612 86 V98" stroke="#374151" stroke-width="1.5" fill="none"/>
+      <text x="618" y="97" font-weight="700">+12.5</text>
+
+      <text x="0" y="140" font-weight="700">AutomationBench unseen3</text>
+      <text x="0" y="157" font-size="12" fill="#6b7280">held out, policy layer</text>
+      <rect x="462" y="135" width="19.2" height="18" fill="#9ca3af"/>
+      <path d="M431.4 144 H536.4 M431.4 138 V150 M536.4 138 V150" stroke="#374151" stroke-width="1.5" fill="none"/>
+      <text x="542" y="149" font-weight="700">+3.2</text>
+
+      <text x="0" y="192" font-weight="700">ITSM unseen2</text>
+      <text x="0" y="209" font-size="12" fill="#6b7280">held out, policy layer</text>
+      <rect x="421.2" y="187" width="40.8" height="18" fill="#9ca3af"/>
+      <text x="415" y="201" font-weight="700" text-anchor="end">−6.8</text>
+
+      <text x="0" y="244" font-weight="700">τ²-Airline test</text>
+      <text x="0" y="261" font-size="12" fill="#6b7280">held out, SOP tracker</text>
+      <rect x="282" y="239" width="180" height="18" fill="#b91c1c"/>
+      <text x="276" y="253" font-weight="700" text-anchor="end">−30.0</text>
+    </g>
+    <text x="462" y="290" font-size="12" fill="#6b7280" text-anchor="middle">Change vs CUGA alone (pts). Whisker: 95% CI where measured.</text>
+  </svg>
+  <ul>
+    <li>Telecom: the agent skipped steps; the tracker made it ask</li>
+    <li>Airline: violations in only 5–10% of tasks</li>
+    <li>Rules shown without exceptions made the agent refuse allowed changes</li>
+    <li>HANDBOOK gain is on the 3 tasks used to build it</li>
+  </ul>
+  <div class="src">Paired runs, 2026-11-02 and 11-03. Telecom 40 × 2, Airline 20, AutomationBench and ITSM 10 tasks × 3, HANDBOOK 3 × 3 (rubric items).</div>
+</div>
+
+<!-- 3 -->
+<div class="slide">
+  <div class="num">Lesson 2</div>
+  <h2>A wrong block costs more than a caught violation</h2>
+  <div class="big">
+    <div><div class="v ours">0%</div><div class="k">correct writes blocked by code rules (check set)</div></div>
+    <div><div class="v bad">6–29%</div><div class="k">correct writes blocked by the gpt-oss-120b verifier, 5 rule types</div></div>
+    <div><div class="v bad">5 of 5</div><div class="k">denies were false in the AutomationBench pilot</div></div>
+  </div>
+  <ul>
+    <li>Violations are rare, so even 5% false blocks dominate</li>
+    <li>Reminders alone did not stop breaks: 18 vs 17 runs</li>
+    <li>Now: code rules may block; models only remind</li>
+  </ul>
+  <div class="src">Check set 2026-11-01 (5.9–28.6%); pilot 2026-10-31, Gemini 3.8 Flash; reminders: AutomationBench unseen2, 30 runs per arm, 2026-11-02.</div>
+</div>
+
+<!-- 4 -->
+<div class="slide">
+  <div class="num">Lesson 3</div>
+  <h2>Feedback works when it is correct; our checklists are not</h2>
+  <svg viewBox="0 0 680 230" width="100%" role="img" aria-label="Gain from feedback after the answer">
+    <g font-size="14" fill="#000">
+      <line x1="287.1" y1="14" x2="287.1" y2="190" stroke="#6b7280" stroke-width="1"/>
+
+      <text x="0" y="36" font-weight="700">Full oracle</text>
+      <text x="0" y="53" font-size="12" fill="#6b7280">grader's failed checks + values</text>
+      <rect x="287.1" y="31" width="205.1" height="18" fill="#9ca3af"/>
+      <path d="M377.4 40 H619.7 M377.4 34 V46 M619.7 34 V46" stroke="#374151" stroke-width="1.5" fill="none"/>
+      <text x="626" y="45" font-weight="700">+35.9</text>
+
+      <text x="0" y="96" font-weight="700">Names-only oracle</text>
+      <text x="0" y="113" font-size="12" fill="#6b7280">which check failed, no values</text>
+      <rect x="287.1" y="91" width="36.6" height="18" fill="#9ca3af"/>
+      <path d="M266.5 100 H384.3 M266.5 94 V106 M384.3 94 V106" stroke="#374151" stroke-width="1.5" fill="none"/>
+      <text x="390" y="105" font-weight="700">+6.4</text>
+
+      <text x="0" y="156" font-weight="700">Requirements tracker</text>
+      <text x="0" y="173" font-size="12" fill="#6b7280">our checklist, no grader data</text>
+      <rect x="287.1" y="151" width="20" height="18" fill="#1d4ed8"/>
+      <path d="M272.8 160 H340.8 M272.8 154 V166 M340.8 154 V166" stroke="#374151" stroke-width="1.5" fill="none"/>
+      <text x="347" y="165" font-weight="700">+3.5</text>
+    </g>
+    <text x="340" y="215" font-size="12" fill="#6b7280" text-anchor="middle">Change in partial credit vs CUGA alone (pts), AutomationBench unseen3. Whisker: 95% CI.</text>
+  </svg>
+  <ul>
+    <li>Oracles use the grader: upper bounds, not methods</li>
+    <li>Most oracle gain comes from the expected values</li>
+    <li>Second-model decisions on partial data added errors (HANDBOOK −10 items)</li>
+  </ul>
+  <div class="src">10 tasks × 3 trials, paired, 2026-11-02. ITSM shows the same pattern: full oracle +25.3, names only +3.9, tracker +1.0 pts.</div>
+</div>
+
+<!-- 5 -->
+<div class="slide">
+  <div class="num">Lesson 4</div>
+  <h2>The agent model matters more than the SOP method</h2>
+  <svg viewBox="0 0 680 250" width="100%" role="img" aria-label="HANDBOOK score by arm and agent model">
+    <g font-size="14" fill="#000">
+      <text x="0" y="40" font-weight="700">CUGA alone</text>
+      <rect x="220" y="22" width="166.5" height="16" fill="#9ca3af"/><text x="392" y="35">33.3%</text>
+      <rect x="220" y="41" width="294" height="16" fill="#1d4ed8"/><text x="520" y="54" font-weight="700">58.8%</text>
+
+      <text x="0" y="110" font-weight="700">+ procedure guide</text>
+      <rect x="220" y="92" width="170" height="16" fill="#9ca3af"/><text x="396" y="105">34.0%</text>
+      <rect x="220" y="111" width="323.5" height="16" fill="#1d4ed8"/><text x="549" y="124" font-weight="700">64.7%</text>
+
+      <text x="0" y="180" font-weight="700">+ SOP loop + guide</text>
+      <rect x="220" y="162" width="199.5" height="16" fill="#9ca3af"/><text x="425" y="175">39.9%</text>
+      <rect x="220" y="181" width="346.5" height="16" fill="#1d4ed8"/><text x="572" y="194" font-weight="700">69.3%</text>
+    </g>
+    <rect x="220" y="222" width="12" height="12" fill="#9ca3af"/><text x="238" y="233" font-size="12" fill="#6b7280">gpt-oss-120b agent</text>
+    <rect x="370" y="222" width="12" height="12" fill="#1d4ed8"/><text x="388" y="233" font-size="12" fill="#6b7280">DeepSeek-V4-Pro agent</text>
+  </svg>
+  <ul>
+    <li>Model gap about 25 pts; SOP methods add 7–10 pts</li>
+    <li>gpt-oss: function calling beat CodeAct, 20.9% → 33.7% (AutomationBench)</li>
+    <li>In-sample: the 3 public HANDBOOK tasks</li>
+  </ul>
+  <div class="src">HANDBOOK rubric score, 3 tasks × 3 trials, arms at the same time: gpt-oss 2026-11-02, DeepSeek 2026-11-03.</div>
+</div>
+
+<!-- 6 -->
+<div class="slide">
+  <div class="num">Lesson 5</div>
+  <h2>Setup choices moved scores more than most methods</h2>
+  <div class="big">
+    <div><div class="v">19 → 27</div><div class="k">of 40 Telecom tasks, CUGA alone: gpt-5-mini vs gpt-4.1 user simulator</div></div>
+    <div><div class="v bad">+13.8 pts</div><div class="k">false gain when arm A ran 3 hours earlier</div></div>
+    <div><div class="v">18 of 20</div><div class="k">on the first 20 Telecom tasks; 19 of 40 on the official test split</div></div>
+  </div>
+  <ul>
+    <li>Run arms at the same time from frozen code</li>
+    <li>Use official splits and the reference simulator</li>
+    <li>Tune on train; run the test split once</li>
+  </ul>
+  <div class="src">τ²-Telecom, DeepSeek-V4-Pro, 2026-11-03; time drift: AutomationBench unseen3 tracker run, 2026-11-02.</div>
+</div>
+
+<!-- 7 -->
+<div class="slide">
+  <div class="num">Next</div>
+  <h2>Next: fix rule exceptions, then test on unseen domains</h2>
+  <svg viewBox="0 0 680 120" width="100%" role="img" aria-label="Next steps: three stages">
+    <defs><marker id="a" markerWidth="8" markerHeight="8" refX="7" refY="4" orient="auto"><path d="M0 0 L8 4 L0 8 z" fill="#6b7280"/></marker></defs>
+    <rect x="4" y="20" width="196" height="72" rx="8" fill="#fafafa" stroke="#e5e7eb"/>
+    <text x="102" y="50" text-anchor="middle" font-size="15" font-weight="700">Rules with exceptions</text>
+    <text x="102" y="72" text-anchor="middle" font-size="13" fill="#6b7280">develop on airline train</text>
+    <path d="M206 56 H236" stroke="#6b7280" stroke-width="1.5" marker-end="url(#a)"/>
+    <rect x="242" y="20" width="196" height="72" rx="8" fill="#fafafa" stroke="#e5e7eb"/>
+    <text x="340" y="50" text-anchor="middle" font-size="15" font-weight="700">Unseen domains</text>
+    <text x="340" y="72" text-anchor="middle" font-size="13" fill="#6b7280">airline base, τ² retail</text>
+    <path d="M444 56 H474" stroke="#6b7280" stroke-width="1.5" marker-end="url(#a)"/>
+    <rect x="480" y="20" width="196" height="72" rx="8" fill="#fafafa" stroke="#e5e7eb"/>
+    <text x="578" y="50" text-anchor="middle" font-size="15" font-weight="700">HANDBOOK full set</text>
+    <text x="578" y="72" text-anchor="middle" font-size="13" fill="#6b7280">held out, via Surge</text>
+  </svg>
+  <ul>
+    <li>Telecom test stays frozen for a final re-check</li>
+    <li>Budget left: about $144 of $1200</li>
+    <li>Code not committed yet; review first</li>
+  </ul>
+  <div class="src">Spend from benchmarks/policy_pilot_ledger.jsonl: $1055.92 on 2026-11-03.</div>
+</div>
+
+<!-- 8 -->
+<div class="slide">
+  <div class="num">Backup · Boaz</div>
+  <h2>Boaz: relevant statements beat full context by 7.9 pts</h2>
+  <svg viewBox="0 0 680 290" width="100%" role="img" aria-label="Boaz verifier balanced accuracy by model">
+    <g font-size="14" fill="#000">
+      <text x="0" y="38" font-weight="700">Opus 5.5</text>
+      <rect x="200" y="22" width="302.8" height="14" fill="#9ca3af"/><text x="508" y="34">75.7%</text>
+      <rect x="200" y="38" width="328.4" height="14" fill="#1d4ed8"/><text x="534" y="50" font-weight="700">82.1%</text>
+
+      <text x="0" y="90" font-weight="700">GPT-5.6 Sol</text>
+      <rect x="200" y="74" width="297.6" height="14" fill="#9ca3af"/><text x="503" y="86">74.4%</text>
+      <rect x="200" y="90" width="301.6" height="14" fill="#1d4ed8"/><text x="507" y="102" font-weight="700">75.4%</text>
+
+      <text x="0" y="142" font-weight="700">Gemini 3.7 Flash</text>
+      <rect x="200" y="126" width="225.2" height="14" fill="#9ca3af"/><text x="431" y="138">56.3%</text>
+      <rect x="200" y="142" width="298" height="14" fill="#1d4ed8"/><text x="504" y="154" font-weight="700">74.5%</text>
+
+      <text x="0" y="194" font-weight="700">Haiku 4.5</text>
+      <rect x="200" y="178" width="252.4" height="14" fill="#9ca3af"/><text x="458" y="190">63.1%</text>
+      <rect x="200" y="194" width="285.2" height="14" fill="#1d4ed8"/><text x="491" y="206" font-weight="700">71.3%</text>
+
+      <text x="0" y="246" font-weight="700">gpt-oss-120b</text>
+      <rect x="200" y="230" width="248.8" height="14" fill="#9ca3af"/><text x="455" y="242">62.2%</text>
+      <rect x="200" y="246" width="270.4" height="14" fill="#1d4ed8"/><text x="476" y="258" font-weight="700">67.6%</text>
+    </g>
+    <rect x="200" y="272" width="12" height="12" fill="#9ca3af"/><text x="218" y="283" font-size="12" fill="#6b7280">judge with full context</text>
+    <rect x="370" y="272" width="12" height="12" fill="#1d4ed8"/><text x="388" y="283" font-size="12" fill="#6b7280">verifier with retrieved statements</text>
+  </svg>
+  <ul>
+    <li>Weak models gain most: finding the evidence is the hard part</li>
+    <li>Reject-only mode: equal on average (66.9 vs 67.4), fewer false blocks</li>
+    <li>Measured on 422 labelled τ³ cases, not on task scores</li>
+    <li>τ³ rule contradictions make task success an unfair test</li>
+  </ul>
+  <div class="src">Boaz, "Boaz IBM Internship" report, October 2026, Figures 8, 9 and 11. Balanced accuracy, pass-only mode. Mean of 5 models: 66.3% → 74.2%.</div>
+</div>
+
+<!-- 9 -->
+<div class="slide">
+  <div class="num">Backup · Boaz</div>
+  <h2>Boaz's findings set what our layer shows and blocks</h2>
+  <div class="tw"><table>
+    <tr><th>His finding</th><th>What we did</th><th>Result</th></tr>
+    <tr><td>83% of gpt-oss failures: not using context it had</td><td>Work on applying the SOP at the hooks, not on retrieval</td><td>HANDBOOK agent read the full SOP and still failed 24 of 51 items</td></tr>
+    <tr><td>Atomic statements linked by relations</td><td>Intake splits SOPs into statements with source spans and links</td><td class="n">Crestwood SOP: 736 statements, 157 links</td></tr>
+    <tr><td>Small, relevant context helps weak models</td><td>Tracker shows only the chosen SOP chapters, with exact quotes</td><td class="n">Telecom +12.5 pts held out</td></tr>
+    <tr><td>Reject-only mode blocks less often</td><td>Model verifier may remind, never deny</td><td class="n">Before: 8 of 181 correct writes denied, 0 violations stopped</td></tr>
+  </table></div>
+  <ul>
+    <li>Not done yet: decision-model bake-off on his 422 cases</li>
+    <li>His graph verifier was not run in our benchmarks</li>
+  </ul>
+  <div class="src">Our numbers: overnight log 2026-11-02 (replay, HANDBOOK step 1, intake) and Telecom test 2026-11-03.</div>
+</div>
+
+<!-- 10 -->
+<div class="slide">
+  <div class="num">Backup · JevAct</div>
+  <h2>Our Telecom gain is close to JevAct's, with no domain fitting</h2>
+  <div class="tw"><table>
+    <tr><th></th><th>JevAct (paper)</th><th>Ours</th></tr>
+    <tr><td>Policy compiler</td><td>Claude Opus 4.6, once per domain</td><td>gpt-oss-120b, same code for every domain</td></tr>
+    <tr><td>Check tuning</td><td>Checks firing on &gt;10% of dev calls dropped; repair round</td><td>Nothing fitted per domain</td></tr>
+    <tr><td>τ²-Telecom</td><td class="n">+16.9 pts pass^3, mean of 8 agents</td><td class="n">+12.5 pts pass@1, +15.0 pts pass^2 (1 agent)</td></tr>
+    <tr><td>τ²-Airline</td><td>Mixed</td><td class="n">−30 pts</td></tr>
+  </table></div>
+  <ul>
+    <li>Their Telecom gain disappears with a gpt-oss-120b user simulator (−1.8 pts)</li>
+    <li>42 of 101 wrong writes broke no compiled question</li>
+    <li>Different agents and metrics: not a direct comparison</li>
+  </ul>
+  <div class="src">JevAct arXiv 2610.38620, authors' numbers, not reproduced (Opus 4.6 agent: 39.5% → 80.7% pass^3). Ours: Telecom test, 40 tasks × 2, DeepSeek-V4-Pro; pass^2 = passed in both runs, 23 → 29 of 40.</div>
+</div>
+
+<!-- 11 -->
+<div class="slide">
+  <div class="num">Backup · JevAct</div>
+  <h2>We took JevAct's precision filters and its benchmark choice</h2>
+  <div class="tw"><table>
+    <tr><th>Their idea</th><th>What we did</th><th>Result</th></tr>
+    <tr><td>Drop checks that fire too often; repair round (false alarms 11.3% → 1.4%)</td><td>Precision first: code rules block, models remind</td><td class="n">ITSM denies 8 → 1 (Gemini agent)</td></tr>
+    <tr><td>Yes/no questions to a decision model (Kev-27B)</td><td>Kev-4B only to detect policies; their ablation: questions alone 57.1 vs code 68.0</td><td class="n">94.5% recall, 1.1% false alarms</td></tr>
+    <tr><td>Bounded revision, at most 2 rounds</td><td>At most 2 reply follow-ups</td><td>Reply check still hurt with Gemini</td></tr>
+    <tr><td>τ²-Telecom has violation headroom</td><td>Ran τ² with official splits</td><td class="n">SOP tracker +12.5 pts held out</td></tr>
+  </table></div>
+  <ul>
+    <li>Jev itself: 95.6% recall, 0% false alarms detecting policies</li>
+    <li>Jev picks values but cannot plan: pick-only 0 of 20</li>
+  </ul>
+  <div class="src">JevAct arXiv 2610.38620 (authors' numbers). Ours: detector probe 2026-10-31 (400 AutomationBench records, test half); zero-token agent spike (held-out 20 AppWorld tasks).</div>
+</div>
+
+</div></body></html>
