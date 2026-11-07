@@ -1,0 +1,550 @@
+{
+ "seed": 20261107,
+ "rule": "Input: results/policy_features.json (policy_features.py). Pool: public tasks never used in a run or subset file,\nwithout the chatgpt tool (it always fails in our adapter) and without missing tools. Each task gets one primary\npolicy type, first match in this order: no rule text in the data; versioned or conflicting rules; approval gate;\nthreshold; date or deadline; rules spread over 2+ apps; one rule document. 5 tasks per type, at most 2 per domain\nper type, random with seed 20261104.",
+ "excluded": [
+  "policy_types_subset.json",
+  "policy_types_holdout.json",
+  "versioned_dev.json:dev"
+ ],
+ "types": {
+  "control": "no rule text in the data (request and system message only)",
+  "versioned": "versioned or conflicting rules (a later message supersedes or corrects a rule)",
+  "approval": "approval or authorization gate",
+  "threshold": "numeric threshold decides the action",
+  "date": "date or deadline decides the action",
+  "multi_source": "rules spread over 2+ apps",
+  "one_doc": "one rule document"
+ },
+ "pool": 405,
+ "tasks": [
+  {
+   "task": "finance.qb_sales_receipt_batch",
+   "type": "control",
+   "domain": "finance",
+   "n_tools": 8,
+   "apps": [
+    "gmail",
+    "google_drive",
+    "google_sheets",
+    "quickbooks"
+   ],
+   "n_checks": 11,
+   "n_guards": 2,
+   "rule_apps": []
+  },
+  {
+   "task": "hr.airtable_skills_matrix",
+   "type": "control",
+   "domain": "hr",
+   "n_tools": 5,
+   "apps": [
+    "airtable",
+    "google_sheets"
+   ],
+   "n_checks": 7,
+   "n_guards": 3,
+   "rule_apps": []
+  },
+  {
+   "task": "marketing.linkedin_company_update",
+   "type": "control",
+   "domain": "marketing",
+   "n_tools": 5,
+   "apps": [
+    "gmail",
+    "google_calendar",
+    "linkedin"
+   ],
+   "n_checks": 7,
+   "n_guards": 2,
+   "rule_apps": []
+  },
+  {
+   "task": "sales.call_transcription",
+   "type": "control",
+   "domain": "sales",
+   "n_tools": 9,
+   "apps": [
+    "salesforce",
+    "slack",
+    "zoom"
+   ],
+   "n_checks": 7,
+   "n_guards": 2,
+   "rule_apps": []
+  },
+  {
+   "task": "finance.invoice_file_organization",
+   "type": "control",
+   "domain": "finance",
+   "n_tools": 8,
+   "apps": [
+    "gmail",
+    "google_drive",
+    "google_sheets"
+   ],
+   "n_checks": 7,
+   "n_guards": 2,
+   "rule_apps": []
+  },
+  {
+   "task": "marketing.competitor_product_launch",
+   "type": "versioned",
+   "domain": "marketing",
+   "n_tools": 11,
+   "apps": [
+    "gmail",
+    "google_drive",
+    "google_sheets",
+    "slack"
+   ],
+   "n_checks": 30,
+   "n_guards": 14,
+   "rule_apps": [
+    "slack"
+   ]
+  },
+  {
+   "task": "marketing.content_expiration_alert",
+   "type": "versioned",
+   "domain": "marketing",
+   "n_tools": 10,
+   "apps": [
+    "gmail",
+    "google_drive",
+    "google_sheets",
+    "slack"
+   ],
+   "n_checks": 24,
+   "n_guards": 8,
+   "rule_apps": [
+    "gmail",
+    "slack"
+   ]
+  },
+  {
+   "task": "sales.priority_selection",
+   "type": "versioned",
+   "domain": "sales",
+   "n_tools": 8,
+   "apps": [
+    "gmail",
+    "salesforce",
+    "slack"
+   ],
+   "n_checks": 8,
+   "n_guards": 7,
+   "rule_apps": [
+    "gmail"
+   ]
+  },
+  {
+   "task": "hr.contractor_renewal",
+   "type": "approval",
+   "domain": "hr",
+   "n_tools": 8,
+   "apps": [
+    "gmail",
+    "google_sheets",
+    "slack"
+   ],
+   "n_checks": 13,
+   "n_guards": 6,
+   "rule_apps": [
+    "gmail"
+   ]
+  },
+  {
+   "task": "finance.bad_debt_writeoff",
+   "type": "approval",
+   "domain": "finance",
+   "n_tools": 9,
+   "apps": [
+    "gmail",
+    "google_drive",
+    "google_sheets",
+    "slack"
+   ],
+   "n_checks": 10,
+   "n_guards": 3,
+   "rule_apps": [
+    "gmail"
+   ]
+  },
+  {
+   "task": "marketing.ad_platform_audit",
+   "type": "approval",
+   "domain": "marketing",
+   "n_tools": 9,
+   "apps": [
+    "gmail",
+    "google_ads",
+    "slack"
+   ],
+   "n_checks": 15,
+   "n_guards": 5,
+   "rule_apps": [
+    "gmail",
+    "slack"
+   ]
+  },
+  {
+   "task": "marketing.landing_page_conversion",
+   "type": "approval",
+   "domain": "marketing",
+   "n_tools": 10,
+   "apps": [
+    "gmail",
+    "google_drive",
+    "google_sheets",
+    "slack"
+   ],
+   "n_checks": 21,
+   "n_guards": 1,
+   "rule_apps": [
+    "gmail",
+    "slack"
+   ]
+  },
+  {
+   "task": "finance.airtable_expense_approval",
+   "type": "approval",
+   "domain": "finance",
+   "n_tools": 9,
+   "apps": [
+    "airtable",
+    "gmail",
+    "google_drive",
+    "google_sheets"
+   ],
+   "n_checks": 5,
+   "n_guards": 0,
+   "rule_apps": [
+    "gmail"
+   ]
+  },
+  {
+   "task": "marketing.video_repurpose",
+   "type": "threshold",
+   "domain": "marketing",
+   "n_tools": 15,
+   "apps": [
+    "asana",
+    "gmail",
+    "google_drive",
+    "google_sheets",
+    "slack",
+    "zoom"
+   ],
+   "n_checks": 18,
+   "n_guards": 5,
+   "rule_apps": [
+    "gmail"
+   ]
+  },
+  {
+   "task": "marketing.google_ads_pause_low_ctr",
+   "type": "threshold",
+   "domain": "marketing",
+   "n_tools": 8,
+   "apps": [
+    "gmail",
+    "google_ads",
+    "google_drive",
+    "google_sheets"
+   ],
+   "n_checks": 10,
+   "n_guards": 6,
+   "rule_apps": [
+    "gmail",
+    "google_sheets"
+   ]
+  },
+  {
+   "task": "finance.qb_void_stale_invoices",
+   "type": "threshold",
+   "domain": "finance",
+   "n_tools": 12,
+   "apps": [
+    "gmail",
+    "google_drive",
+    "google_sheets",
+    "quickbooks",
+    "slack"
+   ],
+   "n_checks": 12,
+   "n_guards": 6,
+   "rule_apps": [
+    "gmail"
+   ]
+  },
+  {
+   "task": "hr.buddy_assignment",
+   "type": "threshold",
+   "domain": "hr",
+   "n_tools": 8,
+   "apps": [
+    "gmail",
+    "google_sheets",
+    "slack"
+   ],
+   "n_checks": 7,
+   "n_guards": 2,
+   "rule_apps": [
+    "gmail"
+   ]
+  },
+  {
+   "task": "sales.calendly_availability_based_routing",
+   "type": "threshold",
+   "domain": "sales",
+   "n_tools": 14,
+   "apps": [
+    "calendly",
+    "gmail",
+    "google_drive",
+    "google_sheets",
+    "salesforce"
+   ],
+   "n_checks": 10,
+   "n_guards": 5,
+   "rule_apps": [
+    "gmail",
+    "google_sheets"
+   ]
+  },
+  {
+   "task": "finance.qb_bill_payment_batch",
+   "type": "date",
+   "domain": "finance",
+   "n_tools": 11,
+   "apps": [
+    "gmail",
+    "google_drive",
+    "google_sheets",
+    "quickbooks",
+    "slack"
+   ],
+   "n_checks": 7,
+   "n_guards": 2,
+   "rule_apps": [
+    "gmail"
+   ]
+  },
+  {
+   "task": "sales.create_draft_reply",
+   "type": "date",
+   "domain": "sales",
+   "n_tools": 9,
+   "apps": [
+    "gmail",
+    "google_drive",
+    "google_sheets",
+    "salesforce"
+   ],
+   "n_checks": 11,
+   "n_guards": 6,
+   "rule_apps": [
+    "gmail"
+   ]
+  },
+  {
+   "task": "marketing.seo_brief_prioritization",
+   "type": "date",
+   "domain": "marketing",
+   "n_tools": 12,
+   "apps": [
+    "gmail",
+    "google_drive",
+    "google_sheets",
+    "slack"
+   ],
+   "n_checks": 25,
+   "n_guards": 12,
+   "rule_apps": [
+    "gmail",
+    "slack"
+   ]
+  },
+  {
+   "task": "hr.visa_expiration_monitoring",
+   "type": "multi_source",
+   "domain": "hr",
+   "n_tools": 8,
+   "apps": [
+    "gmail",
+    "google_sheets",
+    "slack"
+   ],
+   "n_checks": 9,
+   "n_guards": 4,
+   "rule_apps": [
+    "gmail",
+    "google_sheets"
+   ]
+  },
+  {
+   "task": "support.hiver_cross_team_handoff",
+   "type": "multi_source",
+   "domain": "support",
+   "n_tools": 11,
+   "apps": [
+    "gmail",
+    "google_drive",
+    "google_sheets",
+    "hiver",
+    "slack"
+   ],
+   "n_checks": 32,
+   "n_guards": 14,
+   "rule_apps": [
+    "google_sheets",
+    "hiver"
+   ]
+  },
+  {
+   "task": "marketing.customer_milestone",
+   "type": "multi_source",
+   "domain": "marketing",
+   "n_tools": 11,
+   "apps": [
+    "gmail",
+    "google_drive",
+    "google_sheets",
+    "slack"
+   ],
+   "n_checks": 23,
+   "n_guards": 7,
+   "rule_apps": [
+    "gmail",
+    "slack"
+   ]
+  },
+  {
+   "task": "hr.compliance_training_enrollment",
+   "type": "multi_source",
+   "domain": "hr",
+   "n_tools": 9,
+   "apps": [
+    "bamboohr",
+    "gmail",
+    "google_sheets",
+    "slack"
+   ],
+   "n_checks": 10,
+   "n_guards": 5,
+   "rule_apps": [
+    "gmail",
+    "google_sheets"
+   ]
+  },
+  {
+   "task": "support.zoho_freshdesk_escalation",
+   "type": "multi_source",
+   "domain": "support",
+   "n_tools": 14,
+   "apps": [
+    "freshdesk",
+    "google_drive",
+    "google_sheets",
+    "slack",
+    "zoho_desk"
+   ],
+   "n_checks": 55,
+   "n_guards": 23,
+   "rule_apps": [
+    "google_sheets",
+    "zoho_desk"
+   ]
+  },
+  {
+   "task": "support.helpscout_jira_bugs",
+   "type": "one_doc",
+   "domain": "support",
+   "n_tools": 10,
+   "apps": [
+    "google_drive",
+    "google_sheets",
+    "helpscout",
+    "jira",
+    "slack"
+   ],
+   "n_checks": 42,
+   "n_guards": 20,
+   "rule_apps": [
+    "google_sheets"
+   ]
+  },
+  {
+   "task": "operations.invoice_shipping_trigger",
+   "type": "one_doc",
+   "domain": "operations",
+   "n_tools": 9,
+   "apps": [
+    "gmail",
+    "google_drive",
+    "google_sheets",
+    "monday"
+   ],
+   "n_checks": 9,
+   "n_guards": 3,
+   "rule_apps": [
+    "google_sheets"
+   ]
+  },
+  {
+   "task": "finance.vendor_insurance_verification",
+   "type": "one_doc",
+   "domain": "finance",
+   "n_tools": 7,
+   "apps": [
+    "gmail",
+    "google_drive",
+    "google_sheets",
+    "slack"
+   ],
+   "n_checks": 8,
+   "n_guards": 2,
+   "rule_apps": [
+    "google_sheets"
+   ]
+  },
+  {
+   "task": "operations.zoom_change_advisory",
+   "type": "one_doc",
+   "domain": "operations",
+   "n_tools": 10,
+   "apps": [
+    "asana",
+    "gmail",
+    "google_drive",
+    "google_sheets",
+    "slack",
+    "zoom"
+   ],
+   "n_checks": 7,
+   "n_guards": 3,
+   "rule_apps": [
+    "google_sheets"
+   ]
+  },
+  {
+   "task": "support.intercom_sentiment_escalation",
+   "type": "one_doc",
+   "domain": "support",
+   "n_tools": 12,
+   "apps": [
+    "google_drive",
+    "google_sheets",
+    "intercom",
+    "jira",
+    "slack"
+   ],
+   "n_checks": 32,
+   "n_guards": 19,
+   "rule_apps": [
+    "google_sheets"
+   ]
+  }
+ ]
+}
