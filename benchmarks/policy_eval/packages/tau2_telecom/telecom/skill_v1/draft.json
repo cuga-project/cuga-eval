@@ -1,0 +1,2203 @@
+{
+ "modality": {
+  "main_policy:preamble:2": "may",
+  "main_policy:preamble:3": "must_not",
+  "main_policy:preamble:4": "must",
+  "main_policy:preamble:5": "must_not",
+  "main_policy:preamble:6": "must",
+  "main_policy:preamble:7": "must",
+  "main_policy:preamble:8": "must",
+  "main_policy:preamble:10": "must",
+  "main_policy:customer-lookup:1": "may",
+  "main_policy:customer-lookup:5": "must",
+  "main_policy:overdue-bill-payment:1": "may",
+  "main_policy:overdue-bill-payment:3": "must",
+  "main_policy:overdue-bill-payment:4": "must",
+  "main_policy:overdue-bill-payment:5": "must",
+  "main_policy:overdue-bill-payment:7": "must",
+  "main_policy:overdue-bill-payment:10": "must",
+  "main_policy:overdue-bill-payment:12": "must",
+  "main_policy:overdue-bill-payment:14": "must_not",
+  "main_policy:overdue-bill-payment:16": "must",
+  "main_policy:line-suspension:2": "may",
+  "main_policy:line-suspension:5": "must",
+  "main_policy:line-suspension:6": "must_not",
+  "main_policy:line-suspension:7": "must",
+  "main_policy:data-refueling:3": "may",
+  "main_policy:data-refueling:4": "must_not",
+  "main_policy:data-refueling:6": "must",
+  "main_policy:data-refueling:7": "must",
+  "main_policy:data-refueling:8": "must",
+  "main_policy:change-plan:1": "may",
+  "main_policy:change-plan:3": "must",
+  "main_policy:change-plan:4": "must",
+  "main_policy:change-plan:5": "must",
+  "main_policy:change-plan:6": "must",
+  "main_policy:change-plan:7": "must",
+  "main_policy:change-plan:8": "must",
+  "main_policy:data-roaming:2": "may",
+  "main_policy:data-roaming:3": "must",
+  "main_policy:data-roaming:4": "must",
+  "main_policy:technical-support:1": "must",
+  "tech_support_manual:preamble:8": "must",
+  "tech_support_manual:what-the-user-can-do-on-their-device:2": "must",
+  "tech_support_manual:diagnosing-service-issues:1": "may",
+  "tech_support_manual:airplane-mode:3": "may",
+  "tech_support_manual:airplane-mode:4": "must",
+  "tech_support_manual:sim-card-issues:4": "must",
+  "tech_support_manual:sim-card-issues:5": "must",
+  "tech_support_manual:sim-card-issues:6": "must",
+  "tech_support_manual:incorrect-apn-settings:2": "must",
+  "tech_support_manual:incorrect-apn-settings:3": "must",
+  "tech_support_manual:line-suspension:2": "must",
+  "tech_support_manual:line-suspension:3": "must",
+  "tech_support_manual:line-suspension:4": "must",
+  "tech_support_manual:line-suspension:5": "must",
+  "tech_support_manual:prerequisites-for-mobile-data:1": "must",
+  "tech_support_manual:prerequisites-for-mobile-data:2": "must",
+  "tech_support_manual:diagnosing-mobile-data-issues:1": "may",
+  "tech_support_manual:airplane-mode#2:1": "must",
+  "tech_support_manual:mobile-data-disabled:2": "must",
+  "tech_support_manual:addressing-data-roaming-problems:2": "must",
+  "tech_support_manual:addressing-data-roaming-problems:3": "must",
+  "tech_support_manual:addressing-data-roaming-problems:5": "must",
+  "tech_support_manual:data-saver-mode:2": "must",
+  "tech_support_manual:vpn-connection-issues:3": "must",
+  "tech_support_manual:data-plan-limits-reached:4": "may",
+  "tech_support_manual:data-plan-limits-reached:5": "may",
+  "tech_support_manual:data-plan-limits-reached:6": "must",
+  "tech_support_manual:optimizing-network-mode-preferences:3": "must",
+  "tech_support_manual:prerequisites-for-mms:1": "must",
+  "tech_support_manual:diagnosing-mms-issues:1": "may",
+  "tech_support_manual:ensuring-basic-connectivity-for-mms:3": "must",
+  "tech_support_manual:ensuring-basic-connectivity-for-mms:4": "must",
+  "tech_support_manual:unsuitable-network-technology-for-mms:4": "must",
+  "tech_support_manual:verifying-apn-mmsc-url-for-mms:6": "must",
+  "tech_support_manual:verifying-apn-mmsc-url-for-mms:7": "must",
+  "tech_support_manual:investigating-wi-fi-calling-interference:2": "must",
+  "tech_support_manual:messaging-app-lacks-necessary-permission:2": "must"
+ },
+ "rules": [
+  {
+   "id": "r_name_lookup_dob",
+   "class": "hard",
+   "level": "deny",
+   "statement_ids": [
+    "main_policy:customer-lookup:5"
+   ],
+   "quote": "For name lookup, date of birth is required for verification purposes.",
+   "rule": {
+    "type": "required_args",
+    "tool": "get_customer_by_name",
+    "args": [
+     "dob"
+    ]
+   }
+  },
+  {
+   "id": "r_refuel_max_2gb",
+   "class": "hard",
+   "level": "deny",
+   "statement_ids": [
+    "main_policy:data-refueling:4"
+   ],
+   "quote": "The maximum amount of data that can be refueled is 2GB.",
+   "rule": {
+    "type": "threshold",
+    "tool": "refuel_data",
+    "arg": "gb_amount",
+    "op": "gt",
+    "value": 2,
+    "then": "forbid"
+   }
+  },
+  {
+   "id": "r_request_only_overdue",
+   "class": "hard",
+   "level": "block_once",
+   "statement_ids": [
+    "main_policy:overdue-bill-payment:16",
+    "main_policy:overdue-bill-payment:3"
+   ],
+   "quote": "You should always check that the bill is overdue before sending a payment request.",
+   "rule": {
+    "type": "reference_status",
+    "tool": "send_payment_request",
+    "arg": "bill_id",
+    "field": "status",
+    "allowed": [
+     "Overdue",
+     "overdue"
+    ]
+   }
+  },
+  {
+   "id": "r_no_resume_contract_ended",
+   "class": "hard",
+   "level": "block_once",
+   "statement_ids": [
+    "main_policy:line-suspension:6"
+   ],
+   "quote": "You are not allowed to lift the suspension if the line's contract end date is in the past, even if the user has paid all their overdue bills.",
+   "rule": {
+    "type": "record_condition",
+    "tools": [
+     "resume_line"
+    ],
+    "field": "contract_end_date",
+    "op": "lt",
+    "value": "2025-02-25",
+    "effect": "forbid"
+   }
+  },
+  {
+   "id": "r_refuel_line_of_customer",
+   "class": "hard",
+   "level": "block_once",
+   "statement_ids": [
+    "main_policy:data-refueling:8"
+   ],
+   "quote": "the line associated with the phone number the user provided",
+   "rule": {
+    "type": "membership",
+    "tool": "refuel_data",
+    "arg": "line_id",
+    "group_arg": "customer_id"
+   }
+  },
+  {
+   "id": "r_duty_resume_reboot",
+   "class": "hard",
+   "level": "remind",
+   "statement_ids": [
+    "main_policy:line-suspension:7"
+   ],
+   "quote": "After you resume the line, the user will have to reboot their device to get service.",
+   "rule": {
+    "type": "duty",
+    "trigger": {
+     "tool": "resume_line"
+    },
+    "then": {
+     "tool": "user__reboot_device"
+    }
+   }
+  },
+  {
+   "id": "r_duty_apn_reboot",
+   "class": "hard",
+   "level": "remind",
+   "statement_ids": [
+    "tech_support_manual:incorrect-apn-settings:3",
+    "tech_support_manual:verifying-apn-mmsc-url-for-mms:7"
+   ],
+   "quote": "After resetting the APN settings, the user must be instructed to use reboot_device() for the changes to apply.",
+   "rule": {
+    "type": "duty",
+    "trigger": {
+     "tool": "user__reset_apn_settings"
+    },
+    "then": {
+     "tool": "user__reboot_device"
+    }
+   }
+  },
+  {
+   "id": "r_ids_from_tools",
+   "class": "hard",
+   "level": "observe",
+   "statement_ids": [
+    "main_policy:preamble:3"
+   ],
+   "rule": {
+    "type": "id_provenance"
+   }
+  },
+  {
+   "id": "r_values_from_tools",
+   "class": "hard",
+   "level": "observe",
+   "statement_ids": [
+    "main_policy:preamble:3"
+   ],
+   "rule": {
+    "type": "grounded_values"
+   }
+  },
+  {
+   "id": "r_transfer_only_if_out_of_scope",
+   "class": "judgment",
+   "level": "remind",
+   "statement_ids": [
+    "main_policy:preamble:7"
+   ],
+   "why": "Whether the request can be handled depends on the request and the conversation; the only argument of the tool is a free-text summary.",
+   "rule": {
+    "type": "verify",
+    "tools": [
+     "transfer_to_human_agents"
+    ],
+    "statement": "You should transfer the user to a human agent if and only if the request cannot be handled within the scope of your actions."
+   }
+  },
+  {
+   "id": "r_transfer_after_trying",
+   "class": "judgment",
+   "level": "remind",
+   "statement_ids": [
+    "main_policy:preamble:10",
+    "tech_support_manual:preamble:8"
+   ],
+   "why": "What was tried is in the earlier calls and the conversation; no argument of the tool carries it.",
+   "rule": {
+    "type": "verify",
+    "tools": [
+     "transfer_to_human_agents"
+    ],
+    "statement": "You should try your best to resolve the issue for the user before transferring the user to a human agent. Make sure you try all the possible ways to resolve the user's issue before transferring to a human agent."
+   }
+  },
+  {
+   "id": "r_one_awaiting_bill",
+   "class": "judgment",
+   "level": "remind",
+   "statement_ids": [
+    "main_policy:overdue-bill-payment:14"
+   ],
+   "why": "Needs the status of the customer's other bills; the call names only one bill, and a typed record rule reads only the records the call names.",
+   "rule": {
+    "type": "verify",
+    "tools": [
+     "send_payment_request"
+    ],
+    "statement": "A user can only have one bill in the AWAITING PAYMENT status at a time."
+   }
+  },
+  {
+   "id": "r_resume_after_bills_paid",
+   "class": "judgment",
+   "level": "remind",
+   "statement_ids": [
+    "main_policy:line-suspension:5"
+   ],
+   "why": "Needs the status of all bills of the customer; resume_line names the customer and the line, and neither record has a field that says all overdue bills are paid.",
+   "rule": {
+    "type": "verify",
+    "tools": [
+     "resume_line"
+    ],
+    "statement": "You are allowed to lift the suspension after the user has paid all their overdue bills."
+   }
+  },
+  {
+   "id": "r_suspend_reasons",
+   "class": "judgment",
+   "level": "remind",
+   "statement_ids": [
+    "main_policy:line-suspension:2"
+   ],
+   "why": "The reason argument is free text, so an allowed list does not fit, and the reasons depend on bills and the contract end date.",
+   "rule": {
+    "type": "verify",
+    "tools": [
+     "suspend_line"
+    ],
+    "statement": "A line can be suspended for the following reasons: The user has an overdue bill. The line's contract end date is in the past."
+   }
+  },
+  {
+   "id": "r_refuel_price_confirmed",
+   "class": "judgment",
+   "level": "remind",
+   "statement_ids": [
+    "main_policy:data-refueling:7"
+   ],
+   "why": "A confirmation of the price is in the conversation; no argument of refuel_data carries it.",
+   "rule": {
+    "type": "verify",
+    "tools": [
+     "refuel_data"
+    ],
+    "statement": "To refuel data you should: Ask them how much data they want to refuel Confirm the price Apply the refueled data to the line associated with the phone number the user provided."
+   }
+  },
+  {
+   "id": "r_no_outside_information",
+   "class": "guidance",
+   "level": "observe",
+   "statement_ids": [
+    "main_policy:preamble:3"
+   ],
+   "rule": {
+    "type": "guidance",
+    "text": "You should not provide any information, knowledge, or procedures not provided by the user or available tools, or give subjective recommendations or comments."
+   }
+  },
+  {
+   "id": "r_one_tool_call",
+   "class": "guidance",
+   "level": "observe",
+   "statement_ids": [
+    "main_policy:preamble:4",
+    "main_policy:preamble:5"
+   ],
+   "rule": {
+    "type": "guidance",
+    "text": "You should only make one tool call at a time, and if you make a tool call, you should not respond to the user simultaneously. If you respond to the user, you should not make a tool call at the same time."
+   }
+  },
+  {
+   "id": "r_deny_against_policy",
+   "class": "guidance",
+   "level": "observe",
+   "statement_ids": [
+    "main_policy:preamble:6"
+   ],
+   "rule": {
+    "type": "guidance",
+    "text": "You should deny user requests that are against this policy."
+   }
+  },
+  {
+   "id": "r_understand_device_actions",
+   "class": "guidance",
+   "level": "observe",
+   "statement_ids": [
+    "tech_support_manual:what-the-user-can-do-on-their-device:2"
+   ],
+   "rule": {
+    "type": "guidance",
+    "text": "You must understand those well since as part of technical support you will have to help the customer perform series of actions"
+   }
+  }
+ ],
+ "procedures": [
+  {
+   "id": "transfer",
+   "name": "Transfer to a human agent",
+   "category": "Escalation",
+   "src": "main_policy:preamble",
+   "applies_when": "the request cannot be handled within the scope of your actions",
+   "inputs": [
+    {
+     "fact": "whether the request can be handled within the scope of your actions",
+     "source": "the request and the conversation"
+    }
+   ],
+   "decisions": [
+    {
+     "id": "cannot_be_handled",
+     "rule": "the request cannot be handled within the scope of your actions",
+     "then": "transfer the user",
+     "else": "try to resolve the issue and do not transfer"
+    }
+   ],
+   "steps": [
+    {
+     "id": "main_policy:preamble:10"
+    },
+    {
+     "id": "main_policy:preamble:7",
+     "action": "transfer_to_human_agents"
+    },
+    {
+     "id": "main_policy:preamble:8",
+     "text": "To transfer, first make a tool call to transfer_to_human_agents, and then send the message 'YOU ARE BEING TRANSFERRED TO A HUMAN AGENT. PLEASE HOLD ON.' to the user."
+    }
+   ],
+   "must_not": [],
+   "templates": [
+    {
+     "step": 3,
+     "artifact": "message to the user after the transfer call",
+     "template": "YOU ARE BEING TRANSFERRED TO A HUMAN AGENT. PLEASE HOLD ON.",
+     "quote": "YOU ARE BEING TRANSFERRED TO A HUMAN AGENT."
+    }
+   ],
+   "links": []
+  },
+  {
+   "id": "overdue-bill-payment",
+   "name": "Overdue Bill Payment",
+   "category": "Billing",
+   "src": "main_policy:overdue-bill-payment",
+   "applies_when": "You can help the user make a payment for an overdue bill.",
+   "inputs": [
+    {
+     "fact": "bill status and bill amount due",
+     "source": "the bill record (get_bills_for_customer or get_details_by_id)"
+    },
+    {
+     "fact": "whether another bill is in the AWAITING PAYMENT status",
+     "source": "the bills of the customer (get_bills_for_customer)"
+    }
+   ],
+   "decisions": [
+    {
+     "id": "bill_is_overdue",
+     "rule": "Check the bill status to make sure it is overdue",
+     "then": "continue with the payment request",
+     "else": "do not send a payment request for this bill"
+    },
+    {
+     "id": "other_bill_awaiting",
+     "rule": "A user can only have one bill in the AWAITING PAYMENT status at a time",
+     "then": "do not send another payment request",
+     "else": "send the payment request"
+    },
+    {
+     "id": "user_accepts",
+     "rule": "If the user accepts the payment request",
+     "then": "use the make_payment tool",
+     "else": "make no payment"
+    }
+   ],
+   "steps": [
+    {
+     "id": "main_policy:overdue-bill-payment:3"
+    },
+    {
+     "id": "main_policy:overdue-bill-payment:4"
+    },
+    {
+     "id": "main_policy:overdue-bill-payment:16"
+    },
+    {
+     "id": "main_policy:overdue-bill-payment:14"
+    },
+    {
+     "id": "main_policy:overdue-bill-payment:5",
+     "action": "send_payment_request"
+    },
+    {
+     "id": "main_policy:overdue-bill-payment:7",
+     "text": "Inform the user that a payment request has been sent. They should: Check their payment requests using the check_payment_request tool.",
+     "action": "reply"
+    },
+    {
+     "id": "main_policy:overdue-bill-payment:10",
+     "action": "user__make_payment",
+     "condition": "If the user accepts the payment request"
+    },
+    {
+     "id": "main_policy:overdue-bill-payment:12"
+    }
+   ],
+   "must_not": [
+    "A user can only have one bill in the AWAITING PAYMENT status at a time."
+   ],
+   "preconditions": [
+    {
+     "condition": "the bill is overdue",
+     "if_not": "stop",
+     "quote": "Check the bill status to make sure it is overdue."
+    }
+   ],
+   "notes": [
+    "This will change the status of the bill to AWAITING PAYMENT.",
+    "After the payment is made, the bill status will be updated to PAID.",
+    "The send payement request tool will not check if the bill is overdue."
+   ],
+   "links": []
+  },
+  {
+   "id": "line-suspension",
+   "name": "Line Suspension",
+   "category": "Lines",
+   "src": "main_policy:line-suspension",
+   "applies_when": "When a line is suspended",
+   "inputs": [
+    {
+     "fact": "contract end date of the line",
+     "source": "the line record (get_details_by_id)"
+    },
+    {
+     "fact": "whether the user has paid all their overdue bills",
+     "source": "the bills of the customer (get_bills_for_customer)"
+    }
+   ],
+   "decisions": [
+    {
+     "id": "contract_end_date_past",
+     "rule": "if the line's contract end date is in the past",
+     "then": "do not lift the suspension",
+     "else": "go on to the overdue bills"
+    },
+    {
+     "id": "overdue_bills_paid",
+     "rule": "after the user has paid all their overdue bills",
+     "then": "the suspension may be lifted",
+     "else": "do not lift the suspension yet"
+    }
+   ],
+   "steps": [
+    {
+     "id": "main_policy:line-suspension:6"
+    },
+    {
+     "id": "main_policy:line-suspension:5",
+     "action": "resume_line",
+     "condition": "after the user has paid all their overdue bills"
+    },
+    {
+     "id": "main_policy:line-suspension:7",
+     "action": "user__reboot_device",
+     "condition": "After you resume the line"
+    }
+   ],
+   "must_not": [
+    "You are not allowed to lift the suspension if the line's contract end date is in the past, even if the user has paid all their overdue bills.",
+    "You are allowed to lift the suspension after the user has paid all their overdue bills."
+   ],
+   "preconditions": [
+    {
+     "condition": "the user has paid all their overdue bills",
+     "if_not": "stop",
+     "quote": "after the user has paid all their overdue bills"
+    }
+   ],
+   "exceptions": [
+    {
+     "when": "the line's contract end date is in the past",
+     "then": "the suspension is not lifted",
+     "quote": "You are not allowed to lift the suspension if the line's contract end date is in the past, even if the user has paid all their overdue bills."
+    }
+   ],
+   "notes": [
+    "When a line is suspended, the user will not have service."
+   ],
+   "links": []
+  },
+  {
+   "id": "data-refueling",
+   "name": "Data Refueling",
+   "category": "Data",
+   "src": "main_policy:data-refueling",
+   "applies_when": "You can add more data to the line by \"refueling\" data at a price per GB specified by the plan.",
+   "inputs": [
+    {
+     "fact": "how much data the user wants to refuel",
+     "source": "the user"
+    },
+    {
+     "fact": "data refueling price per GB",
+     "source": "the plan record (get_details_by_id)"
+    }
+   ],
+   "decisions": [
+    {
+     "id": "price_confirmed",
+     "rule": "Confirm the price",
+     "then": "apply the refueled data to the line",
+     "else": "do not refuel"
+    }
+   ],
+   "steps": [
+    {
+     "id": "main_policy:data-refueling:6",
+     "action": "reply"
+    },
+    {
+     "id": "main_policy:data-refueling:4"
+    },
+    {
+     "id": "main_policy:data-refueling:7",
+     "action": "reply"
+    },
+    {
+     "id": "main_policy:data-refueling:8",
+     "action": "refuel_data"
+    }
+   ],
+   "must_not": [
+    "The maximum amount of data that can be refueled is 2GB."
+   ],
+   "notes": [
+    "Each plan specify the maxium data usage per month.",
+    "If the user's data usage for a line exceeds the plan's data limit, data connectivity will be lost."
+   ],
+   "links": []
+  },
+  {
+   "id": "change-plan",
+   "name": "Change Plan",
+   "category": "Plans",
+   "src": "main_policy:change-plan",
+   "applies_when": "You can help the user change to a different plan.",
+   "inputs": [
+    {
+     "fact": "what line the user wants to change the plan for",
+     "source": "the user"
+    }
+   ],
+   "decisions": [],
+   "steps": [
+    {
+     "id": "main_policy:change-plan:3"
+    },
+    {
+     "id": "main_policy:change-plan:4"
+    },
+    {
+     "id": "main_policy:change-plan:5",
+     "action": "reply"
+    },
+    {
+     "id": "main_policy:change-plan:6"
+    },
+    {
+     "id": "main_policy:change-plan:7",
+     "action": "reply"
+    },
+    {
+     "id": "main_policy:change-plan:8"
+    }
+   ],
+   "must_not": [],
+   "links": []
+  },
+  {
+   "id": "data-roaming",
+   "name": "Data Roaming",
+   "category": "Data",
+   "src": "main_policy:data-roaming",
+   "applies_when": "If a user is traveling outside their home network",
+   "inputs": [
+    {
+     "fact": "whether the line is roaming enabled",
+     "source": "the line record (get_details_by_id)"
+    }
+   ],
+   "decisions": [
+    {
+     "id": "line_roaming_enabled",
+     "rule": "check if the line is roaming enabled",
+     "then": "nothing to enable",
+     "else": "enable it at no cost for the user"
+    }
+   ],
+   "steps": [
+    {
+     "id": "main_policy:data-roaming:3"
+    },
+    {
+     "id": "main_policy:data-roaming:4",
+     "action": "enable_roaming",
+     "condition": "If it is not"
+    }
+   ],
+   "must_not": [],
+   "notes": [
+    "If a line is roaming enabled, the user can use their phone's data connection in areas outside their home network.",
+    "We offer data roaming to users who are traveling outside their home network."
+   ],
+   "links": []
+  },
+  {
+   "id": "troubleshooting-service-problems",
+   "name": "Troubleshooting Service Problems",
+   "category": "Technical Support",
+   "src": "tech_support_manual:troubleshooting-service-problems",
+   "applies_when": "If the user is experiencing service problems",
+   "inputs": [
+    {
+     "fact": "Airplane Mode status",
+     "source": "user__check_status_bar or user__check_network_status"
+    },
+    {
+     "fact": "status of the SIM card",
+     "source": "user__check_sim_status"
+    },
+    {
+     "fact": "APN settings",
+     "source": "user__check_apn_settings"
+    },
+    {
+     "fact": "whether the line is suspended",
+     "source": "the line record (get_details_by_id)"
+    }
+   ],
+   "decisions": [
+    {
+     "id": "airplane_mode_on",
+     "rule": "if Airplane Mode is ON",
+     "then": "guide the user to turn it OFF",
+     "else": "go on to the SIM card"
+    },
+    {
+     "id": "sim_missing",
+     "rule": "If it shows \"Missing\"",
+     "then": "guide the user to reseat the SIM card",
+     "else": "go on"
+    },
+    {
+     "id": "sim_locked",
+     "rule": "If it shows \"Locked\" (due to incorrect PIN or PUK entries)",
+     "then": "escalate to technical support",
+     "else": "go on"
+    },
+    {
+     "id": "apn_incorrect",
+     "rule": "If check_apn_settings() shows \"Incorrect\"",
+     "then": "guide the user to reset the APN settings and then to reboot",
+     "else": "go on"
+    },
+    {
+     "id": "line_suspended",
+     "rule": "If the line is suspended",
+     "then": "use the Line Suspension section of the general policy",
+     "else": "no suspension to handle"
+    },
+    {
+     "id": "suspension_cannot_be_lifted",
+     "rule": "If the suspension cannot be lifted by the agent",
+     "then": "escalate to technical support",
+     "else": "lift it and verify if service is restored"
+    }
+   ],
+   "steps": [
+    {
+     "id": "tech_support_manual:diagnosing-service-issues:1",
+     "action": "user__check_status_bar",
+     "required": false
+    },
+    {
+     "id": "tech_support_manual:airplane-mode:3",
+     "required": false
+    },
+    {
+     "id": "tech_support_manual:airplane-mode:4",
+     "action": "user__toggle_airplane_mode",
+     "condition": "If it is ON"
+    },
+    {
+     "id": "tech_support_manual:sim-card-issues:4",
+     "action": "user__check_sim_status"
+    },
+    {
+     "id": "tech_support_manual:sim-card-issues:5",
+     "action": "user__reseat_sim_card",
+     "condition": "If it shows \"Missing\""
+    },
+    {
+     "id": "tech_support_manual:sim-card-issues:6",
+     "condition": "If it shows \"Locked\" (due to incorrect PIN or PUK entries)"
+    },
+    {
+     "id": "tech_support_manual:incorrect-apn-settings:2",
+     "action": "user__reset_apn_settings",
+     "condition": "If check_apn_settings() shows \"Incorrect\""
+    },
+    {
+     "id": "tech_support_manual:incorrect-apn-settings:3",
+     "action": "user__reboot_device",
+     "condition": "After resetting the APN settings"
+    },
+    {
+     "id": "tech_support_manual:line-suspension:2"
+    },
+    {
+     "id": "tech_support_manual:line-suspension:3"
+    },
+    {
+     "id": "tech_support_manual:line-suspension:4",
+     "condition": "If the line is suspended and the agent can lift the suspension"
+    },
+    {
+     "id": "tech_support_manual:line-suspension:5",
+     "condition": "If the suspension cannot be lifted by the agent"
+    }
+   ],
+   "must_not": [
+    "You are not allowed to lift the suspension if the line's contract end date is in the past, even if the user has paid all their overdue bills.",
+    "You are allowed to lift the suspension after the user has paid all their overdue bills."
+   ],
+   "preconditions": [
+    {
+     "condition": "the customer is identified",
+     "if_not": "ask",
+     "quote": "You must first identify the customer."
+    }
+   ],
+   "escalations": [
+    {
+     "when": "it shows \"Locked\" (due to incorrect PIN or PUK entries)",
+     "notify": "technical support",
+     "quote": "escalate to technical support for assistance with SIM security"
+    },
+    {
+     "when": "the suspension cannot be lifted by the agent",
+     "notify": "technical support",
+     "quote": "If the suspension cannot be lifted by the agent"
+    }
+   ],
+   "notes": [
+    "If there is cellular service, the status bar will return a signal strength indicator.",
+    "If it shows \"Active\", the SIM itself is likely okay.",
+    "If the line is suspended, the user will not have cellular service."
+   ],
+   "links": []
+  },
+  {
+   "id": "troubleshooting-mobile-data-problems",
+   "name": "Troubleshooting Mobile Data Problems",
+   "category": "Technical Support",
+   "src": "tech_support_manual:troubleshooting-mobile-data-problems",
+   "applies_when": "Even with cellular service, mobile data problems might occur.",
+   "inputs": [
+    {
+     "fact": "data speed",
+     "source": "user__run_speed_test"
+    },
+    {
+     "fact": "whether mobile data is enabled",
+     "source": "user__check_network_status"
+    },
+    {
+     "fact": "whether Data Saver mode is ON",
+     "source": "user__check_data_restriction_status"
+    },
+    {
+     "fact": "VPN status and performance level",
+     "source": "user__check_vpn_status"
+    },
+    {
+     "fact": "data usage and data limit of the line",
+     "source": "get_data_usage"
+    },
+    {
+     "fact": "network mode preference",
+     "source": "user__check_network_mode_preference"
+    }
+   ],
+   "decisions": [
+    {
+     "id": "has_cellular_service",
+     "rule": "the user must first have cellular service",
+     "then": "go on with mobile data",
+     "else": "use the card Troubleshooting Service Problems"
+    },
+    {
+     "id": "airplane_mode_on",
+     "rule": "if Airplane Mode is ON",
+     "then": "use the section on Airplane Mode of the cellular service guide",
+     "else": "go on"
+    },
+    {
+     "id": "mobile_data_disabled",
+     "rule": "If check_network_status() shows mobile data is disabled",
+     "then": "guide the user to turn mobile data ON",
+     "else": "go on"
+    },
+    {
+     "id": "user_roaming",
+     "rule": "If the user is outside their carrier's primary coverage area (roaming) and mobile data isn't working",
+     "then": "guide the user to turn Data Roaming ON and check that the line is roaming enabled",
+     "else": "go on"
+    },
+    {
+     "id": "line_roaming_enabled",
+     "rule": "check that the line associated with the phone number the user provided is roaming enabled",
+     "then": "go on",
+     "else": "use the card Data Roaming"
+    },
+    {
+     "id": "data_saver_on",
+     "rule": "If check_data_restriction_status() shows \"Data Saver mode is ON\"",
+     "then": "guide the user to turn it OFF",
+     "else": "go on"
+    },
+    {
+     "id": "vpn_poor",
+     "rule": "If check_vpn_status() shows \"VPN is ON and connected\" and performance level is \"Poor\"",
+     "then": "guide the user to disconnect the VPN",
+     "else": "go on"
+    },
+    {
+     "id": "data_limit_exceeded",
+     "rule": "exceeds the plan's data limit",
+     "then": "the user has 2 options: the card Change Plan or the card Data Refueling",
+     "else": "go on"
+    },
+    {
+     "id": "network_mode_old",
+     "rule": "If check_network_mode_preference() shows \"2G\" or \"3G\"",
+     "then": "guide the user to use the mode \"4g_5g_preferred\"",
+     "else": "go on"
+    }
+   ],
+   "steps": [
+    {
+     "id": "tech_support_manual:prerequisites-for-mobile-data:2",
+     "condition": "if the user does not have service"
+    },
+    {
+     "id": "tech_support_manual:diagnosing-mobile-data-issues:1",
+     "action": "user__run_speed_test",
+     "required": false
+    },
+    {
+     "id": "tech_support_manual:airplane-mode#2:1"
+    },
+    {
+     "id": "tech_support_manual:mobile-data-disabled:2",
+     "action": "user__toggle_data",
+     "condition": "If check_network_status() shows mobile data is disabled"
+    },
+    {
+     "id": "tech_support_manual:addressing-data-roaming-problems:2",
+     "action": "user__toggle_roaming",
+     "condition": "If the user is outside their carrier's primary coverage area (roaming) and mobile data isn't working"
+    },
+    {
+     "id": "tech_support_manual:addressing-data-roaming-problems:3"
+    },
+    {
+     "id": "tech_support_manual:addressing-data-roaming-problems:5"
+    },
+    {
+     "id": "tech_support_manual:data-saver-mode:2",
+     "action": "user__toggle_data_saver_mode",
+     "condition": "If check_data_restriction_status() shows \"Data Saver mode is ON\""
+    },
+    {
+     "id": "tech_support_manual:vpn-connection-issues:3",
+     "action": "user__disconnect_vpn",
+     "condition": "If check_vpn_status() shows \"VPN is ON and connected\" and performance level is \"Poor\""
+    },
+    {
+     "id": "tech_support_manual:data-plan-limits-reached:4",
+     "required": false
+    },
+    {
+     "id": "tech_support_manual:data-plan-limits-reached:5",
+     "action": "refuel_data",
+     "required": false
+    },
+    {
+     "id": "tech_support_manual:data-plan-limits-reached:6"
+    },
+    {
+     "id": "tech_support_manual:optimizing-network-mode-preferences:3",
+     "action": "user__set_network_mode_preference",
+     "condition": "If check_network_mode_preference() shows \"2G\" or \"3G\""
+    }
+   ],
+   "must_not": [],
+   "preconditions": [
+    {
+     "condition": "the customer is identified",
+     "if_not": "ask",
+     "quote": "You must first identify the customer."
+    },
+    {
+     "condition": "the user has cellular service",
+     "if_not": "hold",
+     "quote": "For mobile data to work, the user must first have cellular service."
+    }
+   ],
+   "notes": [
+    "When mobile data is unavailable a speed test should return 'no connection'.",
+    "If data is available, a speed test will also return the data speed.",
+    "Any speed below 'Excellent' is considered slow.",
+    "If the user's data usage for a line associated with the phone number the user provided exceeds the plan's data limit, data connectivity will be lost.",
+    "If it is not, the user will not be able to use their phone's data connection in areas outside their home network."
+   ],
+   "links": []
+  },
+  {
+   "id": "troubleshooting-mms-problems",
+   "name": "Troubleshooting MMS Problems",
+   "category": "Technical Support",
+   "src": "tech_support_manual:troubleshooting-mms-problems",
+   "applies_when": "the user is facing an MMS issue",
+   "inputs": [
+    {
+     "fact": "whether the messaging app can send MMS messages",
+     "source": "user__can_send_mms"
+    },
+    {
+     "fact": "network type",
+     "source": "user__check_network_status"
+    },
+    {
+     "fact": "MMSC URL",
+     "source": "user__check_apn_settings"
+    },
+    {
+     "fact": "whether Wi-Fi Calling is ON",
+     "source": "user__check_wifi_calling_status"
+    },
+    {
+     "fact": "permissions of the messaging app",
+     "source": "user__check_app_permissions"
+    }
+   ],
+   "decisions": [
+    {
+     "id": "has_service_and_data",
+     "rule": "the user must have cellular service and mobile data (any speed)",
+     "then": "go on with MMS",
+     "else": "use the cards Troubleshooting Service Problems and Troubleshooting Mobile Data Problems"
+    },
+    {
+     "id": "network_2g",
+     "rule": "If check_network_status() shows \"2G\"",
+     "then": "guide the user to switch to a network mode that includes 3G, 4G, or 5G",
+     "else": "go on"
+    },
+    {
+     "id": "mmsc_not_set",
+     "rule": "If check_apn_settings() shows MMSC URL is not set",
+     "then": "guide the user to reset the APN settings and then to reboot",
+     "else": "go on"
+    },
+    {
+     "id": "wifi_calling_on",
+     "rule": "If check_wifi_calling_status() shows \"Wi-Fi Calling is ON\"",
+     "then": "guide the user to turn it OFF",
+     "else": "go on"
+    },
+    {
+     "id": "permissions_missing",
+     "rule": "shows \"storage\" and \"sms\" permissions are not listed as granted",
+     "then": "guide the user to grant both permissions",
+     "else": "go on"
+    }
+   ],
+   "steps": [
+    {
+     "id": "tech_support_manual:diagnosing-mms-issues:1",
+     "action": "user__can_send_mms",
+     "required": false
+    },
+    {
+     "id": "tech_support_manual:ensuring-basic-connectivity-for-mms:3"
+    },
+    {
+     "id": "tech_support_manual:ensuring-basic-connectivity-for-mms:4"
+    },
+    {
+     "id": "tech_support_manual:unsuitable-network-technology-for-mms:4",
+     "action": "user__set_network_mode_preference",
+     "condition": "If check_network_status() shows \"2G\""
+    },
+    {
+     "id": "tech_support_manual:verifying-apn-mmsc-url-for-mms:6",
+     "action": "user__reset_apn_settings",
+     "condition": "If check_apn_settings() shows MMSC URL is not set"
+    },
+    {
+     "id": "tech_support_manual:verifying-apn-mmsc-url-for-mms:7",
+     "action": "user__reboot_device",
+     "condition": "After resetting the APN settings"
+    },
+    {
+     "id": "tech_support_manual:investigating-wi-fi-calling-interference:2",
+     "action": "user__toggle_wifi_calling",
+     "condition": "If check_wifi_calling_status() shows \"Wi-Fi Calling is ON\""
+    },
+    {
+     "id": "tech_support_manual:messaging-app-lacks-necessary-permission:2",
+     "condition": "shows \"storage\" and \"sms\" permissions are not listed as granted"
+    }
+   ],
+   "must_not": [],
+   "preconditions": [
+    {
+     "condition": "the customer is identified",
+     "if_not": "ask",
+     "quote": "You must first identify the customer."
+    },
+    {
+     "condition": "the user has cellular service and mobile data",
+     "if_not": "hold",
+     "quote": "For MMS to work, the user must have cellular service and mobile data (any speed)."
+    }
+   ],
+   "notes": [
+    "MMS requires at least a 3G network connection; 2G networks are generally not suitable."
+   ],
+   "links": []
+  }
+ ],
+ "obligations": [
+  {
+   "id": "ob_transfer_call",
+   "origin": "package",
+   "scope": {
+    "procedure": "transfer",
+    "when": {
+     "cannot_be_handled": "yes"
+    }
+   },
+   "effect": {
+    "kind": "write",
+    "tools": [
+     "transfer_to_human_agents"
+    ]
+   },
+   "check": "code",
+   "level": "observe",
+   "source": {
+    "section": "preamble",
+    "quote": "first make a tool call to transfer_to_human_agents"
+   }
+  },
+  {
+   "id": "ob_transfer_message",
+   "origin": "package",
+   "scope": {
+    "procedure": "transfer",
+    "when": {
+     "cannot_be_handled": "yes"
+    }
+   },
+   "effect": {
+    "kind": "reply"
+   },
+   "values": {
+    "message": {
+     "from": "literal",
+     "value": "YOU ARE BEING TRANSFERRED TO A HUMAN AGENT. PLEASE HOLD ON."
+    }
+   },
+   "check": "code",
+   "level": "observe",
+   "source": {
+    "section": "preamble",
+    "quote": "and then send the message"
+   }
+  },
+  {
+   "id": "ob_bill_request",
+   "origin": "package",
+   "scope": {
+    "procedure": "overdue-bill-payment",
+    "when": {
+     "bill_is_overdue": "yes",
+     "other_bill_awaiting": "no"
+    }
+   },
+   "effect": {
+    "kind": "write",
+    "tools": [
+     "send_payment_request"
+    ],
+    "match": {
+     "customer_id": {
+      "pattern": "{customer_id}"
+     },
+     "bill_id": {
+      "pattern": "{bill_id}"
+     }
+    }
+   },
+   "values": {
+    "customer_id": {
+     "from": "case_fact",
+     "field": "customer ID",
+     "record": "the customer profile"
+    },
+    "bill_id": {
+     "from": "case_fact",
+     "field": "bill ID",
+     "record": "the overdue bill"
+    }
+   },
+   "check": "code",
+   "level": "observe",
+   "source": {
+    "section": "overdue-bill-payment",
+    "quote": "Send the user a payment request for the overdue bill."
+   }
+  },
+  {
+   "id": "ob_bill_inform",
+   "origin": "package",
+   "scope": {
+    "procedure": "overdue-bill-payment",
+    "when": {
+     "bill_is_overdue": "yes",
+     "other_bill_awaiting": "no"
+    }
+   },
+   "effect": {
+    "kind": "reply"
+   },
+   "check": "code",
+   "level": "observe",
+   "source": {
+    "section": "overdue-bill-payment",
+    "quote": "Inform the user that a payment request has been sent."
+   }
+  },
+  {
+   "id": "ob_bill_make_payment",
+   "origin": "package",
+   "scope": {
+    "procedure": "overdue-bill-payment",
+    "when": {
+     "user_accepts": "yes"
+    }
+   },
+   "effect": {
+    "kind": "write",
+    "tools": [
+     "user__make_payment"
+    ]
+   },
+   "check": "code",
+   "level": "observe",
+   "source": {
+    "section": "overdue-bill-payment",
+    "quote": "If the user accepts the payment request, use the make_payment tool to make the payment."
+   }
+  },
+  {
+   "id": "ob_resume_reboot",
+   "origin": "package",
+   "scope": {
+    "procedure": "line-suspension",
+    "when": {
+     "contract_end_date_past": "no",
+     "overdue_bills_paid": "yes"
+    }
+   },
+   "effect": {
+    "kind": "write",
+    "tools": [
+     "user__reboot_device"
+    ]
+   },
+   "check": "code",
+   "level": "observe",
+   "source": {
+    "section": "line-suspension",
+    "quote": "After you resume the line, the user will have to reboot their device to get service."
+   }
+  },
+  {
+   "id": "ob_refuel_ask",
+   "origin": "package",
+   "scope": {
+    "procedure": "data-refueling"
+   },
+   "effect": {
+    "kind": "reply"
+   },
+   "check": "code",
+   "level": "observe",
+   "source": {
+    "section": "data-refueling",
+    "quote": "Ask them how much data they want to refuel"
+   }
+  },
+  {
+   "id": "ob_refuel_apply",
+   "origin": "package",
+   "scope": {
+    "procedure": "data-refueling",
+    "when": {
+     "price_confirmed": "yes"
+    }
+   },
+   "effect": {
+    "kind": "write",
+    "tools": [
+     "refuel_data"
+    ],
+    "match": {
+     "customer_id": {
+      "pattern": "{customer_id}"
+     },
+     "line_id": {
+      "pattern": "{line_id}"
+     },
+     "gb_amount": {
+      "pattern": "{gb_amount}"
+     }
+    }
+   },
+   "values": {
+    "customer_id": {
+     "from": "case_fact",
+     "field": "customer ID",
+     "record": "the customer profile"
+    },
+    "line_id": {
+     "from": "case_fact",
+     "field": "line ID",
+     "record": "the line associated with the phone number the user provided"
+    },
+    "gb_amount": {
+     "from": "request",
+     "about": "how much data they want to refuel"
+    }
+   },
+   "check": "code",
+   "level": "observe",
+   "source": {
+    "section": "data-refueling",
+    "quote": "Apply the refueled data to the line associated with the phone number the user provided."
+   }
+  },
+  {
+   "id": "ob_refuel_confirm",
+   "origin": "package",
+   "scope": {
+    "procedure": "data-refueling"
+   },
+   "effect": {
+    "kind": "reply"
+   },
+   "check": "code",
+   "level": "observe",
+   "source": {
+    "section": "data-refueling",
+    "quote": "Confirm the price"
+   }
+  },
+  {
+   "id": "ob_plan_confirm",
+   "origin": "package",
+   "scope": {
+    "procedure": "change-plan"
+   },
+   "effect": {
+    "kind": "reply"
+   },
+   "check": "code",
+   "level": "observe",
+   "source": {
+    "section": "change-plan",
+    "quote": "Confirm the price."
+   }
+  },
+  {
+   "id": "ob_plan_select",
+   "origin": "package",
+   "scope": {
+    "procedure": "change-plan"
+   },
+   "effect": {
+    "kind": "reply"
+   },
+   "check": "code",
+   "level": "observe",
+   "source": {
+    "section": "change-plan",
+    "quote": "Ask the user to select one."
+   }
+  },
+  {
+   "id": "ob_roaming_enable",
+   "origin": "package",
+   "scope": {
+    "procedure": "data-roaming",
+    "when": {
+     "line_roaming_enabled": "no"
+    }
+   },
+   "effect": {
+    "kind": "write",
+    "tools": [
+     "enable_roaming"
+    ],
+    "match": {
+     "customer_id": {
+      "pattern": "{customer_id}"
+     },
+     "line_id": {
+      "pattern": "{line_id}"
+     }
+    }
+   },
+   "values": {
+    "customer_id": {
+     "from": "case_fact",
+     "field": "customer ID",
+     "record": "the customer profile"
+    },
+    "line_id": {
+     "from": "case_fact",
+     "field": "line ID",
+     "record": "the line associated with the phone number the user provided"
+    }
+   },
+   "check": "code",
+   "level": "observe",
+   "source": {
+    "section": "data-roaming",
+    "quote": "If it is not, you should enable it at no cost for the user."
+   }
+  },
+  {
+   "id": "ob_airplane_off",
+   "origin": "package",
+   "scope": {
+    "procedure": "troubleshooting-service-problems",
+    "when": {
+     "airplane_mode_on": "yes"
+    }
+   },
+   "effect": {
+    "kind": "write",
+    "tools": [
+     "user__toggle_airplane_mode"
+    ]
+   },
+   "check": "code",
+   "level": "observe",
+   "source": {
+    "section": "airplane-mode",
+    "quote": "If it is ON, guide the user to use toggle_airplane_mode() to turn it OFF."
+   }
+  },
+  {
+   "id": "ob_sim_reseat",
+   "origin": "package",
+   "scope": {
+    "procedure": "troubleshooting-service-problems",
+    "when": {
+     "sim_missing": "yes"
+    }
+   },
+   "effect": {
+    "kind": "write",
+    "tools": [
+     "user__reseat_sim_card"
+    ]
+   },
+   "check": "code",
+   "level": "observe",
+   "source": {
+    "section": "sim-card-issues",
+    "quote": "If it shows \"Missing\", guide the user to use reseat_sim_card() to ensure the SIM card is correctly inserted."
+   }
+  },
+  {
+   "id": "ob_sim_locked_escalate",
+   "origin": "package",
+   "scope": {
+    "procedure": "troubleshooting-service-problems",
+    "when": {
+     "sim_locked": "yes"
+    }
+   },
+   "effect": {
+    "kind": "write",
+    "tools": [
+     "transfer_to_human_agents"
+    ]
+   },
+   "check": "code",
+   "level": "observe",
+   "source": {
+    "section": "sim-card-issues",
+    "quote": "escalate to technical support for assistance with SIM security"
+   }
+  },
+  {
+   "id": "ob_apn_reset",
+   "origin": "package",
+   "scope": {
+    "procedure": "troubleshooting-service-problems",
+    "when": {
+     "apn_incorrect": "yes"
+    }
+   },
+   "effect": {
+    "kind": "write",
+    "tools": [
+     "user__reset_apn_settings"
+    ]
+   },
+   "check": "code",
+   "level": "observe",
+   "source": {
+    "section": "incorrect-apn-settings",
+    "quote": "If check_apn_settings() shows \"Incorrect\", guide the user to use reset_apn_settings() to reset the APN settings."
+   }
+  },
+  {
+   "id": "ob_apn_reboot",
+   "origin": "package",
+   "scope": {
+    "procedure": "troubleshooting-service-problems",
+    "when": {
+     "apn_incorrect": "yes"
+    }
+   },
+   "effect": {
+    "kind": "write",
+    "tools": [
+     "user__reboot_device"
+    ]
+   },
+   "check": "code",
+   "level": "observe",
+   "source": {
+    "section": "incorrect-apn-settings",
+    "quote": "After resetting the APN settings, the user must be instructed to use reboot_device() for the changes to apply."
+   }
+  },
+  {
+   "id": "ob_suspension_escalate",
+   "origin": "package",
+   "scope": {
+    "procedure": "troubleshooting-service-problems",
+    "when": {
+     "suspension_cannot_be_lifted": "yes"
+    }
+   },
+   "effect": {
+    "kind": "write",
+    "tools": [
+     "transfer_to_human_agents"
+    ]
+   },
+   "check": "code",
+   "level": "observe",
+   "source": {
+    "section": "line-suspension",
+    "quote": "If the suspension cannot be lifted by the agent"
+   }
+  },
+  {
+   "id": "ob_data_on",
+   "origin": "package",
+   "scope": {
+    "procedure": "troubleshooting-mobile-data-problems",
+    "when": {
+     "mobile_data_disabled": "yes"
+    }
+   },
+   "effect": {
+    "kind": "write",
+    "tools": [
+     "user__toggle_data"
+    ]
+   },
+   "check": "code",
+   "level": "observe",
+   "source": {
+    "section": "mobile-data-disabled",
+    "quote": "If check_network_status() shows mobile data is disabled, guide the user to use toggle_data() to turn mobile data ON."
+   }
+  },
+  {
+   "id": "ob_data_roaming_on",
+   "origin": "package",
+   "scope": {
+    "procedure": "troubleshooting-mobile-data-problems",
+    "when": {
+     "user_roaming": "yes"
+    }
+   },
+   "effect": {
+    "kind": "write",
+    "tools": [
+     "user__toggle_roaming"
+    ]
+   },
+   "check": "code",
+   "level": "observe",
+   "source": {
+    "section": "addressing-data-roaming-problems",
+    "quote": "If the user is outside their carrier's primary coverage area (roaming) and mobile data isn't working, guide them to use toggle_roaming() to ensure Data Roaming is ON."
+   }
+  },
+  {
+   "id": "ob_data_saver_off",
+   "origin": "package",
+   "scope": {
+    "procedure": "troubleshooting-mobile-data-problems",
+    "when": {
+     "data_saver_on": "yes"
+    }
+   },
+   "effect": {
+    "kind": "write",
+    "tools": [
+     "user__toggle_data_saver_mode"
+    ]
+   },
+   "check": "code",
+   "level": "observe",
+   "source": {
+    "section": "data-saver-mode",
+    "quote": "If check_data_restriction_status() shows \"Data Saver mode is ON\", guide the user to use toggle_data_saver_mode() to turn it OFF."
+   }
+  },
+  {
+   "id": "ob_vpn_disconnect",
+   "origin": "package",
+   "scope": {
+    "procedure": "troubleshooting-mobile-data-problems",
+    "when": {
+     "vpn_poor": "yes"
+    }
+   },
+   "effect": {
+    "kind": "write",
+    "tools": [
+     "user__disconnect_vpn"
+    ]
+   },
+   "check": "code",
+   "level": "observe",
+   "source": {
+    "section": "vpn-connection-issues",
+    "quote": "If check_vpn_status() shows \"VPN is ON and connected\" and performance level is \"Poor\", guide the user to use disconnect_vpn() to disconnect the VPN."
+   }
+  },
+  {
+   "id": "ob_network_mode",
+   "origin": "package",
+   "scope": {
+    "procedure": "troubleshooting-mobile-data-problems",
+    "when": {
+     "network_mode_old": "yes"
+    }
+   },
+   "effect": {
+    "kind": "write",
+    "tools": [
+     "user__set_network_mode_preference"
+    ],
+    "match": {
+     "mode": {
+      "pattern": "{mode}"
+     }
+    }
+   },
+   "values": {
+    "mode": {
+     "from": "literal",
+     "value": "4g_5g_preferred"
+    }
+   },
+   "check": "code",
+   "level": "observe",
+   "source": {
+    "section": "optimizing-network-mode-preferences",
+    "quote": "If check_network_mode_preference() shows \"2G\" or \"3G\", guide the user to use set_network_mode_preference(mode: str) with the mode \"4g_5g_preferred\" to allow the phone to connect to 5G."
+   }
+  },
+  {
+   "id": "ob_mms_network_mode",
+   "origin": "package",
+   "scope": {
+    "procedure": "troubleshooting-mms-problems",
+    "when": {
+     "network_2g": "yes"
+    }
+   },
+   "effect": {
+    "kind": "write",
+    "tools": [
+     "user__set_network_mode_preference"
+    ]
+   },
+   "check": "code",
+   "level": "observe",
+   "source": {
+    "section": "unsuitable-network-technology-for-mms",
+    "quote": "If check_network_status() shows \"2G\", guide the user to use set_network_mode_preference(mode: str) to switch to a network mode that includes 3G, 4G, or 5G (e.g., \"4g_5g_preferred\" or \"4g_only\")."
+   }
+  },
+  {
+   "id": "ob_mms_apn_reset",
+   "origin": "package",
+   "scope": {
+    "procedure": "troubleshooting-mms-problems",
+    "when": {
+     "mmsc_not_set": "yes"
+    }
+   },
+   "effect": {
+    "kind": "write",
+    "tools": [
+     "user__reset_apn_settings"
+    ]
+   },
+   "check": "code",
+   "level": "observe",
+   "source": {
+    "section": "verifying-apn-mmsc-url-for-mms",
+    "quote": "If check_apn_settings() shows MMSC URL is not set, guide the user to use reset_apn_settings() to reset the APN settings."
+   }
+  },
+  {
+   "id": "ob_mms_apn_reboot",
+   "origin": "package",
+   "scope": {
+    "procedure": "troubleshooting-mms-problems",
+    "when": {
+     "mmsc_not_set": "yes"
+    }
+   },
+   "effect": {
+    "kind": "write",
+    "tools": [
+     "user__reboot_device"
+    ]
+   },
+   "check": "code",
+   "level": "observe",
+   "source": {
+    "section": "verifying-apn-mmsc-url-for-mms",
+    "quote": "After resetting the APN settings, the user must be instructed to use reboot_device() for the changes to apply."
+   }
+  },
+  {
+   "id": "ob_mms_wifi_calling_off",
+   "origin": "package",
+   "scope": {
+    "procedure": "troubleshooting-mms-problems",
+    "when": {
+     "wifi_calling_on": "yes"
+    }
+   },
+   "effect": {
+    "kind": "write",
+    "tools": [
+     "user__toggle_wifi_calling"
+    ]
+   },
+   "check": "code",
+   "level": "observe",
+   "source": {
+    "section": "investigating-wi-fi-calling-interference",
+    "quote": "If check_wifi_calling_status() shows \"Wi-Fi Calling is ON\", guide the user to use toggle_wifi_calling() to turn it OFF."
+   }
+  },
+  {
+   "id": "ob_mms_grant_storage",
+   "origin": "package",
+   "scope": {
+    "procedure": "troubleshooting-mms-problems",
+    "when": {
+     "permissions_missing": "yes"
+    }
+   },
+   "effect": {
+    "kind": "write",
+    "tools": [
+     "user__grant_app_permission"
+    ],
+    "match": {
+     "app_name": {
+      "pattern": "{app}"
+     },
+     "permission": {
+      "pattern": "{permission}"
+     }
+    }
+   },
+   "values": {
+    "app": {
+     "from": "literal",
+     "value": "messaging"
+    },
+    "permission": {
+     "from": "literal",
+     "value": "storage"
+    }
+   },
+   "check": "code",
+   "level": "observe",
+   "source": {
+    "section": "messaging-app-lacks-necessary-permission",
+    "quote": "grant_app_permission(app_name=\"messaging\", permission=\"storage\")"
+   }
+  },
+  {
+   "id": "ob_mms_grant_sms",
+   "origin": "package",
+   "scope": {
+    "procedure": "troubleshooting-mms-problems",
+    "when": {
+     "permissions_missing": "yes"
+    }
+   },
+   "effect": {
+    "kind": "write",
+    "tools": [
+     "user__grant_app_permission"
+    ],
+    "match": {
+     "app_name": {
+      "pattern": "{app}"
+     },
+     "permission": {
+      "pattern": "{permission}"
+     }
+    }
+   },
+   "values": {
+    "app": {
+     "from": "literal",
+     "value": "messaging"
+    },
+    "permission": {
+     "from": "literal",
+     "value": "sms"
+    }
+   },
+   "check": "code",
+   "level": "observe",
+   "source": {
+    "section": "messaging-app-lacks-necessary-permission",
+    "quote": "grant_app_permission(app_name=\"messaging\", permission=\"sms\")"
+   }
+  }
+ ],
+ "global": {
+  "global_rules": [
+   {
+    "id": "G-time",
+    "src": "main_policy:preamble",
+    "rule": "The current time is 2025-02-25 12:08:00 EST."
+   },
+   {
+    "id": "G-no-outside-info",
+    "src": "main_policy:preamble",
+    "rule": "You should not provide any information, knowledge, or procedures not provided by the user or available tools, or give subjective recommendations or comments."
+   },
+   {
+    "id": "G-one-call",
+    "src": "main_policy:preamble",
+    "rule": "You should only make one tool call at a time, and if you make a tool call, you should not respond to the user simultaneously."
+   },
+   {
+    "id": "G-deny",
+    "src": "main_policy:preamble",
+    "rule": "You should deny user requests that are against this policy."
+   },
+   {
+    "id": "G-transfer",
+    "src": "main_policy:preamble",
+    "rule": "You should transfer the user to a human agent if and only if the request cannot be handled within the scope of your actions."
+   },
+   {
+    "id": "G-try",
+    "src": "main_policy:preamble",
+    "rule": "You should try your best to resolve the issue for the user before transferring the user to a human agent."
+   },
+   {
+    "id": "G-try-all",
+    "src": "tech_support_manual:preamble",
+    "rule": "Make sure you try all the possible ways to resolve the user's issue before transferring to a human agent."
+   },
+   {
+    "id": "G-name-lookup",
+    "src": "main_policy:customer-lookup",
+    "rule": "For name lookup, date of birth is required for verification purposes."
+   },
+   {
+    "id": "G-overdue-check",
+    "src": "main_policy:overdue-bill-payment",
+    "rule": "You should always check that the bill is overdue before sending a payment request.",
+    "attach_when": "(?i)payment request"
+   },
+   {
+    "id": "G-one-awaiting",
+    "src": "main_policy:overdue-bill-payment",
+    "rule": "A user can only have one bill in the AWAITING PAYMENT status at a time.",
+    "attach_when": "(?i)payment request"
+   },
+   {
+    "id": "G-paid-check",
+    "src": "main_policy:overdue-bill-payment",
+    "rule": "Always check that the bill status is updated to PAID before informing the user that the bill has been paid.",
+    "attach_when": "(?i)make_payment"
+   },
+   {
+    "id": "G-contract",
+    "src": "main_policy:line-suspension",
+    "rule": "You are not allowed to lift the suspension if the line's contract end date is in the past, even if the user has paid all their overdue bills.",
+    "attach_when": "(?i)suspen"
+   },
+   {
+    "id": "G-refuel-max",
+    "src": "main_policy:data-refueling",
+    "rule": "The maximum amount of data that can be refueled is 2GB.",
+    "attach_when": "(?i)refuel"
+   },
+   {
+    "id": "G-identify",
+    "src": "main_policy:technical-support",
+    "rule": "You must first identify the customer.",
+    "attach_when": "(?i)troubleshooting"
+   }
+  ],
+  "triage": {
+   "id": "triage",
+   "src": "main_policy:preamble",
+   "name": "What the agent handles and how it starts",
+   "steps": [
+    "As a telecom agent, you can help users with technical support, overdue bill payment, line suspension, and plan options.",
+    "You can look up customer information using:",
+    "check_status_bar() can be used to check if the user is facing a service issue.",
+    "run_speed_test() can be used to check for potential issues with mobile data.",
+    "can_send_mms() tool on the user's phone can be used to check if the user is facing an MMS issue."
+   ],
+   "must_not": []
+  },
+  "escalation": {
+   "id": "escalation",
+   "src": "main_policy:preamble",
+   "name": "Transfer to a human agent",
+   "steps": [
+    "You should transfer the user to a human agent if and only if the request cannot be handled within the scope of your actions.",
+    "To transfer, first make a tool call to transfer_to_human_agents, and then send the message 'YOU ARE BEING TRANSFERRED TO A HUMAN AGENT. PLEASE HOLD ON.' to the user."
+   ],
+   "must_not": []
+  },
+  "definitions": [
+   {
+    "term": "account status",
+    "meaning": "There are four account status types: Active, Suspended, Pending Verification, and Closed.",
+    "source": {
+     "statement": "main_policy:customer:15"
+    }
+   },
+   {
+    "term": "line status",
+    "meaning": "There are four line status types: Active, Suspended, Pending Activation, and Closed.",
+    "source": {
+     "statement": "main_policy:line:14"
+    }
+   },
+   {
+    "term": "bill status",
+    "meaning": "There are five bill status types: Draft, Issued, Paid, Overdue, Awaiting Payment, and Disputed.",
+    "source": {
+     "statement": "main_policy:bill:10"
+    }
+   },
+   {
+    "term": "slow",
+    "meaning": "Any speed below 'Excellent' is considered slow.",
+    "source": {
+     "statement": "tech_support_manual:diagnosing-mobile-data-issues:4"
+    }
+   },
+   {
+    "term": "data roaming",
+    "meaning": "Data roaming allows the user to use their phone's data connection in areas outside their home network (e.g. when traveling abroad).",
+    "source": {
+     "statement": "tech_support_manual:addressing-data-roaming-problems:1"
+    }
+   },
+   {
+    "term": "MMSC",
+    "meaning": "MMSC is the Multimedia Messaging Service Center.",
+    "source": {
+     "statement": "tech_support_manual:verifying-apn-mmsc-url-for-mms:1"
+    }
+   }
+  ]
+ },
+ "links": [
+  {
+   "type": "refers_to",
+   "src": "tech_support_manual:line-suspension:3",
+   "dst": "main_policy:line-suspension",
+   "quote": "Refer to the general agent policy"
+  },
+  {
+   "type": "depends_on",
+   "src": "tech_support_manual:line-suspension:4",
+   "dst": "main_policy:line-suspension",
+   "quote": "the agent can lift the suspension (per general policy)"
+  },
+  {
+   "type": "refers_to",
+   "src": "tech_support_manual:prerequisites-for-mobile-data:2",
+   "dst": "tech_support_manual:understanding-and-troubleshooting-your-p",
+   "quote": "Understanding and Troubleshooting Your Phone's Cellular Service"
+  },
+  {
+   "type": "refers_to",
+   "src": "tech_support_manual:airplane-mode#2:1",
+   "dst": "tech_support_manual:airplane-mode",
+   "quote": "how to check and turn off Airplane Mode"
+  },
+  {
+   "type": "refers_to",
+   "src": "tech_support_manual:addressing-data-roaming-problems:5",
+   "dst": "main_policy:data-roaming",
+   "quote": "Refer to the general policy for guidelines on enabling roaming"
+  },
+  {
+   "type": "refers_to",
+   "src": "tech_support_manual:data-plan-limits-reached:6",
+   "dst": "main_policy:data-refueling",
+   "quote": "Refer to the general policy for guidelines on those options"
+  },
+  {
+   "type": "refers_to",
+   "src": "tech_support_manual:data-plan-limits-reached:6",
+   "dst": "main_policy:change-plan",
+   "quote": "Refer to the general policy for guidelines on those options"
+  },
+  {
+   "type": "refers_to",
+   "src": "tech_support_manual:prerequisites-for-mms:2",
+   "dst": "tech_support_manual:understanding-and-troubleshooting-your-p",
+   "quote": "Understanding and Troubleshooting Your Phone's Cellular Service"
+  },
+  {
+   "type": "refers_to",
+   "src": "tech_support_manual:prerequisites-for-mms:2",
+   "dst": "tech_support_manual:understanding-and-troubleshooting-your-p#2",
+   "quote": "Understanding and Troubleshooting Your Phone's Mobile Data"
+  },
+  {
+   "type": "refers_to",
+   "src": "tech_support_manual:ensuring-basic-connectivity-for-mms:4",
+   "dst": "tech_support_manual:understanding-and-troubleshooting-your-p",
+   "quote": "Understanding and Troubleshooting Your Phone's Cellular Service"
+  },
+  {
+   "type": "refers_to",
+   "src": "tech_support_manual:ensuring-basic-connectivity-for-mms:4",
+   "dst": "tech_support_manual:understanding-and-troubleshooting-your-p#2",
+   "quote": "Understanding and Troubleshooting Your Phone's Mobile Data"
+  }
+ ],
+ "coverage": [],
+ "policy_questions": [
+  {
+   "statement_ids": [
+    "main_policy:bill:10"
+   ],
+   "question": "The text says five bill status types but lists six (Draft, Issued, Paid, Overdue, Awaiting Payment, Disputed). Which list is right?",
+   "default_level": "remind"
+  },
+  {
+   "statement_ids": [
+    "main_policy:overdue-bill-payment:16",
+    "main_policy:overdue-bill-payment:6"
+   ],
+   "question": "The text writes statuses as Overdue, overdue and AWAITING PAYMENT, and the tool description writes AWAITING_PAYMENT. What is the exact stored value of an overdue bill?",
+   "default_level": "remind",
+   "rule_ids": [
+    "r_request_only_overdue"
+   ]
+  },
+  {
+   "statement_ids": [
+    "main_policy:preamble:1",
+    "main_policy:line-suspension:6"
+   ],
+   "question": "The rule on contract end dates compares with the fixed current time in the text (2025-02-25). Does this date stay fixed for every case?",
+   "default_level": "remind",
+   "rule_ids": [
+    "r_no_resume_contract_ended"
+   ]
+  },
+  {
+   "statement_ids": [
+    "main_policy:overdue-bill-payment:10",
+    "tech_support_manual:airplane-mode:4"
+   ],
+   "question": "The text says to guide the user to use device tools and to use the make_payment tool, and tools.json lists them as user__ tools of the agent. May the agent call a user__ tool itself, or must the user do it?",
+   "default_level": "remind"
+  },
+  {
+   "statement_ids": [
+    "main_policy:change-plan:4",
+    "main_policy:change-plan:8"
+   ],
+   "question": "The Change Plan steps say to gather available plans and apply the plan, but tools.json has no tool that lists plans or changes the plan of a line. Should the agent transfer these requests, or is a tool missing?",
+   "default_level": "remind"
+  },
+  {
+   "statement_ids": [
+    "main_policy:change-plan:6"
+   ],
+   "question": "Calculate the price of the new plan: is this the monthly price of the plan, or a difference from the current plan? The text does not define it.",
+   "default_level": "remind"
+  },
+  {
+   "statement_ids": [
+    "tech_support_manual:sim-card-issues:6",
+    "tech_support_manual:line-suspension:5"
+   ],
+   "question": "The manual says to escalate to technical support. Does this mean the tool transfer_to_human_agents and the fixed transfer message, or another channel?",
+   "default_level": "remind"
+  },
+  {
+   "statement_ids": [
+    "main_policy:data-refueling:4"
+   ],
+   "question": "Is the maximum of 2GB for one refuel call, or a total for the line per billing cycle? The rule checks one call only.",
+   "default_level": "remind",
+   "rule_ids": [
+    "r_refuel_max_2gb"
+   ]
+  },
+  {
+   "statement_ids": [
+    "main_policy:line-suspension:2",
+    "main_policy:line-suspension:3",
+    "main_policy:line-suspension:4"
+   ],
+   "question": "The text lists reasons for which a line can be suspended. Is this a limit on suspend_line for the agent, so that a suspension the user asks for with another reason must be denied?",
+   "default_level": "remind",
+   "rule_ids": [
+    "r_suspend_reasons"
+   ]
+  },
+  {
+   "statement_ids": [
+    "main_policy:line-suspension:5",
+    "tech_support_manual:line-suspension:5"
+   ],
+   "question": "May the agent lift a suspension when the user has no overdue bills and the contract has not ended, or a line in Pending Activation? The manual names other reasons not resolvable by the agent but does not define them.",
+   "default_level": "remind",
+   "rule_ids": [
+    "r_resume_after_bills_paid"
+   ]
+  },
+  {
+   "statement_ids": [
+    "main_policy:preamble:7"
+   ],
+   "question": "The policy says to transfer if and only if the request cannot be handled; the description of transfer_to_human_agents also allows a transfer when the user explicitly asks for a human agent. Which one decides?",
+   "default_level": "remind",
+   "rule_ids": [
+    "r_transfer_only_if_out_of_scope"
+   ]
+  },
+  {
+   "statement_ids": [
+    "main_policy:preamble:10",
+    "tech_support_manual:preamble:8"
+   ],
+   "question": "What is enough for try your best and try all the possible ways before a transfer: every check of the matching section of the manual, or less?",
+   "default_level": "remind",
+   "rule_ids": [
+    "r_transfer_after_trying"
+   ]
+  },
+  {
+   "statement_ids": [
+    "tech_support_manual:unsuitable-network-technology-for-mms:4"
+   ],
+   "question": "For MMS on 2G the text gives examples (\"4g_5g_preferred\" or \"4g_only\"). Is any mode that includes 3G, 4G or 5G accepted, or one exact mode? The obligation holds no value until this is answered.",
+   "default_level": "remind"
+  },
+  {
+   "statement_ids": [
+    "main_policy:preamble:2"
+   ],
+   "question": "tools.json has write tools that no statement describes for a case, such as disable_roaming, user__set_apn_settings, user__connect_vpn and user__toggle_wifi. May the agent use them, and when?",
+   "default_level": "remind"
+  }
+ ]
+}

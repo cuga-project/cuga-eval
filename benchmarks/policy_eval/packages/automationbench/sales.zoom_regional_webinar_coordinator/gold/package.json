@@ -1,0 +1,152 @@
+{
+ "schema": "policy-package/1",
+ "version": "5be8ed7eb4e986f3",
+ "policy_hash": "",
+ "generator": {
+  "kind": "skill",
+  "harness": "claude-code",
+  "model": "claude (gold, reviewed by a person later)"
+ },
+ "documents": [],
+ "rules": [
+  {
+   "id": "g_5c336dc546",
+   "type": "verify",
+   "rule": {
+    "type": "verify",
+    "tools": [
+     "zoom_create_meeting",
+     "zoom_create_meeting_registrant",
+     "gmail_send_email"
+    ],
+    "statement": "(region | min_registrants | notes) Americas | 3 | (region | min_registrants | notes) EMEA | 4 | Higher threshold due to timezone coordination complexity (region | min_registrants | notes) APAC | 3 |",
+    "quote": "Americas | 3 | EMEA | 4 | Higher threshold due to timezone coordination complexity APAC | 3 |",
+    "types": [
+     "eligibility_filter",
+     "threshold"
+    ],
+    "source": "ws_thresholds §preamble",
+    "by": "skill",
+    "id": "g_5c336dc546"
+   },
+   "statement_ids": [
+    "ws_thresholds:preamble:1",
+    "ws_thresholds:preamble:2",
+    "ws_thresholds:preamble:3"
+   ],
+   "checker": "verifier",
+   "may_deny": true,
+   "source": {
+    "document": "ws_thresholds",
+    "section": "preamble",
+    "page": null,
+    "line": 5,
+    "table_header": [
+     "region",
+     "min_registrants",
+     "notes"
+    ]
+   },
+   "quote": "Americas | 3 | EMEA | 4 | Higher threshold due to timezone coordination complexity APAC | 3 |",
+   "class": "judgment",
+   "level": "remind"
+  }
+ ],
+ "procedures": [],
+ "obligations": [],
+ "global": {
+  "definitions": []
+ },
+ "links": [],
+ "coverage": [
+  {
+   "statement_id": "ws_thresholds:preamble:1",
+   "kind": "verify",
+   "reason": "1 rule(s): verify",
+   "source": {
+    "document": "ws_thresholds",
+    "section": "preamble",
+    "page": null,
+    "line": 5,
+    "table_header": [
+     "region",
+     "min_registrants",
+     "notes"
+    ]
+   },
+   "quote": "Americas | 3 |"
+  },
+  {
+   "statement_id": "ws_thresholds:preamble:2",
+   "kind": "verify",
+   "reason": "1 rule(s): verify",
+   "source": {
+    "document": "ws_thresholds",
+    "section": "preamble",
+    "page": null,
+    "line": 6,
+    "table_header": [
+     "region",
+     "min_registrants",
+     "notes"
+    ]
+   },
+   "quote": "EMEA | 4 | Higher threshold due to timezone coordination complexity"
+  },
+  {
+   "statement_id": "ws_thresholds:preamble:3",
+   "kind": "verify",
+   "reason": "1 rule(s): verify",
+   "source": {
+    "document": "ws_thresholds",
+    "section": "preamble",
+    "page": null,
+    "line": 7,
+    "table_header": [
+     "region",
+     "min_registrants",
+     "notes"
+    ]
+   },
+   "quote": "APAC | 3 |"
+  }
+ ],
+ "validation": [],
+ "policy_questions": [],
+ "tests": [],
+ "extra": {
+  "stats": {
+   "documents": 1,
+   "statements": 3,
+   "rules": 1,
+   "by_type": {
+    "verify": 1
+   },
+   "procedures": 0,
+   "links": 0,
+   "links_by_type": {},
+   "coverage": {
+    "verify": 3
+   },
+   "validation_errors": 0,
+   "documents_by_trust": {
+    "trusted": 1,
+    "untrusted": 0
+   }
+  },
+  "_layout": {
+   "format": "build",
+   "top": [
+    "version",
+    "rules",
+    "procedures",
+    "links",
+    "definitions",
+    "coverage",
+    "validation",
+    "generator",
+    "stats"
+   ]
+  }
+ }
+}

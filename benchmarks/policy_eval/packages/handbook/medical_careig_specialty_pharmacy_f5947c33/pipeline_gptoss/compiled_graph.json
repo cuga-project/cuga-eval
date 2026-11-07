@@ -1,0 +1,1435 @@
+{
+ "id": "policy",
+ "version": "compiled",
+ "built_by": "aws/gpt-oss-120b",
+ "global_rules": [
+  {
+   "id": "GR-001",
+   "src": "Section 1 & 4",
+   "rule": "All case data lives under a case folder named CASE_ID (format: LastName_MMDDYYYY, where the date is the patient’s DOB). CASE_ID is used in all audit log entries, Slack posts, and file references."
+  },
+  {
+   "id": "GR-002",
+   "src": "Section 1",
+   "rule": "All dates written in files must use the YYYY‑MM‑DD format unless a different format is explicitly required."
+  },
+  {
+   "id": "GR-003",
+   "src": "Section 4.1",
+   "rule": "Append one row to audit_log.xlsx at each major checkpoint. Columns: Date | CASE_ID | Action | File_Updated | Field_Updated | New_Value | Staff_User | Result (SUCCESS / FAILED / STOP — reason)."
+  },
+  {
+   "id": "GR-004",
+   "src": "Section 4.2",
+   "rule": "When a validation condition fails, log a row with Action = 'Stop Protocol', set File_Updated, Field_Updated, New_Value to N/A, and hold the case until the issue is resolved by a supervisor."
+  },
+  {
+   "id": "GR-005",
+   "src": "Section 4.4",
+   "rule": "Before making a phone call, verify that the required information already exists in email, referral documents, or other input files. If the information is unavailable and a call cannot be made, trigger the Stop Protocol."
+  },
+  {
+   "id": "GR-006",
+   "src": "Section 2",
+   "rule": "Any file access outside the role‑specific read/write matrix must be logged in audit_log.xlsx with Action = 'Out‑of‑Scope Access' and reported to compliance@careig.com."
+  },
+  {
+   "id": "GR-007",
+   "src": "Section 1",
+   "rule": "All communications use the defined Slack channels; claims are submitted by email with PDF attachments; no proprietary EHR, clearinghouse portal, or payer portal is required."
+  },
+  {
+   "id": "GR-008",
+   "src": "Section 1",
+   "rule": "If a situation is not covered by the SOP, stop work, note the event in audit_log.xlsx, and immediately contact the direct supervisor using the escalation path in Section 12."
+  }
+ ],
+ "triage": {
+  "name": "Initial Case Triage",
+  "src": "Sections 5‑6",
+  "steps": [
+   "1. Referral received → create case folder and populate intake.xlsx. STOP if referral lacks required patient identifiers.",
+   "2. Send consent form → set intake.xlsx.Consent_Status = 'Form Sent'. STOP if consent cannot be sent electronically.",
+   "3. Receive signed consent → update intake.xlsx.Consent_Status = 'Signed' and assign a Benefits Verification Specialist (BVS). STOP if signed consent not received within 5 business days.",
+   "4. BVS completes Benefits Verification → populate all required columns in benefits.xlsx and set BV_Complete = 'YES'. STOP if any required field remains blank.",
+   "5. If PA_Required = 'YES', BVS submits Prior Authorization → set auth.xlsx.PA_Submission_Date and PA_Status = 'Pending'. STOP if PA submission fails or required contact information is missing.",
+   "6. PA approved → update auth.xlsx.PA_Status = 'Approved' and record PA_Number. STOP if PA is denied or expires before the planned DOS.",
+   "7. Clinical handoff → set clinical.xlsx.Handoff_Status = 'Received'. STOP if handoff not logged within 1 business day of PA approval.",
+   "8. Nurse scheduling → enter clinical.xlsx.Visit_Date and Nurse_Assigned after confirming Supply_Checklist_Complete = 'YES'. STOP if supply checklist is incomplete.",
+   "9. Nurse completes infusion visit → fill visit_note.xlsx completely and obtain Nurse_Signature within 4 hours. STOP if Nurse_Signature is missing.",
+   "10. Billing validation → run Pre‑Billing Validation (Section 10.1). STOP if any validation rule fails.",
+   "11. Build and submit claim → populate claim.xlsx and send by email. STOP if claim submission fails."
+  ]
+ },
+ "routing": {
+  "Intake": {
+   "jira": "IVIG-INTAKE-{CASE_ID}",
+   "assignee": "Patient Representative",
+   "folder": "CASE_ID/intake",
+   "channel_if_a_step_posts": "#intake-team"
+  },
+  "BenefitsVerification": {
+   "jira": "IVIG-BV-{CASE_ID}",
+   "assignee": "Benefits Verification Specialist",
+   "folder": "CASE_ID/benefits",
+   "channel_if_a_step_posts": "#intake-team"
+  },
+  "PriorAuthorization": {
+   "jira": "IVIG-PA-{CASE_ID}",
+   "assignee": "Benefits Verification Specialist",
+   "folder": "CASE_ID/auth",
+   "channel_if_a_step_posts": "#intake-team"
+  },
+  "ClinicalScheduling": {
+   "jira": "IVIG-CLIN-{CASE_ID}",
+   "assignee": "Clinical Coordinator",
+   "folder": "CASE_ID/clinical",
+   "channel_if_a_step_posts": "#clinical-scheduling"
+  },
+  "NurseVisit": {
+   "jira": "IVIG-VISIT-{CASE_ID}",
+   "assignee": "Infusion Nurse",
+   "folder": "CASE_ID/visit_note",
+   "channel_if_a_step_posts": "#clinical-scheduling"
+  },
+  "Billing": {
+   "jira": "IVIG-BILL-{CASE_ID}",
+   "assignee": "Billing Specialist",
+   "folder": "CASE_ID/claim",
+   "channel_if_a_step_posts": "#billing"
+  },
+  "AR": {
+   "jira": "IVIG-AR-{CASE_ID}",
+   "assignee": "AR Specialist",
+   "folder": "CASE_ID/claim",
+   "channel_if_a_step_posts": "#billing"
+  }
+ },
+ "housekeeping": {
+  "name": "Ongoing Maintenance & Compliance",
+  "src": "Sections 3, 4, 12",
+  "steps": [
+   "Maintain the file system structure exactly as listed in Section 3; never edit template files in place.",
+   "Append‑only updates to audit_log.xlsx; never delete rows.",
+   "Log any out‑of‑scope file access (Action = 'Out‑of‑Scope Access') and email compliance@careig.com.",
+   "Perform daily supervisory review of open cases (Section 12.2) and send any missing Slack alerts.",
+   "Back‑up case folders nightly to the secure shared drive.",
+   "Ensure all Slack notifications include the CASE_ID and relevant data as defined in the workflow summary."
+  ]
+ },
+ "priority": {
+  "name": "Case Priority Levels",
+  "src": "",
+  "levels": [
+   "High – PA pending > 5 days, claim unpaid > 30 days, patient balance > $500, or any STOP Protocol triggered.",
+   "Medium – Standard workflow with no alerts, upcoming DOS within 7 days.",
+   "Low – Cases awaiting patient‑initiated actions (e.g., signed consent) with no time‑sensitive deadlines."
+  ]
+ },
+ "escalation": {
+  "name": "Escalation Pathways",
+  "src": "Section 12.1 & 12.2",
+  "steps": [
+   "PA pending > 5 days → post to #intake-mgmt with [PA DELAY] and supervisor follows up with payer.",
+   "Claim unpaid, no ERA after 30 days → post to #billing with [AR FOLLOWUP] and log call in claim.xlsx.AR_Followup_Log.",
+   "Payer underpayment vs contract → post to #billing-mgmt with [UNDERPAYMENT]; Director or contracting team reviews.",
+   "Patient balance > $500 unresolved → verify ≥3 contact attempts; if met, post to #billing-mgmt requesting collections authorization from Director.",
+   "Write‑off request > $200 → post to #billing-mgmt with [WRITE‑OFF REQUEST]; Director must approve before action.",
+   "Level 2 appeal denied → post to #billing-mgmt with [L2 DENIED]; Director decides next steps (write‑off, IRO, complaint).",
+   "Legal threat or attorney communication → STOP all work, post to #compliance with [LEGAL THREAT]; notify Director of Operations and legal@careig.com immediately.",
+   "Suspected fraud or billing abuse → STOP, post to #compliance with [COMPLIANCE REPORT]; call Compliance Hotline.",
+   "Wrong drug lot/dose from partner pharmacy → do not administer, document in clinical.xlsx.Drug_Issue_Notes, post to #clinical-scheduling with [DRUG ISSUE]."
+  ],
+  "must_not": [
+   "Modify any case file without first logging the action in audit_log.xlsx.",
+   "Ignore a Stop Protocol; work must not continue until the issue is cleared.",
+   "Respond to legal or compliance threats outside of the #compliance channel or without Director/Legal notification.",
+   "Bill a service that has not been verified as covered in benefits.xlsx."
+  ]
+ },
+ "definitions": {
+  "CASE_ID": "Unique case folder name using the format LastName_MMDDYYYY where the date is the patient’s date of birth.",
+  "DOS": "Date of Service – the date the patient received the infusion visit.",
+  "BV": "Benefits Verification – the process of confirming coverage, deductible, coinsurance, etc., performed by the Benefits Verification Specialist.",
+  "PA": "Prior Authorization – payer‑required approval for the drug and dose before infusion.",
+  "Stop Protocol": "Procedure to halt work when a validation fails; log the stop in audit_log.xlsx and await supervisor clearance.",
+  "Supply_Checklist_Complete": "Flag in clinical.xlsx indicating all required infusion supplies have been ordered, received, and verified.",
+  "Nurse_Signature": "Electronic signature of the Infusion Nurse in visit_note.xlsx; required for claim submission.",
+  "Claim_Frequency_Code": "Numeric code indicating claim type: 1 = original, 7 = corrected/resubmitted, 8 = void/duplicate."
+ },
+ "procedures": [
+  {
+   "name": "IVIG Home Infusion – Intake to Billing",
+   "category": "IVIG Home Infusion",
+   "applies_when": "A new IVIG home infusion case is received and must be processed from intake through billing.",
+   "inputs": [
+    {
+     "fact": "Patient demographic and referral information",
+     "source": "Case Setup file (Columns: Patient_ID, Referral_Date, Prescribing_Physician)"
+    },
+    {
+     "fact": "Insurance benefits data",
+     "source": "Benefits Verification sheet (Columns: Payer, Coverage_Status, Copay_Amount)"
+    },
+    {
+     "fact": "Drug source decision criteria",
+     "source": "Drug Source Decision matrix (Columns: Drug_Availability, Cost_Efficiency, Payer_Preference)"
+    },
+    {
+     "fact": "Prior Authorization required documents",
+     "source": "PA Documents repository (Files: Clinical_Note.pdf, Lab_Results.pdf, Formulary_Check.pdf)"
+    },
+    {
+     "fact": "Supply checklist completion status",
+     "source": "Supply Checklist form (Columns: IVIG_Kit, Pump, Catheter, Consumables)"
+    },
+    {
+     "fact": "Nurse scheduling availability",
+     "source": "Nurse Scheduler system (Columns: Nurse_ID, Available_Slots)"
+    },
+    {
+     "fact": "Visit documentation",
+     "source": "Visit Documentation template (Fields: Date_of_Service, Vital_Signs, Infusion_Details)"
+    },
+    {
+     "fact": "Pre‑billing validation results",
+     "source": "Pre‑Billing Validation report (Columns: CPT_Codes, Modifiers, Charge_Amount)"
+    },
+    {
+     "fact": "Electronic Remittance Advice (ERA)",
+     "source": "ERA file (Columns: Payment_Date, Amount, Adjustment_Code)"
+    }
+   ],
+   "decisions": [
+    {
+     "id": "D1",
+     "rule": "If Benefits Verification shows Coverage_Status = 'Approved' AND Copay_Amount ≤ patient‑agreed amount",
+     "then": "Proceed to Drug Source Decision",
+     "else": "Trigger Financial Counseling (7.3) and pause further processing"
+    },
+    {
+     "id": "D2",
+     "rule": "If Drug Source Decision matrix returns 'In‑Network Preferred'",
+     "then": "Select in‑network drug source and continue",
+     "else": "Document alternative source and obtain additional authorization"
+    },
+    {
+     "id": "D3",
+     "rule": "If Prior Authorization submission receives PA Approval status",
+     "then": "Proceed to Clinical Scheduling (9)",
+     "else": "Execute PA Denial workflow (8.7) and initiate Denial Management (11)"
+    },
+    {
+     "id": "D4",
+     "rule": "If Claim Submission returns a denial with CARC code listed in 11.1",
+     "then": "Initiate Appeal Submission (11.2)",
+     "else": "Post payment and close case"
+    }
+   ],
+   "steps": [
+    "6.1 Case Setup – create case folder in the File System Structure and record patient data in the Case Setup file.",
+    "7.1 Benefits Verification – query payer portal and record results in the Benefits Verification sheet.",
+    "7.2 Drug Source Decision – apply the Drug Source Decision matrix and document the chosen source.",
+    "8.3 PA Submission – submit Prior Authorization via payer portal; record submission ID.",
+    "8.7 PA Denial – log denial reason, apply decision D4, and move to Denial Management.",
+    "9.3 Visit Documentation – after infusion, complete Visit Documentation template and attach to case file.",
+    "10.4 ERA & Payment Posting – receive ERA file, post payment to patient ledger, reconcile adjustments."
+   ],
+   "deadlines": [
+    "Case Setup – within 1 business day of referral receipt.",
+    "Benefits Verification – within 2 business days of patient contact.",
+    "PA Submission – within 2 business days of benefits verification completion.",
+    "PA Follow‑Up – daily check; if no response in 48 hours, use Phone Call Workaround.",
+    "Nurse Scheduling – within 3 business days of PA approval.",
+    "Claim Submission – within 1 business day of visit documentation completion.",
+    "Appeal Submission – within 30 calendar days of denial receipt."
+   ],
+   "must_not": [
+    "Do not alter or delete entries in the Audit Log (4.3).",
+    "Do not share any patient protected health information (PHI) via unsecured email or messaging (4.3).",
+    "Do not proceed to Clinical Scheduling without documented PA approval (4.3).",
+    "Do not use non‑approved drug sources when the Drug Source Decision matrix selects an in‑network option (4.3)."
+   ],
+   "notes": [
+    "Urgent cases flagged in the system should be prioritized for PA submission.",
+    "If a Stop Protocol is activated, all downstream steps must be paused until clearance is received.",
+    "Use the Phone Call Workaround (4.4) only after 48 hours of no electronic response."
+   ],
+   "links": [
+    {
+     "type": "next",
+     "to": "7",
+     "when": ""
+    },
+    {
+     "type": "next",
+     "to": "8",
+     "when": "Benefits verified and drug source selected"
+    },
+    {
+     "type": "next",
+     "to": "9",
+     "when": "PA approved"
+    },
+    {
+     "type": "next",
+     "to": "10",
+     "when": "Visit documentation completed"
+    },
+    {
+     "type": "next",
+     "to": "11",
+     "when": "Claim denied"
+    },
+    {
+     "type": "next",
+     "to": "12",
+     "when": "Any deadline missed or escalation required"
+    }
+   ],
+   "id": "s4",
+   "src": "§s4"
+  },
+  {
+   "name": "4.3 Prohibited Actions – Billing & Claim Submission Controls",
+   "category": "Billing & Payment Posting",
+   "applies_when": "When processing IVIG drug billing, claim submission, balance write‑off, legal communications, or ICD‑10 coding.",
+   "inputs": [
+    {
+     "fact": "Drug_Source value for the case",
+     "source": "clinical.xlsx column Drug_Source"
+    },
+    {
+     "fact": "Premeds_Administered documentation",
+     "source": "visit_note.xlsx column Premeds_Administered"
+    },
+    {
+     "fact": "Dose_Administered_Grams value",
+     "source": "visit_note.xlsx column Dose_Administered_Grams"
+    },
+    {
+     "fact": "Existing claim submission date",
+     "source": "claim.xlsx column Submission_Date"
+    },
+    {
+     "fact": "Outstanding balance amount",
+     "source": "billing system field Balance"
+    },
+    {
+     "fact": "Director of Revenue Cycle approval status",
+     "source": "Slack channel #billing-mgmt"
+    },
+    {
+     "fact": "Legal threat or attorney communication received",
+     "source": "email / phone / Slack"
+    },
+    {
+     "fact": "Physician documentation and PA approval for ICD‑10 code",
+     "source": "clinical documentation and PA approval records"
+    }
+   ],
+   "decisions": [
+    {
+     "id": "D1",
+     "rule": "clinical.xlsx col Drug_Source ≠ \"CareIG\"",
+     "then": "Do not bill any IVIG drug J‑code.",
+     "else": "Proceed to next billing check."
+    },
+    {
+     "id": "D2",
+     "rule": "visit_note.xlsx col Premeds_Administered does NOT document drug, dose, route, time, and indication",
+     "then": "Do not bill pre‑medication J‑codes.",
+     "else": "Allow pre‑medication J‑code billing."
+    },
+    {
+     "id": "D3",
+     "rule": "Dose_Administered_Grams is missing or zero",
+     "then": "Do not use ordered dose for unit calculations; halt billing until administered dose is entered.",
+     "else": "Use visit_note.xlsx col Dose_Administered_Grams for unit calculations."
+    },
+    {
+     "id": "D4",
+     "rule": "claim.xlsx col Submission_Date is populated for the same Date of Service (DOS)",
+     "then": "Do not submit a claim.",
+     "else": "Proceed with claim submission."
+    },
+    {
+     "id": "D5",
+     "rule": "Balance > $200 AND Director of Revenue Cycle approval NOT recorded in #billing-mgmt",
+     "then": "Do not write off the balance.",
+     "else": "Write‑off may proceed."
+    },
+    {
+     "id": "D6",
+     "rule": "Legal threat or attorney communication received",
+     "then": "Do not respond; post to #compliance immediately.",
+     "else": "No action required."
+    },
+    {
+     "id": "D7",
+     "rule": "ICD‑10 code assigned is not supported by physician documentation AND PA approval",
+     "then": "Do not assign the ICD‑10 code.",
+     "else": "Assign ICD‑10 code as documented."
+    }
+   ],
+   "steps": [
+    "Verify Drug_Source in clinical.xlsx; if not \"CareIG\", do not bill any IVIG drug J‑code.",
+    "Check Premeds_Administered in visit_note.xlsx; if documentation of drug, dose, route, time, and indication is missing, do not bill pre‑medication J‑codes.",
+    "Use Dose_Administered_Grams from visit_note.xlsx for all unit calculations; never use the ordered dose.",
+    "Search claim.xlsx for existing Submission_Date for the same DOS; if present, do not submit a new claim.",
+    "If Balance > $200, obtain Director of Revenue Cycle approval via Slack #billing-mgmt before writing off; otherwise, do not write off.",
+    "If any legal threat or attorney communication is received, do not respond; immediately post the communication to #compliance.",
+    "Assign ICD‑10 codes only when supported by physician documentation and PA approval; otherwise, do not assign."
+   ],
+   "deadlines": [
+    "All verification steps must be completed before claim submission or billing entry."
+   ],
+   "must_not": [
+    "Bill any IVIG drug J‑code when clinical.xlsx col Drug_Source ≠ CareIG.",
+    "Bill pre‑medication J‑codes without complete Premeds_Administered documentation.",
+    "Use ordered dose for unit calculations; always use visit_note.xlsx col Dose_Administered_Grams.",
+    "Submit a claim when claim.xlsx already has Submission_Date populated for the same DOS.",
+    "Write off any balance > $200 without Director of Revenue Cycle approval (Slack #billing-mgmt).",
+    "Respond to legal threats or attorney communications; instead post to #compliance immediately.",
+    "Assign an ICD‑10 code not supported by the physician's documentation and the PA approval."
+   ],
+   "notes": [
+    "Prioritize verification of Drug_Source and Premeds_Administered before any billing entry.",
+    "Balance write‑off approvals must be captured in Slack #billing-mgmt for audit trail.",
+    "Legal communications are compliance‑only; avoid any direct reply."
+   ],
+   "links": [],
+   "id": "4.3",
+   "src": "§4.3"
+  },
+  {
+   "name": "6.1 Case Setup",
+   "category": "Intake",
+   "applies_when": "A new referral document is received for a patient.",
+   "inputs": [
+    {
+     "fact": "Patient_Last_Name, First_Name, DOB, Address, Phone, Email",
+     "source": "Referral document – patient fields"
+    },
+    {
+     "fact": "Physician_Name, Physician_NPI, Physician_Email",
+     "source": "Referral document – physician fields"
+    },
+    {
+     "fact": "Diagnosis_ICD10",
+     "source": "Referral document – diagnosis field"
+    },
+    {
+     "fact": "Drug_Name, Drug_Dose_Grams, Drug_Frequency",
+     "source": "Referral document – ordered drug fields (dose converted to grams if supplied in mg)"
+    },
+    {
+     "fact": "Primary_Insurance_Name, Member_ID, Group_Number, Payer_Phone",
+     "source": "Referral document – primary insurance fields"
+    },
+    {
+     "fact": "Secondary_Insurance_Name, Member_ID",
+     "source": "Referral document – secondary insurance fields (if listed)"
+    },
+    {
+     "fact": "Contraindications",
+     "source": "Referral document – allergies/contraindications"
+    },
+    {
+     "fact": "intake_blank.xlsx",
+     "source": "File system – template for new case"
+    }
+   ],
+   "decisions": [
+    {
+     "id": "D1",
+     "rule": "Physician_NPI column is blank after referral entry",
+     "then": "Post to #intake-alerts: \"[INTAKE HOLD] CASE_ID — Physician NPI missing\"; Email request for NPI to address in Physician_Email column; Halt further processing of this case.",
+     "else": "Proceed with normal case workflow."
+    }
+   ],
+   "steps": [
+    "Copy intake_blank.xlsx to create intake.xlsx for this case.",
+    "Populate intake.xlsx columns from the referral document using the required field mapping table.",
+    "Convert any Drug_Dose values from mg to grams before entering into Drug_Dose_Grams column.",
+    "Set Consent_Status column in intake.xlsx to \"Pending\".",
+    "Log to audit_log.xlsx: Action = \"Referral Received\".",
+    "If Physician_NPI is blank, execute decision D1 (post alert, email request, and stop)."
+   ],
+   "deadlines": [
+    "All steps must be completed immediately upon receipt of the referral."
+   ],
+   "must_not": [
+    "Do not proceed with case processing when Physician_NPI is missing."
+   ],
+   "notes": [
+    "Ensure drug dose conversion to grams is accurate.",
+    "Email request must reference the missing Physician NPI and be sent to the address in the Physician_Email column.",
+    "Consent_Status must always be set to \"Pending\" at case creation."
+   ],
+   "links": [
+    {
+     "type": "next",
+     "to": "6.2",
+     "when": "Physician_NPI is present"
+    }
+   ],
+   "id": "6.1",
+   "src": "§6.1"
+  },
+  {
+   "name": "6.2 Patient Contact",
+   "category": "Intake – Patient Contact",
+   "applies_when": "When a new case exists in intake.xlsx and patient contact has not yet been completed.",
+   "inputs": [
+    {
+     "fact": "Patient phone number",
+     "source": "intake.xlsx / column Patient_Phone"
+    },
+    {
+     "fact": "Patient name",
+     "source": "intake.xlsx / column Patient_Name"
+    },
+    {
+     "fact": "Your name (caller)",
+     "source": "operator / variable Your_Name"
+    },
+    {
+     "fact": "Physician name",
+     "source": "intake.xlsx / column Physician_Name"
+    },
+    {
+     "fact": "Pharmacy phone",
+     "source": "intake.xlsx / column Pharmacy_Phone"
+    },
+    {
+     "fact": "Physician email",
+     "source": "intake.xlsx / column Physician_Email"
+    },
+    {
+     "fact": "Patient email",
+     "source": "intake.xlsx / column Patient_Email"
+    },
+    {
+     "fact": "Patient address",
+     "source": "intake.xlsx / column Patient_Address"
+    },
+    {
+     "fact": "CASE_ID",
+     "source": "intake.xlsx / column CASE_ID"
+    },
+    {
+     "fact": "Insurance name",
+     "source": "intake.xlsx / column Insurance_Name"
+    },
+    {
+     "fact": "Drug name",
+     "source": "intake.xlsx / column Drug_Name"
+    },
+    {
+     "fact": "Drug dose (grams)",
+     "source": "intake.xlsx / column Drug_Dose_Grams"
+    }
+   ],
+   "decisions": [
+    {
+     "id": "contact_attempt_result",
+     "rule": "If call answer = none",
+     "then": "Leave voicemail verbatim and log No Answer / Voicemail.",
+     "else": "Log Reached and proceed to consent step."
+    },
+    {
+     "id": "unreachable_check",
+     "rule": "If Contact_Attempt_Log has 3 entries and none = Reached",
+     "then": "Post #intake-alerts [UNREACHABLE] CASE_ID — 3 failed attempts; complete Template 1 and email to Physician_Email; halt further processing.",
+     "else": "Continue with patient‑reached workflow."
+    },
+    {
+     "id": "consent_delivery_method",
+     "rule": "If Patient_Email is present",
+     "then": "Email consent form; set Consent_Status = Form Sent.",
+     "else": "Mail consent form to Patient_Address; note method in Contact_Attempt_Log; set Consent_Status = Form Sent."
+    },
+    {
+     "id": "bvs_start_condition",
+     "rule": "If BVS assigned and Consent_Status ≠ Signed",
+     "then": "Post #intake-alerts [CONSENT MISSING] CASE_ID; do not begin BV.",
+     "else": "Proceed with BV after BVS assignment."
+    }
+   ],
+   "steps": [
+    "Call patient using number from intake.xlsx col Patient_Phone. Use verbatim script: \"Hello, may I speak with [Patient Name]? This is [Your Name] from CareIG Specialty Pharmacy. Dr. [Physician_Name] has referred you for home IVIG infusion therapy. I'm calling to verify your information and explain next steps. Do you have a few minutes?\"",
+    "If no answer, leave voicemail verbatim (do not state diagnosis): \"Hello, this is [Your Name] from CareIG Specialty Pharmacy at [Phone]. We received a referral from your physician. Please call us back at your convenience. Thank you.\"",
+    "Log each attempt in intake.xlsx col Contact_Attempt_Log as: [Date] [Time] — [Reached / No Answer / Voicemail].",
+    "Check Contact_Attempt_Log; if three entries exist and none is Reached, post to #intake-alerts: [UNREACHABLE] CASE_ID — 3 failed attempts; complete Template 1 (Unable to Reach Patient — Email to Referring Physician) and email to intake.xlsx col Physician_Email; STOP further steps.",
+    "When patient is reached, confirm demographics, explain consent requirement, and send consent form:",
+    " If Patient_Email exists, email consent form to intake.xlsx col Patient_Email with subject \"CareIG — Consent Form Required | [Patient Last Name]\"; set intake.xlsx col Consent_Status = Form Sent.",
+    " If Patient_Email missing, mail consent form to intake.xlsx col Patient_Address; note mailing method in Contact_Attempt_Log; set intake.xlsx col Consent_Status = Form Sent.",
+    "Use spoken script: \"Before we schedule your visit, a signed Consent for Treatment and Financial Responsibility form is required. Once we verify your insurance, we will also contact you with your estimated out‑of‑pocket costs before scheduling.\"",
+    "When signed consent is received, save as consent_signed.pdf and set intake.xlsx col Consent_Status = Signed.",
+    "Assign a BVS; set intake.xlsx col BVS_Assigned; post to #intake-team: [BVS ASSIGNED] CASE_ID | Payer: [Insurance_Name] | Drug: [Drug_Name] | Dose: [Drug_Dose_Grams]g; log action in audit_log.xlsx with Action = BVS Assigned.",
+    "If BVS attempts BV and intake.xlsx col Consent_Status is not Signed, post to #intake-alerts: [CONSENT MISSING] CASE_ID and do not begin BV."
+   ],
+   "deadlines": [],
+   "must_not": [
+    "Do not state the diagnosis in the voicemail.",
+    "Do not proceed to BV before Consent_Status = Signed.",
+    "Do not continue after three failed contact attempts without alerting and emailing Template 1."
+   ],
+   "notes": [
+    "Use verbatim scripts exactly as written.",
+    "Alert #intake-alerts immediately after the third failed attempt.",
+    "Document every call attempt in Contact_Attempt_Log."
+   ],
+   "links": [
+    {
+     "type": "next",
+     "to": "7",
+     "when": ""
+    }
+   ],
+   "id": "6.2",
+   "src": "§6.2"
+  },
+  {
+   "name": "7.2 Drug Source Decision",
+   "category": "Drug Source Decision",
+   "applies_when": "Immediately after benefits verification (BV) is completed for a case.",
+   "inputs": [
+    {
+     "fact": "CareIG_Network_Status",
+     "source": "clinical.xlsx column CareIG_Network_Status"
+    },
+    {
+     "fact": "Specialty_Pharmacy_Required",
+     "source": "clinical.xlsx column Specialty_Pharmacy_Required"
+    },
+    {
+     "fact": "Specialty_Pharmacy_Name",
+     "source": "benefits.xlsx column Specialty_Pharmacy_Name"
+    },
+    {
+     "fact": "Benefit_Type",
+     "source": "benefits.xlsx column Benefit_Type"
+    },
+    {
+     "fact": "CASE_ID",
+     "source": "case management system"
+    }
+   ],
+   "decisions": [
+    {
+     "id": "D1",
+     "rule": "CareIG_Network_Status = In-Network AND Specialty_Pharmacy_Required = NO",
+     "then": "Drug_Source = CareIG",
+     "else": "Proceed to D2"
+    },
+    {
+     "id": "D2",
+     "rule": "CareIG_Network_Status = Out-of-Network AND Specialty_Pharmacy_Required = YES",
+     "then": "Drug_Source = value from benefits.xlsx column Specialty_Pharmacy_Name; CareIG bills nursing and supplies only — do not bill any IVIG drug J-code on the CareIG claim.",
+     "else": "Proceed to D3"
+    },
+    {
+     "id": "D3",
+     "rule": "CareIG_Network_Status = Out-of-Network AND Specialty_Pharmacy_Required = NO",
+     "then": "Post to #intakemgmt: [OON NO PREFERRED PHARMACY] CASE_ID; Supervisor must determine next step (single‑case agreement, patient referral, or self‑pay). Do not proceed until Drug_Source is confirmed by supervisor.",
+     "else": "Proceed to D4"
+    },
+    {
+     "id": "D4",
+     "rule": "Benefit_Type = Pharmacy",
+     "then": "Post to #billing-mgmt: [BENEFIT TYPE ISSUE] CASE_ID; Await Director guidance. Do not proceed until resolved.",
+     "else": "Proceed to D5"
+    },
+    {
+     "id": "D5",
+     "rule": "CareIG_Network_Status = In-Network AND Specialty_Pharmacy_Required = YES",
+     "then": "Drug_Source = value from benefits.xlsx column Specialty_Pharmacy_Name; CareIG bills nursing and supplies only. Do not bill any IVIG drug J‑code on the CareIG claim.",
+     "else": "No further action"
+    }
+   ],
+   "steps": [
+    "Write the drug source to clinical.xlsx column Drug_Source according to the applicable decision rule.",
+    "If D2 or D5 applies, set Drug_Source to the Specialty_Pharmacy_Name from benefits.xlsx and ensure the CareIG claim includes only nursing and supplies (no IVIG drug J‑code).",
+    "If D3 applies, post to Slack channel #intakemgmt: \"[OON NO PREFERRED PHARMACY] CASE_ID\" and wait for supervisor confirmation before proceeding.",
+    "If D4 applies, post to Slack channel #billing-mgmt: \"[BENEFIT TYPE ISSUE] CASE_ID\" and await Director guidance before proceeding.",
+    "If D1 applies, set Drug_Source = CareIG."
+   ],
+   "deadlines": [],
+   "must_not": [
+    "Do not bill any IVIG drug J‑code on the CareIG claim when Specialty_Pharmacy_Required = YES.",
+    "Do not proceed until Drug_Source is confirmed by supervisor for out‑of‑network, no preferred pharmacy cases.",
+    "Do not proceed until Director resolves a pharmacy‑benefit issue."
+   ],
+   "notes": [
+    "This decision step occurs immediately after benefits verification.",
+    "All Slack posts must use the exact channel names and message formats shown."
+   ],
+   "links": [],
+   "id": "7.2",
+   "src": "§7.2"
+  },
+  {
+   "name": "Formulary Check",
+   "category": "Prior Authorization",
+   "applies_when": "When preparing to submit a prior authorization (PA) for a case.",
+   "inputs": [
+    {
+     "fact": "Ordered drug name",
+     "source": "intake.xlsx col Drug_Name"
+    },
+    {
+     "fact": "Payer name",
+     "source": "benefits.xlsx col Primary_Insurance_Name"
+    },
+    {
+     "fact": "Payer formulary coverage list",
+     "source": "payer_rules.xlsx col Formulary_Covered_Drugs (row for the payer)"
+    },
+    {
+     "fact": "Prescribing physician phone number",
+     "source": "intake.xlsx col Physician_Phone"
+    },
+    {
+     "fact": "Case identifier",
+     "source": "intake.xlsx col CASE_ID"
+    }
+   ],
+   "decisions": [
+    {
+     "id": "D1",
+     "rule": "Ordered drug is NOT listed in payer_rules.xlsx col Formulary_Covered_Drugs for the payer",
+     "then": "Contact prescribing physician via phone to request an alternative covered drug or a written formulary exception letter.",
+     "else": "Proceed to Section 8.2."
+    },
+    {
+     "id": "D2",
+     "rule": "Physician provides a formulary exception letter",
+     "then": "Save letter as formulary_exception.pdf, document basis in auth.xlsx col Formulary_Exception_Notes, include in PA packet, then proceed to Section 8.2.",
+     "else": "Evaluate next outcome."
+    },
+    {
+     "id": "D3",
+     "rule": "Physician substitutes an alternative covered drug",
+     "then": "Update intake.xlsx col Drug_Name with the new drug and restart Section 8.1.",
+     "else": "If neither provided within 2 business days, post unresolved notice and hold the case."
+    }
+   ],
+   "steps": [
+    "Open payer_rules.xlsx and read the row for the payer identified in benefits.xlsx col Primary_Insurance_Name.",
+    "Check col Formulary_Covered_Drugs for the payer against the ordered drug (intake.xlsx col Drug_Name).",
+    "If the drug is not listed, call the prescribing physician using intake.xlsx col Physician_Phone to request either an alternative covered drug or a written formulary exception letter.",
+    "After the call (or if the physician could not be reached and the issue remains), post to #intake-team with the exact format: [FORMULARY ISSUE] CASE_ID | Drug: Drug_Name | Payer: Insurance_Name. Do NOT post this notice if physician guidance already on file (Section 4.4) resolves the issue.",
+    "If the physician provides a formulary exception letter, save it as formulary_exception.pdf, record the rationale in auth.xlsx col Formulary_Exception_Notes, attach the PDF to the PA packet, and move to Section 8.2.",
+    "If the physician substitutes an alternative covered drug, update intake.xlsx col Drug_Name with the new drug and restart this Formulary Check (Section 8.1).",
+    "If neither an exception letter nor a substitution is received within 2 business days, post to #intake-mgmt with the format: [FORMULARY UNRESOLVED] CASE_ID and place the case on hold."
+   ],
+   "deadlines": [
+    "Physician response (exception letter or alternative drug) must be obtained within 2 business days of the phone call."
+   ],
+   "must_not": [
+    "Do not submit the PA until a covered drug or a valid formulary exception letter is confirmed.",
+    "Do not post a [FORMULARY ISSUE] notice if existing physician guidance (Section 4.4) already resolves the issue."
+   ],
+   "notes": [
+    "Formulary check is a prerequisite for any PA submission.",
+    "Use the phone channel for physician contact as specified.",
+    "Maintain exact message formatting for Slack posts to #intake-team and #intake-mgmt."
+   ],
+   "links": [
+    {
+     "type": "next",
+     "to": "8.2",
+     "when": "Formulary issue resolved (exception letter or covered drug confirmed)."
+    },
+    {
+     "type": "repeat",
+     "to": "8.1",
+     "when": "Physician substitutes an alternative covered drug."
+    }
+   ],
+   "id": "8.1",
+   "src": "§8.1"
+  },
+  {
+   "name": "8.2 Required PA Documents",
+   "category": "Prior Authorization",
+   "applies_when": "When preparing to submit a Prior Authorization (PA) for a case.",
+   "inputs": [
+    {
+     "fact": "PA request form (payer‑specific)",
+     "source": "pa_form_[PayerName].pdf"
+    },
+    {
+     "fact": "Physician Letter of Medical Necessity (signed, on letterhead, dated within 90 days)",
+     "source": "lmn_[PhysicianName].pdf"
+    },
+    {
+     "fact": "Most recent IgG lab result (if applicable)",
+     "source": "igglevel_[MMDDYYYY].pdf"
+    },
+    {
+     "fact": "Most recent physician progress note",
+     "source": "progress_note_[MMDDYYYY].pdf"
+    },
+    {
+     "fact": "Formulary exception documentation (if applicable)",
+     "source": "formulary_exception.pdf"
+    }
+   ],
+   "decisions": [
+    {
+     "id": "doc_check",
+     "rule": "Any required document is missing or invalid",
+     "then": "Post alert to #intake-alerts and hold PA submission",
+     "else": "Proceed to PA submission (section 8.3)"
+    }
+   ],
+   "steps": [
+    "Save the payer‑specific PA request form as pa_form_[PayerName].pdf in the case folder.",
+    "Save the signed Physician Letter of Medical Necessity on letterhead, dated within 90 days, as lmn_[PhysicianName].pdf in the case folder.",
+    "If applicable, save the most recent IgG lab result as igglevel_[MMDDYYYY].pdf in the case folder.",
+    "Save the most recent physician progress note as progress_note_[MMDDYYYY].pdf in the case folder.",
+    "If applicable, save the formulary exception documentation as formulary_exception.pdf in the case folder.",
+    "If any required document is missing or invalid, post to #intake-alerts: \"[PA HOLD] CASE_ID — [missing / invalid]: [document name]\".",
+    "Do not submit the PA; follow procedure 4.2 (Stop Protocol) with reason \"invalid file\"."
+   ],
+   "deadlines": [],
+   "must_not": [
+    "Submit the PA when any required document is missing or invalid.",
+    "Ignore the #intake-alerts notification."
+   ],
+   "notes": [
+    "Letter of Medical Necessity must be dated within the last 90 days.",
+    "Only include IgG lab result and formulary exception documentation when they are applicable to the case."
+   ],
+   "links": [],
+   "id": "8.2",
+   "src": "§8.2"
+  },
+  {
+   "name": "PA Submission",
+   "category": "Prior Authorization",
+   "applies_when": "When a case has all required prior‑authorization documents and is ready to be sent to the payer.",
+   "inputs": [
+    {
+     "fact": "Payer PA email address",
+     "source": "payer_rules.xlsx / column PA_Submission_Email"
+    },
+    {
+     "fact": "Patient last name",
+     "source": "case record / patient profile"
+    },
+    {
+     "fact": "Member ID",
+     "source": "case record / member profile"
+    },
+    {
+     "fact": "Drug name",
+     "source": "case record / therapy details"
+    },
+    {
+     "fact": "Drug dose in grams",
+     "source": "case record / therapy details"
+    },
+    {
+     "fact": "Diagnosis ICD‑10 code",
+     "source": "case record / clinical notes"
+    },
+    {
+     "fact": "Case ID",
+     "source": "case management system"
+    },
+    {
+     "fact": "Payer name",
+     "source": "case record / payer selection"
+    },
+    {
+     "fact": "Required PA documents",
+     "source": "file system / PA document repository"
+    }
+   ],
+   "decisions": [],
+   "steps": [
+    "Email to payer PA address (value from payer_rules.xlsx PA_Submission_Email) with Subject: [PA REQUEST] CareIG | [Patient Last Name] | MemberID: [Member_ID] | Drug: [Drug_Name] | Dose: [Drug_Dose_Grams]g | Dx: [Diagnosis_ICD10]; attach all required PA documents.",
+    "Update auth.xlsx: set PA_Submission_Date = today, PA_Status = Pending, Last_Followup_Date = today.",
+    "Post to Slack channel #intake-team: \"[PA SUBMITTED] [CASE_ID] | Payer: [name] | Drug: [Drug_Name]\".",
+    "Log to audit_log.xlsx: Action = PA Submitted."
+   ],
+   "deadlines": [
+    "All steps must be completed on the same business day the PA is ready for submission."
+   ],
+   "must_not": [
+    "Do not submit the email without attaching all required PA documents."
+   ],
+   "notes": [
+    "High‑priority action – submit as soon as the required documents are gathered.",
+    "Ensure the subject line follows the exact format for tracking."
+   ],
+   "links": [],
+   "id": "8.3",
+   "src": "§8.3"
+  },
+  {
+   "name": "Peer-to-Peer (P2P) Request",
+   "category": "Peer-to-Peer Request",
+   "applies_when": "When a payer offers a P2P review after a denial.",
+   "inputs": [
+    {
+     "fact": "Payer offers a P2P review after denial",
+     "source": "Denial notice"
+    },
+    {
+     "fact": "Case ID",
+     "source": "intake.xlsx column CASE_ID"
+    },
+    {
+     "fact": "Physician Email",
+     "source": "intake.xlsx column Physician_Email"
+    },
+    {
+     "fact": "P2P_Status",
+     "source": "auth.xlsx column P2P_Status"
+    },
+    {
+     "fact": "P2P_Request_Date",
+     "source": "auth.xlsx column P2P_Request_Date"
+    },
+    {
+     "fact": "P2P_MD_Response_Date",
+     "source": "auth.xlsx column P2P_MD_Response_Date"
+    }
+   ],
+   "decisions": [
+    {
+     "id": "D1",
+     "rule": "P2P_Status = Requested AND P2P_MD_Response_Date is blank AND (today - P2P_Request_Date) >= 2 days",
+     "then": "Post to #intake-alerts: [P2P NO RESPONSE] CASE_ID; set P2P_Status = No Response; proceed to Level 1 appeal (Section 11).",
+     "else": "No action."
+    }
+   ],
+   "steps": [
+    "Call payer, obtain time slots, record in auth.xlsx column P2P_Available_Slots.",
+    "Complete Template 2 (Appendix A). Save as p2p_request.pdf.",
+    "Email p2p_request.pdf to the address in intake.xlsx column Physician_Email with subject line \"[P2P REQUEST] [CASE_ID] | [Payer]\".",
+    "Set auth.xlsx column P2P_Status = Requested and P2P_Request_Date = today."
+   ],
+   "deadlines": [
+    "If no MD response within 2 days of P2P_Request_Date, trigger alert and move to Level 1 appeal."
+   ],
+   "must_not": [],
+   "notes": [
+    "Record payer‑provided time slots accurately.",
+    "Use the exact subject line format for the email.",
+    "Follow the 2‑day monitoring rule strictly to avoid delays."
+   ],
+   "links": [],
+   "id": "8.5",
+   "src": "§8.5"
+  },
+  {
+   "name": "PA Approval — Clinical Handoff",
+   "category": "Prior Authorization",
+   "applies_when": "When a Prior Authorization (PA) is approved by the payer.",
+   "inputs": [
+    {
+     "fact": "PA approval PDF",
+     "source": "file system, saved as pa_approval_[PayerName].pdf"
+    },
+    {
+     "fact": "PA_Number, PA_Approved_Drug, PA_Approved_Dose, PA_Approved_Frequency, PA_Effective_Date, PA_Expiration_Date, PA_Status",
+     "source": "auth.xlsx"
+    },
+    {
+     "fact": "Handoff_Status, PA_Number, PA_Expiration_Date",
+     "source": "clinical.xlsx"
+    },
+    {
+     "fact": "Drug_Name, Drug_Dose_Grams",
+     "source": "intake.xlsx"
+    },
+    {
+     "fact": "CASE_ID",
+     "source": "case record (intake.xlsx or case management system)"
+    },
+    {
+     "fact": "Drug_Source",
+     "source": "determined earlier in workflow (e.g., intake.xlsx or decision log)"
+    }
+   ],
+   "decisions": [
+    {
+     "id": "drug_mismatch",
+     "rule": "lowercase(PA_Approved_Drug) != lowercase(intake.Drug_Name)",
+     "then": "Post drug mismatch alert to #intake-alerts and halt scheduling until resolved.",
+     "else": "Proceed without drug mismatch alert."
+    },
+    {
+     "id": "dose_mismatch",
+     "rule": "PA_Approved_Dose < intake.Drug_Dose_Grams",
+     "then": "Post dose mismatch alert to #intake-alerts, do not schedule, and require BVS to contact payer for full dose approval.",
+     "else": "Proceed without dose mismatch alert."
+    }
+   ],
+   "steps": [
+    "Save PA approval as pa_approval_[PayerName].pdf.",
+    "Update auth.xlsx: set PA_Number, PA_Approved_Drug, PA_Approved_Dose, PA_Approved_Frequency, PA_Effective_Date, PA_Expiration_Date, PA_Status = Approved.",
+    "Update clinical.xlsx: set Handoff_Status = Received, PA_Number, PA_Expiration_Date.",
+    "Post to #clinical-scheduling: [PA APPROVED] [CASE_ID] | Drug: [PA_Approved_Drug] | Dose: - [PA_Approved_Dose]g | PA#: [PA_Number] | Exp: [PA_Expiration_Date] | Drug Source: [Drug_Source].",
+    "If PA_Approved_Drug does not match intake.xlsx column Drug_Name (case‑insensitive), post to #intake-alerts: [PA DRUG MISMATCH] CASE_ID | Ordered: [Drug_Name] | Approved: [PA_Approved_Drug]. Resolve with payer before scheduling.",
+    "If PA_Approved_Dose is less than intake.xlsx column Drug_Dose_Grams, post to #intake-alerts: [PA DOSE MISMATCH] CASE_ID | Ordered: [Drug_Dose_Grams]g | Approved: [PA_Approved_Dose]g. Do not schedule. BVS must contact payer to request approval for the full ordered dose before proceeding.",
+    "Log to audit_log.xlsx: Action = PA Approved — Clinical Handoff."
+   ],
+   "deadlines": [],
+   "must_not": [
+    "Do not schedule the patient while a drug mismatch or dose mismatch alert is active."
+   ],
+   "notes": [
+    "Priority: Resolve any mismatch alerts before any clinical scheduling actions.",
+    "All postings must follow the exact message format shown in the SOP."
+   ],
+   "links": [
+    {
+     "type": "next",
+     "to": "9",
+     "when": "No drug or dose mismatches remain."
+    }
+   ],
+   "id": "8.6",
+   "src": "§8.6"
+  },
+  {
+   "name": "PA Denial Handling",
+   "category": "Prior Authorization",
+   "applies_when": "When a prior authorization request is denied by the payer.",
+   "inputs": [
+    {
+     "fact": "Denial text from payer",
+     "source": "PA response communication (email/portal)"
+    },
+    {
+     "fact": "Payer name",
+     "source": "PA response communication (email/portal)"
+    },
+    {
+     "fact": "CASE_ID",
+     "source": "auth.xlsx (Case_ID column)"
+    },
+    {
+     "fact": "Current authorization record",
+     "source": "auth.xlsx"
+    }
+   ],
+   "decisions": [
+    {
+     "id": "D1",
+     "rule": "PA_Status == 'Denied'",
+     "then": "Proceed to Section 11 (Appeal Management)",
+     "else": "No further action"
+    }
+   ],
+   "steps": [
+    "Update auth.xlsx: set PA_Denial_Date = today, PA_Denial_Reason = denial text, PA_Status = Denied.",
+    "Post to #billing-appeals channel: [PA DENIED] [CASE_ID] | Payer: [name] | Reason: [PA_Denial_Reason].",
+    "Log to audit_log.xlsx: Action = PA Denied."
+   ],
+   "deadlines": [
+    "All three actions must be completed on the same business day the denial is received."
+   ],
+   "must_not": [],
+   "notes": [
+    "High priority – immediate posting triggers the appeal workflow in Section 11."
+   ],
+   "links": [
+    {
+     "type": "next",
+     "to": "11",
+     "when": ""
+    }
+   ],
+   "id": "8.7",
+   "src": "§8.7"
+  },
+  {
+   "name": "Nurse Scheduling for IVIG Home Infusion",
+   "category": "9.2 Nurse Scheduling",
+   "applies_when": "When an IVIG infusion visit must be scheduled for a patient case.",
+   "inputs": [
+    {
+     "fact": "Patient zip code",
+     "source": "intake.xlsx column Patient_Zip"
+    },
+    {
+     "fact": "Nurse credential requirement (RN for first visit, state‑specific rule for subsequent visits)",
+     "source": "payer_rules.xlsx column Nursing_Credential_Requirement"
+    },
+    {
+     "fact": "Ordered drug name and dose range",
+     "source": "intake.xlsx columns Drug_Name, Dose_Range"
+    },
+    {
+     "fact": "Estimated infusion duration (hours)",
+     "source": "infusion_duration.xlsx row matching Drug_Name and Dose_Range column Estimated_Visit_Length"
+    },
+    {
+     "fact": "Case identifier",
+     "source": "clinical.xlsx column CASE_ID"
+    },
+    {
+     "fact": "Patient name",
+     "source": "intake.xlsx column Patient_Name"
+    },
+    {
+     "fact": "Patient contact information (phone/email)",
+     "source": "intake.xlsx column Patient_Contact"
+    },
+    {
+     "fact": "Drug details for nurse email (lot number, NDC, infusion rate, pre‑med orders, emergency contact, contraindications)",
+     "source": "intake.xlsx columns Lot_Number, NDC, Infusion_Rate, Pre_Med_Orders, Emergency_Contact, Contraindications"
+    }
+   ],
+   "decisions": [
+    {
+     "id": "select_nurse",
+     "rule": "Nurse zip code matches patient zip code AND nurse credential satisfies requirement (RN required for first visit; otherwise per payer_rules.xlsx Nursing_Credential_Requirement)",
+     "then": "Assign matching nurse to the case",
+     "else": "Flag for manual nurse selection"
+    }
+   ],
+   "steps": [
+    "20. Select nurse matching patient zip code and credential (RN required for first visit; verify state rules in payer_rules.xlsx col Nursing_Credential_Requirement for subsequent visits).",
+    "21. Create calendar event: Title = \"IVIG Visit — [CASE_ID]\" and add the assigned nurse as an attendee.",
+    "22. Set event duration using the estimated infusion times from infusion_duration.xlsx. Look up the row matching the ordered drug and dose range to find the estimated visit length in hours.",
+    "23. Confirm the visit with the patient using the script: \"Hello [Patient Name], this is [Your Name] from CareIG. Your insurance has approved your IVIG infusion. We have availability on [Date] at [Time] — does that work for you? The visit will take approximately [X] hours.\"",
+    "24. Update clinical.xlsx with Visit_Date, Visit_Time, and Nurse_Assigned. Post a message to #clinical-scheduling channel using the format: [SCHEDULED] [CASE_ID] | Date: [Visit_Date] | Nurse: [Nurse_Assigned].",
+    "25. Email the assigned nurse. Subject: \"[VISIT ASSIGNMENT] [CASE_ID] | [Date]\". Include patient address, drug name, dose, lot number, NDC, infusion rate, pre‑med orders, emergency contact, and contraindications (sourced from intake.xlsx)."
+   ],
+   "deadlines": [],
+   "must_not": [],
+   "notes": [
+    "RN credential is mandatory for the first infusion visit.",
+    "Verify state‑specific nursing credential rules before assigning a non‑RN for subsequent visits."
+   ],
+   "links": [],
+   "id": "9.2",
+   "src": "§9.2"
+  },
+  {
+   "name": "10.3 Claim Submission",
+   "category": "Billing",
+   "applies_when": "When a claim.xlsx has been prepared and is ready for submission for a specific date of service.",
+   "inputs": [
+    {
+     "fact": "claim.xlsx (the claim data file)",
+     "source": "file claim.xlsx"
+    },
+    {
+     "fact": "payer billing email address",
+     "source": "payer_rules.xlsx column Claim_Submission_Email"
+    },
+    {
+     "fact": "CareIG NPI",
+     "source": "system configuration / NPI record"
+    },
+    {
+     "fact": "Patient Last Name",
+     "source": "claim.xlsx column Patient_Last_Name"
+    },
+    {
+     "fact": "Member_ID",
+     "source": "claim.xlsx column Member_ID"
+    },
+    {
+     "fact": "Visit_Date (Date of Service)",
+     "source": "claim.xlsx column Visit_Date"
+    },
+    {
+     "fact": "Total_Billed amount",
+     "source": "claim.xlsx column Total_Billed"
+    },
+    {
+     "fact": "CASE_ID",
+     "source": "claim.xlsx column CASE_ID"
+    },
+    {
+     "fact": "Payer name",
+     "source": "payer_rules.xlsx column Payer_Name"
+    }
+   ],
+   "decisions": [],
+   "steps": [
+    "Export claim.xlsx to PDF named claim_[DOS].pdf.",
+    "Email claim_[DOS].pdf to the payer billing address (from payer_rules.xlsx column Claim_Submission_Email) with subject line: \"[CLAIM SUBMISSION] CareIG NPI: [NPI] | [Patient Last Name] | MemberID: [Member_ID] | DOS: [Visit_Date]\".",
+    "After sending, update claim.xlsx: set Submission_Date = today, Submission_Ref_Number = email confirmation ID, and Claim_Status = Submitted.",
+    "Post a message to the #billing channel: \"[CLAIM SUBMITTED] [CASE_ID] | DOS: [Visit_Date] | Payer: [name] | Billed: $[Total_Billed]\".",
+    "Log the action to audit_log.xlsx with Action = \"Claim Submitted\"."
+   ],
+   "deadlines": [
+    "All steps must be completed on the same business day the claim is ready for submission."
+   ],
+   "must_not": [],
+   "notes": [
+    "Verify that the PDF version matches the data in claim.xlsx before emailing.",
+    "Confirm the payer email address is current in payer_rules.xlsx before sending."
+   ],
+   "links": [
+    {
+     "type": "next",
+     "to": "10.4",
+     "when": ""
+    }
+   ],
+   "id": "10.3",
+   "src": "§10.3"
+  },
+  {
+   "name": "10.4 ERA & Payment Posting",
+   "category": "Billing & Payment Posting",
+   "applies_when": "When an ERA or EOB document is received from a payer via email.",
+   "inputs": [
+    {
+     "fact": "ERA/EOB document attachment",
+     "source": "email to billing@careig.com"
+    },
+    {
+     "fact": "Paid_Amount",
+     "source": "ERA/EOB document"
+    },
+    {
+     "fact": "Contracted_Rate",
+     "source": "payer_rules.xlsx column Contracted_Rate"
+    },
+    {
+     "fact": "CARC-coded denial lines with $0 paid",
+     "source": "ERA/EOB document"
+    },
+    {
+     "fact": "Patient_Responsibility",
+     "source": "claim.xlsx column Patient_Responsibility"
+    },
+    {
+     "fact": "Patient name, DOS, billed amount, insurance payment, patient balance",
+     "source": "claim.xlsx and intake.xlsx"
+    },
+    {
+     "fact": "Patient email address",
+     "source": "intake.xlsx column Patient_Email"
+    }
+   ],
+   "decisions": [
+    {
+     "id": "D1",
+     "rule": "Paid_Amount < Contracted_Rate",
+     "then": "Post underpayment message to #billing-mgmt and do not write off.",
+     "else": "Proceed without underpayment posting."
+    },
+    {
+     "id": "D2",
+     "rule": "ERA contains any CARC‑coded line with $0 paid",
+     "then": "Create denial worksheet and follow Section 11.",
+     "else": "No denial worksheet needed."
+    },
+    {
+     "id": "D3",
+     "rule": "Patient_Responsibility > 0",
+     "then": "Generate and email patient statement.",
+     "else": "No patient statement required."
+    }
+   ],
+   "steps": [
+    "Download the ERA/EOB attachment from the email received at billing@careig.com and save it as era_[DOS]_[Payer].pdf.",
+    "Compare Paid_Amount to payer_rules.xlsx column Contracted_Rate; if Paid_Amount < Contracted_Rate, post to #billing-mgmt: [UNDERPAYMENT] CASE_ID | Payer: [name] | Expected: $[rate] | Received: $[paid] and do not write off.",
+    "If the ERA contains a denial (any CARC‑coded line with $0 paid), copy denial_blank.xlsx to create DENIAL_[CARC]_[DOS].xlsx and populate CARC_Code, Denial_Date, DOS, Denied_Code, Denied_Amount; then follow Section 11.",
+    "Update claim.xlsx: set Payment_Posted_Date = today and Claim_Status = Paid / Partially Paid / Denied as appropriate.",
+    "If Patient_Responsibility > 0, complete patient_statement_template.docx with patient name, DOS, billed amount, insurance payment, and patient balance; save as statement_[DOS].pdf; email the PDF to the patient using the address in intake.xlsx column Patient_Email with subject \"CareIG Statement of Account | DOS: [Visit_Date]\"."
+   ],
+   "deadlines": [
+    "All actions to be performed upon receipt of the ERA/EOB document."
+   ],
+   "must_not": [
+    "Do not write off underpayment when Paid_Amount is less than Contracted_Rate.",
+    "Do not send a patient statement when Patient_Responsibility equals 0."
+   ],
+   "notes": [
+    "Underpayment notifications should be posted to #billing-mgmt immediately for timely follow‑up.",
+    "Denial worksheets must be created using the exact naming convention DENIAL_[CARC]_[DOS].xlsx."
+   ],
+   "links": [
+    {
+     "type": "next",
+     "to": "11",
+     "when": "Denial worksheet created (D2 true)"
+    }
+   ],
+   "id": "10.4",
+   "src": "§10.4"
+  },
+  {
+   "name": "11.2 Appeal Submission",
+   "category": "Appeal Management",
+   "applies_when": "When a claim is denied and an appeal (Level 1 or Level 2) must be filed.",
+   "inputs": [
+    {
+     "fact": "Original claim PDF",
+     "source": "claims folder"
+    },
+    {
+     "fact": "Prior Authorization approval",
+     "source": "PA approval document"
+    },
+    {
+     "fact": "Physician LMN",
+     "source": "physician documentation"
+    },
+    {
+     "fact": "Visit note export",
+     "source": "visit_note export file"
+    },
+    {
+     "fact": "ERA/EOB showing the denial",
+     "source": "ERA/EOB file"
+    },
+    {
+     "fact": "Appeal submission email address",
+     "source": "payer_rules.xlsx column Appeal_Submission_Email"
+    },
+    {
+     "fact": "Case ID, DOS, Payer, CARC code, Submission Ref Number, Member ID",
+     "source": "case management system / claim record"
+    }
+   ],
+   "decisions": [
+    {
+     "id": "D1",
+     "rule": "(today − Appeal_Submitted_Date) ≥ 15 days AND Appeal_Status = \"Submitted\"",
+     "then": "Call payer appeal department and log call in payer_rules.xlsx column Followup_Log.",
+     "else": "No immediate action."
+    },
+    {
+     "id": "D2",
+     "rule": "Appeal_Level = \"Level 2\" AND Appeal_Status = \"Denied\"",
+     "then": "Post to #billing-mgmt channel and notify Director of Revenue Cycle for next action.",
+     "else": "Continue normal monitoring."
+    }
+   ],
+   "steps": [
+    "Gather from: original claim PDF, PA approval, physician LMN, visit_note export, and ERA/EOB showing the denial.",
+    "Complete appeal_template.docx and save as appeal_L[1 or 2]_[DOS].pdf.",
+    "Email appeal to the address in payer_rules.xlsx column Appeal_Submission_Email. Subject line: [APPEAL L[1/2]] CareIG | [Patient Last Name] | MemberID: [Member_ID] | DOS: [DOS] | Claim: [Submission_Ref_Number] | CARC: [code]. Attach all gathered documents.",
+    "Update appeals/appeals_log.xlsx with DOS, CARC_Code, Appeal_Level, Appeal_Submitted_Date, and set Appeal_Status = \"Submitted\".",
+    "Post to Slack channel #billing-appeals: [APPEAL FILED L[1/2]] [CASE_ID] | DOS | Payer | CARC.",
+    "If (today − Appeal_Submitted_Date) ≥ 15 days and Appeal_Status = \"Submitted\", call payer appeal department, then log Date, Time, Rep name, Reference #, and Next follow‑up date in payer_rules.xlsx column Followup_Log.",
+    "If Level 2 appeal is denied, post to #billing-mgmt: [L2 DENIED] CASE_ID. Director of Revenue Cycle determines next action (write‑off, IRO request, or state commissioner complaint).",
+    "Log the action \"Appeal Submitted\" to audit_log.xlsx."
+   ],
+   "deadlines": [
+    "Appeal email must be sent immediately after completing the appeal PDF.",
+    "Follow‑up call must be made no later than 15 days after Appeal_Submitted_Date if status remains \"Submitted\"."
+   ],
+   "must_not": [
+    "Do not email the appeal without attaching all required documents (original claim PDF, PA approval, physician LMN, visit_note export, ERA/EOB)."
+   ],
+   "notes": [
+    "Level 1 appeals are filed first; only if denied proceed to Level 2.",
+    "All log updates must be performed in the exact files and columns named by the SOP."
+   ],
+   "links": [],
+   "id": "11.2",
+   "src": "§11.2"
+  }
+ ],
+ "templates": {
+  "1": {
+   "number": 1,
+   "name": "Unable to Reach Patient — Email to Referring Physician",
+   "text": "```\nRecipient: [intake.xlsx col Physician_Email]\nSubject line: Unable to Contact Patient  |  CASE_ID: [CASE_ID]\n```\n\n```\nBody:\n\"Dear Dr. [Physician_Name],\n```\n\n```\nWe received a referral for [Patient First Last] (DOB: [MMDDYYYY]).\nAfter 3 contact attempts, we have been unable to reach the patient\nat the number on file: [Patient_Phone].\n```\n\n```\nAttempt 1: [intake.xlsx Contact_Attempt_Log entry 1]\nAttempt 2: [intake.xlsx Contact_Attempt_Log entry 2]\nAttempt 3: [intake.xlsx Contact_Attempt_Log entry 3]\n```\n\n```\nPlease provide an alternate contact or assist in connecting the patient\nwith our team. We cannot proceed until contact is established.\n```\n\n```\n[Patient Rep Full Name] — CareIG Specialty Pharmacy, Intake\"\n```",
+   "slots": [
+    "[CASE_ID]",
+    "[MMDDYYYY]",
+    "[Patient First Last]",
+    "[Patient Rep Full Name]",
+    "[Patient_Phone]",
+    "[Physician_Name]",
+    "[intake.xlsx Contact_Attempt_Log entry 1]",
+    "[intake.xlsx Contact_Attempt_Log entry 2]",
+    "[intake.xlsx Contact_Attempt_Log entry 3]",
+    "[intake.xlsx col Physician_Email]"
+   ],
+   "section": "s51"
+  },
+  "2": {
+   "number": 2,
+   "name": "Peer-to-Peer Request Email to Physician",
+   "text": "```\nDATE: [today]\nTO:   Dr. [Physician_Name]  |  EMAIL: [intake.xlsx col Physician_Email]\nFROM: CareIG Specialty Pharmacy — Prior Authorization\nRE:   P2P Review Request  |  CASE_ID: [CASE_ID]\n      Patient: [First Last]  |  DOB: [Patient_DOB]\n```\n\n```\nDear Dr. [Physician_Name],\n[Patient_Last_Name]'s PA for [auth.xlsx PA_Drug_Submitted] [PA_Dose_Submitted]g was\ndenied by [Payer] with reason: [auth.xlsx PA_Denial_Reason].\nThe payer has offered a peer-to-peer review. Available slots:\n[auth.xlsx P2P_Available_Slots — one per line]\n```\n\n```\nTo schedule: call [benefits.xlsx PA_Phone]\n```\n\n```\nNo response within 2 business days = CareIG will file a Level 1 written appeal.\nReply to: pa@careig.com\n```\n\n```\n[BVS Name] — CareIG Specialty Pharmacy, Prior Authorization\n```",
+   "slots": [
+    "[BVS Name]",
+    "[CASE_ID]",
+    "[First Last]",
+    "[PA_Dose_Submitted]",
+    "[Patient_DOB]",
+    "[Patient_Last_Name]",
+    "[Payer]",
+    "[Physician_Name]",
+    "[auth.xlsx P2P_Available_Slots — one per line]",
+    "[auth.xlsx PA_Denial_Reason]",
+    "[auth.xlsx PA_Drug_Submitted]",
+    "[benefits.xlsx PA_Phone]",
+    "[intake.xlsx col Physician_Email]",
+    "[today]"
+   ],
+   "section": "s52"
+  },
+  "3": {
+   "number": 3,
+   "name": "Appeal Letter — Level 1 and Level 2",
+   "text": "```\nDATE: [today]\nTO:   [Payer] Appeals Dept.\n      [payer_rules.xlsx col Appeal_Submission_Email]\nFROM: CareIG Specialty Pharmacy  |  NPI: [CareIG_NPI]  |  Tax ID: [CareIG_Tax_ID]\n```\n\n```\nAPPEAL LEVEL: [1 / 2]\nPatient:      [Last Name, First Name]\nMember ID:    [intake.xlsx Primary_Member_ID]\nDOS:          [claim.xlsx DOS]\nClaim #:      [claim.xlsx Submission_Ref_Number]\nCARC:         [code] — [description]\nBilled:       $[claim.xlsx Total_Billed]\n```\n\n```\nDear Appeals Department,\n```\n\n```\nCareIG Specialty Pharmacy submits this Level [1/2] appeal for [Patient Name].\nThe claim was denied with CARC [code]: [description].\n```\n\n```\nBasis for Appeal:\n```\n\n```\nPA #[auth.xlsx PA_Number] was approved for [PA_Approved_Drug] [PA_Approved_Dose]g,\neffective [PA_Effective_Date] through [PA_Expiration_Date]. The service on [DOS] is\nconsistent with the approved authorization and ICD-10 [Diagnosis_ICD10].\n[Add specific clinical basis referencing attached documents.]\n```\n\n```\nAttached:\n```\n\n```\n1. Original claim — claim_[DOS].pdf\n```\n\n```\n2. PA approval — pa_approval_[Payer].pdf (PA#: [PA_Number])\n```\n\n```\n3. Physician LMN — lmn_[PhysicianName].pdf\n```\n\n```\n4. Nursing visit note (exported from visit_note.xlsx)\n```\n\n```\n5. Lab results — igglevel_[MMDDYYYY].pdf\n```\n\n```\n6. ERA/EOB — era_[DOS]_[Payer].pdf\n```\n\n```\nCareIG requests reconsideration at contracted rate: $[payer_rules.xlsx\nContracted_Rate].\nContact: billing@careig.com  |  [CareIG Billing Phone]\n```\n\n```\n[Billing Specialist Name, Credential] — CareIG Specialty Pharmacy, Billing\n```\n\n**— END OF DOCUMENT — CareIG-SOP-BILL-001 v5.0 —**",
+   "slots": [
+    "[1 / 2]",
+    "[1/2]",
+    "[Add specific clinical basis referencing attached documents.]",
+    "[Billing Specialist Name, Credential]",
+    "[CareIG Billing Phone]",
+    "[CareIG_NPI]",
+    "[CareIG_Tax_ID]",
+    "[DOS]",
+    "[Diagnosis_ICD10]",
+    "[Last Name, First Name]",
+    "[MMDDYYYY]",
+    "[PA_Approved_Dose]",
+    "[PA_Approved_Drug]",
+    "[PA_Effective_Date]",
+    "[PA_Expiration_Date]",
+    "[PA_Number]",
+    "[Patient Name]",
+    "[Payer]",
+    "[PhysicianName]",
+    "[auth.xlsx PA_Number]",
+    "[claim.xlsx DOS]",
+    "[claim.xlsx Submission_Ref_Number]",
+    "[claim.xlsx Total_Billed]",
+    "[code]",
+    "[description]",
+    "[intake.xlsx Primary_Member_ID]",
+    "[payer_rules.xlsx col Appeal_Submission_Email]",
+    "[today]"
+   ],
+   "section": "s53"
+  }
+ },
+ "calendar": {
+  "workdays": [
+   0,
+   1,
+   2,
+   3,
+   4
+  ],
+  "holidays": []
+ },
+ "checks": {
+  "procedures": 15,
+  "templates": 3,
+  "steps_dropped_ungrounded": 20
+ }
+}

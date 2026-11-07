@@ -1,0 +1,242 @@
+{
+ "id": "policy",
+ "version": "compiled",
+ "built_by": "aws/gpt-oss-120b",
+ "global_rules": [
+  {
+   "id": "R1",
+   "src": "1. General Operational Instructions and Constraints",
+   "rule": "If a user request violates any rule herein, you must halt the operation and provide the specific policy reason before pausing."
+  },
+  {
+   "id": "R2",
+   "src": "1. General Operational Instructions and Constraints",
+   "rule": "Perform one validated operation at a time (atomic operations) unless using approved batch endpoints."
+  },
+  {
+   "id": "R3",
+   "src": "1. General Operational Instructions and Constraints",
+   "rule": "Do not disclose information that is outside the authenticated user's access scope."
+  },
+  {
+   "id": "R4",
+   "src": "1. General Operational Instructions and Constraints",
+   "rule": "Do not ask for further information; if a request is ambiguous, return the list of ambiguities and required fields."
+  },
+  {
+   "id": "R5",
+   "src": "1. General Operational Instructions and Constraints",
+   "rule": "All create or update requests must validate that every mandatory field is present."
+  },
+  {
+   "id": "R6",
+   "src": "1. General Operational Instructions and Constraints",
+   "rule": "Never assume or fabricate IDs, responses, or outcomes – rely solely on verified API results."
+  },
+  {
+   "id": "R7",
+   "src": "2. Roles & Responsibilities and Access Scope",
+   "rule": "Access rights are defined by roles (admin, manager, agent, reporter) and grant granular CRUD permissions as listed."
+  },
+  {
+   "id": "R8",
+   "src": "3.1 Incident Registration",
+   "rule": "Mandatory inputs for incident creation are opened_by, caller_id, short_description, impact, and urgency."
+  },
+  {
+   "id": "R9",
+   "src": "3.1 Incident Registration",
+   "rule": "Priority is automatically calculated from the Impact × Urgency matrix."
+  },
+  {
+   "id": "R10",
+   "src": "3.1 Incident Registration",
+   "rule": "All new incidents are created with status = new."
+  },
+  {
+   "id": "R11",
+   "src": "3.2 Incident Assignment",
+   "rule": "assigned_to must be an active user with the Agent or Manager role and a member of the specified assignment_group."
+  },
+  {
+   "id": "R12",
+   "src": "3.3 Incident Lifecycle and Closure",
+   "rule": "Valid status transitions are: new → in_progress/on_hold/resolved; in_progress → on_hold/resolved; on_hold → in_progress (requires on_hold_reason); resolved → closed/in_progress."
+  },
+  {
+   "id": "R13",
+   "src": "3.3 Incident Lifecycle and Closure",
+   "rule": "An incident cannot transition to resolved without resolution_code and resolution_notes (max 2000 characters)."
+  },
+  {
+   "id": "R14",
+   "src": "3.3 Incident Lifecycle and Closure",
+   "rule": "Incidents in resolved status automatically transition to closed after 72 hours."
+  },
+  {
+   "id": "R15",
+   "src": "4.1 Change Management",
+   "rule": "All changes must originate from a Change Request record; new changes start with status = new."
+  },
+  {
+   "id": "R16",
+   "src": "4.1 Change Management",
+   "rule": "Change types are enumerated as standard, normal, or emergency."
+  },
+  {
+   "id": "R17",
+   "src": "4.2 Problem Management",
+   "rule": "A Problem must be created when a recurring incident pattern or major incident is identified."
+  },
+  {
+   "id": "R18",
+   "src": "4.2 Problem Management",
+   "rule": "A Problem must link all affected incidents via the incident_to_problem related list."
+  },
+  {
+   "id": "R19",
+   "src": "4.2 Problem Management",
+   "rule": "If a workaround is found, update the workaround field, set status = fix_in_progress, and publish workaround_notes to linked incidents and relevant knowledge articles."
+  },
+  {
+   "id": "R20",
+   "src": "4.2 Problem Management",
+   "rule": "A Problem can close only after a permanent fix is implemented via a linked normal or emergency Change Request."
+  },
+  {
+   "id": "R21",
+   "src": "5.1 Configuration Item (CI) Integrity",
+   "rule": "Only CIs with status = in_use or maintenance may be linked to active incidents; retired or disposed CIs must not be linked."
+  },
+  {
+   "id": "R22",
+   "src": "5.1 Configuration Item (CI) Integrity",
+   "rule": "Every CI must have an owner_id recorded."
+  },
+  {
+   "id": "R23",
+   "src": "6 Service Level Management (SLA)",
+   "rule": "SLA timers must be paused (stage = paused) when an incident is on_hold for Awaiting Change, Awaiting Caller, or Awaiting Problem."
+  },
+  {
+   "id": "R24",
+   "src": "6 Service Level Management (SLA)",
+   "rule": "If SLA exceeds its target (stage = breached), set the escalation flag on the incident to true and automatically notify the Manager."
+  },
+  {
+   "id": "R25",
+   "src": "7 Knowledge Management",
+   "rule": "Only knowledge articles with state = published are searchable by the Reporter role."
+  },
+  {
+   "id": "R26",
+   "src": "7 Knowledge Management",
+   "rule": "When an incident is created, perform a knowledge search and link matching articles as used_as = suggested."
+  },
+  {
+   "id": "R27",
+   "src": "8.1 Data Integrity Checks",
+   "rule": "Ensure any user assigned to a record is active (users.active = true)."
+  },
+  {
+   "id": "R28",
+   "src": "8.2 Error Handling",
+   "rule": "Return 403 Forbidden for permission‑denied actions, 409 Conflict for state conflicts, and apply exponential back‑off on rate‑limit violations."
+  }
+ ],
+ "triage": {
+  "name": "Initial Triage",
+  "src": "3.1 Incident Registration",
+  "steps": [
+   "Validate confirmed user role (must be Reporter, Agent, Manager, or Administrator).",
+   "Check that all mandatory incident fields (opened_by, caller_id, short_description, impact, urgency) are present; if any are missing, stop and report the missing field.",
+   "Calculate incident priority using the Impact × Urgency matrix.",
+   "Search published knowledge articles for relevance and link as suggested.",
+   "If any validation fails, halt further processing."
+  ]
+ },
+ "routing": {
+  "incident": {
+   "jira": "INC-${number}",
+   "assignee": "assigned_to (Agent or Manager)",
+   "folder": "Incidents",
+   "channel_if_a_step_posts": "email"
+  },
+  "change_request": {
+   "jira": "CHG-${number}",
+   "assignee": "change_manager (Manager role)",
+   "folder": "Changes",
+   "channel_if_a_step_posts": "email"
+  },
+  "problem": {
+   "jira": "PRB-${number}",
+   "assignee": "problem_owner (Agent or Manager)",
+   "folder": "Problems",
+   "channel_if_a_step_posts": "email"
+  }
+ },
+ "housekeeping": {
+  "name": "Operational Housekeeping",
+  "src": "8.1 Data Integrity Checks",
+  "steps": [
+   "Log every create, update, and state transition with timestamp and user_id.",
+   "Verify referential integrity before closing any record.",
+   "Archive incidents that have been in closed status for more than 90 days.",
+   "Retain audit logs for the minimum compliance period defined by governance."
+  ]
+ },
+ "priority": {
+  "name": "Incident & Problem Priority",
+  "src": "3.1 Incident Registration / 4.2 Problem Management",
+  "levels": [
+   "critical",
+   "high",
+   "moderate",
+   "low",
+   "planning"
+  ]
+ },
+ "escalation": {
+  "name": "SLA Breach Escalation",
+  "src": "6 Service Level Management (SLA)",
+  "steps": [
+   "Monitor SLA timer against target_mins.",
+   "When stage becomes breached, set escalation = true on the incident.",
+   "Automatically send notification to the Manager.",
+   "Manager must review and reassign or approve corrective action."
+  ],
+  "must_not": [
+   "Do not automatically close an incident that has breached SLA.",
+   "Do not bypass Manager approval for emergency changes without proper CAB override."
+  ]
+ },
+ "definitions": {
+  "Incident": "A record of an unplanned interruption or reduction in quality of an IT service, managed through its full lifecycle from creation to closure.",
+  "Change Request": "A formal proposal to modify, add, or remove a configuration item or service, categorized as standard, normal, or emergency.",
+  "Problem": "The underlying cause of one or more incidents, tracked to identify workarounds and permanent fixes.",
+  "Configuration Item (CI)": "Any component that needs to be managed in order to deliver an IT service, stored in the configuration_item table with status and owner information.",
+  "SLA": "Service Level Agreement – a contract that defines the target response and resolution times based on incident priority, with pause and breach handling rules.",
+  "Knowledge Article": "A documented piece of information stored in kb_knowledge; only articles with state = published are visible to reporters.",
+  "Reporter": "End‑user role that can create and view their own incidents/requests and search public knowledge.",
+  "Agent": "Front‑line support role with full CRUD rights on operational records.",
+  "Manager": "Supervisory role with full CRUD on operational tables, ability to reassign, approve changes, and receive escalations.",
+  "Administrator": "System‑wide role with unrestricted CRUD access across all tables."
+ },
+ "procedures": [],
+ "templates": {},
+ "calendar": {
+  "workdays": [
+   0,
+   1,
+   2,
+   3,
+   4
+  ],
+  "holidays": []
+ },
+ "checks": {
+  "procedures": 0,
+  "templates": 0,
+  "steps_dropped_ungrounded": 0
+ }
+}

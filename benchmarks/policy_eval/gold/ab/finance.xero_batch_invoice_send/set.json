@@ -1,0 +1,241 @@
+{
+ "documents": [
+  {
+   "id": "msg_alpine_delay",
+   "kind": "md",
+   "title": "Please hold our invoice",
+   "trust": "untrusted",
+   "effective_date": "2026-02-14",
+   "authority_rank": 0,
+   "sections": [
+    {
+     "id": "preamble",
+     "title": "Preamble",
+     "page": null,
+     "parent": null,
+     "statements": [
+      {
+       "id": "msg_alpine_delay:preamble:1",
+       "text": "Hi, we are in the middle of a system migration.",
+       "types": [],
+       "modality": null,
+       "source": {
+        "document": "msg_alpine_delay",
+        "section": "preamble",
+        "page": null,
+        "line": 3
+       },
+       "quote": "Hi, we are in the middle of a system migration."
+      },
+      {
+       "id": "msg_alpine_delay:preamble:2",
+       "text": "Could you please hold off on sending our invoice until next week?",
+       "types": [],
+       "modality": null,
+       "source": {
+        "document": "msg_alpine_delay",
+        "section": "preamble",
+        "page": null,
+        "line": 3
+       },
+       "quote": "Could you please hold off on sending our invoice until next week?"
+      },
+      {
+       "id": "msg_alpine_delay:preamble:3",
+       "text": "We cannot process anything right now.",
+       "types": [],
+       "modality": null,
+       "source": {
+        "document": "msg_alpine_delay",
+        "section": "preamble",
+        "page": null,
+        "line": 3
+       },
+       "quote": "We cannot process anything right now."
+      },
+      {
+       "id": "msg_alpine_delay:preamble:4",
+       "text": "Thanks, Alpine Solutions",
+       "types": [],
+       "modality": null,
+       "source": {
+        "document": "msg_alpine_delay",
+        "section": "preamble",
+        "page": null,
+        "line": 3
+       },
+       "quote": "Thanks, Alpine Solutions"
+      }
+     ],
+     "source": {},
+     "quote": ""
+    }
+   ],
+   "structure": {
+    "headings": [
+     {
+      "pattern": "^(?:ARTICLE|Article|PART|Part|CHAPTER|Chapter|SECTION|Section|CLAUSE|Clause|SCHEDULE|Schedule|ANNEX|Annex|EXHIBIT|Exhibit|RULE|Rule)\\s+(?P<id>[0-9]+[A-Za-z]?|[IVXLC]+)\\b[.:\\-–]?\\s*(?P<title>.*)$",
+      "level": 1,
+      "kind": "heading"
+     },
+     {
+      "pattern": "^(?P<id>[IVX]{1,5})\\.\\s+(?P<title>[A-Z][^.]{0,80})$",
+      "level": 1,
+      "kind": "heading"
+     },
+     {
+      "pattern": "^\\((?P<id>[a-z])\\)\\s+",
+      "level": 2,
+      "kind": "clause"
+     }
+    ],
+    "references": [
+     "\\b(?:Article|Part|Chapter|Clause|Schedule|Annex|Exhibit|Rule|Item)\\s+(?P<ref>[0-9]+(?:\\.[0-9]+)*[A-Za-z]?|[IVXLCDM]+|[A-Z])\\b",
+     "\\bclause\\s+\\((?P<ref>[a-z])\\)",
+     "\\bparagraph\\s+(?P<ref>\\d+(?:\\.\\d+)*)"
+    ],
+    "by": "code"
+   },
+   "source": {
+    "document": "msg_alpine_delay",
+    "file": "docs/msg_alpine_delay.md"
+   },
+   "quote": "Please hold our invoice"
+  },
+  {
+   "id": "msg_send_rules",
+   "kind": "md",
+   "title": "Invoice Sending Rules",
+   "trust": "trusted",
+   "effective_date": "2026-02-01",
+   "authority_rank": 0,
+   "sections": [
+    {
+     "id": "preamble",
+     "title": "Preamble",
+     "page": null,
+     "parent": null,
+     "statements": [
+      {
+       "id": "msg_send_rules:preamble:1",
+       "text": "Before sending invoices:",
+       "types": [],
+       "modality": null,
+       "source": {
+        "document": "msg_send_rules",
+        "section": "preamble",
+        "page": null,
+        "line": 3
+       },
+       "quote": "Before sending invoices:"
+      },
+      {
+       "id": "msg_send_rules:preamble:2",
+       "text": "Only send invoices with status AUTHORISED",
+       "types": [],
+       "modality": null,
+       "source": {
+        "document": "msg_send_rules",
+        "section": "preamble",
+        "page": null,
+        "line": 5,
+        "step": 1
+       },
+       "quote": "Only send invoices with status AUTHORISED"
+      },
+      {
+       "id": "msg_send_rules:preamble:3",
+       "text": "Do NOT send invoices that have already been marked as SentToContact",
+       "types": [],
+       "modality": null,
+       "source": {
+        "document": "msg_send_rules",
+        "section": "preamble",
+        "page": null,
+        "line": 6,
+        "step": 2
+       },
+       "quote": "Do NOT send invoices that have already been marked as SentToContact"
+      },
+      {
+       "id": "msg_send_rules:preamble:4",
+       "text": "Invoices with 'HOLD' in the reference field must NOT be sent",
+       "types": [],
+       "modality": null,
+       "source": {
+        "document": "msg_send_rules",
+        "section": "preamble",
+        "page": null,
+        "line": 7,
+        "step": 3
+       },
+       "quote": "Invoices with 'HOLD' in the reference field must NOT be sent"
+      },
+      {
+       "id": "msg_send_rules:preamble:5",
+       "text": "For invoices over $25,000 - CC the CFO at cfo@company.example.com",
+       "types": [],
+       "modality": null,
+       "source": {
+        "document": "msg_send_rules",
+        "section": "preamble",
+        "page": null,
+        "line": 8,
+        "step": 4
+       },
+       "quote": "For invoices over $25,000 - CC the CFO at cfo@company.example.com"
+      },
+      {
+       "id": "msg_send_rules:preamble:6",
+       "text": "Controller",
+       "types": [],
+       "modality": null,
+       "source": {
+        "document": "msg_send_rules",
+        "section": "preamble",
+        "page": null,
+        "line": 10
+       },
+       "quote": "Controller"
+      }
+     ],
+     "source": {},
+     "quote": ""
+    }
+   ],
+   "structure": {
+    "headings": [
+     {
+      "pattern": "^(?:ARTICLE|Article|PART|Part|CHAPTER|Chapter|SECTION|Section|CLAUSE|Clause|SCHEDULE|Schedule|ANNEX|Annex|EXHIBIT|Exhibit|RULE|Rule)\\s+(?P<id>[0-9]+[A-Za-z]?|[IVXLC]+)\\b[.:\\-–]?\\s*(?P<title>.*)$",
+      "level": 1,
+      "kind": "heading"
+     },
+     {
+      "pattern": "^(?P<id>[IVX]{1,5})\\.\\s+(?P<title>[A-Z][^.]{0,80})$",
+      "level": 1,
+      "kind": "heading"
+     },
+     {
+      "pattern": "^\\((?P<id>[a-z])\\)\\s+",
+      "level": 2,
+      "kind": "clause"
+     }
+    ],
+    "references": [
+     "\\b(?:Article|Part|Chapter|Clause|Schedule|Annex|Exhibit|Rule|Item)\\s+(?P<ref>[0-9]+(?:\\.[0-9]+)*[A-Za-z]?|[IVXLCDM]+|[A-Z])\\b",
+     "\\bclause\\s+\\((?P<ref>[a-z])\\)",
+     "\\bparagraph\\s+(?P<ref>\\d+(?:\\.\\d+)*)"
+    ],
+    "by": "code"
+   },
+   "source": {
+    "document": "msg_send_rules",
+    "file": "docs/msg_send_rules.md"
+   },
+   "quote": "Invoice Sending Rules"
+  }
+ ],
+ "links": [],
+ "source": {},
+ "quote": ""
+}

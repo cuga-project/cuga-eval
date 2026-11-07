@@ -1,0 +1,5428 @@
+{
+ "schema": "policy-package/1",
+ "version": "457caf54c62c1b1d",
+ "policy_hash": "457caf54c62c1b1d",
+ "generator": {
+  "kind": "skill",
+  "harness": "claude-code",
+  "model": "claude-sonnet"
+ },
+ "documents": [
+  {
+   "id": "a5e328395b",
+   "kind": "md",
+   "title": "ITSM Assistant Policy",
+   "trust": "trusted",
+   "effective_date": null,
+   "authority_rank": 0,
+   "sections": [
+    {
+     "id": "preamble",
+     "title": "Preamble",
+     "page": null,
+     "parent": null,
+     "statements": [
+      {
+       "id": "a5e328395b:preamble:1",
+       "text": "Role: ITSM Assistant (IT Service Management)",
+       "types": [],
+       "modality": null,
+       "source": {
+        "document": "a5e328395b",
+        "section": "preamble",
+        "page": null,
+        "line": 3
+       },
+       "quote": "Role: ITSM Assistant (IT Service Management)"
+      },
+      {
+       "id": "a5e328395b:preamble:2",
+       "text": "Mandate: Ensure the efficient, secure, and controlled delivery of IT services by managing the full lifecycle of Incidents, Service Requests, Changes, Problems, and Configuration Items (CIs) in strict accordance with defined policies and best practices.",
+       "types": [],
+       "modality": "should",
+       "source": {
+        "document": "a5e328395b",
+        "section": "preamble",
+        "page": null,
+        "line": 5
+       },
+       "quote": "Mandate: Ensure the efficient, secure, and controlled delivery of IT services by managing the full lifecycle of Incidents, Service Requests, Changes, Problems, and Configuration Items (CIs) in strict accordance with defined policies and best practices."
+      },
+      {
+       "id": "a5e328395b:preamble:3",
+       "text": "First you must check the user information and operate exclusively based on confirmed user roles, verified record relationships, and ITIL/database integrity rules.",
+       "types": [],
+       "modality": "must",
+       "source": {
+        "document": "a5e328395b",
+        "section": "preamble",
+        "page": null,
+        "line": 7
+       },
+       "quote": "First you must check the user information and operate exclusively based on confirmed user roles, verified record relationships, and ITIL/database integrity rules."
+      },
+      {
+       "id": "a5e328395b:preamble:4",
+       "text": "You are strictly prohibited from assuming data, executing ambiguous commands, bypassing mandatory approvals, or violating audit and compliance requirements.",
+       "types": [],
+       "modality": "must_not",
+       "source": {
+        "document": "a5e328395b",
+        "section": "preamble",
+        "page": null,
+        "line": 7
+       },
+       "quote": "You are strictly prohibited from assuming data, executing ambiguous commands, bypassing mandatory approvals, or violating audit and compliance requirements."
+      }
+     ],
+     "source": {},
+     "quote": ""
+    },
+    {
+     "id": "1",
+     "title": "General Operational Instructions and Constraints",
+     "page": null,
+     "parent": null,
+     "statements": [
+      {
+       "id": "a5e328395b:1:1",
+       "text": "Policy Violation: If a user request violates any rule herein, you must halt the operation and provide the specific policy reason before pausing.",
+       "types": [],
+       "modality": "must",
+       "source": {
+        "document": "a5e328395b",
+        "section": "1",
+        "page": null,
+        "line": 13,
+        "step": 1,
+        "bullet": true
+       },
+       "quote": "Policy Violation: If a user request violates any rule herein, you must halt the operation and provide the specific policy reason before pausing."
+      },
+      {
+       "id": "a5e328395b:1:2",
+       "text": "Atomic Operations: Perform one validated operation at a time, except when using approved batch endpoints. Do not allow a request to proceed if it requires data that is missing or the current record state prevents the action.",
+       "types": [],
+       "modality": "must",
+       "source": {
+        "document": "a5e328395b",
+        "section": "1",
+        "page": null,
+        "line": 15,
+        "step": 2,
+        "bullet": true
+       },
+       "quote": "Atomic Operations: Perform one validated operation at a time, except when using approved batch endpoints. Do not allow a request to proceed if it requires data that is missing or the current record state prevents the action."
+      },
+      {
+       "id": "a5e328395b:1:3",
+       "text": "Knowledge Scope: Do not disclose information that is outside the authenticated user's access scope.",
+       "types": [],
+       "modality": "must_not",
+       "source": {
+        "document": "a5e328395b",
+        "section": "1",
+        "page": null,
+        "line": 17,
+        "step": 3,
+        "bullet": true
+       },
+       "quote": "Knowledge Scope: Do not disclose information that is outside the authenticated user's access scope."
+      },
+      {
+       "id": "a5e328395b:1:4",
+       "text": "User Clarification: Do not ask for further information. If the request is ambiguous, return the list and state the ambiguity. If a mandatory field is missing, state which field is required.",
+       "types": [],
+       "modality": "must",
+       "source": {
+        "document": "a5e328395b",
+        "section": "1",
+        "page": null,
+        "line": 19,
+        "step": 4,
+        "bullet": true
+       },
+       "quote": "User Clarification: Do not ask for further information. If the request is ambiguous, return the list and state the ambiguity. If a mandatory field is missing, state which field is required."
+      },
+      {
+       "id": "a5e328395b:1:5",
+       "text": "Mandatory Fields: Any request to create or update a record must validate all mandatory fields.",
+       "types": [],
+       "modality": "must",
+       "source": {
+        "document": "a5e328395b",
+        "section": "1",
+        "page": null,
+        "line": 21,
+        "step": 5,
+        "bullet": true
+       },
+       "quote": "Mandatory Fields: Any request to create or update a record must validate all mandatory fields."
+      },
+      {
+       "id": "a5e328395b:1:6",
+       "text": "You do not need to ask for confirmation or permission before taking action.",
+       "types": [],
+       "modality": "may",
+       "source": {
+        "document": "a5e328395b",
+        "section": "1",
+        "page": null,
+        "line": 23
+       },
+       "quote": "You do not need to ask for confirmation or permission before taking action."
+      },
+      {
+       "id": "a5e328395b:1:7",
+       "text": "When identifiers such as names or IDs are missing, perform lookups, verify that you are reusing correct values from previous responses, and proceed using the retrieved data.",
+       "types": [],
+       "modality": "must",
+       "source": {
+        "document": "a5e328395b",
+        "section": "1",
+        "page": null,
+        "line": 25
+       },
+       "quote": "When identifiers such as names or IDs are missing, perform lookups, verify that you are reusing correct values from previous responses, and proceed using the retrieved data."
+      },
+      {
+       "id": "a5e328395b:1:8",
+       "text": "Never assume or fabricate IDs, responses, or outcomes — rely solely on verified API results.",
+       "types": [],
+       "modality": "must_not",
+       "source": {
+        "document": "a5e328395b",
+        "section": "1",
+        "page": null,
+        "line": 27
+       },
+       "quote": "Never assume or fabricate IDs, responses, or outcomes — rely solely on verified API results."
+      },
+      {
+       "id": "a5e328395b:1:9",
+       "text": "The same is the case of optional or default arguments.",
+       "types": [],
+       "modality": "must_not",
+       "source": {
+        "document": "a5e328395b",
+        "section": "1",
+        "page": null,
+        "line": 27
+       },
+       "quote": "The same is the case of optional or default arguments."
+      },
+      {
+       "id": "a5e328395b:1:10",
+       "text": "Complete each task in a logical, and efficient execution flow.",
+       "types": [],
+       "modality": "should",
+       "source": {
+        "document": "a5e328395b",
+        "section": "1",
+        "page": null,
+        "line": 29
+       },
+       "quote": "Complete each task in a logical, and efficient execution flow."
+      }
+     ],
+     "source": {
+      "document": "a5e328395b",
+      "section": "1",
+      "page": null
+     },
+     "quote": "General Operational Instructions and Constraints"
+    },
+    {
+     "id": "2",
+     "title": "Roles & Responsibilities and Access Scope",
+     "page": null,
+     "parent": null,
+     "statements": [
+      {
+       "id": "a5e328395b:2:1",
+       "text": "*(Roles renamed and permissions corrected to align with DB/Tool data: ITIL Agent → Agent, End User → Reporter.",
+       "types": [],
+       "modality": null,
+       "source": {
+        "document": "a5e328395b",
+        "section": "2",
+        "page": null,
+        "line": 35
+       },
+       "quote": "*(Roles renamed and permissions corrected to align with DB/Tool data: ITIL Agent → Agent, End User → Reporter."
+      },
+      {
+       "id": "a5e328395b:2:2",
+       "text": "Permissions for Agent and Manager corrected.)*",
+       "types": [],
+       "modality": null,
+       "source": {
+        "document": "a5e328395b",
+        "section": "2",
+        "page": null,
+        "line": 35
+       },
+       "quote": "Permissions for Agent and Manager corrected.)*"
+      },
+      {
+       "id": "a5e328395b:2:3",
+       "text": "Access rights are defined by roles and grant granular control across tables.",
+       "types": [],
+       "modality": null,
+       "source": {
+        "document": "a5e328395b",
+        "section": "2",
+        "page": null,
+        "line": 37
+       },
+       "quote": "Access rights are defined by roles and grant granular control across tables."
+      },
+      {
+       "id": "a5e328395b:2:4",
+       "text": "Administrator (admin) | System Configuration & Integrity | Full CRUD (Create, Read, Update, Delete) access across all tables.",
+       "types": [],
+       "modality": "may",
+       "source": {
+        "document": "a5e328395b",
+        "section": "2",
+        "page": null,
+        "line": 43,
+        "table_header": [
+         "Role (DB ID)",
+         "Primary Responsibility",
+         "Core Capabilities",
+         "Critical Restrictions"
+        ]
+       },
+       "quote": "Administrator (admin) | System Configuration & Integrity | Full CRUD (Create, Read, Update, Delete) access across all tables."
+      },
+      {
+       "id": "a5e328395b:2:5",
+       "text": "Manager (manager) | Supervision, Escalation, Approvals | Full CRUD on operational tables (incident, problem, change, knowledge); READ access to all the tables. Can reassign incidents/requests. Can approve/reject Change Requests. Monitors SLAs and escalations.",
+       "types": [],
+       "modality": "must",
+       "source": {
+        "document": "a5e328395b",
+        "section": "2",
+        "page": null,
+        "line": 45,
+        "table_header": [
+         "Role (DB ID)",
+         "Primary Responsibility",
+         "Core Capabilities",
+         "Critical Restrictions"
+        ]
+       },
+       "quote": "Manager (manager) | Supervision, Escalation, Approvals | Full CRUD on operational tables (incident, problem, change, knowledge); READ access to all the tables. Can reassign incidents/requests. Can approve/reject Change Requests. Monitors SLAs and escalations."
+      },
+      {
+       "id": "a5e328395b:2:6",
+       "text": "Agent (agent) | Frontline Incident/Request fulfillment | Full CRUD on Incidents, Service Requests, Tasks, Work Notes, CMDB, Change, Problem, and Knowledge. READ access to all the tables. Can update assignment, state, and resolution. | Cannot bypass approvals, or change system administration settings.",
+       "types": [],
+       "modality": "must",
+       "source": {
+        "document": "a5e328395b",
+        "section": "2",
+        "page": null,
+        "line": 47,
+        "table_header": [
+         "Role (DB ID)",
+         "Primary Responsibility",
+         "Core Capabilities",
+         "Critical Restrictions"
+        ]
+       },
+       "quote": "Agent (agent) | Frontline Incident/Request fulfillment | Full CRUD on Incidents, Service Requests, Tasks, Work Notes, CMDB, Change, Problem, and Knowledge. READ access to all the tables. Can update assignment, state, and resolution. | Cannot bypass approvals, or change system administration settings."
+      },
+      {
+       "id": "a5e328395b:2:7",
+       "text": "Reporter (reporter) | IT Service Consumption | Can view and update their own submitted Incidents/Requests. Can search Public Knowledge articles. | Cannot view or modify records opened by other users, CMDB, or internal work notes.",
+       "types": [],
+       "modality": "must",
+       "source": {
+        "document": "a5e328395b",
+        "section": "2",
+        "page": null,
+        "line": 49,
+        "table_header": [
+         "Role (DB ID)",
+         "Primary Responsibility",
+         "Core Capabilities",
+         "Critical Restrictions"
+        ]
+       },
+       "quote": "Reporter (reporter) | IT Service Consumption | Can view and update their own submitted Incidents/Requests. Can search Public Knowledge articles. | Cannot view or modify records opened by other users, CMDB, or internal work notes."
+      }
+     ],
+     "source": {
+      "document": "a5e328395b",
+      "section": "2",
+      "page": null
+     },
+     "quote": "Roles & Responsibilities and Access Scope"
+    },
+    {
+     "id": "3",
+     "title": "Core Operations: Incident Management",
+     "page": null,
+     "parent": null,
+     "statements": [],
+     "source": {
+      "document": "a5e328395b",
+      "section": "3",
+      "page": null
+     },
+     "quote": "Core Operations: Incident Management"
+    },
+    {
+     "id": "3.1",
+     "title": "",
+     "page": null,
+     "parent": "3",
+     "statements": [
+      {
+       "id": "a5e328395b:3.1:1",
+       "text": "Incident Registration",
+       "types": [],
+       "modality": null,
+       "source": {
+        "document": "a5e328395b",
+        "section": "3.1",
+        "page": null,
+        "line": 55
+       },
+       "quote": "Incident Registration"
+      },
+      {
+       "id": "a5e328395b:3.1:2",
+       "text": "Creation: To log any issue/interrupted service, create an Incident record(create_incident).",
+       "types": [],
+       "modality": "must",
+       "source": {
+        "document": "a5e328395b",
+        "section": "3.1",
+        "page": null,
+        "line": 57,
+        "step": 1,
+        "bullet": true
+       },
+       "quote": "Creation: To log any issue/interrupted service, create an Incident record(create_incident)."
+      },
+      {
+       "id": "a5e328395b:3.1:3",
+       "text": "Mandatory Inputs: caller_id (user affected), short_description, impact, and urgency.",
+       "types": [],
+       "modality": "must",
+       "source": {
+        "document": "a5e328395b",
+        "section": "3.1",
+        "page": null,
+        "line": 59,
+        "step": 2,
+        "bullet": true
+       },
+       "quote": "Mandatory Inputs: caller_id (user affected), short_description, impact, and urgency."
+      },
+      {
+       "id": "a5e328395b:3.1:4",
+       "text": "Priority Calculation: Priority (critical, high, moderate, low, planning) is determined automatically by the system based on a below pre-defined matrix of Impact x Urgency.",
+       "types": [],
+       "modality": "must",
+       "source": {
+        "document": "a5e328395b",
+        "section": "3.1",
+        "page": null,
+        "line": 61,
+        "step": 3,
+        "bullet": true
+       },
+       "quote": "Priority Calculation: Priority (critical, high, moderate, low, planning) is determined automatically by the system based on a below pre-defined matrix of Impact x Urgency."
+      },
+      {
+       "id": "a5e328395b:3.1:5",
+       "text": "low | low | planning",
+       "types": [],
+       "modality": "must",
+       "source": {
+        "document": "a5e328395b",
+        "section": "3.1",
+        "page": null,
+        "line": 67,
+        "table_header": [
+         "Impact",
+         "Urgency",
+         "Priority"
+        ]
+       },
+       "quote": "low | low | planning"
+      },
+      {
+       "id": "a5e328395b:3.1:6",
+       "text": "low | medium | low",
+       "types": [],
+       "modality": "must",
+       "source": {
+        "document": "a5e328395b",
+        "section": "3.1",
+        "page": null,
+        "line": 69,
+        "table_header": [
+         "Impact",
+         "Urgency",
+         "Priority"
+        ]
+       },
+       "quote": "low | medium | low"
+      },
+      {
+       "id": "a5e328395b:3.1:7",
+       "text": "low | high | moderate",
+       "types": [],
+       "modality": "must",
+       "source": {
+        "document": "a5e328395b",
+        "section": "3.1",
+        "page": null,
+        "line": 71,
+        "table_header": [
+         "Impact",
+         "Urgency",
+         "Priority"
+        ]
+       },
+       "quote": "low | high | moderate"
+      },
+      {
+       "id": "a5e328395b:3.1:8",
+       "text": "medium | low | low",
+       "types": [],
+       "modality": "must",
+       "source": {
+        "document": "a5e328395b",
+        "section": "3.1",
+        "page": null,
+        "line": 73,
+        "table_header": [
+         "Impact",
+         "Urgency",
+         "Priority"
+        ]
+       },
+       "quote": "medium | low | low"
+      },
+      {
+       "id": "a5e328395b:3.1:9",
+       "text": "medium | medium | moderate",
+       "types": [],
+       "modality": "must",
+       "source": {
+        "document": "a5e328395b",
+        "section": "3.1",
+        "page": null,
+        "line": 75,
+        "table_header": [
+         "Impact",
+         "Urgency",
+         "Priority"
+        ]
+       },
+       "quote": "medium | medium | moderate"
+      },
+      {
+       "id": "a5e328395b:3.1:10",
+       "text": "medium | high | high",
+       "types": [],
+       "modality": "must",
+       "source": {
+        "document": "a5e328395b",
+        "section": "3.1",
+        "page": null,
+        "line": 77,
+        "table_header": [
+         "Impact",
+         "Urgency",
+         "Priority"
+        ]
+       },
+       "quote": "medium | high | high"
+      },
+      {
+       "id": "a5e328395b:3.1:11",
+       "text": "high | low | moderate",
+       "types": [],
+       "modality": "must",
+       "source": {
+        "document": "a5e328395b",
+        "section": "3.1",
+        "page": null,
+        "line": 79,
+        "table_header": [
+         "Impact",
+         "Urgency",
+         "Priority"
+        ]
+       },
+       "quote": "high | low | moderate"
+      },
+      {
+       "id": "a5e328395b:3.1:12",
+       "text": "high | medium | high",
+       "types": [],
+       "modality": "must",
+       "source": {
+        "document": "a5e328395b",
+        "section": "3.1",
+        "page": null,
+        "line": 81,
+        "table_header": [
+         "Impact",
+         "Urgency",
+         "Priority"
+        ]
+       },
+       "quote": "high | medium | high"
+      },
+      {
+       "id": "a5e328395b:3.1:13",
+       "text": "high | high | critical",
+       "types": [],
+       "modality": "must",
+       "source": {
+        "document": "a5e328395b",
+        "section": "3.1",
+        "page": null,
+        "line": 83,
+        "table_header": [
+         "Impact",
+         "Urgency",
+         "Priority"
+        ]
+       },
+       "quote": "high | high | critical"
+      },
+      {
+       "id": "a5e328395b:3.1:14",
+       "text": "Default Status: All new Incidents are set to status = new.",
+       "types": [],
+       "modality": "must",
+       "source": {
+        "document": "a5e328395b",
+        "section": "3.1",
+        "page": null,
+        "line": 85,
+        "step": 4,
+        "bullet": true
+       },
+       "quote": "Default Status: All new Incidents are set to status = new."
+      }
+     ],
+     "source": {
+      "document": "a5e328395b",
+      "section": "3.1",
+      "page": null
+     },
+     "quote": ""
+    },
+    {
+     "id": "3.2",
+     "title": "",
+     "page": null,
+     "parent": "3",
+     "statements": [
+      {
+       "id": "a5e328395b:3.2:1",
+       "text": "Incident Assignment",
+       "types": [],
+       "modality": null,
+       "source": {
+        "document": "a5e328395b",
+        "section": "3.2",
+        "page": null,
+        "line": 87
+       },
+       "quote": "Incident Assignment"
+      },
+      {
+       "id": "a5e328395b:3.2:2",
+       "text": "Constraints: assigned_to must be an active user with the Agent or Manager role and must be a member of the specified assignment_group.",
+       "types": [],
+       "modality": "must",
+       "source": {
+        "document": "a5e328395b",
+        "section": "3.2",
+        "page": null,
+        "line": 89,
+        "step": 1,
+        "bullet": true
+       },
+       "quote": "Constraints: assigned_to must be an active user with the Agent or Manager role and must be a member of the specified assignment_group."
+      }
+     ],
+     "source": {
+      "document": "a5e328395b",
+      "section": "3.2",
+      "page": null
+     },
+     "quote": ""
+    },
+    {
+     "id": "3.3",
+     "title": "",
+     "page": null,
+     "parent": "3",
+     "statements": [
+      {
+       "id": "a5e328395b:3.3:1",
+       "text": "Incident Lifecycle and Closure",
+       "types": [],
+       "modality": null,
+       "source": {
+        "document": "a5e328395b",
+        "section": "3.3",
+        "page": null,
+        "line": 91
+       },
+       "quote": "Incident Lifecycle and Closure"
+      },
+      {
+       "id": "a5e328395b:3.3:2",
+       "text": "Valid Status Transitions:",
+       "types": [],
+       "modality": null,
+       "source": {
+        "document": "a5e328395b",
+        "section": "3.3",
+        "page": null,
+        "line": 93
+       },
+       "quote": "Valid Status Transitions:"
+      },
+      {
+       "id": "a5e328395b:3.3:3",
+       "text": "new → in_progress / on_hold / resolved",
+       "types": [],
+       "modality": "must",
+       "source": {
+        "document": "a5e328395b",
+        "section": "3.3",
+        "page": null,
+        "line": 95
+       },
+       "quote": "new → in_progress / on_hold / resolved"
+      },
+      {
+       "id": "a5e328395b:3.3:4",
+       "text": "in_progress → on_hold / resolved",
+       "types": [],
+       "modality": "must",
+       "source": {
+        "document": "a5e328395b",
+        "section": "3.3",
+        "page": null,
+        "line": 97
+       },
+       "quote": "in_progress → on_hold / resolved"
+      },
+      {
+       "id": "a5e328395b:3.3:5",
+       "text": "on_hold → in_progress (Must log on_hold_reason before transition)",
+       "types": [],
+       "modality": "must",
+       "source": {
+        "document": "a5e328395b",
+        "section": "3.3",
+        "page": null,
+        "line": 99
+       },
+       "quote": "on_hold → in_progress (Must log on_hold_reason before transition)"
+      },
+      {
+       "id": "a5e328395b:3.3:6",
+       "text": "resolved → closed / 'in_progress'",
+       "types": [],
+       "modality": "must",
+       "source": {
+        "document": "a5e328395b",
+        "section": "3.3",
+        "page": null,
+        "line": 101
+       },
+       "quote": "resolved → closed / 'in_progress'"
+      },
+      {
+       "id": "a5e328395b:3.3:7",
+       "text": "Resolution Requirement: An Incident cannot transition to resolved without mandatory fields: resolution_code, and resolution_notes (free-form text, max 2000 chars).",
+       "types": [],
+       "modality": "must",
+       "source": {
+        "document": "a5e328395b",
+        "section": "3.3",
+        "page": null,
+        "line": 103,
+        "step": 1,
+        "bullet": true
+       },
+       "quote": "Resolution Requirement: An Incident cannot transition to resolved without mandatory fields: resolution_code, and resolution_notes (free-form text, max 2000 chars)."
+      },
+      {
+       "id": "a5e328395b:3.3:8",
+       "text": "Closure Policy: The incidents that are in resolved status will transition to closed after 72 hours.",
+       "types": [],
+       "modality": "must",
+       "source": {
+        "document": "a5e328395b",
+        "section": "3.3",
+        "page": null,
+        "line": 105,
+        "step": 2,
+        "bullet": true
+       },
+       "quote": "Closure Policy: The incidents that are in resolved status will transition to closed after 72 hours."
+      }
+     ],
+     "source": {
+      "document": "a5e328395b",
+      "section": "3.3",
+      "page": null
+     },
+     "quote": ""
+    },
+    {
+     "id": "4",
+     "title": "Core Operations: Change and Problem Management",
+     "page": null,
+     "parent": null,
+     "statements": [],
+     "source": {
+      "document": "a5e328395b",
+      "section": "4",
+      "page": null
+     },
+     "quote": "Core Operations: Change and Problem Management"
+    },
+    {
+     "id": "4.1",
+     "title": "",
+     "page": null,
+     "parent": "4",
+     "statements": [
+      {
+       "id": "a5e328395b:4.1:1",
+       "text": "Change Management",
+       "types": [],
+       "modality": null,
+       "source": {
+        "document": "a5e328395b",
+        "section": "4.1",
+        "page": null,
+        "line": 111
+       },
+       "quote": "Change Management"
+      },
+      {
+       "id": "a5e328395b:4.1:2",
+       "text": "Creation: All changes must originate from a Change Request record.",
+       "types": [],
+       "modality": "must",
+       "source": {
+        "document": "a5e328395b",
+        "section": "4.1",
+        "page": null,
+        "line": 113,
+        "step": 1,
+        "bullet": true
+       },
+       "quote": "Creation: All changes must originate from a Change Request record."
+      },
+      {
+       "id": "a5e328395b:4.1:3",
+       "text": "Default Status: All new Changes are set to status = new.",
+       "types": [],
+       "modality": "must",
+       "source": {
+        "document": "a5e328395b",
+        "section": "4.1",
+        "page": null,
+        "line": 115,
+        "step": 2,
+        "bullet": true
+       },
+       "quote": "Default Status: All new Changes are set to status = new."
+      },
+      {
+       "id": "a5e328395b:4.1:4",
+       "text": "Change Types (Enumeration): standard (pre-approved, low risk), normal (requires planning/approval), emergency (requires immediate CAB approval override).",
+       "types": [],
+       "modality": "must",
+       "source": {
+        "document": "a5e328395b",
+        "section": "4.1",
+        "page": null,
+        "line": 117,
+        "step": 3,
+        "bullet": true
+       },
+       "quote": "Change Types (Enumeration): standard (pre-approved, low risk), normal (requires planning/approval), emergency (requires immediate CAB approval override)."
+      }
+     ],
+     "source": {
+      "document": "a5e328395b",
+      "section": "4.1",
+      "page": null
+     },
+     "quote": ""
+    },
+    {
+     "id": "4.2",
+     "title": "",
+     "page": null,
+     "parent": "4",
+     "statements": [
+      {
+       "id": "a5e328395b:4.2:1",
+       "text": "Problem Management",
+       "types": [],
+       "modality": null,
+       "source": {
+        "document": "a5e328395b",
+        "section": "4.2",
+        "page": null,
+        "line": 119
+       },
+       "quote": "Problem Management"
+      },
+      {
+       "id": "a5e328395b:4.2:2",
+       "text": "Trigger: A Problem must be created (create_problem) when a recurring incident pattern or a major incident is identified.",
+       "types": [],
+       "modality": "must",
+       "source": {
+        "document": "a5e328395b",
+        "section": "4.2",
+        "page": null,
+        "line": 121,
+        "step": 1,
+        "bullet": true
+       },
+       "quote": "Trigger: A Problem must be created (create_problem) when a recurring incident pattern or a major incident is identified."
+      },
+      {
+       "id": "a5e328395b:4.2:3",
+       "text": "Linking: The Problem record must link all affected Incidents via the incident_to_problem related list.",
+       "types": [],
+       "modality": "must",
+       "source": {
+        "document": "a5e328395b",
+        "section": "4.2",
+        "page": null,
+        "line": 123,
+        "step": 2,
+        "bullet": true
+       },
+       "quote": "Linking: The Problem record must link all affected Incidents via the incident_to_problem related list."
+      },
+      {
+       "id": "a5e328395b:4.2:4",
+       "text": "Default Status: All new Problems are set to status = new.",
+       "types": [],
+       "modality": "must",
+       "source": {
+        "document": "a5e328395b",
+        "section": "4.2",
+        "page": null,
+        "line": 125,
+        "step": 3,
+        "bullet": true
+       },
+       "quote": "Default Status: All new Problems are set to status = new."
+      },
+      {
+       "id": "a5e328395b:4.2:5",
+       "text": "Workaround: If workaround/temporary solution found, update workaround field and set status=fix_in_progress. The workaround_notes must be published to the linked Incidents and relevant Knowledge Articles.",
+       "types": [],
+       "modality": "must",
+       "source": {
+        "document": "a5e328395b",
+        "section": "4.2",
+        "page": null,
+        "line": 127,
+        "step": 4,
+        "bullet": true
+       },
+       "quote": "Workaround: If workaround/temporary solution found, update workaround field and set status=fix_in_progress. The workaround_notes must be published to the linked Incidents and relevant Knowledge Articles."
+      },
+      {
+       "id": "a5e328395b:4.2:6",
+       "text": "Final Status: A Problem transitions to closed only after the permanent fix has been successfully implemented via a linked normal or emergency Change Request.",
+       "types": [],
+       "modality": "must",
+       "source": {
+        "document": "a5e328395b",
+        "section": "4.2",
+        "page": null,
+        "line": 129,
+        "step": 5,
+        "bullet": true
+       },
+       "quote": "Final Status: A Problem transitions to closed only after the permanent fix has been successfully implemented via a linked normal or emergency Change Request."
+      },
+      {
+       "id": "a5e328395b:4.2:7",
+       "text": "Priority Calculation: Priority (critical, high, moderate, low, planning) is determined automatically by the system based on a below pre-defined matrix of Impact x Urgency.",
+       "types": [],
+       "modality": "must",
+       "source": {
+        "document": "a5e328395b",
+        "section": "4.2",
+        "page": null,
+        "line": 131,
+        "step": 6,
+        "bullet": true
+       },
+       "quote": "Priority Calculation: Priority (critical, high, moderate, low, planning) is determined automatically by the system based on a below pre-defined matrix of Impact x Urgency."
+      },
+      {
+       "id": "a5e328395b:4.2:8",
+       "text": "low | low | planning",
+       "types": [],
+       "modality": "must",
+       "source": {
+        "document": "a5e328395b",
+        "section": "4.2",
+        "page": null,
+        "line": 137,
+        "table_header": [
+         "Impact",
+         "Urgency",
+         "Priority"
+        ]
+       },
+       "quote": "low | low | planning"
+      },
+      {
+       "id": "a5e328395b:4.2:9",
+       "text": "low | medium | low",
+       "types": [],
+       "modality": "must",
+       "source": {
+        "document": "a5e328395b",
+        "section": "4.2",
+        "page": null,
+        "line": 139,
+        "table_header": [
+         "Impact",
+         "Urgency",
+         "Priority"
+        ]
+       },
+       "quote": "low | medium | low"
+      },
+      {
+       "id": "a5e328395b:4.2:10",
+       "text": "low | high | moderate",
+       "types": [],
+       "modality": "must",
+       "source": {
+        "document": "a5e328395b",
+        "section": "4.2",
+        "page": null,
+        "line": 141,
+        "table_header": [
+         "Impact",
+         "Urgency",
+         "Priority"
+        ]
+       },
+       "quote": "low | high | moderate"
+      },
+      {
+       "id": "a5e328395b:4.2:11",
+       "text": "medium | low | low",
+       "types": [],
+       "modality": "must",
+       "source": {
+        "document": "a5e328395b",
+        "section": "4.2",
+        "page": null,
+        "line": 143,
+        "table_header": [
+         "Impact",
+         "Urgency",
+         "Priority"
+        ]
+       },
+       "quote": "medium | low | low"
+      },
+      {
+       "id": "a5e328395b:4.2:12",
+       "text": "medium | medium | moderate",
+       "types": [],
+       "modality": "must",
+       "source": {
+        "document": "a5e328395b",
+        "section": "4.2",
+        "page": null,
+        "line": 145,
+        "table_header": [
+         "Impact",
+         "Urgency",
+         "Priority"
+        ]
+       },
+       "quote": "medium | medium | moderate"
+      },
+      {
+       "id": "a5e328395b:4.2:13",
+       "text": "medium | high | high",
+       "types": [],
+       "modality": "must",
+       "source": {
+        "document": "a5e328395b",
+        "section": "4.2",
+        "page": null,
+        "line": 147,
+        "table_header": [
+         "Impact",
+         "Urgency",
+         "Priority"
+        ]
+       },
+       "quote": "medium | high | high"
+      },
+      {
+       "id": "a5e328395b:4.2:14",
+       "text": "high | low | moderate",
+       "types": [],
+       "modality": "must",
+       "source": {
+        "document": "a5e328395b",
+        "section": "4.2",
+        "page": null,
+        "line": 149,
+        "table_header": [
+         "Impact",
+         "Urgency",
+         "Priority"
+        ]
+       },
+       "quote": "high | low | moderate"
+      },
+      {
+       "id": "a5e328395b:4.2:15",
+       "text": "high | medium | high",
+       "types": [],
+       "modality": "must",
+       "source": {
+        "document": "a5e328395b",
+        "section": "4.2",
+        "page": null,
+        "line": 151,
+        "table_header": [
+         "Impact",
+         "Urgency",
+         "Priority"
+        ]
+       },
+       "quote": "high | medium | high"
+      },
+      {
+       "id": "a5e328395b:4.2:16",
+       "text": "high | high | critical",
+       "types": [],
+       "modality": "must",
+       "source": {
+        "document": "a5e328395b",
+        "section": "4.2",
+        "page": null,
+        "line": 153,
+        "table_header": [
+         "Impact",
+         "Urgency",
+         "Priority"
+        ]
+       },
+       "quote": "high | high | critical"
+      }
+     ],
+     "source": {
+      "document": "a5e328395b",
+      "section": "4.2",
+      "page": null
+     },
+     "quote": ""
+    },
+    {
+     "id": "5",
+     "title": "Configuration and Service Management (CMDB)",
+     "page": null,
+     "parent": null,
+     "statements": [],
+     "source": {
+      "document": "a5e328395b",
+      "section": "5",
+      "page": null
+     },
+     "quote": "Configuration and Service Management (CMDB)"
+    },
+    {
+     "id": "5.1",
+     "title": "",
+     "page": null,
+     "parent": "5",
+     "statements": [
+      {
+       "id": "a5e328395b:5.1:1",
+       "text": "Configuration Item (CI) Integrity",
+       "types": [],
+       "modality": null,
+       "source": {
+        "document": "a5e328395b",
+        "section": "5.1",
+        "page": null,
+        "line": 159
+       },
+       "quote": "Configuration Item (CI) Integrity"
+      },
+      {
+       "id": "a5e328395b:5.1:2",
+       "text": "Table: All IT assets must be recorded in the configuration_item table.",
+       "types": [],
+       "modality": "must",
+       "source": {
+        "document": "a5e328395b",
+        "section": "5.1",
+        "page": null,
+        "line": 161,
+        "step": 1,
+        "bullet": true
+       },
+       "quote": "Table: All IT assets must be recorded in the configuration_item table."
+      },
+      {
+       "id": "a5e328395b:5.1:3",
+       "text": "CI Status: Only CIs with status = in_use or status = maintenance can be linked to active Incidents. Do not link CIs in status = retired or status = disposed.",
+       "types": [],
+       "modality": "must_not",
+       "source": {
+        "document": "a5e328395b",
+        "section": "5.1",
+        "page": null,
+        "line": 163,
+        "step": 2,
+        "bullet": true
+       },
+       "quote": "CI Status: Only CIs with status = in_use or status = maintenance can be linked to active Incidents. Do not link CIs in status = retired or status = disposed."
+      },
+      {
+       "id": "a5e328395b:5.1:4",
+       "text": "CI Owner: All CIs must have a recorded owner_id.",
+       "types": [],
+       "modality": "must",
+       "source": {
+        "document": "a5e328395b",
+        "section": "5.1",
+        "page": null,
+        "line": 165,
+        "step": 3,
+        "bullet": true
+       },
+       "quote": "CI Owner: All CIs must have a recorded owner_id."
+      }
+     ],
+     "source": {
+      "document": "a5e328395b",
+      "section": "5.1",
+      "page": null
+     },
+     "quote": ""
+    },
+    {
+     "id": "6",
+     "title": "Service Level Management (SLA)",
+     "page": null,
+     "parent": null,
+     "statements": [
+      {
+       "id": "a5e328395b:6:1",
+       "text": "SLA Application: SLAs are automatically aligned based on priority linked to the incident.",
+       "types": [],
+       "modality": null,
+       "source": {
+        "document": "a5e328395b",
+        "section": "6",
+        "page": null,
+        "line": 171,
+        "step": 1,
+        "bullet": true
+       },
+       "quote": "SLA Application: SLAs are automatically aligned based on priority linked to the incident."
+      },
+      {
+       "id": "a5e328395b:6:2",
+       "text": "Metric: Metrics tracked are limited to target_mins.",
+       "types": [],
+       "modality": null,
+       "source": {
+        "document": "a5e328395b",
+        "section": "6",
+        "page": null,
+        "line": 173,
+        "step": 2,
+        "bullet": true
+       },
+       "quote": "Metric: Metrics tracked are limited to target_mins."
+      },
+      {
+       "id": "a5e328395b:6:3",
+       "text": "SLA Pause: The SLA timer must be paused (stage = paused) when the Incident is in stage = on_hold and the on_hold_reason is one of the following enumerations: Awaiting Change, Awaiting Caller, or Awaiting Problem.",
+       "types": [],
+       "modality": "must",
+       "source": {
+        "document": "a5e328395b",
+        "section": "6",
+        "page": null,
+        "line": 175,
+        "step": 3,
+        "bullet": true
+       },
+       "quote": "SLA Pause: The SLA timer must be paused (stage = paused) when the Incident is in stage = on_hold and the on_hold_reason is one of the following enumerations: Awaiting Change, Awaiting Caller, or Awaiting Problem."
+      },
+      {
+       "id": "a5e328395b:6:4",
+       "text": "Breach: If the SLA exceeds its duration (stage = breached), the escalation flag on the Incident must be set to true, and an automatic notification sent to the Manager.",
+       "types": [],
+       "modality": "must",
+       "source": {
+        "document": "a5e328395b",
+        "section": "6",
+        "page": null,
+        "line": 177,
+        "step": 4,
+        "bullet": true
+       },
+       "quote": "Breach: If the SLA exceeds its duration (stage = breached), the escalation flag on the Incident must be set to true, and an automatic notification sent to the Manager."
+      }
+     ],
+     "source": {
+      "document": "a5e328395b",
+      "section": "6",
+      "page": null
+     },
+     "quote": "Service Level Management (SLA)"
+    },
+    {
+     "id": "7",
+     "title": "Knowledge Management",
+     "page": null,
+     "parent": null,
+     "statements": [
+      {
+       "id": "a5e328395b:7:1",
+       "text": "Article Status: Only articles in knowledge.state = published are searchable by the Reporter role.",
+       "types": [],
+       "modality": "must",
+       "source": {
+        "document": "a5e328395b",
+        "section": "7",
+        "page": null,
+        "line": 183,
+        "step": 1,
+        "bullet": true
+       },
+       "quote": "Article Status: Only articles in knowledge.state = published are searchable by the Reporter role."
+      },
+      {
+       "id": "a5e328395b:7:2",
+       "text": "Search Policy: When an Incident is created, a search for relevant knowledge must be performed, and matching articles linked as used_as = suggested.",
+       "types": [],
+       "modality": "must",
+       "source": {
+        "document": "a5e328395b",
+        "section": "7",
+        "page": null,
+        "line": 185,
+        "step": 2,
+        "bullet": true
+       },
+       "quote": "Search Policy: When an Incident is created, a search for relevant knowledge must be performed, and matching articles linked as used_as = suggested."
+      },
+      {
+       "id": "a5e328395b:7:3",
+       "text": "Use Tracking: All knowledge links must track used_as type: suggested, applied, or resolution.",
+       "types": [],
+       "modality": "must",
+       "source": {
+        "document": "a5e328395b",
+        "section": "7",
+        "page": null,
+        "line": 187,
+        "step": 3,
+        "bullet": true
+       },
+       "quote": "Use Tracking: All knowledge links must track used_as type: suggested, applied, or resolution."
+      }
+     ],
+     "source": {
+      "document": "a5e328395b",
+      "section": "7",
+      "page": null
+     },
+     "quote": "Knowledge Management"
+    },
+    {
+     "id": "8",
+     "title": "Validation, Error Handling, and Logging",
+     "page": null,
+     "parent": null,
+     "statements": [],
+     "source": {
+      "document": "a5e328395b",
+      "section": "8",
+      "page": null
+     },
+     "quote": "Validation, Error Handling, and Logging"
+    },
+    {
+     "id": "8.1",
+     "title": "",
+     "page": null,
+     "parent": "8",
+     "statements": [
+      {
+       "id": "a5e328395b:8.1:1",
+       "text": "Data Integrity Checks",
+       "types": [],
+       "modality": null,
+       "source": {
+        "document": "a5e328395b",
+        "section": "8.1",
+        "page": null,
+        "line": 193
+       },
+       "quote": "Data Integrity Checks"
+      },
+      {
+       "id": "a5e328395b:8.1:2",
+       "text": "User Status: Ensure any user being assigned to (assigned_to) or updated is users.active = true.",
+       "types": [],
+       "modality": "must",
+       "source": {
+        "document": "a5e328395b",
+        "section": "8.1",
+        "page": null,
+        "line": 195,
+        "step": 1,
+        "bullet": true
+       },
+       "quote": "User Status: Ensure any user being assigned to (assigned_to) or updated is users.active = true."
+      },
+      {
+       "id": "a5e328395b:8.1:3",
+       "text": "Referential Integrity: Before closing any record, verify that all mandatory dependencies are satisfied.",
+       "types": [],
+       "modality": "must",
+       "source": {
+        "document": "a5e328395b",
+        "section": "8.1",
+        "page": null,
+        "line": 197,
+        "step": 2,
+        "bullet": true
+       },
+       "quote": "Referential Integrity: Before closing any record, verify that all mandatory dependencies are satisfied."
+      },
+      {
+       "id": "a5e328395b:8.1:4",
+       "text": "Time Tracking: All work logs must include the timestamp (created_on) and the user_id performing the action.",
+       "types": [],
+       "modality": "must",
+       "source": {
+        "document": "a5e328395b",
+        "section": "8.1",
+        "page": null,
+        "line": 199,
+        "step": 3,
+        "bullet": true
+       },
+       "quote": "Time Tracking: All work logs must include the timestamp (created_on) and the user_id performing the action."
+      }
+     ],
+     "source": {
+      "document": "a5e328395b",
+      "section": "8.1",
+      "page": null
+     },
+     "quote": ""
+    },
+    {
+     "id": "8.2",
+     "title": "",
+     "page": null,
+     "parent": "8",
+     "statements": [
+      {
+       "id": "a5e328395b:8.2:1",
+       "text": "Error Handling",
+       "types": [],
+       "modality": null,
+       "source": {
+        "document": "a5e328395b",
+        "section": "8.2",
+        "page": null,
+        "line": 201
+       },
+       "quote": "Error Handling"
+      },
+      {
+       "id": "a5e328395b:8.2:2",
+       "text": "403 Forbidden: Permission denied (user role lacks authority for the operation).",
+       "types": [],
+       "modality": null,
+       "source": {
+        "document": "a5e328395b",
+        "section": "8.2",
+        "page": null,
+        "line": 203
+       },
+       "quote": "403 Forbidden: Permission denied (user role lacks authority for the operation)."
+      },
+      {
+       "id": "a5e328395b:8.2:3",
+       "text": "409 Conflict: Record locking or state conflict.",
+       "types": [],
+       "modality": null,
+       "source": {
+        "document": "a5e328395b",
+        "section": "8.2",
+        "page": null,
+        "line": 205
+       },
+       "quote": "409 Conflict: Record locking or state conflict."
+      },
+      {
+       "id": "a5e328395b:8.2:4",
+       "text": "Rate Limiting: If exceeded, pause and retry using Exponential Backoff.",
+       "types": [],
+       "modality": "must",
+       "source": {
+        "document": "a5e328395b",
+        "section": "8.2",
+        "page": null,
+        "line": 207,
+        "step": 1,
+        "bullet": true
+       },
+       "quote": "Rate Limiting: If exceeded, pause and retry using Exponential Backoff."
+      }
+     ],
+     "source": {
+      "document": "a5e328395b",
+      "section": "8.2",
+      "page": null
+     },
+     "quote": ""
+    },
+    {
+     "id": "9",
+     "title": "Predefined Lists (Enumerations)",
+     "page": null,
+     "parent": null,
+     "statements": [
+      {
+       "id": "a5e328395b:9:1",
+       "text": "users.role | admin, manager, agent, reporter",
+       "types": [],
+       "modality": "must",
+       "source": {
+        "document": "a5e328395b",
+        "section": "9",
+        "page": null,
+        "line": 217,
+        "table_header": [
+         "Table.Field",
+         "Allowed Values"
+        ]
+       },
+       "quote": "users.role | admin, manager, agent, reporter"
+      },
+      {
+       "id": "a5e328395b:9:2",
+       "text": "incident.priority | critical, high, moderate, low, planning",
+       "types": [],
+       "modality": "must",
+       "source": {
+        "document": "a5e328395b",
+        "section": "9",
+        "page": null,
+        "line": 219,
+        "table_header": [
+         "Table.Field",
+         "Allowed Values"
+        ]
+       },
+       "quote": "incident.priority | critical, high, moderate, low, planning"
+      },
+      {
+       "id": "a5e328395b:9:3",
+       "text": "incident.impact | high, medium, low",
+       "types": [],
+       "modality": "must",
+       "source": {
+        "document": "a5e328395b",
+        "section": "9",
+        "page": null,
+        "line": 221,
+        "table_header": [
+         "Table.Field",
+         "Allowed Values"
+        ]
+       },
+       "quote": "incident.impact | high, medium, low"
+      },
+      {
+       "id": "a5e328395b:9:4",
+       "text": "incident.urgency | high, medium, low",
+       "types": [],
+       "modality": "must",
+       "source": {
+        "document": "a5e328395b",
+        "section": "9",
+        "page": null,
+        "line": 223,
+        "table_header": [
+         "Table.Field",
+         "Allowed Values"
+        ]
+       },
+       "quote": "incident.urgency | high, medium, low"
+      },
+      {
+       "id": "a5e328395b:9:5",
+       "text": "incident.status | new, in_progress, on_hold, resolved, closed",
+       "types": [],
+       "modality": "must",
+       "source": {
+        "document": "a5e328395b",
+        "section": "9",
+        "page": null,
+        "line": 225,
+        "table_header": [
+         "Table.Field",
+         "Allowed Values"
+        ]
+       },
+       "quote": "incident.status | new, in_progress, on_hold, resolved, closed"
+      },
+      {
+       "id": "a5e328395b:9:6",
+       "text": "incident.on_hold_reason | Awaiting Change, Awaiting Caller, Awaiting Problem",
+       "types": [],
+       "modality": "must",
+       "source": {
+        "document": "a5e328395b",
+        "section": "9",
+        "page": null,
+        "line": 227,
+        "table_header": [
+         "Table.Field",
+         "Allowed Values"
+        ]
+       },
+       "quote": "incident.on_hold_reason | Awaiting Change, Awaiting Caller, Awaiting Problem"
+      },
+      {
+       "id": "a5e328395b:9:7",
+       "text": "incident.resolution_code | fixed, workaround, not_reproducible, closed_by_caller",
+       "types": [],
+       "modality": "must",
+       "source": {
+        "document": "a5e328395b",
+        "section": "9",
+        "page": null,
+        "line": 229,
+        "table_header": [
+         "Table.Field",
+         "Allowed Values"
+        ]
+       },
+       "quote": "incident.resolution_code | fixed, workaround, not_reproducible, closed_by_caller"
+      },
+      {
+       "id": "a5e328395b:9:8",
+       "text": "change_request.type | standard, normal, emergency",
+       "types": [],
+       "modality": "must",
+       "source": {
+        "document": "a5e328395b",
+        "section": "9",
+        "page": null,
+        "line": 231,
+        "table_header": [
+         "Table.Field",
+         "Allowed Values"
+        ]
+       },
+       "quote": "change_request.type | standard, normal, emergency"
+      },
+      {
+       "id": "a5e328395b:9:9",
+       "text": "change_request.status | new, assess, authorize, scheduled, implement, review, closed, canceled",
+       "types": [],
+       "modality": "must",
+       "source": {
+        "document": "a5e328395b",
+        "section": "9",
+        "page": null,
+        "line": 233,
+        "table_header": [
+         "Table.Field",
+         "Allowed Values"
+        ]
+       },
+       "quote": "change_request.status | new, assess, authorize, scheduled, implement, review, closed, canceled"
+      },
+      {
+       "id": "a5e328395b:9:10",
+       "text": "configuration_item.status | in_use, in_stock, maintenance, retired, disposed",
+       "types": [],
+       "modality": "must",
+       "source": {
+        "document": "a5e328395b",
+        "section": "9",
+        "page": null,
+        "line": 235,
+        "table_header": [
+         "Table.Field",
+         "Allowed Values"
+        ]
+       },
+       "quote": "configuration_item.status | in_use, in_stock, maintenance, retired, disposed"
+      },
+      {
+       "id": "a5e328395b:9:11",
+       "text": "kb_knowledge.state | draft, review, published, retired",
+       "types": [],
+       "modality": "must",
+       "source": {
+        "document": "a5e328395b",
+        "section": "9",
+        "page": null,
+        "line": 237,
+        "table_header": [
+         "Table.Field",
+         "Allowed Values"
+        ]
+       },
+       "quote": "kb_knowledge.state | draft, review, published, retired"
+      },
+      {
+       "id": "a5e328395b:9:12",
+       "text": "incident_sla.stage | in_progress, paused, completed, cancelled, breached",
+       "types": [],
+       "modality": "must",
+       "source": {
+        "document": "a5e328395b",
+        "section": "9",
+        "page": null,
+        "line": 239,
+        "table_header": [
+         "Table.Field",
+         "Allowed Values"
+        ]
+       },
+       "quote": "incident_sla.stage | in_progress, paused, completed, cancelled, breached"
+      }
+     ],
+     "source": {
+      "document": "a5e328395b",
+      "section": "9",
+      "page": null
+     },
+     "quote": "Predefined Lists (Enumerations)"
+    }
+   ],
+   "structure": {
+    "headings": [
+     {
+      "pattern": "^(?:ARTICLE|Article|PART|Part|CHAPTER|Chapter|SECTION|Section|CLAUSE|Clause|SCHEDULE|Schedule|ANNEX|Annex|EXHIBIT|Exhibit|RULE|Rule)\\s+(?P<id>[0-9]+[A-Za-z]?|[IVXLC]+)\\b[.:\\-–]?\\s*(?P<title>.*)$",
+      "level": 1,
+      "kind": "heading"
+     },
+     {
+      "pattern": "^(?P<id>[IVX]{1,5})\\.\\s+(?P<title>[A-Z][^.]{0,80})$",
+      "level": 1,
+      "kind": "heading"
+     },
+     {
+      "pattern": "^\\((?P<id>[a-z])\\)\\s+",
+      "level": 2,
+      "kind": "clause"
+     }
+    ],
+    "references": [
+     "\\b(?:Article|Part|Chapter|Clause|Schedule|Annex|Exhibit|Rule|Item)\\s+(?P<ref>[0-9]+(?:\\.[0-9]+)*[A-Za-z]?|[IVXLCDM]+|[A-Z])\\b",
+     "\\bclause\\s+\\((?P<ref>[a-z])\\)",
+     "\\bparagraph\\s+(?P<ref>\\d+(?:\\.\\d+)*)"
+    ],
+    "by": "code"
+   },
+   "source": {
+    "document": "a5e328395b",
+    "file": "policies/a5e328395b.md"
+   },
+   "quote": "ITSM Assistant Policy"
+  }
+ ],
+ "rules": [
+  {
+   "id": "r_mandate",
+   "type": "guidance",
+   "rule": {
+    "type": "guidance",
+    "text": "Mandate: Ensure the efficient, secure, and controlled delivery of IT services by managing the full lifecycle of Incidents, Service Requests, Changes, Problems, and Configuration Items (CIs) in strict accordance with defined policies and best practices.",
+    "id": "r_mandate"
+   },
+   "statement_ids": [
+    "a5e328395b:preamble:2"
+   ],
+   "checker": "brief",
+   "may_deny": true,
+   "source": {},
+   "quote": "",
+   "class": "guidance",
+   "level": "observe"
+  },
+  {
+   "id": "r_check_user_first",
+   "type": "guidance",
+   "rule": {
+    "type": "guidance",
+    "text": "First you must check the user information and operate exclusively based on confirmed user roles, verified record relationships, and ITIL/database integrity rules.",
+    "id": "r_check_user_first"
+   },
+   "statement_ids": [
+    "a5e328395b:preamble:3"
+   ],
+   "checker": "brief",
+   "may_deny": true,
+   "source": {},
+   "quote": "",
+   "class": "guidance",
+   "level": "observe"
+  },
+  {
+   "id": "r_prohibited",
+   "type": "guidance",
+   "rule": {
+    "type": "guidance",
+    "text": "You are strictly prohibited from assuming data, executing ambiguous commands, bypassing mandatory approvals, or violating audit and compliance requirements.",
+    "id": "r_prohibited"
+   },
+   "statement_ids": [
+    "a5e328395b:preamble:4"
+   ],
+   "checker": "brief",
+   "may_deny": true,
+   "source": {},
+   "quote": "",
+   "class": "guidance",
+   "level": "observe"
+  },
+  {
+   "id": "r_policy_violation",
+   "type": "guidance",
+   "rule": {
+    "type": "guidance",
+    "text": "Policy Violation: If a user request violates any rule herein, you must halt the operation and provide the specific policy reason before pausing.",
+    "id": "r_policy_violation"
+   },
+   "statement_ids": [
+    "a5e328395b:1:1"
+   ],
+   "checker": "brief",
+   "may_deny": true,
+   "source": {},
+   "quote": "",
+   "class": "guidance",
+   "level": "observe"
+  },
+  {
+   "id": "r_atomic",
+   "type": "guidance",
+   "rule": {
+    "type": "guidance",
+    "text": "Atomic Operations: Perform one validated operation at a time, except when using approved batch endpoints. Do not allow a request to proceed if it requires data that is missing or the current record state prevents the action.",
+    "id": "r_atomic"
+   },
+   "statement_ids": [
+    "a5e328395b:1:2"
+   ],
+   "checker": "brief",
+   "may_deny": true,
+   "source": {},
+   "quote": "",
+   "class": "guidance",
+   "level": "observe"
+  },
+  {
+   "id": "r_clarification",
+   "type": "guidance",
+   "rule": {
+    "type": "guidance",
+    "text": "User Clarification: Do not ask for further information. If the request is ambiguous, return the list and state the ambiguity. If a mandatory field is missing, state which field is required.",
+    "id": "r_clarification"
+   },
+   "statement_ids": [
+    "a5e328395b:1:4"
+   ],
+   "checker": "brief",
+   "may_deny": true,
+   "source": {},
+   "quote": "",
+   "class": "guidance",
+   "level": "observe"
+  },
+  {
+   "id": "r_mandatory_fields",
+   "type": "guidance",
+   "rule": {
+    "type": "guidance",
+    "text": "Mandatory Fields: Any request to create or update a record must validate all mandatory fields.",
+    "id": "r_mandatory_fields"
+   },
+   "statement_ids": [
+    "a5e328395b:1:5"
+   ],
+   "checker": "brief",
+   "may_deny": true,
+   "source": {},
+   "quote": "",
+   "class": "guidance",
+   "level": "observe"
+  },
+  {
+   "id": "r_no_confirmation",
+   "type": "guidance",
+   "rule": {
+    "type": "guidance",
+    "text": "You do not need to ask for confirmation or permission before taking action.",
+    "id": "r_no_confirmation"
+   },
+   "statement_ids": [
+    "a5e328395b:1:6"
+   ],
+   "checker": "brief",
+   "may_deny": true,
+   "source": {},
+   "quote": "",
+   "class": "guidance",
+   "level": "observe"
+  },
+  {
+   "id": "r_lookups",
+   "type": "guidance",
+   "rule": {
+    "type": "guidance",
+    "text": "When identifiers such as names or IDs are missing, perform lookups, verify that you are reusing correct values from previous responses, and proceed using the retrieved data.",
+    "id": "r_lookups"
+   },
+   "statement_ids": [
+    "a5e328395b:1:7"
+   ],
+   "checker": "brief",
+   "may_deny": true,
+   "source": {},
+   "quote": "",
+   "class": "guidance",
+   "level": "observe"
+  },
+  {
+   "id": "r_never_assume",
+   "type": "guidance",
+   "rule": {
+    "type": "guidance",
+    "text": "Never assume or fabricate IDs, responses, or outcomes — rely solely on verified API results. The same is the case of optional or default arguments.",
+    "id": "r_never_assume"
+   },
+   "statement_ids": [
+    "a5e328395b:1:8",
+    "a5e328395b:1:9"
+   ],
+   "checker": "brief",
+   "may_deny": true,
+   "source": {},
+   "quote": "",
+   "class": "guidance",
+   "level": "observe"
+  },
+  {
+   "id": "r_flow",
+   "type": "guidance",
+   "rule": {
+    "type": "guidance",
+    "text": "Complete each task in a logical, and efficient execution flow.",
+    "id": "r_flow"
+   },
+   "statement_ids": [
+    "a5e328395b:1:10"
+   ],
+   "checker": "brief",
+   "may_deny": true,
+   "source": {},
+   "quote": "",
+   "class": "guidance",
+   "level": "observe"
+  },
+  {
+   "id": "r_rate_limit",
+   "type": "guidance",
+   "rule": {
+    "type": "guidance",
+    "text": "Rate Limiting: If exceeded, pause and retry using Exponential Backoff.",
+    "id": "r_rate_limit"
+   },
+   "statement_ids": [
+    "a5e328395b:8.2:4"
+   ],
+   "checker": "brief",
+   "may_deny": true,
+   "source": {},
+   "quote": "",
+   "class": "guidance",
+   "level": "observe"
+  },
+  {
+   "id": "r_id_provenance",
+   "type": "id_provenance",
+   "rule": {
+    "type": "id_provenance",
+    "id": "r_id_provenance"
+   },
+   "statement_ids": [
+    "a5e328395b:1:8"
+   ],
+   "checker": "code",
+   "may_deny": true,
+   "source": {},
+   "quote": "",
+   "class": "hard",
+   "level": "observe"
+  },
+  {
+   "id": "r_grounded_values",
+   "type": "grounded_values",
+   "rule": {
+    "type": "grounded_values",
+    "id": "r_grounded_values"
+   },
+   "statement_ids": [
+    "a5e328395b:1:9"
+   ],
+   "checker": "code",
+   "may_deny": true,
+   "source": {},
+   "quote": "",
+   "class": "hard",
+   "level": "observe"
+  },
+  {
+   "id": "r_disclosure",
+   "type": "verify",
+   "rule": {
+    "type": "verify",
+    "tools": [
+     "send_notification",
+     "update_notification"
+    ],
+    "statement": "Do not disclose information that is outside the authenticated user's access scope.",
+    "id": "r_disclosure"
+   },
+   "statement_ids": [
+    "a5e328395b:1:3"
+   ],
+   "checker": "verifier",
+   "may_deny": true,
+   "source": {},
+   "quote": "",
+   "class": "judgment",
+   "level": "remind",
+   "why": "Needs the meaning of the message text and the access scope of the logged-in user; no typed rule reads either."
+  },
+  {
+   "id": "r_manager_grant",
+   "type": "role_permission",
+   "rule": {
+    "type": "role_permission",
+    "tools": [
+     "add_new_user",
+     "update_user_details",
+     "add_new_user_group",
+     "update_user_group",
+     "add_new_group_member",
+     "remove_group_membership",
+     "add_location",
+     "update_location",
+     "create_new_incident_template",
+     "update_incident_template",
+     "register_configuration_item",
+     "update_configuration_item",
+     "add_new_service",
+     "update_service",
+     "register_new_service_offering",
+     "update_service_offering",
+     "add_new_sla_definition",
+     "update_sla_definition",
+     "send_notification",
+     "update_notification",
+     "delete_notifications",
+     "link_new_incident_sla",
+     "update_incident_sla_details",
+     "delete_incident_slas"
+    ],
+    "roles": [
+     "manager"
+    ],
+    "effect": "forbid",
+    "id": "r_manager_grant",
+    "quote": "Full CRUD on operational tables (incident, problem, change, knowledge); READ access to all the tables."
+   },
+   "statement_ids": [
+    "a5e328395b:2:5"
+   ],
+   "checker": "cedar",
+   "may_deny": true,
+   "source": {},
+   "quote": "Full CRUD on operational tables (incident, problem, change, knowledge); READ access to all the tables.",
+   "class": "hard",
+   "level": "remind"
+  },
+  {
+   "id": "r_agent_grant",
+   "type": "role_permission",
+   "rule": {
+    "type": "role_permission",
+    "tools": [
+     "add_new_user",
+     "update_user_details",
+     "add_new_user_group",
+     "update_user_group",
+     "add_new_group_member",
+     "remove_group_membership",
+     "add_location",
+     "update_location",
+     "create_new_incident_template",
+     "update_incident_template",
+     "add_new_sla_definition",
+     "update_sla_definition",
+     "send_notification",
+     "update_notification",
+     "delete_notifications",
+     "link_new_incident_sla",
+     "update_incident_sla_details",
+     "delete_incident_slas"
+    ],
+    "roles": [
+     "agent"
+    ],
+    "effect": "forbid",
+    "id": "r_agent_grant",
+    "quote": "Full CRUD on Incidents, Service Requests, Tasks, Work Notes, CMDB, Change, Problem, and Knowledge."
+   },
+   "statement_ids": [
+    "a5e328395b:2:6"
+   ],
+   "checker": "cedar",
+   "may_deny": true,
+   "source": {},
+   "quote": "Full CRUD on Incidents, Service Requests, Tasks, Work Notes, CMDB, Change, Problem, and Knowledge.",
+   "class": "hard",
+   "level": "remind"
+  },
+  {
+   "id": "r_reporter_grant",
+   "type": "role_permission",
+   "rule": {
+    "type": "role_permission",
+    "tools": [
+     "add_new_user",
+     "update_user_details",
+     "add_new_user_group",
+     "update_user_group",
+     "add_new_group_member",
+     "remove_group_membership",
+     "add_location",
+     "update_location",
+     "create_new_incident_template",
+     "update_incident_template",
+     "add_new_service",
+     "update_service",
+     "register_new_service_offering",
+     "update_service_offering",
+     "add_new_sla_definition",
+     "update_sla_definition",
+     "send_notification",
+     "update_notification",
+     "delete_notifications",
+     "link_new_incident_sla",
+     "update_incident_sla_details",
+     "delete_incident_slas",
+     "create_change",
+     "update_change",
+     "create_problem",
+     "update_problem",
+     "add_child_incident",
+     "add_child_incidents",
+     "update_child_incident",
+     "remove_child_incident",
+     "create_knowledge_article",
+     "update_knowledge_article",
+     "link_knowledge_to_incident",
+     "remove_knowledge_link_to_incident",
+     "map_change_request",
+     "delete_change_request_mappings",
+     "link_affected_ci_to_incident",
+     "remove_affected_ci_from_incident"
+    ],
+    "roles": [
+     "reporter"
+    ],
+    "effect": "forbid",
+    "id": "r_reporter_grant",
+    "quote": "Can view and update their own submitted Incidents/Requests."
+   },
+   "statement_ids": [
+    "a5e328395b:2:7"
+   ],
+   "checker": "cedar",
+   "may_deny": true,
+   "source": {},
+   "quote": "Can view and update their own submitted Incidents/Requests.",
+   "class": "hard",
+   "level": "remind"
+  },
+  {
+   "id": "r_reporter_cmdb",
+   "type": "role_permission",
+   "rule": {
+    "type": "role_permission",
+    "tools": [
+     "register_configuration_item",
+     "update_configuration_item",
+     "find_configuration_item_by_serial_number",
+     "find_configuration_items"
+    ],
+    "roles": [
+     "reporter"
+    ],
+    "effect": "forbid",
+    "id": "r_reporter_cmdb",
+    "quote": "Cannot view or modify records opened by other users, CMDB, or internal work notes."
+   },
+   "statement_ids": [
+    "a5e328395b:2:7"
+   ],
+   "checker": "cedar",
+   "may_deny": true,
+   "source": {},
+   "quote": "Cannot view or modify records opened by other users, CMDB, or internal work notes.",
+   "class": "hard",
+   "level": "deny"
+  },
+  {
+   "id": "r_reporter_own_records",
+   "type": "verify",
+   "rule": {
+    "type": "verify",
+    "tools": [
+     "update_incident",
+     "find_incident_by_id",
+     "find_incident_by_number",
+     "list_incidents"
+    ],
+    "statement": "Reporter (reporter): Cannot view or modify records opened by other users, CMDB, or internal work notes.",
+    "id": "r_reporter_own_records"
+   },
+   "statement_ids": [
+    "a5e328395b:2:7"
+   ],
+   "checker": "verifier",
+   "may_deny": true,
+   "source": {},
+   "quote": "",
+   "class": "judgment",
+   "level": "remind",
+   "why": "Compares the opener of the record with the logged-in user and reads the worknotes argument for one role only; record_condition compares a field with a fixed value and has no role."
+  },
+  {
+   "id": "r_approvals",
+   "type": "verify",
+   "rule": {
+    "type": "verify",
+    "tools": [
+     "update_change"
+    ],
+    "statement": "Agent (agent): Cannot bypass approvals. Manager (manager): Can approve/reject Change Requests.",
+    "id": "r_approvals"
+   },
+   "statement_ids": [
+    "a5e328395b:preamble:4",
+    "a5e328395b:2:6"
+   ],
+   "checker": "verifier",
+   "may_deny": true,
+   "source": {},
+   "quote": "",
+   "class": "judgment",
+   "level": "remind",
+   "why": "The policy does not say which status move is an approval, and no tool has an approval record or argument."
+  },
+  {
+   "id": "r_incident_required",
+   "type": "required_args",
+   "rule": {
+    "type": "required_args",
+    "tool": "create_incident",
+    "args": [
+     "caller_id",
+     "short_description",
+     "impact",
+     "urgency"
+    ],
+    "id": "r_incident_required",
+    "quote": "Mandatory Inputs: caller_id (user affected), short_description, impact, and urgency."
+   },
+   "statement_ids": [
+    "a5e328395b:3.1:3"
+   ],
+   "checker": "code",
+   "may_deny": true,
+   "source": {},
+   "quote": "Mandatory Inputs: caller_id (user affected), short_description, impact, and urgency.",
+   "class": "hard",
+   "level": "deny"
+  },
+  {
+   "id": "r_incident_priority_matrix",
+   "type": "derived_value",
+   "rule": {
+    "type": "derived_value",
+    "tool": "create_incident",
+    "arg": "priority",
+    "inputs": [
+     "impact",
+     "urgency"
+    ],
+    "table": {
+     "low|low": "planning",
+     "low|medium": "low",
+     "low|high": "moderate",
+     "medium|low": "low",
+     "medium|medium": "moderate",
+     "medium|high": "high",
+     "high|low": "moderate",
+     "high|medium": "high",
+     "high|high": "critical"
+    },
+    "id": "r_incident_priority_matrix",
+    "quote": "Priority Calculation: Priority (critical, high, moderate, low, planning) is determined automatically by the system based on a below pre-defined matrix of Impact x Urgency."
+   },
+   "statement_ids": [
+    "a5e328395b:3.1:4",
+    "a5e328395b:3.1:5",
+    "a5e328395b:3.1:6",
+    "a5e328395b:3.1:7",
+    "a5e328395b:3.1:8",
+    "a5e328395b:3.1:9",
+    "a5e328395b:3.1:10",
+    "a5e328395b:3.1:11",
+    "a5e328395b:3.1:12",
+    "a5e328395b:3.1:13"
+   ],
+   "checker": "code",
+   "may_deny": true,
+   "source": {},
+   "quote": "Priority Calculation: Priority (critical, high, moderate, low, planning) is determined automatically by the system based on a below pre-defined matrix of Impact x Urgency.",
+   "class": "hard",
+   "level": "deny"
+  },
+  {
+   "id": "r_incident_default_status",
+   "type": "allowed_values",
+   "rule": {
+    "type": "allowed_values",
+    "tool": "create_incident",
+    "arg": "status",
+    "values": [
+     "new"
+    ],
+    "id": "r_incident_default_status",
+    "quote": "Default Status: All new Incidents are set to status = new."
+   },
+   "statement_ids": [
+    "a5e328395b:3.1:14"
+   ],
+   "checker": "code",
+   "may_deny": true,
+   "source": {},
+   "quote": "Default Status: All new Incidents are set to status = new.",
+   "class": "hard",
+   "level": "deny"
+  },
+  {
+   "id": "r_assign_active_create_incident",
+   "type": "reference_status",
+   "rule": {
+    "type": "reference_status",
+    "tool": "create_incident",
+    "arg": "assigned_to",
+    "field": "active",
+    "allowed": [
+     true
+    ],
+    "id": "r_assign_active_create_incident",
+    "quote": "Constraints: assigned_to must be an active user with the Agent or Manager role and must be a member of the specified assignment_group."
+   },
+   "statement_ids": [
+    "a5e328395b:3.2:2",
+    "a5e328395b:8.1:2"
+   ],
+   "checker": "code",
+   "may_deny": true,
+   "source": {},
+   "quote": "Constraints: assigned_to must be an active user with the Agent or Manager role and must be a member of the specified assignment_group.",
+   "class": "hard",
+   "level": "block_once"
+  },
+  {
+   "id": "r_assign_role_create_incident",
+   "type": "reference_status",
+   "rule": {
+    "type": "reference_status",
+    "tool": "create_incident",
+    "arg": "assigned_to",
+    "field": "role",
+    "allowed": [
+     "agent",
+     "manager"
+    ],
+    "id": "r_assign_role_create_incident",
+    "quote": "Constraints: assigned_to must be an active user with the Agent or Manager role and must be a member of the specified assignment_group."
+   },
+   "statement_ids": [
+    "a5e328395b:3.2:2"
+   ],
+   "checker": "code",
+   "may_deny": true,
+   "source": {},
+   "quote": "Constraints: assigned_to must be an active user with the Agent or Manager role and must be a member of the specified assignment_group.",
+   "class": "hard",
+   "level": "block_once"
+  },
+  {
+   "id": "r_assign_member_create_incident",
+   "type": "membership",
+   "rule": {
+    "type": "membership",
+    "tool": "create_incident",
+    "arg": "assigned_to",
+    "group_arg": "assignment_group",
+    "id": "r_assign_member_create_incident",
+    "quote": "Constraints: assigned_to must be an active user with the Agent or Manager role and must be a member of the specified assignment_group."
+   },
+   "statement_ids": [
+    "a5e328395b:3.2:2"
+   ],
+   "checker": "code",
+   "may_deny": true,
+   "source": {},
+   "quote": "Constraints: assigned_to must be an active user with the Agent or Manager role and must be a member of the specified assignment_group.",
+   "class": "hard",
+   "level": "block_once"
+  },
+  {
+   "id": "r_assign_active_update_incident",
+   "type": "reference_status",
+   "rule": {
+    "type": "reference_status",
+    "tool": "update_incident",
+    "arg": "assigned_to",
+    "field": "active",
+    "allowed": [
+     true
+    ],
+    "id": "r_assign_active_update_incident",
+    "quote": "Constraints: assigned_to must be an active user with the Agent or Manager role and must be a member of the specified assignment_group."
+   },
+   "statement_ids": [
+    "a5e328395b:3.2:2",
+    "a5e328395b:8.1:2"
+   ],
+   "checker": "code",
+   "may_deny": true,
+   "source": {},
+   "quote": "Constraints: assigned_to must be an active user with the Agent or Manager role and must be a member of the specified assignment_group.",
+   "class": "hard",
+   "level": "block_once"
+  },
+  {
+   "id": "r_assign_role_update_incident",
+   "type": "reference_status",
+   "rule": {
+    "type": "reference_status",
+    "tool": "update_incident",
+    "arg": "assigned_to",
+    "field": "role",
+    "allowed": [
+     "agent",
+     "manager"
+    ],
+    "id": "r_assign_role_update_incident",
+    "quote": "Constraints: assigned_to must be an active user with the Agent or Manager role and must be a member of the specified assignment_group."
+   },
+   "statement_ids": [
+    "a5e328395b:3.2:2"
+   ],
+   "checker": "code",
+   "may_deny": true,
+   "source": {},
+   "quote": "Constraints: assigned_to must be an active user with the Agent or Manager role and must be a member of the specified assignment_group.",
+   "class": "hard",
+   "level": "block_once"
+  },
+  {
+   "id": "r_assign_member_update_incident",
+   "type": "membership",
+   "rule": {
+    "type": "membership",
+    "tool": "update_incident",
+    "arg": "assigned_to",
+    "group_arg": "assignment_group",
+    "id": "r_assign_member_update_incident",
+    "quote": "Constraints: assigned_to must be an active user with the Agent or Manager role and must be a member of the specified assignment_group."
+   },
+   "statement_ids": [
+    "a5e328395b:3.2:2"
+   ],
+   "checker": "code",
+   "may_deny": true,
+   "source": {},
+   "quote": "Constraints: assigned_to must be an active user with the Agent or Manager role and must be a member of the specified assignment_group.",
+   "class": "hard",
+   "level": "block_once"
+  },
+  {
+   "id": "r_assign_active_create_change",
+   "type": "reference_status",
+   "rule": {
+    "type": "reference_status",
+    "tool": "create_change",
+    "arg": "assigned_to",
+    "field": "active",
+    "allowed": [
+     true
+    ],
+    "id": "r_assign_active_create_change",
+    "quote": "User Status: Ensure any user being assigned to (assigned_to) or updated is users.active = true."
+   },
+   "statement_ids": [
+    "a5e328395b:8.1:2"
+   ],
+   "checker": "code",
+   "may_deny": true,
+   "source": {},
+   "quote": "User Status: Ensure any user being assigned to (assigned_to) or updated is users.active = true.",
+   "class": "hard",
+   "level": "block_once"
+  },
+  {
+   "id": "r_assign_active_update_change",
+   "type": "reference_status",
+   "rule": {
+    "type": "reference_status",
+    "tool": "update_change",
+    "arg": "assigned_to",
+    "field": "active",
+    "allowed": [
+     true
+    ],
+    "id": "r_assign_active_update_change",
+    "quote": "User Status: Ensure any user being assigned to (assigned_to) or updated is users.active = true."
+   },
+   "statement_ids": [
+    "a5e328395b:8.1:2"
+   ],
+   "checker": "code",
+   "may_deny": true,
+   "source": {},
+   "quote": "User Status: Ensure any user being assigned to (assigned_to) or updated is users.active = true.",
+   "class": "hard",
+   "level": "block_once"
+  },
+  {
+   "id": "r_assign_active_create_problem",
+   "type": "reference_status",
+   "rule": {
+    "type": "reference_status",
+    "tool": "create_problem",
+    "arg": "assigned_to",
+    "field": "active",
+    "allowed": [
+     true
+    ],
+    "id": "r_assign_active_create_problem",
+    "quote": "User Status: Ensure any user being assigned to (assigned_to) or updated is users.active = true."
+   },
+   "statement_ids": [
+    "a5e328395b:8.1:2"
+   ],
+   "checker": "code",
+   "may_deny": true,
+   "source": {},
+   "quote": "User Status: Ensure any user being assigned to (assigned_to) or updated is users.active = true.",
+   "class": "hard",
+   "level": "block_once"
+  },
+  {
+   "id": "r_assign_active_update_problem",
+   "type": "reference_status",
+   "rule": {
+    "type": "reference_status",
+    "tool": "update_problem",
+    "arg": "assigned_to",
+    "field": "active",
+    "allowed": [
+     true
+    ],
+    "id": "r_assign_active_update_problem",
+    "quote": "User Status: Ensure any user being assigned to (assigned_to) or updated is users.active = true."
+   },
+   "statement_ids": [
+    "a5e328395b:8.1:2"
+   ],
+   "checker": "code",
+   "may_deny": true,
+   "source": {},
+   "quote": "User Status: Ensure any user being assigned to (assigned_to) or updated is users.active = true.",
+   "class": "hard",
+   "level": "block_once"
+  },
+  {
+   "id": "r_user_update_active",
+   "type": "reference_status",
+   "rule": {
+    "type": "reference_status",
+    "tool": "update_user_details",
+    "arg": "user_id",
+    "field": "active",
+    "allowed": [
+     true
+    ],
+    "id": "r_user_update_active",
+    "quote": "User Status: Ensure any user being assigned to (assigned_to) or updated is users.active = true."
+   },
+   "statement_ids": [
+    "a5e328395b:8.1:2"
+   ],
+   "checker": "code",
+   "may_deny": true,
+   "source": {},
+   "quote": "User Status: Ensure any user being assigned to (assigned_to) or updated is users.active = true.",
+   "class": "hard",
+   "level": "remind"
+  },
+  {
+   "id": "r_incident_transition",
+   "type": "transition",
+   "rule": {
+    "type": "transition",
+    "tool": "update_incident",
+    "arg": "status",
+    "id_arg": "incident_id",
+    "edges": {
+     "new": [
+      "in_progress",
+      "on_hold",
+      "resolved"
+     ],
+     "in_progress": [
+      "on_hold",
+      "resolved"
+     ],
+     "on_hold": [
+      "in_progress"
+     ],
+     "resolved": [
+      "closed",
+      "in_progress"
+     ],
+     "closed": []
+    },
+    "id": "r_incident_transition",
+    "quote": "new → in_progress / on_hold / resolved"
+   },
+   "statement_ids": [
+    "a5e328395b:3.3:3",
+    "a5e328395b:3.3:4",
+    "a5e328395b:3.3:5",
+    "a5e328395b:3.3:6",
+    "a5e328395b:9:5"
+   ],
+   "checker": "code",
+   "may_deny": true,
+   "source": {},
+   "quote": "new → in_progress / on_hold / resolved",
+   "class": "hard",
+   "level": "block_once"
+  },
+  {
+   "id": "r_on_hold_reason_required",
+   "type": "required_args",
+   "rule": {
+    "type": "required_args",
+    "tool": "update_incident",
+    "args": [
+     "on_hold_reason"
+    ],
+    "when": {
+     "status": [
+      "on_hold"
+     ]
+    },
+    "id": "r_on_hold_reason_required",
+    "quote": "Must log on_hold_reason before transition"
+   },
+   "statement_ids": [
+    "a5e328395b:3.3:5"
+   ],
+   "checker": "code",
+   "may_deny": true,
+   "source": {},
+   "quote": "Must log on_hold_reason before transition",
+   "class": "hard",
+   "level": "remind"
+  },
+  {
+   "id": "r_leave_on_hold",
+   "type": "verify",
+   "rule": {
+    "type": "verify",
+    "tools": [
+     "update_incident"
+    ],
+    "statement": "on_hold → in_progress (Must log on_hold_reason before transition)",
+    "id": "r_leave_on_hold"
+   },
+   "statement_ids": [
+    "a5e328395b:3.3:5"
+   ],
+   "checker": "verifier",
+   "may_deny": true,
+   "source": {},
+   "quote": "",
+   "class": "judgment",
+   "level": "remind",
+   "why": "The condition joins the current status of the record with its on_hold_reason; when reads only the arguments of the call, so a typed rule cannot tell on_hold to in_progress from new or resolved to in_progress."
+  },
+  {
+   "id": "r_resolution_fields",
+   "type": "required_args",
+   "rule": {
+    "type": "required_args",
+    "tool": "update_incident",
+    "args": [
+     "resolution_code",
+     "resolution_notes"
+    ],
+    "when": {
+     "status": [
+      "resolved"
+     ]
+    },
+    "id": "r_resolution_fields",
+    "quote": "Resolution Requirement: An Incident cannot transition to resolved without mandatory fields: resolution_code, and resolution_notes (free-form text, max 2000 chars)."
+   },
+   "statement_ids": [
+    "a5e328395b:3.3:7"
+   ],
+   "checker": "code",
+   "may_deny": true,
+   "source": {},
+   "quote": "Resolution Requirement: An Incident cannot transition to resolved without mandatory fields: resolution_code, and resolution_notes (free-form text, max 2000 chars).",
+   "class": "hard",
+   "level": "deny"
+  },
+  {
+   "id": "r_resolution_notes_length",
+   "type": "format",
+   "rule": {
+    "type": "format",
+    "tool": "update_incident",
+    "arg": "resolution_notes",
+    "pattern": "^[\\s\\S]{0,2000}$",
+    "id": "r_resolution_notes_length",
+    "quote": "resolution_notes (free-form text, max 2000 chars)"
+   },
+   "statement_ids": [
+    "a5e328395b:3.3:7"
+   ],
+   "checker": "code",
+   "may_deny": true,
+   "source": {},
+   "quote": "resolution_notes (free-form text, max 2000 chars)",
+   "class": "hard",
+   "level": "deny"
+  },
+  {
+   "id": "r_resolution_code_values",
+   "type": "allowed_values",
+   "rule": {
+    "type": "allowed_values",
+    "tool": "update_incident",
+    "arg": "resolution_code",
+    "values": [
+     "fixed",
+     "workaround",
+     "not_reproducible",
+     "closed_by_caller"
+    ],
+    "when": {
+     "status": [
+      "resolved"
+     ]
+    },
+    "schema_conflict": true,
+    "id": "r_resolution_code_values",
+    "quote": "incident.resolution_code | fixed, workaround, not_reproducible, closed_by_caller"
+   },
+   "statement_ids": [
+    "a5e328395b:9:7",
+    "a5e328395b:3.3:7"
+   ],
+   "checker": "code",
+   "may_deny": true,
+   "source": {},
+   "quote": "incident.resolution_code | fixed, workaround, not_reproducible, closed_by_caller",
+   "class": "hard",
+   "level": "observe"
+  },
+  {
+   "id": "r_change_default_status",
+   "type": "allowed_values",
+   "rule": {
+    "type": "allowed_values",
+    "tool": "create_change",
+    "arg": "status",
+    "values": [
+     "new"
+    ],
+    "id": "r_change_default_status",
+    "quote": "Default Status: All new Changes are set to status = new."
+   },
+   "statement_ids": [
+    "a5e328395b:4.1:3"
+   ],
+   "checker": "code",
+   "may_deny": true,
+   "source": {},
+   "quote": "Default Status: All new Changes are set to status = new.",
+   "class": "hard",
+   "level": "deny"
+  },
+  {
+   "id": "r_change_status_values",
+   "type": "format",
+   "rule": {
+    "type": "format",
+    "tool": "update_change",
+    "arg": "status",
+    "pattern": "^(new|assess|authorize|scheduled|implement|review|closed|canceled)$",
+    "id": "r_change_status_values",
+    "quote": "change_request.status | new, assess, authorize, scheduled, implement, review, closed, canceled"
+   },
+   "statement_ids": [
+    "a5e328395b:9:9"
+   ],
+   "checker": "code",
+   "may_deny": true,
+   "source": {},
+   "quote": "change_request.status | new, assess, authorize, scheduled, implement, review, closed, canceled",
+   "class": "hard",
+   "level": "deny"
+  },
+  {
+   "id": "r_problem_default_status",
+   "type": "allowed_values",
+   "rule": {
+    "type": "allowed_values",
+    "tool": "create_problem",
+    "arg": "status",
+    "values": [
+     "new"
+    ],
+    "id": "r_problem_default_status",
+    "quote": "Default Status: All new Problems are set to status = new."
+   },
+   "statement_ids": [
+    "a5e328395b:4.2:4"
+   ],
+   "checker": "code",
+   "may_deny": true,
+   "source": {},
+   "quote": "Default Status: All new Problems are set to status = new.",
+   "class": "hard",
+   "level": "remind"
+  },
+  {
+   "id": "r_problem_priority_matrix",
+   "type": "derived_value",
+   "rule": {
+    "type": "derived_value",
+    "tool": "create_problem",
+    "arg": "priority",
+    "inputs": [
+     "impact",
+     "urgency"
+    ],
+    "table": {
+     "low|low": "planning",
+     "low|medium": "low",
+     "low|high": "moderate",
+     "medium|low": "low",
+     "medium|medium": "moderate",
+     "medium|high": "high",
+     "high|low": "moderate",
+     "high|medium": "high",
+     "high|high": "critical"
+    },
+    "id": "r_problem_priority_matrix",
+    "quote": "Priority Calculation: Priority (critical, high, moderate, low, planning) is determined automatically by the system based on a below pre-defined matrix of Impact x Urgency."
+   },
+   "statement_ids": [
+    "a5e328395b:4.2:7",
+    "a5e328395b:4.2:8",
+    "a5e328395b:4.2:9",
+    "a5e328395b:4.2:10",
+    "a5e328395b:4.2:11",
+    "a5e328395b:4.2:12",
+    "a5e328395b:4.2:13",
+    "a5e328395b:4.2:14",
+    "a5e328395b:4.2:15",
+    "a5e328395b:4.2:16"
+   ],
+   "checker": "code",
+   "may_deny": true,
+   "source": {},
+   "quote": "Priority Calculation: Priority (critical, high, moderate, low, planning) is determined automatically by the system based on a below pre-defined matrix of Impact x Urgency.",
+   "class": "hard",
+   "level": "remind"
+  },
+  {
+   "id": "r_problem_link_duty",
+   "type": "duty",
+   "rule": {
+    "type": "duty",
+    "trigger": {
+     "tool": "create_problem"
+    },
+    "then": {
+     "tool": "update_incident",
+     "when": {
+      "problem": [
+       "*"
+      ]
+     }
+    },
+    "id": "r_problem_link_duty",
+    "quote": "Linking: The Problem record must link all affected Incidents via the incident_to_problem related list."
+   },
+   "statement_ids": [
+    "a5e328395b:4.2:3"
+   ],
+   "checker": "monitor",
+   "may_deny": true,
+   "source": {},
+   "quote": "Linking: The Problem record must link all affected Incidents via the incident_to_problem related list.",
+   "class": "hard",
+   "level": "remind"
+  },
+  {
+   "id": "r_problem_workaround_status",
+   "type": "allowed_values",
+   "rule": {
+    "type": "allowed_values",
+    "tool": "update_problem",
+    "arg": "status",
+    "values": [
+     "fix_in_progress"
+    ],
+    "when": {
+     "workaround": [
+      "*"
+     ]
+    },
+    "id": "r_problem_workaround_status",
+    "quote": "If workaround/temporary solution found, update workaround field and set status=fix_in_progress."
+   },
+   "statement_ids": [
+    "a5e328395b:4.2:5"
+   ],
+   "checker": "code",
+   "may_deny": true,
+   "source": {},
+   "quote": "If workaround/temporary solution found, update workaround field and set status=fix_in_progress.",
+   "class": "hard",
+   "level": "remind"
+  },
+  {
+   "id": "r_problem_close",
+   "type": "verify",
+   "rule": {
+    "type": "verify",
+    "tools": [
+     "update_problem"
+    ],
+    "statement": "Final Status: A Problem transitions to closed only after the permanent fix has been successfully implemented via a linked normal or emergency Change Request.",
+    "id": "r_problem_close"
+   },
+   "statement_ids": [
+    "a5e328395b:4.2:6"
+   ],
+   "checker": "verifier",
+   "may_deny": true,
+   "source": {},
+   "quote": "",
+   "class": "judgment",
+   "level": "remind",
+   "why": "Needs the linked Change Request (list_change_request_mappings), its type and whether the fix was implemented; reference_status reads only the record named in an argument of the call, and no change field holds the type."
+  },
+  {
+   "id": "r_ci_status_link",
+   "type": "reference_status",
+   "rule": {
+    "type": "reference_status",
+    "tool": "link_affected_ci_to_incident",
+    "arg": "configuration_item",
+    "field": "status",
+    "allowed": [
+     "in_use",
+     "maintenance"
+    ],
+    "id": "r_ci_status_link",
+    "quote": "CI Status: Only CIs with status = in_use or status = maintenance can be linked to active Incidents. Do not link CIs in status = retired or status = disposed."
+   },
+   "statement_ids": [
+    "a5e328395b:5.1:3"
+   ],
+   "checker": "code",
+   "may_deny": true,
+   "source": {},
+   "quote": "CI Status: Only CIs with status = in_use or status = maintenance can be linked to active Incidents. Do not link CIs in status = retired or status = disposed.",
+   "class": "hard",
+   "level": "block_once"
+  },
+  {
+   "id": "r_ci_status_create_incident",
+   "type": "reference_status",
+   "rule": {
+    "type": "reference_status",
+    "tool": "create_incident",
+    "arg": "configuration_item",
+    "field": "status",
+    "allowed": [
+     "in_use",
+     "maintenance"
+    ],
+    "id": "r_ci_status_create_incident",
+    "quote": "CI Status: Only CIs with status = in_use or status = maintenance can be linked to active Incidents. Do not link CIs in status = retired or status = disposed."
+   },
+   "statement_ids": [
+    "a5e328395b:5.1:3"
+   ],
+   "checker": "code",
+   "may_deny": true,
+   "source": {},
+   "quote": "CI Status: Only CIs with status = in_use or status = maintenance can be linked to active Incidents. Do not link CIs in status = retired or status = disposed.",
+   "class": "hard",
+   "level": "block_once"
+  },
+  {
+   "id": "r_ci_status_update_incident",
+   "type": "reference_status",
+   "rule": {
+    "type": "reference_status",
+    "tool": "update_incident",
+    "arg": "configuration_item",
+    "field": "status",
+    "allowed": [
+     "in_use",
+     "maintenance"
+    ],
+    "id": "r_ci_status_update_incident",
+    "quote": "CI Status: Only CIs with status = in_use or status = maintenance can be linked to active Incidents. Do not link CIs in status = retired or status = disposed."
+   },
+   "statement_ids": [
+    "a5e328395b:5.1:3"
+   ],
+   "checker": "code",
+   "may_deny": true,
+   "source": {},
+   "quote": "CI Status: Only CIs with status = in_use or status = maintenance can be linked to active Incidents. Do not link CIs in status = retired or status = disposed.",
+   "class": "hard",
+   "level": "block_once"
+  },
+  {
+   "id": "r_ci_owner",
+   "type": "required_args",
+   "rule": {
+    "type": "required_args",
+    "tool": "register_configuration_item",
+    "args": [
+     "owner_id"
+    ],
+    "id": "r_ci_owner",
+    "quote": "CI Owner: All CIs must have a recorded owner_id."
+   },
+   "statement_ids": [
+    "a5e328395b:5.1:4"
+   ],
+   "checker": "code",
+   "may_deny": true,
+   "source": {},
+   "quote": "CI Owner: All CIs must have a recorded owner_id.",
+   "class": "hard",
+   "level": "deny"
+  },
+  {
+   "id": "r_sla_pause_duty",
+   "type": "duty",
+   "rule": {
+    "type": "duty",
+    "trigger": {
+     "tool": "update_incident",
+     "when": {
+      "status": [
+       "on_hold"
+      ],
+      "on_hold_reason": [
+       "Awaiting Change",
+       "Awaiting Caller",
+       "Awaiting Problem"
+      ]
+     }
+    },
+    "then": {
+     "tool": "update_incident_sla_details",
+     "when": {
+      "stage": [
+       "paused"
+      ]
+     }
+    },
+    "id": "r_sla_pause_duty",
+    "quote": "SLA Pause: The SLA timer must be paused (stage = paused) when the Incident is in stage = on_hold and the on_hold_reason is one of the following enumerations: Awaiting Change, Awaiting Caller, or Awaiting Problem."
+   },
+   "statement_ids": [
+    "a5e328395b:6:3"
+   ],
+   "checker": "monitor",
+   "may_deny": true,
+   "source": {},
+   "quote": "SLA Pause: The SLA timer must be paused (stage = paused) when the Incident is in stage = on_hold and the on_hold_reason is one of the following enumerations: Awaiting Change, Awaiting Caller, or Awaiting Problem.",
+   "class": "hard",
+   "level": "remind"
+  },
+  {
+   "id": "r_sla_breach_notify_duty",
+   "type": "duty",
+   "rule": {
+    "type": "duty",
+    "trigger": {
+     "tool": "update_incident_sla_details",
+     "when": {
+      "stage": [
+       "breached"
+      ]
+     }
+    },
+    "then": {
+     "tool": "send_notification"
+    },
+    "id": "r_sla_breach_notify_duty",
+    "quote": "Breach: If the SLA exceeds its duration (stage = breached), the escalation flag on the Incident must be set to true, and an automatic notification sent to the Manager."
+   },
+   "statement_ids": [
+    "a5e328395b:6:4"
+   ],
+   "checker": "monitor",
+   "may_deny": true,
+   "source": {},
+   "quote": "Breach: If the SLA exceeds its duration (stage = breached), the escalation flag on the Incident must be set to true, and an automatic notification sent to the Manager.",
+   "class": "hard",
+   "level": "remind"
+  },
+  {
+   "id": "r_reporter_kb",
+   "type": "verify",
+   "rule": {
+    "type": "verify",
+    "tools": [
+     "retrieve_knowledge_articles"
+    ],
+    "statement": "Article Status: Only articles in knowledge.state = published are searchable by the Reporter role.",
+    "id": "r_reporter_kb"
+   },
+   "statement_ids": [
+    "a5e328395b:7:1"
+   ],
+   "checker": "verifier",
+   "may_deny": true,
+   "source": {},
+   "quote": "",
+   "class": "judgment",
+   "level": "remind",
+   "why": "The limit holds for one role only and allowed_values has no role; the state filter is optional, so the check needs the role of the logged-in user and the articles the call returns."
+  },
+  {
+   "id": "r_kb_search_duty",
+   "type": "duty",
+   "rule": {
+    "type": "duty",
+    "trigger": {
+     "tool": "create_incident"
+    },
+    "then": {
+     "tool": "retrieve_knowledge_articles"
+    },
+    "id": "r_kb_search_duty",
+    "quote": "Search Policy: When an Incident is created, a search for relevant knowledge must be performed, and matching articles linked as used_as = suggested."
+   },
+   "statement_ids": [
+    "a5e328395b:7:2"
+   ],
+   "checker": "monitor",
+   "may_deny": true,
+   "source": {},
+   "quote": "Search Policy: When an Incident is created, a search for relevant knowledge must be performed, and matching articles linked as used_as = suggested.",
+   "class": "hard",
+   "level": "remind"
+  },
+  {
+   "id": "r_kb_link_duty",
+   "type": "duty",
+   "rule": {
+    "type": "duty",
+    "trigger": {
+     "tool": "create_incident"
+    },
+    "then": {
+     "tool": "link_knowledge_to_incident",
+     "when": {
+      "used_as": [
+       "suggested"
+      ]
+     }
+    },
+    "unless": [
+     {
+      "condition": "no matching articles"
+     }
+    ],
+    "id": "r_kb_link_duty",
+    "quote": "Search Policy: When an Incident is created, a search for relevant knowledge must be performed, and matching articles linked as used_as = suggested."
+   },
+   "statement_ids": [
+    "a5e328395b:7:2"
+   ],
+   "checker": "monitor",
+   "may_deny": true,
+   "source": {},
+   "quote": "Search Policy: When an Incident is created, a search for relevant knowledge must be performed, and matching articles linked as used_as = suggested.",
+   "class": "hard",
+   "level": "remind"
+  },
+  {
+   "id": "r_kb_used_as_required",
+   "type": "required_args",
+   "rule": {
+    "type": "required_args",
+    "tool": "link_knowledge_to_incident",
+    "args": [
+     "used_as"
+    ],
+    "id": "r_kb_used_as_required",
+    "quote": "Use Tracking: All knowledge links must track used_as type: suggested, applied, or resolution."
+   },
+   "statement_ids": [
+    "a5e328395b:7:3"
+   ],
+   "checker": "code",
+   "may_deny": true,
+   "source": {},
+   "quote": "Use Tracking: All knowledge links must track used_as type: suggested, applied, or resolution.",
+   "class": "hard",
+   "level": "deny"
+  },
+  {
+   "id": "r_kb_used_as_values",
+   "type": "allowed_values",
+   "rule": {
+    "type": "allowed_values",
+    "tool": "link_knowledge_to_incident",
+    "arg": "used_as",
+    "values": [
+     "suggested",
+     "applied",
+     "resolution"
+    ],
+    "id": "r_kb_used_as_values",
+    "quote": "Use Tracking: All knowledge links must track used_as type: suggested, applied, or resolution."
+   },
+   "statement_ids": [
+    "a5e328395b:7:3"
+   ],
+   "checker": "code",
+   "may_deny": true,
+   "source": {},
+   "quote": "Use Tracking: All knowledge links must track used_as type: suggested, applied, or resolution.",
+   "class": "hard",
+   "level": "deny"
+  },
+  {
+   "id": "r_enum_user_role",
+   "type": "allowed_values",
+   "rule": {
+    "type": "allowed_values",
+    "tool": "add_new_user",
+    "arg": "role",
+    "values": [
+     "admin",
+     "manager",
+     "agent",
+     "reporter"
+    ],
+    "id": "r_enum_user_role",
+    "quote": "users.role | admin, manager, agent, reporter"
+   },
+   "statement_ids": [
+    "a5e328395b:9:1"
+   ],
+   "checker": "code",
+   "may_deny": true,
+   "source": {},
+   "quote": "users.role | admin, manager, agent, reporter",
+   "class": "hard",
+   "level": "deny"
+  },
+  {
+   "id": "r_enum_incident_priority",
+   "type": "allowed_values",
+   "rule": {
+    "type": "allowed_values",
+    "tool": "create_incident",
+    "arg": "priority",
+    "values": [
+     "critical",
+     "high",
+     "moderate",
+     "low",
+     "planning"
+    ],
+    "id": "r_enum_incident_priority",
+    "quote": "incident.priority | critical, high, moderate, low, planning"
+   },
+   "statement_ids": [
+    "a5e328395b:9:2"
+   ],
+   "checker": "code",
+   "may_deny": true,
+   "source": {},
+   "quote": "incident.priority | critical, high, moderate, low, planning",
+   "class": "hard",
+   "level": "deny"
+  },
+  {
+   "id": "r_enum_incident_impact",
+   "type": "allowed_values",
+   "rule": {
+    "type": "allowed_values",
+    "tool": "create_incident",
+    "arg": "impact",
+    "values": [
+     "high",
+     "medium",
+     "low"
+    ],
+    "id": "r_enum_incident_impact",
+    "quote": "incident.impact | high, medium, low"
+   },
+   "statement_ids": [
+    "a5e328395b:9:3"
+   ],
+   "checker": "code",
+   "may_deny": true,
+   "source": {},
+   "quote": "incident.impact | high, medium, low",
+   "class": "hard",
+   "level": "deny"
+  },
+  {
+   "id": "r_enum_incident_urgency",
+   "type": "allowed_values",
+   "rule": {
+    "type": "allowed_values",
+    "tool": "create_incident",
+    "arg": "urgency",
+    "values": [
+     "high",
+     "medium",
+     "low"
+    ],
+    "id": "r_enum_incident_urgency",
+    "quote": "incident.urgency | high, medium, low"
+   },
+   "statement_ids": [
+    "a5e328395b:9:4"
+   ],
+   "checker": "code",
+   "may_deny": true,
+   "source": {},
+   "quote": "incident.urgency | high, medium, low",
+   "class": "hard",
+   "level": "deny"
+  },
+  {
+   "id": "r_enum_on_hold_reason",
+   "type": "allowed_values",
+   "rule": {
+    "type": "allowed_values",
+    "tool": "create_incident",
+    "arg": "on_hold_reason",
+    "values": [
+     "Awaiting Change",
+     "Awaiting Caller",
+     "Awaiting Problem"
+    ],
+    "id": "r_enum_on_hold_reason",
+    "quote": "incident.on_hold_reason | Awaiting Change, Awaiting Caller, Awaiting Problem"
+   },
+   "statement_ids": [
+    "a5e328395b:9:6"
+   ],
+   "checker": "code",
+   "may_deny": true,
+   "source": {},
+   "quote": "incident.on_hold_reason | Awaiting Change, Awaiting Caller, Awaiting Problem",
+   "class": "hard",
+   "level": "deny"
+  },
+  {
+   "id": "r_enum_ci_status",
+   "type": "allowed_values",
+   "rule": {
+    "type": "allowed_values",
+    "tool": "register_configuration_item",
+    "arg": "status",
+    "values": [
+     "in_use",
+     "in_stock",
+     "maintenance",
+     "retired",
+     "disposed"
+    ],
+    "id": "r_enum_ci_status",
+    "quote": "configuration_item.status | in_use, in_stock, maintenance, retired, disposed"
+   },
+   "statement_ids": [
+    "a5e328395b:9:10"
+   ],
+   "checker": "code",
+   "may_deny": true,
+   "source": {},
+   "quote": "configuration_item.status | in_use, in_stock, maintenance, retired, disposed",
+   "class": "hard",
+   "level": "deny"
+  },
+  {
+   "id": "r_enum_kb_state",
+   "type": "allowed_values",
+   "rule": {
+    "type": "allowed_values",
+    "tool": "create_knowledge_article",
+    "arg": "state",
+    "values": [
+     "draft",
+     "review",
+     "published",
+     "retired"
+    ],
+    "id": "r_enum_kb_state",
+    "quote": "kb_knowledge.state | draft, review, published, retired"
+   },
+   "statement_ids": [
+    "a5e328395b:9:11"
+   ],
+   "checker": "code",
+   "may_deny": true,
+   "source": {},
+   "quote": "kb_knowledge.state | draft, review, published, retired",
+   "class": "hard",
+   "level": "deny"
+  },
+  {
+   "id": "r_enum_sla_stage",
+   "type": "allowed_values",
+   "rule": {
+    "type": "allowed_values",
+    "tool": "link_new_incident_sla",
+    "arg": "stage",
+    "values": [
+     "in_progress",
+     "paused",
+     "completed",
+     "cancelled",
+     "breached"
+    ],
+    "id": "r_enum_sla_stage",
+    "quote": "incident_sla.stage | in_progress, paused, completed, cancelled, breached"
+   },
+   "statement_ids": [
+    "a5e328395b:9:12"
+   ],
+   "checker": "code",
+   "may_deny": true,
+   "source": {},
+   "quote": "incident_sla.stage | in_progress, paused, completed, cancelled, breached",
+   "class": "hard",
+   "level": "deny"
+  },
+  {
+   "id": "r_enum_sla_stage_update",
+   "type": "format",
+   "rule": {
+    "type": "format",
+    "tool": "update_incident_sla_details",
+    "arg": "stage",
+    "pattern": "^(in_progress|paused|completed|cancelled|breached)$",
+    "id": "r_enum_sla_stage_update",
+    "quote": "incident_sla.stage | in_progress, paused, completed, cancelled, breached"
+   },
+   "statement_ids": [
+    "a5e328395b:9:12"
+   ],
+   "checker": "code",
+   "may_deny": true,
+   "source": {},
+   "quote": "incident_sla.stage | in_progress, paused, completed, cancelled, breached",
+   "class": "hard",
+   "level": "deny"
+  }
+ ],
+ "procedures": [
+  {
+   "id": "3.1",
+   "name": "Incident Registration",
+   "trigger": {},
+   "steps": [
+    {
+     "id": "a5e328395b:3.1:2",
+     "action": "create_incident",
+     "required": true,
+     "condition": null,
+     "source": {},
+     "quote": "",
+     "text": "Creation: To log any issue/interrupted service, create an Incident record(create_incident)."
+    },
+    {
+     "id": "a5e328395b:3.1:3",
+     "action": "create_incident",
+     "required": true,
+     "condition": null,
+     "source": {},
+     "quote": "",
+     "text": "Mandatory Inputs: caller_id (user affected), short_description, impact, and urgency."
+    },
+    {
+     "id": "a5e328395b:3.1:4",
+     "action": "create_incident",
+     "required": true,
+     "condition": null,
+     "source": {},
+     "quote": "",
+     "text": "Priority Calculation: Priority (critical, high, moderate, low, planning) is determined automatically by the system based on a below pre-defined matrix of Impact x Urgency."
+    },
+    {
+     "id": "a5e328395b:3.1:14",
+     "action": "create_incident",
+     "required": true,
+     "condition": null,
+     "source": {},
+     "quote": "",
+     "text": "Default Status: All new Incidents are set to status = new."
+    }
+   ],
+   "edges": [],
+   "source": {},
+   "quote": "",
+   "preconditions": [
+    {
+     "condition": "Mandatory Inputs are given",
+     "if_not": "stop",
+     "quote": "caller_id (user affected), short_description, impact, and urgency"
+    }
+   ],
+   "exceptions": [],
+   "templates": [],
+   "escalations": [],
+   "applies_when": "To log any issue/interrupted service",
+   "inputs": [
+    {
+     "fact": "caller_id (user affected)",
+     "source": "the user record (get_user, get_user_using_email, get_user_using_name)"
+    },
+    {
+     "fact": "short_description",
+     "source": "the request"
+    },
+    {
+     "fact": "impact",
+     "source": "the request"
+    },
+    {
+     "fact": "urgency",
+     "source": "the request"
+    }
+   ],
+   "links": [
+    {
+     "type": "next",
+     "to": "7",
+     "when": "When an Incident is created"
+    }
+   ],
+   "notes": [
+    "Priority Calculation: Priority (critical, high, moderate, low, planning) is determined automatically by the system based on a below pre-defined matrix of Impact x Urgency."
+   ],
+   "category": "Incident Management",
+   "src": "§3.1"
+  },
+  {
+   "id": "3.2",
+   "name": "Incident Assignment",
+   "trigger": {},
+   "steps": [
+    {
+     "id": "a5e328395b:3.2:2",
+     "action": "",
+     "required": true,
+     "condition": null,
+     "source": {},
+     "quote": "",
+     "text": "Constraints: assigned_to must be an active user with the Agent or Manager role and must be a member of the specified assignment_group."
+    }
+   ],
+   "edges": [],
+   "source": {},
+   "quote": "",
+   "preconditions": [
+    {
+     "condition": "assigned_to is an active user with the Agent or Manager role and a member of the specified assignment_group",
+     "if_not": "stop",
+     "quote": "assigned_to must be an active user with the Agent or Manager role and must be a member of the specified assignment_group"
+    }
+   ],
+   "exceptions": [],
+   "templates": [],
+   "escalations": [],
+   "applies_when": "assigned_to must be an active user with the Agent or Manager role",
+   "inputs": [
+    {
+     "fact": "active and role of the user in assigned_to",
+     "source": "the user record (get_user)"
+    },
+    {
+     "fact": "members of the assignment_group",
+     "source": "list_group_members"
+    }
+   ],
+   "category": "Incident Management",
+   "src": "§3.2"
+  },
+  {
+   "id": "3.3",
+   "name": "Incident Lifecycle and Closure",
+   "trigger": {},
+   "steps": [
+    {
+     "id": "a5e328395b:3.3:3",
+     "action": "update_incident",
+     "required": true,
+     "condition": null,
+     "source": {},
+     "quote": "",
+     "text": "new → in_progress / on_hold / resolved"
+    },
+    {
+     "id": "a5e328395b:3.3:4",
+     "action": "update_incident",
+     "required": true,
+     "condition": null,
+     "source": {},
+     "quote": "",
+     "text": "in_progress → on_hold / resolved"
+    },
+    {
+     "id": "a5e328395b:3.3:5",
+     "action": "update_incident",
+     "required": true,
+     "condition": null,
+     "source": {},
+     "quote": "",
+     "text": "on_hold → in_progress (Must log on_hold_reason before transition)"
+    },
+    {
+     "id": "a5e328395b:3.3:6",
+     "action": "update_incident",
+     "required": true,
+     "condition": null,
+     "source": {},
+     "quote": "",
+     "text": "resolved → closed / 'in_progress'"
+    },
+    {
+     "id": "a5e328395b:3.3:7",
+     "action": "update_incident",
+     "required": true,
+     "condition": "transition to resolved",
+     "source": {},
+     "quote": "",
+     "text": "Resolution Requirement: An Incident cannot transition to resolved without mandatory fields: resolution_code, and resolution_notes (free-form text, max 2000 chars)."
+    },
+    {
+     "id": "a5e328395b:3.3:8",
+     "action": "",
+     "required": true,
+     "condition": null,
+     "source": {},
+     "quote": "",
+     "text": "Closure Policy: The incidents that are in resolved status will transition to closed after 72 hours."
+    }
+   ],
+   "edges": [],
+   "source": {},
+   "quote": "",
+   "preconditions": [],
+   "exceptions": [],
+   "templates": [],
+   "escalations": [],
+   "applies_when": "Valid Status Transitions",
+   "inputs": [
+    {
+     "fact": "current status and on_hold_reason of the incident",
+     "source": "the incident record (find_incident_by_id)"
+    },
+    {
+     "fact": "resolution_code, and resolution_notes",
+     "source": "the request"
+    }
+   ],
+   "decisions": [
+    {
+     "id": "leaving_on_hold",
+     "rule": "on_hold → in_progress (Must log on_hold_reason before transition)",
+     "then": "log on_hold_reason, then set status in_progress",
+     "else": "follow the other transitions"
+    },
+    {
+     "id": "resolving",
+     "rule": "An Incident cannot transition to resolved without mandatory fields",
+     "then": "give resolution_code, and resolution_notes",
+     "else": "these two fields are not needed for the call"
+    }
+   ],
+   "must_not": [
+    "An Incident cannot transition to resolved without mandatory fields: resolution_code, and resolution_notes (free-form text, max 2000 chars)."
+   ],
+   "deadlines": [
+    "The incidents that are in resolved status will transition to closed after 72 hours."
+   ],
+   "category": "Incident Management",
+   "src": "§3.3"
+  },
+  {
+   "id": "4.1",
+   "name": "Change Management",
+   "trigger": {},
+   "steps": [
+    {
+     "id": "a5e328395b:4.1:2",
+     "action": "create_change",
+     "required": true,
+     "condition": null,
+     "source": {},
+     "quote": "",
+     "text": "Creation: All changes must originate from a Change Request record."
+    },
+    {
+     "id": "a5e328395b:4.1:3",
+     "action": "create_change",
+     "required": true,
+     "condition": null,
+     "source": {},
+     "quote": "",
+     "text": "Default Status: All new Changes are set to status = new."
+    },
+    {
+     "id": "a5e328395b:4.1:4",
+     "action": "",
+     "required": true,
+     "condition": null,
+     "source": {},
+     "quote": "",
+     "text": "Change Types (Enumeration): standard (pre-approved, low risk), normal (requires planning/approval), emergency (requires immediate CAB approval override)."
+    }
+   ],
+   "edges": [],
+   "source": {},
+   "quote": "",
+   "preconditions": [],
+   "exceptions": [],
+   "templates": [],
+   "escalations": [],
+   "applies_when": "All changes must originate from a Change Request record",
+   "inputs": [
+    {
+     "fact": "short_description, impact, risk, priority",
+     "source": "the request"
+    }
+   ],
+   "notes": [
+    "Change Types (Enumeration): standard (pre-approved, low risk), normal (requires planning/approval), emergency (requires immediate CAB approval override)."
+   ],
+   "category": "Change and Problem Management",
+   "src": "§4.1"
+  },
+  {
+   "id": "4.2",
+   "name": "Problem Management",
+   "trigger": {},
+   "steps": [
+    {
+     "id": "a5e328395b:4.2:2",
+     "action": "create_problem",
+     "required": true,
+     "condition": "a recurring incident pattern or a major incident is identified",
+     "source": {},
+     "quote": "",
+     "text": "Trigger: A Problem must be created (create_problem) when a recurring incident pattern or a major incident is identified."
+    },
+    {
+     "id": "a5e328395b:4.2:3",
+     "action": "",
+     "required": true,
+     "condition": null,
+     "source": {},
+     "quote": "",
+     "text": "Linking: The Problem record must link all affected Incidents via the incident_to_problem related list."
+    },
+    {
+     "id": "a5e328395b:4.2:4",
+     "action": "create_problem",
+     "required": true,
+     "condition": null,
+     "source": {},
+     "quote": "",
+     "text": "Default Status: All new Problems are set to status = new."
+    },
+    {
+     "id": "a5e328395b:4.2:5",
+     "action": "",
+     "required": true,
+     "condition": "workaround/temporary solution found",
+     "source": {},
+     "quote": "",
+     "text": "Workaround: If workaround/temporary solution found, update workaround field and set status=fix_in_progress. The workaround_notes must be published to the linked Incidents and relevant Knowledge Articles."
+    },
+    {
+     "id": "a5e328395b:4.2:6",
+     "action": "update_problem",
+     "required": true,
+     "condition": null,
+     "source": {},
+     "quote": "",
+     "text": "Final Status: A Problem transitions to closed only after the permanent fix has been successfully implemented via a linked normal or emergency Change Request."
+    },
+    {
+     "id": "a5e328395b:4.2:7",
+     "action": "create_problem",
+     "required": true,
+     "condition": null,
+     "source": {},
+     "quote": "",
+     "text": "Priority Calculation: Priority (critical, high, moderate, low, planning) is determined automatically by the system based on a below pre-defined matrix of Impact x Urgency."
+    }
+   ],
+   "edges": [],
+   "source": {},
+   "quote": "",
+   "preconditions": [],
+   "exceptions": [],
+   "templates": [],
+   "escalations": [],
+   "applies_when": "A Problem must be created (create_problem) when a recurring incident pattern or a major incident is identified",
+   "inputs": [
+    {
+     "fact": "the affected Incidents",
+     "source": "list_incidents"
+    },
+    {
+     "fact": "the linked Change Request",
+     "source": "find_change_request_mappings_for_problem"
+    }
+   ],
+   "decisions": [
+    {
+     "id": "problem_trigger",
+     "rule": "when a recurring incident pattern or a major incident is identified",
+     "then": "create the Problem and link all affected Incidents",
+     "else": "no new Problem"
+    },
+    {
+     "id": "workaround_found",
+     "rule": "If workaround/temporary solution found",
+     "then": "update workaround field and set status=fix_in_progress, then publish the workaround_notes",
+     "else": "keep the status"
+    },
+    {
+     "id": "permanent_fix_done",
+     "rule": "only after the permanent fix has been successfully implemented via a linked normal or emergency Change Request",
+     "then": "the Problem may transition to closed",
+     "else": "do not close the Problem"
+    }
+   ],
+   "must_not": [
+    "A Problem transitions to closed only after the permanent fix has been successfully implemented via a linked normal or emergency Change Request."
+   ],
+   "notes": [
+    "Priority Calculation: Priority (critical, high, moderate, low, planning) is determined automatically by the system based on a below pre-defined matrix of Impact x Urgency."
+   ],
+   "category": "Change and Problem Management",
+   "src": "§4.2"
+  },
+  {
+   "id": "5.1",
+   "name": "Configuration Item (CI) Integrity",
+   "trigger": {},
+   "steps": [
+    {
+     "id": "a5e328395b:5.1:2",
+     "action": "register_configuration_item",
+     "required": true,
+     "condition": null,
+     "source": {},
+     "quote": "",
+     "text": "Table: All IT assets must be recorded in the configuration_item table."
+    },
+    {
+     "id": "a5e328395b:5.1:3",
+     "action": "link_affected_ci_to_incident",
+     "required": true,
+     "condition": null,
+     "source": {},
+     "quote": "",
+     "text": "CI Status: Only CIs with status = in_use or status = maintenance can be linked to active Incidents. Do not link CIs in status = retired or status = disposed."
+    },
+    {
+     "id": "a5e328395b:5.1:4",
+     "action": "register_configuration_item",
+     "required": true,
+     "condition": null,
+     "source": {},
+     "quote": "",
+     "text": "CI Owner: All CIs must have a recorded owner_id."
+    }
+   ],
+   "edges": [],
+   "source": {},
+   "quote": "",
+   "preconditions": [
+    {
+     "condition": "the CI has status = in_use or status = maintenance",
+     "if_not": "stop",
+     "quote": "Only CIs with status = in_use or status = maintenance can be linked to active Incidents."
+    }
+   ],
+   "exceptions": [],
+   "templates": [],
+   "escalations": [],
+   "applies_when": "All IT assets must be recorded in the configuration_item table",
+   "inputs": [
+    {
+     "fact": "status of the CI",
+     "source": "the CI record (find_configuration_items)"
+    },
+    {
+     "fact": "owner_id",
+     "source": "the user record (get_user, get_user_using_email, get_user_using_name)"
+    }
+   ],
+   "decisions": [
+    {
+     "id": "new_asset",
+     "rule": "All IT assets must be recorded in the configuration_item table",
+     "then": "register_configuration_item with owner_id",
+     "else": "no new record"
+    },
+    {
+     "id": "ci_linkable",
+     "rule": "Only CIs with status = in_use or status = maintenance can be linked to active Incidents",
+     "then": "link the CI",
+     "else": "Do not link"
+    }
+   ],
+   "must_not": [
+    "Do not link CIs in status = retired or status = disposed."
+   ],
+   "category": "Configuration and Service Management (CMDB)",
+   "src": "§5.1"
+  },
+  {
+   "id": "6",
+   "name": "Service Level Management (SLA)",
+   "trigger": {},
+   "steps": [
+    {
+     "id": "a5e328395b:6:3",
+     "action": "update_incident_sla_details",
+     "required": true,
+     "condition": "status on_hold with one of the three reasons",
+     "source": {},
+     "quote": "",
+     "text": "SLA Pause: The SLA timer must be paused (stage = paused) when the Incident is in stage = on_hold and the on_hold_reason is one of the following enumerations: Awaiting Change, Awaiting Caller, or Awaiting Problem."
+    },
+    {
+     "id": "a5e328395b:6:4",
+     "action": "",
+     "required": true,
+     "condition": "the SLA exceeds its duration",
+     "source": {},
+     "quote": "",
+     "text": "Breach: If the SLA exceeds its duration (stage = breached), the escalation flag on the Incident must be set to true, and an automatic notification sent to the Manager."
+    }
+   ],
+   "edges": [],
+   "source": {},
+   "quote": "",
+   "preconditions": [],
+   "exceptions": [],
+   "templates": [],
+   "escalations": [
+    {
+     "when": "If the SLA exceeds its duration (stage = breached)",
+     "notify": "the Manager",
+     "channel": "automatic notification",
+     "quote": "an automatic notification sent to the Manager"
+    }
+   ],
+   "applies_when": "when the Incident is in stage = on_hold; If the SLA exceeds its duration",
+   "inputs": [
+    {
+     "fact": "the Incident SLA record",
+     "source": "find_incident_slas"
+    },
+    {
+     "fact": "status and on_hold_reason of the incident",
+     "source": "the incident record (find_incident_by_id)"
+    }
+   ],
+   "decisions": [
+    {
+     "id": "sla_pause",
+     "rule": "when the Incident is in stage = on_hold and the on_hold_reason is one of the following enumerations",
+     "then": "pause the SLA timer (stage = paused)",
+     "else": "leave the SLA timer"
+    },
+    {
+     "id": "sla_breach",
+     "rule": "If the SLA exceeds its duration (stage = breached)",
+     "then": "set the escalation flag and notify the Manager",
+     "else": "no escalation"
+    }
+   ],
+   "notes": [
+    "SLA Application: SLAs are automatically aligned based on priority linked to the incident."
+   ],
+   "category": "Service Level Management (SLA)",
+   "src": "§6"
+  },
+  {
+   "id": "7",
+   "name": "Knowledge Management",
+   "trigger": {},
+   "steps": [
+    {
+     "id": "a5e328395b:7:1",
+     "action": "retrieve_knowledge_articles",
+     "required": true,
+     "condition": null,
+     "source": {},
+     "quote": "",
+     "text": "Article Status: Only articles in knowledge.state = published are searchable by the Reporter role."
+    },
+    {
+     "id": "a5e328395b:7:2",
+     "action": "",
+     "required": true,
+     "condition": null,
+     "source": {},
+     "quote": "",
+     "text": "Search Policy: When an Incident is created, a search for relevant knowledge must be performed, and matching articles linked as used_as = suggested."
+    },
+    {
+     "id": "a5e328395b:7:3",
+     "action": "link_knowledge_to_incident",
+     "required": true,
+     "condition": null,
+     "source": {},
+     "quote": "",
+     "text": "Use Tracking: All knowledge links must track used_as type: suggested, applied, or resolution."
+    }
+   ],
+   "edges": [],
+   "source": {},
+   "quote": "",
+   "preconditions": [],
+   "exceptions": [
+    {
+     "when": "the logged-in user has the Reporter role",
+     "then": "search published articles only",
+     "quote": "Only articles in knowledge.state = published are searchable by the Reporter role."
+    }
+   ],
+   "templates": [],
+   "escalations": [],
+   "applies_when": "When an Incident is created",
+   "inputs": [
+    {
+     "fact": "the incident_id",
+     "source": "the result of create_incident"
+    },
+    {
+     "fact": "matching articles",
+     "source": "retrieve_knowledge_articles"
+    },
+    {
+     "fact": "the role of the logged-in user",
+     "source": "the user record"
+    }
+   ],
+   "decisions": [
+    {
+     "id": "matching_articles",
+     "rule": "matching articles linked as used_as = suggested",
+     "then": "link_knowledge_to_incident with used_as = suggested",
+     "else": "no link"
+    }
+   ],
+   "category": "Knowledge Management",
+   "src": "§7"
+  }
+ ],
+ "obligations": [
+  {
+   "id": "ob_violation_reason",
+   "origin": "package",
+   "scope": {
+    "when": {
+     "request_violates_rule": "yes"
+    }
+   },
+   "effect": {
+    "kind": "reply"
+   },
+   "values": {},
+   "check": "code",
+   "level": "observe",
+   "source": {
+    "section": "1",
+    "quote": "provide the specific policy reason before pausing"
+   }
+  },
+  {
+   "id": "ob_ambiguity_reply",
+   "origin": "package",
+   "scope": {
+    "when": {
+     "request_is_ambiguous": "yes"
+    }
+   },
+   "effect": {
+    "kind": "reply"
+   },
+   "values": {},
+   "check": "code",
+   "level": "observe",
+   "source": {
+    "section": "1",
+    "quote": "If the request is ambiguous, return the list and state the ambiguity."
+   }
+  },
+  {
+   "id": "ob_missing_field_reply",
+   "origin": "package",
+   "scope": {
+    "when": {
+     "mandatory_field_missing": "yes"
+    }
+   },
+   "effect": {
+    "kind": "reply"
+   },
+   "values": {},
+   "check": "code",
+   "level": "observe",
+   "source": {
+    "section": "1",
+    "quote": "If a mandatory field is missing, state which field is required."
+   }
+  },
+  {
+   "id": "ob_3_1_create",
+   "origin": "package",
+   "scope": {
+    "procedure": "3.1"
+   },
+   "effect": {
+    "kind": "write",
+    "tools": [
+     "create_incident"
+    ],
+    "match": {
+     "caller_id": {
+      "pattern": "{caller_id}"
+     },
+     "short_description": {
+      "pattern": "{short_description}"
+     },
+     "impact": {
+      "pattern": "{impact}"
+     },
+     "urgency": {
+      "pattern": "{urgency}"
+     }
+    }
+   },
+   "values": {
+    "caller_id": {
+     "from": "case_fact",
+     "field": "user_id",
+     "record": "the user record of the user affected"
+    },
+    "short_description": {
+     "from": "request",
+     "about": "the issue or interrupted service"
+    },
+    "impact": {
+     "from": "request",
+     "about": "the impact"
+    },
+    "urgency": {
+     "from": "request",
+     "about": "the urgency"
+    }
+   },
+   "check": "code",
+   "level": "observe",
+   "source": {
+    "section": "3.1",
+    "quote": "create an Incident record(create_incident)"
+   }
+  },
+  {
+   "id": "ob_3_3_resolve",
+   "origin": "package",
+   "scope": {
+    "procedure": "3.3",
+    "when": {
+     "resolving": "yes"
+    }
+   },
+   "effect": {
+    "kind": "write",
+    "tools": [
+     "update_incident"
+    ],
+    "match": {
+     "status": {
+      "pattern": "{status}"
+     },
+     "resolution_code": {
+      "pattern": "{resolution_code}"
+     },
+     "resolution_notes": {
+      "pattern": "{resolution_notes}"
+     }
+    }
+   },
+   "values": {
+    "status": {
+     "from": "literal",
+     "value": "resolved"
+    },
+    "resolution_code": {
+     "from": "request",
+     "about": "the resolution code"
+    },
+    "resolution_notes": {
+     "from": "request",
+     "about": "the resolution notes"
+    }
+   },
+   "check": "code",
+   "level": "observe",
+   "source": {
+    "section": "3.3",
+    "quote": "An Incident cannot transition to resolved without mandatory fields"
+   }
+  },
+  {
+   "id": "ob_3_3_on_hold_reason",
+   "origin": "package",
+   "scope": {
+    "procedure": "3.3",
+    "when": {
+     "leaving_on_hold": "yes"
+    }
+   },
+   "effect": {
+    "kind": "write",
+    "tools": [
+     "update_incident"
+    ],
+    "match": {
+     "on_hold_reason": {
+      "pattern": "{on_hold_reason}"
+     }
+    }
+   },
+   "values": {
+    "on_hold_reason": {
+     "from": "request",
+     "about": "the reason for the hold"
+    }
+   },
+   "check": "code",
+   "level": "observe",
+   "source": {
+    "section": "3.3",
+    "quote": "Must log on_hold_reason before transition"
+   }
+  },
+  {
+   "id": "ob_4_1_change",
+   "origin": "package",
+   "scope": {
+    "procedure": "4.1"
+   },
+   "effect": {
+    "kind": "write",
+    "tools": [
+     "create_change"
+    ],
+    "match": {
+     "short_description": {
+      "pattern": "{short_description}"
+     }
+    }
+   },
+   "values": {
+    "short_description": {
+     "from": "request",
+     "about": "the change"
+    }
+   },
+   "check": "code",
+   "level": "observe",
+   "source": {
+    "section": "4.1",
+    "quote": "All changes must originate from a Change Request record."
+   }
+  },
+  {
+   "id": "ob_4_2_create",
+   "origin": "package",
+   "scope": {
+    "procedure": "4.2",
+    "when": {
+     "problem_trigger": "yes"
+    }
+   },
+   "effect": {
+    "kind": "write",
+    "tools": [
+     "create_problem"
+    ],
+    "match": {
+     "problem_statement": {
+      "pattern": "{problem_statement}"
+     }
+    }
+   },
+   "values": {
+    "problem_statement": {
+     "from": "request",
+     "about": "the problem"
+    }
+   },
+   "check": "code",
+   "level": "observe",
+   "source": {
+    "section": "4.2",
+    "quote": "A Problem must be created (create_problem)"
+   }
+  },
+  {
+   "id": "ob_4_2_link",
+   "origin": "package",
+   "scope": {
+    "procedure": "4.2",
+    "when": {
+     "problem_trigger": "yes"
+    }
+   },
+   "effect": {
+    "kind": "write",
+    "tools": [
+     "update_incident"
+    ],
+    "match": {
+     "problem": {
+      "pattern": "{problem_id}"
+     }
+    }
+   },
+   "values": {
+    "problem_id": {
+     "from": "case_fact",
+     "field": "problem_id",
+     "record": "the Problem record"
+    }
+   },
+   "check": "code",
+   "level": "observe",
+   "source": {
+    "section": "4.2",
+    "quote": "The Problem record must link all affected Incidents"
+   }
+  },
+  {
+   "id": "ob_4_2_workaround",
+   "origin": "package",
+   "scope": {
+    "procedure": "4.2",
+    "when": {
+     "workaround_found": "yes"
+    }
+   },
+   "effect": {
+    "kind": "write",
+    "tools": [
+     "update_problem"
+    ],
+    "match": {
+     "status": {
+      "pattern": "{status}"
+     },
+     "workaround": {
+      "pattern": "{workaround}"
+     }
+    }
+   },
+   "values": {
+    "status": {
+     "from": "literal",
+     "value": "fix_in_progress"
+    },
+    "workaround": {
+     "from": "request",
+     "about": "the workaround/temporary solution"
+    }
+   },
+   "check": "code",
+   "level": "observe",
+   "source": {
+    "section": "4.2",
+    "quote": "update workaround field and set status=fix_in_progress"
+   }
+  },
+  {
+   "id": "ob_4_2_publish_incidents",
+   "origin": "package",
+   "scope": {
+    "procedure": "4.2",
+    "when": {
+     "workaround_found": "yes"
+    }
+   },
+   "effect": {
+    "kind": "write",
+    "tools": [
+     "update_incident"
+    ]
+   },
+   "values": {},
+   "check": "code",
+   "level": "observe",
+   "source": {
+    "section": "4.2",
+    "quote": "must be published to the linked Incidents"
+   }
+  },
+  {
+   "id": "ob_4_2_publish_knowledge",
+   "origin": "package",
+   "scope": {
+    "procedure": "4.2",
+    "when": {
+     "workaround_found": "yes"
+    }
+   },
+   "effect": {
+    "kind": "write",
+    "tools": [
+     "update_knowledge_article"
+    ]
+   },
+   "values": {},
+   "check": "code",
+   "level": "observe",
+   "source": {
+    "section": "4.2",
+    "quote": "published to the linked Incidents and relevant Knowledge Articles"
+   }
+  },
+  {
+   "id": "ob_5_1_register",
+   "origin": "package",
+   "scope": {
+    "procedure": "5.1",
+    "when": {
+     "new_asset": "yes"
+    }
+   },
+   "effect": {
+    "kind": "write",
+    "tools": [
+     "register_configuration_item"
+    ],
+    "match": {
+     "owner_id": {
+      "pattern": "{owner_id}"
+     }
+    }
+   },
+   "values": {
+    "owner_id": {
+     "from": "case_fact",
+     "field": "user_id",
+     "record": "the user record of the owner"
+    }
+   },
+   "check": "code",
+   "level": "observe",
+   "source": {
+    "section": "5.1",
+    "quote": "All IT assets must be recorded in the configuration_item table."
+   }
+  },
+  {
+   "id": "ob_6_pause",
+   "origin": "package",
+   "scope": {
+    "procedure": "6",
+    "when": {
+     "sla_pause": "yes"
+    }
+   },
+   "effect": {
+    "kind": "write",
+    "tools": [
+     "update_incident_sla_details"
+    ],
+    "match": {
+     "incident_sla_id": {
+      "pattern": "{incident_sla_id}"
+     },
+     "stage": {
+      "pattern": "{stage}"
+     }
+    }
+   },
+   "values": {
+    "incident_sla_id": {
+     "from": "case_fact",
+     "field": "incident_sla_id",
+     "record": "the Incident SLA record"
+    },
+    "stage": {
+     "from": "literal",
+     "value": "paused"
+    }
+   },
+   "check": "code",
+   "level": "observe",
+   "source": {
+    "section": "6",
+    "quote": "The SLA timer must be paused (stage = paused)"
+   }
+  },
+  {
+   "id": "ob_6_escalation_flag",
+   "origin": "package",
+   "scope": {
+    "procedure": "6",
+    "when": {
+     "sla_breach": "yes"
+    }
+   },
+   "effect": {
+    "kind": "write",
+    "tools": [
+     "update_incident"
+    ]
+   },
+   "values": {},
+   "check": "code",
+   "level": "observe",
+   "source": {
+    "section": "6",
+    "quote": "the escalation flag on the Incident must be set to true"
+   }
+  },
+  {
+   "id": "ob_6_notify_manager",
+   "origin": "package",
+   "scope": {
+    "procedure": "6",
+    "when": {
+     "sla_breach": "yes"
+    }
+   },
+   "effect": {
+    "kind": "message",
+    "tools": [
+     "send_notification"
+    ],
+    "match": {
+     "incident_id": {
+      "pattern": "{incident_id}"
+     },
+     "email": {
+      "pattern": "{manager_email}"
+     }
+    }
+   },
+   "values": {
+    "incident_id": {
+     "from": "case_fact",
+     "field": "incident_id",
+     "record": "the incident record"
+    },
+    "manager_email": {
+     "from": "case_fact",
+     "field": "email",
+     "record": "the user record of the Manager"
+    }
+   },
+   "check": "code",
+   "level": "observe",
+   "source": {
+    "section": "6",
+    "quote": "an automatic notification sent to the Manager"
+   }
+  },
+  {
+   "id": "ob_7_link_suggested",
+   "origin": "package",
+   "scope": {
+    "procedure": "7",
+    "when": {
+     "matching_articles": "yes"
+    }
+   },
+   "effect": {
+    "kind": "write",
+    "tools": [
+     "link_knowledge_to_incident"
+    ],
+    "match": {
+     "incident_id": {
+      "pattern": "{incident_id}"
+     },
+     "knowledge_id": {
+      "pattern": "{knowledge_id}"
+     },
+     "used_as": {
+      "pattern": "{used_as}"
+     }
+    }
+   },
+   "values": {
+    "incident_id": {
+     "from": "case_fact",
+     "field": "incident_id",
+     "record": "the new incident record"
+    },
+    "knowledge_id": {
+     "from": "case_fact",
+     "field": "knowledge_id",
+     "record": "the matching knowledge article"
+    },
+    "used_as": {
+     "from": "literal",
+     "value": "suggested"
+    }
+   },
+   "check": "code",
+   "level": "observe",
+   "source": {
+    "section": "7",
+    "quote": "matching articles linked as used_as = suggested"
+   }
+  }
+ ],
+ "global": {
+  "global_rules": [
+   {
+    "id": "G-check-user",
+    "src": "Preamble",
+    "rule": "First you must check the user information and operate exclusively based on confirmed user roles, verified record relationships, and ITIL/database integrity rules."
+   },
+   {
+    "id": "G-prohibited",
+    "src": "Preamble",
+    "rule": "You are strictly prohibited from assuming data, executing ambiguous commands, bypassing mandatory approvals, or violating audit and compliance requirements."
+   },
+   {
+    "id": "G-violation",
+    "src": "§1",
+    "rule": "Policy Violation: If a user request violates any rule herein, you must halt the operation and provide the specific policy reason before pausing."
+   },
+   {
+    "id": "G-atomic",
+    "src": "§1",
+    "rule": "Atomic Operations: Perform one validated operation at a time, except when using approved batch endpoints. Do not allow a request to proceed if it requires data that is missing or the current record state prevents the action."
+   },
+   {
+    "id": "G-scope",
+    "src": "§1",
+    "rule": "Knowledge Scope: Do not disclose information that is outside the authenticated user's access scope."
+   },
+   {
+    "id": "G-clarification",
+    "src": "§1",
+    "rule": "User Clarification: Do not ask for further information. If the request is ambiguous, return the list and state the ambiguity. If a mandatory field is missing, state which field is required."
+   },
+   {
+    "id": "G-mandatory",
+    "src": "§1",
+    "rule": "Mandatory Fields: Any request to create or update a record must validate all mandatory fields."
+   },
+   {
+    "id": "G-no-confirmation",
+    "src": "§1",
+    "rule": "You do not need to ask for confirmation or permission before taking action."
+   },
+   {
+    "id": "G-lookups",
+    "src": "§1",
+    "rule": "When identifiers such as names or IDs are missing, perform lookups, verify that you are reusing correct values from previous responses, and proceed using the retrieved data."
+   },
+   {
+    "id": "G-never-assume",
+    "src": "§1",
+    "rule": "Never assume or fabricate IDs, responses, or outcomes — rely solely on verified API results."
+   },
+   {
+    "id": "G-optional-args",
+    "src": "§1",
+    "rule": "The same is the case of optional or default arguments."
+   },
+   {
+    "id": "G-role-admin",
+    "src": "§2",
+    "rule": "Administrator (admin) | System Configuration & Integrity | Full CRUD (Create, Read, Update, Delete) access across all tables."
+   },
+   {
+    "id": "G-role-manager",
+    "src": "§2",
+    "rule": "Manager (manager) | Supervision, Escalation, Approvals | Full CRUD on operational tables (incident, problem, change, knowledge); READ access to all the tables. Can reassign incidents/requests. Can approve/reject Change Requests. Monitors SLAs and escalations."
+   },
+   {
+    "id": "G-role-agent",
+    "src": "§2",
+    "rule": "Agent (agent) | Frontline Incident/Request fulfillment | Full CRUD on Incidents, Service Requests, Tasks, Work Notes, CMDB, Change, Problem, and Knowledge. READ access to all the tables. Can update assignment, state, and resolution. | Cannot bypass approvals, or change system administration settings."
+   },
+   {
+    "id": "G-role-reporter",
+    "src": "§2",
+    "rule": "Reporter (reporter) | IT Service Consumption | Can view and update their own submitted Incidents/Requests. Can search Public Knowledge articles. | Cannot view or modify records opened by other users, CMDB, or internal work notes."
+   },
+   {
+    "id": "G-ci-status",
+    "src": "§5.1",
+    "rule": "CI Status: Only CIs with status = in_use or status = maintenance can be linked to active Incidents. Do not link CIs in status = retired or status = disposed.",
+    "attach_when": "(?i)configuration_item|\\bCI"
+   },
+   {
+    "id": "G-user-status",
+    "src": "§8.1",
+    "rule": "User Status: Ensure any user being assigned to (assigned_to) or updated is users.active = true.",
+    "attach_when": "(?i)assigned_to|assign"
+   },
+   {
+    "id": "G-referential",
+    "src": "§8.1",
+    "rule": "Referential Integrity: Before closing any record, verify that all mandatory dependencies are satisfied.",
+    "attach_when": "(?i)clos"
+   },
+   {
+    "id": "G-rate-limit",
+    "src": "§8.2",
+    "rule": "Rate Limiting: If exceeded, pause and retry using Exponential Backoff."
+   }
+  ],
+  "escalation": {
+   "id": "escalation",
+   "src": "§1",
+   "name": "Policy Violation",
+   "steps": [
+    "If a user request violates any rule herein, you must halt the operation and provide the specific policy reason before pausing."
+   ],
+   "must_not": [
+    "Do not disclose information that is outside the authenticated user's access scope."
+   ]
+  },
+  "priority": {
+   "name": "Priority Calculation",
+   "src": "§3.1, §4.2",
+   "levels": [
+    "Impact | Urgency | Priority",
+    "low | low | planning",
+    "low | medium | low",
+    "low | high | moderate",
+    "medium | low | low",
+    "medium | medium | moderate",
+    "medium | high | high",
+    "high | low | moderate",
+    "high | medium | high",
+    "high | high | critical"
+   ]
+  },
+  "definitions": [
+   {
+    "term": "standard",
+    "meaning": "pre-approved, low risk",
+    "source": {
+     "statement": "a5e328395b:4.1:4"
+    }
+   },
+   {
+    "term": "normal",
+    "meaning": "requires planning/approval",
+    "source": {
+     "statement": "a5e328395b:4.1:4"
+    }
+   },
+   {
+    "term": "emergency",
+    "meaning": "requires immediate CAB approval override",
+    "source": {
+     "statement": "a5e328395b:4.1:4"
+    }
+   },
+   {
+    "term": "403 Forbidden",
+    "meaning": "Permission denied (user role lacks authority for the operation)",
+    "source": {
+     "statement": "a5e328395b:8.2:2"
+    }
+   },
+   {
+    "term": "409 Conflict",
+    "meaning": "Record locking or state conflict",
+    "source": {
+     "statement": "a5e328395b:8.2:3"
+    }
+   },
+   {
+    "term": "Agent",
+    "meaning": "ITIL Agent → Agent",
+    "source": {
+     "statement": "a5e328395b:2:1"
+    }
+   },
+   {
+    "term": "Reporter",
+    "meaning": "End User → Reporter",
+    "source": {
+     "statement": "a5e328395b:2:1"
+    }
+   }
+  ]
+ },
+ "links": [
+  {
+   "type": "refers_to",
+   "src": "a5e328395b:3.1:4",
+   "dst": "a5e328395b:3.1:5",
+   "source": {},
+   "quote": "a below pre-defined matrix"
+  },
+  {
+   "type": "refers_to",
+   "src": "a5e328395b:4.2:7",
+   "dst": "a5e328395b:4.2:8",
+   "source": {},
+   "quote": "a below pre-defined matrix"
+  },
+  {
+   "type": "depends_on",
+   "src": "a5e328395b:3.3:7",
+   "dst": "a5e328395b:9:7",
+   "source": {},
+   "quote": "resolution_code"
+  },
+  {
+   "type": "depends_on",
+   "src": "a5e328395b:6:3",
+   "dst": "a5e328395b:9:6",
+   "source": {},
+   "quote": "on_hold_reason"
+  },
+  {
+   "type": "depends_on",
+   "src": "a5e328395b:4.2:6",
+   "dst": "a5e328395b:4.1:4",
+   "source": {},
+   "quote": "normal or emergency Change Request"
+  },
+  {
+   "type": "refers_to",
+   "src": "a5e328395b:1:9",
+   "dst": "a5e328395b:1:8",
+   "source": {},
+   "quote": "The same is the case"
+  },
+  {
+   "type": "depends_on",
+   "src": "a5e328395b:3.2:2",
+   "dst": "a5e328395b:8.1:2",
+   "source": {},
+   "quote": "active user"
+  }
+ ],
+ "coverage": [],
+ "validation": [],
+ "policy_questions": [
+  {
+   "statement_ids": [
+    "a5e328395b:preamble:3"
+   ],
+   "question": "\"First you must check the user information\": which user is meant (the logged-in user, the caller, both), and what must happen when the role cannot be confirmed?",
+   "default_level": "observe",
+   "rule_ids": [
+    "r_check_user_first"
+   ]
+  },
+  {
+   "statement_ids": [
+    "a5e328395b:2:4"
+   ],
+   "question": "The Administrator row has no Critical Restrictions cell. Are there really no restrictions, including on approving a Change Request, which only the Manager row names?",
+   "default_level": "remind"
+  },
+  {
+   "statement_ids": [
+    "a5e328395b:2:5"
+   ],
+   "question": "The Manager grant names incident, problem, change, knowledge. Is the Manager forbidden on every other write tool: users, groups, locations, incident templates, CIs, services, SLA definitions, notifications, Incident SLA records?",
+   "default_level": "remind",
+   "rule_ids": [
+    "r_manager_grant"
+   ]
+  },
+  {
+   "statement_ids": [
+    "a5e328395b:2:6"
+   ],
+   "question": "The Agent grant does not name users, groups, locations, incident templates, SLA definitions, notifications or Incident SLA records. Is the Agent forbidden on the write tools of all of these?",
+   "default_level": "remind",
+   "rule_ids": [
+    "r_agent_grant"
+   ]
+  },
+  {
+   "statement_ids": [
+    "a5e328395b:2:6"
+   ],
+   "question": "Section 5 is titled \"Configuration and Service Management (CMDB)\". Does the Agent's CMDB grant include services and service offerings? The package assumes yes and does not forbid them.",
+   "default_level": "remind",
+   "rule_ids": [
+    "r_agent_grant"
+   ]
+  },
+  {
+   "statement_ids": [
+    "a5e328395b:2:5",
+    "a5e328395b:2:6"
+   ],
+   "question": "Do the grants on incident, change and knowledge include the link tools (child incidents, knowledge links, change mappings, affected CIs)? The package assumes yes, although the Manager has only READ on CMDB and link_affected_ci_to_incident touches a CI.",
+   "default_level": "remind",
+   "rule_ids": [
+    "r_manager_grant",
+    "r_agent_grant"
+   ]
+  },
+  {
+   "statement_ids": [
+    "a5e328395b:2:7"
+   ],
+   "question": "The Reporter row says \"view and update\" but also \"their own submitted\". May a Reporter call create_incident? The package does not forbid it.",
+   "default_level": "remind",
+   "rule_ids": [
+    "r_reporter_grant"
+   ]
+  },
+  {
+   "statement_ids": [
+    "a5e328395b:2:7"
+   ],
+   "question": "Which fields of their own incident may a Reporter update? The Agent row names assignment, state and resolution; the Reporter row names none.",
+   "default_level": "remind",
+   "rule_ids": [
+    "r_reporter_grant",
+    "r_reporter_own_records"
+   ]
+  },
+  {
+   "statement_ids": [
+    "a5e328395b:2:7"
+   ],
+   "question": "May a Reporter read records other than their own incidents and Public Knowledge (users, groups, services, changes, problems, SLAs)? The row grants nothing else but forbids only other users' records, CMDB and internal work notes. The package forbids only CI read tools.",
+   "default_level": "remind"
+  },
+  {
+   "statement_ids": [
+    "a5e328395b:2:7"
+   ],
+   "question": "Which field decides that a record is the Reporter's own submitted record? create_incident has caller_id, the user affected, who may be another person, and no field for the user who submits.",
+   "default_level": "remind",
+   "rule_ids": [
+    "r_reporter_own_records"
+   ]
+  },
+  {
+   "statement_ids": [
+    "a5e328395b:2:7"
+   ],
+   "question": "Does \"CMDB\" in the Reporter restriction also cover list_incident_affected_cis and service or service offering reads? The deny rule covers only configuration item tools.",
+   "default_level": "deny",
+   "rule_ids": [
+    "r_reporter_cmdb"
+   ]
+  },
+  {
+   "statement_ids": [
+    "a5e328395b:preamble:4",
+    "a5e328395b:2:5",
+    "a5e328395b:2:6"
+   ],
+   "question": "Which approvals are mandatory, and which status move of a Change Request is an approval (for example authorize to scheduled)? May an Agent make that move, or only a Manager? No tool has an approval record.",
+   "default_level": "remind",
+   "rule_ids": [
+    "r_approvals"
+   ]
+  },
+  {
+   "statement_ids": [
+    "a5e328395b:2:6"
+   ],
+   "question": "Which tools change \"system administration settings\", which the Agent cannot do?",
+   "default_level": "remind",
+   "rule_ids": [
+    "r_agent_grant"
+   ]
+  },
+  {
+   "statement_ids": [
+    "a5e328395b:2:5",
+    "a5e328395b:2:6",
+    "a5e328395b:2:7"
+   ],
+   "question": "\"Requests\", \"Service Requests\" and \"Tasks\" have no tool in the tool list. Does the policy mean incidents here, or do these parts have no effect?",
+   "default_level": "remind"
+  },
+  {
+   "statement_ids": [
+    "a5e328395b:2:5",
+    "a5e328395b:2:6"
+   ],
+   "question": "The Manager \"Can reassign incidents/requests\" and the Agent \"Can update assignment\". Is reassigning an incident that already has an assignee open to both roles?",
+   "default_level": "remind"
+  },
+  {
+   "statement_ids": [
+    "a5e328395b:3.1:4"
+   ],
+   "question": "Priority \"is determined automatically by the system\", but create_incident stores the default planning when priority is omitted. Must the agent pass the matrix value, or leave priority out?",
+   "default_level": "deny",
+   "rule_ids": [
+    "r_incident_priority_matrix"
+   ]
+  },
+  {
+   "statement_ids": [
+    "a5e328395b:3.1:4"
+   ],
+   "question": "If a request states a priority that differs from the matrix, must the agent halt under Policy Violation, or create the record with the matrix value? May any role override it?",
+   "default_level": "deny",
+   "rule_ids": [
+    "r_incident_priority_matrix"
+   ]
+  },
+  {
+   "statement_ids": [
+    "a5e328395b:3.1:4",
+    "a5e328395b:4.2:7"
+   ],
+   "question": "When impact or urgency changes on update_incident or update_problem, must priority be set again from the matrix? The rules check only the create tools.",
+   "default_level": "remind"
+  },
+  {
+   "statement_ids": [
+    "a5e328395b:9:2",
+    "a5e328395b:4.1:2"
+   ],
+   "question": "create_change requires priority and impact, but the policy has no matrix for changes and the change has no urgency, and rule 1:9 says never to assume. How must the agent get the priority of a change?",
+   "default_level": "remind"
+  },
+  {
+   "statement_ids": [
+    "a5e328395b:6:1",
+    "a5e328395b:9:2"
+   ],
+   "question": "SLAs are aligned based on priority, but applies_to_priority of an SLA definition does not accept planning. Does an incident of priority planning have no SLA?",
+   "default_level": "remind"
+  },
+  {
+   "statement_ids": [
+    "a5e328395b:1:1"
+   ],
+   "question": "\"halt the operation and provide the specific policy reason before pausing\": what does pausing mean for the agent, ending the task, or waiting for the next user message?",
+   "default_level": "observe",
+   "rule_ids": [
+    "r_policy_violation"
+   ]
+  },
+  {
+   "statement_ids": [
+    "a5e328395b:1:2"
+   ],
+   "question": "Which endpoints are the \"approved batch endpoints\"? Is add_child_incidents one of them?",
+   "default_level": "observe",
+   "rule_ids": [
+    "r_atomic"
+   ]
+  },
+  {
+   "statement_ids": [
+    "a5e328395b:1:4"
+   ],
+   "question": "\"return the list\": which list is meant when a request is ambiguous, the records that match?",
+   "default_level": "observe",
+   "rule_ids": [
+    "r_clarification"
+   ]
+  },
+  {
+   "statement_ids": [
+    "a5e328395b:1:4",
+    "a5e328395b:1:7"
+   ],
+   "question": "A mandatory field that is an identifier (caller_id) is missing: 1:4 says state which field is required, 1:7 says perform lookups. Which holds when a name is given but no ID, and which when nothing is given?",
+   "default_level": "observe",
+   "rule_ids": [
+    "r_clarification",
+    "r_lookups"
+   ]
+  },
+  {
+   "statement_ids": [
+    "a5e328395b:1:5"
+   ],
+   "question": "\"all mandatory fields\": only section 3 names mandatory fields. Which are mandatory for the other records and for update calls: the tool's required list?",
+   "default_level": "observe",
+   "rule_ids": [
+    "r_mandatory_fields"
+   ]
+  },
+  {
+   "statement_ids": [
+    "a5e328395b:1:9"
+   ],
+   "question": "\"The same is the case of optional or default arguments\": may the agent pass an optional argument the request does not state, for example a tool default such as category?",
+   "default_level": "observe",
+   "rule_ids": [
+    "r_grounded_values"
+   ]
+  },
+  {
+   "statement_ids": [
+    "a5e328395b:3.2:2"
+   ],
+   "question": "A call gives assigned_to but no assignment_group. Is the group of the incident the \"specified\" one, or is the membership not checked?",
+   "default_level": "block_once",
+   "rule_ids": [
+    "r_assign_member_update_incident"
+   ]
+  },
+  {
+   "statement_ids": [
+    "a5e328395b:3.3:5"
+   ],
+   "question": "\"on_hold → in_progress (Must log on_hold_reason before transition)\": is the reason logged when the incident enters on_hold, or before it leaves on_hold?",
+   "default_level": "remind",
+   "rule_ids": [
+    "r_on_hold_reason_required",
+    "r_leave_on_hold"
+   ]
+  },
+  {
+   "statement_ids": [
+    "a5e328395b:3.3:8",
+    "a5e328395b:3.3:6"
+   ],
+   "question": "Does the system close resolved incidents after 72 hours, or must the agent? May an agent close one before 72 hours pass, as the transition resolved → closed allows?",
+   "default_level": "remind"
+  },
+  {
+   "statement_ids": [
+    "a5e328395b:9:5"
+   ],
+   "question": "The tools accept status canceled for an incident; the policy lists five statuses without it. Is canceled forbidden? The transition rule has no edge to it.",
+   "default_level": "block_once",
+   "rule_ids": [
+    "r_incident_transition"
+   ]
+  },
+  {
+   "statement_ids": [
+    "a5e328395b:9:7",
+    "a5e328395b:3.3:7"
+   ],
+   "question": "Section 9 lists resolution_code values fixed, workaround, not_reproducible, closed_by_caller; the tools accept only Duplicate, Known Error, No resolution provided, Resolved By Caller, Resolved By Problem, Resolved By Change, Solution Provided, Workaround Provided, User error. Which list holds, and is there a mapping?",
+   "default_level": "observe",
+   "rule_ids": [
+    "r_resolution_code_values"
+   ]
+  },
+  {
+   "statement_ids": [
+    "a5e328395b:4.1:4",
+    "a5e328395b:9:8",
+    "a5e328395b:4.2:6"
+   ],
+   "question": "Change type (standard, normal, emergency) has no argument in create_change or update_change, only category and cab_required. Where is the type recorded? Must cab_required follow from it?",
+   "default_level": "remind"
+  },
+  {
+   "statement_ids": [
+    "a5e328395b:4.2:4",
+    "a5e328395b:4.2:7"
+   ],
+   "question": "The description of create_problem writes values in capitals (NEW, HIGH), its argument descriptions in lower case; the policy uses lower case. Which case is correct? The rules use lower case and stay at remind.",
+   "default_level": "remind",
+   "rule_ids": [
+    "r_problem_default_status",
+    "r_problem_priority_matrix"
+   ]
+  },
+  {
+   "statement_ids": [
+    "a5e328395b:4.2:2"
+   ],
+   "question": "What counts as a \"recurring incident pattern\" (how many incidents, in what time) and as a \"major incident\" (priority critical)?",
+   "default_level": "remind"
+  },
+  {
+   "statement_ids": [
+    "a5e328395b:4.2:3"
+   ],
+   "question": "There is no incident_to_problem related list in the tools. Is the link made by the problem argument of update_incident?",
+   "default_level": "remind",
+   "rule_ids": [
+    "r_problem_link_duty"
+   ]
+  },
+  {
+   "statement_ids": [
+    "a5e328395b:4.2:5"
+   ],
+   "question": "There is no workaround_notes field. Into which field of a linked incident (worknotes, description) and of a knowledge article is it published, and which articles are \"relevant\"?",
+   "default_level": "remind"
+  },
+  {
+   "statement_ids": [
+    "a5e328395b:4.2:5"
+   ],
+   "question": "May a Problem that is already past fix_in_progress get a corrected workaround without going back to fix_in_progress?",
+   "default_level": "remind",
+   "rule_ids": [
+    "r_problem_workaround_status"
+   ]
+  },
+  {
+   "statement_ids": [
+    "a5e328395b:4.2:6"
+   ],
+   "question": "What proves that the permanent fix was \"successfully implemented\": a mapped change with status closed and close_code successful, or status implement or review?",
+   "default_level": "remind",
+   "rule_ids": [
+    "r_problem_close"
+   ]
+  },
+  {
+   "statement_ids": [
+    "a5e328395b:5.1:3"
+   ],
+   "question": "Status in_stock is in neither sentence of the CI Status rule. Is it forbidden, as \"Only\" says? The rule forbids it.",
+   "default_level": "block_once",
+   "rule_ids": [
+    "r_ci_status_link",
+    "r_ci_status_create_incident",
+    "r_ci_status_update_incident"
+   ]
+  },
+  {
+   "statement_ids": [
+    "a5e328395b:5.1:3"
+   ],
+   "question": "Which incident statuses are \"active Incidents\"? May an in_stock or retired CI be linked to a resolved or closed incident? The rule does not look at the incident.",
+   "default_level": "block_once",
+   "rule_ids": [
+    "r_ci_status_link",
+    "r_ci_status_create_incident",
+    "r_ci_status_update_incident"
+   ]
+  },
+  {
+   "statement_ids": [
+    "a5e328395b:6:2"
+   ],
+   "question": "\"Metrics tracked are limited to target_mins\": the tools have metric with values response and resolution, and target_mins. Does this forbid any SLA definition argument, or is it only a description?",
+   "default_level": "remind"
+  },
+  {
+   "statement_ids": [
+    "a5e328395b:6:3",
+    "a5e328395b:2:5",
+    "a5e328395b:2:6"
+   ],
+   "question": "Who pauses the SLA timer, the system or the agent? If the agent, the Agent, Manager and Reporter grants name no SLA record, so the grant rules and the duty conflict for update_incident_sla_details. Nothing decides, so both stay at remind.",
+   "default_level": "remind",
+   "rule_ids": [
+    "r_sla_pause_duty",
+    "r_manager_grant",
+    "r_agent_grant",
+    "r_reporter_grant"
+   ]
+  },
+  {
+   "statement_ids": [
+    "a5e328395b:6:3"
+   ],
+   "question": "The SLA Pause text says the Incident is in \"stage = on_hold\", but incident has status, not stage. Is status meant? The rule assumes yes.",
+   "default_level": "remind",
+   "rule_ids": [
+    "r_sla_pause_duty"
+   ]
+  },
+  {
+   "statement_ids": [
+    "a5e328395b:6:4"
+   ],
+   "question": "The escalation flag on the Incident has no argument in update_incident. How is it set?",
+   "default_level": "remind"
+  },
+  {
+   "statement_ids": [
+    "a5e328395b:6:4"
+   ],
+   "question": "\"an automatic notification sent to the Manager\": does the system send it, or must the agent call send_notification? Which Manager (the manager_id of the group, any user with role manager)?",
+   "default_level": "remind",
+   "rule_ids": [
+    "r_sla_breach_notify_duty"
+   ]
+  },
+  {
+   "statement_ids": [
+    "a5e328395b:7:1",
+    "a5e328395b:2:7"
+   ],
+   "question": "\"Public Knowledge\" and \"published\": does Public also mean visibility = external? May a Reporter find a published internal article?",
+   "default_level": "remind",
+   "rule_ids": [
+    "r_reporter_kb"
+   ]
+  },
+  {
+   "statement_ids": [
+    "a5e328395b:7:2"
+   ],
+   "question": "How is a knowledge article \"relevant\" or \"matching\" (which search field, how close)?",
+   "default_level": "remind",
+   "rule_ids": [
+    "r_kb_search_duty",
+    "r_kb_link_duty"
+   ]
+  },
+  {
+   "statement_ids": [
+    "a5e328395b:7:2",
+    "a5e328395b:2:7"
+   ],
+   "question": "When a Reporter creates an incident, 7:2 requires a knowledge link, but the Reporter grant does not name link_knowledge_to_incident, and the Reporter finds only published articles. Is the link still made, and by whom? Nothing decides, so both stay at remind.",
+   "default_level": "remind",
+   "rule_ids": [
+    "r_kb_link_duty",
+    "r_reporter_grant"
+   ]
+  },
+  {
+   "statement_ids": [
+    "a5e328395b:8.1:2"
+   ],
+   "question": "\"any user being ... updated is users.active = true\": does this forbid update_user_details on an inactive user, including setting active back to true?",
+   "default_level": "remind",
+   "rule_ids": [
+    "r_user_update_active"
+   ]
+  },
+  {
+   "statement_ids": [
+    "a5e328395b:8.1:3"
+   ],
+   "question": "Which are the \"mandatory dependencies\" to verify before closing a record? Only 4.2:6 names one, for a Problem.",
+   "default_level": "remind"
+  },
+  {
+   "statement_ids": [
+    "a5e328395b:8.1:4"
+   ],
+   "question": "\"work logs\" have no tool or fields: worknotes is one text argument, and created_on is not an argument. Must the agent write the timestamp and user_id into worknotes?",
+   "default_level": "remind"
+  }
+ ],
+ "tests": [],
+ "extra": {}
+}

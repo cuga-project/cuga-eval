@@ -1,0 +1,204 @@
+{
+ "method": "backtrans",
+ "package": "handbook_hr_crestwood_university_79786c46",
+ "build": "skill_v1",
+ "package_version": "1b6339f83fc78944+61a6514f00da",
+ "ran_at": "2026-11-05T11:18:04Z",
+ "status": "ok",
+ "writer": "aws/gpt-oss-120b",
+ "judge": "azure/DeepSeek-V4-Pro",
+ "rules": 20,
+ "judged": 20,
+ "not_judged": 0,
+ "text_from": "the package",
+ "source_kinds": {
+  "statements": 20
+ },
+ "counts": {
+  "equivalent": 6,
+  "broader": 6,
+  "different": 8
+ },
+ "rows": [
+  {
+   "id": "r_folder_move",
+   "type": "allowed_values",
+   "source": null,
+   "source_kind": "statements",
+   "restated": "When the assistant calls the google_mail__move_emails tool, the target_folder argument may only be one of: Onboarding, Offboarding, Leave, Performance, Recruiting, or General. Any other value for target_folder is not allowed.",
+   "verdict": "equivalent",
+   "why": "The rule specifies the exact folder names that match the policy's requirement, covering the same restriction without adding or omitting any allowed values."
+  },
+  {
+   "id": "r_folder_create",
+   "type": "allowed_values",
+   "source": null,
+   "source_kind": "statements",
+   "restated": "When the assistant calls the tool google_mail__create_folder, it may only set the folder_name argument to one of the following values: Onboarding, Offboarding, Leave, Performance, Recruiting, or General. Any other folder_name value is forbidden for that tool call.",
+   "verdict": "broader",
+   "why": "The policy text forbids creating new folders or using variations, but the rule restricts folder_name to a specific list, which also forbids using existing folders not in that list, thus forbidding more than the policy text."
+  },
+  {
+   "id": "r_ticket_name",
+   "type": "format",
+   "source": null,
+   "source_kind": "statements",
+   "restated": "When calling the jira__create_issue tool, the summary argument must match the pattern \"[A-Z]+-.+-(0[1-9]|1[0-2])(0[1-9]|[12][0-9]|3[01])[0-9]{4}\", i.e., it must start with uppercase letters, a hyphen, any characters, another hyphen, and a valid month‑day‑year date; any summary not matching this format is forbidden. This rule applies only to jira__create_issue tool calls.",
+   "verdict": "equivalent",
+   "why": "The rule correctly translates the policy's format [PREFIX]-[Employee Last Name]-[DATE in MMDDYYYY] into a regex pattern that requires uppercase letters for the prefix, any characters for the last name, and a valid MMDDYYYY date, matching the policy's intent exactly."
+  },
+  {
+   "id": "r_comment_format",
+   "type": "format",
+   "source": null,
+   "source_kind": "statements",
+   "restated": "When calling the jira__add_comment tool, the comment argument must match the pattern: a date (MM/DD/YYYY) followed by a time (h:mm am/pm), then any text, a dash, one of the specified status keywords (e.g., TEMPLATE SENT, FILE ATTACHED, etc.), another dash, and then any additional text. Any comment that does not follow this exact format is forbidden.",
+   "verdict": "different",
+   "why": "The policy text only requires using the Jira comment format, but the rule adds specific required content (date, time, status keywords, dashes) not mentioned in the policy."
+  },
+  {
+   "id": "r_subject_format",
+   "type": "format",
+   "source": null,
+   "source_kind": "statements",
+   "restated": "When the assistant calls the google_mail__send_email tool, the subject argument must match the pattern “some text — more text” (i.e., any non‑empty text, a space, an em‑dash, en‑dash, or hyphen, another space, then more non‑empty text). Subjects that do not contain that space‑dash‑space structure are forbidden; the rule applies only to calls of google_mail__send_email with a subject argument.",
+   "verdict": "different",
+   "why": "The policy requires a specific subject line format, but the rule invents a pattern (space‑dash‑space) not mentioned in the policy text."
+  },
+  {
+   "id": "r_no_placeholders_send",
+   "type": "format",
+   "source": null,
+   "source_kind": "statements",
+   "restated": "When the assistant calls the google_mail__send_email tool, the email body argument must consist only of characters that are not '[' or ']'. Any body containing a '[' or ']' is disallowed; this rule applies to every invocation of that tool.",
+   "verdict": "broader",
+   "why": "The rule forbids any '[' or ']' in the email body, which would also block templates with filled placeholders (e.g., 'Hello [Name]') that the policy allows, since the policy only prohibits unfilled placeholders."
+  },
+  {
+   "id": "r_no_placeholders_reply",
+   "type": "format",
+   "source": null,
+   "source_kind": "statements",
+   "restated": "When using the google_mail__reply_email tool, the 'body' argument may contain any characters except square brackets; any body that includes '[' or ']' is disallowed. This rule applies to every call of that tool.",
+   "verdict": "broader",
+   "why": "The rule forbids any square brackets in the body, while the policy only forbids unfilled placeholders, which are a specific use of brackets."
+  },
+  {
+   "id": "r_duty_er",
+   "type": "duty",
+   "source": null,
+   "source_kind": "statements",
+   "restated": "When the assistant forwards an email to m.voss@crestwood.edu using the google_mail__forward_email tool, it must also send a reply via google_mail__reply_email, except when the message is from the internal HR team, which is exempt from this process.",
+   "verdict": "different",
+   "why": "The rule specifies a condition (not from internal HR team) and an action (send a reply) that are not present in the policy text, which only says 'Reply using Template 2.'"
+  },
+  {
+   "id": "r_duty_payroll",
+   "type": "duty",
+   "source": null,
+   "source_kind": "statements",
+   "restated": "When the assistant forwards an email to c.briggs@crestwood.edu using the google_mail__forward_email tool, it must also send a reply with the google_mail__reply_email tool, except when the message is from the internal HR team, which is exempt from this process.",
+   "verdict": "different",
+   "why": "The rule specifies a specific email address (c.briggs@crestwood.edu) and an exemption for internal HR team messages, but the policy text only says 'Reply using Template 3' with no such details."
+  },
+  {
+   "id": "r_duty_jira_log",
+   "type": "duty",
+   "source": null,
+   "source_kind": "statements",
+   "restated": "When the assistant calls the tool jira__update_issue, it must also call jira__add_comment. It is not allowed to call jira__update_issue without subsequently calling jira__add_comment.",
+   "verdict": "broader",
+   "why": "The policy text only requires using the Jira comment format when logging a change, but the rule mandates calling jira__add_comment after every jira__update_issue, which is a stricter requirement not stated in the policy."
+  },
+  {
+   "id": "r_coordinator_grant",
+   "type": "role_permission",
+   "source": null,
+   "source_kind": "statements",
+   "restated": "This rule forbids anyone with the HR Coordinator role from calling the Shopify tools \"shopify__update_cart\" and \"shopify__create_order\". It applies whenever a user identified as an HR Coordinator attempts to use either of these tools.",
+   "verdict": "different",
+   "why": "The policy text describes the HR Coordinator's role as administrative and digital, listing allowed tools and methods, but does not forbid any specific tool calls. The rule introduces a prohibition on two Shopify tools that is not present in the source text."
+  },
+  {
+   "id": "r_no_dm",
+   "type": "verify",
+   "source": null,
+   "source_kind": "statements",
+   "restated": "When the assistant is about to call the Slack direct‑message (slack__send_dm) or multi‑person instant‑message (slack__send_mpim) tools, it must not use them for case‑related communication. All other communication methods are allowed; the restriction applies only to those two tools in case‑related contexts.",
+   "verdict": "equivalent",
+   "why": "The rule correctly restricts case-related communication to the two specified Slack tools, matching the policy's prohibition on direct messages for case-related communication."
+  },
+  {
+   "id": "r_no_duplicate",
+   "type": "verify",
+   "source": null,
+   "source_kind": "statements",
+   "restated": "When using the jira__create_issue tool, the assistant may create a new ticket only if no existing ticket matches; if a ticket already exists, it must add the new information as a comment to that ticket instead of creating a duplicate.",
+   "verdict": "broader",
+   "why": "The policy text simply says 'Do not create a duplicate.' The restated rule adds specific context about the jira__create_issue tool and a required alternative action (adding a comment), which goes beyond the original text's scope."
+  },
+  {
+   "id": "r_reply_no_ticket",
+   "type": "verify",
+   "source": null,
+   "source_kind": "statements",
+   "restated": "When the assistant is about to call jira__create_issue and the input is a reply to a previous email, it must treat it as a continuation of the existing case and must not create a new ticket. It forbids creating a new ticket for any email that is a reply to an earlier message.",
+   "verdict": "broader",
+   "why": "The rule adds a condition (reply to a previous email) that is not in the policy text, which simply forbids creating a new ticket in all cases."
+  },
+  {
+   "id": "r_reply_no_resend",
+   "type": "verify",
+   "source": null,
+   "source_kind": "statements",
+   "restated": "When using the google_mail__send_email or google_mail__reply_email tools to reply to a prior email, the assistant may continue the existing conversation but must not resend any earlier template messages. This rule applies only to replies that are part of an ongoing email thread.",
+   "verdict": "different",
+   "why": "The policy text forbids re-sending previous templates in general, while the rule restricts this only to replies in ongoing email threads using specific tools, adding conditions not present in the source."
+  },
+  {
+   "id": "r_legal_no_reply",
+   "type": "verify",
+   "source": null,
+   "source_kind": "statements",
+   "restated": "When an email contains a legal threat, the assistant must not use the google_mail__reply_email tool (i.e., must not reply); it may still use google_mail__send_email. This restriction applies whenever a tool call to either of these Gmail functions is being considered and the email involves a legal threat.",
+   "verdict": "equivalent",
+   "why": "The rule restates the policy text's prohibition on replying to legal threats, specifying the relevant tool and clarifying that sending new emails is still allowed, without adding or omitting any restrictions."
+  },
+  {
+   "id": "r_media_no_reply",
+   "type": "verify",
+   "source": null,
+   "source_kind": "statements",
+   "restated": "When a request is a media inquiry, the assistant may use the send‑email tool but must not use the reply‑email tool; replying to media inquiries is prohibited.",
+   "verdict": "different",
+   "why": "The policy text only says 'Do NOT reply' but does not mention or permit using a send‑email tool; the rule adds a permission to send email that is not in the original text."
+  },
+  {
+   "id": "r_p1_p2_no_move",
+   "type": "verify",
+   "source": null,
+   "source_kind": "statements",
+   "restated": "When handling P1 or P2 emails, the assistant may leave them in the inbox and flag them as important, but it must not move them to any folder until the case is fully resolved. This rule applies whenever the google_mail__move_emails tool is used for such emails.",
+   "verdict": "equivalent",
+   "why": "The rule accurately captures the policy's instructions: leave in inbox, flag as important, and do not move until resolved. It correctly applies the constraint to the move_emails tool."
+  },
+  {
+   "id": "r_p3_p4_no_flag",
+   "type": "verify",
+   "source": null,
+   "source_kind": "statements",
+   "restated": "When handling P3 or P4 emails, the assistant may use the google_mail__mark_emails tool to move the email to the appropriate folder, but it must not flag the email.",
+   "verdict": "equivalent",
+   "why": "The rule correctly captures the instruction to move P3/P4 emails to the matching folder and not flag them, matching the policy text's meaning."
+  },
+  {
+   "id": "r_requisition",
+   "type": "verify",
+   "source": null,
+   "source_kind": "statements",
+   "restated": "The assistant may use the google_mail__send_email tool only when a position has an approved requisition, and it must not post or fill any position via email without that approval. This verification applies every time the google_mail__send_email tool is called.",
+   "verdict": "different",
+   "why": "The policy text prohibits posting or filling any position without an approved requisition, regardless of method. The rule restricts this only to actions via the google_mail__send_email tool, which is a different and narrower condition."
+  }
+ ]
+}

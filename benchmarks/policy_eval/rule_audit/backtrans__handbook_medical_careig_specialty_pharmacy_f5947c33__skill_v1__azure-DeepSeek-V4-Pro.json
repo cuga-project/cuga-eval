@@ -1,0 +1,259 @@
+{
+ "method": "backtrans",
+ "package": "handbook_medical_careig_specialty_pharmacy_f5947c33",
+ "build": "skill_v1",
+ "package_version": "77e01a1a98bdda75+3caffd465afd",
+ "ran_at": "2026-11-05T11:18:31Z",
+ "status": "ok",
+ "writer": "aws/gpt-oss-120b",
+ "judge": "azure/DeepSeek-V4-Pro",
+ "rules": 26,
+ "judged": 26,
+ "not_judged": 0,
+ "text_from": "the package",
+ "source_kinds": {
+  "statements": 26
+ },
+ "counts": {
+  "broader": 5,
+  "different": 11,
+  "narrower": 5,
+  "equivalent": 5
+ },
+ "rows": [
+  {
+   "id": "r_role_patient_rep",
+   "type": "role_permission",
+   "source": null,
+   "source_kind": "statements",
+   "restated": "This rule forbids any user with the role \"Patient Representative\" from calling any of the listed tools (the Jira issue and sprint actions, as well as the Shopify cart and order actions). It applies whenever a Patient Representative attempts to use those tools; all other roles are unaffected.",
+   "verdict": "broader",
+   "why": "The rule forbids all listed tools (Jira issue/sprint actions and Shopify cart/order actions) for Patient Representative, but the policy text only references 'intake.xlsx' without specifying any tool restrictions, so the rule denies more than the text allows."
+  },
+  {
+   "id": "r_role_bvs",
+   "type": "role_permission",
+   "source": null,
+   "source_kind": "statements",
+   "restated": "When the user has the role \"Benefits Verification Specialist\", they are forbidden from calling any of the listed tools (the Jira issue and sprint actions, as well as the Shopify cart and order actions). No other roles or tools are affected by this rule.",
+   "verdict": "different",
+   "why": "The rule forbids Jira and Shopify actions, but the policy text lists only Excel, auth, intake, and payer rules files, with no mention of Jira or Shopify tools."
+  },
+  {
+   "id": "r_role_coordinator",
+   "type": "role_permission",
+   "source": null,
+   "source_kind": "statements",
+   "restated": "When a user has the role \"Clinical Coordinator\", they are forbidden from using any of the listed tools (all Jira issue and sprint actions, plus Shopify cart and order actions). This restriction applies only to that role; other roles are not affected by this rule.",
+   "verdict": "different",
+   "why": "The rule forbids all Jira issue and sprint actions plus Shopify cart and order actions, but the policy text only references auth.xlsx and benefits.xlsx, not Jira or Shopify tools."
+  },
+  {
+   "id": "r_role_nurse",
+   "type": "role_permission",
+   "source": null,
+   "source_kind": "statements",
+   "restated": "Infusion Nurses are forbidden from using any of the listed tools (Jira issue and sprint actions, Shopify cart and order actions). This restriction applies whenever an Infusion Nurse attempts to call any of those tools.",
+   "verdict": "different",
+   "why": "The policy text lists specific files (visit_note.xlsx, clinical.xlsx) but the rule forbids using Jira, sprint, Shopify cart and order actions, which are not mentioned in the text."
+  },
+  {
+   "id": "r_role_billing",
+   "type": "role_permission",
+   "source": null,
+   "source_kind": "statements",
+   "restated": "When a user has the role \"Billing Specialist\", they are forbidden from calling any of the listed tools (jira__create_issue, jira__update_issue, jira__delete_issue, jira__link_issues, jira__transition_issue, jira__add_comment, jira__create_sprint, jira__update_sprint, shopify__update_cart, shopify__create_order). This restriction applies whenever a Billing Specialist attempts to use any of these tools.",
+   "verdict": "different",
+   "why": "The policy text lists allowed tools (claim.xlsx, visit_note.xlsx, auth.xlsx, benefits.xlsx) but the rule forbids specific Jira and Shopify tools not mentioned in the policy."
+  },
+  {
+   "id": "r_role_ar",
+   "type": "role_permission",
+   "source": null,
+   "source_kind": "statements",
+   "restated": "When the user has the role \"AR Specialist\", they are forbidden from calling any of the listed tools (the Jira issue and sprint actions, as well as the Shopify cart and order actions). Users with other roles are not restricted by this rule.",
+   "verdict": "different",
+   "why": "The rule forbids all listed tools (Jira, Shopify) for AR Specialist, but the policy text only references claim.xlsx and payer_rules.xlsx, with no mention of Jira or Shopify tools."
+  },
+  {
+   "id": "r_role_director",
+   "type": "role_permission",
+   "source": null,
+   "source_kind": "statements",
+   "restated": "The rule forbids any user with the role \"Director of Revenue Cycle\" from calling the listed Jira and Shopify tools. It applies whenever that role attempts to use any of those tool actions.",
+   "verdict": "different",
+   "why": "The policy text grants approval authority for write-offs and collections referrals, while the rule forbids tool usage, which is a completely different action and condition."
+  },
+  {
+   "id": "r_jcodes_read_only",
+   "type": "format",
+   "source": null,
+   "source_kind": "statements",
+   "restated": "When calling the handbook__writeFile tool, the file_path argument may be any string except one that ends with \"jcodes.xlsx\"; writing to a file named jcodes.xlsx is prohibited.",
+   "verdict": "broader",
+   "why": "The policy text only marks the file as read-only, which prohibits writing to it. The rule additionally forbids any file_path ending with 'jcodes.xlsx', which would also block writing to files like 'my_jcodes.xlsx' that the policy does not restrict."
+  },
+  {
+   "id": "r_templates_not_in_place",
+   "type": "format",
+   "source": null,
+   "source_kind": "statements",
+   "restated": "When the assistant calls the handbook__writeFile tool, the file_path argument is allowed only if the path contains \"docs/\" anywhere or if it does not end with any of the five listed template filenames (intake_blank.xlsx, claim_blank.xlsx, denial_blank.xlsx, patient_statement_template.docx, appeal_template.docx). It forbids writing to those specific template files unless they are located under a docs/ directory.",
+   "verdict": "different",
+   "why": "The policy text says to copy template files to docs/ before use and never edit them in place, implying that writing to those template files is only allowed under docs/. The restated rule incorrectly allows writing to those template files anywhere as long as the path contains 'docs/' anywhere, which is not equivalent to the policy's intent."
+  },
+  {
+   "id": "r_audit_log_append_only",
+   "type": "format",
+   "source": null,
+   "source_kind": "statements",
+   "restated": "When the assistant calls the handbook__writeFile tool, the file_path argument must match the pattern, meaning any path except one that ends with \"audit_log.xlsx\". It allows writing any file other than audit_log.xlsx and forbids writing a file named audit_log.xlsx.",
+   "verdict": "different",
+   "why": "The policy text describes an append-only audit log file, not a write restriction. The rule incorrectly forbids writing to audit_log.xlsx entirely, whereas the policy implies it can be appended to but not overwritten or deleted."
+  },
+  {
+   "id": "v_4_3_2",
+   "type": "verify",
+   "source": null,
+   "source_kind": "statements",
+   "restated": "When using the handbook__executePython, handbook__executeBash, or google_mail__send_email tools, the assistant must not bill any IVIG drug J‑code if the 'Drug_Source' column in the clinical.xlsx file is not equal to 'CareIG'. Billing is allowed only when the Drug_Source is 'CareIG' (or the rule does not apply).",
+   "verdict": "different",
+   "why": "The rule incorrectly restricts the condition to specific tools (handbook__executePython, handbook__executeBash, google_mail__send_email), while the policy text applies universally to all billing scenarios for CareIG claims."
+  },
+  {
+   "id": "v_4_3_3",
+   "type": "verify",
+   "source": null,
+   "source_kind": "statements",
+   "restated": "When using the handbook__executePython, handbook__executeBash, or google_mail__send_email tools, you may bill pre‑medication J‑codes only if the visit_note.xlsx column “Premeds_Administered” records the drug, dose, route, time, and indication; otherwise, billing those J‑codes is prohibited.",
+   "verdict": "different",
+   "why": "The rule incorrectly restricts the billing condition to specific tools (handbook__executePython, handbook__executeBash, google_mail__send_email), while the policy text applies universally without tool restrictions."
+  },
+  {
+   "id": "v_4_3_4",
+   "type": "verify",
+   "source": null,
+   "source_kind": "statements",
+   "restated": "When using the tools handbook__executePython, handbook__executeBash, or google_mail__send_email, you must not use an ordered dose for unit calculations; instead you must always use the Dose_Administered_Grams column from visit_note.xlsx. All other actions with these tools are permitted as long as this restriction is followed.",
+   "verdict": "narrower",
+   "why": "The policy text applies universally to all unit calculations, but the rule restricts the requirement to only when using specific tools (handbook__executePython, handbook__executeBash, google_mail__send_email), missing other contexts where the policy would still apply."
+  },
+  {
+   "id": "v_4_3_5",
+   "type": "verify",
+   "source": null,
+   "source_kind": "statements",
+   "restated": "When using the handbook__executePython, handbook__executeBash, or google_mail__send_email tools, you may submit a claim only if the claim.xlsx file does NOT already have a Submission_Date filled in for the same Date of Service (DOS); if that field is already populated for that DOS, the claim must not be submitted.",
+   "verdict": "narrower",
+   "why": "The rule restricts the prohibition to only when using specific tools (handbook__executePython, handbook__executeBash, google_mail__send_email), while the policy text applies universally without tool restrictions."
+  },
+  {
+   "id": "v_4_3_6",
+   "type": "verify",
+   "source": null,
+   "source_kind": "statements",
+   "restated": "When using the tools handbook__executePython, handbook__executeBash, or google_mail__send_email, you may write off balances of $200 or less, but you must not write off any balance greater than $200 unless you have explicit approval from the Director of Revenue Cycle posted in Slack #billing-mgmt.",
+   "verdict": "narrower",
+   "why": "The rule restricts the write-off restriction to only when using specific tools (handbook__executePython, handbook__executeBash, google_mail__send_email), while the policy text applies universally without tool limitations."
+  },
+  {
+   "id": "v_4_3_7",
+   "type": "verify",
+   "source": null,
+   "source_kind": "statements",
+   "restated": "When using any of the listed email or Slack tools, the assistant may not reply to legal threats or attorney communications; instead it must immediately post a message to the #compliance channel. This restriction applies each time a tool call involving those communications is considered.",
+   "verdict": "equivalent",
+   "why": "The rule captures the same core requirement: do not respond to legal threats or attorney communications and instead post to #compliance immediately. It adds context about email/Slack tools and tool calls, but does not change the obligation or scope in a way that forbids more or less than the original policy."
+  },
+  {
+   "id": "v_4_3_8",
+   "type": "verify",
+   "source": null,
+   "source_kind": "statements",
+   "restated": "When the assistant is about to use the tools handbook__executePython, handbook__executeBash, or google_mail__send_email, it may only assign ICD‑10 codes that are explicitly supported by the physician’s documentation and PA approval; assigning any unsupported ICD‑10 code is prohibited.",
+   "verdict": "narrower",
+   "why": "The rule restricts the prohibition to only three specific tools, while the policy text applies to all ICD‑10 code assignments regardless of tool."
+  },
+  {
+   "id": "v_9_3_3",
+   "type": "verify",
+   "source": null,
+   "source_kind": "statements",
+   "restated": "When using the tools hand‑book Python execution, hand‑book Bash execution, or Google Mail sending, the assistant must verify that the Nurse_Signature field is filled before starting a claim. It forbids initiating a claim if Nurse_Signature is blank, and permits it only when the signature is present.",
+   "verdict": "broader",
+   "why": "The rule adds restrictions about specific tools (Python execution, Bash execution, Google Mail sending) that are not mentioned in the policy text, which only requires Nurse_Signature to be non-blank for any claim initiation."
+  },
+  {
+   "id": "v_2_8",
+   "type": "verify",
+   "source": null,
+   "source_kind": "statements",
+   "restated": "The rule permits the assistant to access only the files listed for each role when using the handbook__executePython or handbook__executeBash tools; any attempt to access a file outside those role‑specific scopes must be recorded in audit_log.xlsx as an \"Out-of-Scope Access\" and reported to compliance@careig.com. It applies to every tool‑initiated file access operation.",
+   "verdict": "equivalent",
+   "why": "The rule restates the policy's requirement to log and report out-of-scope file access, matching the scope and conditions exactly."
+  },
+  {
+   "id": "v_3_10",
+   "type": "verify",
+   "source": null,
+   "source_kind": "statements",
+   "restated": "The assistant may use the handbook__executePython or handbook__executeBash tools to verify that audit_log.xlsx is a global, append‑only audit trail as described in Section 4, but it must not modify the file or use any other tools. This rule applies whenever the assistant is asked to verify the audit log’s append‑only status.",
+   "verdict": "broader",
+   "why": "The policy text only states that audit_log.xlsx is a global, append-only audit trail and refers to Section 4 for columns. It does not specify any tool usage restrictions or verification procedures. The rule adds a specific requirement that only handbook__executePython or handbook__executeBash may be used for verification and forbids modification or use of other tools, which is not stated in the original text."
+  },
+  {
+   "id": "v_3_11",
+   "type": "verify",
+   "source": null,
+   "source_kind": "statements",
+   "restated": "When the assistant is asked to verify the J‑codes and nursing codes in the read‑only file jcodes.xlsx, it may use the handbook__executePython and handbook__executeBash tools, but it may not modify the file or use any other tools.",
+   "verdict": "equivalent",
+   "why": "The rule accurately restates the policy: it specifies the same file, the same allowed tools, and the same prohibition on modification and other tools."
+  },
+  {
+   "id": "v_3_13",
+   "type": "verify",
+   "source": null,
+   "source_kind": "statements",
+   "restated": "When using the handbook__executePython or handbook__executeBash tools, you may copy template or blank form master files to the docs/ directory before using them, but you must not edit the original template files directly in place.",
+   "verdict": "broader",
+   "why": "The rule adds a restriction to specific tools (handbook__executePython, handbook__executeBash) that is not present in the original policy text, which applies to template files generally."
+  },
+  {
+   "id": "v_12_1_8",
+   "type": "verify",
+   "source": null,
+   "source_kind": "statements",
+   "restated": "When a legal threat or attorney communication is detected, the assistant must not respond or alter any case files and must immediately notify the Director of Operations and legal@careig.com; it may only send that notification, and this rule applies to the listed tools (google_mail__reply_email, google_mail__send_email, handbook__executePython, handbook__executeBash).",
+   "verdict": "equivalent",
+   "why": "The rule accurately captures the stop-and-notify requirement, the prohibition on responding or modifying case files, the notification recipients, and the applicable tools, without adding or omitting any substantive constraints from the policy text."
+  },
+  {
+   "id": "v_12_1_9",
+   "type": "verify",
+   "source": null,
+   "source_kind": "statements",
+   "restated": "When a situation is identified as suspected fraud or billing abuse (tagged #compliance and marked STOP), the assistant may only use the listed tools (google_mail__send_email, slack__send_dm, handbook__executePython, handbook__executeBash) to post a compliance report with the case ID and call the compliance hotline, and must not discuss the issue elsewhere or modify any files.",
+   "verdict": "equivalent",
+   "why": "The rule accurately captures the policy's requirements: it restricts discussion, mandates posting a compliance report with case ID, and calling the hotline, using only the specified tools, and forbids file modification."
+  },
+  {
+   "id": "v_13_3_6",
+   "type": "verify",
+   "source": null,
+   "source_kind": "statements",
+   "restated": "The rule permits the assistant to call the google_calendar__create_event tool only after verifying that the medication Privigen 10% IV (J1459) is not listed as contraindicated for hyperprolinemia in the \"Contraindications\" column of intake.xlsx. It forbids creating the calendar event without performing that verification, and it applies whenever the assistant is handling that specific medication entry.",
+   "verdict": "different",
+   "why": "The policy text is a static contraindication note for Privigen 10% IV (J1459) regarding hyperprolinemia, with no mention of any tool or calendar event. The rule introduces a completely new requirement about calling google_calendar__create_event only after verifying the contraindication, which is not present in the source."
+  },
+  {
+   "id": "v_13_4_3",
+   "type": "verify",
+   "source": null,
+   "source_kind": "statements",
+   "restated": "When the assistant is about to use the google_mail__send_email tool, it must first verify that the diagnosis code appears exactly as listed in the provided table and that the required supporting documentation is present in the case folder before any prior authorization (PA) or claim is submitted. Sending the email is prohibited unless this verification is completed.",
+   "verdict": "narrower",
+   "why": "The policy text applies to submitting any PA or claim, while the rule only restricts using the google_mail__send_email tool, missing other submission methods."
+  }
+ ]
+}

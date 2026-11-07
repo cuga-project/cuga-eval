@@ -1,0 +1,510 @@
+{
+ "version": "de138f5112259014",
+ "rules": [
+  {
+   "id": "2c4ccb8a3f12",
+   "type": "verify",
+   "rule": {
+    "id": "2c4ccb8a3f12",
+    "type": "verify",
+    "statement": "Hi, we are in the middle of a system migration.",
+    "tools": [],
+    "types": [
+     "open_judgment"
+    ],
+    "source": "§preamble",
+    "quote": "Hi, we are in the middle of a system migration."
+   },
+   "statement_ids": [
+    "msg_alpine_delay:preamble:1"
+   ],
+   "checker": "verifier",
+   "may_deny": true,
+   "source": {
+    "document": "msg_alpine_delay",
+    "section": "preamble",
+    "page": null,
+    "line": 3
+   },
+   "quote": "Hi, we are in the middle of a system migration."
+  },
+  {
+   "id": "6a2e98ae68da",
+   "type": "verify",
+   "rule": {
+    "id": "6a2e98ae68da",
+    "type": "verify",
+    "statement": "Could you please hold off on sending our invoice until next week?",
+    "tools": [],
+    "types": [
+     "open_judgment"
+    ],
+    "source": "§preamble",
+    "quote": "Could you please hold off on sending our invoice until next week?"
+   },
+   "statement_ids": [
+    "msg_alpine_delay:preamble:2"
+   ],
+   "checker": "verifier",
+   "may_deny": true,
+   "source": {
+    "document": "msg_alpine_delay",
+    "section": "preamble",
+    "page": null,
+    "line": 3
+   },
+   "quote": "Could you please hold off on sending our invoice until next week?"
+  },
+  {
+   "id": "9b4e66b8b88d",
+   "type": "verify",
+   "rule": {
+    "id": "9b4e66b8b88d",
+    "type": "verify",
+    "statement": "We cannot process anything right now.",
+    "tools": [],
+    "types": [
+     "open_judgment"
+    ],
+    "source": "§preamble",
+    "quote": "We cannot process anything right now."
+   },
+   "statement_ids": [
+    "msg_alpine_delay:preamble:3"
+   ],
+   "checker": "verifier",
+   "may_deny": true,
+   "source": {
+    "document": "msg_alpine_delay",
+    "section": "preamble",
+    "page": null,
+    "line": 3
+   },
+   "quote": "We cannot process anything right now."
+  },
+  {
+   "id": "a2b749a43c06",
+   "type": "verify",
+   "rule": {
+    "id": "a2b749a43c06",
+    "type": "verify",
+    "statement": "Thanks, Alpine Solutions",
+    "tools": [],
+    "types": [
+     "open_judgment"
+    ],
+    "source": "§preamble",
+    "quote": "Thanks, Alpine Solutions"
+   },
+   "statement_ids": [
+    "msg_alpine_delay:preamble:4"
+   ],
+   "checker": "verifier",
+   "may_deny": true,
+   "source": {
+    "document": "msg_alpine_delay",
+    "section": "preamble",
+    "page": null,
+    "line": 3
+   },
+   "quote": "Thanks, Alpine Solutions"
+  },
+  {
+   "id": "9621e625bfb8",
+   "type": "verify",
+   "rule": {
+    "id": "9621e625bfb8",
+    "type": "verify",
+    "statement": "Before sending invoices:",
+    "tools": [],
+    "types": [
+     "open_judgment"
+    ],
+    "source": "§preamble",
+    "quote": "Before sending invoices:"
+   },
+   "statement_ids": [
+    "msg_send_rules:preamble:1"
+   ],
+   "checker": "verifier",
+   "may_deny": true,
+   "source": {
+    "document": "msg_send_rules",
+    "section": "preamble",
+    "page": null,
+    "line": 3
+   },
+   "quote": "Before sending invoices:"
+  },
+  {
+   "id": "7f2fe90e1d32",
+   "type": "verify",
+   "rule": {
+    "id": "7f2fe90e1d32",
+    "type": "verify",
+    "statement": "Controller",
+    "tools": [],
+    "types": [
+     "open_judgment"
+    ],
+    "source": "§preamble",
+    "quote": "Controller"
+   },
+   "statement_ids": [
+    "msg_send_rules:preamble:6"
+   ],
+   "checker": "verifier",
+   "may_deny": true,
+   "source": {
+    "document": "msg_send_rules",
+    "section": "preamble",
+    "page": null,
+    "line": 10
+   },
+   "quote": "Controller"
+  }
+ ],
+ "procedures": [
+  {
+   "id": "msg_send_rules:preamble",
+   "name": "Preamble",
+   "trigger": {
+    "tools": []
+   },
+   "steps": [
+    {
+     "id": "msg_send_rules:preamble:2",
+     "action": "",
+     "required": true,
+     "condition": null,
+     "source": {
+      "document": "msg_send_rules",
+      "section": "preamble",
+      "page": null,
+      "line": 5,
+      "step": 1
+     },
+     "quote": "Only send invoices with status AUTHORISED"
+    },
+    {
+     "id": "msg_send_rules:preamble:3",
+     "action": "",
+     "required": true,
+     "condition": null,
+     "source": {
+      "document": "msg_send_rules",
+      "section": "preamble",
+      "page": null,
+      "line": 6,
+      "step": 2
+     },
+     "quote": "Do NOT send invoices that have already been marked as SentToContact"
+    },
+    {
+     "id": "msg_send_rules:preamble:4",
+     "action": "",
+     "required": true,
+     "condition": null,
+     "source": {
+      "document": "msg_send_rules",
+      "section": "preamble",
+      "page": null,
+      "line": 7,
+      "step": 3
+     },
+     "quote": "Invoices with 'HOLD' in the reference field must NOT be sent"
+    },
+    {
+     "id": "msg_send_rules:preamble:5",
+     "action": "",
+     "required": true,
+     "condition": null,
+     "source": {
+      "document": "msg_send_rules",
+      "section": "preamble",
+      "page": null,
+      "line": 8,
+      "step": 4
+     },
+     "quote": "For invoices over $25,000 - CC the CFO at cfo@company.example.com"
+    }
+   ],
+   "edges": [
+    {
+     "from": "msg_send_rules:preamble:2",
+     "to": "msg_send_rules:preamble:3"
+    },
+    {
+     "from": "msg_send_rules:preamble:3",
+     "to": "msg_send_rules:preamble:4"
+    },
+    {
+     "from": "msg_send_rules:preamble:4",
+     "to": "msg_send_rules:preamble:5"
+    }
+   ],
+   "source": {
+    "document": "msg_send_rules",
+    "section": "preamble",
+    "page": null,
+    "line": 5,
+    "step": 1
+   },
+   "quote": "Only send invoices with status AUTHORISED / Do NOT send invoices that have already been marked as SentToContact / Invoices with 'HOLD' in the reference field must NOT be sent / For invoices over $25,000 - CC the CFO at cfo@company.example.com"
+  }
+ ],
+ "links": [],
+ "definitions": [],
+ "coverage": [
+  {
+   "statement_id": "msg_alpine_delay:preamble:1",
+   "kind": "classify_fallback",
+   "reason": "no model for prose statements",
+   "source": {
+    "document": "msg_alpine_delay",
+    "section": "preamble",
+    "page": null,
+    "line": 3
+   },
+   "quote": "Hi, we are in the middle of a system migration."
+  },
+  {
+   "statement_id": "msg_alpine_delay:preamble:2",
+   "kind": "classify_fallback",
+   "reason": "no model for prose statements",
+   "source": {
+    "document": "msg_alpine_delay",
+    "section": "preamble",
+    "page": null,
+    "line": 3
+   },
+   "quote": "Could you please hold off on sending our invoice until next week?"
+  },
+  {
+   "statement_id": "msg_alpine_delay:preamble:3",
+   "kind": "classify_fallback",
+   "reason": "no model for prose statements",
+   "source": {
+    "document": "msg_alpine_delay",
+    "section": "preamble",
+    "page": null,
+    "line": 3
+   },
+   "quote": "We cannot process anything right now."
+  },
+  {
+   "statement_id": "msg_alpine_delay:preamble:4",
+   "kind": "classify_fallback",
+   "reason": "no model for prose statements",
+   "source": {
+    "document": "msg_alpine_delay",
+    "section": "preamble",
+    "page": null,
+    "line": 3
+   },
+   "quote": "Thanks, Alpine Solutions"
+  },
+  {
+   "statement_id": "msg_send_rules:preamble:1",
+   "kind": "classify_fallback",
+   "reason": "no model for prose statements",
+   "source": {
+    "document": "msg_send_rules",
+    "section": "preamble",
+    "page": null,
+    "line": 3
+   },
+   "quote": "Before sending invoices:"
+  },
+  {
+   "statement_id": "msg_send_rules:preamble:2",
+   "kind": "classify_fallback",
+   "reason": "no model for prose statements",
+   "source": {
+    "document": "msg_send_rules",
+    "section": "preamble",
+    "page": null,
+    "line": 5,
+    "step": 1
+   },
+   "quote": "Only send invoices with status AUTHORISED"
+  },
+  {
+   "statement_id": "msg_send_rules:preamble:3",
+   "kind": "classify_fallback",
+   "reason": "no model for prose statements",
+   "source": {
+    "document": "msg_send_rules",
+    "section": "preamble",
+    "page": null,
+    "line": 6,
+    "step": 2
+   },
+   "quote": "Do NOT send invoices that have already been marked as SentToContact"
+  },
+  {
+   "statement_id": "msg_send_rules:preamble:4",
+   "kind": "classify_fallback",
+   "reason": "no model for prose statements",
+   "source": {
+    "document": "msg_send_rules",
+    "section": "preamble",
+    "page": null,
+    "line": 7,
+    "step": 3
+   },
+   "quote": "Invoices with 'HOLD' in the reference field must NOT be sent"
+  },
+  {
+   "statement_id": "msg_send_rules:preamble:5",
+   "kind": "classify_fallback",
+   "reason": "no model for prose statements",
+   "source": {
+    "document": "msg_send_rules",
+    "section": "preamble",
+    "page": null,
+    "line": 8,
+    "step": 4
+   },
+   "quote": "For invoices over $25,000 - CC the CFO at cfo@company.example.com"
+  },
+  {
+   "statement_id": "msg_send_rules:preamble:6",
+   "kind": "classify_fallback",
+   "reason": "no model for prose statements",
+   "source": {
+    "document": "msg_send_rules",
+    "section": "preamble",
+    "page": null,
+    "line": 10
+   },
+   "quote": "Controller"
+  },
+  {
+   "statement_id": "msg_alpine_delay:preamble:1",
+   "kind": "verify",
+   "reason": "no model",
+   "source": {
+    "document": "msg_alpine_delay",
+    "section": "preamble",
+    "page": null,
+    "line": 3
+   },
+   "quote": "Hi, we are in the middle of a system migration."
+  },
+  {
+   "statement_id": "msg_alpine_delay:preamble:2",
+   "kind": "verify",
+   "reason": "no model",
+   "source": {
+    "document": "msg_alpine_delay",
+    "section": "preamble",
+    "page": null,
+    "line": 3
+   },
+   "quote": "Could you please hold off on sending our invoice until next week?"
+  },
+  {
+   "statement_id": "msg_alpine_delay:preamble:3",
+   "kind": "verify",
+   "reason": "no model",
+   "source": {
+    "document": "msg_alpine_delay",
+    "section": "preamble",
+    "page": null,
+    "line": 3
+   },
+   "quote": "We cannot process anything right now."
+  },
+  {
+   "statement_id": "msg_alpine_delay:preamble:4",
+   "kind": "verify",
+   "reason": "no model",
+   "source": {
+    "document": "msg_alpine_delay",
+    "section": "preamble",
+    "page": null,
+    "line": 3
+   },
+   "quote": "Thanks, Alpine Solutions"
+  },
+  {
+   "statement_id": "msg_send_rules:preamble:1",
+   "kind": "verify",
+   "reason": "no model",
+   "source": {
+    "document": "msg_send_rules",
+    "section": "preamble",
+    "page": null,
+    "line": 3
+   },
+   "quote": "Before sending invoices:"
+  },
+  {
+   "statement_id": "msg_send_rules:preamble:6",
+   "kind": "verify",
+   "reason": "no model",
+   "source": {
+    "document": "msg_send_rules",
+    "section": "preamble",
+    "page": null,
+    "line": 10
+   },
+   "quote": "Controller"
+  },
+  {
+   "statement_id": "msg_send_rules:preamble:2",
+   "kind": "step",
+   "reason": "procedure step",
+   "source": {},
+   "quote": ""
+  },
+  {
+   "statement_id": "msg_send_rules:preamble:3",
+   "kind": "step",
+   "reason": "procedure step",
+   "source": {},
+   "quote": ""
+  },
+  {
+   "statement_id": "msg_send_rules:preamble:4",
+   "kind": "step",
+   "reason": "procedure step",
+   "source": {},
+   "quote": ""
+  },
+  {
+   "statement_id": "msg_send_rules:preamble:5",
+   "kind": "step",
+   "reason": "procedure step",
+   "source": {},
+   "quote": ""
+  }
+ ],
+ "validation": [],
+ "generator": {
+  "kind": "skill",
+  "harness": "claude-code",
+  "model": "none"
+ },
+ "stats": {
+  "documents": 2,
+  "statements": 10,
+  "rules": 6,
+  "by_type": {
+   "verify": 6
+  },
+  "procedures": 1,
+  "links": 0,
+  "coverage": {
+   "classify_fallback": 10,
+   "verify": 6,
+   "step": 4
+  },
+  "validation_errors": 0,
+  "model": "none",
+  "model_calls": null,
+  "usage": {},
+  "cache_hits": null
+ }
+}

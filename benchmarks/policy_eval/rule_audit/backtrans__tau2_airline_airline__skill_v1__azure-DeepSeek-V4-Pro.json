@@ -1,0 +1,232 @@
+{
+ "method": "backtrans",
+ "package": "tau2_airline_airline",
+ "build": "skill_v1",
+ "package_version": "3989a8d8c6e3c97f+d977fbd787a8",
+ "ran_at": "2026-11-05T11:22:35Z",
+ "status": "ok",
+ "writer": "aws/gpt-oss-120b",
+ "judge": "azure/DeepSeek-V4-Pro",
+ "rules": 23,
+ "judged": 23,
+ "not_judged": 0,
+ "text_from": "the package",
+ "source_kinds": {
+  "statements": 23
+ },
+ "counts": {
+  "equivalent": 19,
+  "different": 1,
+  "broader": 2,
+  "narrower": 1
+ },
+ "rows": [
+  {
+   "id": "r_confirm_writes",
+   "type": "verify",
+   "source": null,
+   "source_kind": "statements",
+   "restated": "The rule permits the assistant to call the listed booking‑related tools only after it first shows the user what will be changed and receives an explicit \"yes\" confirmation. It forbids invoking any of those tools to book, modify flights, baggage, cabin class, or passenger data without that prior user confirmation.",
+   "verdict": "equivalent",
+   "why": "The rule accurately captures the policy's requirement to list action details and obtain explicit 'yes' confirmation before using any booking-related tools, and it correctly forbids proceeding without that confirmation."
+  },
+  {
+   "id": "r_transfer_scope",
+   "type": "verify",
+   "source": null,
+   "source_kind": "statements",
+   "restated": "This rule permits the assistant to call the transfer_to_human_agents tool only when the user’s request is outside the assistant’s own capabilities, and it forbids using that tool for any request that can be handled within the assistant’s scope. It applies whenever the assistant is deciding whether to transfer the conversation to a human.",
+   "verdict": "equivalent",
+   "why": "The rule accurately captures the policy's condition (only when the request cannot be handled within the assistant's scope) and its prohibition (do not transfer if it can be handled). It covers the same decision point and tool without adding or omitting constraints."
+  },
+  {
+   "id": "r_book_flight_status",
+   "type": "verify",
+   "source": null,
+   "source_kind": "statements",
+   "restated": "When checking a flight for booking via the book_reservation tool, the rule permits booking only if the flight status is neither 'delayed', 'on time', nor 'flying'—i.e., it must have already taken off and landed. It forbids booking any flight whose status is 'delayed', 'on time', or 'flying', meaning the flight has not yet taken off or is still in the air.",
+   "verdict": "equivalent",
+   "why": "The rule correctly restates that booking is forbidden for flights with status 'delayed', 'on time', or 'flying', and only allowed otherwise, matching the policy text."
+  },
+  {
+   "id": "r_book_max_passengers",
+   "type": "verify",
+   "source": null,
+   "source_kind": "statements",
+   "restated": "When the assistant uses the book_reservation tool, it may create reservations for up to five passengers, but it must reject any reservation that tries to include more than five passengers.",
+   "verdict": "equivalent",
+   "why": "The rule correctly restates the policy that a reservation can have at most five passengers, specifying the tool and the condition for rejection."
+  },
+  {
+   "id": "r_book_payment_counts",
+   "type": "verify",
+   "source": null,
+   "source_kind": "statements",
+   "restated": "When making a book_reservation, the assistant may attach up to one travel certificate, up to one credit card, and up to three gift cards; attaching more than these limits is prohibited. This rule applies only to calls of the book_reservation tool.",
+   "verdict": "equivalent",
+   "why": "The rule correctly restates the limits on travel certificates, credit cards, and gift cards per reservation, and specifies it applies to the book_reservation tool, matching the policy text."
+  },
+  {
+   "id": "r_book_payment_profile",
+   "type": "verify",
+   "source": null,
+   "source_kind": "statements",
+   "restated": "When the assistant invokes the book_reservation tool, it must verify that any payment method used is already stored in the user's profile; using a payment method not already in the profile is prohibited.",
+   "verdict": "equivalent",
+   "why": "The rule correctly restates the policy that payment methods must already be in the user profile, applying it specifically to the book_reservation tool without changing the restriction."
+  },
+  {
+   "id": "r_book_bag_allowance",
+   "type": "verify",
+   "source": null,
+   "source_kind": "statements",
+   "restated": "When using the book_reservation tool, the rule permits granting free checked bags according to the booking user's membership tier (regular, silver, gold) and each passenger's class (basic economy, economy, business) as specified, and charges $50 for any additional bags; any bag allowance that does not follow these tier‑and‑class limits is not allowed.",
+   "verdict": "different",
+   "why": "The rule references membership tiers (regular, silver, gold) which are not mentioned in the policy text; the policy only specifies baggage allowances by passenger class without any tier-based variation."
+  },
+  {
+   "id": "r_basic_economy_flights",
+   "type": "record_condition",
+   "source": null,
+   "source_kind": "statements",
+   "restated": "The rule forbids using the update_reservation_flights tool when the record's cabin field is set to \"basic_economy\". It allows the tool in all other cases, and it applies only when the cabin value is \"basic_economy\".",
+   "verdict": "equivalent",
+   "why": "The rule correctly captures that basic economy flights cannot be modified, mapping it to the update_reservation_flights tool and the cabin field value 'basic_economy'."
+  },
+  {
+   "id": "r_same_route",
+   "type": "verify",
+   "source": null,
+   "source_kind": "statements",
+   "restated": "When using the update_reservation_flights tool, you may modify a reservation’s other details, but you must not change its origin, destination, or trip type. This rule permits edits to non‑core fields and forbids any alteration to those three core attributes.",
+   "verdict": "equivalent",
+   "why": "The rule correctly captures the permission to modify other details and the prohibition on changing origin, destination, and trip type, matching the policy text exactly."
+  },
+  {
+   "id": "r_cabin_flown",
+   "type": "verify",
+   "source": null,
+   "source_kind": "statements",
+   "restated": "When the assistant calls the update_reservation_flights tool, it may change the cabin class only if none of the flights in the reservation have already been flown; if any flight has been completed, changing the cabin is forbidden.",
+   "verdict": "equivalent",
+   "why": "The rule accurately restates the policy: it forbids changing cabin if any flight has been flown, matching the original condition and scope."
+  },
+  {
+   "id": "r_cabin_without_flights",
+   "type": "verify",
+   "source": null,
+   "source_kind": "statements",
+   "restated": "The rule lets the assistant use the update_reservation_flights tool to change the cabin class of any reservation—including basic‑economy tickets—provided the flight itinerary remains unchanged. It forbids altering the flights when the request is solely a cabin‑change, and it applies only in cases that are not covered by other specific exceptions.",
+   "verdict": "equivalent",
+   "why": "The rule accurately captures the policy: it allows cabin changes for any reservation (including basic economy) without changing flights, and it forbids altering flights when only a cabin change is requested. The added context about the tool and exceptions does not change the core meaning."
+  },
+  {
+   "id": "r_bags_add_only",
+   "type": "verify",
+   "source": null,
+   "source_kind": "statements",
+   "restated": "When the assistant calls the update_reservation_baggages tool, it may allow the user to add checked bags but must not permit the removal of any checked bags. This rule applies specifically to calls of that tool.",
+   "verdict": "equivalent",
+   "why": "The rule correctly captures the policy's permission to add checked bags and prohibition on removing them, and it appropriately scopes the restriction to the update_reservation_baggages tool."
+  },
+  {
+   "id": "r_same_passenger_count",
+   "type": "verify",
+   "source": null,
+   "source_kind": "statements",
+   "restated": "When the assistant calls the update_reservation_passengers tool, it may change passenger details (such as names or information) but must not change the total count of passengers. This restriction applies specifically to any invocation of the update_reservation_passengers tool.",
+   "verdict": "equivalent",
+   "why": "The rule correctly captures that passenger details can be modified but the total count must not change, and it specifies the tool and condition exactly as implied by the policy text."
+  },
+  {
+   "id": "r_flight_change_payment",
+   "type": "verify",
+   "source": null,
+   "source_kind": "statements",
+   "restated": "When the assistant uses the update_reservation_flights tool, it must verify that any flight change is accompanied by the user providing exactly one payment or refund method—a single gift card or a single credit card. It forbids proceeding with a flight change without that single method or with multiple methods.",
+   "verdict": "broader",
+   "why": "The rule adds a condition that the assistant must verify the method is provided when using a specific tool, and it explicitly forbids proceeding without that single method or with multiple methods. The policy text only states what the user needs to provide if flights are changed, without specifying tool usage or explicit prohibitions."
+  },
+  {
+   "id": "r_flight_change_payment_profile",
+   "type": "verify",
+   "source": null,
+   "source_kind": "statements",
+   "restated": "When the tool 'update_reservation_flights' is used, the rule permits proceeding only if the user supplies a single gift card or credit card that is already stored in their profile as the payment or refund method; it forbids using any other payment method or a card not pre‑saved in the profile. This rule applies each time a flight reservation is changed via that tool.",
+   "verdict": "broader",
+   "why": "The policy text only requires the payment method to be in the user profile for safety reasons, without restricting the type to gift card or credit card. The rule adds a restriction to only gift cards or credit cards, which is more restrictive than the original policy."
+  },
+  {
+   "id": "r_cancel_flown",
+   "type": "verify",
+   "source": null,
+   "source_kind": "statements",
+   "restated": "The rule permits the assistant to use the cancel_reservation tool only when none of the flight has been flown; if any part of the flight has already taken place, the assistant must not use the tool and must transfer the request. It applies whenever a cancel_reservation tool call is being considered.",
+   "verdict": "equivalent",
+   "why": "The rule accurately captures the condition that the cancel_reservation tool must not be used if any part of the flight has been flown, and that transfer is needed in that case, matching the policy text."
+  },
+  {
+   "id": "r_cancel_conditions",
+   "type": "verify",
+   "source": null,
+   "source_kind": "statements",
+   "restated": "This rule permits the assistant to call the cancel_reservation tool only when the user wants to cancel a flight and at least one of these conditions is met: the booking was made within the last 24 hours, the airline has cancelled the flight, it is a business flight, or the user has travel insurance that covers the cancellation reason. It forbids using the tool for any other cancellations or when none of these conditions apply.",
+   "verdict": "equivalent",
+   "why": "The rule accurately captures all conditions from the policy text for permitting cancellation, and correctly states the tool and forbids other cases."
+  },
+  {
+   "id": "r_comp_asked",
+   "type": "verify",
+   "source": null,
+   "source_kind": "statements",
+   "restated": "When using the send_certificate tool, the assistant may offer compensation only if the user explicitly requests it; it must not proactively suggest any compensation otherwise.",
+   "verdict": "narrower",
+   "why": "The rule restricts the prohibition to the send_certificate tool only, while the policy text applies universally without specifying any tool."
+  },
+  {
+   "id": "r_comp_eligible",
+   "type": "verify",
+   "source": null,
+   "source_kind": "statements",
+   "restated": "When the assistant is about to call the send_certificate tool, it must not provide compensation if the user is a regular member, lacks travel insurance, and is flying basic economy. Compensation is allowed if the user is a silver or gold member, or has travel insurance, or is flying business class.",
+   "verdict": "equivalent",
+   "why": "The rule accurately captures the conditions for denying and allowing compensation as stated in the policy text."
+  },
+  {
+   "id": "r_comp_facts",
+   "type": "verify",
+   "source": null,
+   "source_kind": "statements",
+   "restated": "The assistant may use the send_certificate tool, but only after it has verified the relevant facts; it must not offer any compensation until those facts are confirmed. This rule applies whenever the assistant is considering providing compensation.",
+   "verdict": "equivalent",
+   "why": "The rule captures the same core requirement: compensation must not be offered until facts are confirmed. It adds a specific tool mention but does not change the scope of the restriction."
+  },
+  {
+   "id": "r_comp_amount_cancelled",
+   "type": "verify",
+   "source": null,
+   "source_kind": "statements",
+   "restated": "The rule permits the assistant to offer a certificate—valued at $100 per passenger—only after verifying the facts when a user complains about cancelled flights in their reservation, and it forbids offering such a certificate in any other situation or without confirmation of the facts.",
+   "verdict": "equivalent",
+   "why": "The rule accurately captures the condition (user complains about cancelled flights), the required action (confirm facts), the permitted offer ($100 certificate per passenger), and the restriction (no certificate otherwise or without confirmation)."
+  },
+  {
+   "id": "r_comp_amount_delayed",
+   "type": "verify",
+   "source": null,
+   "source_kind": "statements",
+   "restated": "The rule permits the assistant to offer a $50‑per‑passenger certificate as a goodwill gesture only after confirming the delayed‑flight complaint and proceeding with a reservation change or cancellation; it forbids offering the certificate in any other situation or without first verifying the facts.",
+   "verdict": "equivalent",
+   "why": "The rule accurately captures the condition (confirming facts and changing/cancelling), the action (offering a $50-per-passenger certificate), and the restriction (only in that situation) from the policy text."
+  },
+  {
+   "id": "r_comp_other_reason",
+   "type": "verify",
+   "source": null,
+   "source_kind": "statements",
+   "restated": "When invoking the send_certificate tool, the assistant may only offer compensation for complaints about a cancelled flight in a reservation, or for complaints about a delayed flight when the user wants to change or cancel that reservation; offering compensation for any other reason is prohibited.",
+   "verdict": "equivalent",
+   "why": "The rule restates the policy's blanket prohibition on offering compensation for any reason other than those listed, and then specifies the only allowed reasons from the preceding context, matching the policy's scope."
+  }
+ ]
+}

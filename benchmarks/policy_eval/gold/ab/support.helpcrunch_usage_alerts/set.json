@@ -1,0 +1,349 @@
+{
+ "documents": [
+  {
+   "id": "ws_alert_rules",
+   "kind": "md",
+   "title": "Usage Thresholds: Alert Rules",
+   "trust": "trusted",
+   "effective_date": null,
+   "authority_rank": 0,
+   "sections": [
+    {
+     "id": "preamble",
+     "title": "Preamble",
+     "page": null,
+     "parent": null,
+     "statements": [
+      {
+       "id": "ws_alert_rules:preamble:1",
+       "text": "Event window | Count feature_use events only | Look back 14 days from today | Only feature_use, not login or other",
+       "types": [],
+       "modality": null,
+       "source": {
+        "document": "ws_alert_rules",
+        "section": "preamble",
+        "page": null,
+        "line": 5,
+        "table_header": [
+         "Rule",
+         "Condition",
+         "Action",
+         "Notes"
+        ]
+       },
+       "quote": "Event window | Count feature_use events only | Look back 14 days from today | Only feature_use, not login or other"
+      },
+      {
+       "id": "ws_alert_rules:preamble:2",
+       "text": "Trial detection | Customer has trial tag | Use trial thresholds from ws_thresholds | All others use standard thresholds",
+       "types": [],
+       "modality": null,
+       "source": {
+        "document": "ws_alert_rules",
+        "section": "preamble",
+        "page": null,
+        "line": 6,
+        "table_header": [
+         "Rule",
+         "Condition",
+         "Action",
+         "Notes"
+        ]
+       },
+       "quote": "Trial detection | Customer has trial tag | Use trial thresholds from ws_thresholds | All others use standard thresholds"
+      },
+      {
+       "id": "ws_alert_rules:preamble:3",
+       "text": "Onboarding policy | See ws_onboarding_policy worksheet | Apply onboarding exclusion rules from separate sheet | Moved to dedicated worksheet for clarity",
+       "types": [],
+       "modality": null,
+       "source": {
+        "document": "ws_alert_rules",
+        "section": "preamble",
+        "page": null,
+        "line": 7,
+        "table_header": [
+         "Rule",
+         "Condition",
+         "Action",
+         "Notes"
+        ]
+       },
+       "quote": "Onboarding policy | See ws_onboarding_policy worksheet | Apply onboarding exclusion rules from separate sheet | Moved to dedicated worksheet for clarity"
+      },
+      {
+       "id": "ws_alert_rules:preamble:4",
+       "text": "Tag assignment | Each non-excluded customer | Tag as low-usage, normal-usage, or high-usage | Based on feature_use count vs thresholds",
+       "types": [],
+       "modality": null,
+       "source": {
+        "document": "ws_alert_rules",
+        "section": "preamble",
+        "page": null,
+        "line": 8,
+        "table_header": [
+         "Rule",
+         "Condition",
+         "Action",
+         "Notes"
+        ]
+       },
+       "quote": "Tag assignment | Each non-excluded customer | Tag as low-usage, normal-usage, or high-usage | Based on feature_use count vs thresholds"
+      },
+      {
+       "id": "ws_alert_rules:preamble:5",
+       "text": "Low usage alert | Customer classified as low-usage | Send email + create Salesforce task | SF task subject must contain customer name",
+       "types": [],
+       "modality": null,
+       "source": {
+        "document": "ws_alert_rules",
+        "section": "preamble",
+        "page": null,
+        "line": 9,
+        "table_header": [
+         "Rule",
+         "Condition",
+         "Action",
+         "Notes"
+        ]
+       },
+       "quote": "Low usage alert | Customer classified as low-usage | Send email + create Salesforce task | SF task subject must contain customer name"
+      },
+      {
+       "id": "ws_alert_rules:preamble:6",
+       "text": "No alert for non-low | normal-usage or high-usage | Tag only, no email, no SF task | Only low-usage triggers alerts",
+       "types": [],
+       "modality": null,
+       "source": {
+        "document": "ws_alert_rules",
+        "section": "preamble",
+        "page": null,
+        "line": 10,
+        "table_header": [
+         "Rule",
+         "Condition",
+         "Action",
+         "Notes"
+        ]
+       },
+       "quote": "No alert for non-low | normal-usage or high-usage | Tag only, no email, no SF task | Only low-usage triggers alerts"
+      }
+     ],
+     "source": {},
+     "quote": ""
+    }
+   ],
+   "structure": {
+    "headings": [
+     {
+      "pattern": "^(?:ARTICLE|Article|PART|Part|CHAPTER|Chapter|SECTION|Section|CLAUSE|Clause|SCHEDULE|Schedule|ANNEX|Annex|EXHIBIT|Exhibit|RULE|Rule)\\s+(?P<id>[0-9]+[A-Za-z]?|[IVXLC]+)\\b[.:\\-–]?\\s*(?P<title>.*)$",
+      "level": 1,
+      "kind": "heading"
+     },
+     {
+      "pattern": "^(?P<id>[IVX]{1,5})\\.\\s+(?P<title>[A-Z][^.]{0,80})$",
+      "level": 1,
+      "kind": "heading"
+     },
+     {
+      "pattern": "^\\((?P<id>[a-z])\\)\\s+",
+      "level": 2,
+      "kind": "clause"
+     }
+    ],
+    "references": [
+     "\\b(?:Article|Part|Chapter|Clause|Schedule|Annex|Exhibit|Rule|Item)\\s+(?P<ref>[0-9]+(?:\\.[0-9]+)*[A-Za-z]?|[IVXLCDM]+|[A-Z])\\b",
+     "\\bclause\\s+\\((?P<ref>[a-z])\\)",
+     "\\bparagraph\\s+(?P<ref>\\d+(?:\\.\\d+)*)"
+    ],
+    "by": "code"
+   },
+   "source": {
+    "document": "ws_alert_rules",
+    "file": "docs/ws_alert_rules.md"
+   },
+   "quote": "Usage Thresholds: Alert Rules"
+  },
+  {
+   "id": "ws_onboarding_policy",
+   "kind": "md",
+   "title": "Usage Thresholds: Onboarding Policy",
+   "trust": "trusted",
+   "effective_date": null,
+   "authority_rank": 0,
+   "sections": [
+    {
+     "id": "preamble",
+     "title": "Preamble",
+     "page": null,
+     "parent": null,
+     "statements": [
+      {
+       "id": "ws_onboarding_policy:preamble:1",
+       "text": "Recently onboarded | Earliest event of ANY type within 7 days | Exclude entirely: no tag, no email, no SF task | Protects new customers from premature alerts",
+       "types": [],
+       "modality": null,
+       "source": {
+        "document": "ws_onboarding_policy",
+        "section": "preamble",
+        "page": null,
+        "line": 5,
+        "table_header": [
+         "Policy",
+         "Condition",
+         "Action",
+         "Notes"
+        ]
+       },
+       "quote": "Recently onboarded | Earliest event of ANY type within 7 days | Exclude entirely: no tag, no email, no SF task | Protects new customers from premature alerts"
+      },
+      {
+       "id": "ws_onboarding_policy:preamble:2",
+       "text": "Stale trial override | Customer tagged 'trial' but earliest event >90 days ago | Use standard thresholds instead of trial thresholds | Long-inactive trials should not get lenient trial thresholds",
+       "types": [],
+       "modality": null,
+       "source": {
+        "document": "ws_onboarding_policy",
+        "section": "preamble",
+        "page": null,
+        "line": 6,
+        "table_header": [
+         "Policy",
+         "Condition",
+         "Action",
+         "Notes"
+        ]
+       },
+       "quote": "Stale trial override | Customer tagged 'trial' but earliest event >90 days ago | Use standard thresholds instead of trial thresholds | Long-inactive trials should not get lenient trial thresholds"
+      }
+     ],
+     "source": {},
+     "quote": ""
+    }
+   ],
+   "structure": {
+    "headings": [
+     {
+      "pattern": "^(?:ARTICLE|Article|PART|Part|CHAPTER|Chapter|SECTION|Section|CLAUSE|Clause|SCHEDULE|Schedule|ANNEX|Annex|EXHIBIT|Exhibit|RULE|Rule)\\s+(?P<id>[0-9]+[A-Za-z]?|[IVXLC]+)\\b[.:\\-–]?\\s*(?P<title>.*)$",
+      "level": 1,
+      "kind": "heading"
+     },
+     {
+      "pattern": "^(?P<id>[IVX]{1,5})\\.\\s+(?P<title>[A-Z][^.]{0,80})$",
+      "level": 1,
+      "kind": "heading"
+     },
+     {
+      "pattern": "^\\((?P<id>[a-z])\\)\\s+",
+      "level": 2,
+      "kind": "clause"
+     }
+    ],
+    "references": [
+     "\\b(?:Article|Part|Chapter|Clause|Schedule|Annex|Exhibit|Rule|Item)\\s+(?P<ref>[0-9]+(?:\\.[0-9]+)*[A-Za-z]?|[IVXLCDM]+|[A-Z])\\b",
+     "\\bclause\\s+\\((?P<ref>[a-z])\\)",
+     "\\bparagraph\\s+(?P<ref>\\d+(?:\\.\\d+)*)"
+    ],
+    "by": "code"
+   },
+   "source": {
+    "document": "ws_onboarding_policy",
+    "file": "docs/ws_onboarding_policy.md"
+   },
+   "quote": "Usage Thresholds: Onboarding Policy"
+  },
+  {
+   "id": "ws_thresholds",
+   "kind": "md",
+   "title": "Usage Thresholds: Thresholds",
+   "trust": "trusted",
+   "effective_date": null,
+   "authority_rank": 0,
+   "sections": [
+    {
+     "id": "preamble",
+     "title": "Preamble",
+     "page": null,
+     "parent": null,
+     "statements": [
+      {
+       "id": "ws_thresholds:preamble:1",
+       "text": "standard | 2 | 4 | Standard: <=2 low, 3-4 normal, 5+ high | Customers from 'OldCo' domain are exempt from email alerts and Salesforce task creation per exec override. Tag still applies.",
+       "types": [],
+       "modality": null,
+       "source": {
+        "document": "ws_thresholds",
+        "section": "preamble",
+        "page": null,
+        "line": 5,
+        "table_header": [
+         "Customer Type",
+         "Low Max",
+         "Normal Max",
+         "Description",
+         "Notes"
+        ]
+       },
+       "quote": "standard | 2 | 4 | Standard: <=2 low, 3-4 normal, 5+ high | Customers from 'OldCo' domain are exempt from email alerts and Salesforce task creation per exec override. Tag still applies."
+      },
+      {
+       "id": "ws_thresholds:preamble:2",
+       "text": "trial | 0 | 1 | Trial: 0 low, 1 normal, 2+ high | Customers with company name containing 'Beta' are in a partner program -- classify using standard thresholds even if tagged trial",
+       "types": [],
+       "modality": null,
+       "source": {
+        "document": "ws_thresholds",
+        "section": "preamble",
+        "page": null,
+        "line": 6,
+        "table_header": [
+         "Customer Type",
+         "Low Max",
+         "Normal Max",
+         "Description",
+         "Notes"
+        ]
+       },
+       "quote": "trial | 0 | 1 | Trial: 0 low, 1 normal, 2+ high | Customers with company name containing 'Beta' are in a partner program -- classify using standard thresholds even if tagged trial"
+      }
+     ],
+     "source": {},
+     "quote": ""
+    }
+   ],
+   "structure": {
+    "headings": [
+     {
+      "pattern": "^(?:ARTICLE|Article|PART|Part|CHAPTER|Chapter|SECTION|Section|CLAUSE|Clause|SCHEDULE|Schedule|ANNEX|Annex|EXHIBIT|Exhibit|RULE|Rule)\\s+(?P<id>[0-9]+[A-Za-z]?|[IVXLC]+)\\b[.:\\-–]?\\s*(?P<title>.*)$",
+      "level": 1,
+      "kind": "heading"
+     },
+     {
+      "pattern": "^(?P<id>[IVX]{1,5})\\.\\s+(?P<title>[A-Z][^.]{0,80})$",
+      "level": 1,
+      "kind": "heading"
+     },
+     {
+      "pattern": "^\\((?P<id>[a-z])\\)\\s+",
+      "level": 2,
+      "kind": "clause"
+     }
+    ],
+    "references": [
+     "\\b(?:Article|Part|Chapter|Clause|Schedule|Annex|Exhibit|Rule|Item)\\s+(?P<ref>[0-9]+(?:\\.[0-9]+)*[A-Za-z]?|[IVXLCDM]+|[A-Z])\\b",
+     "\\bclause\\s+\\((?P<ref>[a-z])\\)",
+     "\\bparagraph\\s+(?P<ref>\\d+(?:\\.\\d+)*)"
+    ],
+    "by": "code"
+   },
+   "source": {
+    "document": "ws_thresholds",
+    "file": "docs/ws_thresholds.md"
+   },
+   "quote": "Usage Thresholds: Thresholds"
+  }
+ ],
+ "links": [],
+ "source": {},
+ "quote": ""
+}

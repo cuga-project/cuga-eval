@@ -1,0 +1,1079 @@
+{
+ "schema": "policy-package/1",
+ "version": "798488d8dbae8f98",
+ "policy_hash": "",
+ "generator": {
+  "kind": "skill",
+  "harness": "claude-code",
+  "model": "claude (gold, reviewed by a person later)"
+ },
+ "documents": [],
+ "rules": [
+  {
+   "id": "g_55b15fd05f",
+   "type": "verify",
+   "rule": {
+    "type": "verify",
+    "tools": [
+     "helpcrunch_tag_customer"
+    ],
+    "statement": "(Customer Type | Low Max | Normal Max | Description | Notes) standard | 2 | 4 | Standard: <=2 low, 3-4 normal, 5+ high | Customers from 'OldCo' domain are exempt from email alerts and Salesforce task creation per exec override. Tag still applies.",
+    "quote": "standard | 2 | 4 | Standard: <=2 low, 3-4 normal, 5+ high | Customers from 'OldCo' domain are exempt from email alerts and Salesforce task creation per exec override. Tag still applies.",
+    "types": [
+     "exception_override",
+     "threshold"
+    ],
+    "source": "ws_thresholds §preamble",
+    "by": "skill",
+    "id": "g_55b15fd05f"
+   },
+   "statement_ids": [
+    "ws_thresholds:preamble:1"
+   ],
+   "checker": "verifier",
+   "may_deny": true,
+   "source": {
+    "document": "ws_thresholds",
+    "section": "preamble",
+    "page": null,
+    "line": 5,
+    "table_header": [
+     "Customer Type",
+     "Low Max",
+     "Normal Max",
+     "Description",
+     "Notes"
+    ]
+   },
+   "quote": "standard | 2 | 4 | Standard: <=2 low, 3-4 normal, 5+ high | Customers from 'OldCo' domain are exempt from email alerts and Salesforce task creation per exec override. Tag still applies.",
+   "class": "judgment",
+   "level": "remind"
+  },
+  {
+   "id": "g_4dfd325527",
+   "type": "record_condition",
+   "rule": {
+    "type": "record_condition",
+    "tools": [
+     "gmail_send_email",
+     "salesforce_task_create"
+    ],
+    "field": "email",
+    "op": "contains",
+    "value": "@oldco",
+    "effect": "forbid",
+    "quote": "Customers from 'OldCo' domain are exempt from email alerts and Salesforce task creation",
+    "source": "ws_thresholds §preamble",
+    "by": "skill",
+    "id": "g_4dfd325527"
+   },
+   "statement_ids": [
+    "ws_thresholds:preamble:1"
+   ],
+   "checker": "code",
+   "may_deny": true,
+   "source": {
+    "document": "ws_thresholds",
+    "section": "preamble",
+    "page": null,
+    "line": 5,
+    "table_header": [
+     "Customer Type",
+     "Low Max",
+     "Normal Max",
+     "Description",
+     "Notes"
+    ]
+   },
+   "quote": "Customers from 'OldCo' domain are exempt from email alerts and Salesforce task creation",
+   "class": "hard",
+   "level": "deny"
+  },
+  {
+   "id": "g_85ef085bb4",
+   "type": "verify",
+   "rule": {
+    "type": "verify",
+    "tools": [
+     "helpcrunch_tag_customer"
+    ],
+    "statement": "(Customer Type | Low Max | Normal Max | Description | Notes) trial | 0 | 1 | Trial: 0 low, 1 normal, 2+ high | Customers with company name containing 'Beta' are in a partner program -- classify using standard thresholds even if tagged trial",
+    "quote": "trial | 0 | 1 | Trial: 0 low, 1 normal, 2+ high | Customers with company name containing 'Beta' are in a partner program -- classify using standard thresholds even if tagged trial",
+    "types": [
+     "exception_override",
+     "threshold"
+    ],
+    "source": "ws_thresholds §preamble",
+    "by": "skill",
+    "id": "g_85ef085bb4"
+   },
+   "statement_ids": [
+    "ws_thresholds:preamble:2"
+   ],
+   "checker": "verifier",
+   "may_deny": true,
+   "source": {
+    "document": "ws_thresholds",
+    "section": "preamble",
+    "page": null,
+    "line": 6,
+    "table_header": [
+     "Customer Type",
+     "Low Max",
+     "Normal Max",
+     "Description",
+     "Notes"
+    ]
+   },
+   "quote": "trial | 0 | 1 | Trial: 0 low, 1 normal, 2+ high | Customers with company name containing 'Beta' are in a partner program -- classify using standard thresholds even if tagged trial",
+   "class": "judgment",
+   "level": "remind"
+  },
+  {
+   "id": "g_9c357324e1",
+   "type": "verify",
+   "rule": {
+    "type": "verify",
+    "tools": [
+     "helpcrunch_tag_customer"
+    ],
+    "statement": "(Rule | Condition | Action | Notes) Event window | Count feature_use events only | Look back 14 days from today | Only feature_use, not login or other",
+    "quote": "Event window | Count feature_use events only | Look back 14 days from today | Only feature_use, not login or other",
+    "types": [
+     "derived_value"
+    ],
+    "source": "ws_alert_rules §preamble",
+    "by": "skill",
+    "id": "g_9c357324e1"
+   },
+   "statement_ids": [
+    "ws_alert_rules:preamble:1"
+   ],
+   "checker": "verifier",
+   "may_deny": true,
+   "source": {
+    "document": "ws_alert_rules",
+    "section": "preamble",
+    "page": null,
+    "line": 5,
+    "table_header": [
+     "Rule",
+     "Condition",
+     "Action",
+     "Notes"
+    ]
+   },
+   "quote": "Event window | Count feature_use events only | Look back 14 days from today | Only feature_use, not login or other",
+   "class": "judgment",
+   "level": "remind"
+  },
+  {
+   "id": "g_b965778a7e",
+   "type": "verify",
+   "rule": {
+    "type": "verify",
+    "tools": [
+     "helpcrunch_tag_customer"
+    ],
+    "statement": "(Rule | Condition | Action | Notes) Trial detection | Customer has trial tag | Use trial thresholds from ws_thresholds | All others use standard thresholds",
+    "quote": "Trial detection | Customer has trial tag | Use trial thresholds from ws_thresholds | All others use standard thresholds",
+    "types": [
+     "eligibility_filter",
+     "lookup_matrix"
+    ],
+    "source": "ws_alert_rules §preamble",
+    "by": "skill",
+    "id": "g_b965778a7e",
+    "unless": [
+     {
+      "condition": "trial | 0 | 1 | Trial: 0 low, 1 normal, 2+ high | Customers with company name containing 'Beta' are in a partner program -- classify using standard thresholds even if tagged trial",
+      "source": {
+       "document": "ws_thresholds",
+       "section": "preamble",
+       "page": null,
+       "line": 6,
+       "table_header": [
+        "Customer Type",
+        "Low Max",
+        "Normal Max",
+        "Description",
+        "Notes"
+       ]
+      }
+     },
+     {
+      "condition": "Stale trial override | Customer tagged 'trial' but earliest event >90 days ago | Use standard thresholds instead of trial thresholds | Long-inactive trials should not get lenient trial thresholds",
+      "source": {
+       "document": "ws_onboarding_policy",
+       "section": "preamble",
+       "page": null,
+       "line": 6,
+       "table_header": [
+        "Policy",
+        "Condition",
+        "Action",
+        "Notes"
+       ]
+      }
+     }
+    ]
+   },
+   "statement_ids": [
+    "ws_alert_rules:preamble:2"
+   ],
+   "checker": "verifier",
+   "may_deny": true,
+   "source": {
+    "document": "ws_alert_rules",
+    "section": "preamble",
+    "page": null,
+    "line": 6,
+    "table_header": [
+     "Rule",
+     "Condition",
+     "Action",
+     "Notes"
+    ]
+   },
+   "quote": "Trial detection | Customer has trial tag | Use trial thresholds from ws_thresholds | All others use standard thresholds",
+   "class": "judgment",
+   "level": "remind"
+  },
+  {
+   "id": "g_dada774ecf",
+   "type": "allowed_values",
+   "rule": {
+    "type": "allowed_values",
+    "tool": "helpcrunch_tag_customer",
+    "arg": "tag",
+    "values": [
+     "low-usage",
+     "normal-usage",
+     "high-usage"
+    ],
+    "quote": "Tag as low-usage, normal-usage, or high-usage",
+    "source": "ws_alert_rules §preamble",
+    "by": "skill",
+    "id": "g_dada774ecf",
+    "unless": [
+     {
+      "condition": "Recently onboarded | Earliest event of ANY type within 7 days | Exclude entirely: no tag, no email, no SF task | Protects new customers from premature alerts",
+      "source": {
+       "document": "ws_onboarding_policy",
+       "section": "preamble",
+       "page": null,
+       "line": 5,
+       "table_header": [
+        "Policy",
+        "Condition",
+        "Action",
+        "Notes"
+       ]
+      }
+     }
+    ]
+   },
+   "statement_ids": [
+    "ws_alert_rules:preamble:4"
+   ],
+   "checker": "code",
+   "may_deny": true,
+   "source": {
+    "document": "ws_alert_rules",
+    "section": "preamble",
+    "page": null,
+    "line": 8,
+    "table_header": [
+     "Rule",
+     "Condition",
+     "Action",
+     "Notes"
+    ]
+   },
+   "quote": "Tag as low-usage, normal-usage, or high-usage",
+   "class": "hard",
+   "level": "deny"
+  },
+  {
+   "id": "g_09b972e60d",
+   "type": "verify",
+   "rule": {
+    "type": "verify",
+    "tools": [
+     "helpcrunch_tag_customer"
+    ],
+    "statement": "(Rule | Condition | Action | Notes) Tag assignment | Each non-excluded customer | Tag as low-usage, normal-usage, or high-usage | Based on feature_use count vs thresholds",
+    "quote": "Tag assignment | Each non-excluded customer | Tag as low-usage, normal-usage, or high-usage | Based on feature_use count vs thresholds",
+    "types": [
+     "allowed_values",
+     "derived_value"
+    ],
+    "source": "ws_alert_rules §preamble",
+    "by": "skill",
+    "id": "g_09b972e60d",
+    "unless": [
+     {
+      "condition": "Recently onboarded | Earliest event of ANY type within 7 days | Exclude entirely: no tag, no email, no SF task | Protects new customers from premature alerts",
+      "source": {
+       "document": "ws_onboarding_policy",
+       "section": "preamble",
+       "page": null,
+       "line": 5,
+       "table_header": [
+        "Policy",
+        "Condition",
+        "Action",
+        "Notes"
+       ]
+      }
+     }
+    ]
+   },
+   "statement_ids": [
+    "ws_alert_rules:preamble:4"
+   ],
+   "checker": "verifier",
+   "may_deny": true,
+   "source": {
+    "document": "ws_alert_rules",
+    "section": "preamble",
+    "page": null,
+    "line": 8,
+    "table_header": [
+     "Rule",
+     "Condition",
+     "Action",
+     "Notes"
+    ]
+   },
+   "quote": "Tag assignment | Each non-excluded customer | Tag as low-usage, normal-usage, or high-usage | Based on feature_use count vs thresholds",
+   "class": "judgment",
+   "level": "remind"
+  },
+  {
+   "id": "g_7391539c90",
+   "type": "duty",
+   "rule": {
+    "type": "duty",
+    "trigger": {
+     "tool": "helpcrunch_tag_customer",
+     "when": {
+      "tag": [
+       "low-usage"
+      ]
+     }
+    },
+    "then": {
+     "tool": "gmail_send_email"
+    },
+    "quote": "Customer classified as low-usage | Send email + create Salesforce task",
+    "source": "ws_alert_rules §preamble",
+    "by": "skill",
+    "id": "g_7391539c90",
+    "unless": [
+     {
+      "condition": "standard | 2 | 4 | Standard: <=2 low, 3-4 normal, 5+ high | Customers from 'OldCo' domain are exempt from email alerts and Salesforce task creation per exec override. Tag still applies.",
+      "source": {
+       "document": "ws_thresholds",
+       "section": "preamble",
+       "page": null,
+       "line": 5,
+       "table_header": [
+        "Customer Type",
+        "Low Max",
+        "Normal Max",
+        "Description",
+        "Notes"
+       ]
+      }
+     },
+     {
+      "condition": "Recently onboarded | Earliest event of ANY type within 7 days | Exclude entirely: no tag, no email, no SF task | Protects new customers from premature alerts",
+      "source": {
+       "document": "ws_onboarding_policy",
+       "section": "preamble",
+       "page": null,
+       "line": 5,
+       "table_header": [
+        "Policy",
+        "Condition",
+        "Action",
+        "Notes"
+       ]
+      }
+     }
+    ]
+   },
+   "statement_ids": [
+    "ws_alert_rules:preamble:5"
+   ],
+   "checker": "monitor",
+   "may_deny": true,
+   "source": {
+    "document": "ws_alert_rules",
+    "section": "preamble",
+    "page": null,
+    "line": 9,
+    "table_header": [
+     "Rule",
+     "Condition",
+     "Action",
+     "Notes"
+    ]
+   },
+   "quote": "Customer classified as low-usage | Send email + create Salesforce task",
+   "class": "hard",
+   "level": "remind"
+  },
+  {
+   "id": "g_5bb6552dab",
+   "type": "duty",
+   "rule": {
+    "type": "duty",
+    "trigger": {
+     "tool": "helpcrunch_tag_customer",
+     "when": {
+      "tag": [
+       "low-usage"
+      ]
+     }
+    },
+    "then": {
+     "tool": "salesforce_task_create"
+    },
+    "quote": "Customer classified as low-usage | Send email + create Salesforce task",
+    "source": "ws_alert_rules §preamble",
+    "by": "skill",
+    "id": "g_5bb6552dab",
+    "unless": [
+     {
+      "condition": "standard | 2 | 4 | Standard: <=2 low, 3-4 normal, 5+ high | Customers from 'OldCo' domain are exempt from email alerts and Salesforce task creation per exec override. Tag still applies.",
+      "source": {
+       "document": "ws_thresholds",
+       "section": "preamble",
+       "page": null,
+       "line": 5,
+       "table_header": [
+        "Customer Type",
+        "Low Max",
+        "Normal Max",
+        "Description",
+        "Notes"
+       ]
+      }
+     },
+     {
+      "condition": "Recently onboarded | Earliest event of ANY type within 7 days | Exclude entirely: no tag, no email, no SF task | Protects new customers from premature alerts",
+      "source": {
+       "document": "ws_onboarding_policy",
+       "section": "preamble",
+       "page": null,
+       "line": 5,
+       "table_header": [
+        "Policy",
+        "Condition",
+        "Action",
+        "Notes"
+       ]
+      }
+     }
+    ]
+   },
+   "statement_ids": [
+    "ws_alert_rules:preamble:5"
+   ],
+   "checker": "monitor",
+   "may_deny": true,
+   "source": {
+    "document": "ws_alert_rules",
+    "section": "preamble",
+    "page": null,
+    "line": 9,
+    "table_header": [
+     "Rule",
+     "Condition",
+     "Action",
+     "Notes"
+    ]
+   },
+   "quote": "Customer classified as low-usage | Send email + create Salesforce task",
+   "class": "hard",
+   "level": "remind"
+  },
+  {
+   "id": "g_6a770614ab",
+   "type": "verify",
+   "rule": {
+    "type": "verify",
+    "tools": [
+     "salesforce_task_create"
+    ],
+    "statement": "(Rule | Condition | Action | Notes) Low usage alert | Customer classified as low-usage | Send email + create Salesforce task | SF task subject must contain customer name",
+    "quote": "Low usage alert | Customer classified as low-usage | Send email + create Salesforce task | SF task subject must contain customer name",
+    "types": [
+     "format",
+     "notification_duty"
+    ],
+    "source": "ws_alert_rules §preamble",
+    "by": "skill",
+    "id": "g_6a770614ab",
+    "unless": [
+     {
+      "condition": "standard | 2 | 4 | Standard: <=2 low, 3-4 normal, 5+ high | Customers from 'OldCo' domain are exempt from email alerts and Salesforce task creation per exec override. Tag still applies.",
+      "source": {
+       "document": "ws_thresholds",
+       "section": "preamble",
+       "page": null,
+       "line": 5,
+       "table_header": [
+        "Customer Type",
+        "Low Max",
+        "Normal Max",
+        "Description",
+        "Notes"
+       ]
+      }
+     },
+     {
+      "condition": "Recently onboarded | Earliest event of ANY type within 7 days | Exclude entirely: no tag, no email, no SF task | Protects new customers from premature alerts",
+      "source": {
+       "document": "ws_onboarding_policy",
+       "section": "preamble",
+       "page": null,
+       "line": 5,
+       "table_header": [
+        "Policy",
+        "Condition",
+        "Action",
+        "Notes"
+       ]
+      }
+     }
+    ]
+   },
+   "statement_ids": [
+    "ws_alert_rules:preamble:5"
+   ],
+   "checker": "verifier",
+   "may_deny": true,
+   "source": {
+    "document": "ws_alert_rules",
+    "section": "preamble",
+    "page": null,
+    "line": 9,
+    "table_header": [
+     "Rule",
+     "Condition",
+     "Action",
+     "Notes"
+    ]
+   },
+   "quote": "Low usage alert | Customer classified as low-usage | Send email + create Salesforce task | SF task subject must contain customer name",
+   "class": "judgment",
+   "level": "remind"
+  },
+  {
+   "id": "g_4cd1d7a694",
+   "type": "verify",
+   "rule": {
+    "type": "verify",
+    "tools": [
+     "gmail_send_email",
+     "salesforce_task_create"
+    ],
+    "statement": "(Rule | Condition | Action | Notes) No alert for non-low | normal-usage or high-usage | Tag only, no email, no SF task | Only low-usage triggers alerts",
+    "quote": "No alert for non-low | normal-usage or high-usage | Tag only, no email, no SF task | Only low-usage triggers alerts",
+    "types": [
+     "eligibility_filter",
+     "prohibition"
+    ],
+    "source": "ws_alert_rules §preamble",
+    "by": "skill",
+    "id": "g_4cd1d7a694"
+   },
+   "statement_ids": [
+    "ws_alert_rules:preamble:6"
+   ],
+   "checker": "verifier",
+   "may_deny": true,
+   "source": {
+    "document": "ws_alert_rules",
+    "section": "preamble",
+    "page": null,
+    "line": 10,
+    "table_header": [
+     "Rule",
+     "Condition",
+     "Action",
+     "Notes"
+    ]
+   },
+   "quote": "No alert for non-low | normal-usage or high-usage | Tag only, no email, no SF task | Only low-usage triggers alerts",
+   "class": "judgment",
+   "level": "remind"
+  },
+  {
+   "id": "g_20e149ff4e",
+   "type": "verify",
+   "rule": {
+    "type": "verify",
+    "tools": [
+     "helpcrunch_tag_customer",
+     "gmail_send_email",
+     "salesforce_task_create"
+    ],
+    "statement": "(Policy | Condition | Action | Notes) Recently onboarded | Earliest event of ANY type within 7 days | Exclude entirely: no tag, no email, no SF task | Protects new customers from premature alerts",
+    "quote": "Recently onboarded | Earliest event of ANY type within 7 days | Exclude entirely: no tag, no email, no SF task | Protects new customers from premature alerts",
+    "types": [
+     "eligibility_filter",
+     "exception_override"
+    ],
+    "source": "ws_onboarding_policy §preamble",
+    "by": "skill",
+    "id": "g_20e149ff4e"
+   },
+   "statement_ids": [
+    "ws_onboarding_policy:preamble:1"
+   ],
+   "checker": "verifier",
+   "may_deny": true,
+   "source": {
+    "document": "ws_onboarding_policy",
+    "section": "preamble",
+    "page": null,
+    "line": 5,
+    "table_header": [
+     "Policy",
+     "Condition",
+     "Action",
+     "Notes"
+    ]
+   },
+   "quote": "Recently onboarded | Earliest event of ANY type within 7 days | Exclude entirely: no tag, no email, no SF task | Protects new customers from premature alerts",
+   "class": "judgment",
+   "level": "remind"
+  },
+  {
+   "id": "g_eb61017d98",
+   "type": "verify",
+   "rule": {
+    "type": "verify",
+    "tools": [
+     "helpcrunch_tag_customer"
+    ],
+    "statement": "(Policy | Condition | Action | Notes) Stale trial override | Customer tagged 'trial' but earliest event >90 days ago | Use standard thresholds instead of trial thresholds | Long-inactive trials should not get lenient trial thresholds",
+    "quote": "Stale trial override | Customer tagged 'trial' but earliest event >90 days ago | Use standard thresholds instead of trial thresholds | Long-inactive trials should not get lenient trial thresholds",
+    "types": [
+     "exception_override",
+     "threshold"
+    ],
+    "source": "ws_onboarding_policy §preamble",
+    "by": "skill",
+    "id": "g_eb61017d98"
+   },
+   "statement_ids": [
+    "ws_onboarding_policy:preamble:2"
+   ],
+   "checker": "verifier",
+   "may_deny": true,
+   "source": {
+    "document": "ws_onboarding_policy",
+    "section": "preamble",
+    "page": null,
+    "line": 6,
+    "table_header": [
+     "Policy",
+     "Condition",
+     "Action",
+     "Notes"
+    ]
+   },
+   "quote": "Stale trial override | Customer tagged 'trial' but earliest event >90 days ago | Use standard thresholds instead of trial thresholds | Long-inactive trials should not get lenient trial thresholds",
+   "class": "judgment",
+   "level": "remind"
+  }
+ ],
+ "procedures": [],
+ "obligations": [],
+ "global": {
+  "definitions": []
+ },
+ "links": [
+  {
+   "type": "exception_of",
+   "src": "ws_thresholds:preamble:1",
+   "dst": "ws_alert_rules:preamble:5",
+   "source": {
+    "document": "ws_thresholds",
+    "section": "preamble",
+    "page": null,
+    "line": 5,
+    "table_header": [
+     "Customer Type",
+     "Low Max",
+     "Normal Max",
+     "Description",
+     "Notes"
+    ]
+   },
+   "quote": "Customers from 'OldCo' domain are exempt from email alerts and Salesforce task creation per exec override"
+  },
+  {
+   "type": "exception_of",
+   "src": "ws_thresholds:preamble:2",
+   "dst": "ws_alert_rules:preamble:2",
+   "source": {
+    "document": "ws_thresholds",
+    "section": "preamble",
+    "page": null,
+    "line": 6,
+    "table_header": [
+     "Customer Type",
+     "Low Max",
+     "Normal Max",
+     "Description",
+     "Notes"
+    ]
+   },
+   "quote": "classify using standard thresholds even if tagged trial"
+  },
+  {
+   "type": "exception_of",
+   "src": "ws_onboarding_policy:preamble:1",
+   "dst": "ws_alert_rules:preamble:4",
+   "source": {
+    "document": "ws_onboarding_policy",
+    "section": "preamble",
+    "page": null,
+    "line": 5,
+    "table_header": [
+     "Policy",
+     "Condition",
+     "Action",
+     "Notes"
+    ]
+   },
+   "quote": "Exclude entirely: no tag, no email, no SF task"
+  },
+  {
+   "type": "exception_of",
+   "src": "ws_onboarding_policy:preamble:1",
+   "dst": "ws_alert_rules:preamble:5",
+   "source": {
+    "document": "ws_onboarding_policy",
+    "section": "preamble",
+    "page": null,
+    "line": 5,
+    "table_header": [
+     "Policy",
+     "Condition",
+     "Action",
+     "Notes"
+    ]
+   },
+   "quote": "Exclude entirely: no tag, no email, no SF task"
+  },
+  {
+   "type": "exception_of",
+   "src": "ws_onboarding_policy:preamble:2",
+   "dst": "ws_alert_rules:preamble:2",
+   "source": {
+    "document": "ws_onboarding_policy",
+    "section": "preamble",
+    "page": null,
+    "line": 6,
+    "table_header": [
+     "Policy",
+     "Condition",
+     "Action",
+     "Notes"
+    ]
+   },
+   "quote": "Use standard thresholds instead of trial thresholds"
+  },
+  {
+   "type": "refers_to",
+   "src": "ws_alert_rules:preamble:2",
+   "dst": "ws_thresholds",
+   "source": {
+    "document": "ws_alert_rules",
+    "section": "preamble",
+    "page": null,
+    "line": 6,
+    "table_header": [
+     "Rule",
+     "Condition",
+     "Action",
+     "Notes"
+    ]
+   },
+   "quote": "Use trial thresholds from ws_thresholds"
+  },
+  {
+   "type": "refers_to",
+   "src": "ws_alert_rules:preamble:3",
+   "dst": "ws_onboarding_policy",
+   "source": {
+    "document": "ws_alert_rules",
+    "section": "preamble",
+    "page": null,
+    "line": 7,
+    "table_header": [
+     "Rule",
+     "Condition",
+     "Action",
+     "Notes"
+    ]
+   },
+   "quote": "See ws_onboarding_policy worksheet"
+  },
+  {
+   "type": "refers_to",
+   "src": "ws_alert_rules:preamble:4",
+   "dst": "ws_thresholds",
+   "source": {
+    "document": "ws_alert_rules",
+    "section": "preamble",
+    "page": null,
+    "line": 8,
+    "table_header": [
+     "Rule",
+     "Condition",
+     "Action",
+     "Notes"
+    ]
+   },
+   "quote": "Based on feature_use count vs thresholds"
+  }
+ ],
+ "coverage": [
+  {
+   "statement_id": "ws_alert_rules:preamble:1",
+   "kind": "verify",
+   "reason": "1 rule(s): verify",
+   "source": {
+    "document": "ws_alert_rules",
+    "section": "preamble",
+    "page": null,
+    "line": 5,
+    "table_header": [
+     "Rule",
+     "Condition",
+     "Action",
+     "Notes"
+    ]
+   },
+   "quote": "Event window | Count feature_use events only | Look back 14 days from today | Only feature_use, not login or other"
+  },
+  {
+   "statement_id": "ws_alert_rules:preamble:2",
+   "kind": "verify",
+   "reason": "1 rule(s): verify",
+   "source": {
+    "document": "ws_alert_rules",
+    "section": "preamble",
+    "page": null,
+    "line": 6,
+    "table_header": [
+     "Rule",
+     "Condition",
+     "Action",
+     "Notes"
+    ]
+   },
+   "quote": "Trial detection | Customer has trial tag | Use trial thresholds from ws_thresholds | All others use standard thresholds"
+  },
+  {
+   "statement_id": "ws_alert_rules:preamble:3",
+   "kind": "link",
+   "reason": "pointer: the onboarding exclusion rules are in the ws_onboarding_policy worksheet",
+   "source": {
+    "document": "ws_alert_rules",
+    "section": "preamble",
+    "page": null,
+    "line": 7,
+    "table_header": [
+     "Rule",
+     "Condition",
+     "Action",
+     "Notes"
+    ]
+   },
+   "quote": "Onboarding policy | See ws_onboarding_policy worksheet | Apply onboarding exclusion rules from separate sheet | Moved to dedicated worksheet for clarity"
+  },
+  {
+   "statement_id": "ws_alert_rules:preamble:4",
+   "kind": "rule",
+   "reason": "2 rule(s): allowed_values, verify",
+   "source": {
+    "document": "ws_alert_rules",
+    "section": "preamble",
+    "page": null,
+    "line": 8,
+    "table_header": [
+     "Rule",
+     "Condition",
+     "Action",
+     "Notes"
+    ]
+   },
+   "quote": "Tag assignment | Each non-excluded customer | Tag as low-usage, normal-usage, or high-usage | Based on feature_use count vs thresholds"
+  },
+  {
+   "statement_id": "ws_alert_rules:preamble:5",
+   "kind": "rule",
+   "reason": "3 rule(s): duty, verify",
+   "source": {
+    "document": "ws_alert_rules",
+    "section": "preamble",
+    "page": null,
+    "line": 9,
+    "table_header": [
+     "Rule",
+     "Condition",
+     "Action",
+     "Notes"
+    ]
+   },
+   "quote": "Low usage alert | Customer classified as low-usage | Send email + create Salesforce task | SF task subject must contain customer name"
+  },
+  {
+   "statement_id": "ws_alert_rules:preamble:6",
+   "kind": "verify",
+   "reason": "1 rule(s): verify",
+   "source": {
+    "document": "ws_alert_rules",
+    "section": "preamble",
+    "page": null,
+    "line": 10,
+    "table_header": [
+     "Rule",
+     "Condition",
+     "Action",
+     "Notes"
+    ]
+   },
+   "quote": "No alert for non-low | normal-usage or high-usage | Tag only, no email, no SF task | Only low-usage triggers alerts"
+  },
+  {
+   "statement_id": "ws_onboarding_policy:preamble:1",
+   "kind": "verify",
+   "reason": "1 rule(s): verify",
+   "source": {
+    "document": "ws_onboarding_policy",
+    "section": "preamble",
+    "page": null,
+    "line": 5,
+    "table_header": [
+     "Policy",
+     "Condition",
+     "Action",
+     "Notes"
+    ]
+   },
+   "quote": "Recently onboarded | Earliest event of ANY type within 7 days | Exclude entirely: no tag, no email, no SF task | Protects new customers from premature alerts"
+  },
+  {
+   "statement_id": "ws_onboarding_policy:preamble:2",
+   "kind": "verify",
+   "reason": "1 rule(s): verify",
+   "source": {
+    "document": "ws_onboarding_policy",
+    "section": "preamble",
+    "page": null,
+    "line": 6,
+    "table_header": [
+     "Policy",
+     "Condition",
+     "Action",
+     "Notes"
+    ]
+   },
+   "quote": "Stale trial override | Customer tagged 'trial' but earliest event >90 days ago | Use standard thresholds instead of trial thresholds | Long-inactive trials should not get lenient trial thresholds"
+  },
+  {
+   "statement_id": "ws_thresholds:preamble:1",
+   "kind": "rule",
+   "reason": "2 rule(s): record_condition, verify",
+   "source": {
+    "document": "ws_thresholds",
+    "section": "preamble",
+    "page": null,
+    "line": 5,
+    "table_header": [
+     "Customer Type",
+     "Low Max",
+     "Normal Max",
+     "Description",
+     "Notes"
+    ]
+   },
+   "quote": "standard | 2 | 4 | Standard: <=2 low, 3-4 normal, 5+ high | Customers from 'OldCo' domain are exempt from email alerts and Salesforce task creation per exec override. Tag still applies."
+  },
+  {
+   "statement_id": "ws_thresholds:preamble:2",
+   "kind": "verify",
+   "reason": "1 rule(s): verify",
+   "source": {
+    "document": "ws_thresholds",
+    "section": "preamble",
+    "page": null,
+    "line": 6,
+    "table_header": [
+     "Customer Type",
+     "Low Max",
+     "Normal Max",
+     "Description",
+     "Notes"
+    ]
+   },
+   "quote": "trial | 0 | 1 | Trial: 0 low, 1 normal, 2+ high | Customers with company name containing 'Beta' are in a partner program -- classify using standard thresholds even if tagged trial"
+  }
+ ],
+ "validation": [],
+ "policy_questions": [],
+ "tests": [],
+ "extra": {
+  "stats": {
+   "documents": 3,
+   "statements": 10,
+   "rules": 13,
+   "by_type": {
+    "allowed_values": 1,
+    "duty": 2,
+    "record_condition": 1,
+    "verify": 9
+   },
+   "procedures": 0,
+   "links": 8,
+   "links_by_type": {
+    "exception_of": 5,
+    "refers_to": 3
+   },
+   "coverage": {
+    "verify": 6,
+    "link": 1,
+    "rule": 3
+   },
+   "validation_errors": 0,
+   "documents_by_trust": {
+    "trusted": 3,
+    "untrusted": 0
+   }
+  },
+  "_layout": {
+   "format": "build",
+   "top": [
+    "version",
+    "rules",
+    "procedures",
+    "links",
+    "definitions",
+    "coverage",
+    "validation",
+    "generator",
+    "stats"
+   ]
+  }
+ }
+}

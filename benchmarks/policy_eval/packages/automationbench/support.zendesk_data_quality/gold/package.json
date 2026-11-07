@@ -1,0 +1,348 @@
+{
+ "schema": "policy-package/1",
+ "version": "80b1deedba86817a",
+ "policy_hash": "",
+ "generator": {
+  "kind": "skill",
+  "harness": "claude-code",
+  "model": "claude (gold, reviewed by a person later)"
+ },
+ "documents": [],
+ "rules": [
+  {
+   "id": "g_21c23dcf95",
+   "type": "verify",
+   "rule": {
+    "type": "verify",
+    "tools": [
+     "zendesk_add_tags_to_ticket",
+     "google_sheets_add_row"
+    ],
+    "statement": "(Rule ID | Condition | Required Field | Description) QR-01 | priority=high OR priority=urgent | organization_id | High/urgent tickets must have an organization",
+    "quote": "QR-01 | priority=high OR priority=urgent | organization_id | High/urgent tickets must have an organization",
+    "types": [
+     "eligibility_filter",
+     "required_field"
+    ],
+    "source": "ws_rules §preamble",
+    "by": "skill",
+    "id": "g_21c23dcf95",
+    "unless": [
+     {
+      "condition": "Exempt_Org_ID | org_internal",
+      "source": {
+       "document": "ws_config",
+       "section": "preamble",
+       "page": null,
+       "line": 6,
+       "table_header": [
+        "Setting",
+        "Value"
+       ]
+      }
+     }
+    ]
+   },
+   "statement_ids": [
+    "ws_rules:preamble:1"
+   ],
+   "checker": "verifier",
+   "may_deny": true,
+   "source": {
+    "document": "ws_rules",
+    "section": "preamble",
+    "page": null,
+    "line": 5,
+    "table_header": [
+     "Rule ID",
+     "Condition",
+     "Required Field",
+     "Description"
+    ]
+   },
+   "quote": "QR-01 | priority=high OR priority=urgent | organization_id | High/urgent tickets must have an organization",
+   "class": "judgment",
+   "level": "remind"
+  },
+  {
+   "id": "g_c879ff01b6",
+   "type": "verify",
+   "rule": {
+    "type": "verify",
+    "tools": [
+     "zendesk_add_tags_to_ticket",
+     "google_sheets_add_row"
+    ],
+    "statement": "(Rule ID | Condition | Required Field | Description) QR-02 | status=open | tags | Open tickets must have at least one tag",
+    "quote": "QR-02 | status=open | tags | Open tickets must have at least one tag",
+    "types": [
+     "eligibility_filter",
+     "required_field"
+    ],
+    "source": "ws_rules §preamble",
+    "by": "skill",
+    "id": "g_c879ff01b6",
+    "unless": [
+     {
+      "condition": "Exempt_Org_ID | org_internal",
+      "source": {
+       "document": "ws_config",
+       "section": "preamble",
+       "page": null,
+       "line": 6,
+       "table_header": [
+        "Setting",
+        "Value"
+       ]
+      }
+     }
+    ]
+   },
+   "statement_ids": [
+    "ws_rules:preamble:2"
+   ],
+   "checker": "verifier",
+   "may_deny": true,
+   "source": {
+    "document": "ws_rules",
+    "section": "preamble",
+    "page": null,
+    "line": 6,
+    "table_header": [
+     "Rule ID",
+     "Condition",
+     "Required Field",
+     "Description"
+    ]
+   },
+   "quote": "QR-02 | status=open | tags | Open tickets must have at least one tag",
+   "class": "judgment",
+   "level": "remind"
+  },
+  {
+   "id": "g_6c6cc97f3c",
+   "type": "verify",
+   "rule": {
+    "type": "verify",
+    "tools": [
+     "gmail_send_email"
+    ],
+    "statement": "(Setting | Value) Batch_Reference | DQ-AUDIT-20260214",
+    "quote": "Batch_Reference | DQ-AUDIT-20260214",
+    "types": [
+     "format",
+     "required_field"
+    ],
+    "source": "ws_config §preamble",
+    "by": "skill",
+    "id": "g_6c6cc97f3c"
+   },
+   "statement_ids": [
+    "ws_config:preamble:1"
+   ],
+   "checker": "verifier",
+   "may_deny": true,
+   "source": {
+    "document": "ws_config",
+    "section": "preamble",
+    "page": null,
+    "line": 5,
+    "table_header": [
+     "Setting",
+     "Value"
+    ]
+   },
+   "quote": "Batch_Reference | DQ-AUDIT-20260214",
+   "class": "judgment",
+   "level": "remind"
+  },
+  {
+   "id": "g_dff9fe58c3",
+   "type": "record_condition",
+   "rule": {
+    "type": "record_condition",
+    "tools": [
+     "zendesk_add_tags_to_ticket",
+     "google_sheets_add_row"
+    ],
+    "field": "organization_id",
+    "op": "equals",
+    "value": "org_internal",
+    "effect": "forbid",
+    "quote": "Exempt_Org_ID | org_internal",
+    "source": "ws_config §preamble",
+    "by": "skill",
+    "id": "g_dff9fe58c3"
+   },
+   "statement_ids": [
+    "ws_config:preamble:2"
+   ],
+   "checker": "code",
+   "may_deny": true,
+   "source": {
+    "document": "ws_config",
+    "section": "preamble",
+    "page": null,
+    "line": 6,
+    "table_header": [
+     "Setting",
+     "Value"
+    ]
+   },
+   "quote": "Exempt_Org_ID | org_internal",
+   "class": "hard",
+   "level": "deny"
+  }
+ ],
+ "procedures": [],
+ "obligations": [],
+ "global": {
+  "definitions": []
+ },
+ "links": [
+  {
+   "type": "exception_of",
+   "src": "ws_config:preamble:2",
+   "dst": "ws_rules:preamble:1",
+   "source": {
+    "document": "ws_config",
+    "section": "preamble",
+    "page": null,
+    "line": 6,
+    "table_header": [
+     "Setting",
+     "Value"
+    ]
+   },
+   "quote": "Exempt_Org_ID | org_internal"
+  },
+  {
+   "type": "exception_of",
+   "src": "ws_config:preamble:2",
+   "dst": "ws_rules:preamble:2",
+   "source": {
+    "document": "ws_config",
+    "section": "preamble",
+    "page": null,
+    "line": 6,
+    "table_header": [
+     "Setting",
+     "Value"
+    ]
+   },
+   "quote": "Exempt_Org_ID | org_internal"
+  }
+ ],
+ "coverage": [
+  {
+   "statement_id": "ws_config:preamble:1",
+   "kind": "verify",
+   "reason": "1 rule(s): verify",
+   "source": {
+    "document": "ws_config",
+    "section": "preamble",
+    "page": null,
+    "line": 5,
+    "table_header": [
+     "Setting",
+     "Value"
+    ]
+   },
+   "quote": "Batch_Reference | DQ-AUDIT-20260214"
+  },
+  {
+   "statement_id": "ws_config:preamble:2",
+   "kind": "rule",
+   "reason": "1 rule(s): record_condition",
+   "source": {
+    "document": "ws_config",
+    "section": "preamble",
+    "page": null,
+    "line": 6,
+    "table_header": [
+     "Setting",
+     "Value"
+    ]
+   },
+   "quote": "Exempt_Org_ID | org_internal"
+  },
+  {
+   "statement_id": "ws_rules:preamble:1",
+   "kind": "verify",
+   "reason": "1 rule(s): verify",
+   "source": {
+    "document": "ws_rules",
+    "section": "preamble",
+    "page": null,
+    "line": 5,
+    "table_header": [
+     "Rule ID",
+     "Condition",
+     "Required Field",
+     "Description"
+    ]
+   },
+   "quote": "QR-01 | priority=high OR priority=urgent | organization_id | High/urgent tickets must have an organization"
+  },
+  {
+   "statement_id": "ws_rules:preamble:2",
+   "kind": "verify",
+   "reason": "1 rule(s): verify",
+   "source": {
+    "document": "ws_rules",
+    "section": "preamble",
+    "page": null,
+    "line": 6,
+    "table_header": [
+     "Rule ID",
+     "Condition",
+     "Required Field",
+     "Description"
+    ]
+   },
+   "quote": "QR-02 | status=open | tags | Open tickets must have at least one tag"
+  }
+ ],
+ "validation": [],
+ "policy_questions": [],
+ "tests": [],
+ "extra": {
+  "stats": {
+   "documents": 2,
+   "statements": 4,
+   "rules": 4,
+   "by_type": {
+    "record_condition": 1,
+    "verify": 3
+   },
+   "procedures": 0,
+   "links": 2,
+   "links_by_type": {
+    "exception_of": 2
+   },
+   "coverage": {
+    "verify": 3,
+    "rule": 1
+   },
+   "validation_errors": 0,
+   "documents_by_trust": {
+    "trusted": 2,
+    "untrusted": 0
+   }
+  },
+  "_layout": {
+   "format": "build",
+   "top": [
+    "version",
+    "rules",
+    "procedures",
+    "links",
+    "definitions",
+    "coverage",
+    "validation",
+    "generator",
+    "stats"
+   ]
+  }
+ }
+}

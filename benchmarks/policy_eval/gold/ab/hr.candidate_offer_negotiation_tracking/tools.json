@@ -1,0 +1,832 @@
+[
+ {
+  "name": "google_sheets_get_many_rows",
+  "description": "Get multiple rows from a worksheet.",
+  "inputSchema": {
+   "description": "Get multiple rows from a worksheet.",
+   "properties": {
+    "spreadsheet": {
+     "anyOf": [
+      {
+       "type": "string"
+      },
+      {
+       "type": "null"
+      }
+     ],
+     "default": null,
+     "description": "Spreadsheet ID (required).",
+     "title": "Spreadsheet"
+    },
+    "worksheet": {
+     "anyOf": [
+      {
+       "type": "string"
+      },
+      {
+       "type": "null"
+      }
+     ],
+     "default": null,
+     "description": "Worksheet ID (required).",
+     "title": "Worksheet"
+    },
+    "spreadsheet_id": {
+     "anyOf": [
+      {
+       "type": "string"
+      },
+      {
+       "type": "null"
+      }
+     ],
+     "default": null,
+     "description": "Alias for spreadsheet.",
+     "title": "Spreadsheet Id"
+    },
+    "worksheet_id": {
+     "anyOf": [
+      {
+       "type": "string"
+      },
+      {
+       "type": "null"
+      }
+     ],
+     "default": null,
+     "description": "Alias for worksheet.",
+     "title": "Worksheet Id"
+    },
+    "range": {
+     "default": "A:Z",
+     "description": "Columns to include (e.g., \"A:Z\") (required).",
+     "title": "Range",
+     "type": "string"
+    },
+    "row_count": {
+     "default": 10,
+     "description": "Maximum number of rows to return (required).",
+     "title": "Row Count",
+     "type": "integer"
+    },
+    "drive": {
+     "anyOf": [
+      {
+       "type": "string"
+      },
+      {
+       "type": "null"
+      }
+     ],
+     "default": null,
+     "description": "Google Drive location.",
+     "title": "Drive"
+    },
+    "output_format": {
+     "default": "all",
+     "description": "Output format (all/rows/raw_rows/formatted_rows).",
+     "title": "Output Format",
+     "type": "string"
+    },
+    "first_row": {
+     "default": 1,
+     "description": "First row to retrieve.",
+     "title": "First Row",
+     "type": "integer"
+    },
+    "worksheet_title": {
+     "anyOf": [
+      {
+       "type": "string"
+      },
+      {
+       "type": "null"
+      }
+     ],
+     "default": null,
+     "title": "Worksheet Title"
+    }
+   },
+   "title": "google_sheets_get_many_rows",
+   "type": "object"
+  }
+ },
+ {
+  "name": "google_sheets_update_row",
+  "description": "Update a spreadsheet row.",
+  "inputSchema": {
+   "description": "Update a spreadsheet row.",
+   "properties": {
+    "spreadsheet": {
+     "anyOf": [
+      {
+       "type": "string"
+      },
+      {
+       "type": "null"
+      }
+     ],
+     "default": null,
+     "description": "Spreadsheet ID (required).",
+     "title": "Spreadsheet"
+    },
+    "worksheet": {
+     "anyOf": [
+      {
+       "type": "string"
+      },
+      {
+       "type": "null"
+      }
+     ],
+     "default": null,
+     "description": "Worksheet ID (required).",
+     "title": "Worksheet"
+    },
+    "row": {
+     "anyOf": [
+      {
+       "type": "string"
+      },
+      {
+       "type": "null"
+      }
+     ],
+     "default": null,
+     "description": "Row ID to update (required).",
+     "title": "Row"
+    },
+    "row_id": {
+     "anyOf": [
+      {
+       "type": "string"
+      },
+      {
+       "type": "null"
+      }
+     ],
+     "default": null,
+     "title": "Row Id"
+    },
+    "spreadsheet_id": {
+     "anyOf": [
+      {
+       "type": "string"
+      },
+      {
+       "type": "null"
+      }
+     ],
+     "default": null,
+     "title": "Spreadsheet Id"
+    },
+    "worksheet_id": {
+     "anyOf": [
+      {
+       "type": "string"
+      },
+      {
+       "type": "null"
+      }
+     ],
+     "default": null,
+     "title": "Worksheet Id"
+    },
+    "drive": {
+     "anyOf": [
+      {
+       "type": "string"
+      },
+      {
+       "type": "null"
+      }
+     ],
+     "default": null,
+     "description": "Google Drive location.",
+     "title": "Drive"
+    },
+    "background_color": {
+     "anyOf": [
+      {
+       "type": "string"
+      },
+      {
+       "type": "null"
+      }
+     ],
+     "default": null,
+     "description": "Background color for the row.",
+     "title": "Background Color"
+    },
+    "text_color": {
+     "anyOf": [
+      {
+       "type": "string"
+      },
+      {
+       "type": "null"
+      }
+     ],
+     "default": null,
+     "description": "Text color for the row.",
+     "title": "Text Color"
+    },
+    "text_format_bold": {
+     "default": false,
+     "description": "Bold text formatting.",
+     "title": "Text Format Bold",
+     "type": "boolean"
+    },
+    "text_format_italic": {
+     "default": false,
+     "description": "Italic text formatting.",
+     "title": "Text Format Italic",
+     "type": "boolean"
+    },
+    "text_format_strikethrough": {
+     "default": false,
+     "description": "Strikethrough text formatting.",
+     "title": "Text Format Strikethrough",
+     "type": "boolean"
+    },
+    "cells": {
+     "anyOf": [
+      {},
+      {
+       "type": "null"
+      }
+     ],
+     "default": null,
+     "description": "JSON object of column name to value pairs to update, e.g. '{\"Name\": \"Jane\"}'.",
+     "title": "Cells"
+    }
+   },
+   "title": "google_sheets_update_row",
+   "type": "object"
+  }
+ },
+ {
+  "name": "google_sheets_find_worksheet",
+  "description": "Find a worksheet by title.",
+  "inputSchema": {
+   "description": "Find a worksheet by title.",
+   "properties": {
+    "spreadsheet": {
+     "anyOf": [
+      {
+       "type": "string"
+      },
+      {
+       "type": "null"
+      }
+     ],
+     "default": null,
+     "description": "Spreadsheet ID (required).",
+     "title": "Spreadsheet"
+    },
+    "title": {
+     "anyOf": [
+      {
+       "type": "string"
+      },
+      {
+       "type": "null"
+      }
+     ],
+     "default": null,
+     "description": "Worksheet title to search for (required).",
+     "title": "Title"
+    },
+    "spreadsheet_id": {
+     "anyOf": [
+      {
+       "type": "string"
+      },
+      {
+       "type": "null"
+      }
+     ],
+     "default": null,
+     "description": "Alias for spreadsheet.",
+     "title": "Spreadsheet Id"
+    },
+    "drive": {
+     "anyOf": [
+      {
+       "type": "string"
+      },
+      {
+       "type": "null"
+      }
+     ],
+     "default": null,
+     "description": "Google Drive location.",
+     "title": "Drive"
+    }
+   },
+   "title": "google_sheets_find_worksheet",
+   "type": "object"
+  }
+ },
+ {
+  "name": "google_sheets_get_spreadsheet_by_id",
+  "description": "Get a spreadsheet by ID.",
+  "inputSchema": {
+   "description": "Get a spreadsheet by ID.",
+   "properties": {
+    "spreadsheet": {
+     "anyOf": [
+      {
+       "type": "string"
+      },
+      {
+       "type": "null"
+      }
+     ],
+     "default": null,
+     "description": "Spreadsheet ID (required).",
+     "title": "Spreadsheet"
+    },
+    "spreadsheet_id": {
+     "anyOf": [
+      {
+       "type": "string"
+      },
+      {
+       "type": "null"
+      }
+     ],
+     "default": null,
+     "description": "Alias for spreadsheet.",
+     "title": "Spreadsheet Id"
+    },
+    "id": {
+     "anyOf": [
+      {
+       "type": "string"
+      },
+      {
+       "type": "null"
+      }
+     ],
+     "default": null,
+     "description": "Alias for spreadsheet.",
+     "title": "Id"
+    },
+    "includeGridData": {
+     "default": true,
+     "description": "Whether to include grid data in response.",
+     "title": "Includegriddata",
+     "type": "boolean"
+    }
+   },
+   "title": "google_sheets_get_spreadsheet_by_id",
+   "type": "object"
+  }
+ },
+ {
+  "name": "gmail_find_email",
+  "description": "Search for emails using Gmail search operators.",
+  "inputSchema": {
+   "description": "Search for emails using Gmail search operators.",
+   "properties": {
+    "query": {
+     "default": "",
+     "description": "Gmail search query. Supports operators: from:, to:, subject:, label:, is:unread, is:read, is:starred, has:attachment, OR, and plain text (e.g., \"from:user@example.com is:unread\").",
+     "title": "Query",
+     "type": "string"
+    },
+    "id": {
+     "anyOf": [
+      {
+       "type": "string"
+      },
+      {
+       "type": "null"
+      }
+     ],
+     "default": null,
+     "description": "Message ID for direct lookup (returns single message).",
+     "title": "Id"
+    },
+    "label": {
+     "anyOf": [
+      {
+       "type": "string"
+      },
+      {
+       "type": "null"
+      }
+     ],
+     "default": null,
+     "description": "Filter by label (e.g., \"INBOX\", \"SENT\").",
+     "title": "Label"
+    },
+    "max_results": {
+     "anyOf": [
+      {
+       "type": "integer"
+      },
+      {
+       "type": "null"
+      }
+     ],
+     "default": 10,
+     "description": "Maximum number of results to return.",
+     "title": "Max Results"
+    },
+    "include_spam_trash": {
+     "anyOf": [
+      {
+       "type": "boolean"
+      },
+      {
+       "type": "null"
+      }
+     ],
+     "default": false,
+     "description": "Include spam and trash in results.",
+     "title": "Include Spam Trash"
+    },
+    "format": {
+     "anyOf": [
+      {
+       "type": "string"
+      },
+      {
+       "type": "null"
+      }
+     ],
+     "default": "full",
+     "description": "Email format to return (\"full\", \"metadata\", \"minimal\", \"raw\").",
+     "title": "Format"
+    }
+   },
+   "title": "gmail_find_email",
+   "type": "object"
+  }
+ },
+ {
+  "name": "gmail_get_email_by_id",
+  "description": "Get a specific email by its message ID.",
+  "inputSchema": {
+   "description": "Get a specific email by its message ID.",
+   "properties": {
+    "message_id": {
+     "description": "The unique ID of the email message to retrieve.",
+     "title": "Message Id",
+     "type": "string"
+    },
+    "format": {
+     "anyOf": [
+      {
+       "type": "string"
+      },
+      {
+       "type": "null"
+      }
+     ],
+     "default": "full",
+     "description": "Email format to return (\"full\", \"metadata\", \"minimal\").",
+     "title": "Format"
+    }
+   },
+   "required": [
+    "message_id"
+   ],
+   "title": "gmail_get_email_by_id",
+   "type": "object"
+  }
+ },
+ {
+  "name": "gmail_send_email",
+  "description": "Send an email via Gmail. Composes and delivers a new outgoing Gmail message to one or more\nrecipients. Use this to send (not draft) an email — the message is\ntransmitted immediately and appears in the recipient's inbox. Handles\noutbound email dispatch, reply-and-send, forward-and-send, notification\n",
+  "inputSchema": {
+   "description": "Send an email via Gmail. Composes and delivers a new outgoing Gmail message to one or more\nrecipients. Use this to send (not draft) an email — the message is\ntransmitted immediately and appears in the recipient's inbox. Handles\noutbound email dispatch, reply-and-send, forward-and-send, notification\nemails, alerts, and any other Gmail send/deliver/transmit action. Keywords: gmail send email, gmail send mail, gmail compose and send,\nsend outgoing email, send outbound message, deliver email, transmit\nemail, dispatch email, email send, gmail sender, mail send, gmail\nmessage send, send a new email, send notification email, send alert\nemail, email delivery. Note: this SENDS the email. For drafts use gmail_create_draft instead.",
+   "properties": {
+    "to": {
+     "description": "Recipient email address(es), comma-separated for multiple.",
+     "title": "To",
+     "type": "string"
+    },
+    "subject": {
+     "description": "Email subject line.",
+     "title": "Subject",
+     "type": "string"
+    },
+    "body": {
+     "description": "Email body content (plain text or HTML).",
+     "title": "Body",
+     "type": "string"
+    },
+    "cc": {
+     "anyOf": [
+      {
+       "type": "string"
+      },
+      {
+       "type": "null"
+      }
+     ],
+     "default": null,
+     "description": "CC recipients, comma-separated.",
+     "title": "Cc"
+    },
+    "bcc": {
+     "anyOf": [
+      {
+       "type": "string"
+      },
+      {
+       "type": "null"
+      }
+     ],
+     "default": null,
+     "description": "BCC recipients, comma-separated.",
+     "title": "Bcc"
+    },
+    "from_": {
+     "anyOf": [
+      {
+       "type": "string"
+      },
+      {
+       "type": "null"
+      }
+     ],
+     "default": null,
+     "description": "Sender email address (alias).",
+     "title": "From"
+    },
+    "from_name": {
+     "anyOf": [
+      {
+       "type": "string"
+      },
+      {
+       "type": "null"
+      }
+     ],
+     "default": null,
+     "description": "Display name for sender.",
+     "title": "From Name"
+    },
+    "reply_to": {
+     "anyOf": [
+      {
+       "type": "string"
+      },
+      {
+       "type": "null"
+      }
+     ],
+     "default": null,
+     "description": "Reply-to email address.",
+     "title": "Reply To"
+    },
+    "body_type": {
+     "anyOf": [
+      {
+       "type": "string"
+      },
+      {
+       "type": "null"
+      }
+     ],
+     "default": "plain",
+     "description": "Body format - \"plain\" or \"html\" (default: \"plain\").",
+     "title": "Body Type"
+    },
+    "signature": {
+     "anyOf": [
+      {
+       "type": "string"
+      },
+      {
+       "type": "null"
+      }
+     ],
+     "default": null,
+     "description": "Email signature to append.",
+     "title": "Signature"
+    },
+    "label_ids": {
+     "anyOf": [
+      {
+       "type": "string"
+      },
+      {
+       "type": "null"
+      }
+     ],
+     "default": null,
+     "description": "Comma-separated label IDs to apply.",
+     "title": "Label Ids"
+    },
+    "file": {
+     "anyOf": [
+      {
+       "type": "string"
+      },
+      {
+       "type": "null"
+      }
+     ],
+     "default": null,
+     "description": "File to attach (URL or path).",
+     "title": "File"
+    }
+   },
+   "required": [
+    "to",
+    "subject",
+    "body"
+   ],
+   "title": "gmail_send_email",
+   "type": "object"
+  }
+ },
+ {
+  "name": "recruitee_candidateCreate",
+  "description": "Tool for Create Candidate.",
+  "inputSchema": {
+   "description": "Tool for Create Candidate.",
+   "properties": {
+    "company_id": {
+     "title": "Company Id",
+     "type": "string"
+    },
+    "name": {
+     "title": "Name",
+     "type": "string"
+    },
+    "photo": {
+     "anyOf": [
+      {
+       "type": "string"
+      },
+      {
+       "type": "null"
+      }
+     ],
+     "default": null,
+     "title": "Photo"
+    },
+    "job_ids": {
+     "anyOf": [
+      {
+       "type": "string"
+      },
+      {
+       "type": "null"
+      }
+     ],
+     "default": null,
+     "title": "Job Ids"
+    },
+    "tags": {
+     "anyOf": [
+      {
+       "type": "string"
+      },
+      {
+       "type": "null"
+      }
+     ],
+     "default": null,
+     "title": "Tags"
+    },
+    "emails": {
+     "anyOf": [
+      {
+       "type": "string"
+      },
+      {
+       "type": "null"
+      }
+     ],
+     "default": null,
+     "title": "Emails"
+    },
+    "phones": {
+     "anyOf": [
+      {
+       "type": "string"
+      },
+      {
+       "type": "null"
+      }
+     ],
+     "default": null,
+     "title": "Phones"
+    },
+    "social_links": {
+     "anyOf": [
+      {
+       "type": "string"
+      },
+      {
+       "type": "null"
+      }
+     ],
+     "default": null,
+     "title": "Social Links"
+    },
+    "links": {
+     "anyOf": [
+      {
+       "type": "string"
+      },
+      {
+       "type": "null"
+      }
+     ],
+     "default": null,
+     "title": "Links"
+    },
+    "sources": {
+     "anyOf": [
+      {
+       "type": "string"
+      },
+      {
+       "type": "null"
+      }
+     ],
+     "default": null,
+     "title": "Sources"
+    },
+    "cover_letter": {
+     "anyOf": [
+      {
+       "type": "string"
+      },
+      {
+       "type": "null"
+      }
+     ],
+     "default": null,
+     "title": "Cover Letter"
+    },
+    "cv": {
+     "anyOf": [
+      {
+       "type": "string"
+      },
+      {
+       "type": "null"
+      }
+     ],
+     "default": null,
+     "title": "Cv"
+    },
+    "admin_ids": {
+     "anyOf": [
+      {
+       "type": "integer"
+      },
+      {
+       "type": "null"
+      }
+     ],
+     "default": null,
+     "title": "Admin Ids"
+    }
+   },
+   "required": [
+    "company_id",
+    "name"
+   ],
+   "title": "recruitee_candidateCreate",
+   "type": "object"
+  }
+ },
+ {
+  "name": "recruitee_add_tags",
+  "description": "Tool for Add Tags to Candidate.",
+  "inputSchema": {
+   "description": "Tool for Add Tags to Candidate.",
+   "properties": {
+    "company_id": {
+     "title": "Company Id",
+     "type": "string"
+    },
+    "candidate_id": {
+     "title": "Candidate Id",
+     "type": "string"
+    },
+    "tags": {
+     "title": "Tags",
+     "type": "string"
+    }
+   },
+   "required": [
+    "company_id",
+    "candidate_id",
+    "tags"
+   ],
+   "title": "recruitee_add_tags",
+   "type": "object"
+  }
+ }
+]

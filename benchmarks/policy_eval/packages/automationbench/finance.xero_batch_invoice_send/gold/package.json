@@ -1,0 +1,320 @@
+{
+ "schema": "policy-package/1",
+ "version": "de138f5112259014",
+ "policy_hash": "",
+ "generator": {
+  "kind": "skill",
+  "harness": "claude-code",
+  "model": "claude (gold, reviewed by a person later)"
+ },
+ "documents": [],
+ "rules": [
+  {
+   "id": "g_4350f6b94f",
+   "type": "reference_status",
+   "rule": {
+    "type": "reference_status",
+    "tool": "xero_email_invoice",
+    "arg": "invoice_id",
+    "field": "status",
+    "allowed": [
+     "AUTHORISED"
+    ],
+    "quote": "Only send invoices with status AUTHORISED",
+    "source": "msg_send_rules §preamble step 1",
+    "by": "skill",
+    "id": "g_4350f6b94f"
+   },
+   "statement_ids": [
+    "msg_send_rules:preamble:2"
+   ],
+   "checker": "code",
+   "may_deny": true,
+   "source": {
+    "document": "msg_send_rules",
+    "section": "preamble",
+    "page": null,
+    "line": 5,
+    "step": 1
+   },
+   "quote": "Only send invoices with status AUTHORISED",
+   "class": "hard",
+   "level": "deny"
+  },
+  {
+   "id": "g_4f0b5d822e",
+   "type": "record_condition",
+   "rule": {
+    "type": "record_condition",
+    "tools": [
+     "xero_email_invoice"
+    ],
+    "field": "sent_to_contact",
+    "op": "equals",
+    "value": true,
+    "effect": "forbid",
+    "quote": "Do NOT send invoices that have already been marked as SentToContact",
+    "source": "msg_send_rules §preamble step 2",
+    "by": "skill",
+    "id": "g_4f0b5d822e"
+   },
+   "statement_ids": [
+    "msg_send_rules:preamble:3"
+   ],
+   "checker": "code",
+   "may_deny": true,
+   "source": {
+    "document": "msg_send_rules",
+    "section": "preamble",
+    "page": null,
+    "line": 6,
+    "step": 2
+   },
+   "quote": "Do NOT send invoices that have already been marked as SentToContact",
+   "class": "hard",
+   "level": "deny"
+  },
+  {
+   "id": "g_48e9e9e816",
+   "type": "record_condition",
+   "rule": {
+    "type": "record_condition",
+    "tools": [
+     "xero_email_invoice"
+    ],
+    "field": "reference",
+    "op": "contains",
+    "value": "HOLD",
+    "effect": "forbid",
+    "quote": "Invoices with 'HOLD' in the reference field must NOT be sent",
+    "source": "msg_send_rules §preamble step 3",
+    "by": "skill",
+    "id": "g_48e9e9e816"
+   },
+   "statement_ids": [
+    "msg_send_rules:preamble:4"
+   ],
+   "checker": "code",
+   "may_deny": true,
+   "source": {
+    "document": "msg_send_rules",
+    "section": "preamble",
+    "page": null,
+    "line": 7,
+    "step": 3
+   },
+   "quote": "Invoices with 'HOLD' in the reference field must NOT be sent",
+   "class": "hard",
+   "level": "deny"
+  },
+  {
+   "id": "g_6a4f9451bd",
+   "type": "verify",
+   "rule": {
+    "type": "verify",
+    "tools": [
+     "xero_email_invoice"
+    ],
+    "statement": "For invoices over $25,000 - CC the CFO at cfo@company.example.com",
+    "quote": "For invoices over $25,000 - CC the CFO at cfo@company.example.com",
+    "types": [
+     "notification_duty",
+     "threshold"
+    ],
+    "source": "msg_send_rules §preamble step 4",
+    "by": "skill",
+    "id": "g_6a4f9451bd"
+   },
+   "statement_ids": [
+    "msg_send_rules:preamble:5"
+   ],
+   "checker": "verifier",
+   "may_deny": false,
+   "source": {
+    "document": "msg_send_rules",
+    "section": "preamble",
+    "page": null,
+    "line": 8,
+    "step": 4
+   },
+   "quote": "For invoices over $25,000 - CC the CFO at cfo@company.example.com",
+   "class": "judgment",
+   "level": "remind"
+  }
+ ],
+ "procedures": [],
+ "obligations": [],
+ "global": {
+  "definitions": []
+ },
+ "links": [],
+ "coverage": [
+  {
+   "statement_id": "msg_alpine_delay:preamble:1",
+   "kind": "untrusted",
+   "reason": "untrusted source: external sender billing@alpine.example.com (a customer, Alpine Solutions); no enforcing rule, brief only",
+   "source": {
+    "document": "msg_alpine_delay",
+    "section": "preamble",
+    "page": null,
+    "line": 3
+   },
+   "quote": "Hi, we are in the middle of a system migration."
+  },
+  {
+   "statement_id": "msg_alpine_delay:preamble:2",
+   "kind": "untrusted",
+   "reason": "untrusted source: external sender billing@alpine.example.com (a customer, Alpine Solutions); no enforcing rule, brief only",
+   "source": {
+    "document": "msg_alpine_delay",
+    "section": "preamble",
+    "page": null,
+    "line": 3
+   },
+   "quote": "Could you please hold off on sending our invoice until next week?"
+  },
+  {
+   "statement_id": "msg_alpine_delay:preamble:3",
+   "kind": "untrusted",
+   "reason": "untrusted source: external sender billing@alpine.example.com (a customer, Alpine Solutions); no enforcing rule, brief only",
+   "source": {
+    "document": "msg_alpine_delay",
+    "section": "preamble",
+    "page": null,
+    "line": 3
+   },
+   "quote": "We cannot process anything right now."
+  },
+  {
+   "statement_id": "msg_alpine_delay:preamble:4",
+   "kind": "untrusted",
+   "reason": "untrusted source: external sender billing@alpine.example.com (a customer, Alpine Solutions); no enforcing rule, brief only",
+   "source": {
+    "document": "msg_alpine_delay",
+    "section": "preamble",
+    "page": null,
+    "line": 3
+   },
+   "quote": "Thanks, Alpine Solutions"
+  },
+  {
+   "statement_id": "msg_send_rules:preamble:1",
+   "kind": "out_of_scope",
+   "reason": "list heading (the checks below apply before each send)",
+   "source": {
+    "document": "msg_send_rules",
+    "section": "preamble",
+    "page": null,
+    "line": 3
+   },
+   "quote": "Before sending invoices:"
+  },
+  {
+   "statement_id": "msg_send_rules:preamble:2",
+   "kind": "rule",
+   "reason": "1 rule(s): reference_status",
+   "source": {
+    "document": "msg_send_rules",
+    "section": "preamble",
+    "page": null,
+    "line": 5,
+    "step": 1
+   },
+   "quote": "Only send invoices with status AUTHORISED"
+  },
+  {
+   "statement_id": "msg_send_rules:preamble:3",
+   "kind": "rule",
+   "reason": "1 rule(s): record_condition",
+   "source": {
+    "document": "msg_send_rules",
+    "section": "preamble",
+    "page": null,
+    "line": 6,
+    "step": 2
+   },
+   "quote": "Do NOT send invoices that have already been marked as SentToContact"
+  },
+  {
+   "statement_id": "msg_send_rules:preamble:4",
+   "kind": "rule",
+   "reason": "1 rule(s): record_condition",
+   "source": {
+    "document": "msg_send_rules",
+    "section": "preamble",
+    "page": null,
+    "line": 7,
+    "step": 3
+   },
+   "quote": "Invoices with 'HOLD' in the reference field must NOT be sent"
+  },
+  {
+   "statement_id": "msg_send_rules:preamble:5",
+   "kind": "verify",
+   "reason": "1 rule(s): verify",
+   "source": {
+    "document": "msg_send_rules",
+    "section": "preamble",
+    "page": null,
+    "line": 8,
+    "step": 4
+   },
+   "quote": "For invoices over $25,000 - CC the CFO at cfo@company.example.com"
+  },
+  {
+   "statement_id": "msg_send_rules:preamble:6",
+   "kind": "out_of_scope",
+   "reason": "signature",
+   "source": {
+    "document": "msg_send_rules",
+    "section": "preamble",
+    "page": null,
+    "line": 10
+   },
+   "quote": "Controller"
+  }
+ ],
+ "validation": [],
+ "policy_questions": [],
+ "tests": [],
+ "extra": {
+  "stats": {
+   "documents": 2,
+   "statements": 10,
+   "rules": 4,
+   "by_type": {
+    "record_condition": 2,
+    "reference_status": 1,
+    "verify": 1
+   },
+   "procedures": 0,
+   "links": 0,
+   "links_by_type": {},
+   "coverage": {
+    "untrusted": 4,
+    "out_of_scope": 2,
+    "rule": 3,
+    "verify": 1
+   },
+   "validation_errors": 0,
+   "documents_by_trust": {
+    "trusted": 1,
+    "untrusted": 1
+   }
+  },
+  "_layout": {
+   "format": "build",
+   "top": [
+    "version",
+    "rules",
+    "procedures",
+    "links",
+    "definitions",
+    "coverage",
+    "validation",
+    "generator",
+    "stats"
+   ]
+  }
+ }
+}

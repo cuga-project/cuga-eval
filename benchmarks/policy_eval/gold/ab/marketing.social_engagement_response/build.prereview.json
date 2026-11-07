@@ -1,0 +1,379 @@
+{
+ "version": "6f9c06d07e570021",
+ "rules": [
+  {
+   "id": "g_ed7e3efa54",
+   "type": "verify",
+   "rule": {
+    "type": "verify",
+    "tools": [
+     "twitter_like_tweet"
+    ],
+    "statement": "POSITIVE mentions (praise, recommendations, upgrades): Like the tweet.",
+    "quote": "POSITIVE mentions (praise, recommendations, upgrades): Like the tweet.",
+    "types": [
+     "eligibility_filter"
+    ],
+    "source": "msg_sop §preamble step 1",
+    "by": "skill",
+    "id": "g_ed7e3efa54"
+   },
+   "statement_ids": [
+    "msg_sop:preamble:2"
+   ],
+   "checker": "verifier",
+   "may_deny": true,
+   "source": {
+    "document": "msg_sop",
+    "section": "preamble",
+    "page": null,
+    "line": 5,
+    "step": 1
+   },
+   "quote": "POSITIVE mentions (praise, recommendations, upgrades): Like the tweet."
+  },
+  {
+   "id": "g_071f2e98b5",
+   "type": "verify",
+   "rule": {
+    "type": "verify",
+    "tools": [
+     "twitter_post_tweet"
+    ],
+    "statement": "QUESTIONS (product inquiries, feature requests): Reply with a helpful answer.",
+    "quote": "QUESTIONS (product inquiries, feature requests): Reply with a helpful answer.",
+    "types": [
+     "eligibility_filter"
+    ],
+    "source": "msg_sop §preamble step 2",
+    "by": "skill",
+    "id": "g_071f2e98b5"
+   },
+   "statement_ids": [
+    "msg_sop:preamble:3"
+   ],
+   "checker": "verifier",
+   "may_deny": true,
+   "source": {
+    "document": "msg_sop",
+    "section": "preamble",
+    "page": null,
+    "line": 6,
+    "step": 2
+   },
+   "quote": "QUESTIONS (product inquiries, feature requests): Reply with a helpful answer."
+  },
+  {
+   "id": "g_1e115eae89",
+   "type": "verify",
+   "rule": {
+    "type": "verify",
+    "tools": [
+     "twitter_post_tweet",
+     "twitter_like_tweet",
+     "slack_send_channel_message"
+    ],
+    "statement": "COMPLAINTS (outages, bugs, service issues): Do NOT reply publicly. Escalate to #support-alerts in Slack with the username and issue summary. Do NOT like complaints.",
+    "quote": "COMPLAINTS (outages, bugs, service issues): Do NOT reply publicly. Escalate to #support-alerts in Slack with the username and issue summary. Do NOT like complaints.",
+    "types": [
+     "notification_duty",
+     "prohibition"
+    ],
+    "source": "msg_sop §preamble step 3",
+    "by": "skill",
+    "id": "g_1e115eae89"
+   },
+   "statement_ids": [
+    "msg_sop:preamble:4"
+   ],
+   "checker": "verifier",
+   "may_deny": true,
+   "source": {
+    "document": "msg_sop",
+    "section": "preamble",
+    "page": null,
+    "line": 7,
+    "step": 3
+   },
+   "quote": "COMPLAINTS (outages, bugs, service issues): Do NOT reply publicly. Escalate to #support-alerts in Slack with the username and issue summary. Do NOT like complaints."
+  },
+  {
+   "id": "g_615a23b856",
+   "type": "verify",
+   "rule": {
+    "type": "verify",
+    "tools": [
+     "twitter_like_tweet",
+     "twitter_post_tweet"
+    ],
+    "statement": "NEUTRAL mentions (casual references, ads seen): No action needed - skip these.",
+    "quote": "NEUTRAL mentions (casual references, ads seen): No action needed - skip these.",
+    "types": [
+     "eligibility_filter"
+    ],
+    "source": "msg_sop §preamble step 4",
+    "by": "skill",
+    "id": "g_615a23b856"
+   },
+   "statement_ids": [
+    "msg_sop:preamble:5"
+   ],
+   "checker": "verifier",
+   "may_deny": true,
+   "source": {
+    "document": "msg_sop",
+    "section": "preamble",
+    "page": null,
+    "line": 8,
+    "step": 4
+   },
+   "quote": "NEUTRAL mentions (casual references, ads seen): No action needed - skip these."
+  },
+  {
+   "id": "g_17cd3abdba",
+   "type": "verify",
+   "rule": {
+    "type": "verify",
+    "tools": [
+     "twitter_like_tweet",
+     "twitter_post_tweet"
+    ],
+    "statement": "COMPETITOR COMPARISONS: Do not engage - skip these entirely.",
+    "quote": "COMPETITOR COMPARISONS: Do not engage - skip these entirely.",
+    "types": [
+     "eligibility_filter",
+     "prohibition"
+    ],
+    "source": "msg_sop §preamble step 5",
+    "by": "skill",
+    "id": "g_17cd3abdba"
+   },
+   "statement_ids": [
+    "msg_sop:preamble:6"
+   ],
+   "checker": "verifier",
+   "may_deny": true,
+   "source": {
+    "document": "msg_sop",
+    "section": "preamble",
+    "page": null,
+    "line": 9,
+    "step": 5
+   },
+   "quote": "COMPETITOR COMPARISONS: Do not engage - skip these entirely."
+  },
+  {
+   "id": "g_a55e47e52a",
+   "type": "record_condition",
+   "rule": {
+    "type": "record_condition",
+    "tools": [
+     "twitter_like_tweet",
+     "twitter_post_tweet"
+    ],
+    "field": "is_retweet",
+    "op": "equals",
+    "value": true,
+    "effect": "forbid",
+    "quote": "Do not like or reply to retweets",
+    "source": "msg_sop §preamble step 6",
+    "by": "skill",
+    "id": "g_a55e47e52a"
+   },
+   "statement_ids": [
+    "msg_sop:preamble:7"
+   ],
+   "checker": "code",
+   "may_deny": true,
+   "source": {
+    "document": "msg_sop",
+    "section": "preamble",
+    "page": null,
+    "line": 10,
+    "step": 6
+   },
+   "quote": "Do not like or reply to retweets"
+  },
+  {
+   "id": "g_9fb81baf92",
+   "type": "verify",
+   "rule": {
+    "type": "verify",
+    "tools": [
+     "slack_send_channel_message"
+    ],
+    "statement": "Important: When escalating to Slack, always include the Twitter username so the support team can follow up directly.",
+    "quote": "Important: When escalating to Slack, always include the Twitter username so the support team can follow up directly.",
+    "types": [
+     "notification_duty",
+     "required_field"
+    ],
+    "source": "msg_sop §preamble",
+    "by": "skill",
+    "id": "g_9fb81baf92"
+   },
+   "statement_ids": [
+    "msg_sop:preamble:8"
+   ],
+   "checker": "verifier",
+   "may_deny": true,
+   "source": {
+    "document": "msg_sop",
+    "section": "preamble",
+    "page": null,
+    "line": 12
+   },
+   "quote": "Important: When escalating to Slack, always include the Twitter username so the support team can follow up directly."
+  }
+ ],
+ "procedures": [],
+ "links": [
+  {
+   "type": "depends_on",
+   "src": "msg_sop:preamble:8",
+   "dst": "msg_sop:preamble:4",
+   "source": {
+    "document": "msg_sop",
+    "section": "preamble",
+    "page": null,
+    "line": 12
+   },
+   "quote": "When escalating to Slack"
+  }
+ ],
+ "definitions": [],
+ "coverage": [
+  {
+   "statement_id": "msg_sop:preamble:1",
+   "kind": "out_of_scope",
+   "reason": "list heading",
+   "source": {
+    "document": "msg_sop",
+    "section": "preamble",
+    "page": null,
+    "line": 3
+   },
+   "quote": "Updated social engagement guidelines:"
+  },
+  {
+   "statement_id": "msg_sop:preamble:2",
+   "kind": "verify",
+   "reason": "1 rule(s): verify",
+   "source": {
+    "document": "msg_sop",
+    "section": "preamble",
+    "page": null,
+    "line": 5,
+    "step": 1
+   },
+   "quote": "POSITIVE mentions (praise, recommendations, upgrades): Like the tweet."
+  },
+  {
+   "statement_id": "msg_sop:preamble:3",
+   "kind": "verify",
+   "reason": "1 rule(s): verify",
+   "source": {
+    "document": "msg_sop",
+    "section": "preamble",
+    "page": null,
+    "line": 6,
+    "step": 2
+   },
+   "quote": "QUESTIONS (product inquiries, feature requests): Reply with a helpful answer."
+  },
+  {
+   "statement_id": "msg_sop:preamble:4",
+   "kind": "verify",
+   "reason": "1 rule(s): verify",
+   "source": {
+    "document": "msg_sop",
+    "section": "preamble",
+    "page": null,
+    "line": 7,
+    "step": 3
+   },
+   "quote": "COMPLAINTS (outages, bugs, service issues): Do NOT reply publicly. Escalate to #support-alerts in Slack with the username and issue summary. Do NOT like complaints."
+  },
+  {
+   "statement_id": "msg_sop:preamble:5",
+   "kind": "verify",
+   "reason": "1 rule(s): verify",
+   "source": {
+    "document": "msg_sop",
+    "section": "preamble",
+    "page": null,
+    "line": 8,
+    "step": 4
+   },
+   "quote": "NEUTRAL mentions (casual references, ads seen): No action needed - skip these."
+  },
+  {
+   "statement_id": "msg_sop:preamble:6",
+   "kind": "verify",
+   "reason": "1 rule(s): verify",
+   "source": {
+    "document": "msg_sop",
+    "section": "preamble",
+    "page": null,
+    "line": 9,
+    "step": 5
+   },
+   "quote": "COMPETITOR COMPARISONS: Do not engage - skip these entirely."
+  },
+  {
+   "statement_id": "msg_sop:preamble:7",
+   "kind": "rule",
+   "reason": "1 rule(s): record_condition",
+   "source": {
+    "document": "msg_sop",
+    "section": "preamble",
+    "page": null,
+    "line": 10,
+    "step": 6
+   },
+   "quote": "RETWEETS of existing mentions: Do not like or reply to retweets."
+  },
+  {
+   "statement_id": "msg_sop:preamble:8",
+   "kind": "verify",
+   "reason": "1 rule(s): verify",
+   "source": {
+    "document": "msg_sop",
+    "section": "preamble",
+    "page": null,
+    "line": 12
+   },
+   "quote": "Important: When escalating to Slack, always include the Twitter username so the support team can follow up directly."
+  }
+ ],
+ "validation": [],
+ "generator": {
+  "kind": "skill",
+  "harness": "claude-code",
+  "model": "claude (gold, reviewed by a person later)"
+ },
+ "stats": {
+  "documents": 1,
+  "statements": 8,
+  "rules": 7,
+  "by_type": {
+   "record_condition": 1,
+   "verify": 6
+  },
+  "procedures": 0,
+  "links": 1,
+  "links_by_type": {
+   "depends_on": 1
+  },
+  "coverage": {
+   "out_of_scope": 1,
+   "verify": 6,
+   "rule": 1
+  },
+  "validation_errors": 0,
+  "documents_by_trust": {
+   "trusted": 1,
+   "untrusted": 0
+  }
+ }
+}

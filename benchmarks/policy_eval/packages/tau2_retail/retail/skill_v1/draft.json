@@ -1,0 +1,1665 @@
+{
+ "modality": {
+  "policy:preamble:2": "may",
+  "policy:preamble:3": "may",
+  "policy:preamble:4": "may",
+  "policy:preamble:5": "may",
+  "policy:preamble:6": "must",
+  "policy:preamble:7": "must",
+  "policy:preamble:8": "may",
+  "policy:preamble:9": "must_not",
+  "policy:preamble:10": "must",
+  "policy:preamble:11": "must_not",
+  "policy:preamble:12": "must",
+  "policy:preamble:13": "must_not",
+  "policy:preamble:14": "must",
+  "policy:preamble:15": "must",
+  "policy:preamble:16": "must",
+  "policy:product:13": "must_not",
+  "policy:generic-action-rules:1": "must",
+  "policy:generic-action-rules:2": "must",
+  "policy:generic-action-rules:3": "must",
+  "policy:cancel-pending-order:1": "must",
+  "policy:cancel-pending-order:2": "must",
+  "policy:cancel-pending-order:3": "must_not",
+  "policy:cancel-pending-order:4": "must",
+  "policy:modify-pending-order:1": "must",
+  "policy:modify-pending-order:2": "must_not",
+  "policy:modify-payment:1": "must",
+  "policy:modify-payment:2": "must",
+  "policy:modify-payment:3": "must",
+  "policy:modify-items:1": "must",
+  "policy:modify-items:2": "must_not",
+  "policy:modify-items:3": "must",
+  "policy:modify-items:4": "must",
+  "policy:modify-items:5": "must",
+  "policy:modify-items:6": "must_not",
+  "policy:modify-items:7": "must",
+  "policy:modify-items:8": "must",
+  "policy:return-delivered-order:1": "must",
+  "policy:return-delivered-order:2": "must",
+  "policy:return-delivered-order:3": "must",
+  "policy:return-delivered-order:4": "must",
+  "policy:return-delivered-order:5": "must",
+  "policy:exchange-delivered-order:1": "must",
+  "policy:exchange-delivered-order:2": "must",
+  "policy:exchange-delivered-order:3": "must",
+  "policy:exchange-delivered-order:4": "must_not",
+  "policy:exchange-delivered-order:5": "must",
+  "policy:exchange-delivered-order:6": "must",
+  "policy:exchange-delivered-order:7": "must"
+ },
+ "rules": [
+  {
+   "id": "r_cancel_status",
+   "class": "hard",
+   "level": "block_once",
+   "statement_ids": [
+    "policy:cancel-pending-order:1",
+    "policy:generic-action-rules:1",
+    "policy:modify-items:2"
+   ],
+   "quote": "An order can only be cancelled if its status is 'pending'",
+   "rule": {
+    "type": "reference_status",
+    "tool": "cancel_pending_order",
+    "arg": "order_id",
+    "field": "status",
+    "allowed": [
+     "pending"
+    ]
+   }
+  },
+  {
+   "id": "r_modify_address_status",
+   "class": "hard",
+   "level": "block_once",
+   "statement_ids": [
+    "policy:modify-pending-order:1",
+    "policy:generic-action-rules:1",
+    "policy:modify-items:2"
+   ],
+   "quote": "An order can only be modified if its status is 'pending'",
+   "rule": {
+    "type": "reference_status",
+    "tool": "modify_pending_order_address",
+    "arg": "order_id",
+    "field": "status",
+    "allowed": [
+     "pending"
+    ]
+   }
+  },
+  {
+   "id": "r_modify_payment_status",
+   "class": "hard",
+   "level": "block_once",
+   "statement_ids": [
+    "policy:modify-pending-order:1",
+    "policy:generic-action-rules:1",
+    "policy:modify-items:2"
+   ],
+   "quote": "An order can only be modified if its status is 'pending'",
+   "rule": {
+    "type": "reference_status",
+    "tool": "modify_pending_order_payment",
+    "arg": "order_id",
+    "field": "status",
+    "allowed": [
+     "pending"
+    ]
+   }
+  },
+  {
+   "id": "r_modify_items_status",
+   "class": "hard",
+   "level": "block_once",
+   "statement_ids": [
+    "policy:modify-pending-order:1",
+    "policy:generic-action-rules:1",
+    "policy:modify-items:1",
+    "policy:modify-items:2"
+   ],
+   "quote": "An order can only be modified if its status is 'pending'",
+   "rule": {
+    "type": "reference_status",
+    "tool": "modify_pending_order_items",
+    "arg": "order_id",
+    "field": "status",
+    "allowed": [
+     "pending"
+    ]
+   }
+  },
+  {
+   "id": "r_return_status",
+   "class": "hard",
+   "level": "block_once",
+   "statement_ids": [
+    "policy:return-delivered-order:1",
+    "policy:generic-action-rules:1"
+   ],
+   "quote": "An order can only be returned if its status is 'delivered'",
+   "rule": {
+    "type": "reference_status",
+    "tool": "return_delivered_order_items",
+    "arg": "order_id",
+    "field": "status",
+    "allowed": [
+     "delivered"
+    ]
+   }
+  },
+  {
+   "id": "r_exchange_status",
+   "class": "hard",
+   "level": "block_once",
+   "statement_ids": [
+    "policy:exchange-delivered-order:1",
+    "policy:generic-action-rules:1"
+   ],
+   "quote": "An order can only be exchanged if its status is 'delivered'",
+   "rule": {
+    "type": "reference_status",
+    "tool": "exchange_delivered_order_items",
+    "arg": "order_id",
+    "field": "status",
+    "allowed": [
+     "delivered"
+    ]
+   }
+  },
+  {
+   "id": "r_cancel_reason",
+   "class": "hard",
+   "level": "deny",
+   "statement_ids": [
+    "policy:cancel-pending-order:2",
+    "policy:cancel-pending-order:3"
+   ],
+   "quote": "either 'no longer needed' or 'ordered by mistake'",
+   "rule": {
+    "type": "allowed_values",
+    "tool": "cancel_pending_order",
+    "arg": "reason",
+    "values": [
+     "no longer needed",
+     "ordered by mistake"
+    ]
+   }
+  },
+  {
+   "id": "r_items_payment",
+   "class": "hard",
+   "level": "deny",
+   "statement_ids": [
+    "policy:modify-items:7"
+   ],
+   "quote": "The user must provide a payment method to pay or receive refund of the price difference.",
+   "rule": {
+    "type": "required_args",
+    "tool": "modify_pending_order_items",
+    "args": [
+     "payment_method_id"
+    ]
+   }
+  },
+  {
+   "id": "r_return_payment",
+   "class": "hard",
+   "level": "deny",
+   "statement_ids": [
+    "policy:return-delivered-order:3"
+   ],
+   "quote": "The user needs to provide a payment method to receive the refund.",
+   "rule": {
+    "type": "required_args",
+    "tool": "return_delivered_order_items",
+    "args": [
+     "payment_method_id"
+    ]
+   }
+  },
+  {
+   "id": "r_exchange_payment",
+   "class": "hard",
+   "level": "deny",
+   "statement_ids": [
+    "policy:exchange-delivered-order:5"
+   ],
+   "quote": "The user must provide a payment method to pay or receive refund of the price difference.",
+   "rule": {
+    "type": "required_args",
+    "tool": "exchange_delivered_order_items",
+    "args": [
+     "payment_method_id"
+    ]
+   }
+  },
+  {
+   "id": "r_id_provenance",
+   "class": "hard",
+   "level": "observe",
+   "statement_ids": [
+    "policy:preamble:11"
+   ],
+   "rule": {
+    "type": "id_provenance"
+   }
+  },
+  {
+   "id": "r_grounded_values",
+   "class": "hard",
+   "level": "observe",
+   "statement_ids": [
+    "policy:preamble:11"
+   ],
+   "rule": {
+    "type": "grounded_values"
+   }
+  },
+  {
+   "id": "r_authenticate",
+   "class": "judgment",
+   "level": "remind",
+   "statement_ids": [
+    "policy:preamble:6",
+    "policy:preamble:7"
+   ],
+   "why": "Needs the earlier calls of the conversation (a find_user_id call that located this user); no argument of the checked tool carries that.",
+   "rule": {
+    "type": "verify",
+    "tools": [
+     "get_user_details",
+     "get_order_details",
+     "get_product_details",
+     "get_item_details",
+     "list_all_product_types",
+     "cancel_pending_order",
+     "modify_pending_order_address",
+     "modify_pending_order_items",
+     "modify_pending_order_payment",
+     "modify_user_address",
+     "return_delivered_order_items",
+     "exchange_delivered_order_items"
+    ],
+    "statement": "At the beginning of the conversation, you have to authenticate the user identity by locating their user id via email, or via name + zip code. This has to be done even when the user already provides the user id."
+   }
+  },
+  {
+   "id": "r_one_user",
+   "class": "judgment",
+   "level": "remind",
+   "statement_ids": [
+    "policy:preamble:9"
+   ],
+   "why": "Compares the user id of the order or profile with the user authenticated earlier in the conversation; a membership rule needs a user argument that the order tools do not have.",
+   "rule": {
+    "type": "verify",
+    "tools": [
+     "get_user_details",
+     "get_order_details",
+     "cancel_pending_order",
+     "modify_pending_order_address",
+     "modify_pending_order_items",
+     "modify_pending_order_payment",
+     "modify_user_address",
+     "return_delivered_order_items",
+     "exchange_delivered_order_items"
+    ],
+    "statement": "You can only help one user per conversation (but you can handle multiple requests from the same user), and must deny any requests for tasks related to any other user."
+   }
+  },
+  {
+   "id": "r_confirm",
+   "class": "judgment",
+   "level": "remind",
+   "statement_ids": [
+    "policy:preamble:10"
+   ],
+   "why": "The listing of details and the yes are in the conversation, not in any argument of the call.",
+   "rule": {
+    "type": "verify",
+    "tools": [
+     "cancel_pending_order",
+     "modify_pending_order_address",
+     "modify_pending_order_items",
+     "modify_pending_order_payment",
+     "modify_user_address",
+     "return_delivered_order_items",
+     "exchange_delivered_order_items"
+    ],
+    "statement": "Before taking any action that updates the database (cancel, modify, return, exchange), you must list the action details and obtain explicit user confirmation (yes) to proceed."
+   }
+  },
+  {
+   "id": "r_transfer_scope",
+   "class": "judgment",
+   "level": "remind",
+   "statement_ids": [
+    "policy:preamble:15"
+   ],
+   "why": "Whether a request can be handled within the scope of the agent's actions is a reading of the request; the summary argument has no fixed values.",
+   "rule": {
+    "type": "verify",
+    "tools": [
+     "transfer_to_human_agents"
+    ],
+    "statement": "You should transfer the user to a human agent if and only if the request cannot be handled within the scope of your actions."
+   }
+  },
+  {
+   "id": "r_once",
+   "class": "judgment",
+   "level": "remind",
+   "statement_ids": [
+    "policy:generic-action-rules:2"
+   ],
+   "why": "Needs the earlier calls on the same order; the address and payment tools leave the order status 'pending', so a reference_status rule does not see a second call.",
+   "rule": {
+    "type": "verify",
+    "tools": [
+     "modify_pending_order_address",
+     "modify_pending_order_items",
+     "modify_pending_order_payment",
+     "exchange_delivered_order_items"
+    ],
+    "statement": "Exchange or modify order tools can only be called once per order."
+   }
+  },
+  {
+   "id": "r_items_list",
+   "class": "judgment",
+   "level": "remind",
+   "statement_ids": [
+    "policy:generic-action-rules:3"
+   ],
+   "why": "Whether the list holds all items to be changed depends on what the user asked in the conversation.",
+   "rule": {
+    "type": "verify",
+    "tools": [
+     "modify_pending_order_items",
+     "exchange_delivered_order_items"
+    ],
+    "statement": "Be sure that all items to be changed are collected into a list before making the tool call!!!"
+   }
+  },
+  {
+   "id": "r_modify_items_remind",
+   "class": "judgment",
+   "level": "remind",
+   "statement_ids": [
+    "policy:modify-items:3",
+    "policy:modify-items:4"
+   ],
+   "why": "The confirmation and the reminder are in the conversation, not in any argument of the call.",
+   "rule": {
+    "type": "verify",
+    "tools": [
+     "modify_pending_order_items"
+    ],
+    "statement": "So you must confirm all the details are correct and be cautious before taking this action. In particular, remember to remind the customer to confirm they have provided all the items they want to modify."
+   }
+  },
+  {
+   "id": "r_exchange_remind",
+   "class": "judgment",
+   "level": "remind",
+   "statement_ids": [
+    "policy:exchange-delivered-order:2"
+   ],
+   "why": "The reminder is in the conversation, not in any argument of the call.",
+   "rule": {
+    "type": "verify",
+    "tools": [
+     "exchange_delivered_order_items"
+    ],
+    "statement": "In particular, remember to remind the customer to confirm they have provided all items to be exchanged."
+   }
+  },
+  {
+   "id": "r_payment_single",
+   "class": "judgment",
+   "level": "remind",
+   "statement_ids": [
+    "policy:modify-payment:1"
+   ],
+   "why": "Compares the argument with the payment history of the order; record_condition compares a field with a fixed value only.",
+   "rule": {
+    "type": "verify",
+    "tools": [
+     "modify_pending_order_payment"
+    ],
+    "statement": "The user can only choose a single payment method different from the original payment method."
+   }
+  },
+  {
+   "id": "r_payment_gift_card",
+   "class": "judgment",
+   "level": "remind",
+   "statement_ids": [
+    "policy:modify-payment:2"
+   ],
+   "why": "Compares two read records (the gift card balance and the order total); threshold compares an argument with a fixed number only.",
+   "rule": {
+    "type": "verify",
+    "tools": [
+     "modify_pending_order_payment"
+    ],
+    "statement": "If the user wants the modify the payment method to gift card, it must have enough balance to cover the total amount."
+   }
+  },
+  {
+   "id": "r_items_same_product",
+   "class": "judgment",
+   "level": "remind",
+   "statement_ids": [
+    "policy:modify-items:5",
+    "policy:modify-items:6"
+   ],
+   "why": "Compares each old item with the new item in the same position (same product, different option, available); no typed rule compares two records, and the text names no availability values.",
+   "rule": {
+    "type": "verify",
+    "tools": [
+     "modify_pending_order_items"
+    ],
+    "statement": "For a pending order, each item can be modified to an available new item of the same product but of different product option. There cannot be any change of product types, e.g. modify shirt to shoe."
+   }
+  },
+  {
+   "id": "r_items_gift_card",
+   "class": "judgment",
+   "level": "remind",
+   "statement_ids": [
+    "policy:modify-items:8"
+   ],
+   "why": "Compares the gift card balance with a price difference computed from read records; threshold compares an argument with a fixed number only.",
+   "rule": {
+    "type": "verify",
+    "tools": [
+     "modify_pending_order_items"
+    ],
+    "statement": "If the user provides a gift card, it must have enough balance to cover the price difference."
+   }
+  },
+  {
+   "id": "r_return_refund",
+   "class": "judgment",
+   "level": "remind",
+   "statement_ids": [
+    "policy:return-delivered-order:4"
+   ],
+   "why": "Compares the argument with the payment history of the order and the user's payment methods; a fixed value list cannot hold them and the argument is a record id.",
+   "rule": {
+    "type": "verify",
+    "tools": [
+     "return_delivered_order_items"
+    ],
+    "statement": "The refund must either go to the original payment method, or an existing gift card."
+   }
+  },
+  {
+   "id": "r_exchange_same_product",
+   "class": "judgment",
+   "level": "remind",
+   "statement_ids": [
+    "policy:exchange-delivered-order:3",
+    "policy:exchange-delivered-order:4"
+   ],
+   "why": "Compares each old item with the new item in the same position (same product, different option, available); no typed rule compares two records, and the text names no availability values.",
+   "rule": {
+    "type": "verify",
+    "tools": [
+     "exchange_delivered_order_items"
+    ],
+    "statement": "For a delivered order, each item can be exchanged to an available new item of the same product but of different product option. There cannot be any change of product types, e.g. modify shirt to shoe."
+   }
+  },
+  {
+   "id": "r_exchange_gift_card",
+   "class": "judgment",
+   "level": "remind",
+   "statement_ids": [
+    "policy:exchange-delivered-order:6"
+   ],
+   "why": "Compares the gift card balance with a price difference computed from read records; threshold compares an argument with a fixed number only.",
+   "rule": {
+    "type": "verify",
+    "tools": [
+     "exchange_delivered_order_items"
+    ],
+    "statement": "If the user provides a gift card, it must have enough balance to cover the price difference."
+   }
+  },
+  {
+   "id": "r_no_invention",
+   "class": "guidance",
+   "level": "observe",
+   "statement_ids": [
+    "policy:preamble:11"
+   ],
+   "rule": {
+    "type": "guidance",
+    "text": "You should not make up any information or knowledge or procedures not provided by the user or the tools, or give subjective recommendations or comments."
+   }
+  },
+  {
+   "id": "r_one_call",
+   "class": "guidance",
+   "level": "observe",
+   "statement_ids": [
+    "policy:preamble:12",
+    "policy:preamble:13"
+   ],
+   "rule": {
+    "type": "guidance",
+    "text": "You should at most make one tool call at a time, and if you take a tool call, you should not respond to the user at the same time. If you respond to the user, you should not make a tool call at the same time."
+   }
+  },
+  {
+   "id": "r_deny_against_policy",
+   "class": "guidance",
+   "level": "observe",
+   "statement_ids": [
+    "policy:preamble:14"
+   ],
+   "rule": {
+    "type": "guidance",
+    "text": "You should deny user requests that are against this policy."
+   }
+  },
+  {
+   "id": "r_product_item_ids",
+   "class": "guidance",
+   "level": "observe",
+   "statement_ids": [
+    "policy:product:13"
+   ],
+   "rule": {
+    "type": "guidance",
+    "text": "Note: Product ID and Item ID have no relations and should not be confused!",
+    "tools": [
+     "get_product_details",
+     "get_item_details"
+    ]
+   }
+  }
+ ],
+ "procedures": [
+  {
+   "id": "cancel-pending-order",
+   "name": "Cancel pending order",
+   "category": "cancel or modify pending orders",
+   "src": "Cancel pending order",
+   "applies_when": "the reason (either 'no longer needed' or 'ordered by mistake') for cancellation",
+   "inputs": [
+    {
+     "fact": "order status",
+     "source": "the order record (get_order_details)"
+    },
+    {
+     "fact": "order id and reason for cancellation",
+     "source": "the user"
+    }
+   ],
+   "decisions": [
+    {
+     "id": "status_pending",
+     "rule": "An order can only be cancelled if its status is 'pending'",
+     "then": "continue",
+     "else": "deny the request"
+    },
+    {
+     "id": "reason_accepted",
+     "rule": "the reason (either 'no longer needed' or 'ordered by mistake') for cancellation",
+     "then": "continue",
+     "else": "Other reasons are not acceptable: deny the request"
+    },
+    {
+     "id": "refund_gift_card",
+     "rule": "refunded via the original payment method immediately if it is gift card",
+     "then": "refund is immediate",
+     "else": "refund takes 5 to 7 business days"
+    }
+   ],
+   "steps": [
+    {
+     "id": "policy:cancel-pending-order:1",
+     "action": "get_order_details"
+    },
+    {
+     "id": "policy:cancel-pending-order:2",
+     "action": "reply"
+    },
+    {
+     "id": "policy:cancel-pending-order:3"
+    },
+    {
+     "id": "policy:cancel-pending-order:4",
+     "action": "cancel_pending_order"
+    }
+   ],
+   "must_not": [
+    "An order can only be cancelled if its status is 'pending'",
+    "The user needs to confirm the order id and the reason (either 'no longer needed' or 'ordered by mistake') for cancellation. Other reasons are not acceptable.",
+    "will change the order status to 'pending (items modifed)'. The agent will not be able to modify or cancel the order anymore."
+   ],
+   "preconditions": [
+    {
+     "condition": "the order status is 'pending'",
+     "if_not": "stop",
+     "quote": "An order can only be cancelled if its status is 'pending'"
+    }
+   ],
+   "exceptions": [
+    {
+     "when": "the order status is 'pending (items modifed)'",
+     "then": "do not cancel the order",
+     "quote": "The agent will not be able to modify or cancel the order anymore."
+    }
+   ],
+   "notes": [
+    "the total will be refunded via the original payment method immediately if it is gift card, otherwise in 5 to 7 business days."
+   ],
+   "links": []
+  },
+  {
+   "id": "modify-pending-order",
+   "name": "Modify pending order",
+   "category": "cancel or modify pending orders",
+   "src": "Modify pending order",
+   "applies_when": "you can take actions to modify its shipping address, payment method, or product item options",
+   "inputs": [
+    {
+     "fact": "order status",
+     "source": "the order record (get_order_details)"
+    },
+    {
+     "fact": "what the user wants to modify",
+     "source": "the user"
+    }
+   ],
+   "decisions": [
+    {
+     "id": "status_pending",
+     "rule": "An order can only be modified if its status is 'pending'",
+     "then": "continue",
+     "else": "deny the request"
+    },
+    {
+     "id": "modify_shipping_address",
+     "rule": "modify its shipping address",
+     "then": "call modify_pending_order_address after user confirmation",
+     "else": "see the other decisions"
+    },
+    {
+     "id": "modify_payment_method",
+     "rule": "the user wants the modify the payment method",
+     "then": "open procedure modify-payment",
+     "else": "see the other decisions"
+    },
+    {
+     "id": "modify_item_options",
+     "rule": "each item can be modified to an available new item",
+     "then": "open procedure modify-items",
+     "else": "see the other decisions"
+    }
+   ],
+   "steps": [
+    {
+     "id": "policy:modify-pending-order:1",
+     "action": "get_order_details"
+    },
+    {
+     "id": "policy:modify-pending-order:2"
+    }
+   ],
+   "must_not": [
+    "An order can only be modified if its status is 'pending'",
+    "For a pending order, you can take actions to modify its shipping address, payment method, or product item options, but nothing else.",
+    "will change the order status to 'pending (items modifed)'. The agent will not be able to modify or cancel the order anymore."
+   ],
+   "preconditions": [
+    {
+     "condition": "the order status is 'pending'",
+     "if_not": "stop",
+     "quote": "An order can only be modified if its status is 'pending'"
+    }
+   ],
+   "exceptions": [
+    {
+     "when": "the order status is 'pending (items modifed)'",
+     "then": "do not modify the order",
+     "quote": "The agent will not be able to modify or cancel the order anymore."
+    }
+   ],
+   "links": []
+  },
+  {
+   "id": "modify-payment",
+   "name": "Modify payment",
+   "category": "cancel or modify pending orders",
+   "src": "Modify pending order / Modify payment",
+   "applies_when": "the user wants the modify the payment method",
+   "inputs": [
+    {
+     "fact": "order status, total amount and original payment method",
+     "source": "the order record (get_order_details)"
+    },
+    {
+     "fact": "payment methods of the user and gift card balance",
+     "source": "the user profile (get_user_details)"
+    }
+   ],
+   "decisions": [
+    {
+     "id": "status_pending",
+     "rule": "An order can only be modified if its status is 'pending'",
+     "then": "continue",
+     "else": "deny the request"
+    },
+    {
+     "id": "single_different_method",
+     "rule": "a single payment method different from the original payment method",
+     "then": "continue",
+     "else": "deny the request"
+    },
+    {
+     "id": "gift_card_balance",
+     "rule": "If the user wants the modify the payment method to gift card, it must have enough balance to cover the total amount.",
+     "then": "continue",
+     "else": "deny the request"
+    },
+    {
+     "id": "refund_gift_card",
+     "rule": "The original payment method will be refunded immediately if it is a gift card",
+     "then": "refund is immediate",
+     "else": "refund takes 5 to 7 business days"
+    }
+   ],
+   "steps": [
+    {
+     "id": "policy:modify-payment:1"
+    },
+    {
+     "id": "policy:modify-payment:2",
+     "condition": "the user wants the modify the payment method to gift card"
+    },
+    {
+     "id": "policy:modify-payment:3",
+     "action": "modify_pending_order_payment"
+    }
+   ],
+   "must_not": [
+    "An order can only be modified if its status is 'pending'",
+    "The user can only choose a single payment method different from the original payment method.",
+    "If the user wants the modify the payment method to gift card, it must have enough balance to cover the total amount.",
+    "will change the order status to 'pending (items modifed)'. The agent will not be able to modify or cancel the order anymore."
+   ],
+   "preconditions": [
+    {
+     "condition": "the order status is 'pending'",
+     "if_not": "stop",
+     "quote": "An order can only be modified if its status is 'pending'"
+    }
+   ],
+   "notes": [
+    "The original payment method will be refunded immediately if it is a gift card, otherwise it will be refunded within 5 to 7 business days."
+   ],
+   "links": []
+  },
+  {
+   "id": "modify-items",
+   "name": "Modify items",
+   "category": "cancel or modify pending orders",
+   "src": "Modify pending order / Modify items",
+   "applies_when": "each item can be modified to an available new item of the same product",
+   "inputs": [
+    {
+     "fact": "order status and items ordered",
+     "source": "the order record (get_order_details)"
+    },
+    {
+     "fact": "all the items the user wants to modify",
+     "source": "the user"
+    },
+    {
+     "fact": "availability, price and product of the new items",
+     "source": "the product record (get_product_details)"
+    },
+    {
+     "fact": "payment methods of the user and gift card balance",
+     "source": "the user profile (get_user_details)"
+    }
+   ],
+   "decisions": [
+    {
+     "id": "status_pending",
+     "rule": "An order can only be modified if its status is 'pending'",
+     "then": "continue",
+     "else": "deny the request"
+    },
+    {
+     "id": "same_product",
+     "rule": "an available new item of the same product but of different product option",
+     "then": "continue",
+     "else": "deny the request"
+    },
+    {
+     "id": "gift_card_balance",
+     "rule": "If the user provides a gift card, it must have enough balance to cover the price difference.",
+     "then": "continue",
+     "else": "deny the request"
+    }
+   ],
+   "steps": [
+    {
+     "id": "policy:modify-items:1",
+     "action": "modify_pending_order_items"
+    },
+    {
+     "id": "policy:modify-items:2"
+    },
+    {
+     "id": "policy:modify-items:3",
+     "action": "reply"
+    },
+    {
+     "id": "policy:modify-items:4",
+     "action": "reply"
+    },
+    {
+     "id": "policy:modify-items:5"
+    },
+    {
+     "id": "policy:modify-items:6"
+    },
+    {
+     "id": "policy:modify-items:7"
+    },
+    {
+     "id": "policy:modify-items:8",
+     "condition": "the user provides a gift card"
+    }
+   ],
+   "must_not": [
+    "An order can only be modified if its status is 'pending'",
+    "For a pending order, each item can be modified to an available new item of the same product but of different product option.",
+    "There cannot be any change of product types, e.g. modify shirt to shoe.",
+    "If the user provides a gift card, it must have enough balance to cover the price difference.",
+    "will change the order status to 'pending (items modifed)'. The agent will not be able to modify or cancel the order anymore."
+   ],
+   "preconditions": [
+    {
+     "condition": "the order status is 'pending'",
+     "if_not": "stop",
+     "quote": "An order can only be modified if its status is 'pending'"
+    }
+   ],
+   "exceptions": [
+    {
+     "when": "the order status is 'pending (items modifed)'",
+     "then": "do not modify or cancel the order",
+     "quote": "The agent will not be able to modify or cancel the order anymore."
+    }
+   ],
+   "links": []
+  },
+  {
+   "id": "return-delivered-order",
+   "name": "Return delivered order",
+   "category": "return or exchange delivered orders",
+   "src": "Return delivered order",
+   "applies_when": "the list of items to be returned",
+   "inputs": [
+    {
+     "fact": "order status and original payment method",
+     "source": "the order record (get_order_details)"
+    },
+    {
+     "fact": "order id, list of items to be returned and payment method for the refund",
+     "source": "the user"
+    },
+    {
+     "fact": "existing gift cards of the user",
+     "source": "the user profile (get_user_details)"
+    }
+   ],
+   "decisions": [
+    {
+     "id": "status_delivered",
+     "rule": "An order can only be returned if its status is 'delivered'",
+     "then": "continue",
+     "else": "deny the request"
+    },
+    {
+     "id": "refund_method",
+     "rule": "The refund must either go to the original payment method, or an existing gift card.",
+     "then": "continue",
+     "else": "deny the request"
+    }
+   ],
+   "steps": [
+    {
+     "id": "policy:return-delivered-order:1",
+     "action": "get_order_details"
+    },
+    {
+     "id": "policy:return-delivered-order:2",
+     "action": "reply"
+    },
+    {
+     "id": "policy:return-delivered-order:3"
+    },
+    {
+     "id": "policy:return-delivered-order:4"
+    },
+    {
+     "id": "policy:return-delivered-order:5",
+     "action": "return_delivered_order_items"
+    }
+   ],
+   "must_not": [
+    "An order can only be returned if its status is 'delivered'",
+    "The refund must either go to the original payment method, or an existing gift card."
+   ],
+   "preconditions": [
+    {
+     "condition": "the order status is 'delivered'",
+     "if_not": "stop",
+     "quote": "An order can only be returned if its status is 'delivered'"
+    }
+   ],
+   "links": []
+  },
+  {
+   "id": "exchange-delivered-order",
+   "name": "Exchange delivered order",
+   "category": "return or exchange delivered orders",
+   "src": "Exchange delivered order",
+   "applies_when": "each item can be exchanged to an available new item of the same product",
+   "inputs": [
+    {
+     "fact": "order status and items ordered",
+     "source": "the order record (get_order_details)"
+    },
+    {
+     "fact": "all items to be exchanged",
+     "source": "the user"
+    },
+    {
+     "fact": "availability, price and product of the new items",
+     "source": "the product record (get_product_details)"
+    },
+    {
+     "fact": "payment methods of the user and gift card balance",
+     "source": "the user profile (get_user_details)"
+    }
+   ],
+   "decisions": [
+    {
+     "id": "status_delivered",
+     "rule": "An order can only be exchanged if its status is 'delivered'",
+     "then": "continue",
+     "else": "deny the request"
+    },
+    {
+     "id": "same_product",
+     "rule": "an available new item of the same product but of different product option",
+     "then": "continue",
+     "else": "deny the request"
+    },
+    {
+     "id": "gift_card_balance",
+     "rule": "If the user provides a gift card, it must have enough balance to cover the price difference.",
+     "then": "continue",
+     "else": "deny the request"
+    }
+   ],
+   "steps": [
+    {
+     "id": "policy:exchange-delivered-order:1",
+     "action": "get_order_details"
+    },
+    {
+     "id": "policy:exchange-delivered-order:2",
+     "action": "reply"
+    },
+    {
+     "id": "policy:exchange-delivered-order:3"
+    },
+    {
+     "id": "policy:exchange-delivered-order:4"
+    },
+    {
+     "id": "policy:exchange-delivered-order:5"
+    },
+    {
+     "id": "policy:exchange-delivered-order:6",
+     "condition": "the user provides a gift card"
+    },
+    {
+     "id": "policy:exchange-delivered-order:7",
+     "action": "exchange_delivered_order_items"
+    }
+   ],
+   "must_not": [
+    "An order can only be exchanged if its status is 'delivered'",
+    "For a delivered order, each item can be exchanged to an available new item of the same product but of different product option.",
+    "There cannot be any change of product types, e.g. modify shirt to shoe.",
+    "If the user provides a gift card, it must have enough balance to cover the price difference."
+   ],
+   "preconditions": [
+    {
+     "condition": "the order status is 'delivered'",
+     "if_not": "stop",
+     "quote": "An order can only be exchanged if its status is 'delivered'"
+    }
+   ],
+   "notes": [
+    "There is no need to place a new order."
+   ],
+   "links": []
+  }
+ ],
+ "obligations": [
+  {
+   "id": "ob_confirm_action",
+   "origin": "package",
+   "scope": {
+    "when": {
+     "action_updates_database": "yes"
+    }
+   },
+   "effect": {
+    "kind": "reply"
+   },
+   "values": {},
+   "check": "code",
+   "level": "observe",
+   "source": {
+    "section": "preamble",
+    "quote": "you must list the action details and obtain explicit user confirmation (yes) to proceed"
+   }
+  },
+  {
+   "id": "ob_transfer_call",
+   "origin": "package",
+   "scope": {
+    "when": {
+     "request_cannot_be_handled_within_scope": "yes"
+    }
+   },
+   "effect": {
+    "kind": "write",
+    "tools": [
+     "transfer_to_human_agents"
+    ]
+   },
+   "values": {},
+   "check": "code",
+   "level": "observe",
+   "source": {
+    "section": "preamble",
+    "quote": "first make a tool call to transfer_to_human_agents"
+   }
+  },
+  {
+   "id": "ob_transfer_message",
+   "origin": "package",
+   "scope": {
+    "when": {
+     "request_cannot_be_handled_within_scope": "yes"
+    }
+   },
+   "effect": {
+    "kind": "reply"
+   },
+   "values": {
+    "message": {
+     "from": "literal",
+     "value": "YOU ARE BEING TRANSFERRED TO A HUMAN AGENT. PLEASE HOLD ON."
+    }
+   },
+   "check": "code",
+   "level": "observe",
+   "source": {
+    "section": "preamble",
+    "quote": "and then send the message 'YOU ARE BEING TRANSFERRED TO A HUMAN AGENT."
+   }
+  },
+  {
+   "id": "ob_cancel_confirm",
+   "origin": "package",
+   "scope": {
+    "procedure": "cancel-pending-order"
+   },
+   "effect": {
+    "kind": "reply"
+   },
+   "values": {},
+   "check": "code",
+   "level": "observe",
+   "source": {
+    "section": "cancel-pending-order",
+    "quote": "The user needs to confirm the order id and the reason"
+   }
+  },
+  {
+   "id": "ob_cancel",
+   "origin": "package",
+   "scope": {
+    "procedure": "cancel-pending-order"
+   },
+   "effect": {
+    "kind": "write",
+    "tools": [
+     "cancel_pending_order"
+    ],
+    "match": {
+     "order_id": {
+      "pattern": "{order_id}"
+     },
+     "reason": {
+      "pattern": "{reason}"
+     }
+    }
+   },
+   "values": {
+    "order_id": {
+     "from": "request",
+     "about": "the order id the user confirms"
+    },
+    "reason": {
+     "from": "request",
+     "about": "the reason for cancellation the user confirms"
+    }
+   },
+   "check": "code",
+   "level": "observe",
+   "source": {
+    "section": "cancel-pending-order",
+    "quote": "the order status will be changed to 'cancelled'"
+   }
+  },
+  {
+   "id": "ob_modify_address",
+   "origin": "package",
+   "scope": {
+    "procedure": "modify-pending-order",
+    "when": {
+     "modify_shipping_address": "yes"
+    }
+   },
+   "effect": {
+    "kind": "write",
+    "tools": [
+     "modify_pending_order_address"
+    ],
+    "match": {
+     "order_id": {
+      "pattern": "{order_id}"
+     }
+    }
+   },
+   "values": {
+    "order_id": {
+     "from": "case_fact",
+     "field": "order id",
+     "record": "the order"
+    }
+   },
+   "check": "code",
+   "level": "observe",
+   "source": {
+    "section": "modify-pending-order",
+    "quote": "modify its shipping address, payment method, or product item options"
+   }
+  },
+  {
+   "id": "ob_modify_payment",
+   "origin": "package",
+   "scope": {
+    "procedure": "modify-payment"
+   },
+   "effect": {
+    "kind": "write",
+    "tools": [
+     "modify_pending_order_payment"
+    ],
+    "match": {
+     "order_id": {
+      "pattern": "{order_id}"
+     },
+     "payment_method_id": {
+      "pattern": "{payment_method_id}"
+     }
+    }
+   },
+   "values": {
+    "order_id": {
+     "from": "case_fact",
+     "field": "order id",
+     "record": "the order"
+    },
+    "payment_method_id": {
+     "from": "case_fact",
+     "field": "payment methods",
+     "record": "the user profile"
+    }
+   },
+   "check": "code",
+   "level": "observe",
+   "source": {
+    "section": "modify-payment",
+    "quote": "the order status will be kept as 'pending'"
+   }
+  },
+  {
+   "id": "ob_items_confirm",
+   "origin": "package",
+   "scope": {
+    "procedure": "modify-items"
+   },
+   "effect": {
+    "kind": "reply"
+   },
+   "values": {},
+   "check": "code",
+   "level": "observe",
+   "source": {
+    "section": "modify-items",
+    "quote": "you must confirm all the details are correct"
+   }
+  },
+  {
+   "id": "ob_items_remind",
+   "origin": "package",
+   "scope": {
+    "procedure": "modify-items"
+   },
+   "effect": {
+    "kind": "reply"
+   },
+   "values": {},
+   "check": "code",
+   "level": "observe",
+   "source": {
+    "section": "modify-items",
+    "quote": "remember to remind the customer to confirm they have provided all the items they want to modify"
+   }
+  },
+  {
+   "id": "ob_modify_items",
+   "origin": "package",
+   "scope": {
+    "procedure": "modify-items"
+   },
+   "effect": {
+    "kind": "write",
+    "tools": [
+     "modify_pending_order_items"
+    ],
+    "match": {
+     "order_id": {
+      "pattern": "{order_id}"
+     },
+     "payment_method_id": {
+      "pattern": "{payment_method_id}"
+     }
+    }
+   },
+   "values": {
+    "order_id": {
+     "from": "case_fact",
+     "field": "order id",
+     "record": "the order"
+    },
+    "payment_method_id": {
+     "from": "case_fact",
+     "field": "payment methods",
+     "record": "the user profile"
+    }
+   },
+   "check": "code",
+   "level": "observe",
+   "source": {
+    "section": "modify-items",
+    "quote": "will change the order status to 'pending (items modifed)'"
+   }
+  },
+  {
+   "id": "ob_return_confirm",
+   "origin": "package",
+   "scope": {
+    "procedure": "return-delivered-order"
+   },
+   "effect": {
+    "kind": "reply"
+   },
+   "values": {},
+   "check": "code",
+   "level": "observe",
+   "source": {
+    "section": "return-delivered-order",
+    "quote": "The user needs to confirm the order id and the list of items to be returned."
+   }
+  },
+  {
+   "id": "ob_return",
+   "origin": "package",
+   "scope": {
+    "procedure": "return-delivered-order"
+   },
+   "effect": {
+    "kind": "write",
+    "tools": [
+     "return_delivered_order_items"
+    ],
+    "match": {
+     "order_id": {
+      "pattern": "{order_id}"
+     },
+     "payment_method_id": {
+      "pattern": "{payment_method_id}"
+     }
+    }
+   },
+   "values": {
+    "order_id": {
+     "from": "request",
+     "about": "the order id the user confirms"
+    },
+    "payment_method_id": {
+     "from": "case_fact",
+     "field": "payment methods",
+     "record": "the user profile"
+    }
+   },
+   "check": "code",
+   "level": "observe",
+   "source": {
+    "section": "return-delivered-order",
+    "quote": "the order status will be changed to 'return requested'"
+   }
+  },
+  {
+   "id": "ob_exchange_remind",
+   "origin": "package",
+   "scope": {
+    "procedure": "exchange-delivered-order"
+   },
+   "effect": {
+    "kind": "reply"
+   },
+   "values": {},
+   "check": "code",
+   "level": "observe",
+   "source": {
+    "section": "exchange-delivered-order",
+    "quote": "remember to remind the customer to confirm they have provided all items to be exchanged"
+   }
+  },
+  {
+   "id": "ob_exchange",
+   "origin": "package",
+   "scope": {
+    "procedure": "exchange-delivered-order"
+   },
+   "effect": {
+    "kind": "write",
+    "tools": [
+     "exchange_delivered_order_items"
+    ],
+    "match": {
+     "order_id": {
+      "pattern": "{order_id}"
+     },
+     "payment_method_id": {
+      "pattern": "{payment_method_id}"
+     }
+    }
+   },
+   "values": {
+    "order_id": {
+     "from": "case_fact",
+     "field": "order id",
+     "record": "the order"
+    },
+    "payment_method_id": {
+     "from": "case_fact",
+     "field": "payment methods",
+     "record": "the user profile"
+    }
+   },
+   "check": "code",
+   "level": "observe",
+   "source": {
+    "section": "exchange-delivered-order",
+    "quote": "the order status will be changed to 'exchange requested'"
+   }
+  }
+ ],
+ "global": {
+  "global_rules": [
+   {
+    "id": "G-auth",
+    "src": "preamble",
+    "rule": "At the beginning of the conversation, you have to authenticate the user identity by locating their user id via email, or via name + zip code. This has to be done even when the user already provides the user id."
+   },
+   {
+    "id": "G-one-user",
+    "src": "preamble",
+    "rule": "You can only help one user per conversation (but you can handle multiple requests from the same user), and must deny any requests for tasks related to any other user."
+   },
+   {
+    "id": "G-confirm",
+    "src": "preamble",
+    "rule": "Before taking any action that updates the database (cancel, modify, return, exchange), you must list the action details and obtain explicit user confirmation (yes) to proceed.",
+    "attach_when": "order"
+   },
+   {
+    "id": "G-no-invention",
+    "src": "preamble",
+    "rule": "You should not make up any information or knowledge or procedures not provided by the user or the tools, or give subjective recommendations or comments."
+   },
+   {
+    "id": "G-one-call",
+    "src": "preamble",
+    "rule": "You should at most make one tool call at a time, and if you take a tool call, you should not respond to the user at the same time. If you respond to the user, you should not make a tool call at the same time."
+   },
+   {
+    "id": "G-deny",
+    "src": "preamble",
+    "rule": "You should deny user requests that are against this policy."
+   },
+   {
+    "id": "G-status",
+    "src": "Generic action rules",
+    "rule": "Generally, you can only take action on pending or delivered orders.",
+    "attach_when": "order"
+   },
+   {
+    "id": "G-once",
+    "src": "Generic action rules",
+    "rule": "Exchange or modify order tools can only be called once per order.",
+    "attach_when": "[Mm]odif|[Ee]xchange"
+   },
+   {
+    "id": "G-list",
+    "src": "Generic action rules",
+    "rule": "Be sure that all items to be changed are collected into a list before making the tool call!!!",
+    "attach_when": "[Mm]odify items|[Ee]xchange"
+   },
+   {
+    "id": "G-ids",
+    "src": "Product",
+    "rule": "Note: Product ID and Item ID have no relations and should not be confused!",
+    "attach_when": "item"
+   }
+  ],
+  "triage": {
+   "id": "authenticate",
+   "src": "preamble",
+   "name": "Authenticate the user",
+   "steps": [
+    "At the beginning of the conversation, you have to authenticate the user identity by locating their user id via email, or via name + zip code.",
+    "This has to be done even when the user already provides the user id.",
+    "Once the user has been authenticated, you can provide the user with information about order, product, profile information, e.g. help the user look up order id."
+   ],
+   "must_not": [
+    "You can only help one user per conversation (but you can handle multiple requests from the same user), and must deny any requests for tasks related to any other user."
+   ]
+  },
+  "escalation": {
+   "id": "transfer",
+   "src": "preamble",
+   "name": "Transfer to a human agent",
+   "steps": [
+    "You should transfer the user to a human agent if and only if the request cannot be handled within the scope of your actions.",
+    "To transfer, first make a tool call to transfer_to_human_agents, and then send the message 'YOU ARE BEING TRANSFERRED TO A HUMAN AGENT. PLEASE HOLD ON.' to the user."
+   ],
+   "must_not": []
+  },
+  "definitions": [
+   {
+    "term": "times",
+    "meaning": "All times in the database are EST and 24 hour based.",
+    "source": {
+     "statement": "policy:domain-basic:1"
+    }
+   },
+   {
+    "term": "payment methods",
+    "meaning": "There are three types of payment methods: gift card, paypal account, credit card.",
+    "source": {
+     "statement": "policy:user:6"
+    }
+   },
+   {
+    "term": "variant items",
+    "meaning": "For each type of product, there are variant items of different options.",
+    "source": {
+     "statement": "policy:product:2"
+    }
+   },
+   {
+    "term": "Product ID and Item ID",
+    "meaning": "Product ID and Item ID have no relations and should not be confused!",
+    "source": {
+     "statement": "policy:product:13"
+    }
+   },
+   {
+    "term": "status of an order",
+    "meaning": "The status of an order can be: pending, processed, delivered, or cancelled.",
+    "source": {
+     "statement": "policy:order:9"
+    }
+   }
+  ]
+ },
+ "links": [
+  {
+   "type": "exception_of",
+   "src": "policy:modify-items:2",
+   "dst": "policy:cancel-pending-order:1",
+   "quote": "The agent will not be able to modify or cancel the order anymore."
+  },
+  {
+   "type": "exception_of",
+   "src": "policy:modify-items:2",
+   "dst": "policy:modify-pending-order:1",
+   "quote": "The agent will not be able to modify or cancel the order anymore."
+  },
+  {
+   "type": "depends_on",
+   "src": "policy:modify-payment",
+   "dst": "policy:modify-pending-order:1",
+   "quote": "An order can only be modified if its status is 'pending'"
+  },
+  {
+   "type": "depends_on",
+   "src": "policy:modify-items",
+   "dst": "policy:modify-pending-order:1",
+   "quote": "An order can only be modified if its status is 'pending'"
+  }
+ ],
+ "coverage": [],
+ "policy_questions": [
+  {
+   "statement_ids": [
+    "policy:generic-action-rules:2",
+    "policy:modify-items:1"
+   ],
+   "rule_ids": [
+    "r_once"
+   ],
+   "question": "Does 'Exchange or modify order tools can only be called once per order' also limit the address and payment tools, or only the modify items and exchange tools (the once-only statement of Modify items names only that action)?",
+   "default_level": "remind"
+  },
+  {
+   "statement_ids": [
+    "policy:preamble:14",
+    "policy:preamble:15"
+   ],
+   "rule_ids": [
+    "r_transfer_scope"
+   ],
+   "question": "When a request is within the kinds of action the agent has but breaks the policy (for example, cancel a delivered order), does the agent only deny it, or does it also count as 'cannot be handled within the scope of your actions' and get a transfer?",
+   "default_level": "remind"
+  },
+  {
+   "statement_ids": [
+    "policy:modify-items:8",
+    "policy:exchange-delivered-order:6"
+   ],
+   "rule_ids": [
+    "r_items_gift_card",
+    "r_exchange_gift_card"
+   ],
+   "question": "When the new items cost less and the user receives a refund of the price difference on a gift card, must the gift card still have 'enough balance to cover the price difference'?",
+   "default_level": "remind"
+  },
+  {
+   "statement_ids": [
+    "policy:preamble:6",
+    "policy:preamble:15"
+   ],
+   "rule_ids": [
+    "r_authenticate"
+   ],
+   "question": "May the agent call transfer_to_human_agents before the user is authenticated, for example when the user cannot be located? The authentication rule here does not check that tool.",
+   "default_level": "remind"
+  },
+  {
+   "statement_ids": [
+    "policy:order:9",
+    "policy:modify-items:1",
+    "policy:return-delivered-order:5",
+    "policy:exchange-delivered-order:7"
+   ],
+   "question": "The status list names pending, processed, delivered and cancelled, but other sections name 'pending (items modifed)', 'return requested' and 'exchange requested'. Are these also order statuses, and is 'pending (items modifed)' the exact spelling in the data?",
+   "default_level": "remind"
+  },
+  {
+   "statement_ids": [
+    "policy:generic-action-rules:1"
+   ],
+   "question": "What exceptions does 'Generally' allow in 'Generally, you can only take action on pending or delivered orders'? The action sections name none, and the status rules here allow none.",
+   "default_level": "remind"
+  },
+  {
+   "statement_ids": [
+    "policy:modify-items:5",
+    "policy:exchange-delivered-order:3"
+   ],
+   "rule_ids": [
+    "r_items_same_product",
+    "r_exchange_same_product"
+   ],
+   "question": "Which value of the variant attribute 'availability' means 'available'? With that value, the check on new items could be partly typed instead of read by a model.",
+   "default_level": "remind"
+  }
+ ]
+}

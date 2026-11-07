@@ -1,0 +1,313 @@
+{
+ "id": "policy",
+ "version": "compiled",
+ "built_by": "azure/DeepSeek-V4-Pro",
+ "global_rules": [
+  {
+   "id": "GR-01",
+   "src": "1. General Operational Instructions and Constraints",
+   "rule": "If a user request violates any rule herein, you must halt the operation and provide the specific policy reason before pausing."
+  },
+  {
+   "id": "GR-02",
+   "src": "1. General Operational Instructions and Constraints",
+   "rule": "Perform one validated operation at a time, except when using approved batch endpoints. Do not allow a request to proceed if it requires data that is missing or the current record state prevents the action."
+  },
+  {
+   "id": "GR-03",
+   "src": "1. General Operational Instructions and Constraints",
+   "rule": "Do not disclose information that is outside the authenticated user's access scope."
+  },
+  {
+   "id": "GR-04",
+   "src": "1. General Operational Instructions and Constraints",
+   "rule": "Do not ask for further information. If the request is ambiguous, return the list and state the ambiguity. If a mandatory field is missing, state which field is required."
+  },
+  {
+   "id": "GR-05",
+   "src": "1. General Operational Instructions and Constraints",
+   "rule": "Any request to create or update a record must validate all mandatory fields."
+  },
+  {
+   "id": "GR-06",
+   "src": "1. General Operational Instructions and Constraints",
+   "rule": "You do not need to ask for confirmation or permission before taking action."
+  },
+  {
+   "id": "GR-07",
+   "src": "1. General Operational Instructions and Constraints",
+   "rule": "When identifiers such as names or IDs are missing, perform lookups, verify that you are reusing correct values from previous responses, and proceed using the retrieved data."
+  },
+  {
+   "id": "GR-08",
+   "src": "1. General Operational Instructions and Constraints",
+   "rule": "Never assume or fabricate IDs, responses, or outcomes — rely solely on verified API results. The same is the case of optional or default arguments."
+  },
+  {
+   "id": "GR-09",
+   "src": "1. General Operational Instructions and Constraints",
+   "rule": "Complete each task in a logical, and efficient execution flow."
+  },
+  {
+   "id": "GR-10",
+   "src": "2. Roles & Responsibilities and Access Scope",
+   "rule": "Access rights are defined by roles and grant granular control across tables."
+  },
+  {
+   "id": "GR-11",
+   "src": "3.1. Incident Registration",
+   "rule": "To log any issue/interrupted service, create an Incident record."
+  },
+  {
+   "id": "GR-12",
+   "src": "3.1. Incident Registration",
+   "rule": "Mandatory Inputs: opened_by (user submitting), caller_id (user affected), short_description, impact, and urgency."
+  },
+  {
+   "id": "GR-13",
+   "src": "3.1. Incident Registration",
+   "rule": "Priority (critical, high, moderate, low, planning) is determined automatically by the system based on a pre-defined matrix of Impact x Urgency."
+  },
+  {
+   "id": "GR-14",
+   "src": "3.1. Incident Registration",
+   "rule": "All new Incidents are set to status = new."
+  },
+  {
+   "id": "GR-15",
+   "src": "3.2. Incident Assignment",
+   "rule": "assigned_to must be an active user with the Agent or Manager role and must be a member of the specified assignment_group."
+  },
+  {
+   "id": "GR-16",
+   "src": "3.3. Incident Lifecycle and Closure",
+   "rule": "Valid Status Transitions: new → in_progress / on_hold / resolved; in_progress → on_hold / resolved; on_hold → in_progress (Must log on_hold_reason before transition); resolved → closed / in_progress."
+  },
+  {
+   "id": "GR-17",
+   "src": "3.3. Incident Lifecycle and Closure",
+   "rule": "An Incident cannot transition to resolved without mandatory fields: resolution_code, and resolution_notes (free-form text, max 2000 chars)."
+  },
+  {
+   "id": "GR-18",
+   "src": "3.3. Incident Lifecycle and Closure",
+   "rule": "The incidents that are in resolved status will transition to closed after 72 hours."
+  },
+  {
+   "id": "GR-19",
+   "src": "4.1. Change Management",
+   "rule": "All changes must originate from a Change Request record."
+  },
+  {
+   "id": "GR-20",
+   "src": "4.1. Change Management",
+   "rule": "All new Changes are set to status = new."
+  },
+  {
+   "id": "GR-21",
+   "src": "4.1. Change Management",
+   "rule": "Change Types (Enumeration): standard (pre-approved, low risk), normal (requires planning/approval), emergency (requires immediate CAB approval override)."
+  },
+  {
+   "id": "GR-22",
+   "src": "4.2. Problem Management",
+   "rule": "A Problem must be created when a recurring incident pattern or a major incident is identified."
+  },
+  {
+   "id": "GR-23",
+   "src": "4.2. Problem Management",
+   "rule": "The Problem record must link all affected Incidents via the incident_to_problem related list."
+  },
+  {
+   "id": "GR-24",
+   "src": "4.2. Problem Management",
+   "rule": "All new Problems are set to status = new."
+  },
+  {
+   "id": "GR-25",
+   "src": "4.2. Problem Management",
+   "rule": "If workaround/temporary solution found, update workaround field and set status=fix_in_progress. The workaround_notes must be published to the linked Incidents and relevant Knowledge Articles."
+  },
+  {
+   "id": "GR-26",
+   "src": "4.2. Problem Management",
+   "rule": "A Problem transitions to closed only after the permanent fix has been successfully implemented via a linked normal or emergency Change Request."
+  },
+  {
+   "id": "GR-27",
+   "src": "4.2. Problem Management",
+   "rule": "Priority (critical, high, moderate, low, planning) is determined automatically by the system based on a pre-defined matrix of Impact x Urgency."
+  },
+  {
+   "id": "GR-28",
+   "src": "5.1. Configuration Item (CI) Integrity",
+   "rule": "All IT assets must be recorded in the configuration_item table."
+  },
+  {
+   "id": "GR-29",
+   "src": "5.1. Configuration Item (CI) Integrity",
+   "rule": "Only CIs with status = in_use or status = maintenance can be linked to active Incidents. Do not link CIs in status = retired or status = disposed."
+  },
+  {
+   "id": "GR-30",
+   "src": "5.1. Configuration Item (CI) Integrity",
+   "rule": "All CIs must have a recorded owner_id."
+  },
+  {
+   "id": "GR-31",
+   "src": "6. Service Level Management (SLA)",
+   "rule": "SLAs are automatically aligned based on priority linked to the incident."
+  },
+  {
+   "id": "GR-32",
+   "src": "6. Service Level Management (SLA)",
+   "rule": "Metrics tracked are limited to target_mins."
+  },
+  {
+   "id": "GR-33",
+   "src": "6. Service Level Management (SLA)",
+   "rule": "The SLA timer must be paused (stage = paused) when the Incident is in stage = on_hold and the on_hold_reason is one of the following enumerations: Awaiting Change, Awaiting Caller, or Awaiting Problem."
+  },
+  {
+   "id": "GR-34",
+   "src": "6. Service Level Management (SLA)",
+   "rule": "If the SLA exceeds its duration (stage = breached), the escalation flag on the Incident must be set to true, and an automatic notification sent to the Manager."
+  },
+  {
+   "id": "GR-35",
+   "src": "7. Knowledge Management",
+   "rule": "Only articles in knowledge.state = published are searchable by the Reporter role."
+  },
+  {
+   "id": "GR-36",
+   "src": "7. Knowledge Management",
+   "rule": "When an Incident is created, a search for relevant knowledge must be performed, and matching articles linked as used_as = suggested."
+  },
+  {
+   "id": "GR-37",
+   "src": "7. Knowledge Management",
+   "rule": "All knowledge links must track used_as type: suggested, applied, or resolution."
+  },
+  {
+   "id": "GR-38",
+   "src": "8.1. Data Integrity Checks",
+   "rule": "Ensure any user being assigned to (assigned_to) or updated is users.active = true."
+  },
+  {
+   "id": "GR-39",
+   "src": "8.1. Data Integrity Checks",
+   "rule": "Before closing any record, verify that all mandatory dependencies are satisfied."
+  },
+  {
+   "id": "GR-40",
+   "src": "8.1. Data Integrity Checks",
+   "rule": "All work logs must include the timestamp (created_on) and the user_id performing the action."
+  },
+  {
+   "id": "GR-41",
+   "src": "8.2. Error Handling",
+   "rule": "403 Forbidden: Permission denied (user role lacks authority for the operation)."
+  },
+  {
+   "id": "GR-42",
+   "src": "8.2. Error Handling",
+   "rule": "409 Conflict: Record locking or state conflict."
+  },
+  {
+   "id": "GR-43",
+   "src": "8.2. Error Handling",
+   "rule": "Rate Limiting: If exceeded, pause and retry using Exponential Backoff."
+  }
+ ],
+ "triage": {
+  "name": "Incident Triage",
+  "src": "3.1. Incident Registration, 3.2. Incident Assignment, 6. Service Level Management (SLA), 7. Knowledge Management",
+  "steps": [
+   "Validate mandatory inputs: opened_by, caller_id, short_description, impact, urgency. Stop if any missing.",
+   "Create Incident record with status = new.",
+   "Calculate priority automatically based on Impact x Urgency matrix.",
+   "Apply SLA based on calculated priority.",
+   "Search for relevant published Knowledge articles and link matching ones as used_as = suggested.",
+   "Assign incident: ensure assigned_to is an active Agent or Manager and member of assignment_group. Stop if assignment invalid."
+  ]
+ },
+ "routing": {
+  "incident": {
+   "jira": "INC-{number}",
+   "assignee": "Agent or Manager based on assignment_group",
+   "folder": "Incident Management",
+   "channel_if_a_step_posts": "ITSM System"
+  },
+  "change_request": {
+   "jira": "CHG-{number}",
+   "assignee": "Change Manager",
+   "folder": "Change Management",
+   "channel_if_a_step_posts": "ITSM System"
+  },
+  "problem": {
+   "jira": "PRB-{number}",
+   "assignee": "Problem Manager",
+   "folder": "Problem Management",
+   "channel_if_a_step_posts": "ITSM System"
+  }
+ },
+ "housekeeping": {
+  "name": "Incident Closure and Data Integrity",
+  "src": "3.3. Incident Lifecycle and Closure, 8.1. Data Integrity Checks",
+  "steps": [
+   "Verify incident is in resolved status for 72 hours before closing.",
+   "Ensure all mandatory dependencies are satisfied before closing any record.",
+   "Log all work with timestamp (created_on) and user_id."
+  ]
+ },
+ "priority": {
+  "name": "Incident and Problem Priority Matrix",
+  "src": "3.1. Incident Registration, 4.2. Problem Management",
+  "levels": [
+   "critical: high impact + high urgency",
+   "high: medium impact + high urgency OR high impact + medium urgency",
+   "moderate: low impact + high urgency OR medium impact + medium urgency OR high impact + low urgency",
+   "low: low impact + medium urgency OR medium impact + low urgency",
+   "planning: low impact + low urgency"
+  ]
+ },
+ "escalation": {
+  "name": "SLA Breach Escalation",
+  "src": "6. Service Level Management (SLA)",
+  "steps": [
+   "Monitor SLA timer for incidents.",
+   "If SLA stage becomes breached, set escalation flag on incident to true.",
+   "Send automatic notification to Manager."
+  ],
+  "must_not": [
+   "Pause SLA timer unless incident is on_hold with reason Awaiting Change, Awaiting Caller, or Awaiting Problem."
+  ]
+ },
+ "definitions": {
+  "Incident": "An unplanned interruption to an IT service or reduction in the quality of an IT service.",
+  "Service Request": "A formal request from a user for something to be provided – for example, a request for information or advice.",
+  "Change Request": "A formal proposal for a change to be made to an IT service or infrastructure.",
+  "Problem": "A cause of one or more incidents. The cause is not usually known at the time a problem record is created.",
+  "Configuration Item (CI)": "Any component or asset that needs to be managed in order to deliver an IT service.",
+  "SLA": "Service Level Agreement; a contract between an IT service provider and a customer that describes the service, documents service level targets, and specifies the responsibilities of both parties.",
+  "CAB": "Change Advisory Board; a group of people that advises the change manager in the assessment, prioritization, and scheduling of changes.",
+  "CMDB": "Configuration Management Database; a database used to store configuration records throughout their lifecycle."
+ },
+ "procedures": [],
+ "templates": {},
+ "calendar": {
+  "workdays": [
+   0,
+   1,
+   2,
+   3,
+   4
+  ],
+  "holidays": []
+ },
+ "checks": {
+  "procedures": 0,
+  "templates": 0,
+  "steps_dropped_ungrounded": 0
+ }
+}

@@ -1,0 +1,522 @@
+[
+ {
+  "name": "xero_find_invoice",
+  "description": "Find an invoice in Xero.",
+  "inputSchema": {
+   "description": "Find an invoice in Xero.",
+   "properties": {
+    "organization": {
+     "anyOf": [
+      {
+       "type": "string"
+      },
+      {
+       "type": "null"
+      }
+     ],
+     "default": null,
+     "title": "Organization"
+    },
+    "invoice_number": {
+     "anyOf": [
+      {
+       "type": "string"
+      },
+      {
+       "type": "null"
+      }
+     ],
+     "default": null,
+     "description": "Invoice number to search.",
+     "title": "Invoice Number"
+    },
+    "invoice_id": {
+     "anyOf": [
+      {
+       "type": "string"
+      },
+      {
+       "type": "null"
+      }
+     ],
+     "default": null,
+     "description": "Invoice ID.",
+     "title": "Invoice Id"
+    }
+   },
+   "title": "xero_find_invoice",
+   "type": "object"
+  }
+ },
+ {
+  "name": "xero_email_invoice",
+  "description": "Send a sales invoice by email in Xero.",
+  "inputSchema": {
+   "description": "Send a sales invoice by email in Xero.",
+   "properties": {
+    "organization": {
+     "anyOf": [
+      {
+       "type": "string"
+      },
+      {
+       "type": "null"
+      }
+     ],
+     "default": null,
+     "title": "Organization"
+    },
+    "invoice_id": {
+     "default": "",
+     "description": "Invoice ID to send.",
+     "title": "Invoice Id",
+     "type": "string"
+    }
+   },
+   "title": "xero_email_invoice",
+   "type": "object"
+  }
+ },
+ {
+  "name": "xero_find_contact",
+  "description": "Find a contact in Xero.",
+  "inputSchema": {
+   "description": "Find a contact in Xero.",
+   "properties": {
+    "organization": {
+     "anyOf": [
+      {
+       "type": "string"
+      },
+      {
+       "type": "null"
+      }
+     ],
+     "default": null,
+     "title": "Organization"
+    },
+    "name": {
+     "anyOf": [
+      {
+       "type": "string"
+      },
+      {
+       "type": "null"
+      }
+     ],
+     "default": null,
+     "description": "Contact name to search.",
+     "title": "Name"
+    },
+    "email": {
+     "anyOf": [
+      {
+       "type": "string"
+      },
+      {
+       "type": "null"
+      }
+     ],
+     "default": null,
+     "description": "Contact email to search.",
+     "title": "Email"
+    },
+    "contact_id": {
+     "anyOf": [
+      {
+       "type": "string"
+      },
+      {
+       "type": "null"
+      }
+     ],
+     "default": null,
+     "title": "Contact Id"
+    }
+   },
+   "title": "xero_find_contact",
+   "type": "object"
+  }
+ },
+ {
+  "name": "gmail_find_email",
+  "description": "Search for emails using Gmail search operators.",
+  "inputSchema": {
+   "description": "Search for emails using Gmail search operators.",
+   "properties": {
+    "query": {
+     "default": "",
+     "description": "Gmail search query. Supports operators: from:, to:, subject:, label:, is:unread, is:read, is:starred, has:attachment, OR, and plain text (e.g., \"from:user@example.com is:unread\").",
+     "title": "Query",
+     "type": "string"
+    },
+    "id": {
+     "anyOf": [
+      {
+       "type": "string"
+      },
+      {
+       "type": "null"
+      }
+     ],
+     "default": null,
+     "description": "Message ID for direct lookup (returns single message).",
+     "title": "Id"
+    },
+    "label": {
+     "anyOf": [
+      {
+       "type": "string"
+      },
+      {
+       "type": "null"
+      }
+     ],
+     "default": null,
+     "description": "Filter by label (e.g., \"INBOX\", \"SENT\").",
+     "title": "Label"
+    },
+    "max_results": {
+     "anyOf": [
+      {
+       "type": "integer"
+      },
+      {
+       "type": "null"
+      }
+     ],
+     "default": 10,
+     "description": "Maximum number of results to return.",
+     "title": "Max Results"
+    },
+    "include_spam_trash": {
+     "anyOf": [
+      {
+       "type": "boolean"
+      },
+      {
+       "type": "null"
+      }
+     ],
+     "default": false,
+     "description": "Include spam and trash in results.",
+     "title": "Include Spam Trash"
+    },
+    "format": {
+     "anyOf": [
+      {
+       "type": "string"
+      },
+      {
+       "type": "null"
+      }
+     ],
+     "default": "full",
+     "description": "Email format to return (\"full\", \"metadata\", \"minimal\", \"raw\").",
+     "title": "Format"
+    }
+   },
+   "title": "gmail_find_email",
+   "type": "object"
+  }
+ },
+ {
+  "name": "gmail_get_email_by_id",
+  "description": "Get a specific email by its message ID.",
+  "inputSchema": {
+   "description": "Get a specific email by its message ID.",
+   "properties": {
+    "message_id": {
+     "description": "The unique ID of the email message to retrieve.",
+     "title": "Message Id",
+     "type": "string"
+    },
+    "format": {
+     "anyOf": [
+      {
+       "type": "string"
+      },
+      {
+       "type": "null"
+      }
+     ],
+     "default": "full",
+     "description": "Email format to return (\"full\", \"metadata\", \"minimal\").",
+     "title": "Format"
+    }
+   },
+   "required": [
+    "message_id"
+   ],
+   "title": "gmail_get_email_by_id",
+   "type": "object"
+  }
+ },
+ {
+  "name": "slack_send_channel_message",
+  "description": "Send a message to a Slack channel.",
+  "inputSchema": {
+   "description": "Send a message to a Slack channel.",
+   "properties": {
+    "channel": {
+     "anyOf": [
+      {
+       "type": "string"
+      },
+      {
+       "type": "null"
+      }
+     ],
+     "default": null,
+     "description": "Channel ID or name.",
+     "title": "Channel"
+    },
+    "text": {
+     "anyOf": [
+      {
+       "type": "string"
+      },
+      {
+       "type": "null"
+      }
+     ],
+     "default": null,
+     "description": "Message text.",
+     "title": "Text"
+    },
+    "message": {
+     "anyOf": [
+      {
+       "type": "string"
+      },
+      {
+       "type": "null"
+      }
+     ],
+     "default": null,
+     "title": "Message"
+    },
+    "channel_name": {
+     "anyOf": [
+      {
+       "type": "string"
+      },
+      {
+       "type": "null"
+      }
+     ],
+     "default": null,
+     "title": "Channel Name"
+    },
+    "add_app_to_channel": {
+     "default": true,
+     "description": "Whether to auto-add Zapier app to channel (default True).",
+     "title": "Add App To Channel",
+     "type": "boolean"
+    },
+    "as_bot": {
+     "default": true,
+     "description": "Whether to send as a bot (default True).",
+     "title": "As Bot",
+     "type": "boolean"
+    },
+    "username": {
+     "anyOf": [
+      {
+       "type": "string"
+      },
+      {
+       "type": "null"
+      }
+     ],
+     "default": null,
+     "description": "Bot name to use (if sending as bot).",
+     "title": "Username"
+    },
+    "icon": {
+     "anyOf": [
+      {
+       "type": "string"
+      },
+      {
+       "type": "null"
+      }
+     ],
+     "default": null,
+     "description": "Bot icon (URL or emoji like :robot_face:).",
+     "title": "Icon"
+    },
+    "add_edit_link": {
+     "default": true,
+     "description": "Whether to include link to this Zap (default True).",
+     "title": "Add Edit Link",
+     "type": "boolean"
+    },
+    "image_url": {
+     "anyOf": [
+      {
+       "type": "string"
+      },
+      {
+       "type": "null"
+      }
+     ],
+     "default": null,
+     "description": "URL of image to attach.",
+     "title": "Image Url"
+    },
+    "unfurl": {
+     "default": true,
+     "description": "Whether to auto-expand links (default True).",
+     "title": "Unfurl",
+     "type": "boolean"
+    },
+    "link_names": {
+     "default": true,
+     "description": "Whether to link @mentions (default True).",
+     "title": "Link Names",
+     "type": "boolean"
+    },
+    "post_at": {
+     "anyOf": [
+      {
+       "type": "string"
+      },
+      {
+       "type": "null"
+      }
+     ],
+     "default": null,
+     "description": "Schedule message for later (ISO datetime).",
+     "title": "Post At"
+    },
+    "thread_ts": {
+     "anyOf": [
+      {
+       "type": "string"
+      },
+      {
+       "type": "null"
+      }
+     ],
+     "default": null,
+     "description": "Parent message timestamp if replying to a thread.",
+     "title": "Thread Ts"
+    },
+    "reply_broadcast": {
+     "default": false,
+     "description": "Also send thread reply to channel (default False).",
+     "title": "Reply Broadcast",
+     "type": "boolean"
+    }
+   },
+   "title": "slack_send_channel_message",
+   "type": "object"
+  }
+ },
+ {
+  "name": "google_drive_find_multiple_files",
+  "description": "Tool for Find Multiple Files.",
+  "inputSchema": {
+   "description": "Tool for Find Multiple Files.",
+   "properties": {
+    "info": {
+     "anyOf": [
+      {
+       "type": "string"
+      },
+      {
+       "type": "null"
+      }
+     ],
+     "default": null,
+     "title": "Info"
+    },
+    "title": {
+     "anyOf": [
+      {
+       "type": "string"
+      },
+      {
+       "type": "null"
+      }
+     ],
+     "default": null,
+     "title": "Title"
+    },
+    "search_type": {
+     "anyOf": [
+      {
+       "type": "string"
+      },
+      {
+       "type": "null"
+      }
+     ],
+     "default": null,
+     "title": "Search Type"
+    },
+    "drive": {
+     "anyOf": [
+      {
+       "type": "string"
+      },
+      {
+       "type": "null"
+      }
+     ],
+     "default": null,
+     "title": "Drive"
+    },
+    "folder": {
+     "anyOf": [
+      {
+       "type": "string"
+      },
+      {
+       "type": "null"
+      }
+     ],
+     "default": null,
+     "title": "Folder"
+    },
+    "file_types": {
+     "anyOf": [
+      {
+       "items": {
+        "anyOf": [
+         {
+          "type": "string"
+         },
+         {
+          "type": "null"
+         }
+        ]
+       },
+       "type": "array"
+      },
+      {
+       "type": "null"
+      }
+     ],
+     "default": null,
+     "title": "File Types"
+    },
+    "max_results": {
+     "anyOf": [
+      {
+       "type": "integer"
+      },
+      {
+       "type": "null"
+      }
+     ],
+     "default": null,
+     "title": "Max Results"
+    }
+   },
+   "title": "google_drive_find_multiple_files",
+   "type": "object"
+  }
+ }
+]

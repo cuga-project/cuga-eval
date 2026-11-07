@@ -1,0 +1,994 @@
+[
+ {
+  "name": "google_drive_find_multiple_files",
+  "description": "Tool for Find Multiple Files.",
+  "inputSchema": {
+   "description": "Tool for Find Multiple Files.",
+   "properties": {
+    "info": {
+     "anyOf": [
+      {
+       "type": "string"
+      },
+      {
+       "type": "null"
+      }
+     ],
+     "default": null,
+     "title": "Info"
+    },
+    "title": {
+     "anyOf": [
+      {
+       "type": "string"
+      },
+      {
+       "type": "null"
+      }
+     ],
+     "default": null,
+     "title": "Title"
+    },
+    "search_type": {
+     "anyOf": [
+      {
+       "type": "string"
+      },
+      {
+       "type": "null"
+      }
+     ],
+     "default": null,
+     "title": "Search Type"
+    },
+    "drive": {
+     "anyOf": [
+      {
+       "type": "string"
+      },
+      {
+       "type": "null"
+      }
+     ],
+     "default": null,
+     "title": "Drive"
+    },
+    "folder": {
+     "anyOf": [
+      {
+       "type": "string"
+      },
+      {
+       "type": "null"
+      }
+     ],
+     "default": null,
+     "title": "Folder"
+    },
+    "file_types": {
+     "anyOf": [
+      {
+       "items": {
+        "anyOf": [
+         {
+          "type": "string"
+         },
+         {
+          "type": "null"
+         }
+        ]
+       },
+       "type": "array"
+      },
+      {
+       "type": "null"
+      }
+     ],
+     "default": null,
+     "title": "File Types"
+    },
+    "max_results": {
+     "anyOf": [
+      {
+       "type": "integer"
+      },
+      {
+       "type": "null"
+      }
+     ],
+     "default": null,
+     "title": "Max Results"
+    }
+   },
+   "title": "google_drive_find_multiple_files",
+   "type": "object"
+  }
+ },
+ {
+  "name": "google_sheets_get_spreadsheet_by_id",
+  "description": "Get a spreadsheet by ID.",
+  "inputSchema": {
+   "description": "Get a spreadsheet by ID.",
+   "properties": {
+    "spreadsheet": {
+     "anyOf": [
+      {
+       "type": "string"
+      },
+      {
+       "type": "null"
+      }
+     ],
+     "default": null,
+     "description": "Spreadsheet ID (required).",
+     "title": "Spreadsheet"
+    },
+    "spreadsheet_id": {
+     "anyOf": [
+      {
+       "type": "string"
+      },
+      {
+       "type": "null"
+      }
+     ],
+     "default": null,
+     "description": "Alias for spreadsheet.",
+     "title": "Spreadsheet Id"
+    },
+    "id": {
+     "anyOf": [
+      {
+       "type": "string"
+      },
+      {
+       "type": "null"
+      }
+     ],
+     "default": null,
+     "description": "Alias for spreadsheet.",
+     "title": "Id"
+    },
+    "includeGridData": {
+     "default": true,
+     "description": "Whether to include grid data in response.",
+     "title": "Includegriddata",
+     "type": "boolean"
+    }
+   },
+   "title": "google_sheets_get_spreadsheet_by_id",
+   "type": "object"
+  }
+ },
+ {
+  "name": "google_sheets_find_worksheet",
+  "description": "Find a worksheet by title.",
+  "inputSchema": {
+   "description": "Find a worksheet by title.",
+   "properties": {
+    "spreadsheet": {
+     "anyOf": [
+      {
+       "type": "string"
+      },
+      {
+       "type": "null"
+      }
+     ],
+     "default": null,
+     "description": "Spreadsheet ID (required).",
+     "title": "Spreadsheet"
+    },
+    "title": {
+     "anyOf": [
+      {
+       "type": "string"
+      },
+      {
+       "type": "null"
+      }
+     ],
+     "default": null,
+     "description": "Worksheet title to search for (required).",
+     "title": "Title"
+    },
+    "spreadsheet_id": {
+     "anyOf": [
+      {
+       "type": "string"
+      },
+      {
+       "type": "null"
+      }
+     ],
+     "default": null,
+     "description": "Alias for spreadsheet.",
+     "title": "Spreadsheet Id"
+    },
+    "drive": {
+     "anyOf": [
+      {
+       "type": "string"
+      },
+      {
+       "type": "null"
+      }
+     ],
+     "default": null,
+     "description": "Google Drive location.",
+     "title": "Drive"
+    }
+   },
+   "title": "google_sheets_find_worksheet",
+   "type": "object"
+  }
+ },
+ {
+  "name": "google_sheets_get_many_rows",
+  "description": "Get multiple rows from a worksheet.",
+  "inputSchema": {
+   "description": "Get multiple rows from a worksheet.",
+   "properties": {
+    "spreadsheet": {
+     "anyOf": [
+      {
+       "type": "string"
+      },
+      {
+       "type": "null"
+      }
+     ],
+     "default": null,
+     "description": "Spreadsheet ID (required).",
+     "title": "Spreadsheet"
+    },
+    "worksheet": {
+     "anyOf": [
+      {
+       "type": "string"
+      },
+      {
+       "type": "null"
+      }
+     ],
+     "default": null,
+     "description": "Worksheet ID (required).",
+     "title": "Worksheet"
+    },
+    "spreadsheet_id": {
+     "anyOf": [
+      {
+       "type": "string"
+      },
+      {
+       "type": "null"
+      }
+     ],
+     "default": null,
+     "description": "Alias for spreadsheet.",
+     "title": "Spreadsheet Id"
+    },
+    "worksheet_id": {
+     "anyOf": [
+      {
+       "type": "string"
+      },
+      {
+       "type": "null"
+      }
+     ],
+     "default": null,
+     "description": "Alias for worksheet.",
+     "title": "Worksheet Id"
+    },
+    "range": {
+     "default": "A:Z",
+     "description": "Columns to include (e.g., \"A:Z\") (required).",
+     "title": "Range",
+     "type": "string"
+    },
+    "row_count": {
+     "default": 10,
+     "description": "Maximum number of rows to return (required).",
+     "title": "Row Count",
+     "type": "integer"
+    },
+    "drive": {
+     "anyOf": [
+      {
+       "type": "string"
+      },
+      {
+       "type": "null"
+      }
+     ],
+     "default": null,
+     "description": "Google Drive location.",
+     "title": "Drive"
+    },
+    "output_format": {
+     "default": "all",
+     "description": "Output format (all/rows/raw_rows/formatted_rows).",
+     "title": "Output Format",
+     "type": "string"
+    },
+    "first_row": {
+     "default": 1,
+     "description": "First row to retrieve.",
+     "title": "First Row",
+     "type": "integer"
+    },
+    "worksheet_title": {
+     "anyOf": [
+      {
+       "type": "string"
+      },
+      {
+       "type": "null"
+      }
+     ],
+     "default": null,
+     "title": "Worksheet Title"
+    }
+   },
+   "title": "google_sheets_get_many_rows",
+   "type": "object"
+  }
+ },
+ {
+  "name": "zoom_list_meetings",
+  "description": "List Zoom meetings (offline simulation).",
+  "inputSchema": {
+   "description": "List Zoom meetings (offline simulation).",
+   "properties": {
+    "per_page": {
+     "default": 50,
+     "title": "Per Page",
+     "type": "integer"
+    },
+    "start_at": {
+     "anyOf": [
+      {
+       "type": "string"
+      },
+      {
+       "type": "null"
+      }
+     ],
+     "default": null,
+     "title": "Start At"
+    },
+    "fields": {
+     "anyOf": [
+      {
+       "items": {
+        "type": "string"
+       },
+       "type": "array"
+      },
+      {
+       "type": "null"
+      }
+     ],
+     "default": null,
+     "title": "Fields"
+    }
+   },
+   "title": "zoom_list_meetings",
+   "type": "object"
+  }
+ },
+ {
+  "name": "zoom_find_meeting",
+  "description": "Find a meeting or webinar by ID or topic.",
+  "inputSchema": {
+   "description": "Find a meeting or webinar by ID or topic.",
+   "properties": {
+    "type": {
+     "description": "Meeting type (1=Meeting, 2=Webinar).",
+     "enum": [
+      1,
+      2
+     ],
+     "title": "Type",
+     "type": "integer"
+    },
+    "id": {
+     "anyOf": [
+      {
+       "type": "integer"
+      },
+      {
+       "type": "null"
+      }
+     ],
+     "default": null,
+     "description": "Meeting ID to search for.",
+     "title": "Id"
+    },
+    "topic": {
+     "anyOf": [
+      {
+       "type": "string"
+      },
+      {
+       "type": "null"
+      }
+     ],
+     "default": null,
+     "description": "Meeting topic to search for.",
+     "title": "Topic"
+    },
+    "isExactMatch": {
+     "default": false,
+     "description": "If True, only exact topic matches are returned.",
+     "title": "Isexactmatch",
+     "type": "boolean"
+    }
+   },
+   "required": [
+    "type"
+   ],
+   "title": "zoom_find_meeting",
+   "type": "object"
+  }
+ },
+ {
+  "name": "zoom_find_meeting_participants",
+  "description": "Find participants (registrants) for a meeting or webinar.",
+  "inputSchema": {
+   "description": "Find participants (registrants) for a meeting or webinar.",
+   "properties": {
+    "type": {
+     "description": "Meeting type (\"Meeting\" or \"Webinar\").",
+     "enum": [
+      "Meeting",
+      "Webinar"
+     ],
+     "title": "Type",
+     "type": "string"
+    },
+    "meeting_id": {
+     "anyOf": [
+      {
+       "type": "integer"
+      },
+      {
+       "type": "string"
+      }
+     ],
+     "description": "Meeting or Webinar ID.",
+     "title": "Meeting Id"
+    }
+   },
+   "required": [
+    "type",
+    "meeting_id"
+   ],
+   "title": "zoom_find_meeting_participants",
+   "type": "object"
+  }
+ },
+ {
+  "name": "gmail_send_email",
+  "description": "Send an email via Gmail. Composes and delivers a new outgoing Gmail message to one or more\nrecipients. Use this to send (not draft) an email — the message is\ntransmitted immediately and appears in the recipient's inbox. Handles\noutbound email dispatch, reply-and-send, forward-and-send, notification\n",
+  "inputSchema": {
+   "description": "Send an email via Gmail. Composes and delivers a new outgoing Gmail message to one or more\nrecipients. Use this to send (not draft) an email — the message is\ntransmitted immediately and appears in the recipient's inbox. Handles\noutbound email dispatch, reply-and-send, forward-and-send, notification\nemails, alerts, and any other Gmail send/deliver/transmit action. Keywords: gmail send email, gmail send mail, gmail compose and send,\nsend outgoing email, send outbound message, deliver email, transmit\nemail, dispatch email, email send, gmail sender, mail send, gmail\nmessage send, send a new email, send notification email, send alert\nemail, email delivery. Note: this SENDS the email. For drafts use gmail_create_draft instead.",
+   "properties": {
+    "to": {
+     "description": "Recipient email address(es), comma-separated for multiple.",
+     "title": "To",
+     "type": "string"
+    },
+    "subject": {
+     "description": "Email subject line.",
+     "title": "Subject",
+     "type": "string"
+    },
+    "body": {
+     "description": "Email body content (plain text or HTML).",
+     "title": "Body",
+     "type": "string"
+    },
+    "cc": {
+     "anyOf": [
+      {
+       "type": "string"
+      },
+      {
+       "type": "null"
+      }
+     ],
+     "default": null,
+     "description": "CC recipients, comma-separated.",
+     "title": "Cc"
+    },
+    "bcc": {
+     "anyOf": [
+      {
+       "type": "string"
+      },
+      {
+       "type": "null"
+      }
+     ],
+     "default": null,
+     "description": "BCC recipients, comma-separated.",
+     "title": "Bcc"
+    },
+    "from_": {
+     "anyOf": [
+      {
+       "type": "string"
+      },
+      {
+       "type": "null"
+      }
+     ],
+     "default": null,
+     "description": "Sender email address (alias).",
+     "title": "From"
+    },
+    "from_name": {
+     "anyOf": [
+      {
+       "type": "string"
+      },
+      {
+       "type": "null"
+      }
+     ],
+     "default": null,
+     "description": "Display name for sender.",
+     "title": "From Name"
+    },
+    "reply_to": {
+     "anyOf": [
+      {
+       "type": "string"
+      },
+      {
+       "type": "null"
+      }
+     ],
+     "default": null,
+     "description": "Reply-to email address.",
+     "title": "Reply To"
+    },
+    "body_type": {
+     "anyOf": [
+      {
+       "type": "string"
+      },
+      {
+       "type": "null"
+      }
+     ],
+     "default": "plain",
+     "description": "Body format - \"plain\" or \"html\" (default: \"plain\").",
+     "title": "Body Type"
+    },
+    "signature": {
+     "anyOf": [
+      {
+       "type": "string"
+      },
+      {
+       "type": "null"
+      }
+     ],
+     "default": null,
+     "description": "Email signature to append.",
+     "title": "Signature"
+    },
+    "label_ids": {
+     "anyOf": [
+      {
+       "type": "string"
+      },
+      {
+       "type": "null"
+      }
+     ],
+     "default": null,
+     "description": "Comma-separated label IDs to apply.",
+     "title": "Label Ids"
+    },
+    "file": {
+     "anyOf": [
+      {
+       "type": "string"
+      },
+      {
+       "type": "null"
+      }
+     ],
+     "default": null,
+     "description": "File to attach (URL or path).",
+     "title": "File"
+    }
+   },
+   "required": [
+    "to",
+    "subject",
+    "body"
+   ],
+   "title": "gmail_send_email",
+   "type": "object"
+  }
+ },
+ {
+  "name": "slack_send_channel_message",
+  "description": "Send a message to a Slack channel.",
+  "inputSchema": {
+   "description": "Send a message to a Slack channel.",
+   "properties": {
+    "channel": {
+     "anyOf": [
+      {
+       "type": "string"
+      },
+      {
+       "type": "null"
+      }
+     ],
+     "default": null,
+     "description": "Channel ID or name.",
+     "title": "Channel"
+    },
+    "text": {
+     "anyOf": [
+      {
+       "type": "string"
+      },
+      {
+       "type": "null"
+      }
+     ],
+     "default": null,
+     "description": "Message text.",
+     "title": "Text"
+    },
+    "message": {
+     "anyOf": [
+      {
+       "type": "string"
+      },
+      {
+       "type": "null"
+      }
+     ],
+     "default": null,
+     "title": "Message"
+    },
+    "channel_name": {
+     "anyOf": [
+      {
+       "type": "string"
+      },
+      {
+       "type": "null"
+      }
+     ],
+     "default": null,
+     "title": "Channel Name"
+    },
+    "add_app_to_channel": {
+     "default": true,
+     "description": "Whether to auto-add Zapier app to channel (default True).",
+     "title": "Add App To Channel",
+     "type": "boolean"
+    },
+    "as_bot": {
+     "default": true,
+     "description": "Whether to send as a bot (default True).",
+     "title": "As Bot",
+     "type": "boolean"
+    },
+    "username": {
+     "anyOf": [
+      {
+       "type": "string"
+      },
+      {
+       "type": "null"
+      }
+     ],
+     "default": null,
+     "description": "Bot name to use (if sending as bot).",
+     "title": "Username"
+    },
+    "icon": {
+     "anyOf": [
+      {
+       "type": "string"
+      },
+      {
+       "type": "null"
+      }
+     ],
+     "default": null,
+     "description": "Bot icon (URL or emoji like :robot_face:).",
+     "title": "Icon"
+    },
+    "add_edit_link": {
+     "default": true,
+     "description": "Whether to include link to this Zap (default True).",
+     "title": "Add Edit Link",
+     "type": "boolean"
+    },
+    "image_url": {
+     "anyOf": [
+      {
+       "type": "string"
+      },
+      {
+       "type": "null"
+      }
+     ],
+     "default": null,
+     "description": "URL of image to attach.",
+     "title": "Image Url"
+    },
+    "unfurl": {
+     "default": true,
+     "description": "Whether to auto-expand links (default True).",
+     "title": "Unfurl",
+     "type": "boolean"
+    },
+    "link_names": {
+     "default": true,
+     "description": "Whether to link @mentions (default True).",
+     "title": "Link Names",
+     "type": "boolean"
+    },
+    "post_at": {
+     "anyOf": [
+      {
+       "type": "string"
+      },
+      {
+       "type": "null"
+      }
+     ],
+     "default": null,
+     "description": "Schedule message for later (ISO datetime).",
+     "title": "Post At"
+    },
+    "thread_ts": {
+     "anyOf": [
+      {
+       "type": "string"
+      },
+      {
+       "type": "null"
+      }
+     ],
+     "default": null,
+     "description": "Parent message timestamp if replying to a thread.",
+     "title": "Thread Ts"
+    },
+    "reply_broadcast": {
+     "default": false,
+     "description": "Also send thread reply to channel (default False).",
+     "title": "Reply Broadcast",
+     "type": "boolean"
+    }
+   },
+   "title": "slack_send_channel_message",
+   "type": "object"
+  }
+ },
+ {
+  "name": "zoom_create_meeting",
+  "description": "Create a new Zoom meeting or webinar.",
+  "inputSchema": {
+   "description": "Create a new Zoom meeting or webinar.",
+   "properties": {
+    "type": {
+     "description": "Meeting type (1=Meeting, 2=Webinar).",
+     "enum": [
+      1,
+      2
+     ],
+     "title": "Type",
+     "type": "integer"
+    },
+    "topic": {
+     "description": "Meeting topic/title.",
+     "title": "Topic",
+     "type": "string"
+    },
+    "host_email": {
+     "anyOf": [
+      {
+       "type": "string"
+      },
+      {
+       "type": "null"
+      }
+     ],
+     "default": null,
+     "description": "Host email address.",
+     "title": "Host Email"
+    },
+    "start_time": {
+     "anyOf": [
+      {
+       "type": "string"
+      },
+      {
+       "type": "null"
+      }
+     ],
+     "default": null,
+     "description": "Start time in ISO format.",
+     "title": "Start Time"
+    },
+    "duration": {
+     "default": 60,
+     "description": "Duration in minutes (default 60).",
+     "title": "Duration",
+     "type": "integer"
+    },
+    "timezone": {
+     "default": "America/Los_Angeles",
+     "description": "Timezone (default America/Los_Angeles).",
+     "title": "Timezone",
+     "type": "string"
+    },
+    "agenda": {
+     "anyOf": [
+      {
+       "type": "string"
+      },
+      {
+       "type": "null"
+      }
+     ],
+     "default": null,
+     "description": "Meeting agenda/description.",
+     "title": "Agenda"
+    },
+    "registration_required": {
+     "default": false,
+     "description": "Whether registration is required.",
+     "title": "Registration Required",
+     "type": "boolean"
+    },
+    "approval_type": {
+     "default": 0,
+     "description": "Approval type (0=auto, 1=manual, 2=none required).",
+     "enum": [
+      0,
+      1,
+      2
+     ],
+     "title": "Approval Type",
+     "type": "integer"
+    },
+    "passcode": {
+     "anyOf": [
+      {
+       "type": "string"
+      },
+      {
+       "type": "null"
+      }
+     ],
+     "default": null,
+     "description": "Meeting passcode.",
+     "title": "Passcode"
+    },
+    "settings_waiting_room": {
+     "default": false,
+     "description": "Whether waiting room is enabled.",
+     "title": "Settings Waiting Room",
+     "type": "boolean"
+    }
+   },
+   "required": [
+    "type",
+    "topic"
+   ],
+   "title": "zoom_create_meeting",
+   "type": "object"
+  }
+ },
+ {
+  "name": "zoom_create_meeting_registrant",
+  "description": "Create a new meeting registrant.",
+  "inputSchema": {
+   "description": "Create a new meeting registrant.",
+   "properties": {
+    "meeting": {
+     "anyOf": [
+      {
+       "type": "integer"
+      },
+      {
+       "type": "string"
+      },
+      {
+       "type": "null"
+      }
+     ],
+     "default": null,
+     "description": "Meeting ID to register for.",
+     "title": "Meeting"
+    },
+    "email": {
+     "default": "",
+     "description": "Registrant email address.",
+     "title": "Email",
+     "type": "string"
+    },
+    "first_name": {
+     "default": "",
+     "description": "Registrant first name.",
+     "title": "First Name",
+     "type": "string"
+    },
+    "last_name": {
+     "anyOf": [
+      {
+       "type": "string"
+      },
+      {
+       "type": "null"
+      }
+     ],
+     "default": null,
+     "description": "Registrant last name.",
+     "title": "Last Name"
+    },
+    "language": {
+     "anyOf": [
+      {
+       "type": "string"
+      },
+      {
+       "type": "null"
+      }
+     ],
+     "default": null,
+     "description": "Language preference (e.g., 'en-US').",
+     "title": "Language"
+    },
+    "auto_approve": {
+     "default": false,
+     "description": "Whether to auto-approve the registration.",
+     "title": "Auto Approve",
+     "type": "boolean"
+    },
+    "meeting_id": {
+     "anyOf": [
+      {
+       "type": "integer"
+      },
+      {
+       "type": "string"
+      },
+      {
+       "type": "null"
+      }
+     ],
+     "default": null,
+     "title": "Meeting Id"
+    }
+   },
+   "title": "zoom_create_meeting_registrant",
+   "type": "object"
+  }
+ },
+ {
+  "name": "slack_list_channels",
+  "description": "List all channels available to the user.",
+  "inputSchema": {
+   "description": "List all channels available to the user.",
+   "properties": {},
+   "title": "slack_list_channels",
+   "type": "object"
+  }
+ }
+]

@@ -1,0 +1,1031 @@
+{
+ "id": "main_policy+tech_support_manual",
+ "version": "compiled",
+ "procedures": [
+  {
+   "name": "Telecom Agent Policy",
+   "category": "Customer Service",
+   "applies_when": "Agent handles customer requests related to accounts, payments, lines, plans, devices, bills, and technical support.",
+   "inputs": [
+    {
+     "fact": "Customer profile containing customer ID, full name, date of birth, email, phone number, address (street, city, state, zip code), account status, created date, payment methods, line IDs, bill IDs, last extension date, goodwill credit usage for the year",
+     "source": "Customer Profile"
+    }
+   ],
+   "decisions": [
+    {
+     "id": "account_status_check",
+     "rule": "Account status is Active, Suspended, Pending Verification, or Closed",
+     "then": "Proceed based on status-specific procedures",
+     "else": "Verify account status"
+    }
+   ],
+   "steps": [
+    "Verify customer identity using full name, date of birth, email, phone number, or address.",
+    "Review account status: Active, Suspended, Pending Verification, or Closed.",
+    "If account is overdue, process Overdue Bill Payment (s9).",
+    "Update customer profile with any changes to payment methods, line IDs, bill IDs, last extension date, or goodwill credit usage."
+   ],
+   "deadlines": [],
+   "must_not": [
+    "Do not modify account status without proper verification.",
+    "Do not process payments without confirming payment method.",
+    "Do not change plans without customer consent."
+   ],
+   "notes": [
+    "Prioritize overdue bill payments and line suspensions to maintain service continuity."
+   ],
+   "links": [
+    {
+     "type": "next",
+     "to": "s8",
+     "when": "Customer lookup is required"
+    },
+    {
+     "type": "next",
+     "to": "s9",
+     "when": "Account has overdue bill"
+    },
+    {
+     "type": "next",
+     "to": "s10",
+     "when": "Line suspension is requested or required"
+    },
+    {
+     "type": "next",
+     "to": "s11",
+     "when": "Data refueling is requested"
+    },
+    {
+     "type": "next",
+     "to": "s12",
+     "when": "Plan change is requested"
+    },
+    {
+     "type": "next",
+     "to": "s13",
+     "when": "Data roaming setup is requested"
+    },
+    {
+     "type": "next",
+     "to": "s14",
+     "when": "Technical support is requested"
+    }
+   ],
+   "id": "main_policy:s2",
+   "src": "main_policy §s2"
+  },
+  {
+   "name": "Payment Method",
+   "category": "Telecom Agent Policy",
+   "applies_when": "A customer's payment method details need to be recorded or referenced.",
+   "inputs": [
+    {
+     "fact": "method type",
+     "source": "Payment Method"
+    },
+    {
+     "fact": "account number last 4 digits",
+     "source": "Payment Method"
+    },
+    {
+     "fact": "expiration date",
+     "source": "Payment Method"
+    }
+   ],
+   "decisions": [],
+   "steps": [
+    "Record the method type (Credit Card, Debit Card, PayPal).",
+    "Record the account number last 4 digits.",
+    "Record the expiration date in MM/YYYY format."
+   ],
+   "deadlines": [],
+   "must_not": [],
+   "notes": [],
+   "links": [],
+   "id": "main_policy:s3",
+   "src": "main_policy §s3"
+  },
+  {
+   "name": "Line",
+   "category": "Telecom Agent Policy",
+   "applies_when": "Agent needs to view or manage line attributes for a customer.",
+   "inputs": [
+    {
+     "fact": "line ID",
+     "source": "Line system"
+    },
+    {
+     "fact": "phone number",
+     "source": "Line system"
+    },
+    {
+     "fact": "status",
+     "source": "Line system"
+    },
+    {
+     "fact": "plan ID",
+     "source": "Line system"
+    },
+    {
+     "fact": "device ID",
+     "source": "Line system"
+    },
+    {
+     "fact": "data usage (in GB)",
+     "source": "Line system"
+    },
+    {
+     "fact": "data refueling (in GB)",
+     "source": "Line system"
+    },
+    {
+     "fact": "roaming status",
+     "source": "Line system"
+    },
+    {
+     "fact": "contract end date",
+     "source": "Line system"
+    },
+    {
+     "fact": "last plan change date",
+     "source": "Line system"
+    },
+    {
+     "fact": "last SIM replacement date",
+     "source": "Line system"
+    },
+    {
+     "fact": "suspension start date",
+     "source": "Line system"
+    }
+   ],
+   "decisions": [
+    {
+     "id": "d1",
+     "rule": "line status is Active",
+     "then": "Proceed with requested line operation",
+     "else": "Check other statuses"
+    },
+    {
+     "id": "d2",
+     "rule": "line status is Suspended",
+     "then": "Follow Line Suspension procedure",
+     "else": "Check other statuses"
+    },
+    {
+     "id": "d3",
+     "rule": "line status is Pending Activation",
+     "then": "Inform customer line is not yet active",
+     "else": "Check other statuses"
+    },
+    {
+     "id": "d4",
+     "rule": "line status is Closed",
+     "then": "Inform customer line is closed and cannot be used",
+     "else": "End"
+    }
+   ],
+   "steps": [
+    "Retrieve line attributes from Line system using line ID or phone number.",
+    "Review line status: Active, Suspended, Pending Activation, or Closed.",
+    "If status is Active, proceed with requested operation (e.g., change plan, data refueling).",
+    "If status is Suspended, refer to Line Suspension procedure.",
+    "If status is Pending Activation, inform customer line is not yet active.",
+    "If status is Closed, inform customer line is closed and cannot be used."
+   ],
+   "deadlines": [],
+   "must_not": [
+    "Do not modify line attributes without proper authorization.",
+    "Do not proceed with operations on Closed lines."
+   ],
+   "notes": [
+    "Line status determines available actions."
+   ],
+   "links": [
+    {
+     "type": "next",
+     "to": "s10",
+     "when": "line status is Suspended"
+    },
+    {
+     "type": "next",
+     "to": "s12",
+     "when": "change plan requested and line status is Active"
+    },
+    {
+     "type": "next",
+     "to": "s11",
+     "when": "data refueling requested and line status is Active"
+    },
+    {
+     "type": "next",
+     "to": "s13",
+     "when": "data roaming requested and line status is Active"
+    }
+   ],
+   "id": "main_policy:s4",
+   "src": "main_policy §s4"
+  },
+  {
+   "name": "Plan",
+   "category": "Telecom Agent Policy",
+   "applies_when": "When a plan is referenced or selected for a customer.",
+   "inputs": [
+    {
+     "fact": "plan ID",
+     "source": "Plan"
+    },
+    {
+     "fact": "name",
+     "source": "Plan"
+    },
+    {
+     "fact": "data limit (in GB)",
+     "source": "Plan"
+    },
+    {
+     "fact": "monthly price",
+     "source": "Plan"
+    },
+    {
+     "fact": "data refueling price per GB",
+     "source": "Plan"
+    }
+   ],
+   "decisions": [],
+   "steps": [
+    "Specify data limit (in GB).",
+    "Specify monthly price.",
+    "Specify data refueling price per GB."
+   ],
+   "deadlines": [],
+   "must_not": [],
+   "notes": [],
+   "links": [],
+   "id": "main_policy:s5",
+   "src": "main_policy §s5"
+  },
+  {
+   "name": "Device",
+   "category": "Telecom Agent Policy",
+   "applies_when": "Agent needs to view or manage device information for a customer.",
+   "inputs": [
+    {
+     "fact": "device ID",
+     "source": "Device"
+    },
+    {
+     "fact": "device type",
+     "source": "Device"
+    },
+    {
+     "fact": "model",
+     "source": "Device"
+    },
+    {
+     "fact": "IMEI number",
+     "source": "Device"
+    },
+    {
+     "fact": "eSIM capability",
+     "source": "Device"
+    },
+    {
+     "fact": "activation status",
+     "source": "Device"
+    },
+    {
+     "fact": "activation date",
+     "source": "Device"
+    },
+    {
+     "fact": "last eSIM transfer date",
+     "source": "Device"
+    }
+   ],
+   "decisions": [],
+   "steps": [
+    "Retrieve device type (phone, tablet, router, watch, other) from Device.",
+    "Retrieve model from Device.",
+    "Retrieve IMEI number (optional) from Device.",
+    "Retrieve eSIM capability from Device.",
+    "Retrieve activation status from Device.",
+    "Retrieve activation date from Device.",
+    "Retrieve last eSIM transfer date from Device."
+   ],
+   "deadlines": [],
+   "must_not": [],
+   "notes": [],
+   "links": [],
+   "id": "main_policy:s6",
+   "src": "main_policy §s6"
+  },
+  {
+   "name": "Bill",
+   "category": "Billing",
+   "applies_when": "A bill is generated for a customer account.",
+   "inputs": [
+    {
+     "fact": "bill ID",
+     "source": "Bill"
+    },
+    {
+     "fact": "customer ID",
+     "source": "Bill"
+    },
+    {
+     "fact": "billing period (start and end dates)",
+     "source": "Bill"
+    },
+    {
+     "fact": "issue date",
+     "source": "Bill"
+    },
+    {
+     "fact": "total amount due",
+     "source": "Bill"
+    },
+    {
+     "fact": "due date",
+     "source": "Bill"
+    },
+    {
+     "fact": "line items (charges, fees, credits)",
+     "source": "Bill"
+    },
+    {
+     "fact": "status",
+     "source": "Bill"
+    }
+   ],
+   "decisions": [],
+   "steps": [
+    "Record billing period start and end dates.",
+    "Record issue date.",
+    "Record total amount due.",
+    "Record line items including charges, fees, and credits.",
+    "Set status to one of: Draft, Issued, Paid, Overdue, Awaiting Payment, or Disputed."
+   ],
+   "deadlines": [],
+   "must_not": [],
+   "notes": [],
+   "links": [],
+   "id": "main_policy:s7",
+   "src": "main_policy §s7"
+  },
+  {
+   "name": "Customer Lookup",
+   "category": "Customer Information Retrieval",
+   "applies_when": "Agent needs to retrieve customer information for verification or service purposes.",
+   "inputs": [
+    {
+     "fact": "Phone number",
+     "source": "Customer-provided"
+    },
+    {
+     "fact": "Customer ID",
+     "source": "Customer-provided"
+    },
+    {
+     "fact": "Full name",
+     "source": "Customer-provided"
+    },
+    {
+     "fact": "Date of birth",
+     "source": "Customer-provided"
+    }
+   ],
+   "decisions": [
+    {
+     "id": "d1",
+     "rule": "Lookup method is by full name",
+     "then": "Require date of birth for verification",
+     "else": "Proceed with phone number or Customer ID lookup"
+    }
+   ],
+   "steps": [
+    "Look up customer information using phone number, Customer ID, or full name with date of birth.",
+    "If using full name, ensure date of birth is provided for verification purposes."
+   ],
+   "deadlines": [],
+   "must_not": [
+    "Do not perform name lookup without date of birth."
+   ],
+   "notes": [
+    "Date of birth is required only for name-based lookup."
+   ],
+   "links": [],
+   "id": "main_policy:s8",
+   "src": "main_policy §s8"
+  },
+  {
+   "name": "Overdue Bill Payment",
+   "category": "Bill Payment",
+   "applies_when": "A customer needs to pay an overdue bill.",
+   "inputs": [
+    {
+     "fact": "bill status",
+     "source": "Bill system"
+    },
+    {
+     "fact": "bill amount due",
+     "source": "Bill system"
+    }
+   ],
+   "decisions": [
+    {
+     "id": "d1",
+     "rule": "bill status is overdue",
+     "then": "proceed to send payment request",
+     "else": "do not send payment request"
+    },
+    {
+     "id": "d2",
+     "rule": "bill status is updated to PAID",
+     "then": "inform user that the bill has been paid",
+     "else": "do not inform user of payment completion"
+    }
+   ],
+   "steps": [
+    "Check the bill status to make sure it is overdue.",
+    "Check the bill amount due.",
+    "Send the user a payment request for the overdue bill using the send payment request tool.",
+    "Inform the user that a payment request has been sent and they should check their payment requests using the check_payment_request tool.",
+    "If the user accepts the payment request, use the make_payment tool to make the payment.",
+    "After the payment is made, check that the bill status is updated to PAID.",
+    "Inform the user that the bill has been paid."
+   ],
+   "deadlines": [],
+   "must_not": [
+    "Do not send a payment request if the bill is not overdue.",
+    "A user can only have one bill in the AWAITING PAYMENT status at a time."
+   ],
+   "notes": [
+    "The send payment request tool will not check if the bill is overdue; always check before sending.",
+    "The send payment request tool changes the bill status to AWAITING PAYMENT."
+   ],
+   "links": [],
+   "id": "main_policy:s9",
+   "src": "main_policy §s9"
+  },
+  {
+   "name": "Line Suspension",
+   "category": "Line Management",
+   "applies_when": "A line is suspended or suspension needs to be evaluated.",
+   "inputs": [
+    {
+     "fact": "Line suspension status",
+     "source": "Line"
+    },
+    {
+     "fact": "Overdue bill status",
+     "source": "Bill"
+    },
+    {
+     "fact": "Contract end date",
+     "source": "Line"
+    }
+   ],
+   "decisions": [
+    {
+     "id": "d1",
+     "rule": "The user has an overdue bill",
+     "then": "Suspend the line",
+     "else": "Check contract end date"
+    },
+    {
+     "id": "d2",
+     "rule": "The line's contract end date is in the past",
+     "then": "Suspend the line",
+     "else": "Do not suspend"
+    },
+    {
+     "id": "d3",
+     "rule": "The user has paid all their overdue bills",
+     "then": "Lift the suspension",
+     "else": "Do not lift the suspension"
+    },
+    {
+     "id": "d4",
+     "rule": "The line's contract end date is in the past",
+     "then": "Do not lift the suspension",
+     "else": "Lift the suspension if all overdue bills are paid"
+    }
+   ],
+   "steps": [
+    "Suspend the line when the user has an overdue bill.",
+    "Suspend the line when the line's contract end date is in the past.",
+    "Lift the suspension after the user has paid all their overdue bills.",
+    "Do not lift the suspension if the line's contract end date is in the past, even if the user has paid all their overdue bills.",
+    "After you resume the line, instruct the user to reboot their device to get service."
+   ],
+   "deadlines": [],
+   "must_not": [
+    "Do not lift the suspension if the line's contract end date is in the past, even if the user has paid all their overdue bills."
+   ],
+   "notes": [],
+   "links": [
+    {
+     "type": "next",
+     "to": "s9",
+     "when": "The user has an overdue bill"
+    }
+   ],
+   "id": "main_policy:s10",
+   "src": "main_policy §s10"
+  },
+  {
+   "name": "Data Refueling",
+   "category": "Data Refueling",
+   "applies_when": "A user's data usage for a line exceeds the plan's data limit and they request to add more data.",
+   "inputs": [
+    {
+     "fact": "plan's maxium data usage per month",
+     "source": "Plan"
+    },
+    {
+     "fact": "plan's price per GB for refueling",
+     "source": "Plan"
+    },
+    {
+     "fact": "user's data usage for the line",
+     "source": "Line"
+    }
+   ],
+   "decisions": [
+    {
+     "id": "d1",
+     "rule": "requested refuel data amount > 2GB",
+     "then": "Inform user that the maximum amount of data that can be refueled is 2GB and ask for a valid amount.",
+     "else": "Proceed with refueling."
+    }
+   ],
+   "steps": [
+    "Ask the user how much data they want to refuel.",
+    "Confirm the price per GB specified by the plan.",
+    "Apply the refueled data to the line associated with the phone number the user provided."
+   ],
+   "deadlines": [],
+   "must_not": [
+    "Do not refuel more than 2GB of data."
+   ],
+   "notes": [
+    "Data connectivity will be lost if the user's data usage exceeds the plan's data limit."
+   ],
+   "links": [],
+   "id": "main_policy:s11",
+   "src": "main_policy §s11"
+  },
+  {
+   "name": "Change Plan",
+   "category": "Plan Management",
+   "applies_when": "Customer requests to change the plan for a specific line.",
+   "inputs": [
+    {
+     "fact": "Phone number of the line to change plan for",
+     "source": "Customer"
+    },
+    {
+     "fact": "Available plans",
+     "source": "Plan system"
+    },
+    {
+     "fact": "Price of the new plan",
+     "source": "Plan system"
+    }
+   ],
+   "decisions": [],
+   "steps": [
+    "Make sure you know what line the user wants to change the plan for.",
+    "Gather available plans.",
+    "Ask the user to select one plan from the available plans.",
+    "Calculate the price of the new plan.",
+    "Confirm the price with the user.",
+    "Apply the plan to the line associated with the phone number the user provided."
+   ],
+   "deadlines": [],
+   "must_not": [],
+   "notes": [],
+   "links": [],
+   "id": "main_policy:s12",
+   "src": "main_policy §s12"
+  },
+  {
+   "name": "Data Roaming",
+   "category": "Line Management",
+   "applies_when": "A user is traveling outside their home network and needs data roaming.",
+   "inputs": [
+    {
+     "fact": "Line roaming status",
+     "source": "Line"
+    }
+   ],
+   "decisions": [
+    {
+     "id": "d1",
+     "rule": "line is roaming enabled",
+     "then": "No action needed",
+     "else": "Enable roaming"
+    }
+   ],
+   "steps": [
+    "Check if the line is roaming enabled.",
+    "If the line is not roaming enabled, enable it at no cost for the user."
+   ],
+   "deadlines": [],
+   "must_not": [],
+   "notes": [],
+   "links": [],
+   "id": "main_policy:s13",
+   "src": "main_policy §s13"
+  },
+  {
+   "name": "Diagnostic Actions (Read-only)",
+   "category": "Diagnostic",
+   "applies_when": "When performing read-only diagnostic checks on the user's device.",
+   "inputs": [
+    {
+     "fact": "Status bar icons",
+     "source": "system status bar"
+    },
+    {
+     "fact": "Network connection status",
+     "source": "system network status"
+    },
+    {
+     "fact": "Network mode preference",
+     "source": "system network settings"
+    },
+    {
+     "fact": "SIM card status",
+     "source": "system SIM status"
+    },
+    {
+     "fact": "Data restriction status",
+     "source": "system data usage settings"
+    },
+    {
+     "fact": "APN settings",
+     "source": "system APN settings"
+    },
+    {
+     "fact": "Wi-Fi connection status",
+     "source": "system Wi-Fi status"
+    },
+    {
+     "fact": "Wi-Fi Calling status",
+     "source": "system Wi-Fi Calling settings"
+    },
+    {
+     "fact": "VPN connection status",
+     "source": "system VPN status"
+    },
+    {
+     "fact": "Installed apps",
+     "source": "system installed apps list"
+    },
+    {
+     "fact": "App details",
+     "source": "system app info"
+    },
+    {
+     "fact": "App permissions",
+     "source": "system app permissions"
+    },
+    {
+     "fact": "Internet connection speed",
+     "source": "speed test result"
+    },
+    {
+     "fact": "MMS sending capability",
+     "source": "messaging app status"
+    }
+   ],
+   "decisions": [],
+   "steps": [
+    "1. Run check_status_bar to show icons currently visible in the phone's status bar, including Airplane mode status (\"✈️ Airplane Mode\" when enabled), network signal strength (\"📵 No Signal\", \"📶¹ Poor\", \"📶² Fair\", \"📶³ Good\", \"📶⁴ Excellent\"), network technology (e.g., \"5G\", \"4G\"), mobile data status (\"📱 Data Enabled\" or \"📵 Data Disabled\"), data saver status (\"🔽 Data Saver\" when enabled), Wi-Fi status (\"📡 Connected to [SSID]\" or \"📡 Enabled\"), VPN status (\"🔒 VPN Connected\" when connected), and battery level (\"🔋 [percentage]%\").",
+    "2. Run check_network_status to check the phone's connection status to cellular networks and Wi-Fi, showing airplane mode status, signal strength (none, poor, fair, good, excellent), network type, whether mobile data is enabled, and whether data roaming is enabled.",
+    "3. Run check_network_mode_preference to check the phone's network mode preference, showing the type of cellular network the phone prefers to connect to (e.g., 5G, 4G, 3G, 2G).",
+    "4. Run check_sim_status to check if the SIM card is working correctly, showing if the SIM is active, missing, or locked with a PIN or PUK code.",
+    "5. Run check_data_restriction_status to check if the phone has any data-limiting features active, showing if Data Saver mode is on and whether background data usage is restricted globally.",
+    "6. Run check_apn_settings to check the technical APN settings the phone uses to connect to the carrier's mobile data network, showing current APN name and MMSC URL for picture messaging.",
+    "7. Run check_wifi_status to check the Wi-Fi connection status, showing if Wi-Fi is turned on, which network is connected to (if any), and the signal strength.",
+    "8. Run check_wifi_calling_status to check if Wi-Fi Calling is enabled on the device.",
+    "9. Run check_vpn_status to check if a VPN connection is active, showing if a VPN is active, connected, and any available connection details.",
+    "10. Run check_installed_apps to return the name of all installed apps on the phone.",
+    "11. Run check_app_status to check detailed information about a specific app, showing its permissions and background data usage settings.",
+    "12. Run check_app_permissions to check what permissions a specific app currently has, showing if the app has access to features like storage, camera, location, etc.",
+    "13. Run run_speed_test to measure the current internet connection speed (download speed), providing information about connection quality and what activities it can support (download speed can be unknown, very poor, poor, fair, good, or excellent).",
+    "14. Run can_send_mms to check if the messaging app can send MMS messages."
+   ],
+   "deadlines": [],
+   "must_not": [],
+   "notes": [],
+   "links": [],
+   "id": "tech_support_manual:s2",
+   "src": "tech_support_manual §s2"
+  },
+  {
+   "name": "Fix Actions (Write/Modify)",
+   "category": "Fix Actions",
+   "applies_when": "A diagnostic step indicates a specific fix action is required.",
+   "inputs": [],
+   "decisions": [],
+   "steps": [
+    "1. **set_network_mode_preference** - Changes the type of cellular network your phone prefers to connect to (e.g., 5G, 4G, 3G). Higher-speed networks (5G, 4G) provide faster data but may use more battery.",
+    "2. **toggle_airplane_mode** - Turns Airplane Mode ON or OFF. When ON, it disconnects all wireless communications including cellular, Wi-Fi, and Bluetooth.",
+    "3. **reseat_sim_card** - Simulates removing and reinserting your SIM card. This can help resolve recognition issues.",
+    "4. **toggle_data** - Turns your phone's mobile data connection ON or OFF. Controls whether your phone can use cellular data for internet access when Wi-Fi is unavailable.",
+    "5. **toggle_roaming** - Turns Data Roaming ON or OFF. When ON, roaming is enabled and your phone can use data networks in areas outside your carrier's coverage.",
+    "6. **toggle_data_saver_mode** - Turns Data Saver mode ON or OFF. When ON, it reduces data usage, which may affect data speed.",
+    "7. **set_apn_settings** - Sets the APN settings for the phone.",
+    "8. **reset_apn_settings** - Resets your APN settings to the default settings.",
+    "9. **toggle_wifi** - Turns your phone's Wi-Fi radio ON or OFF. Controls whether your phone can discover and connect to wireless networks for internet access.",
+    "10. **toggle_wifi_calling** - Turns Wi-Fi Calling ON or OFF. This feature allows you to make and receive calls over Wi-Fi instead of the cellular network, which can help in areas with weak cellular signal.",
+    "11. **connect_vpn** - Connects to your VPN (Virtual Private Network).",
+    "12. **disconnect_vpn** - Disconnects any active VPN (Virtual Private Network) connection. Stops routing your internet traffic through a VPN server, which might affect connection speed or access to content.",
+    "13. **grant_app_permission** - Gives a specific permission to an app (like access to storage, camera, or location). Required for some app functions to work properly.",
+    "14. **reboot_device** - Restarts your phone completely. This can help resolve many temporary software glitches by refreshing all running services and connections."
+   ],
+   "deadlines": [],
+   "must_not": [],
+   "notes": [],
+   "links": [],
+   "id": "tech_support_manual:s3",
+   "src": "tech_support_manual §s3"
+  },
+  {
+   "name": "SIM Card Issues",
+   "category": "Diagnostic Actions (Read-only)",
+   "applies_when": "User reports a complete loss of cellular service potentially related to the SIM card.",
+   "inputs": [
+    {
+     "fact": "SIM card status",
+     "source": "check_sim_status()"
+    }
+   ],
+   "decisions": [
+    {
+     "id": "d1",
+     "rule": "SIM status is 'Missing'",
+     "then": "Guide user to reseat SIM card",
+     "else": "Check if SIM status is 'Locked'"
+    },
+    {
+     "id": "d2",
+     "rule": "SIM status is 'Locked'",
+     "then": "Escalate to technical support for assistance with SIM security",
+     "else": "SIM status is 'Active', SIM itself is likely okay"
+    }
+   ],
+   "steps": [
+    "Use check_sim_status() to check the status of the SIM card.",
+    "If SIM status is 'Missing', guide the user to use reseat_sim_card() to ensure the SIM card is correctly inserted.",
+    "If SIM status is 'Locked' (due to incorrect PIN or PUK entries), escalate to technical support for assistance with SIM security.",
+    "If SIM status is 'Active', conclude the SIM itself is likely okay."
+   ],
+   "deadlines": [],
+   "must_not": [],
+   "notes": [],
+   "links": [],
+   "id": "tech_support_manual:s9",
+   "src": "tech_support_manual §s9"
+  },
+  {
+   "name": "Incorrect APN Settings",
+   "category": "Fix Actions (Write/Modify)",
+   "applies_when": "APN settings are incorrect as indicated by check_apn_settings().",
+   "inputs": [
+    {
+     "fact": "APN settings status",
+     "source": "check_apn_settings()"
+    }
+   ],
+   "decisions": [
+    {
+     "id": "d1",
+     "rule": "check_apn_settings() shows 'Incorrect'",
+     "then": "Proceed to reset APN settings",
+     "else": "No action needed"
+    }
+   ],
+   "steps": [
+    "Guide the user to use reset_apn_settings() to reset the APN settings.",
+    "Instruct the user to use reboot_device() for the changes to apply."
+   ],
+   "deadlines": [],
+   "must_not": [],
+   "notes": [],
+   "links": [],
+   "id": "tech_support_manual:s10",
+   "src": "tech_support_manual §s10"
+  },
+  {
+   "name": "Diagnosing Mobile Data Issues",
+   "category": "Diagnostic Actions (Read-only)",
+   "applies_when": "User reports mobile data connectivity or speed problems.",
+   "inputs": [
+    {
+     "fact": "Speed test result",
+     "source": "run_speed_test()"
+    }
+   ],
+   "decisions": [
+    {
+     "id": "d1",
+     "rule": "speed test returns 'no connection'",
+     "then": "Mobile data is unavailable",
+     "else": "Mobile data is available"
+    },
+    {
+     "id": "d2",
+     "rule": "data speed is below 'Excellent'",
+     "then": "Data speed is considered slow",
+     "else": "Data speed is acceptable"
+    }
+   ],
+   "steps": [
+    "Run speed test using run_speed_test() to check for potential issues with mobile data.",
+    "If speed test returns 'no connection', conclude mobile data is unavailable.",
+    "If speed test returns a data speed, evaluate if speed is below 'Excellent' to determine if it is slow."
+   ],
+   "deadlines": [],
+   "must_not": [],
+   "notes": [],
+   "links": [
+    {
+     "type": "next",
+     "to": "s17",
+     "when": "mobile data is unavailable or speed is slow"
+    }
+   ],
+   "id": "tech_support_manual:s16",
+   "src": "tech_support_manual §s16"
+  },
+  {
+   "name": "Data Plan Limits Reached",
+   "category": "Troubleshooting Mobile Data Problems",
+   "applies_when": "User's data usage for the line associated with the provided phone number exceeds the plan's data limit.",
+   "inputs": [
+    {
+     "fact": "User's data usage for the line",
+     "source": "plan"
+    },
+    {
+     "fact": "Plan's data limit",
+     "source": "plan"
+    }
+   ],
+   "decisions": [
+    {
+     "id": "d1",
+     "rule": "data usage exceeds plan's data limit",
+     "then": "Inform user of options: change plan or refuel data",
+     "else": "Data plan limits not reached"
+    }
+   ],
+   "steps": [
+    "Check the user's data usage for the line associated with the phone number the user provided.",
+    "Compare the data usage to the plan's data limit.",
+    "If data usage exceeds the plan's data limit, inform the user that data connectivity is lost due to reaching the data limit.",
+    "Present the user with 2 options: change to a plan with more data, or add more data to the line by refueling data at a price per GB specified by the plan.",
+    "Refer to the general policy for guidelines on those options."
+   ],
+   "deadlines": [],
+   "must_not": [],
+   "notes": [],
+   "links": [],
+   "id": "tech_support_manual:s23",
+   "src": "tech_support_manual §s23"
+  },
+  {
+   "name": "Verifying APN (MMSC URL) for MMS",
+   "category": "Troubleshooting MMS Problems",
+   "applies_when": "MMS issues are suspected to be caused by incorrect MMSC URL in APN settings.",
+   "inputs": [
+    {
+     "fact": "MMSC URL is not set",
+     "source": "check_apn_settings()"
+    }
+   ],
+   "decisions": [
+    {
+     "id": "d1",
+     "rule": "check_apn_settings() shows MMSC URL is not set",
+     "then": "Guide user to reset APN settings and reboot",
+     "else": "MMSC URL is set correctly; issue is not with APN MMSC URL"
+    }
+   ],
+   "steps": [
+    "Use check_apn_settings() to verify if MMSC URL is set.",
+    "If MMSC URL is not set, guide the user to use reset_apn_settings() to reset the APN settings.",
+    "Instruct the user to use reboot_device() for the changes to apply."
+   ],
+   "deadlines": [],
+   "must_not": [],
+   "notes": [
+    "MMSC URL is a very common cause of MMS issues."
+   ],
+   "links": [],
+   "id": "tech_support_manual:s33",
+   "src": "tech_support_manual §s33"
+  }
+ ],
+ "templates": {},
+ "global_rules": [
+  {
+   "id": "R1",
+   "src": "Telecom Agent Policy",
+   "rule": "As a telecom agent, you can help users with technical support, overdue bill payment, line suspension, and plan options."
+  },
+  {
+   "id": "R2",
+   "src": "Telecom Agent Policy",
+   "rule": "You should not provide any information, knowledge, or procedures not provided by the user or available tools, or give subjective recommendations or comments."
+  },
+  {
+   "id": "R3",
+   "src": "Telecom Agent Policy",
+   "rule": "You should only make one tool call at a time, and if you make a tool call, you should not respond to the user simultaneously. If you respond to the user, you should not make a tool call at the same time."
+  },
+  {
+   "id": "R4",
+   "src": "Telecom Agent Policy",
+   "rule": "You should deny user requests that are against this policy."
+  },
+  {
+   "id": "R5",
+   "src": "Telecom Agent Policy",
+   "rule": "You should transfer the user to a human agent if and only if the request cannot be handled within the scope of your actions. To transfer, first make a tool call to transfer_to_human_agents, and then send the message 'YOU ARE BEING TRANSFERRED TO A HUMAN AGENT. PLEASE HOLD ON.' to the user."
+  },
+  {
+   "id": "R6",
+   "src": "Telecom Agent Policy",
+   "rule": "You should try your best to resolve the issue for the user before transferring the user to a human agent."
+  },
+  {
+   "id": "R7",
+   "src": "Technical Support",
+   "rule": "You must first identify the customer."
+  },
+  {
+   "id": "GR1",
+   "src": "Introduction",
+   "rule": "Make sure you try all the possible ways to resolve the user's issue before transferring to a human agent."
+  },
+  {
+   "id": "GR2",
+   "src": "Line Suspension",
+   "rule": "If the line is suspended and the agent can lift the suspension (per general policy), verify if service is restored."
+  },
+  {
+   "id": "GR3",
+   "src": "Line Suspension",
+   "rule": "If the suspension cannot be lifted by the agent (e.g., due to contract end date as mentioned in general policy, or other reasons not resolvable by the agent), escalate to technical support."
+  },
+  {
+   "id": "GR4",
+   "src": "Addressing Data Roaming Problems",
+   "rule": "You should check that the line associated with the phone number the user provided is roaming enabled. If it is not, the user will not be able to use their phone's data connection in areas outside their home network. Refer to the general policy for guidelines on enabling roaming."
+  }
+ ],
+ "definitions": {
+  "Airplane Mode": "A feature that disables all wireless radios, including cellular.",
+  "Mobile Data": "Allows the phone to connect to the internet using the carrier's cellular network.",
+  "MMS": "Multimedia Messaging Service, an extension of SMS that allows sending and receiving messages containing pictures, videos, or audio.",
+  "Data Roaming": "Allows the user to use their phone's data connection in areas outside their home network.",
+  "Data Saver Mode": "A feature that restricts background data usage and can affect data speeds.",
+  "VPN": "Virtual Private Network, a feature that encrypts internet traffic and can help improve data speeds and security.",
+  "Network Mode Preferences": "Settings that determine the type of cellular network the phone will connect to.",
+  "APN Settings": "Access Point Name settings, which can affect service and MMS functionality.",
+  "Wi-Fi Calling": "A feature that allows calls and texts over Wi-Fi, which can sometimes interfere with MMS."
+ },
+ "routing": {
+  "technical_support_escalation": {
+   "jira": "TECH-ESC-{user_id}",
+   "assignee": "Technical Support Team",
+   "folder": "Escalations",
+   "channel_if_a_step_posts": "Internal Escalation Channel"
+  }
+ },
+ "triage": {
+  "name": "Technical Support Triage",
+  "src": "Diagnosing Service Issues, Diagnosing MMS Issues",
+  "steps": [
+   "Use check_status_bar() to check if the user is facing a service issue. Stop if no cellular service is indicated.",
+   "Use can_send_mms() to check if the user is facing an MMS issue. Stop if MMS cannot be sent."
+  ]
+ },
+ "escalation": {
+  "name": "Technical Support Escalation",
+  "src": "Line Suspension",
+  "steps": [
+   "If the line is suspended and the agent cannot lift the suspension (e.g., due to contract end date or other reasons not resolvable by the agent), escalate to technical support."
+  ],
+  "must_not": [
+   "Do not escalate if the agent can lift the suspension per general policy."
+  ]
+ },
+ "built_by": "azure/DeepSeek-V4-Pro"
+}

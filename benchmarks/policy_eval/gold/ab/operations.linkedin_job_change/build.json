@@ -1,0 +1,528 @@
+{
+ "version": "f9258099e57aee7d",
+ "rules": [
+  {
+   "id": "g_35bf68ac53",
+   "type": "record_condition",
+   "rule": {
+    "type": "record_condition",
+    "tools": [
+     "salesforce_contact_update"
+    ],
+    "field": "notes",
+    "op": "contains",
+    "value": "secondment",
+    "effect": "forbid",
+    "quote": "Contacts whose Salesforce Notes indicate a 'temporary secondment' or 'secondment' are not job changers",
+    "source": "ws_flagging_rules §preamble",
+    "by": "skill",
+    "id": "g_35bf68ac53"
+   },
+   "statement_ids": [
+    "ws_flagging_rules:preamble:1"
+   ],
+   "checker": "code",
+   "may_deny": true,
+   "source": {
+    "document": "ws_flagging_rules",
+    "section": "preamble",
+    "page": null,
+    "line": 5,
+    "table_header": [
+     "Rule",
+     "Description"
+    ]
+   },
+   "quote": "Contacts whose Salesforce Notes indicate a 'temporary secondment' or 'secondment' are not job changers"
+  },
+  {
+   "id": "g_81028ca1fe",
+   "type": "verify",
+   "rule": {
+    "type": "verify",
+    "tools": [
+     "salesforce_task_create",
+     "slack_send_channel_message"
+    ],
+    "statement": "(Rule | Description) Secondment Exclusion | Contacts whose Salesforce Notes indicate a 'temporary secondment' or 'secondment' are not job changers. Their LinkedIn may show a different company but they have not permanently moved. Do NOT flag these contacts as job changes.",
+    "quote": "Secondment Exclusion | Contacts whose Salesforce Notes indicate a 'temporary secondment' or 'secondment' are not job changers. Their LinkedIn may show a different company but they have not permanently moved. Do NOT flag these contacts as job changes.",
+    "types": [
+     "eligibility_filter",
+     "exception_override"
+    ],
+    "source": "ws_flagging_rules §preamble",
+    "by": "skill",
+    "id": "g_81028ca1fe"
+   },
+   "statement_ids": [
+    "ws_flagging_rules:preamble:1"
+   ],
+   "checker": "verifier",
+   "may_deny": true,
+   "source": {
+    "document": "ws_flagging_rules",
+    "section": "preamble",
+    "page": null,
+    "line": 5,
+    "table_header": [
+     "Rule",
+     "Description"
+    ]
+   },
+   "quote": "Secondment Exclusion | Contacts whose Salesforce Notes indicate a 'temporary secondment' or 'secondment' are not job changers. Their LinkedIn may show a different company but they have not permanently moved. Do NOT flag these contacts as job changes."
+  },
+  {
+   "id": "g_e5d0b5e13b",
+   "type": "verify",
+   "rule": {
+    "type": "verify",
+    "tools": [
+     "salesforce_contact_update",
+     "salesforce_task_create",
+     "slack_send_channel_message"
+    ],
+    "statement": "(Rule | Description) Email Override | Internal emails from staff providing context about a contact always take precedence over LinkedIn data. If an email says a contact has NOT moved, that overrides the LinkedIn headline.",
+    "quote": "Email Override | Internal emails from staff providing context about a contact always take precedence over LinkedIn data. If an email says a contact has NOT moved, that overrides the LinkedIn headline.",
+    "types": [
+     "exception_override",
+     "source_of_truth"
+    ],
+    "source": "ws_flagging_rules §preamble",
+    "by": "skill",
+    "id": "g_e5d0b5e13b"
+   },
+   "statement_ids": [
+    "ws_flagging_rules:preamble:2"
+   ],
+   "checker": "verifier",
+   "may_deny": true,
+   "source": {
+    "document": "ws_flagging_rules",
+    "section": "preamble",
+    "page": null,
+    "line": 6,
+    "table_header": [
+     "Rule",
+     "Description"
+    ]
+   },
+   "quote": "Email Override | Internal emails from staff providing context about a contact always take precedence over LinkedIn data. If an email says a contact has NOT moved, that overrides the LinkedIn headline."
+  },
+  {
+   "id": "g_ae8fcaf9d5",
+   "type": "verify",
+   "rule": {
+    "type": "verify",
+    "tools": [
+     "salesforce_contact_update",
+     "salesforce_task_create",
+     "slack_send_channel_message"
+    ],
+    "statement": "(Rule | Description) Company Rebrand Exclusion | If internal emails indicate a company has rebranded or renamed (same legal entity, new trading name), the contact has NOT changed jobs. Cross-reference emails before flagging anyone whose LinkedIn company name differs only due to a rebrand.",
+    "quote": "Company Rebrand Exclusion | If internal emails indicate a company has rebranded or renamed (same legal entity, new trading name), the contact has NOT changed jobs. Cross-reference emails before flagging anyone whose LinkedIn company name differs only due to a rebrand.",
+    "types": [
+     "eligibility_filter",
+     "exception_override"
+    ],
+    "source": "ws_flagging_rules §preamble",
+    "by": "skill",
+    "id": "g_ae8fcaf9d5"
+   },
+   "statement_ids": [
+    "ws_flagging_rules:preamble:3"
+   ],
+   "checker": "verifier",
+   "may_deny": true,
+   "source": {
+    "document": "ws_flagging_rules",
+    "section": "preamble",
+    "page": null,
+    "line": 7,
+    "table_header": [
+     "Rule",
+     "Description"
+    ]
+   },
+   "quote": "Company Rebrand Exclusion | If internal emails indicate a company has rebranded or renamed (same legal entity, new trading name), the contact has NOT changed jobs. Cross-reference emails before flagging anyone whose LinkedIn company name differs only due to a rebrand."
+  },
+  {
+   "id": "g_e4583d28b7",
+   "type": "verify",
+   "rule": {
+    "type": "verify",
+    "tools": [
+     "salesforce_contact_update",
+     "salesforce_task_create",
+     "slack_send_channel_message"
+    ],
+    "statement": "(Rule | Description) Title Change Exclusion | A change in job title at the SAME company is NOT a job change — only a company change qualifies. If the LinkedIn headline shows a different title but the same company name as in Salesforce, do NOT flag as a job change. Promotions and internal role changes must be ignored.",
+    "quote": "Title Change Exclusion | A change in job title at the SAME company is NOT a job change — only a company change qualifies. If the LinkedIn headline shows a different title but the same company name as in Salesforce, do NOT flag as a job change. Promotions and internal role changes must be ignored.",
+    "types": [
+     "definition",
+     "eligibility_filter"
+    ],
+    "source": "ws_flagging_rules §preamble",
+    "by": "skill",
+    "id": "g_e4583d28b7"
+   },
+   "statement_ids": [
+    "ws_flagging_rules:preamble:4"
+   ],
+   "checker": "verifier",
+   "may_deny": true,
+   "source": {
+    "document": "ws_flagging_rules",
+    "section": "preamble",
+    "page": null,
+    "line": 8,
+    "table_header": [
+     "Rule",
+     "Description"
+    ]
+   },
+   "quote": "Title Change Exclusion | A change in job title at the SAME company is NOT a job change — only a company change qualifies. If the LinkedIn headline shows a different title but the same company name as in Salesforce, do NOT flag as a job change. Promotions and internal role changes must be ignored."
+  },
+  {
+   "id": "g_5201d48148",
+   "type": "verify",
+   "rule": {
+    "type": "verify",
+    "tools": [
+     "salesforce_contact_update",
+     "salesforce_task_create",
+     "slack_send_channel_message"
+    ],
+    "statement": "Heads up - Sam Beckett updated his LinkedIn profile early but he hasn't actually started at BigMove yet. He's still at CurrentCo until end of March. Don't flag him as moved.",
+    "quote": "Heads up - Sam Beckett updated his LinkedIn profile early but he hasn't actually started at BigMove yet. He's still at CurrentCo until end of March. Don't flag him as moved.",
+    "types": [
+     "eligibility_filter",
+     "prohibition",
+     "source_of_truth"
+    ],
+    "source": "msg_contact_note_001 §preamble",
+    "by": "skill",
+    "id": "g_5201d48148"
+   },
+   "statement_ids": [
+    "msg_contact_note_001:preamble:1",
+    "msg_contact_note_001:preamble:2",
+    "msg_contact_note_001:preamble:3"
+   ],
+   "checker": "verifier",
+   "may_deny": true,
+   "source": {
+    "document": "msg_contact_note_001",
+    "section": "preamble",
+    "page": null,
+    "line": 3
+   },
+   "quote": "Heads up - Sam Beckett updated his LinkedIn profile early but he hasn't actually started at BigMove yet. He's still at CurrentCo until end of March. Don't flag him as moved."
+  },
+  {
+   "id": "g_24ce796356",
+   "type": "verify",
+   "rule": {
+    "type": "verify",
+    "tools": [
+     "salesforce_contact_update",
+     "salesforce_task_create",
+     "slack_send_channel_message"
+    ],
+    "statement": "Quick note - LegacyCorp officially rebranded to LegacyCorp Innovations last month. Same company, same people, just a new name. Taylor Nguyen and everyone else are still there. No actual job changes.",
+    "quote": "Quick note - LegacyCorp officially rebranded to LegacyCorp Innovations last month. Same company, same people, just a new name. Taylor Nguyen and everyone else are still there. No actual job changes.",
+    "types": [
+     "eligibility_filter",
+     "source_of_truth"
+    ],
+    "source": "msg_rebrand_note_001 §preamble",
+    "by": "skill",
+    "id": "g_24ce796356"
+   },
+   "statement_ids": [
+    "msg_rebrand_note_001:preamble:1",
+    "msg_rebrand_note_001:preamble:2",
+    "msg_rebrand_note_001:preamble:3",
+    "msg_rebrand_note_001:preamble:4"
+   ],
+   "checker": "verifier",
+   "may_deny": true,
+   "source": {
+    "document": "msg_rebrand_note_001",
+    "section": "preamble",
+    "page": null,
+    "line": 3
+   },
+   "quote": "Quick note - LegacyCorp officially rebranded to LegacyCorp Innovations last month. Same company, same people, just a new name. Taylor Nguyen and everyone else are still there. No actual job changes."
+  }
+ ],
+ "procedures": [],
+ "links": [
+  {
+   "type": "defines",
+   "src": "ws_flagging_rules:preamble:4",
+   "dst": "ws_flagging_rules:preamble:1",
+   "source": {
+    "document": "ws_flagging_rules",
+    "section": "preamble",
+    "page": null,
+    "line": 8,
+    "table_header": [
+     "Rule",
+     "Description"
+    ]
+   },
+   "quote": "A change in job title at the SAME company is NOT a job change"
+  },
+  {
+   "type": "defines",
+   "src": "ws_flagging_rules:preamble:4",
+   "dst": "ws_flagging_rules:preamble:3",
+   "source": {
+    "document": "ws_flagging_rules",
+    "section": "preamble",
+    "page": null,
+    "line": 8,
+    "table_header": [
+     "Rule",
+     "Description"
+    ]
+   },
+   "quote": "A change in job title at the SAME company is NOT a job change"
+  },
+  {
+   "type": "defines",
+   "src": "ws_flagging_rules:preamble:4",
+   "dst": "msg_rebrand_note_001:preamble:4",
+   "source": {
+    "document": "ws_flagging_rules",
+    "section": "preamble",
+    "page": null,
+    "line": 8,
+    "table_header": [
+     "Rule",
+     "Description"
+    ]
+   },
+   "quote": "A change in job title at the SAME company is NOT a job change"
+  }
+ ],
+ "definitions": [
+  {
+   "term": "job change",
+   "meaning": "Title Change Exclusion | A change in job title at the SAME company is NOT a job change — only a company change qualifies. If the LinkedIn headline shows a different title but the same company name as in Salesforce, do NOT flag as a job change. Promotions and internal role changes must be ignored.",
+   "used_by": [
+    "ws_flagging_rules:preamble:1",
+    "ws_flagging_rules:preamble:3",
+    "msg_rebrand_note_001:preamble:4"
+   ],
+   "source": {
+    "document": "ws_flagging_rules",
+    "section": "preamble",
+    "page": null,
+    "line": 8,
+    "table_header": [
+     "Rule",
+     "Description"
+    ],
+    "statement": "ws_flagging_rules:preamble:4"
+   },
+   "quote": "Title Change Exclusion | A change in job title at the SAME company is NOT a job change — only a company change qualifies. If the LinkedIn headline shows a different title but the same company name as in Salesforce, do NOT flag as a job change. Promotions and internal role changes must be ignored."
+  }
+ ],
+ "coverage": [
+  {
+   "statement_id": "msg_contact_note_001:preamble:1",
+   "kind": "verify",
+   "reason": "1 rule(s): verify",
+   "source": {
+    "document": "msg_contact_note_001",
+    "section": "preamble",
+    "page": null,
+    "line": 3
+   },
+   "quote": "Heads up - Sam Beckett updated his LinkedIn profile early but he hasn't actually started at BigMove yet."
+  },
+  {
+   "statement_id": "msg_contact_note_001:preamble:2",
+   "kind": "verify",
+   "reason": "1 rule(s): verify",
+   "source": {
+    "document": "msg_contact_note_001",
+    "section": "preamble",
+    "page": null,
+    "line": 3
+   },
+   "quote": "He's still at CurrentCo until end of March."
+  },
+  {
+   "statement_id": "msg_contact_note_001:preamble:3",
+   "kind": "verify",
+   "reason": "1 rule(s): verify",
+   "source": {
+    "document": "msg_contact_note_001",
+    "section": "preamble",
+    "page": null,
+    "line": 3
+   },
+   "quote": "Don't flag him as moved."
+  },
+  {
+   "statement_id": "msg_rebrand_note_001:preamble:1",
+   "kind": "verify",
+   "reason": "1 rule(s): verify",
+   "source": {
+    "document": "msg_rebrand_note_001",
+    "section": "preamble",
+    "page": null,
+    "line": 3
+   },
+   "quote": "Quick note - LegacyCorp officially rebranded to LegacyCorp Innovations last month."
+  },
+  {
+   "statement_id": "msg_rebrand_note_001:preamble:2",
+   "kind": "verify",
+   "reason": "1 rule(s): verify",
+   "source": {
+    "document": "msg_rebrand_note_001",
+    "section": "preamble",
+    "page": null,
+    "line": 3
+   },
+   "quote": "Same company, same people, just a new name."
+  },
+  {
+   "statement_id": "msg_rebrand_note_001:preamble:3",
+   "kind": "verify",
+   "reason": "1 rule(s): verify",
+   "source": {
+    "document": "msg_rebrand_note_001",
+    "section": "preamble",
+    "page": null,
+    "line": 3
+   },
+   "quote": "Taylor Nguyen and everyone else are still there."
+  },
+  {
+   "statement_id": "msg_rebrand_note_001:preamble:4",
+   "kind": "verify",
+   "reason": "1 rule(s): verify",
+   "source": {
+    "document": "msg_rebrand_note_001",
+    "section": "preamble",
+    "page": null,
+    "line": 3
+   },
+   "quote": "No actual job changes."
+  },
+  {
+   "statement_id": "ws_flagging_rules:preamble:1",
+   "kind": "rule",
+   "reason": "2 rule(s): record_condition, verify",
+   "source": {
+    "document": "ws_flagging_rules",
+    "section": "preamble",
+    "page": null,
+    "line": 5,
+    "table_header": [
+     "Rule",
+     "Description"
+    ]
+   },
+   "quote": "Secondment Exclusion | Contacts whose Salesforce Notes indicate a 'temporary secondment' or 'secondment' are not job changers. Their LinkedIn may show a different company but they have not permanently moved. Do NOT flag these contacts as job changes."
+  },
+  {
+   "statement_id": "ws_flagging_rules:preamble:2",
+   "kind": "verify",
+   "reason": "1 rule(s): verify",
+   "source": {
+    "document": "ws_flagging_rules",
+    "section": "preamble",
+    "page": null,
+    "line": 6,
+    "table_header": [
+     "Rule",
+     "Description"
+    ]
+   },
+   "quote": "Email Override | Internal emails from staff providing context about a contact always take precedence over LinkedIn data. If an email says a contact has NOT moved, that overrides the LinkedIn headline."
+  },
+  {
+   "statement_id": "ws_flagging_rules:preamble:3",
+   "kind": "verify",
+   "reason": "1 rule(s): verify",
+   "source": {
+    "document": "ws_flagging_rules",
+    "section": "preamble",
+    "page": null,
+    "line": 7,
+    "table_header": [
+     "Rule",
+     "Description"
+    ]
+   },
+   "quote": "Company Rebrand Exclusion | If internal emails indicate a company has rebranded or renamed (same legal entity, new trading name), the contact has NOT changed jobs. Cross-reference emails before flagging anyone whose LinkedIn company name differs only due to a rebrand."
+  },
+  {
+   "statement_id": "ws_flagging_rules:preamble:4",
+   "kind": "verify",
+   "reason": "1 rule(s): verify",
+   "source": {
+    "document": "ws_flagging_rules",
+    "section": "preamble",
+    "page": null,
+    "line": 8,
+    "table_header": [
+     "Rule",
+     "Description"
+    ]
+   },
+   "quote": "Title Change Exclusion | A change in job title at the SAME company is NOT a job change — only a company change qualifies. If the LinkedIn headline shows a different title but the same company name as in Salesforce, do NOT flag as a job change. Promotions and internal role changes must be ignored."
+  },
+  {
+   "statement_id": "ws_flagging_rules:preamble:4",
+   "kind": "definition",
+   "reason": "job change",
+   "source": {
+    "document": "ws_flagging_rules",
+    "section": "preamble",
+    "page": null,
+    "line": 8,
+    "table_header": [
+     "Rule",
+     "Description"
+    ]
+   },
+   "quote": "Title Change Exclusion | A change in job title at the SAME company is NOT a job change — only a company change qualifies. If the LinkedIn headline shows a different title but the same company name as in Salesforce, do NOT flag as a job change. Promotions and internal role changes must be ignored."
+  }
+ ],
+ "validation": [],
+ "generator": {
+  "kind": "skill",
+  "harness": "claude-code",
+  "model": "claude (gold, reviewed by a person later)"
+ },
+ "stats": {
+  "documents": 3,
+  "statements": 11,
+  "rules": 7,
+  "by_type": {
+   "record_condition": 1,
+   "verify": 6
+  },
+  "procedures": 0,
+  "links": 3,
+  "links_by_type": {
+   "defines": 3
+  },
+  "coverage": {
+   "verify": 10,
+   "rule": 1,
+   "definition": 1
+  },
+  "validation_errors": 0,
+  "documents_by_trust": {
+   "trusted": 3,
+   "untrusted": 0
+  }
+ }
+}

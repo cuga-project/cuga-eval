@@ -1,0 +1,141 @@
+{
+ "method": "backtrans",
+ "package": "tau2_telecom_telecom",
+ "build": "skill_v1",
+ "package_version": "e282f27bd1893c22+db1a81b39165",
+ "ran_at": "2026-11-05T11:22:16Z",
+ "status": "ok",
+ "writer": "aws/gpt-oss-120b",
+ "judge": "azure/DeepSeek-V4-Pro",
+ "rules": 13,
+ "judged": 13,
+ "not_judged": 0,
+ "text_from": "the package",
+ "source_kinds": {
+  "statements": 13
+ },
+ "counts": {
+  "equivalent": 8,
+  "different": 3,
+  "broader": 2
+ },
+ "rows": [
+  {
+   "id": "r_name_lookup_dob",
+   "type": "required_args",
+   "source": null,
+   "source_kind": "statements",
+   "restated": "When the assistant calls the tool get_customer_by_name, it must include the argument dob; calls to this tool without a dob argument are prohibited. This requirement applies every time the get_customer_by_name tool is invoked.",
+   "verdict": "equivalent",
+   "why": "The rule correctly captures the policy's requirement that date of birth must be provided for name lookup, mapping it to the get_customer_by_name tool and the dob argument."
+  },
+  {
+   "id": "r_refuel_max_2gb",
+   "type": "threshold",
+   "source": null,
+   "source_kind": "statements",
+   "restated": "The rule forbids calling the refuel_data tool when its gb_amount argument is greater than 2; it permits the call only when gb_amount is 2 or less. It applies specifically to any refuel_data tool invocation with a gb_amount value exceeding 2.",
+   "verdict": "different",
+   "why": "The rule uses a threshold of 2, but the policy text specifies 2GB, so the numeric value is wrong."
+  },
+  {
+   "id": "r_request_only_overdue",
+   "type": "reference_status",
+   "source": null,
+   "source_kind": "statements",
+   "restated": "When calling the send_payment_request tool, the assistant may reference the bill_id's status field only if its value is \"Overdue\" or \"overdue\"; any other status value is prohibited.",
+   "verdict": "equivalent",
+   "why": "The rule correctly captures the policy's requirement to only send payment requests when the bill is overdue, specifying the exact condition and tool."
+  },
+  {
+   "id": "r_no_resume_contract_ended",
+   "type": "record_condition",
+   "source": null,
+   "source_kind": "statements",
+   "restated": "When using the resume_line tool, any record whose contract_end_date is earlier than 2025-02-25 is forbidden; all other cases are allowed.",
+   "verdict": "different",
+   "why": "The rule introduces a specific date (2025-02-25) not present in the policy, which only refers to a relative condition (contract end date in the past)."
+  },
+  {
+   "id": "r_refuel_line_of_customer",
+   "type": "membership",
+   "source": null,
+   "source_kind": "statements",
+   "restated": "This rule permits the assistant to call the refuel_data tool when the provided line_id is a member of the specified customer_id group, and forbids calls when the line_id does not belong to that customer_id. It applies each time the assistant attempts to invoke the refuel_data tool.",
+   "verdict": "different",
+   "why": "The policy text only specifies applying refueled data to a line based on a provided phone number, with no mention of customer_id, group membership, or any permission/forbiddance logic. The rule introduces conditions (customer_id group membership) and a tool name (refuel_data) not present in the policy text."
+  },
+  {
+   "id": "r_duty_resume_reboot",
+   "type": "duty",
+   "source": null,
+   "source_kind": "statements",
+   "restated": "When the assistant uses the tool \"resume_line\", it must subsequently invoke the tool \"user__reboot_device\". It is not allowed to call \"resume_line\" without following it with a \"user__reboot_device\" call.",
+   "verdict": "equivalent",
+   "why": "The rule correctly captures that after resuming the line, the user must reboot their device, which matches the policy text's requirement."
+  },
+  {
+   "id": "r_duty_apn_reboot",
+   "type": "duty",
+   "source": null,
+   "source_kind": "statements",
+   "restated": "When the assistant invokes the tool \"user__reset_apn_settings\", it must also invoke the tool \"user__reboot_device\". It forbids calling \"user__reset_apn_settings\" without subsequently calling \"user__reboot_device\".",
+   "verdict": "equivalent",
+   "why": "The rule correctly captures that after resetting APN settings, a reboot must be instructed, matching the policy text's requirement."
+  },
+  {
+   "id": "r_transfer_only_if_out_of_scope",
+   "type": "verify",
+   "source": null,
+   "source_kind": "statements",
+   "restated": "This rule permits the assistant to call the transfer_to_human_agents tool only when the user’s request is outside the assistant’s own capabilities, and it forbids using that tool for any request that can be handled within the assistant’s scope. It applies whenever the assistant is deciding whether to transfer the conversation to a human.",
+   "verdict": "equivalent",
+   "why": "The rule accurately captures the policy's condition (only when the request cannot be handled within the assistant's scope) and its prohibition (do not transfer if it can be handled). It covers the same decision point and tool without adding or omitting constraints."
+  },
+  {
+   "id": "r_transfer_after_trying",
+   "type": "verify",
+   "source": null,
+   "source_kind": "statements",
+   "restated": "When deciding whether to use the transfer_to_human_agents tool, you may only do so after you have tried every reasonable way to solve the user’s problem yourself; you must not transfer the user to a human agent before exhausting all possible resolutions.",
+   "verdict": "equivalent",
+   "why": "The rule captures the same requirement as the policy text: exhaust all possible resolutions before transferring to a human agent."
+  },
+  {
+   "id": "r_one_awaiting_bill",
+   "type": "verify",
+   "source": null,
+   "source_kind": "statements",
+   "restated": "When the assistant attempts to call the send_payment_request tool, it may do so only if the user does not already have a bill with status AWAITING PAYMENT; if the user already has such a bill, the call is prohibited.",
+   "verdict": "equivalent",
+   "why": "The rule correctly captures the policy's restriction: it prohibits sending a payment request if the user already has a bill in AWAITING PAYMENT status, matching the policy's one-bill limit."
+  },
+  {
+   "id": "r_resume_after_bills_paid",
+   "type": "verify",
+   "source": null,
+   "source_kind": "statements",
+   "restated": "The assistant may call the resume_line tool to lift a suspension, but only after the user has paid all overdue bills. It must not use resume_line to lift the suspension before the bills are fully paid.",
+   "verdict": "equivalent",
+   "why": "The rule correctly states that the assistant may lift the suspension only after all overdue bills are paid, matching the policy text's condition and action."
+  },
+  {
+   "id": "r_suspend_reasons",
+   "type": "verify",
+   "source": null,
+   "source_kind": "statements",
+   "restated": "The rule permits calling the suspend_line tool only when the line can be suspended because the user has an overdue bill or the line’s contract end date is in the past, and it forbids using that tool for any other reasons. It applies whenever a decision to suspend a line is being evaluated.",
+   "verdict": "broader",
+   "why": "The rule adds specific conditions (overdue bill, past contract end date) and forbids all other reasons, while the policy text does not specify any reasons, thus the rule is more restrictive."
+  },
+  {
+   "id": "r_refuel_price_confirmed",
+   "type": "verify",
+   "source": null,
+   "source_kind": "statements",
+   "restated": "When the assistant calls the refuel_data tool, it must first ask the user how much data they want, confirm the price, and then apply the refueled data to the phone number’s line; it is not allowed to perform any other actions with that tool without following these steps.",
+   "verdict": "broader",
+   "why": "The policy text only says 'Confirm the price', but the rule adds requirements to first ask how much data they want and then apply the refueled data, which are not mentioned in the source."
+  }
+ ]
+}

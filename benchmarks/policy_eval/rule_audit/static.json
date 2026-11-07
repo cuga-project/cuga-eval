@@ -1,0 +1,358 @@
+{
+ "pipeline_v1": {
+  "rules": 53,
+  "by_type": {
+   "allowed_values": 13,
+   "derived_value": 4,
+   "duty": 1,
+   "format": 2,
+   "grounded_values": 1,
+   "guidance": 22,
+   "id_provenance": 1,
+   "record_condition": 1,
+   "reference_status": 2,
+   "required_args": 3,
+   "transition": 1,
+   "verify": 2
+  },
+  "cedar_rules": 0,
+  "ungrounded_values": 0,
+  "never_fire": 2,
+  "unknown_tool": 0,
+  "examples": {
+   "ungrounded": [],
+   "never_fire": [
+    {
+     "id": "96d374e7fa9b",
+     "type": "verify",
+     "text": "Constraints: assigned_to must be an active user with the Agent or Manager role and must be a member of the specified assignment_group."
+    },
+    {
+     "id": "ec91ac1a4e57",
+     "type": "verify",
+     "text": "SLA Pause: The SLA timer must be paused (stage = paused) when the Incident is in stage = on_hold and the on_hold_reason is one of the following enumerations: Aw"
+    }
+   ],
+   "unknown_tool": []
+  }
+ },
+ "pipeline_v2": {
+  "rules": 62,
+  "by_type": {
+   "allowed_values": 13,
+   "derived_value": 4,
+   "duty": 3,
+   "grounded_values": 1,
+   "guidance": 23,
+   "id_provenance": 1,
+   "record_condition": 1,
+   "reference_status": 2,
+   "required_args": 2,
+   "transition": 1,
+   "verify": 11
+  },
+  "cedar_rules": 0,
+  "ungrounded_values": 1,
+  "never_fire": 11,
+  "unknown_tool": 0,
+  "examples": {
+   "ungrounded": [
+    {
+     "id": "ec984baa2dd4",
+     "type": "duty",
+     "missing": [
+      "closed"
+     ],
+     "source": "\u00a78.1"
+    }
+   ],
+   "never_fire": [
+    {
+     "id": "96d374e7fa9b",
+     "type": "verify",
+     "text": "Constraints: assigned_to must be an active user with the Agent or Manager role and must be a member of the specified assignment_group."
+    },
+    {
+     "id": "b608aced934d",
+     "type": "verify",
+     "text": "Creation: All changes must originate from a Change Request record."
+    },
+    {
+     "id": "97c25e6295ac",
+     "type": "verify",
+     "text": "Change Types (Enumeration): standard (pre-approved, low risk), normal (requires planning/approval), emergency (requires immediate CAB approval override)."
+    },
+    {
+     "id": "f0464ee90432",
+     "type": "verify",
+     "text": "Trigger: A Problem must be created (create_problem) when a recurring incident pattern or a major incident is identified."
+    },
+    {
+     "id": "8f5c479f39be",
+     "type": "verify",
+     "text": "Linking: The Problem record must link all affected Incidents via the incident_to_problem related list."
+    },
+    {
+     "id": "c67e64e86324",
+     "type": "verify",
+     "text": "Workaround: If workaround/temporary solution found, update workaround field and set status=fix_in_progress."
+    },
+    {
+     "id": "5f4d2166283f",
+     "type": "verify",
+     "text": "The workaround_notes must be published to the linked Incidents and relevant Knowledge Articles."
+    },
+    {
+     "id": "e86839107e03",
+     "type": "verify",
+     "text": "Final Status: A Problem transitions to closed only after the permanent fix has been successfully implemented via a linked normal or emergency Change Request."
+    },
+    {
+     "id": "c31b8d980888",
+     "type": "verify",
+     "text": "Priority Calculation: Priority (critical, high, moderate, low, planning) is determined automatically by the system based on a below pre-defined matrix of Impact"
+    },
+    {
+     "id": "87519b2cda86",
+     "type": "verify",
+     "text": "Table: All IT assets must be recorded in the configuration_item table."
+    },
+    {
+     "id": "28236de885df",
+     "type": "verify",
+     "text": "CI Owner: All CIs must have a recorded owner_id."
+    }
+   ],
+   "unknown_tool": []
+  }
+ },
+ "draft_oss": {
+  "rules": 48,
+  "by_type": {
+   "allowed_values": 13,
+   "derived_value": 4,
+   "duty": 1,
+   "format": 2,
+   "grounded_values": 1,
+   "guidance": 17,
+   "id_provenance": 1,
+   "record_condition": 1,
+   "reference_status": 2,
+   "required_args": 3,
+   "transition": 1,
+   "verify": 2
+  },
+  "cedar_rules": 0,
+  "ungrounded_values": 0,
+  "never_fire": 2,
+  "unknown_tool": 0,
+  "examples": {
+   "ungrounded": [],
+   "never_fire": [
+    {
+     "id": "96d374e7fa9b",
+     "type": "verify",
+     "text": "Constraints: assigned_to must be an active user with the Agent or Manager role and must be a member of the specified assignment_group."
+    },
+    {
+     "id": "ec91ac1a4e57",
+     "type": "verify",
+     "text": "SLA Pause: The SLA timer must be paused (stage = paused) when the Incident is in stage = on_hold and the on_hold_reason is one of the following enumerations: Aw"
+    }
+   ],
+   "unknown_tool": []
+  }
+ },
+ "gold_prereview": {
+  "rules": 96,
+  "by_type": {
+   "allowed_values": 26,
+   "derived_value": 4,
+   "duty": 7,
+   "format": 2,
+   "grounded_values": 1,
+   "guidance": 15,
+   "id_provenance": 1,
+   "record_condition": 1,
+   "reference_status": 14,
+   "required_args": 4,
+   "role_permission": 3,
+   "transition": 1,
+   "verify": 17
+  },
+  "cedar_rules": 3,
+  "ungrounded_values": 4,
+  "never_fire": 7,
+  "unknown_tool": 0,
+  "examples": {
+   "ungrounded": [
+    {
+     "id": "g_0e8c619864",
+     "type": "reference_status",
+     "missing": [
+      "true"
+     ],
+     "source": "\u00a73.2 L89"
+    },
+    {
+     "id": "g_605415a0e1",
+     "type": "reference_status",
+     "missing": [
+      "true"
+     ],
+     "source": "\u00a73.2 L89"
+    },
+    {
+     "id": "g_d512fef564",
+     "type": "duty",
+     "missing": [
+      "fix_in_progress"
+     ],
+     "source": "\u00a74.2 L127"
+    },
+    {
+     "id": "g_19c6c9697f",
+     "type": "duty",
+     "missing": [
+      "fix_in_progress"
+     ],
+     "source": "\u00a74.2 L127"
+    }
+   ],
+   "never_fire": [
+    {
+     "id": "g_4cc428ca96",
+     "type": "verify",
+     "text": "First you must check the user information and operate exclusively based on confirmed user roles, verified record relationships, and ITIL/database integrity rule"
+    },
+    {
+     "id": "g_f05e638694",
+     "type": "verify",
+     "text": "You are strictly prohibited from assuming data, executing ambiguous commands, bypassing mandatory approvals, or violating audit and compliance requirements."
+    },
+    {
+     "id": "g_3ecd16e4a9",
+     "type": "verify",
+     "text": "Do not allow a request to proceed if it requires data that is missing or the current record state prevents the action."
+    },
+    {
+     "id": "g_0fa64c80a4",
+     "type": "verify",
+     "text": "Mandatory Fields: Any request to create or update a record must validate all mandatory fields."
+    },
+    {
+     "id": "g_f6b3f5a641",
+     "type": "verify",
+     "text": "Manager (manager) | Supervision, Escalation, Approvals | Full CRUD on operational tables (incident, problem, change, knowledge); READ access to all the tables. "
+    },
+    {
+     "id": "g_4dbcc001f4",
+     "type": "verify",
+     "text": "Agent (agent) | Frontline Incident/Request fulfillment | Full CRUD on Incidents, Service Requests, Tasks, Work Notes, CMDB, Change, Problem, and Knowledge. READ"
+    },
+    {
+     "id": "g_9120b37a91",
+     "type": "verify",
+     "text": "Reporter (reporter) | IT Service Consumption | Can view and update their own submitted Incidents/Requests. Can search Public Knowledge articles. | Cannot view o"
+    }
+   ],
+   "unknown_tool": []
+  }
+ },
+ "gold": {
+  "rules": 96,
+  "by_type": {
+   "allowed_values": 26,
+   "derived_value": 4,
+   "duty": 7,
+   "format": 2,
+   "grounded_values": 1,
+   "guidance": 15,
+   "id_provenance": 1,
+   "record_condition": 1,
+   "reference_status": 14,
+   "required_args": 4,
+   "role_permission": 3,
+   "transition": 1,
+   "verify": 17
+  },
+  "cedar_rules": 3,
+  "ungrounded_values": 4,
+  "never_fire": 7,
+  "unknown_tool": 0,
+  "examples": {
+   "ungrounded": [
+    {
+     "id": "g_0e8c619864",
+     "type": "reference_status",
+     "missing": [
+      "true"
+     ],
+     "source": "\u00a73.2 L89"
+    },
+    {
+     "id": "g_605415a0e1",
+     "type": "reference_status",
+     "missing": [
+      "true"
+     ],
+     "source": "\u00a73.2 L89"
+    },
+    {
+     "id": "g_d512fef564",
+     "type": "duty",
+     "missing": [
+      "fix_in_progress"
+     ],
+     "source": "\u00a74.2 L127"
+    },
+    {
+     "id": "g_19c6c9697f",
+     "type": "duty",
+     "missing": [
+      "fix_in_progress"
+     ],
+     "source": "\u00a74.2 L127"
+    }
+   ],
+   "never_fire": [
+    {
+     "id": "g_4cc428ca96",
+     "type": "verify",
+     "text": "First you must check the user information and operate exclusively based on confirmed user roles, verified record relationships, and ITIL/database integrity rule"
+    },
+    {
+     "id": "g_f05e638694",
+     "type": "verify",
+     "text": "You are strictly prohibited from assuming data, executing ambiguous commands, bypassing mandatory approvals, or violating audit and compliance requirements."
+    },
+    {
+     "id": "g_3ecd16e4a9",
+     "type": "verify",
+     "text": "Do not allow a request to proceed if it requires data that is missing or the current record state prevents the action."
+    },
+    {
+     "id": "g_0fa64c80a4",
+     "type": "verify",
+     "text": "Mandatory Fields: Any request to create or update a record must validate all mandatory fields."
+    },
+    {
+     "id": "g_f6b3f5a641",
+     "type": "verify",
+     "text": "Manager (manager) | Supervision, Escalation, Approvals | Full CRUD on operational tables (incident, problem, change, knowledge); READ access to all the tables. "
+    },
+    {
+     "id": "g_4dbcc001f4",
+     "type": "verify",
+     "text": "Agent (agent) | Frontline Incident/Request fulfillment | Full CRUD on Incidents, Service Requests, Tasks, Work Notes, CMDB, Change, Problem, and Knowledge. READ"
+    },
+    {
+     "id": "g_9120b37a91",
+     "type": "verify",
+     "text": "Reporter (reporter) | IT Service Consumption | Can view and update their own submitted Incidents/Requests. Can search Public Knowledge articles. | Cannot view o"
+    }
+   ],
+   "unknown_tool": []
+  }
+ }
+}

@@ -1,0 +1,1052 @@
+{
+ "task": "support.zendesk_data_quality",
+ "domain": "support",
+ "request": "Our Zendesk data quality has been slipping \u2014 run an audit using the rules in ss_quality (ws_rules). Tag tickets with issues, log them to ws_log, and send a report to data-team@company.example.com.\n\nUse Gmail for all email sends.Include relevant counts in your message(s).",
+ "initial_state": {
+  "zendesk": {
+   "tickets": [
+    {
+     "id": "tkt_q01",
+     "subject": "Critical server issue",
+     "description": "Server down.",
+     "status": "open",
+     "priority": "high",
+     "requester_id": "usr_q01",
+     "organization_id": null,
+     "tags": [
+      "server"
+     ],
+     "comments": []
+    },
+    {
+     "id": "tkt_q02",
+     "subject": "Login help needed",
+     "description": "Login problems.",
+     "status": "open",
+     "priority": "normal",
+     "requester_id": "usr_q02",
+     "organization_id": "org_ext1",
+     "tags": [],
+     "comments": []
+    },
+    {
+     "id": "tkt_q03",
+     "subject": "Urgent billing problem",
+     "description": "Double charged.",
+     "status": "open",
+     "priority": "high",
+     "requester_id": "usr_q03",
+     "organization_id": null,
+     "tags": [],
+     "comments": []
+    },
+    {
+     "id": "tkt_q04",
+     "subject": "Data breach suspected",
+     "description": "Suspicious activity.",
+     "status": "open",
+     "priority": "urgent",
+     "requester_id": "usr_q04",
+     "organization_id": null,
+     "tags": [
+      "security"
+     ],
+     "comments": []
+    },
+    {
+     "id": "tkt_q05",
+     "subject": "Feature request: export",
+     "description": "Export feature.",
+     "status": "open",
+     "priority": "normal",
+     "requester_id": "usr_q05",
+     "organization_id": "org_ext2",
+     "tags": [
+      "feature"
+     ],
+     "comments": []
+    },
+    {
+     "id": "tkt_q06",
+     "subject": "API performance issues",
+     "description": "API slow.",
+     "status": "open",
+     "priority": "high",
+     "requester_id": "usr_q06",
+     "organization_id": "org_ext1",
+     "tags": [
+      "api",
+      "performance"
+     ],
+     "comments": []
+    },
+    {
+     "id": "tkt_q07",
+     "subject": "Internal: test ticket",
+     "description": "Testing.",
+     "status": "open",
+     "priority": "high",
+     "requester_id": "usr_q07",
+     "organization_id": "org_internal",
+     "tags": [],
+     "comments": []
+    },
+    {
+     "id": "tkt_q08",
+     "subject": "Internal: config change",
+     "description": "Config update.",
+     "status": "open",
+     "priority": "normal",
+     "requester_id": "usr_q08",
+     "organization_id": "org_internal",
+     "tags": [],
+     "comments": []
+    },
+    {
+     "id": "tkt_q09",
+     "subject": "Resolved: old issue",
+     "description": "Fixed.",
+     "status": "solved",
+     "priority": "normal",
+     "requester_id": "usr_q09",
+     "organization_id": "org_ext2",
+     "tags": [],
+     "comments": []
+    },
+    {
+     "id": "tkt_q10",
+     "subject": "Webhook reliability concern",
+     "description": "Unreliable webhooks.",
+     "status": "open",
+     "priority": "high",
+     "requester_id": "usr_q10",
+     "organization_id": "org_ext2",
+     "tags": [
+      "webhooks"
+     ],
+     "comments": []
+    },
+    {
+     "id": "tkt_noise_007",
+     "subject": "SLA breach notification not sent",
+     "description": "A high-priority ticket breached SLA but no Slack alert was triggered.",
+     "status": "solved",
+     "priority": "high",
+     "tags": [
+      "sla"
+     ],
+     "comments": []
+    },
+    {
+     "id": "tkt_noise_008",
+     "subject": "Duplicate tickets from email parser",
+     "description": "Same customer email generated 3 separate tickets instead of one thread.",
+     "status": "solved",
+     "priority": "normal",
+     "tags": [
+      "email",
+      "dupe"
+     ],
+     "comments": []
+    },
+    {
+     "id": "tkt_noise_001",
+     "subject": "SSO login loop after Chrome update",
+     "description": "Users are stuck in an SSO redirect loop after updating Chrome to v124.",
+     "status": "solved",
+     "priority": "high",
+     "tags": [
+      "sso",
+      "browser"
+     ],
+     "comments": []
+    }
+   ],
+   "users": [
+    {
+     "id": "usr_q01",
+     "name": "Quality User 1",
+     "email": "q1@test.com",
+     "role": "end-user"
+    },
+    {
+     "id": "usr_q02",
+     "name": "Quality User 2",
+     "email": "q2@test.com",
+     "role": "end-user"
+    },
+    {
+     "id": "usr_q03",
+     "name": "Quality User 3",
+     "email": "q3@test.com",
+     "role": "end-user"
+    },
+    {
+     "id": "usr_q04",
+     "name": "Quality User 4",
+     "email": "q4@test.com",
+     "role": "end-user"
+    },
+    {
+     "id": "usr_q05",
+     "name": "Quality User 5",
+     "email": "q5@test.com",
+     "role": "end-user"
+    },
+    {
+     "id": "usr_q06",
+     "name": "Quality User 6",
+     "email": "q6@test.com",
+     "role": "end-user"
+    },
+    {
+     "id": "usr_q07",
+     "name": "Internal User 1",
+     "email": "int1@internal.com",
+     "role": "end-user"
+    },
+    {
+     "id": "usr_q08",
+     "name": "Internal User 2",
+     "email": "int2@internal.com",
+     "role": "end-user"
+    },
+    {
+     "id": "usr_q09",
+     "name": "Quality User 9",
+     "email": "q9@test.com",
+     "role": "end-user"
+    },
+    {
+     "id": "usr_q10",
+     "name": "Quality User 10",
+     "email": "q10@test.com",
+     "role": "end-user"
+    },
+    {
+     "id": "usr_noise_006",
+     "name": "Imani Brooks",
+     "email": "ibrooks@solarhub.example.com",
+     "role": "end-user"
+    },
+    {
+     "id": "usr_noise_002",
+     "name": "Dana Whitfield",
+     "email": "dwhit@crestline.example.com",
+     "role": "end-user"
+    }
+   ],
+   "organizations": [
+    {
+     "id": "org_internal",
+     "name": "Internal Team",
+     "domain_names": [
+      "internal.com"
+     ],
+     "tags": [
+      "internal"
+     ]
+    },
+    {
+     "id": "org_ext1",
+     "name": "External Corp 1",
+     "domain_names": [
+      "ext1.com"
+     ],
+     "tags": []
+    },
+    {
+     "id": "org_ext2",
+     "name": "External Corp 2",
+     "domain_names": [
+      "ext2.com"
+     ],
+     "tags": []
+    }
+   ],
+   "groups": []
+  },
+  "google_sheets": {
+   "spreadsheets": [
+    {
+     "id": "ss_quality",
+     "title": "Data Quality",
+     "worksheets": [
+      {
+       "id": "ws_rules",
+       "title": "Quality Rules",
+       "headers": [
+        "Rule ID",
+        "Condition",
+        "Required Field",
+        "Description"
+       ],
+       "rows": [
+        {
+         "row_id": 2,
+         "cells": {
+          "Rule ID": "QR-01",
+          "Condition": "priority=high OR priority=urgent",
+          "Required Field": "organization_id",
+          "Description": "High/urgent tickets must have an organization"
+         }
+        },
+        {
+         "row_id": 3,
+         "cells": {
+          "Rule ID": "QR-02",
+          "Condition": "status=open",
+          "Required Field": "tags",
+          "Description": "Open tickets must have at least one tag"
+         }
+        }
+       ]
+      },
+      {
+       "id": "ws_log",
+       "title": "Quality Log",
+       "headers": [
+        "Ticket ID",
+        "Rule ID",
+        "Issue"
+       ],
+       "rows": []
+      },
+      {
+       "id": "ws_config",
+       "title": "Report Config",
+       "headers": [
+        "Setting",
+        "Value"
+       ],
+       "rows": [
+        {
+         "row_id": 2,
+         "cells": {
+          "Setting": "Batch_Reference",
+          "Value": "DQ-AUDIT-20260214"
+         }
+        },
+        {
+         "row_id": 3,
+         "cells": {
+          "Setting": "Exempt_Org_ID",
+          "Value": "org_internal"
+         }
+        }
+       ]
+      }
+     ]
+    }
+   ]
+  },
+  "gmail": {
+   "messages": [],
+   "labels": [],
+   "drafts": []
+  }
+ },
+ "tools": [
+  {
+   "name": "zendesk_get_tickets",
+   "description": "Get all tickets from Zendesk.",
+   "inputSchema": {
+    "description": "Get all tickets from Zendesk.",
+    "properties": {},
+    "title": "zendesk_get_tickets",
+    "type": "object"
+   }
+  },
+  {
+   "name": "zendesk_add_tags_to_ticket",
+   "description": "Add tags to an existing ticket.",
+   "inputSchema": {
+    "description": "Add tags to an existing ticket.",
+    "properties": {
+     "ticket_id": {
+      "description": "The ticket ID to add tags to.",
+      "title": "Ticket Id",
+      "type": "string"
+     },
+     "tags": {
+      "description": "Comma-separated list of tags to add.",
+      "title": "Tags",
+      "type": "string"
+     }
+    },
+    "required": [
+     "ticket_id",
+     "tags"
+    ],
+    "title": "zendesk_add_tags_to_ticket",
+    "type": "object"
+   }
+  },
+  {
+   "name": "google_sheets_find_many_rows",
+   "description": "Find multiple rows matching lookup criteria.",
+   "inputSchema": {
+    "description": "Find multiple rows matching lookup criteria.",
+    "properties": {
+     "spreadsheet": {
+      "anyOf": [
+       {
+        "type": "string"
+       },
+       {
+        "type": "null"
+       }
+      ],
+      "default": null,
+      "description": "Spreadsheet ID (required).",
+      "title": "Spreadsheet"
+     },
+     "worksheet": {
+      "anyOf": [
+       {
+        "type": "string"
+       },
+       {
+        "type": "null"
+       }
+      ],
+      "default": null,
+      "description": "Worksheet ID (required).",
+      "title": "Worksheet"
+     },
+     "lookup_key": {
+      "anyOf": [
+       {
+        "type": "string"
+       },
+       {
+        "type": "null"
+       }
+      ],
+      "default": null,
+      "description": "Column to search in (required).",
+      "title": "Lookup Key"
+     },
+     "lookup_value": {
+      "anyOf": [
+       {
+        "type": "string"
+       },
+       {
+        "type": "null"
+       }
+      ],
+      "default": null,
+      "description": "Value to search for (required).",
+      "title": "Lookup Value"
+     },
+     "drive": {
+      "anyOf": [
+       {
+        "type": "string"
+       },
+       {
+        "type": "null"
+       }
+      ],
+      "default": null,
+      "description": "Google Drive location.",
+      "title": "Drive"
+     },
+     "lookup_key_support": {
+      "anyOf": [
+       {
+        "type": "string"
+       },
+       {
+        "type": "null"
+       }
+      ],
+      "default": null,
+      "description": "Secondary column to search in.",
+      "title": "Lookup Key Support"
+     },
+     "lookup_value_support": {
+      "anyOf": [
+       {
+        "type": "string"
+       },
+       {
+        "type": "null"
+       }
+      ],
+      "default": null,
+      "description": "Secondary value to search for.",
+      "title": "Lookup Value Support"
+     },
+     "bottom_up": {
+      "default": false,
+      "description": "Search from bottom of spreadsheet up.",
+      "title": "Bottom Up",
+      "type": "boolean"
+     },
+     "row_count": {
+      "default": 10,
+      "description": "Maximum number of rows to return.",
+      "title": "Row Count",
+      "type": "integer"
+     },
+     "spreadsheet_id": {
+      "anyOf": [
+       {
+        "type": "string"
+       },
+       {
+        "type": "null"
+       }
+      ],
+      "default": null,
+      "title": "Spreadsheet Id"
+     },
+     "worksheet_id": {
+      "anyOf": [
+       {
+        "type": "string"
+       },
+       {
+        "type": "null"
+       }
+      ],
+      "default": null,
+      "title": "Worksheet Id"
+     },
+     "col_name": {
+      "anyOf": [
+       {
+        "type": "string"
+       },
+       {
+        "type": "null"
+       }
+      ],
+      "default": null,
+      "title": "Col Name"
+     },
+     "filters": {
+      "anyOf": [
+       {},
+       {
+        "type": "null"
+       }
+      ],
+      "default": null,
+      "title": "Filters"
+     }
+    },
+    "title": "google_sheets_find_many_rows",
+    "type": "object"
+   }
+  },
+  {
+   "name": "google_sheets_add_row",
+   "description": "Create a new row in a spreadsheet.",
+   "inputSchema": {
+    "description": "Create a new row in a spreadsheet.",
+    "properties": {
+     "spreadsheet": {
+      "anyOf": [
+       {
+        "type": "string"
+       },
+       {
+        "type": "null"
+       }
+      ],
+      "default": null,
+      "description": "Spreadsheet ID (required).",
+      "title": "Spreadsheet"
+     },
+     "worksheet": {
+      "anyOf": [
+       {
+        "type": "string"
+       },
+       {
+        "type": "null"
+       }
+      ],
+      "default": null,
+      "description": "Worksheet ID (required).",
+      "title": "Worksheet"
+     },
+     "spreadsheet_id": {
+      "anyOf": [
+       {
+        "type": "string"
+       },
+       {
+        "type": "null"
+       }
+      ],
+      "default": null,
+      "description": "Alias for spreadsheet.",
+      "title": "Spreadsheet Id"
+     },
+     "worksheet_id": {
+      "anyOf": [
+       {
+        "type": "string"
+       },
+       {
+        "type": "null"
+       }
+      ],
+      "default": null,
+      "description": "Alias for worksheet.",
+      "title": "Worksheet Id"
+     },
+     "drive": {
+      "anyOf": [
+       {
+        "type": "string"
+       },
+       {
+        "type": "null"
+       }
+      ],
+      "default": null,
+      "description": "Google Drive location.",
+      "title": "Drive"
+     },
+     "timezone": {
+      "default": false,
+      "description": "Use spreadsheet timezone for date formatting.",
+      "title": "Timezone",
+      "type": "boolean"
+     },
+     "cells": {
+      "anyOf": [
+       {},
+       {
+        "type": "null"
+       }
+      ],
+      "default": null,
+      "description": "JSON object of column name to value pairs, e.g. '{\"Name\": \"John\", \"Age\": \"30\"}'.",
+      "title": "Cells"
+     },
+     "values": {
+      "anyOf": [
+       {},
+       {
+        "type": "null"
+       }
+      ],
+      "default": null,
+      "description": "Alias for cells.",
+      "title": "Values"
+     },
+     "row": {
+      "anyOf": [
+       {},
+       {
+        "type": "null"
+       }
+      ],
+      "default": null,
+      "title": "Row"
+     },
+     "row_data": {
+      "anyOf": [
+       {},
+       {
+        "type": "null"
+       }
+      ],
+      "default": null,
+      "title": "Row Data"
+     },
+     "fields": {
+      "anyOf": [
+       {},
+       {
+        "type": "null"
+       }
+      ],
+      "default": null,
+      "title": "Fields"
+     }
+    },
+    "title": "google_sheets_add_row",
+    "type": "object"
+   }
+  },
+  {
+   "name": "gmail_send_email",
+   "description": "Send an email via Gmail. Composes and delivers a new outgoing Gmail message to one or more\nrecipients. Use this to send (not draft) an email \u2014 the message is\ntransmitted immediately and appears in the recipient's inbox. Handles\noutbound email dispatch, reply-and-send, forward-and-send, notification\n",
+   "inputSchema": {
+    "description": "Send an email via Gmail. Composes and delivers a new outgoing Gmail message to one or more\nrecipients. Use this to send (not draft) an email \u2014 the message is\ntransmitted immediately and appears in the recipient's inbox. Handles\noutbound email dispatch, reply-and-send, forward-and-send, notification\nemails, alerts, and any other Gmail send/deliver/transmit action. Keywords: gmail send email, gmail send mail, gmail compose and send,\nsend outgoing email, send outbound message, deliver email, transmit\nemail, dispatch email, email send, gmail sender, mail send, gmail\nmessage send, send a new email, send notification email, send alert\nemail, email delivery. Note: this SENDS the email. For drafts use gmail_create_draft instead.",
+    "properties": {
+     "to": {
+      "description": "Recipient email address(es), comma-separated for multiple.",
+      "title": "To",
+      "type": "string"
+     },
+     "subject": {
+      "description": "Email subject line.",
+      "title": "Subject",
+      "type": "string"
+     },
+     "body": {
+      "description": "Email body content (plain text or HTML).",
+      "title": "Body",
+      "type": "string"
+     },
+     "cc": {
+      "anyOf": [
+       {
+        "type": "string"
+       },
+       {
+        "type": "null"
+       }
+      ],
+      "default": null,
+      "description": "CC recipients, comma-separated.",
+      "title": "Cc"
+     },
+     "bcc": {
+      "anyOf": [
+       {
+        "type": "string"
+       },
+       {
+        "type": "null"
+       }
+      ],
+      "default": null,
+      "description": "BCC recipients, comma-separated.",
+      "title": "Bcc"
+     },
+     "from_": {
+      "anyOf": [
+       {
+        "type": "string"
+       },
+       {
+        "type": "null"
+       }
+      ],
+      "default": null,
+      "description": "Sender email address (alias).",
+      "title": "From"
+     },
+     "from_name": {
+      "anyOf": [
+       {
+        "type": "string"
+       },
+       {
+        "type": "null"
+       }
+      ],
+      "default": null,
+      "description": "Display name for sender.",
+      "title": "From Name"
+     },
+     "reply_to": {
+      "anyOf": [
+       {
+        "type": "string"
+       },
+       {
+        "type": "null"
+       }
+      ],
+      "default": null,
+      "description": "Reply-to email address.",
+      "title": "Reply To"
+     },
+     "body_type": {
+      "anyOf": [
+       {
+        "type": "string"
+       },
+       {
+        "type": "null"
+       }
+      ],
+      "default": "plain",
+      "description": "Body format - \"plain\" or \"html\" (default: \"plain\").",
+      "title": "Body Type"
+     },
+     "signature": {
+      "anyOf": [
+       {
+        "type": "string"
+       },
+       {
+        "type": "null"
+       }
+      ],
+      "default": null,
+      "description": "Email signature to append.",
+      "title": "Signature"
+     },
+     "label_ids": {
+      "anyOf": [
+       {
+        "type": "string"
+       },
+       {
+        "type": "null"
+       }
+      ],
+      "default": null,
+      "description": "Comma-separated label IDs to apply.",
+      "title": "Label Ids"
+     },
+     "file": {
+      "anyOf": [
+       {
+        "type": "string"
+       },
+       {
+        "type": "null"
+       }
+      ],
+      "default": null,
+      "description": "File to attach (URL or path).",
+      "title": "File"
+     }
+    },
+    "required": [
+     "to",
+     "subject",
+     "body"
+    ],
+    "title": "gmail_send_email",
+    "type": "object"
+   }
+  },
+  {
+   "name": "google_drive_find_multiple_files",
+   "description": "Tool for Find Multiple Files.",
+   "inputSchema": {
+    "description": "Tool for Find Multiple Files.",
+    "properties": {
+     "info": {
+      "anyOf": [
+       {
+        "type": "string"
+       },
+       {
+        "type": "null"
+       }
+      ],
+      "default": null,
+      "title": "Info"
+     },
+     "title": {
+      "anyOf": [
+       {
+        "type": "string"
+       },
+       {
+        "type": "null"
+       }
+      ],
+      "default": null,
+      "title": "Title"
+     },
+     "search_type": {
+      "anyOf": [
+       {
+        "type": "string"
+       },
+       {
+        "type": "null"
+       }
+      ],
+      "default": null,
+      "title": "Search Type"
+     },
+     "drive": {
+      "anyOf": [
+       {
+        "type": "string"
+       },
+       {
+        "type": "null"
+       }
+      ],
+      "default": null,
+      "title": "Drive"
+     },
+     "folder": {
+      "anyOf": [
+       {
+        "type": "string"
+       },
+       {
+        "type": "null"
+       }
+      ],
+      "default": null,
+      "title": "Folder"
+     },
+     "file_types": {
+      "anyOf": [
+       {
+        "items": {
+         "anyOf": [
+          {
+           "type": "string"
+          },
+          {
+           "type": "null"
+          }
+         ]
+        },
+        "type": "array"
+       },
+       {
+        "type": "null"
+       }
+      ],
+      "default": null,
+      "title": "File Types"
+     },
+     "max_results": {
+      "anyOf": [
+       {
+        "type": "integer"
+       },
+       {
+        "type": "null"
+       }
+      ],
+      "default": null,
+      "title": "Max Results"
+     }
+    },
+    "title": "google_drive_find_multiple_files",
+    "type": "object"
+   }
+  },
+  {
+   "name": "google_sheets_get_spreadsheet_by_id",
+   "description": "Get a spreadsheet by ID.",
+   "inputSchema": {
+    "description": "Get a spreadsheet by ID.",
+    "properties": {
+     "spreadsheet": {
+      "anyOf": [
+       {
+        "type": "string"
+       },
+       {
+        "type": "null"
+       }
+      ],
+      "default": null,
+      "description": "Spreadsheet ID (required).",
+      "title": "Spreadsheet"
+     },
+     "spreadsheet_id": {
+      "anyOf": [
+       {
+        "type": "string"
+       },
+       {
+        "type": "null"
+       }
+      ],
+      "default": null,
+      "description": "Alias for spreadsheet.",
+      "title": "Spreadsheet Id"
+     },
+     "id": {
+      "anyOf": [
+       {
+        "type": "string"
+       },
+       {
+        "type": "null"
+       }
+      ],
+      "default": null,
+      "description": "Alias for spreadsheet.",
+      "title": "Id"
+     },
+     "includeGridData": {
+      "default": true,
+      "description": "Whether to include grid data in response.",
+      "title": "Includegriddata",
+      "type": "boolean"
+     }
+    },
+    "title": "google_sheets_get_spreadsheet_by_id",
+    "type": "object"
+   }
+  },
+  {
+   "name": "google_sheets_find_worksheet",
+   "description": "Find a worksheet by title.",
+   "inputSchema": {
+    "description": "Find a worksheet by title.",
+    "properties": {
+     "spreadsheet": {
+      "anyOf": [
+       {
+        "type": "string"
+       },
+       {
+        "type": "null"
+       }
+      ],
+      "default": null,
+      "description": "Spreadsheet ID (required).",
+      "title": "Spreadsheet"
+     },
+     "title": {
+      "anyOf": [
+       {
+        "type": "string"
+       },
+       {
+        "type": "null"
+       }
+      ],
+      "default": null,
+      "description": "Worksheet title to search for (required).",
+      "title": "Title"
+     },
+     "spreadsheet_id": {
+      "anyOf": [
+       {
+        "type": "string"
+       },
+       {
+        "type": "null"
+       }
+      ],
+      "default": null,
+      "description": "Alias for spreadsheet.",
+      "title": "Spreadsheet Id"
+     },
+     "drive": {
+      "anyOf": [
+       {
+        "type": "string"
+       },
+       {
+        "type": "null"
+       }
+      ],
+      "default": null,
+      "description": "Google Drive location.",
+      "title": "Drive"
+     }
+    },
+    "title": "google_sheets_find_worksheet",
+    "type": "object"
+   }
+  }
+ ]
+}

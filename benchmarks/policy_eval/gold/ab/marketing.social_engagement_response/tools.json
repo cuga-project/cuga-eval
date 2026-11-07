@@ -1,0 +1,390 @@
+[
+ {
+  "name": "twitter_find_tweet",
+  "description": "Find tweets matching a search query.",
+  "inputSchema": {
+   "description": "Find tweets matching a search query.",
+   "properties": {
+    "query": {
+     "description": "The search query.",
+     "title": "Query",
+     "type": "string"
+    }
+   },
+   "required": [
+    "query"
+   ],
+   "title": "twitter_find_tweet",
+   "type": "object"
+  }
+ },
+ {
+  "name": "twitter_like_tweet",
+  "description": "Like a tweet on Twitter/X.",
+  "inputSchema": {
+   "description": "Like a tweet on Twitter/X.",
+   "properties": {
+    "tweet_id": {
+     "description": "The ID of the tweet to like.",
+     "title": "Tweet Id",
+     "type": "string"
+    }
+   },
+   "required": [
+    "tweet_id"
+   ],
+   "title": "twitter_like_tweet",
+   "type": "object"
+  }
+ },
+ {
+  "name": "twitter_post_tweet",
+  "description": "Post a tweet on Twitter/X.",
+  "inputSchema": {
+   "description": "Post a tweet on Twitter/X.",
+   "properties": {
+    "tweet_text": {
+     "description": "The text content of the tweet.",
+     "title": "Tweet Text",
+     "type": "string"
+    },
+    "reply_to_tweet_id": {
+     "anyOf": [
+      {
+       "type": "string"
+      },
+      {
+       "type": "null"
+      }
+     ],
+     "default": null,
+     "description": "Optional tweet ID to reply to.",
+     "title": "Reply To Tweet Id"
+    }
+   },
+   "required": [
+    "tweet_text"
+   ],
+   "title": "twitter_post_tweet",
+   "type": "object"
+  }
+ },
+ {
+  "name": "slack_send_channel_message",
+  "description": "Send a message to a Slack channel.",
+  "inputSchema": {
+   "description": "Send a message to a Slack channel.",
+   "properties": {
+    "channel": {
+     "anyOf": [
+      {
+       "type": "string"
+      },
+      {
+       "type": "null"
+      }
+     ],
+     "default": null,
+     "description": "Channel ID or name.",
+     "title": "Channel"
+    },
+    "text": {
+     "anyOf": [
+      {
+       "type": "string"
+      },
+      {
+       "type": "null"
+      }
+     ],
+     "default": null,
+     "description": "Message text.",
+     "title": "Text"
+    },
+    "message": {
+     "anyOf": [
+      {
+       "type": "string"
+      },
+      {
+       "type": "null"
+      }
+     ],
+     "default": null,
+     "title": "Message"
+    },
+    "channel_name": {
+     "anyOf": [
+      {
+       "type": "string"
+      },
+      {
+       "type": "null"
+      }
+     ],
+     "default": null,
+     "title": "Channel Name"
+    },
+    "add_app_to_channel": {
+     "default": true,
+     "description": "Whether to auto-add Zapier app to channel (default True).",
+     "title": "Add App To Channel",
+     "type": "boolean"
+    },
+    "as_bot": {
+     "default": true,
+     "description": "Whether to send as a bot (default True).",
+     "title": "As Bot",
+     "type": "boolean"
+    },
+    "username": {
+     "anyOf": [
+      {
+       "type": "string"
+      },
+      {
+       "type": "null"
+      }
+     ],
+     "default": null,
+     "description": "Bot name to use (if sending as bot).",
+     "title": "Username"
+    },
+    "icon": {
+     "anyOf": [
+      {
+       "type": "string"
+      },
+      {
+       "type": "null"
+      }
+     ],
+     "default": null,
+     "description": "Bot icon (URL or emoji like :robot_face:).",
+     "title": "Icon"
+    },
+    "add_edit_link": {
+     "default": true,
+     "description": "Whether to include link to this Zap (default True).",
+     "title": "Add Edit Link",
+     "type": "boolean"
+    },
+    "image_url": {
+     "anyOf": [
+      {
+       "type": "string"
+      },
+      {
+       "type": "null"
+      }
+     ],
+     "default": null,
+     "description": "URL of image to attach.",
+     "title": "Image Url"
+    },
+    "unfurl": {
+     "default": true,
+     "description": "Whether to auto-expand links (default True).",
+     "title": "Unfurl",
+     "type": "boolean"
+    },
+    "link_names": {
+     "default": true,
+     "description": "Whether to link @mentions (default True).",
+     "title": "Link Names",
+     "type": "boolean"
+    },
+    "post_at": {
+     "anyOf": [
+      {
+       "type": "string"
+      },
+      {
+       "type": "null"
+      }
+     ],
+     "default": null,
+     "description": "Schedule message for later (ISO datetime).",
+     "title": "Post At"
+    },
+    "thread_ts": {
+     "anyOf": [
+      {
+       "type": "string"
+      },
+      {
+       "type": "null"
+      }
+     ],
+     "default": null,
+     "description": "Parent message timestamp if replying to a thread.",
+     "title": "Thread Ts"
+    },
+    "reply_broadcast": {
+     "default": false,
+     "description": "Also send thread reply to channel (default False).",
+     "title": "Reply Broadcast",
+     "type": "boolean"
+    }
+   },
+   "title": "slack_send_channel_message",
+   "type": "object"
+  }
+ },
+ {
+  "name": "gmail_list_emails",
+  "description": "Alias for `gmail_find_email`. Some tasks refer to a \"list\" operation; in our environment `gmail_find_email`\nalready returns a list of matching messages.",
+  "inputSchema": {
+   "description": "Alias for `gmail_find_email`. Some tasks refer to a \"list\" operation; in our environment `gmail_find_email`\nalready returns a list of matching messages.",
+   "properties": {
+    "query": {
+     "default": "",
+     "title": "Query",
+     "type": "string"
+    },
+    "label": {
+     "anyOf": [
+      {
+       "type": "string"
+      },
+      {
+       "type": "null"
+      }
+     ],
+     "default": null,
+     "title": "Label"
+    },
+    "max_results": {
+     "anyOf": [
+      {
+       "type": "integer"
+      },
+      {
+       "type": "null"
+      }
+     ],
+     "default": 10,
+     "title": "Max Results"
+    },
+    "include_spam_trash": {
+     "anyOf": [
+      {
+       "type": "boolean"
+      },
+      {
+       "type": "null"
+      }
+     ],
+     "default": false,
+     "title": "Include Spam Trash"
+    },
+    "format": {
+     "anyOf": [
+      {
+       "type": "string"
+      },
+      {
+       "type": "null"
+      }
+     ],
+     "default": "full",
+     "title": "Format"
+    }
+   },
+   "title": "gmail_list_emails",
+   "type": "object"
+  }
+ },
+ {
+  "name": "gmail_find_email",
+  "description": "Search for emails using Gmail search operators.",
+  "inputSchema": {
+   "description": "Search for emails using Gmail search operators.",
+   "properties": {
+    "query": {
+     "default": "",
+     "description": "Gmail search query. Supports operators: from:, to:, subject:, label:, is:unread, is:read, is:starred, has:attachment, OR, and plain text (e.g., \"from:user@example.com is:unread\").",
+     "title": "Query",
+     "type": "string"
+    },
+    "id": {
+     "anyOf": [
+      {
+       "type": "string"
+      },
+      {
+       "type": "null"
+      }
+     ],
+     "default": null,
+     "description": "Message ID for direct lookup (returns single message).",
+     "title": "Id"
+    },
+    "label": {
+     "anyOf": [
+      {
+       "type": "string"
+      },
+      {
+       "type": "null"
+      }
+     ],
+     "default": null,
+     "description": "Filter by label (e.g., \"INBOX\", \"SENT\").",
+     "title": "Label"
+    },
+    "max_results": {
+     "anyOf": [
+      {
+       "type": "integer"
+      },
+      {
+       "type": "null"
+      }
+     ],
+     "default": 10,
+     "description": "Maximum number of results to return.",
+     "title": "Max Results"
+    },
+    "include_spam_trash": {
+     "anyOf": [
+      {
+       "type": "boolean"
+      },
+      {
+       "type": "null"
+      }
+     ],
+     "default": false,
+     "description": "Include spam and trash in results.",
+     "title": "Include Spam Trash"
+    },
+    "format": {
+     "anyOf": [
+      {
+       "type": "string"
+      },
+      {
+       "type": "null"
+      }
+     ],
+     "default": "full",
+     "description": "Email format to return (\"full\", \"metadata\", \"minimal\", \"raw\").",
+     "title": "Format"
+    }
+   },
+   "title": "gmail_find_email",
+   "type": "object"
+  }
+ },
+ {
+  "name": "slack_list_channels",
+  "description": "List all channels available to the user.",
+  "inputSchema": {
+   "description": "List all channels available to the user.",
+   "properties": {},
+   "title": "slack_list_channels",
+   "type": "object"
+  }
+ }
+]

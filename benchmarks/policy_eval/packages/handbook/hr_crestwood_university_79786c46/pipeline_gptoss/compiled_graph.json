@@ -1,0 +1,1008 @@
+{
+ "id": "policy",
+ "version": "compiled",
+ "built_by": "aws/gpt-oss-120b",
+ "global_rules": [
+  {
+   "id": "R1",
+   "src": "Section 1",
+   "rule": "Do not deviate from the procedures described in this document. If a situation arises that is not covered, escalate to the HR Director immediately by posting a notification in Slack with the tag [OUT OF SCOPE] – [email subject line]."
+  },
+  {
+   "id": "R2",
+   "src": "Section 1",
+   "rule": "The HR Coordinator’s role is administrative and digital – process cases using email, Slack, calendar, Jira, and the reference spreadsheets and document templates. Physical tasks (in‑person orientation, document verification, badge issuance) are performed by the hiring manager or the employee’s supervisor."
+  },
+  {
+   "id": "R3",
+   "src": "Section 3.1",
+   "rule": "All times are Mountain Standard Time (MST, UTC‑7) or Mountain Daylight Time (MDT, UTC‑6). Use MM/DD/YYYY for dates and MM/DD/YYYY HH:MMam/pm for timestamps."
+  },
+  {
+   "id": "R4",
+   "src": "Section 3.2",
+   "rule": "Employee internal email addresses follow the format [first initial].[last name]@crestwood.edu and must be looked up in employee_roster.xlsx before sending any email."
+  },
+  {
+   "id": "R5",
+   "src": "Section 5",
+   "rule": "All operational HR communications must use the designated Slack channels; direct messages are prohibited for case‑related communication."
+  },
+  {
+   "id": "R6",
+   "src": "Section 6",
+   "rule": "Never rely on memory; always verify employee and case information from the listed source files before taking action."
+  },
+  {
+   "id": "R7",
+   "src": "Section 8",
+   "rule": "Every incoming HR request (email, Slack, or in‑person) must be triaged before any action is taken. Internal HR team messages are exempt."
+  },
+  {
+   "id": "R8",
+   "src": "Section 8",
+   "rule": "If a single request raises multiple issues, create separate Jira tickets for each issue and apply the highest priority of any individual issue to the whole email for SLA and folder‑routing purposes."
+  },
+  {
+   "id": "R9",
+   "src": "Section 8",
+   "rule": "Replies to a previous email are treated as a continuation of the existing case; add the information as a comment to the existing Jira ticket and do not create a new ticket or resend prior templates."
+  },
+  {
+   "id": "R10",
+   "src": "Section 10",
+   "rule": "SLA timelines count only business days (Monday‑Friday) and exclude university‑observed holidays."
+  }
+ ],
+ "triage": {
+  "name": "HR Request Triage",
+  "src": "Section 8",
+  "steps": [
+   "Step 1: Verify the requester exists in employee_roster.xlsx or recruiting_tracker.xlsx. If not found, reply using Template 1 and stop.",
+   "Step 2: Identify the request category according to Section 7.",
+   "Step 3: If the request is an employee‑relations matter (workplace complaint, harassment, discrimination), forward immediately to m.voss@crestwood.edu, reply using Template 2, and stop.",
+   "Step 4: If the request involves payroll or compensation, forward to c.briggs@crestwood.edu, reply using Template 3, and stop.",
+   "Step 5: Search Jira for an open ticket for the same employee and request type. If found, add the new information as a comment and stop.",
+   "Step 6: Create a new Jira ticket using the naming convention in the routing table and assign it per the routing rules.",
+   "Step 7: Perform the required action from the relevant SOP section, using the designated email template (Section 18).",
+   "Step 8: Complete email housekeeping as described in Section 17, then close the triage."
+  ]
+ },
+ "routing": {
+  "Onboarding": {
+   "jira": "ONBOARD-[Employee Last Name]-[Start Date MMDDYYYY]",
+   "assignee": "HR Coordinator on duty",
+   "folder": "Onboarding",
+   "channel_if_a_step_posts": "#hr-onboarding"
+  },
+  "Offboarding": {
+   "jira": "OFFBOARD-[Employee Last Name]-[Last Day MMDDYYYY]",
+   "assignee": "HR Coordinator on duty",
+   "folder": "Offboarding",
+   "channel_if_a_step_posts": "#hr-offboarding"
+  },
+  "Leave Management": {
+   "jira": "LEAVE-[Employee Last Name]-[Date request received MMDDYYYY]",
+   "assignee": "Patricia Huang",
+   "folder": "Leave",
+   "channel_if_a_step_posts": "#hr-leave-requests"
+  },
+  "Performance Management": {
+   "jira": "PERF-[Employee Last Name]-[Action Date MMDDYYYY]",
+   "assignee": "Nicole Ashford",
+   "folder": "Performance",
+   "channel_if_a_step_posts": "#hr-performance"
+  },
+  "Recruiting": {
+   "jira": "RECRUIT-[Requisition ID or Last Name]-[Requisition Approved Date MMDDYYYY]",
+   "assignee": "Derek Okonkwo",
+   "folder": "Recruiting",
+   "channel_if_a_step_posts": "#hr-recruiting"
+  },
+  "Employee Relations": {
+   "jira": "ER-[Employee Last Name]-[Complaint Received Date MMDDYYYY]",
+   "assignee": "Marta Voss",
+   "folder": "EmployeeRelations",
+   "channel_if_a_step_posts": "#hr-escalations"
+  },
+  "Benefits & Payroll": {
+   "jira": "BENEFITS-[Employee Last Name]-[Request Received Date MMDDYYYY]",
+   "assignee": "Calvin Briggs / Patricia Huang",
+   "folder": "BenefitsPayroll",
+   "channel_if_a_step_posts": "#hr-general"
+  }
+ },
+ "housekeeping": {
+  "name": "Email Housekeeping",
+  "src": "Section 17",
+  "steps": []
+ },
+ "priority": {
+  "name": "Priority Matrix",
+  "src": "Section 9",
+  "levels": [
+   "P1 – Urgent: Compliance deadline within 24 hours, legal or safety issue, employee locked out of pay/benefits. SLA – Same business day.",
+   "P2 – High: Compliance deadline within 3 business days, formal complaint, FMLA eligibility determination, PIP‑related termination in progress. SLA – 1 business day.",
+   "P3 – Standard: Routine processing with no imminent deadline (standard onboarding/offboarding, evaluation scheduling, PTO balance inquiries). SLA – 3 business days.",
+   "P4 – Low: General inquiries, employment verification, policy questions, document requests. SLA – 5 business days."
+  ]
+ },
+ "escalation": {
+  "name": "Escalation Procedure",
+  "src": "Sections 5, 8, 11.2, 12.2",
+  "steps": [
+   "Post to #hr-escalations for any issue requiring HR Director or VP attention (legal threats, compliance deadlines, unresolved cases >10 business days).",
+   "For I‑9 overdue after Day 3, forward the case to n.ashford@crestwood.edu and j.whitfield@crestwood.edu, then post to #hr-escalations with the format: I‑9 OVERDUE: [Employee Name], [Employee ID], Start Date: [MM/DD/YYYY], Deadline: [MM/DD/YYYY].",
+   "If a request falls outside the SOP, send a Slack notification to the HR Director with the tag [OUT OF SCOPE] and include the email subject line."
+  ],
+  "must_not": [
+   "Do not use direct messages for case‑related communication.",
+   "Do not share confidential employee information in public Slack channels."
+  ]
+ },
+ "definitions": {
+  "FMLA": "Family and Medical Leave Act. Federal law entitling eligible employees to up to 12 weeks of unpaid, job‑protected leave per year.",
+  "ADA": "Americans with Disabilities Act. Federal law requiring employers to provide reasonable accommodations to qualified employees with disabilities.",
+  "COBRA": "Consolidated Omnibus Budget Reconciliation Act. Federal law requiring employers to offer continuation of group health coverage after a qualifying event.",
+  "PIP": "Performance Improvement Plan. A formal, documented plan to address and correct employee performance deficiencies.",
+  "I-9": "Employment Eligibility Verification form. Federal form required within 3 business days of an employee's first day of work.",
+  "PTO": "Paid Time Off. Combined vacation and personal leave accrued by eligible employees.",
+  "Qualifying Event": "A life event (marriage, birth, divorce, loss of other coverage) that triggers eligibility for mid‑year benefits enrollment changes or COBRA coverage.",
+  "Exempt Employee": "An employee exempt from overtime provisions of the Fair Labor Standards Act (FLSA), typically salaried.",
+  "Non-Exempt Employee": "An employee entitled to overtime pay under the FLSA, typically hourly.",
+  "Probationary Period": "The first 90 calendar days of employment for staff, or the first academic year for faculty.",
+  "Supervisor of Record": "The direct supervisor listed in employee_roster.xlsx for a given employee.",
+  "Benefits Enrollment Window": "The first 30 calendar days from an employee's start date during which the employee must enroll in or waive benefits."
+ },
+ "procedures": [
+  {
+   "name": "HR Service Management Procedure",
+   "category": "HR Request",
+   "applies_when": "When an HR request is received via Slack, email, or Jira ticket.",
+   "inputs": [
+    {
+     "fact": "Incoming HR request message",
+     "source": "Slack Channels (section 5 – Internal Communication – Slack Channels)"
+    },
+    {
+     "fact": "Incoming HR request email",
+     "source": "Email Templates (section 18 – Email Templates) and Email Folders (s48)"
+    },
+    {
+     "fact": "Incoming HR request ticket",
+     "source": "Jira Ticket (Jira Ticket Naming Convention – s14, Default Jira Ticket Description – s85)"
+    }
+   ],
+   "decisions": [
+    {
+     "id": "request-type",
+     "rule": "If request matches one of the Types of HR Requests (section 7)",
+     "then": "Route to the corresponding detailed procedure (Onboarding, Offboarding, Leave Management, Performance Management, Recruiting & Hiring, etc.)",
+     "else": "Use Template 1 – Unrecognized Requester (s50) and notify requester"
+    },
+    {
+     "id": "priority",
+     "rule": "Determine priority using the Priority Matrix (section 9)",
+     "then": "Assign High, Medium, or Low priority label on the Jira ticket",
+     "else": "Default to Medium priority"
+    },
+    {
+     "id": "sla‑breach",
+     "rule": "If elapsed time exceeds the Service Level Agreement for the assigned priority (section 10 – Service Level Agreements)",
+     "then": "Escalate according to Escalations (section 16)",
+     "else": "Continue normal processing"
+    }
+   ],
+   "steps": [
+    "Receive the HR request via Slack, email, or Jira.",
+    "Apply the Triage & Routing Rules (section 8) to classify the request type.",
+    "Assign priority using the Priority Matrix (section 9) and record it on the Jira ticket.",
+    "Route the ticket to the responsible HR team member or functional group as defined in Types of HR Requests (section 7).",
+    "  • Employee Onboarding Procedure (section 11 and 11.1‑11.4)",
+    "  • Employee Offboarding Procedure (section 12 and 12.1‑12.6)",
+    "  • Leave Management Procedure (section 13 and 13.1‑13.4)",
+    "  • Performance Management Procedure (section 14 and 14.1‑14.3)",
+    "  • Recruiting & Hiring Procedure (section 15 and 15.1‑15.6)",
+    "Monitor progress against the Service Level Agreements (section 10).",
+    "Perform Email Housekeeping as described in Email Housekeeping (section 17)."
+   ],
+   "deadlines": [
+    "Complete triage within 30 minutes of receipt (per Triage & Routing Rules).",
+    "Initial acknowledgment email must be sent within 1 hour of receipt (per Email Templates).",
+    "Meet the SLA for each priority level as defined in Service Level Agreements (section 10).",
+    "Send follow‑up reminders using the appropriate templates (e.g., Benefits Enrollment Reminder – Day 15, Template 57; Benefits Final Notice – Day 25, Template 58).",
+    "Close the ticket within the SLA window after the final step of the sub‑procedure."
+   ],
+   "must_not": [
+    "Do not process a request without first applying the Triage & Routing Rules (section 8).",
+    "Do not use an incorrect email template for the request type.",
+    "Do not assign a priority that does not match the Priority Matrix (section 9).",
+    "Do not close a ticket before all required steps in the associated sub‑procedure are completed."
+   ],
+   "notes": [
+    "High‑priority requests (e.g., I‑9 urgent reminders, COBRA notifications) require immediate escalation if SLA is not met.",
+    "Use the Default Formats (s84‑s87) for all communications to ensure consistency.",
+    "Reference the Document Templates (Word) (s11) when creating any formal HR documents."
+   ],
+   "links": [
+    {
+     "type": "next",
+     "to": "11",
+     "when": "request type = New Hire / Onboarding"
+    },
+    {
+     "type": "next",
+     "to": "12",
+     "when": "request type = Separation / Offboarding"
+    },
+    {
+     "type": "next",
+     "to": "13",
+     "when": "request type = Leave Management"
+    },
+    {
+     "type": "next",
+     "to": "14",
+     "when": "request type = Performance Management"
+    },
+    {
+     "type": "next",
+     "to": "15",
+     "when": "request type = Recruiting / Hiring"
+    },
+    {
+     "type": "next",
+     "to": "16",
+     "when": "SLA breach or escalation required"
+    },
+    {
+     "type": "next",
+     "to": "17",
+     "when": "procedure completed"
+    }
+   ],
+   "id": "s2",
+   "src": "§s2"
+  },
+  {
+   "name": "Receiving the New Hire Notification",
+   "category": "New Hire",
+   "applies_when": "When a new hire is confirmed and the hiring manager or recruiting team sends an email to hr@crestwood.edu with the required employee details.",
+   "inputs": [
+    {
+     "fact": "Employee name, personal email address, position, department, campus, start date, and classification (exempt/non‑exempt, full‑time/part‑time/faculty)",
+     "source": "Email to hr@crestwood.edu"
+    }
+   ],
+   "decisions": [],
+   "steps": [
+    "Open employee_roster.xlsx and add a new row with all provided details. Enter the hire date and set the status to \"Onboarding.\"",
+    "Open onboarding_checklist.xlsx and create a new row for the employee. All checklist fields must be blank (not started) at this stage.",
+    "Create a Jira ticket named ONBOARD-[Last Name]-[Start Date MMDDYYYY].",
+    "Post to #hr-onboarding: NEW HIRE: [Employee Name], [Position], [Department], [Campus], Start Date: [MM/DD/YYYY], Jira: [Ticket ID].",
+    "Send Template 4 (Welcome Email) to the employee's personal email address and CC the hiring manager. This email instructs the employee to bring I‑9 documents to their first day and provides the list of acceptable documents.",
+    "Send Template 5 (IT Access Provisioning Request) to j.park@crestwood.edu. Include employee name, position, department, campus, start date, and supervisor name.",
+    "Send Template 31 (Orientation Coordinator Request) to the hiring manager. This email instructs the hiring manager to conduct the in‑person orientation on the employee's first day and to collect the I‑9 documents. Attach i9_form.pdf and benefits_enrollment_packet.pdf.",
+    "Create a Calendar event titled \"Orientation – [Employee Name]\" on the employee's first day, 9:00 am–12:00 pm MST."
+   ],
+   "deadlines": [
+    "Steps 1‑3 must be completed immediately after receiving the new‑hire email.",
+    "Steps 4‑7 must be sent/completed before the employee's first day.",
+    "Step 8 must be scheduled for the employee's first day."
+   ],
+   "must_not": [],
+   "notes": [
+    "All checklist fields remain blank until orientation activities are performed."
+   ],
+   "links": [
+    {
+     "type": "next",
+     "to": "11.2",
+     "when": ""
+    }
+   ],
+   "id": "11.1",
+   "src": "§11.1"
+  },
+  {
+   "name": "12.6 Offboarding Completion",
+   "category": "Offboarding",
+   "applies_when": "All offboarding steps are complete (COBRA sent or noted as not required, final pay requested, access revoked, exit interview completed or declined).",
+   "inputs": [
+    {
+     "fact": "Employee roster record",
+     "source": "employee_roster.xlsx (status, last day, separation type columns)"
+    },
+    {
+     "fact": "Offboarding status of COBRA, final pay, access, exit interview",
+     "source": "HR case management system / internal tracking"
+    }
+   ],
+   "decisions": [
+    {
+     "id": "D1",
+     "rule": "COBRA sent OR COBRA not required AND final pay requested AND access revoked AND (exit interview completed OR exit interview declined)",
+     "then": "Proceed to Offboarding Completion",
+     "else": "Do not complete; return to pending offboarding steps"
+    }
+   ],
+   "steps": [
+    "Update employee_roster.xlsx: change status to \"Separated\" and record the last day and separation type.",
+    "Post to #hr-offboarding channel using the format: OFFBOARDING COMPLETE: [Employee Name], [Employee ID], Separation Type: [Type], Last Day: [MM/DD/YYYY]."
+   ],
+   "deadlines": [
+    "Complete both steps immediately after decision D1 evaluates to true."
+   ],
+   "must_not": [
+    "Do not change employee status to \"Separated\" before all prerequisite steps are verified.",
+    "Do not post the OFFBOARDING COMPLETE message with missing or inaccurate employee information."
+   ],
+   "notes": [
+    "High‑priority finalization step to close the employee record.",
+    "Ensure the posted message matches the exact format required for audit tracking."
+   ],
+   "links": [],
+   "id": "12.6",
+   "src": "§12.6"
+  },
+  {
+   "name": "FMLA Leave Requests",
+   "category": "Leave Management",
+   "applies_when": "When an employee submits a request for Family and Medical Leave Act (FMLA) leave.",
+   "inputs": [
+    {
+     "fact": "Employee hire date",
+     "source": "employee_roster.xlsx (Hire Date column)"
+    },
+    {
+     "fact": "Hours Worked (Trailing 12 Months)",
+     "source": "employee_roster.xlsx ('Hours Worked (Trailing 12 Months)' column)"
+    },
+    {
+     "fact": "Medical certification document",
+     "source": "Employee submission (email attachment)"
+    },
+    {
+     "fact": "Leave request receipt date",
+     "source": "Incoming request (email or portal timestamp)"
+    },
+    {
+     "fact": "Supervisor of record",
+     "source": "employee_roster.xlsx (Supervisor column)"
+    }
+   ],
+   "decisions": [
+    {
+     "id": "eligibility_check",
+     "rule": "Hire date ≥ 12 months ago AND Hours Worked ≥ 1,250 in the trailing 12 months",
+     "then": "ELIGIBLE",
+     "else": "INELIGIBLE"
+    }
+   ],
+   "steps": [
+    "Open employee_roster.xlsx and confirm the employee's hire date.",
+    "Calculate the number of months between the hire date and today's date; if fewer than 12 months, mark the employee INELIGIBLE.",
+    "Locate the 'Hours Worked (Trailing 12 Months)' column for the employee; if the value is less than 1,250, mark the employee INELIGIBLE.",
+    "If ELIGIBLE, send Template 15 (FMLA Eligibility Notice – Approved) to the employee within 5 business days of receiving the request. The employee has 15 calendar days to return the completed medical certification.",
+    "Create a Jira ticket named LEAVE-[Last Name]-[MMDDYYYY] where the date is the request‑received date.",
+    "Post to Slack channel #hr-leave-requests: \"FMLA REQUEST: [Employee Name], [Employee ID], Eligible: YES, Certification Due: [MM/DD/YYYY], Jira: [Ticket ID]\".",
+    "Create a Calendar reminder titled \"FMLA Certification Due – [Employee Name]\" on the certification deadline date (15 calendar days after request).",
+    "When the medical certification is received, forward it to p.huang@crestwood.edu for review and update leave_tracker.xlsx with the leave dates and status \"Approved – Pending Certification Review.\"",
+    "After Patricia Huang approves the certification, update leave_tracker.xlsx status to \"Approved,\" send Template 16 (FMLA Leave Confirmed) to the employee, and CC the supervisor of record.",
+    "If INELIGIBLE, send Template 17 (FMLA Eligibility Notice – Denied) to the employee within 5 business days, specifying the reason (\"employed for fewer than 12 months,\" \"fewer than 1,250 hours worked,\" or \"both\"), and CC Patricia Huang.",
+    "Create a Jira ticket named LEAVE-[Last Name]-[MMDDYYYY] and update leave_tracker.xlsx with the request date and status \"Denied – [Reason]\".",
+    "If the employee does not return the medical certification within 15 calendar days, send Template 18 (FMLA Certification Overdue) to the employee.",
+    "Post to #hr-leave-requests: \"FMLA CERTIFICATION OVERDUE: [Employee Name], [Employee ID], Due: [MM/DD/YYYY], [X] days overdue\".",
+    "Forward the overdue notice to p.huang@crestwood.edu; Patricia Huang will determine whether the leave is denied or an extension is granted."
+   ],
+   "deadlines": [
+    "Eligibility notice (Template 15 or 17) must be sent within 5 business days of receiving the request.",
+    "Employee must return the medical certification within 15 calendar days of the eligibility notice.",
+    "Calendar reminder is set for the certification due date (15 days after request)."
+   ],
+   "must_not": [
+    "Do not approve the leave before Patricia Huang reviews and approves the medical certification.",
+    "Do not send Template 16 (FMLA Leave Confirmed) before the leave_tracker.xlsx status is updated to \"Approved.\""
+   ],
+   "notes": [
+    "Eligibility determination must be completed before any communication is sent to the employee.",
+    "All Jira tickets use the format LEAVE-[Last Name]-[MMDDYYYY] to ensure traceability."
+   ],
+   "links": [
+    {
+     "type": "next",
+     "to": "13.2",
+     "when": ""
+    }
+   ],
+   "id": "13.1",
+   "src": "§13.1"
+  },
+  {
+   "name": "Escalations",
+   "category": "Escalations",
+   "applies_when": "When a case meets any of the escalation criteria defined in section 16 (P1 issue, unresolved > 10 business days, legal threat, potential harm, or media inquiry).",
+   "inputs": [
+    {
+     "fact": "Case priority (e.g., P1)",
+     "source": "HR Ticket System"
+    },
+    {
+     "fact": "Case age / days unresolved",
+     "source": "HR Ticket System"
+    },
+    {
+     "fact": "Email content indicating legal threat, attorney reference, or regulatory complaint",
+     "source": "Employee Email"
+    },
+    {
+     "fact": "Email content indicating potential harm to employee or university",
+     "source": "Employee Email"
+    },
+    {
+     "fact": "Email content indicating a media inquiry related to HR matters",
+     "source": "Employee Email"
+    }
+   ],
+   "decisions": [
+    {
+     "id": "D1",
+     "rule": "Priority = P1",
+     "then": "Escalate to HR Director (Nicole Ashford)",
+     "else": "Continue evaluation"
+    },
+    {
+     "id": "D2",
+     "rule": "Unresolved days > 10 business days",
+     "then": "Escalate to HR Director (Nicole Ashford)",
+     "else": "Continue evaluation"
+    },
+    {
+     "id": "D3",
+     "rule": "Email contains legal threat OR reference to attorney OR regulatory complaint",
+     "then": "Execute Legal Threat escalation path",
+     "else": "Continue evaluation"
+    },
+    {
+     "id": "D4",
+     "rule": "Email contains potential harm to employee OR potential harm to university",
+     "then": "Escalate to HR Director (Nicole Ashford)",
+     "else": "Continue evaluation"
+    },
+    {
+     "id": "D5",
+     "rule": "Email is a media inquiry related to HR matters",
+     "then": "Execute Media Inquiry escalation path",
+     "else": "Continue evaluation"
+    }
+   ],
+   "steps": [
+    "Identify the escalation trigger by evaluating case priority, age, and email content.",
+    "If D3 (legal threat) is true: Do NOT reply to the email; post to Slack channel #hr-escalations using format: LEGAL THREAT: [Employee Name], [Subject Line]; forward the original email to hr-escalations@crestwood.edu; Dr. Whitfield and Nicole Ashford will handle further communication.",
+    "If D5 (media inquiry) is true: Do NOT reply to the email; forward the email to communications@crestwood.edu (Office of Communications) and to hr-escalations@crestwood.edu.",
+    "If any of D1, D2, D4 are true (or after completing D3/D5 steps): Send an escalation notification to the HR Director (Nicole Ashford) indicating the case details and reason for escalation."
+   ],
+   "deadlines": [
+    "All escalation actions must be performed immediately (within the same business day the trigger is identified)."
+   ],
+   "must_not": [
+    "Do NOT reply to the original email when it is a legal threat.",
+    "Do NOT reply to the original email when it is a media inquiry."
+   ],
+   "notes": [
+    "P1 issues are highest priority and require immediate escalation.",
+    "Legal‑threat escalations are routed through Slack #hr-escalations before any email forwarding."
+   ],
+   "links": [],
+   "id": "16",
+   "src": "§16"
+  },
+  {
+   "name": "Create / Update Jira Ticket Description",
+   "category": "Jira Ticket Management",
+   "applies_when": "When a Jira ticket is being created or updated as instructed by any other SOP section.",
+   "inputs": [
+    {
+     "fact": "Ticket description starts empty",
+     "source": "Section s85 – Default Jira Ticket Description"
+    }
+   ],
+   "decisions": [
+    {
+     "id": "add_employee_name",
+     "rule": "The section references a specific employee",
+     "then": "Add Employee Name field",
+     "else": "Do not add Employee Name field"
+    },
+    {
+     "id": "add_employee_id",
+     "rule": "The section references a specific employee",
+     "then": "Add Employee ID field",
+     "else": "Do not add Employee ID field"
+    },
+    {
+     "id": "add_assignee",
+     "rule": "The section or routing table (Section 8) specifies who to assign the ticket to",
+     "then": "Add Assignee field",
+     "else": "Do not add Assignee field"
+    },
+    {
+     "id": "add_priority",
+     "rule": "The section instructs you to assign a priority per Section 9",
+     "then": "Add Priority field",
+     "else": "Do not add Priority field"
+    },
+    {
+     "id": "add_deadline",
+     "rule": "The section involves a compliance or action deadline",
+     "then": "Add Deadline field",
+     "else": "Do not add Deadline field"
+    },
+    {
+     "id": "add_status",
+     "rule": "The section involves a compliance or action deadline",
+     "then": "Add Status field",
+     "else": "Do not add Status field"
+    }
+   ],
+   "steps": [
+    "Start with an empty ticket description.",
+    "If Decision add_employee_name = true, append line: \"Employee Name: [Full Name]\" using the exact format.",
+    "If Decision add_employee_id = true, append line: \"Employee ID: [ID]\" using the exact format.",
+    "If Decision add_assignee = true, append line: \"Assignee: [Full Name]\" using the exact format.",
+    "If Decision add_priority = true, append line: \"Priority: [P1/P2/P3/P4]\" using the exact format.",
+    "If Decision add_deadline = true, append line: \"Deadline: [MM/DD/YYYY]\" using the exact format.",
+    "If Decision add_status = true, append line: \"Status: [value]\" using the exact format.",
+    "When the SOP later instructs a change (e.g., status update or deadline addition), edit the corresponding line in the description to reflect the new value.",
+    "Log every change with a Jira comment using the format defined in Section s86 – Default Jira Comment Format."
+   ],
+   "deadlines": [],
+   "must_not": [
+    "Add any field to the description unless the SOP explicitly instructs it.",
+    "Alter the description format; keep the exact field labels and punctuation as shown."
+   ],
+   "notes": [
+    "Priority hints: Use the priority values defined in Section 9 (Priority Matrix).",
+    "All dates must follow the MM/DD/YYYY format."
+   ],
+   "links": [
+    {
+     "type": "next",
+     "to": "s86",
+     "when": ""
+    }
+   ],
+   "id": "s85",
+   "src": "§s85"
+  },
+  {
+   "name": "Compose Email with Default Subject Line",
+   "category": "Email Housekeeping",
+   "applies_when": "When composing a new email (not a reply or forward).",
+   "inputs": [
+    {
+     "fact": "Template Name",
+     "source": "Email Templates (sections s50‑s76)"
+    },
+    {
+     "fact": "Employee or Candidate Last Name",
+     "source": "HR System / Employee Record"
+    },
+    {
+     "fact": "Employee ID (if applicable)",
+     "source": "HR System / Employee Record"
+    }
+   ],
+   "decisions": [
+    {
+     "id": "d1",
+     "rule": "Is the email a new composition (not a reply or forward)?",
+     "then": "Use the default subject line format.",
+     "else": "Retain the existing subject line unchanged."
+    }
+   ],
+   "steps": [
+    "Select the appropriate email template (e.g., Template 1 – Unrecognized Requester, Template 53 – New Hire Welcome, etc.).",
+    "Insert the template name into the subject line.",
+    "Add a hyphen and an em‑dash (—) after the template name.",
+    "Insert the employee or candidate last name.",
+    "Resulting subject line format: [Template Name] — [Employee Last Name or Candidate Last Name], [Employee ID if applicable]."
+   ],
+   "deadlines": [],
+   "must_not": [
+    "Do not modify the subject line when replying to or forwarding an existing email."
+   ],
+   "notes": [
+    "Apply this format only to brand‑new email messages; replies and forwards keep the original subject line."
+   ],
+   "links": [
+    {
+     "type": "next",
+     "to": "s86",
+     "when": ""
+    }
+   ],
+   "id": "s87",
+   "src": "§s87"
+  }
+ ],
+ "templates": {
+  "1": {
+   "number": 1,
+   "name": "Unrecognized Requester",
+   "text": "Hi [First Name],\n\nThank you for reaching out to the Crestwood University Office of Human Resources. We were unable to locate your information in our records. If you are a current employee, please reply with your Employee ID and department so we can assist you.\n\nBest regards,\n\nCrestwood University – Office of Human Resources hr@crestwood.edu",
+   "slots": [
+    "[First Name]"
+   ],
+   "section": "s50"
+  },
+  "2": {
+   "number": 2,
+   "name": "Employee Relations Referral",
+   "text": "Hi [First Name],\n\nThank you for contacting us. Your message has been forwarded to our Employee Relations Specialist, who will follow up with you directly. Please allow 2 business days for initial contact.\n\nBest regards, Crestwood University – Office of Human Resources hr@crestwood.edu",
+   "slots": [
+    "[First Name]"
+   ],
+   "section": "s51"
+  },
+  "3": {
+   "number": 3,
+   "name": "Payroll Referral",
+   "text": "Hi [First Name],\n\nThank you for reaching out. For all payroll and compensation questions, please contact our Payroll Liaison, Calvin Briggs, directly at c.briggs@crestwood.edu. Your message has been forwarded to him.\n\nBest regards, Crestwood University – Office of Human Resources hr@crestwood.edu",
+   "slots": [
+    "[First Name]"
+   ],
+   "section": "s52"
+  },
+  "4": {
+   "number": 4,
+   "name": "New Hire Welcome",
+   "text": "Hi [First Name],\n\nWelcome to Crestwood University! We are excited to have you join us as [Position Title] in the [Department] department at our [Campus] campus.\n\nYour first day is [Start Date]. Your supervisor, [Supervisor Name], will conduct your orientation session beginning at 9:00am MST. Please bring the following:\n\n- Two forms of identification for I-9 verification (see acceptable documents list attached)\n- Voided check or bank routing information for direct deposit setup\n\nAttached to this email is the I-9 form (i9\\_form.pdf). Please complete Section 1 of the form before your first day and bring it with you along with your original identity documents.\n\nIf you have any questions before your first day, please do not hesitate to reach out.\n\nBest regards, Crestwood University – Office of Human Resources hr@crestwood.edu",
+   "slots": [
+    "[Campus]",
+    "[Department]",
+    "[First Name]",
+    "[Position Title]",
+    "[Start Date]",
+    "[Supervisor Name]"
+   ],
+   "section": "s53"
+  },
+  "5": {
+   "number": 5,
+   "name": "IT Access Provisioning Request",
+   "text": "Hi Jenna,\n\nPlease provision the following IT access for a new employee:\n\nName: [Employee Name] Position: [Position Title] Department: [Department] Campus: [Campus] Start Date: [Start Date] Supervisor: [Supervisor Name]\n\nPlease have credentials ready by [Start Date]. Thank you.\n\nBest regards, Crestwood University – Office of Human Resources hr@crestwood.edu",
+   "slots": [
+    "[Campus]",
+    "[Department]",
+    "[Employee Name]",
+    "[Position Title]",
+    "[Start Date]",
+    "[Supervisor Name]"
+   ],
+   "section": "s54"
+  },
+  "6": {
+   "number": 6,
+   "name": "I-9 Urgent Reminder",
+   "text": "Hi [Hiring Manager First Name],\n\nThis is an urgent reminder regarding the I-9 Employment Eligibility Verification for [Employee Name] ([Employee ID]). The federal deadline for completing Section 2 of the I-9 is [Deadline Date]. We have not yet received the completed form.\n\nPlease examine the employee's original identity and work authorization documents, complete Section 2 of the I-9, and email the scanned signed form to hr@crestwood.edu as soon as possible.\n\nBest regards,\n\nCrestwood University – Office of Human Resources\n\nhr@crestwood.edu",
+   "slots": [
+    "[Deadline Date]",
+    "[Employee ID]",
+    "[Employee Name]",
+    "[Hiring Manager First Name]"
+   ],
+   "section": "s55"
+  },
+  "7": {
+   "number": 7,
+   "name": "I-9 Deadline Passed – Supervisor Notification",
+   "text": "Hi [Supervisor First Name],\n\nThis is to inform you that the I-9 Employment Eligibility Verification for [Employee Name] ([Employee ID]) has not been completed by the federal deadline. [Employee Name] may not continue working until this requirement is fulfilled. Please do not assign work to this employee until further notice from the HR Office.\n\nThis matter has been escalated to the HR Director.\n\nBest regards, Crestwood University – Office of Human Resources hr@crestwood.edu",
+   "slots": [
+    "[Employee ID]",
+    "[Employee Name]",
+    "[Supervisor First Name]"
+   ],
+   "section": "s56"
+  },
+  "8": {
+   "number": 8,
+   "name": "Benefits Enrollment Reminder (Day 15)",
+   "text": "Hi [First Name],\n\nThis is a reminder that your benefits enrollment deadline is [Deadline Date] (30 calendar days from your start date). We have not yet received your enrollment selections or benefits waiver.\n\nPlease complete your enrollment at your earliest convenience. If you have questions about your options, contact Patricia Huang at p.huang@crestwood.edu.\n\nBest regards,\n\nCrestwood University – Office of Human Resources hr@crestwood.edu",
+   "slots": [
+    "[Deadline Date]",
+    "[First Name]"
+   ],
+   "section": "s57"
+  },
+  "9": {
+   "number": 9,
+   "name": "Benefits Final Notice (Day 25)",
+   "text": "Hi [First Name],\n\nThis is a final notice that your benefits enrollment deadline is [Deadline Date]. If we do not receive your enrollment selections or a signed benefits waiver by this date, you will be automatically enrolled in the university's default health plan.\n\nPlease contact Patricia Huang at p.huang@crestwood.edu immediately if you need assistance.\n\nBest regards,\n\nCrestwood University – Office of Human Resources hr@crestwood.edu",
+   "slots": [
+    "[Deadline Date]",
+    "[First Name]"
+   ],
+   "section": "s58"
+  },
+  "10": {
+   "number": 10,
+   "name": "Default Benefits Enrollment Confirmation",
+   "text": "Hi [First Name],\n\nAs your benefits enrollment deadline of [Deadline Date] has passed without a completed enrollment or waiver, you have been automatically enrolled in Crestwood University's default health plan effective [Effective Date].\n\nIf you have questions or believe this is in error, please contact Patricia Huang at p.huang@crestwood.edu.\n\nBest regards, Crestwood University – Office of Human Resources hr@crestwood.edu",
+   "slots": [
+    "[Deadline Date]",
+    "[Effective Date]",
+    "[First Name]"
+   ],
+   "section": "s59"
+  },
+  "11": {
+   "number": 11,
+   "name": "COBRA Notification",
+   "text": "Hi [First Name],\n\nThis notice is to inform you that your group health coverage through Crestwood University will end on [Coverage End Date] due to [separation of employment / reduction in hours].\n\nUnder the Consolidated Omnibus Budget Reconciliation Act (COBRA), you may be eligible to continue your current health coverage for up to 18 months at your own expense. The COBRA election form and instructions will be mailed to your address on file within 5 business days. You have 60 calendar days from the date you receive the form to elect COBRA continuation coverage.\n\nIf you have questions, please contact Patricia Huang at p.huang@crestwood.edu.\n\nBest regards, Crestwood University – Office of Human Resources hr@crestwood.edu",
+   "slots": [
+    "[Coverage End Date]",
+    "[First Name]",
+    "[separation of employment / reduction in hours]"
+   ],
+   "section": "s60"
+  },
+  "12": {
+   "number": 12,
+   "name": "Final Pay Request to Payroll",
+   "text": "Hi Calvin,\n\nPlease process final pay for the following separating employee:\n\nName: [Employee Name] Employee ID: [Employee ID] Last Day of Work: [Date] Separation Type: [Voluntary Resignation / Involuntary Termination / Retirement]\n\nAccrued PTO Balance: [X] hours (per leave\\_tracker.xlsx)\n\nPer Colorado law, [if involuntary: final pay is due immediately upon termination / if voluntary: final pay is due on the next regular payday].\n\nBest regards,\n\nCrestwood University – Office of Human Resources\n\nhr@crestwood.edu",
+   "slots": [
+    "[Date]",
+    "[Employee ID]",
+    "[Employee Name]",
+    "[Voluntary Resignation / Involuntary Termination / Retirement]"
+   ],
+   "section": "s61"
+  },
+  "13": {
+   "number": 13,
+   "name": "Access Revocation Request",
+   "text": "Hi Jenna,\n\nPlease revoke all system access for the following employee:\n\nName: [Employee Name] Employee ID: [Employee ID] Last Day of Work: [Date] Timing: [End of business on last day / Immediately]\n\nThis includes email, VPN, building access, and all university systems. Please confirm when complete.\n\nBest regards, Crestwood University – Office of Human Resources hr@crestwood.edu",
+   "slots": [
+    "[Date]",
+    "[Employee ID]",
+    "[Employee Name]",
+    "[End of business on last day / Immediately]"
+   ],
+   "section": "s62"
+  },
+  "14": {
+   "number": 14,
+   "name": "Exit Interview Invitation",
+   "text": "Hi [First Name],\n\nAs part of our offboarding process, we would like to offer you the opportunity to participate in an exit interview. This is completely voluntary and confidential. Your feedback helps us improve the employee experience at Crestwood University.\n\nIf you are interested, please reply with your availability and we will schedule a 30-minute meeting before your last day of [Last Day].\n\nBest regards,\n\nCrestwood University – Office of Human Resources hr@crestwood.edu",
+   "slots": [
+    "[First Name]",
+    "[Last Day]"
+   ],
+   "section": "s63"
+  },
+  "15": {
+   "number": 15,
+   "name": "FMLA Eligibility Notice – Approved",
+   "text": "Hi [First Name],\n\nWe have reviewed your request for leave under the Family and Medical Leave Act (FMLA). Based on our records, you meet the eligibility requirements (employed for [X] months; [X] hours worked in the preceding 12 months).\n\nTo proceed, please complete and return the Medical Certification Form (mailed to you separately) within 15 calendar days of this notice (due by [Due Date]). Failure to return the certification by this date may result in denial of your FMLA leave request.\n\nIf you have questions, please contact Patricia Huang at p.huang@crestwood.edu.\n\nBest regards, Crestwood University – Office of Human Resources hr@crestwood.edu",
+   "slots": [
+    "[Due Date]",
+    "[First Name]"
+   ],
+   "section": "s64"
+  },
+  "16": {
+   "number": 16,
+   "name": "FMLA Leave Confirmed",
+   "text": "Hi [First Name],\n\nYour FMLA leave has been approved. Your leave details are as follows:\n\nLeave Start Date: [Date] Expected Return Date: [Date] Leave Duration: [X] weeks\n\nPlease note that a fitness-for-duty certification from your healthcare provider will be required before you can return to work. Please contact us at least 5 business days before your intended return date.\n\nBest regards, Crestwood University – Office of Human Resources hr@crestwood.edu",
+   "slots": [
+    "[Date]",
+    "[First Name]"
+   ],
+   "section": "s65"
+  },
+  "17": {
+   "number": 17,
+   "name": "FMLA Eligibility Notice – Denied",
+   "text": "Hi [First Name],\n\nWe have reviewed your request for leave under the Family and Medical Leave Act (FMLA). Unfortunately, you do not meet the eligibility requirements at this time. The reason for ineligibility is: [employed for fewer than 12 months / fewer than 1,250 hours worked in the preceding 12 months / both].\n\nYou may be eligible for other types of leave. Please contact Patricia Huang at p.huang@crestwood.edu to discuss your options.\n\nBest regards,\n\nCrestwood University – Office of Human Resources hr@crestwood.edu",
+   "slots": [
+    "[First Name]"
+   ],
+   "section": "s66"
+  },
+  "18": {
+   "number": 18,
+   "name": "FMLA Certification Overdue",
+   "text": "Hi [First Name],\n\nThis is a reminder that your FMLA Medical Certification Form was due on [Due Date] and has not been received. Your FMLA leave request cannot be processed without this documentation.\n\nPlease return the completed form as soon as possible. If you need an extension, please contact Patricia Huang at p.huang@crestwood.edu immediately.\n\nBest regards,\n\nCrestwood University – Office of Human Resources hr@crestwood.edu",
+   "slots": [
+    "[Due Date]",
+    "[First Name]"
+   ],
+   "section": "s67"
+  },
+  "19": {
+   "number": 19,
+   "name": "ADA Accommodation Request Acknowledged",
+   "text": "Hi [First Name],\n\nThank you for submitting your request for a workplace accommodation. Your request has been received and forwarded to our Benefits &amp; Leave Manager, who will coordinate the interactive process with you.\n\nYou can expect to be contacted within 5 business days to discuss your request and next steps.\n\nBest regards,\n\nCrestwood University – Office of Human Resources\n\nhr@crestwood.edu",
+   "slots": [
+    "[First Name]"
+   ],
+   "section": "s68"
+  },
+  "20": {
+   "number": 20,
+   "name": "PTO Balance Response",
+   "text": "Hi [First Name],\n\nYour current PTO balance as of [Date] is [X] hours. Your accrual rate is [X] hours per pay period.\n\nIf you have questions about your balance or accrual rate, please contact Patricia Huang at p.huang@crestwood.edu.\n\nBest regards,\n\nCrestwood University – Office of Human Resources hr@crestwood.edu",
+   "slots": [
+    "[Date]",
+    "[First Name]"
+   ],
+   "section": "s69"
+  },
+  "21": {
+   "number": 21,
+   "name": "Return-to-Work Requirements",
+   "text": "Hi [First Name],\n\nThank you for notifying us of your intended return date of [Date]. Before you may return to work, we require a fitness-for-duty certification from your healthcare provider confirming that you are able to perform the essential functions of your position.\n\nPlease submit this documentation to hr@crestwood.edu at least 2 business days before your intended return date.\n\nBest regards,\n\nCrestwood University – Office of Human Resources\n\nhr@crestwood.edu",
+   "slots": [
+    "[Date]",
+    "[First Name]"
+   ],
+   "section": "s70"
+  },
+  "22": {
+   "number": 22,
+   "name": "Return-to-Work Clearance – Supervisor Notification",
+   "text": "Hi [Supervisor First Name],\n\n[Employee Name] ([Employee ID]) has been cleared to return to work effective [Return Date]. Please coordinate their return schedule directly.\n\nBest regards,\n\nCrestwood University – Office of Human Resources\n\nhr@crestwood.edu",
+   "slots": [
+    "[Employee ID]",
+    "[Employee Name]",
+    "[Return Date]",
+    "[Supervisor First Name]"
+   ],
+   "section": "s71"
+  },
+  "23": {
+   "number": 23,
+   "name": "Annual Evaluation Cycle Reminder",
+   "text": "Hi [Supervisor First Name],\n\nThis is a reminder that annual performance evaluations for fiscal year [Year] are due by June 30, [Year]. The following employees on your team are due for evaluation:\n\n[List of employee names]\n\nPlease complete and submit evaluations to hr@crestwood.edu by the deadline.\n\nBest regards,\n\nCrestwood University – Office of Human Resources\n\nhr@crestwood.edu",
+   "slots": [
+    "[List of employee names]",
+    "[Supervisor First Name]",
+    "[Year]"
+   ],
+   "section": "s72"
+  },
+  "24": {
+   "number": 24,
+   "name": "Evaluation Follow-Up (May 1)",
+   "text": "Hi [Supervisor First Name],\n\nThis is a follow-up regarding outstanding annual evaluations due by June 30, [Year]. The following evaluations have not yet been received:\n\n[List of employee names]\n\nPlease submit as soon as possible.\n\nBest regards,\n\nCrestwood University – Office of Human Resources hr@crestwood.edu",
+   "slots": [
+    "[List of employee names]",
+    "[Supervisor First Name]",
+    "[Year]"
+   ],
+   "section": "s73"
+  },
+  "25": {
+   "number": 25,
+   "name": "Final Evaluation Reminder (June 15)",
+   "text": "Hi [Supervisor First Name],\n\nThis is a final reminder. The following evaluations are due by June 30, [Year] and have not been received:\n\n[List of employee names]\n\nFailure to complete evaluations by the deadline will be noted in your own performance record.\n\nBest regards,\n\nCrestwood University – Office of Human Resources hr@crestwood.edu",
+   "slots": [
+    "[List of employee names]",
+    "[Supervisor First Name]",
+    "[Year]"
+   ],
+   "section": "s74"
+  },
+  "26": {
+   "number": 26,
+   "name": "Probationary Review Reminder (Day 60)",
+   "text": "Hi [Supervisor First Name],\n\n[Employee Name] is currently in their probationary period, which ends on [End Date]. A probationary review must be submitted to hr@crestwood.edu by [Day 85 Date] (Day 85 of employment).\n\nPlease complete the probationary review form and return it by the deadline.\n\nBest regards,\n\nCrestwood University – Office of Human Resources\n\nhr@crestwood.edu",
+   "slots": [
+    "[Day 85 Date]",
+    "[Employee Name]",
+    "[End Date]",
+    "[Supervisor First Name]"
+   ],
+   "section": "s75"
+  },
+  "27": {
+   "number": 27,
+   "name": "Requisition – Missing Signatures",
+   "text": "Hi [First Name],\n\nThank you for submitting the Personnel Requisition Form for [Position Title]. The following required signatures are missing: [list missing signatures].\n\nPlease obtain the required signatures and resubmit. We cannot proceed with the posting until all approvals are in place.\n\nBest regards,\n\nCrestwood University – Office of Human Resources\n\nhr@crestwood.edu",
+   "slots": [
+    "[First Name]",
+    "[Position Title]",
+    "[list missing signatures]"
+   ],
+   "section": "s76"
+  },
+  "28": {
+   "number": 28,
+   "name": "Application Not Selected",
+   "text": "Dear [Candidate Name],\n\nThank you for your interest in the [Position Title] position at Crestwood University. After careful review, we have decided to move forward with other candidates whose qualifications more closely match the requirements of this position.\n\nWe appreciate the time you invested in your application and encourage you to apply for future openings.\n\nBest regards,\n\nCrestwood University – Office of Human Resources\n\nhr@crestwood.edu",
+   "slots": [
+    "[Candidate Name]",
+    "[Position Title]"
+   ],
+   "section": "s77"
+  },
+  "29": {
+   "number": 29,
+   "name": "Interview Invitation",
+   "text": "Dear [Candidate Name],\n\nWe are pleased to invite you to interview for the [Position Title] position at Crestwood University.\n\nDate: [Date] Time: [Time] MST Location: [Location / Virtual Link] Format: [In-Person / Virtual] Estimated Duration: [Duration]\n\nPlease confirm your attendance by replying to this email by [RSVP Date]. If you require any accommodations, please let us know.\n\nBest regards, Crestwood University – Office of Human Resources\n\nhr@crestwood.edu",
+   "slots": [
+    "[Candidate Name]",
+    "[Date]",
+    "[Duration]",
+    "[In-Person / Virtual]",
+    "[Location / Virtual Link]",
+    "[Position Title]",
+    "[RSVP Date]",
+    "[Time]"
+   ],
+   "section": "s78"
+  },
+  "30": {
+   "number": 30,
+   "name": "Offer Letter Transmittal",
+   "text": "Dear [Candidate Name],\n\nOn behalf of Crestwood University, I am pleased to extend an offer of employment for the position of [Position Title] in the [Department] department. Please find the formal offer letter attached as a PDF.\n\nThis offer is contingent upon successful completion of a background check. Please review the attached offer letter and return a signed copy to hr@crestwood.edu by [Response Deadline. Set the deadline to 3 business days from current day].\n\nWe look forward to welcoming you to Crestwood University.\n\nBest regards, Crestwood University – Office of Human Resources hr@crestwood.edu",
+   "slots": [
+    "[Candidate Name]",
+    "[Department]",
+    "[Position Title]",
+    "[Response Deadline. Set the deadline to 3 business days from current day]"
+   ],
+   "section": "s79"
+  },
+  "31": {
+   "number": 31,
+   "name": "Orientation Coordinator Request",
+   "text": "Hi [Hiring Manager First Name],\n\n[Employee Name] is scheduled to begin as [Position Title] on [Start Date]. As the hiring manager, please conduct the in-person orientation on their first day. Orientation should include:\n\n- Welcome and introductions\n\n- Workspace and building tour\n\n- Collecting the employee's completed I-9 Section 1 form and verifying their original identity/work authorization documents in person\n\n- Completing Section 2 of the attached I-9 form (i9\\_form.pdf)\n- Scanning and emailing the signed, completed I-9 form to hr@crestwood.edu\n- Distributing the attached benefits enrollment packet to the employee\n- Ensuring the employee signs the employee handbook acknowledgment and emailing it to hr@crestwood.edu\n\nIT credentials will be prepared by Jenna Park and sent to the employee on their start date. Parking and ID badge requests should be submitted through your campus facilities office.\n\nPlease confirm receipt of this email.\n\nBest regards,\n\nCrestwood University – Office of Human Resources hr@crestwood.edu",
+   "slots": [
+    "[Employee Name]",
+    "[Hiring Manager First Name]",
+    "[Position Title]",
+    "[Start Date]"
+   ],
+   "section": "s80"
+  },
+  "32": {
+   "number": 32,
+   "name": "Interview Availability Request",
+   "text": "Hi [Hiring Manager First Name],\n\nWe are ready to schedule interviews for the [Position Title] position. Please reply with your available date/time blocks within the next 10 business days. If there are search committee members who need to attend, please include their availability as well or CC them on your reply.\n\nBest regards,\n\nCrestwood University – Office of Human Resources hr@crestwood.edu",
+   "slots": [
+    "[Hiring Manager First Name]",
+    "[Position Title]"
+   ],
+   "section": "s81"
+  },
+  "33": {
+   "number": 33,
+   "name": "Interview Availability Request",
+   "text": "Dear [Candidate Name],\n\nThank you for your interest in the [Position Title] position at Crestwood University. We would like to schedule an interview and have the following date/time options available:\n\n[List of available date/time slots]\n\nPlease reply with your preferred option by [RSVP Date]. If none of these work, please suggest two alternative times and we will do our best to accommodate.\n\nBest regards,\n\nCrestwood University – Office of Human Resources\n\nhr@crestwood.edu",
+   "slots": [
+    "[Candidate Name]",
+    "[List of available date/time slots]",
+    "[Position Title]",
+    "[RSVP Date]"
+   ],
+   "section": "s82"
+  }
+ },
+ "calendar": {
+  "workdays": [
+   0,
+   1,
+   2,
+   3,
+   4
+  ],
+  "holidays": []
+ },
+ "checks": {
+  "procedures": 7,
+  "templates": 33,
+  "steps_dropped_ungrounded": 9
+ }
+}

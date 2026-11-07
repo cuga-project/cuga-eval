@@ -1,0 +1,249 @@
+{
+ "method": "backtrans",
+ "package": "tau2_retail_retail",
+ "build": "skill_v1",
+ "package_version": "5e643e86b61954a4+e34d4dea1f2b",
+ "ran_at": "2026-11-05T11:17:42Z",
+ "status": "ok",
+ "writer": "aws/gpt-oss-120b",
+ "judge": "azure/DeepSeek-V4-Pro",
+ "rules": 25,
+ "judged": 25,
+ "not_judged": 0,
+ "text_from": "the package",
+ "source_kinds": {
+  "statements": 25
+ },
+ "counts": {
+  "broader": 3,
+  "equivalent": 21,
+  "narrower": 1
+ },
+ "rows": [
+  {
+   "id": "r_cancel_status",
+   "type": "reference_status",
+   "source": null,
+   "source_kind": "statements",
+   "restated": "The rule permits calling cancel_pending_order only when the referenced order_id has a status of \"pending\"; it forbids calling the tool for any order whose status is not pending. It applies whenever the assistant attempts to use the cancel_pending_order tool and checks the order's status field.",
+   "verdict": "broader",
+   "why": "The rule forbids calling cancel_pending_order for any order whose status is not pending, but the policy text only says an order can be cancelled if its status is 'pending' and that you can take action on pending or delivered orders. It does not explicitly forbid cancellation attempts on delivered orders, so the rule is more restrictive than the text."
+  },
+  {
+   "id": "r_modify_address_status",
+   "type": "reference_status",
+   "source": null,
+   "source_kind": "statements",
+   "restated": "The rule permits calling the modify_pending_order_address tool with an order_id argument only if the order’s status field is \"pending\". It forbids calling the tool for any order whose status is not \"pending\".",
+   "verdict": "equivalent",
+   "why": "The rule correctly captures the policy's condition that only pending orders can be modified, and it forbids modification for non-pending orders, matching the policy text."
+  },
+  {
+   "id": "r_modify_payment_status",
+   "type": "reference_status",
+   "source": null,
+   "source_kind": "statements",
+   "restated": "The assistant may call the modify_pending_order_payment tool with an order_id argument only when the order's status field is \"pending\". It must not call this tool for any order whose status is not \"pending\".",
+   "verdict": "equivalent",
+   "why": "The rule correctly captures the condition that the tool may only be called when the order status is 'pending', which matches the policy text's restriction that modification is only allowed for pending orders."
+  },
+  {
+   "id": "r_modify_items_status",
+   "type": "reference_status",
+   "source": null,
+   "source_kind": "statements",
+   "restated": "When the assistant calls the tool modify_pending_order_items, it may do so only if the order identified by the provided order_id currently has its status field set to \"pending\". Calls for orders whose status is anything other than \"pending\" are not allowed.",
+   "verdict": "equivalent",
+   "why": "The rule correctly captures the condition that the order status must be 'pending' before calling modify_pending_order_items, matching the policy text's requirement."
+  },
+  {
+   "id": "r_return_status",
+   "type": "reference_status",
+   "source": null,
+   "source_kind": "statements",
+   "restated": "When the assistant calls the tool return_delivered_order_items, it may only do so if the referenced order (identified by the order_id argument) has its status field set to \"delivered\". Calls for orders with any other status are prohibited; this rule applies each time the tool is invoked.",
+   "verdict": "equivalent",
+   "why": "The rule captures the same condition as the policy text: only orders with status 'delivered' can be returned, and it applies each time the tool is invoked."
+  },
+  {
+   "id": "r_exchange_status",
+   "type": "reference_status",
+   "source": null,
+   "source_kind": "statements",
+   "restated": "The rule permits calling the tool exchange_delivered_order_items with an order_id argument only if the referenced order’s status field equals \"delivered\". It forbids calling the tool for any order whose status is not \"delivered\"; the rule applies whenever the assistant checks the order’s status before making the tool call.",
+   "verdict": "equivalent",
+   "why": "The rule correctly captures the condition that the order status must be 'delivered' and that the status must be checked before taking action, matching the policy text."
+  },
+  {
+   "id": "r_cancel_reason",
+   "type": "allowed_values",
+   "source": null,
+   "source_kind": "statements",
+   "restated": "When calling the cancel_pending_order tool, the reason argument is allowed only the values \"no longer needed\" or \"ordered by mistake\"; any other reason is forbidden. This rule applies each time the cancel_pending_order tool is invoked.",
+   "verdict": "equivalent",
+   "why": "The rule correctly restricts the reason argument to the two allowed values and applies to every invocation of the cancel_pending_order tool, matching the policy text."
+  },
+  {
+   "id": "r_items_payment",
+   "type": "required_args",
+   "source": null,
+   "source_kind": "statements",
+   "restated": "When the assistant calls the modify_pending_order_items tool, it must include the payment_method_id argument; calling the tool without that argument is not allowed. This requirement applies every time the modify_pending_order_items tool is invoked.",
+   "verdict": "broader",
+   "why": "The policy requires a payment method only when there is a price difference to pay or refund. The rule requires payment_method_id on every call to modify_pending_order_items, even when no price difference exists."
+  },
+  {
+   "id": "r_return_payment",
+   "type": "required_args",
+   "source": null,
+   "source_kind": "statements",
+   "restated": "When the assistant calls the tool 'return_delivered_order_items', it must include the argument 'payment_method_id'. Calls to this tool without that argument are forbidden; the rule applies only to calls of this specific tool.",
+   "verdict": "equivalent",
+   "why": "The rule correctly requires payment_method_id when calling return_delivered_order_items, matching the policy that a payment method is needed for a refund."
+  },
+  {
+   "id": "r_exchange_payment",
+   "type": "required_args",
+   "source": null,
+   "source_kind": "statements",
+   "restated": "When the assistant calls the tool exchange_delivered_order_items, it must include the argument payment_method_id; calling the tool without that argument is not allowed. This requirement applies every time the exchange_delivered_order_items tool is invoked.",
+   "verdict": "narrower",
+   "why": "The rule only applies to the exchange_delivered_order_items tool, but the policy text applies generally to any payment or refund of a price difference, not just that specific tool."
+  },
+  {
+   "id": "r_authenticate",
+   "type": "verify",
+   "source": null,
+   "source_kind": "statements",
+   "restated": "The rule requires the assistant to always verify the user's identity at the start of the conversation by retrieving their user ID using email or name + zip code, even if the user already supplies a user ID. It forbids proceeding without this authentication step before any other actions.",
+   "verdict": "equivalent",
+   "why": "The rule accurately restates the policy: it requires authentication at the start, using email or name+zip to retrieve the user ID, even if the user already provides an ID, and forbids proceeding without it."
+  },
+  {
+   "id": "r_one_user",
+   "type": "verify",
+   "source": null,
+   "source_kind": "statements",
+   "restated": "This rule permits the assistant to use the listed tools to handle any number of requests from the same user within a single conversation, but it forbids using those tools for any request that involves a different user, which must be denied.",
+   "verdict": "equivalent",
+   "why": "The rule accurately captures the policy's single-user-per-conversation restriction and the allowance for multiple requests from the same user, without adding or omitting any constraints."
+  },
+  {
+   "id": "r_confirm",
+   "type": "verify",
+   "source": null,
+   "source_kind": "statements",
+   "restated": "The rule permits the assistant to list the details of any cancel, modify, return, or exchange operation and to ask the user for an explicit \"yes\" before executing the corresponding tool. It forbids calling any of those tools without first obtaining that user confirmation, and it applies whenever one of the specified tools is about to be used.",
+   "verdict": "equivalent",
+   "why": "The rule accurately captures the requirement to list details and obtain explicit 'yes' before executing any of the specified database-updating tools, matching the policy text's scope and conditions."
+  },
+  {
+   "id": "r_transfer_scope",
+   "type": "verify",
+   "source": null,
+   "source_kind": "statements",
+   "restated": "This rule permits the assistant to call the transfer_to_human_agents tool only when the user’s request is outside the assistant’s own capabilities, and it forbids using that tool for any request that can be handled within the assistant’s scope. It applies whenever the assistant is deciding whether to transfer the conversation to a human.",
+   "verdict": "equivalent",
+   "why": "The rule accurately captures the policy's condition (only when the request cannot be handled within the assistant's scope) and its prohibition (do not transfer if it can be handled). It covers the same decision point and tool without adding or omitting constraints."
+  },
+  {
+   "id": "r_once",
+   "type": "verify",
+   "source": null,
+   "source_kind": "statements",
+   "restated": "The assistant may call any of the listed modify or exchange tools (modify_pending_order_address, modify_pending_order_items, modify_pending_order_payment, exchange_delivered_order_items) at most once for a given order. It must not call any of these tools again for the same order after the first call.",
+   "verdict": "equivalent",
+   "why": "The rule restates the policy's 'once per order' restriction for the specified exchange/modify tools, matching the original meaning without adding or omitting constraints."
+  },
+  {
+   "id": "r_items_list",
+   "type": "verify",
+   "source": null,
+   "source_kind": "statements",
+   "restated": "When using the tools modify_pending_order_items or exchange_delivered_order_items, the assistant may call them only after it has gathered all items to be changed into a single list. It must not invoke either tool unless that list of items has been assembled.",
+   "verdict": "equivalent",
+   "why": "The rule captures the same requirement: the assistant must collect all items into a list before calling the specified tools, matching the policy text's instruction."
+  },
+  {
+   "id": "r_modify_items_remind",
+   "type": "verify",
+   "source": null,
+   "source_kind": "statements",
+   "restated": "When the assistant is about to use the modify_pending_order_items tool, it must first verify that all order details are correct and explicitly remind the customer to confirm they have listed every item they wish to change; it may not call the tool without doing these checks.",
+   "verdict": "broader",
+   "why": "The rule adds a requirement to 'verify that all order details are correct' before calling the tool, while the policy only requires confirming the customer has provided all items they want to modify and being cautious."
+  },
+  {
+   "id": "r_exchange_remind",
+   "type": "verify",
+   "source": null,
+   "source_kind": "statements",
+   "restated": "When the assistant calls the exchange_delivered_order_items tool, it must remind the customer to confirm they have provided all items to be exchanged, and it must not omit this reminder.",
+   "verdict": "equivalent",
+   "why": "The rule captures the same requirement as the policy text: to remind the customer to confirm they have provided all items to be exchanged when calling the exchange_delivered_order_items tool."
+  },
+  {
+   "id": "r_payment_single",
+   "type": "verify",
+   "source": null,
+   "source_kind": "statements",
+   "restated": "When using the modify_pending_order_payment tool, the user is allowed to select exactly one payment method that is different from the original method; selecting multiple methods or the same original method is forbidden.",
+   "verdict": "equivalent",
+   "why": "The rule accurately restates the policy: exactly one payment method, different from the original, is allowed; multiple or same original are forbidden."
+  },
+  {
+   "id": "r_payment_gift_card",
+   "type": "verify",
+   "source": null,
+   "source_kind": "statements",
+   "restated": "The rule permits calling the modify_pending_order_payment tool to change a payment method to a gift card only if the gift card has sufficient balance to cover the order total; it forbids such a tool call when the gift card balance is insufficient. This check applies whenever the user requests to modify the payment method to a gift card.",
+   "verdict": "equivalent",
+   "why": "The rule captures the same condition as the policy text: a gift card payment method change is allowed only if the balance covers the total, and forbidden otherwise."
+  },
+  {
+   "id": "r_items_same_product",
+   "type": "verify",
+   "source": null,
+   "source_kind": "statements",
+   "restated": "The rule permits changing each item in a pending order to another available item that is the same product type but has a different option (e.g., a different size or color). It forbids changing an item to a different product type altogether (e.g., swapping a shirt for a shoe), and it only applies while the order is still pending.",
+   "verdict": "equivalent",
+   "why": "The rule accurately restates the policy: it allows changing items to the same product type with a different option, forbids changing product types, and limits the scope to pending orders."
+  },
+  {
+   "id": "r_items_gift_card",
+   "type": "verify",
+   "source": null,
+   "source_kind": "statements",
+   "restated": "The rule permits the assistant to call modify_pending_order_items only when the user supplies a gift card that has enough balance to cover any price difference. It forbids calling modify_pending_order_items if the provided gift card’s balance is insufficient, and it applies whenever a gift card is offered by the user for an order change.",
+   "verdict": "equivalent",
+   "why": "The rule captures the same condition: the assistant may only proceed when the gift card balance covers the price difference, and it forbids the action otherwise."
+  },
+  {
+   "id": "r_return_refund",
+   "type": "verify",
+   "source": null,
+   "source_kind": "statements",
+   "restated": "When the assistant uses the return_delivered_order_items tool, it must ensure that any refund is sent either to the customer’s original payment method or to an existing gift card. Refunds to any other destination are not allowed.",
+   "verdict": "equivalent",
+   "why": "The rule accurately restates the policy text, specifying the same two allowed refund destinations and forbidding others, with no added or missing constraints."
+  },
+  {
+   "id": "r_exchange_same_product",
+   "type": "verify",
+   "source": null,
+   "source_kind": "statements",
+   "restated": "When an order has been delivered, the rule permits exchanging each item for another available item of the same product but with a different product option (e.g., a different size or color). It forbids any exchange that changes the product type entirely (e.g., swapping a shirt for a shoe).",
+   "verdict": "equivalent",
+   "why": "The rule accurately restates the policy: it allows exchanging items for the same product with a different option and forbids changing product types, matching the policy text exactly."
+  },
+  {
+   "id": "r_exchange_gift_card",
+   "type": "verify",
+   "source": null,
+   "source_kind": "statements",
+   "restated": "When using the exchange_delivered_order_items tool, the assistant must check that any gift card the user supplies has enough balance to cover the price difference; it must not allow the exchange if the gift card balance is insufficient. This verification applies whenever a gift card is provided in an exchange request.",
+   "verdict": "equivalent",
+   "why": "The rule restates the policy's requirement that a gift card must have sufficient balance to cover the price difference, applying it specifically to the exchange_delivered_order_items tool, which is consistent with the policy's scope."
+  }
+ ]
+}

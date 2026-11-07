@@ -1,0 +1,1356 @@
+[
+ {
+  "name": "google_calendar_find_calendars",
+  "description": "Find calendars matching criteria.",
+  "inputSchema": {
+   "description": "Find calendars matching criteria.",
+   "properties": {
+    "showHidden": {
+     "default": false,
+     "description": "Include hidden calendars in results.",
+     "title": "Showhidden",
+     "type": "boolean"
+    },
+    "showDeleted": {
+     "default": false,
+     "description": "Include deleted calendars in results.",
+     "title": "Showdeleted",
+     "type": "boolean"
+    },
+    "minAccessRole": {
+     "anyOf": [
+      {
+       "enum": [
+        "freeBusyReader",
+        "reader",
+        "writer",
+        "owner"
+       ],
+       "type": "string"
+      },
+      {
+       "type": "null"
+      }
+     ],
+     "default": null,
+     "description": "Only include calendars with at least this access level.",
+     "title": "Minaccessrole"
+    }
+   },
+   "title": "google_calendar_find_calendars",
+   "type": "object"
+  }
+ },
+ {
+  "name": "google_calendar_find_event",
+  "description": "Find events matching search criteria.",
+  "inputSchema": {
+   "description": "Find events matching search criteria.",
+   "properties": {
+    "calendarid": {
+     "description": "Calendar ID (required).",
+     "title": "Calendarid",
+     "type": "string"
+    },
+    "search_term": {
+     "anyOf": [
+      {
+       "type": "string"
+      },
+      {
+       "type": "null"
+      }
+     ],
+     "default": null,
+     "description": "Search term to match against event fields (optional). Searches summary, description, location, and attendees. If not provided, returns all events matching date filters.",
+     "title": "Search Term"
+    },
+    "start_time": {
+     "anyOf": [
+      {
+       "type": "string"
+      },
+      {
+       "type": "null"
+      }
+     ],
+     "default": null,
+     "description": "Minimum time filter (optional). Returns events starting on or after this time.",
+     "title": "Start Time"
+    },
+    "end_time": {
+     "anyOf": [
+      {
+       "type": "string"
+      },
+      {
+       "type": "null"
+      }
+     ],
+     "default": null,
+     "description": "Maximum time filter (optional). Returns events starting on or before this time.",
+     "title": "End Time"
+    }
+   },
+   "required": [
+    "calendarid"
+   ],
+   "title": "google_calendar_find_event",
+   "type": "object"
+  }
+ },
+ {
+  "name": "zoom_list_meetings",
+  "description": "List Zoom meetings (offline simulation).",
+  "inputSchema": {
+   "description": "List Zoom meetings (offline simulation).",
+   "properties": {
+    "per_page": {
+     "default": 50,
+     "title": "Per Page",
+     "type": "integer"
+    },
+    "start_at": {
+     "anyOf": [
+      {
+       "type": "string"
+      },
+      {
+       "type": "null"
+      }
+     ],
+     "default": null,
+     "title": "Start At"
+    },
+    "fields": {
+     "anyOf": [
+      {
+       "items": {
+        "type": "string"
+       },
+       "type": "array"
+      },
+      {
+       "type": "null"
+      }
+     ],
+     "default": null,
+     "title": "Fields"
+    }
+   },
+   "title": "zoom_list_meetings",
+   "type": "object"
+  }
+ },
+ {
+  "name": "zoom_find_meeting",
+  "description": "Find a meeting or webinar by ID or topic.",
+  "inputSchema": {
+   "description": "Find a meeting or webinar by ID or topic.",
+   "properties": {
+    "type": {
+     "description": "Meeting type (1=Meeting, 2=Webinar).",
+     "enum": [
+      1,
+      2
+     ],
+     "title": "Type",
+     "type": "integer"
+    },
+    "id": {
+     "anyOf": [
+      {
+       "type": "integer"
+      },
+      {
+       "type": "null"
+      }
+     ],
+     "default": null,
+     "description": "Meeting ID to search for.",
+     "title": "Id"
+    },
+    "topic": {
+     "anyOf": [
+      {
+       "type": "string"
+      },
+      {
+       "type": "null"
+      }
+     ],
+     "default": null,
+     "description": "Meeting topic to search for.",
+     "title": "Topic"
+    },
+    "isExactMatch": {
+     "default": false,
+     "description": "If True, only exact topic matches are returned.",
+     "title": "Isexactmatch",
+     "type": "boolean"
+    }
+   },
+   "required": [
+    "type"
+   ],
+   "title": "zoom_find_meeting",
+   "type": "object"
+  }
+ },
+ {
+  "name": "google_calendar_update_event",
+  "description": "Update an existing calendar event.",
+  "inputSchema": {
+   "description": "Update an existing calendar event.",
+   "properties": {
+    "calendarid": {
+     "description": "Calendar ID (required).",
+     "title": "Calendarid",
+     "type": "string"
+    },
+    "eventid": {
+     "description": "Event ID to update (required).",
+     "title": "Eventid",
+     "type": "string"
+    },
+    "summary": {
+     "anyOf": [
+      {
+       "type": "string"
+      },
+      {
+       "type": "null"
+      }
+     ],
+     "default": null,
+     "description": "Event title/summary.",
+     "title": "Summary"
+    },
+    "description": {
+     "anyOf": [
+      {
+       "type": "string"
+      },
+      {
+       "type": "null"
+      }
+     ],
+     "default": null,
+     "description": "Event description.",
+     "title": "Description"
+    },
+    "location": {
+     "anyOf": [
+      {
+       "type": "string"
+      },
+      {
+       "type": "null"
+      }
+     ],
+     "default": null,
+     "description": "Event location.",
+     "title": "Location"
+    },
+    "start__dateTime": {
+     "anyOf": [
+      {
+       "type": "string"
+      },
+      {
+       "type": "null"
+      }
+     ],
+     "default": null,
+     "description": "Start date and time.",
+     "title": "Start  Datetime"
+    },
+    "end__dateTime": {
+     "anyOf": [
+      {
+       "type": "string"
+      },
+      {
+       "type": "null"
+      }
+     ],
+     "default": null,
+     "description": "End date and time.",
+     "title": "End  Datetime"
+    },
+    "recurrence_frequency": {
+     "anyOf": [
+      {
+       "enum": [
+        "daily",
+        "weekly",
+        "monthly",
+        "yearly"
+       ],
+       "type": "string"
+      },
+      {
+       "type": "null"
+      }
+     ],
+     "default": null,
+     "description": "Repeat frequency (daily/weekly/monthly/yearly).",
+     "title": "Recurrence Frequency"
+    },
+    "recurrence_until": {
+     "anyOf": [
+      {
+       "type": "string"
+      },
+      {
+       "type": "null"
+      }
+     ],
+     "default": null,
+     "description": "Repeat until date.",
+     "title": "Recurrence Until"
+    },
+    "recurrence_count": {
+     "anyOf": [
+      {
+       "type": "integer"
+      },
+      {
+       "type": "null"
+      }
+     ],
+     "default": null,
+     "description": "Number of times to repeat.",
+     "title": "Recurrence Count"
+    },
+    "all_day": {
+     "anyOf": [
+      {
+       "type": "boolean"
+      },
+      {
+       "type": "null"
+      }
+     ],
+     "default": null,
+     "description": "Whether this is an all-day event.",
+     "title": "All Day"
+    },
+    "colorId": {
+     "anyOf": [
+      {
+       "type": "string"
+      },
+      {
+       "type": "null"
+      }
+     ],
+     "default": null,
+     "description": "Event color ID.",
+     "title": "Colorid"
+    },
+    "attendees": {
+     "anyOf": [
+      {
+       "items": {
+        "type": "string"
+       },
+       "type": "array"
+      },
+      {
+       "type": "null"
+      }
+     ],
+     "default": null,
+     "description": "List of attendee email addresses (replaces existing).",
+     "title": "Attendees"
+    },
+    "visibility": {
+     "anyOf": [
+      {
+       "enum": [
+        "default",
+        "public",
+        "private"
+       ],
+       "type": "string"
+      },
+      {
+       "type": "null"
+      }
+     ],
+     "default": null,
+     "description": "Event visibility (default/public/private).",
+     "title": "Visibility"
+    },
+    "reminders__useDefault": {
+     "anyOf": [
+      {
+       "type": "boolean"
+      },
+      {
+       "type": "null"
+      }
+     ],
+     "default": null,
+     "description": "Use calendar default reminders.",
+     "title": "Reminders  Usedefault"
+    },
+    "reminders_methods": {
+     "anyOf": [
+      {
+       "items": {
+        "enum": [
+         "email",
+         "popup"
+        ],
+        "type": "string"
+       },
+       "type": "array"
+      },
+      {
+       "type": "null"
+      }
+     ],
+     "default": null,
+     "description": "Reminder methods (email/popup).",
+     "title": "Reminders Methods"
+    },
+    "reminders_minutes": {
+     "anyOf": [
+      {
+       "type": "integer"
+      },
+      {
+       "type": "null"
+      }
+     ],
+     "default": null,
+     "description": "Minutes before event for reminders.",
+     "title": "Reminders Minutes"
+    },
+    "transparency": {
+     "anyOf": [
+      {
+       "enum": [
+        "transparent",
+        "opaque"
+       ],
+       "type": "string"
+      },
+      {
+       "type": "null"
+      }
+     ],
+     "default": null,
+     "description": "Show as free (transparent) or busy (opaque).",
+     "title": "Transparency"
+    }
+   },
+   "required": [
+    "calendarid",
+    "eventid"
+   ],
+   "title": "google_calendar_update_event",
+   "type": "object"
+  }
+ },
+ {
+  "name": "slack_send_channel_message",
+  "description": "Send a message to a Slack channel.",
+  "inputSchema": {
+   "description": "Send a message to a Slack channel.",
+   "properties": {
+    "channel": {
+     "anyOf": [
+      {
+       "type": "string"
+      },
+      {
+       "type": "null"
+      }
+     ],
+     "default": null,
+     "description": "Channel ID or name.",
+     "title": "Channel"
+    },
+    "text": {
+     "anyOf": [
+      {
+       "type": "string"
+      },
+      {
+       "type": "null"
+      }
+     ],
+     "default": null,
+     "description": "Message text.",
+     "title": "Text"
+    },
+    "message": {
+     "anyOf": [
+      {
+       "type": "string"
+      },
+      {
+       "type": "null"
+      }
+     ],
+     "default": null,
+     "title": "Message"
+    },
+    "channel_name": {
+     "anyOf": [
+      {
+       "type": "string"
+      },
+      {
+       "type": "null"
+      }
+     ],
+     "default": null,
+     "title": "Channel Name"
+    },
+    "add_app_to_channel": {
+     "default": true,
+     "description": "Whether to auto-add Zapier app to channel (default True).",
+     "title": "Add App To Channel",
+     "type": "boolean"
+    },
+    "as_bot": {
+     "default": true,
+     "description": "Whether to send as a bot (default True).",
+     "title": "As Bot",
+     "type": "boolean"
+    },
+    "username": {
+     "anyOf": [
+      {
+       "type": "string"
+      },
+      {
+       "type": "null"
+      }
+     ],
+     "default": null,
+     "description": "Bot name to use (if sending as bot).",
+     "title": "Username"
+    },
+    "icon": {
+     "anyOf": [
+      {
+       "type": "string"
+      },
+      {
+       "type": "null"
+      }
+     ],
+     "default": null,
+     "description": "Bot icon (URL or emoji like :robot_face:).",
+     "title": "Icon"
+    },
+    "add_edit_link": {
+     "default": true,
+     "description": "Whether to include link to this Zap (default True).",
+     "title": "Add Edit Link",
+     "type": "boolean"
+    },
+    "image_url": {
+     "anyOf": [
+      {
+       "type": "string"
+      },
+      {
+       "type": "null"
+      }
+     ],
+     "default": null,
+     "description": "URL of image to attach.",
+     "title": "Image Url"
+    },
+    "unfurl": {
+     "default": true,
+     "description": "Whether to auto-expand links (default True).",
+     "title": "Unfurl",
+     "type": "boolean"
+    },
+    "link_names": {
+     "default": true,
+     "description": "Whether to link @mentions (default True).",
+     "title": "Link Names",
+     "type": "boolean"
+    },
+    "post_at": {
+     "anyOf": [
+      {
+       "type": "string"
+      },
+      {
+       "type": "null"
+      }
+     ],
+     "default": null,
+     "description": "Schedule message for later (ISO datetime).",
+     "title": "Post At"
+    },
+    "thread_ts": {
+     "anyOf": [
+      {
+       "type": "string"
+      },
+      {
+       "type": "null"
+      }
+     ],
+     "default": null,
+     "description": "Parent message timestamp if replying to a thread.",
+     "title": "Thread Ts"
+    },
+    "reply_broadcast": {
+     "default": false,
+     "description": "Also send thread reply to channel (default False).",
+     "title": "Reply Broadcast",
+     "type": "boolean"
+    }
+   },
+   "title": "slack_send_channel_message",
+   "type": "object"
+  }
+ },
+ {
+  "name": "zoom_update_meeting",
+  "description": "Update an existing Zoom meeting.",
+  "inputSchema": {
+   "description": "Update an existing Zoom meeting.",
+   "properties": {
+    "meeting_id": {
+     "anyOf": [
+      {
+       "type": "integer"
+      },
+      {
+       "type": "string"
+      }
+     ],
+     "description": "Meeting ID to update.",
+     "title": "Meeting Id"
+    },
+    "topic": {
+     "anyOf": [
+      {
+       "type": "string"
+      },
+      {
+       "type": "null"
+      }
+     ],
+     "default": null,
+     "description": "New meeting topic/title.",
+     "title": "Topic"
+    },
+    "start_time": {
+     "anyOf": [
+      {
+       "type": "string"
+      },
+      {
+       "type": "null"
+      }
+     ],
+     "default": null,
+     "description": "New start time in ISO format.",
+     "title": "Start Time"
+    },
+    "duration": {
+     "anyOf": [
+      {
+       "type": "integer"
+      },
+      {
+       "type": "null"
+      }
+     ],
+     "default": null,
+     "description": "New duration in minutes.",
+     "title": "Duration"
+    },
+    "agenda": {
+     "anyOf": [
+      {
+       "type": "string"
+      },
+      {
+       "type": "null"
+      }
+     ],
+     "default": null,
+     "description": "New meeting agenda/description.",
+     "title": "Agenda"
+    }
+   },
+   "required": [
+    "meeting_id"
+   ],
+   "title": "zoom_update_meeting",
+   "type": "object"
+  }
+ },
+ {
+  "name": "google_sheets_get_many_rows",
+  "description": "Get multiple rows from a worksheet.",
+  "inputSchema": {
+   "description": "Get multiple rows from a worksheet.",
+   "properties": {
+    "spreadsheet": {
+     "anyOf": [
+      {
+       "type": "string"
+      },
+      {
+       "type": "null"
+      }
+     ],
+     "default": null,
+     "description": "Spreadsheet ID (required).",
+     "title": "Spreadsheet"
+    },
+    "worksheet": {
+     "anyOf": [
+      {
+       "type": "string"
+      },
+      {
+       "type": "null"
+      }
+     ],
+     "default": null,
+     "description": "Worksheet ID (required).",
+     "title": "Worksheet"
+    },
+    "spreadsheet_id": {
+     "anyOf": [
+      {
+       "type": "string"
+      },
+      {
+       "type": "null"
+      }
+     ],
+     "default": null,
+     "description": "Alias for spreadsheet.",
+     "title": "Spreadsheet Id"
+    },
+    "worksheet_id": {
+     "anyOf": [
+      {
+       "type": "string"
+      },
+      {
+       "type": "null"
+      }
+     ],
+     "default": null,
+     "description": "Alias for worksheet.",
+     "title": "Worksheet Id"
+    },
+    "range": {
+     "default": "A:Z",
+     "description": "Columns to include (e.g., \"A:Z\") (required).",
+     "title": "Range",
+     "type": "string"
+    },
+    "row_count": {
+     "default": 10,
+     "description": "Maximum number of rows to return (required).",
+     "title": "Row Count",
+     "type": "integer"
+    },
+    "drive": {
+     "anyOf": [
+      {
+       "type": "string"
+      },
+      {
+       "type": "null"
+      }
+     ],
+     "default": null,
+     "description": "Google Drive location.",
+     "title": "Drive"
+    },
+    "output_format": {
+     "default": "all",
+     "description": "Output format (all/rows/raw_rows/formatted_rows).",
+     "title": "Output Format",
+     "type": "string"
+    },
+    "first_row": {
+     "default": 1,
+     "description": "First row to retrieve.",
+     "title": "First Row",
+     "type": "integer"
+    },
+    "worksheet_title": {
+     "anyOf": [
+      {
+       "type": "string"
+      },
+      {
+       "type": "null"
+      }
+     ],
+     "default": null,
+     "title": "Worksheet Title"
+    }
+   },
+   "title": "google_sheets_get_many_rows",
+   "type": "object"
+  }
+ },
+ {
+  "name": "gmail_find_email",
+  "description": "Search for emails using Gmail search operators.",
+  "inputSchema": {
+   "description": "Search for emails using Gmail search operators.",
+   "properties": {
+    "query": {
+     "default": "",
+     "description": "Gmail search query. Supports operators: from:, to:, subject:, label:, is:unread, is:read, is:starred, has:attachment, OR, and plain text (e.g., \"from:user@example.com is:unread\").",
+     "title": "Query",
+     "type": "string"
+    },
+    "id": {
+     "anyOf": [
+      {
+       "type": "string"
+      },
+      {
+       "type": "null"
+      }
+     ],
+     "default": null,
+     "description": "Message ID for direct lookup (returns single message).",
+     "title": "Id"
+    },
+    "label": {
+     "anyOf": [
+      {
+       "type": "string"
+      },
+      {
+       "type": "null"
+      }
+     ],
+     "default": null,
+     "description": "Filter by label (e.g., \"INBOX\", \"SENT\").",
+     "title": "Label"
+    },
+    "max_results": {
+     "anyOf": [
+      {
+       "type": "integer"
+      },
+      {
+       "type": "null"
+      }
+     ],
+     "default": 10,
+     "description": "Maximum number of results to return.",
+     "title": "Max Results"
+    },
+    "include_spam_trash": {
+     "anyOf": [
+      {
+       "type": "boolean"
+      },
+      {
+       "type": "null"
+      }
+     ],
+     "default": false,
+     "description": "Include spam and trash in results.",
+     "title": "Include Spam Trash"
+    },
+    "format": {
+     "anyOf": [
+      {
+       "type": "string"
+      },
+      {
+       "type": "null"
+      }
+     ],
+     "default": "full",
+     "description": "Email format to return (\"full\", \"metadata\", \"minimal\", \"raw\").",
+     "title": "Format"
+    }
+   },
+   "title": "gmail_find_email",
+   "type": "object"
+  }
+ },
+ {
+  "name": "gmail_list_emails",
+  "description": "Alias for `gmail_find_email`. Some tasks refer to a \"list\" operation; in our environment `gmail_find_email`\nalready returns a list of matching messages.",
+  "inputSchema": {
+   "description": "Alias for `gmail_find_email`. Some tasks refer to a \"list\" operation; in our environment `gmail_find_email`\nalready returns a list of matching messages.",
+   "properties": {
+    "query": {
+     "default": "",
+     "title": "Query",
+     "type": "string"
+    },
+    "label": {
+     "anyOf": [
+      {
+       "type": "string"
+      },
+      {
+       "type": "null"
+      }
+     ],
+     "default": null,
+     "title": "Label"
+    },
+    "max_results": {
+     "anyOf": [
+      {
+       "type": "integer"
+      },
+      {
+       "type": "null"
+      }
+     ],
+     "default": 10,
+     "title": "Max Results"
+    },
+    "include_spam_trash": {
+     "anyOf": [
+      {
+       "type": "boolean"
+      },
+      {
+       "type": "null"
+      }
+     ],
+     "default": false,
+     "title": "Include Spam Trash"
+    },
+    "format": {
+     "anyOf": [
+      {
+       "type": "string"
+      },
+      {
+       "type": "null"
+      }
+     ],
+     "default": "full",
+     "title": "Format"
+    }
+   },
+   "title": "gmail_list_emails",
+   "type": "object"
+  }
+ },
+ {
+  "name": "salesforce_task_create",
+  "description": "Create a new Task in Salesforce.",
+  "inputSchema": {
+   "description": "Create a new Task in Salesforce.",
+   "properties": {
+    "subject": {
+     "anyOf": [
+      {
+       "type": "string"
+      },
+      {
+       "type": "null"
+      }
+     ],
+     "default": null,
+     "description": "Task subject (required)",
+     "title": "Subject"
+    },
+    "status": {
+     "anyOf": [
+      {
+       "type": "string"
+      },
+      {
+       "type": "null"
+      }
+     ],
+     "default": null,
+     "description": "Task status (default: Not Started)",
+     "title": "Status"
+    },
+    "priority": {
+     "anyOf": [
+      {
+       "type": "string"
+      },
+      {
+       "type": "null"
+      }
+     ],
+     "default": null,
+     "description": "Task priority (default: Normal)",
+     "title": "Priority"
+    },
+    "due_date": {
+     "anyOf": [
+      {
+       "type": "string"
+      },
+      {
+       "type": "null"
+      }
+     ],
+     "default": null,
+     "description": "Due date (ISO format)",
+     "title": "Due Date"
+    },
+    "description": {
+     "anyOf": [
+      {
+       "type": "string"
+      },
+      {
+       "type": "null"
+      }
+     ],
+     "default": null,
+     "description": "Task description",
+     "title": "Description"
+    },
+    "contact_id": {
+     "anyOf": [
+      {
+       "type": "string"
+      },
+      {
+       "type": "null"
+      }
+     ],
+     "default": null,
+     "description": "Related Contact or Lead ID (alias: who_id)",
+     "title": "Contact Id"
+    },
+    "who_id": {
+     "anyOf": [
+      {
+       "type": "string"
+      },
+      {
+       "type": "null"
+      }
+     ],
+     "default": null,
+     "description": "Related Contact or Lead ID (Salesforce-style)",
+     "title": "Who Id"
+    },
+    "related_to_id": {
+     "anyOf": [
+      {
+       "type": "string"
+      },
+      {
+       "type": "null"
+      }
+     ],
+     "default": null,
+     "description": "Related Account, Opportunity, etc. (alias: what_id)",
+     "title": "Related To Id"
+    },
+    "what_id": {
+     "anyOf": [
+      {
+       "type": "string"
+      },
+      {
+       "type": "null"
+      }
+     ],
+     "default": null,
+     "description": "Related Account, Opportunity, etc. (Salesforce-style)",
+     "title": "What Id"
+    },
+    "assigned_to_id": {
+     "anyOf": [
+      {
+       "type": "string"
+      },
+      {
+       "type": "null"
+      }
+     ],
+     "default": null,
+     "description": "User ID of task assignee (alias: owner_id)",
+     "title": "Assigned To Id"
+    },
+    "owner_id": {
+     "anyOf": [
+      {
+       "type": "string"
+      },
+      {
+       "type": "null"
+      }
+     ],
+     "default": null,
+     "description": "User ID of task assignee (Salesforce-style)",
+     "title": "Owner Id"
+    },
+    "activity_date": {
+     "anyOf": [
+      {
+       "type": "string"
+      },
+      {
+       "type": "null"
+      }
+     ],
+     "default": null,
+     "title": "Activity Date"
+    }
+   },
+   "title": "salesforce_task_create",
+   "type": "object"
+  }
+ },
+ {
+  "name": "google_drive_find_multiple_files",
+  "description": "Tool for Find Multiple Files.",
+  "inputSchema": {
+   "description": "Tool for Find Multiple Files.",
+   "properties": {
+    "info": {
+     "anyOf": [
+      {
+       "type": "string"
+      },
+      {
+       "type": "null"
+      }
+     ],
+     "default": null,
+     "title": "Info"
+    },
+    "title": {
+     "anyOf": [
+      {
+       "type": "string"
+      },
+      {
+       "type": "null"
+      }
+     ],
+     "default": null,
+     "title": "Title"
+    },
+    "search_type": {
+     "anyOf": [
+      {
+       "type": "string"
+      },
+      {
+       "type": "null"
+      }
+     ],
+     "default": null,
+     "title": "Search Type"
+    },
+    "drive": {
+     "anyOf": [
+      {
+       "type": "string"
+      },
+      {
+       "type": "null"
+      }
+     ],
+     "default": null,
+     "title": "Drive"
+    },
+    "folder": {
+     "anyOf": [
+      {
+       "type": "string"
+      },
+      {
+       "type": "null"
+      }
+     ],
+     "default": null,
+     "title": "Folder"
+    },
+    "file_types": {
+     "anyOf": [
+      {
+       "items": {
+        "anyOf": [
+         {
+          "type": "string"
+         },
+         {
+          "type": "null"
+         }
+        ]
+       },
+       "type": "array"
+      },
+      {
+       "type": "null"
+      }
+     ],
+     "default": null,
+     "title": "File Types"
+    },
+    "max_results": {
+     "anyOf": [
+      {
+       "type": "integer"
+      },
+      {
+       "type": "null"
+      }
+     ],
+     "default": null,
+     "title": "Max Results"
+    }
+   },
+   "title": "google_drive_find_multiple_files",
+   "type": "object"
+  }
+ },
+ {
+  "name": "google_sheets_get_spreadsheet_by_id",
+  "description": "Get a spreadsheet by ID.",
+  "inputSchema": {
+   "description": "Get a spreadsheet by ID.",
+   "properties": {
+    "spreadsheet": {
+     "anyOf": [
+      {
+       "type": "string"
+      },
+      {
+       "type": "null"
+      }
+     ],
+     "default": null,
+     "description": "Spreadsheet ID (required).",
+     "title": "Spreadsheet"
+    },
+    "spreadsheet_id": {
+     "anyOf": [
+      {
+       "type": "string"
+      },
+      {
+       "type": "null"
+      }
+     ],
+     "default": null,
+     "description": "Alias for spreadsheet.",
+     "title": "Spreadsheet Id"
+    },
+    "id": {
+     "anyOf": [
+      {
+       "type": "string"
+      },
+      {
+       "type": "null"
+      }
+     ],
+     "default": null,
+     "description": "Alias for spreadsheet.",
+     "title": "Id"
+    },
+    "includeGridData": {
+     "default": true,
+     "description": "Whether to include grid data in response.",
+     "title": "Includegriddata",
+     "type": "boolean"
+    }
+   },
+   "title": "google_sheets_get_spreadsheet_by_id",
+   "type": "object"
+  }
+ },
+ {
+  "name": "slack_list_channels",
+  "description": "List all channels available to the user.",
+  "inputSchema": {
+   "description": "List all channels available to the user.",
+   "properties": {},
+   "title": "slack_list_channels",
+   "type": "object"
+  }
+ },
+ {
+  "name": "google_sheets_find_worksheet",
+  "description": "Find a worksheet by title.",
+  "inputSchema": {
+   "description": "Find a worksheet by title.",
+   "properties": {
+    "spreadsheet": {
+     "anyOf": [
+      {
+       "type": "string"
+      },
+      {
+       "type": "null"
+      }
+     ],
+     "default": null,
+     "description": "Spreadsheet ID (required).",
+     "title": "Spreadsheet"
+    },
+    "title": {
+     "anyOf": [
+      {
+       "type": "string"
+      },
+      {
+       "type": "null"
+      }
+     ],
+     "default": null,
+     "description": "Worksheet title to search for (required).",
+     "title": "Title"
+    },
+    "spreadsheet_id": {
+     "anyOf": [
+      {
+       "type": "string"
+      },
+      {
+       "type": "null"
+      }
+     ],
+     "default": null,
+     "description": "Alias for spreadsheet.",
+     "title": "Spreadsheet Id"
+    },
+    "drive": {
+     "anyOf": [
+      {
+       "type": "string"
+      },
+      {
+       "type": "null"
+      }
+     ],
+     "default": null,
+     "description": "Google Drive location.",
+     "title": "Drive"
+    }
+   },
+   "title": "google_sheets_find_worksheet",
+   "type": "object"
+  }
+ }
+]

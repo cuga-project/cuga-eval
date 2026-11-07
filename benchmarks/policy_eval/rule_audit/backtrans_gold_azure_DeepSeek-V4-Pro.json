@@ -1,0 +1,645 @@
+{
+ "build": "gold",
+ "writer": "aws/gpt-oss-120b",
+ "judge": "azure/DeepSeek-V4-Pro",
+ "counts": {
+  "equivalent": 50,
+  "different": 21,
+  "narrower": 5,
+  "broader": 3
+ },
+ "rows": [
+  {
+   "id": "g_4cc428ca96",
+   "type": "verify",
+   "source": "\u00a7preamble L7",
+   "restated": "The rule permits the assistant to act only after verifying the user's information, confirmed role, related records, and ITIL/database integrity constraints, and it forbids any operation that proceeds without those confirmations. It applies to every interaction where the assistant processes a request or performs a task.",
+   "verdict": "equivalent",
+   "why": "The rule captures the same conditional permission and prohibition as the policy text, requiring verification of user information, roles, records, and ITIL/database integrity before acting, and forbidding unverified operations."
+  },
+  {
+   "id": "g_f05e638694",
+   "type": "verify",
+   "source": "\u00a7preamble L7",
+   "restated": "This rule forbids the assistant from making assumptions about data, carrying out ambiguous commands, bypassing required approvals, or breaching audit and compliance requirements. It applies at all times while the assistant operates, allowing only actions that are clear, approved, and compliant.",
+   "verdict": "equivalent",
+   "why": "The rule restates the policy text's prohibitions without adding, omitting, or altering any conditions or scope."
+  },
+  {
+   "id": "g_3ecd16e4a9",
+   "type": "verify",
+   "source": "\u00a71 L15",
+   "restated": "The rule forbids a request from proceeding when it needs data that is missing or when the current record state blocks the action. It allows the request to proceed only if all required data is present and the record state permits the action, and it applies whenever a request is being evaluated.",
+   "verdict": "equivalent",
+   "why": "The rule restates the policy's condition and prohibition exactly, covering both missing data and record state preventing the action, and adds an explicit allowance that is logically implied by the original."
+  },
+  {
+   "id": "g_0fa64c80a4",
+   "type": "verify",
+   "source": "\u00a71 L21",
+   "restated": "The rule permits creating or updating a record only when all mandatory fields are validated, and it forbids proceeding with such requests if any required field is missing or unvalidated. It applies to every request that attempts to create or update a record.",
+   "verdict": "equivalent",
+   "why": "The rule captures the same core requirement: requests to create or update a record must validate all mandatory fields, and it forbids proceeding if any are missing or unvalidated. No extra restrictions or omissions."
+  },
+  {
+   "id": "g_6225b57a3e",
+   "type": "role_permission",
+   "source": "\u00a72 L45",
+   "restated": "Managers are forbidden from using the \"register_configuration_item\" and \"update_configuration_item\" tools. This restriction applies whenever a user with the manager role attempts to perform those actions (other roles are not affected).",
+   "verdict": "different",
+   "why": "The policy text grants managers full CRUD on operational tables and does not mention any restriction on configuration item tools, so the rule forbids actions the policy allows."
+  },
+  {
+   "id": "g_f6b3f5a641",
+   "type": "verify",
+   "source": "\u00a72 L45",
+   "restated": "When a user holds the Manager role, they may create, read, update, and delete records in the incident, problem, change, and knowledge tables, read all tables, reassign incidents or requests, approve or reject change requests, and monitor SLAs and escalations; any actions or access beyond these permissions are prohibited.",
+   "verdict": "equivalent",
+   "why": "The rule accurately captures all permissions and actions described in the policy text without adding or omitting any restrictions."
+  },
+  {
+   "id": "g_4dbcc001f4",
+   "type": "verify",
+   "source": "\u00a72 L47",
+   "restated": "When acting as a Frontline Incident/Request fulfillment agent, the user may create, read, update, and delete incidents, service requests, tasks, work notes, CMDB items, changes, problems, and knowledge records, and can read all tables and modify assignment, state, and resolution; however, they may not bypass approvals or change system administration settings.",
+   "verdict": "equivalent",
+   "why": "The rule accurately restates all permissions and restrictions from the policy text without adding, omitting, or altering any conditions."
+  },
+  {
+   "id": "g_50d7d6a114",
+   "type": "role_permission",
+   "source": "\u00a72 L49",
+   "restated": "When a user has the role \"reporter\", they are forbidden from using the tools \"register_configuration_item\", \"update_configuration_item\", \"find_configuration_items\", and \"find_configuration_item_by_serial_number\". No other permissions are granted or denied by this rule.",
+   "verdict": "different",
+   "why": "The rule forbids specific CMDB tools (register/update/find configuration items), but the policy text only restricts viewing or modifying CMDB records and internal work notes, not the use of those tools."
+  },
+  {
+   "id": "g_c965c01b63",
+   "type": "role_permission",
+   "source": "\u00a72 L49",
+   "restated": "Reporters are forbidden from using the tools create_problem, update_problem, create_change, update_change, create_knowledge_article, and update_knowledge_article. This restriction applies whenever the user has the role \"reporter\".",
+   "verdict": "different",
+   "why": "The rule forbids specific tools (create_problem, update_problem, etc.) not mentioned in the policy text, which only restricts viewing/modifying certain records and internal work notes."
+  },
+  {
+   "id": "g_9120b37a91",
+   "type": "verify",
+   "source": "\u00a72 L49",
+   "restated": "When a user is the Reporter in the IT Service Consumption context, they may view and update only the incidents or requests they have submitted themselves and can search public knowledge articles. They are prohibited from viewing or modifying any records opened by other users, the CMDB, or internal work notes.",
+   "verdict": "equivalent",
+   "why": "The rule accurately captures all permissions and restrictions from the policy text without adding or omitting any conditions."
+  },
+  {
+   "id": "g_54288cf650",
+   "type": "required_args",
+   "source": "\u00a73.1 L59",
+   "restated": "When the create_incident tool is used, it must be called with the arguments caller_id, short_description, impact, and urgency; calling the tool without any of these required arguments is not allowed. This rule applies each time the create_incident tool is invoked.",
+   "verdict": "equivalent",
+   "why": "The rule correctly requires the same mandatory inputs (caller_id, short_description, impact, urgency) as the policy text, and applies to the create_incident tool invocation."
+  },
+  {
+   "id": "g_971b9a9e6c",
+   "type": "derived_value",
+   "source": "\u00a73.1 L61",
+   "restated": "This rule permits the IT service desk assistant to automatically set the incident priority (the 'priority' argument for the create_incident tool) based on the provided impact and urgency values, using the specified mapping table. It disallows any priority that does not match the table\u2019s result, and it only applies when an incident is being created and both impact and urgency are supplied.",
+   "verdict": "equivalent",
+   "why": "The rule correctly captures the automatic priority determination based on the impact x urgency matrix, applies only when creating an incident with both values supplied, and disallows deviations from the table."
+  },
+  {
+   "id": "g_2df9b35701",
+   "type": "derived_value",
+   "source": "\u00a73.1 L61",
+   "restated": "When the assistant calls the update_incident tool to set an incident's priority, it may derive the priority value from the incident's impact and urgency using the provided mapping table; any priority not matching the table for the given impact\u2011urgency pair is not allowed. This rule applies only to update_incident calls that specify the priority argument and supply impact and urgency as inputs.",
+   "verdict": "equivalent",
+   "why": "The rule correctly captures the mapping from impact and urgency to priority as defined in the policy text, and restricts its application to update_incident calls with priority, impact, and urgency arguments, which is consistent with the policy's scope."
+  },
+  {
+   "id": "g_4d0de383f3",
+   "type": "allowed_values",
+   "source": "\u00a73.1 L85",
+   "restated": "When using the create_incident tool, the status argument may only be set to \"new\"; any other status value is prohibited. This rule applies each time the create_incident tool is invoked.",
+   "verdict": "equivalent",
+   "why": "The policy states all new incidents are set to status 'new', and the rule restricts the create_incident tool to only accept 'new' as the status argument, which matches the policy's intent."
+  },
+  {
+   "id": "g_0e8c619864",
+   "type": "reference_status",
+   "source": "\u00a73.2 L89",
+   "restated": "When using the create_incident tool with the assigned_to argument, the rule permits the action only if the assigned_to entity\u2019s active field is true, and it forbids the action if that field is not true. It applies whenever the create_incident tool is invoked with an assigned_to reference.",
+   "verdict": "narrower",
+   "why": "The rule only checks the active field, but the policy also requires the user to have the Agent or Manager role and be a member of the specified assignment_group."
+  },
+  {
+   "id": "g_a4cf9973fb",
+   "type": "reference_status",
+   "source": "\u00a73.2 L89",
+   "restated": "When the create_incident tool is used and the assigned_to argument is set, the role of the assigned user must be either \"agent\" or \"manager\". Assignments to any other role are not allowed.",
+   "verdict": "narrower",
+   "why": "The rule omits the requirement that the assigned user must be a member of the specified assignment_group."
+  },
+  {
+   "id": "g_605415a0e1",
+   "type": "reference_status",
+   "source": "\u00a73.2 L89",
+   "restated": "When the IT service desk assistant uses the update_incident tool to set the assigned_to field, it is allowed only if the incident\u2019s active field is true; any attempt to assign when active is not true is forbidden.",
+   "verdict": "different",
+   "why": "The rule uses 'active is true' as the condition, but the policy requires assigned_to to be an active user with Agent/Manager role and membership in the assignment_group."
+  },
+  {
+   "id": "g_0fab7062e7",
+   "type": "reference_status",
+   "source": "\u00a73.2 L89",
+   "restated": "This rule permits the update_incident tool to change the 'assigned_to' argument only when the user's role is either 'agent' or 'manager'. It forbids such updates for any other role, and it applies whenever an attempt is made to set the 'assigned_to' field via the update_incident tool.",
+   "verdict": "different",
+   "why": "The rule omits the constraint that the user must be a member of the specified assignment_group."
+  },
+  {
+   "id": "g_ae3517b0d6",
+   "type": "verify",
+   "source": "\u00a73.2 L89",
+   "restated": "The rule permits creating or updating an incident only when the assigned_to user is active, holds the Agent or Manager role, and belongs to the specified assignment_group; it forbids assignments that do not meet these criteria. This eligibility and routing check applies whenever the create_incident or update_incident tools are used.",
+   "verdict": "equivalent",
+   "why": "The rule accurately captures the same constraints: assigned_to must be active, have Agent or Manager role, and belong to the assignment_group. It applies these to create/update operations, matching the policy's scope."
+  },
+  {
+   "id": "g_3bfa687538",
+   "type": "transition",
+   "source": "\u00a73.3 L93",
+   "restated": "This rule applies whenever the IT service desk uses the\u202fupdate_incident\u202ftool to change an incident\u2019s\u202fstatus\u202f(via the\u202fincident_id\u202ffield). It permits status changes only along the defined edges:\u202fnew\u202f\u2192\u202fin_progress,\u202fon_hold,\u202for\u202fresolved;\u202fin_progress\u202f\u2192\u202fon_hold\u202for\u202fresolved;\u202fon_hold\u202f\u2192\u202fin_progress;\u202fresolved\u202f\u2192\u202fclosed\u202for\u202fin_progress. Any other status transition is not allowed.",
+   "verdict": "equivalent",
+   "why": "The rule covers the same allowed transitions as the policy text, with no additional restrictions or omissions."
+  },
+  {
+   "id": "g_9b4bda039e",
+   "type": "verify",
+   "source": "\u00a73.3 L99",
+   "restated": "This rule permits an incident to move from the on_hold state to in_progress, but only if the on_hold_reason field has been recorded first. It blocks any on_hold\u2011to\u2011in_progress transition via the update_incident tool when the on_hold_reason is missing.",
+   "verdict": "equivalent",
+   "why": "The rule accurately captures the policy's requirement that an on_hold_reason must be logged before transitioning from on_hold to in_progress, and it correctly specifies the tool and condition."
+  },
+  {
+   "id": "g_33fabdb768",
+   "type": "required_args",
+   "source": "\u00a73.3 L103",
+   "restated": "When an incident is being updated to a status of \"resolved\", the update_incident tool must include both the \"resolution_code\" and \"resolution_notes\" arguments; updates to a resolved incident without these arguments are not permitted.",
+   "verdict": "equivalent",
+   "why": "The rule correctly captures the requirement that both resolution_code and resolution_notes must be provided when transitioning an incident to resolved, matching the policy text's mandatory fields."
+  },
+  {
+   "id": "g_ab7e7be4fd",
+   "type": "format",
+   "source": "\u00a73.3 L103",
+   "restated": "When the assistant calls the update_incident tool to set the resolution_notes field, the notes may contain any characters (including newlines) but must be 0\u20112000 characters long; longer notes are prohibited.",
+   "verdict": "different",
+   "why": "The rule adds a specific length constraint (0\u20132000 characters) for resolution_notes that is not stated in the policy text, which only requires the field to be present and free-form with a max of 2000 chars, not a minimum length."
+  },
+  {
+   "id": "g_a697c250c1",
+   "type": "format",
+   "source": "\u00a73.3 L103",
+   "restated": "When the create_incident tool is used, the resolution_notes argument may contain any characters (including newlines) up to 2000 characters long; any longer text is prohibited. This rule applies each time the create_incident tool is invoked.",
+   "verdict": "different",
+   "why": "The policy text restricts resolution_notes during incident resolution, not during creation with create_incident. The rule applies to the wrong tool and action."
+  },
+  {
+   "id": "g_77c9cc41a7",
+   "type": "verify",
+   "source": "\u00a73.3 L105",
+   "restated": "The rule permits the system to automatically transition incidents from the resolved state to the closed state once they have remained resolved for 72 hours, and it does not forbid any actions (it does not deny manual closure).",
+   "verdict": "equivalent",
+   "why": "The rule accurately captures the automatic transition from resolved to closed after 72 hours and correctly notes that manual closure is not forbidden, matching the policy text."
+  },
+  {
+   "id": "g_772bd5edd1",
+   "type": "allowed_values",
+   "source": "\u00a74.1 L115",
+   "restated": "When the create_change tool is used, the status argument is allowed only the value \"new\"; any other status values are prohibited. This restriction applies each time the create_change tool is invoked.",
+   "verdict": "equivalent",
+   "why": "The rule correctly restricts the status to 'new' for the create_change tool, matching the policy that all new changes are set to status = new."
+  },
+  {
+   "id": "g_f1dc1f7dc7",
+   "type": "verify",
+   "source": "\u00a74.1 L117",
+   "restated": "The rule defines three change types\u2014standard (pre\u2011approved, low risk), normal (requires planning and approval), and emergency (requires immediate CAB approval override)\u2014and applies whenever the create_change or update_change tools are used, governing the definition and approval of changes. It permits creating or updating changes only if they conform to the appropriate type\u2019s approval requirements and forbids using those tools for changes that do not meet the specified approval criteria.",
+   "verdict": "broader",
+   "why": "The policy text only defines change types and their approval characteristics; it does not specify any tool usage restrictions. The rule adds constraints on create_change and update_change tools, forbidding their use unless approval requirements are met, which goes beyond the original text."
+  },
+  {
+   "id": "g_5cf771bbeb",
+   "type": "duty",
+   "source": "\u00a74.2 L123",
+   "restated": "When the assistant uses the create_problem tool, it is required to also use the update_incident tool. Updating an incident is not permitted unless it follows a create_problem action.",
+   "verdict": "different",
+   "why": "The policy requires linking incidents to a problem record, but the rule mandates using update_incident only after create_problem, which is a different requirement not stated in the policy."
+  },
+  {
+   "id": "g_7d35f717f2",
+   "type": "allowed_values",
+   "source": "\u00a74.2 L125",
+   "restated": "When the create_problem tool is used, the status argument is allowed only the value \"new\"; any other status values are prohibited. This rule applies each time the create_problem tool is invoked.",
+   "verdict": "equivalent",
+   "why": "The rule correctly restricts the status argument to 'new' when using create_problem, matching the policy that all new Problems are set to status = new."
+  },
+  {
+   "id": "g_5c2d561a03",
+   "type": "verify",
+   "source": "\u00a74.2 L127",
+   "restated": "When a workaround or temporary solution is found, the rule permits updating the problem's workaround field and changing its status to \"fix_in_progress\" using the update_problem tool; it forbids any other actions for that situation. This rule applies specifically when a workaround is identified.",
+   "verdict": "broader",
+   "why": "The rule adds a prohibition ('forbids any other actions') not stated in the policy text, which only specifies what to do when a workaround is found."
+  },
+  {
+   "id": "g_d512fef564",
+   "type": "duty",
+   "source": "\u00a74.2 L127",
+   "restated": "When the assistant uses the update_problem tool with a status of \"fix_in_progress\", it must also call the update_incident tool. It is not allowed to omit the update_incident call in that situation.",
+   "verdict": "different",
+   "why": "The rule requires calling update_incident when update_problem is used with status 'fix_in_progress', but the policy text requires publishing workaround_notes to linked Incidents and Knowledge Articles, with no mention of update_problem or its status."
+  },
+  {
+   "id": "g_19c6c9697f",
+   "type": "duty",
+   "source": "\u00a74.2 L127",
+   "restated": "When the assistant performs an update_problem action and the problem's status is set to \"fix_in_progress\", it may (and must) call update_knowledge_article. The assistant must not call update_knowledge_article unless this specific trigger occurs.",
+   "verdict": "different",
+   "why": "The rule introduces a specific trigger (update_problem with status fix_in_progress) and a specific tool (update_knowledge_article) not mentioned in the policy text, which only requires publishing workaround_notes to linked Incidents and Knowledge Articles without specifying actions or conditions."
+  },
+  {
+   "id": "g_2532ce952b",
+   "type": "verify",
+   "source": "\u00a74.2 L129",
+   "restated": "The rule permits a Problem to be moved to the Closed state only after a permanent fix has been successfully applied through a linked normal or emergency Change Request, and it forbids closing the Problem if such a linked Change Request with a permanent fix is not present. It applies whenever a Problem\u2019s state transition to Closed is attempted.",
+   "verdict": "equivalent",
+   "why": "The rule captures the same condition as the policy text: a Problem can only be closed after a permanent fix is implemented via a linked normal or emergency Change Request, and it forbids closing otherwise."
+  },
+  {
+   "id": "g_229f86f953",
+   "type": "derived_value",
+   "source": "\u00a74.2 L131",
+   "restated": "When creating a problem, the assistant may derive the problem's priority from the impact and urgency values using the specified table; any priority not matching the table's impact\u2011urgency combinations is not allowed.",
+   "verdict": "equivalent",
+   "why": "The rule correctly states that priority is derived from the impact\u2013urgency table and that only combinations in the table are allowed, which matches the policy text."
+  },
+  {
+   "id": "g_99f5c0ccfb",
+   "type": "derived_value",
+   "source": "\u00a74.2 L131",
+   "restated": "This rule permits the assistant to set a problem's priority (the 'priority' field) based on the given 'impact' and 'urgency' values, using the specified mapping table; any priority value that does not match the table for the provided impact\u2011urgency combination is disallowed. It applies whenever the 'update_problem' tool is invoked to derive the priority from the 'impact' and 'urgency' inputs.",
+   "verdict": "equivalent",
+   "why": "The rule correctly captures the mapping from impact and urgency to priority as defined in the policy text, and it applies to the update_problem tool when deriving priority from those inputs."
+  },
+  {
+   "id": "g_c99885ff73",
+   "type": "reference_status",
+   "source": "\u00a75.1 L163",
+   "restated": "When linking an affected configuration item to an incident, the CI\u2019s status must be either \u201cin_use\u201d or \u201cmaintenance\u201d; linking is prohibited if the CI has any other status.",
+   "verdict": "equivalent",
+   "why": "The rule correctly restates the policy: it requires the CI status to be 'in_use' or 'maintenance' for linking to active incidents, and prohibits linking for any other status, matching the policy's condition exactly."
+  },
+  {
+   "id": "g_7efdd3c3f8",
+   "type": "reference_status",
+   "source": "\u00a75.1 L163",
+   "restated": "When using the create_incident tool with a configuration_item argument, the configuration item's status must be either \"in_use\" or \"maintenance\". Any other status is not allowed.",
+   "verdict": "equivalent",
+   "why": "The rule correctly restates the policy: only CIs with status 'in_use' or 'maintenance' can be linked to active Incidents, and it applies this to the create_incident tool with a configuration_item argument."
+  },
+  {
+   "id": "g_d7b030f07c",
+   "type": "reference_status",
+   "source": "\u00a75.1 L163",
+   "restated": "When the assistant uses the update_incident tool to modify a configuration_item, it may set the item's status only to \"in_use\" or \"maintenance\". Any other status value is not allowed.",
+   "verdict": "different",
+   "why": "The policy restricts linking CIs to active Incidents based on CI status, not the act of updating a CI's status via update_incident."
+  },
+  {
+   "id": "g_66051fde94",
+   "type": "record_condition",
+   "source": "\u00a75.1 L163",
+   "restated": "When the assistant tries to use the \u201clink_affected_ci_to_incident\u201d tool, it must not do so if the CI\u2019s status is either \u201cretired\u201d or \u201cdisposed\u201d. In all other status values the linking is allowed.",
+   "verdict": "equivalent",
+   "why": "The rule correctly restricts linking when CI status is retired or disposed, matching the policy text exactly."
+  },
+  {
+   "id": "g_eb4603aa95",
+   "type": "required_args",
+   "source": "\u00a75.1 L165",
+   "restated": "The rule permits the assistant to use the register_configuration_item tool only when it includes the required owner_id argument, and it forbids calling that tool without providing owner_id. It applies each time the register_configuration_item tool is invoked.",
+   "verdict": "equivalent",
+   "why": "The rule correctly requires owner_id when using register_configuration_item, matching the policy that all CIs must have a recorded owner_id."
+  },
+  {
+   "id": "g_d1b1c652ca",
+   "type": "verify",
+   "source": "\u00a76 L171",
+   "restated": "The rule permits the system to automatically set or adjust an incident\u2019s SLA to match its priority, using the link_new_incident_sla and update_incident_sla_details tools. It forbids applying an SLA that does not correspond to the incident\u2019s priority, and it applies whenever an incident\u2019s priority is assigned or changed.",
+   "verdict": "equivalent",
+   "why": "The rule captures the same core meaning: automatically aligning SLA to priority when priority is assigned or changed, and forbidding mismatched SLAs. The policy text does not specify tools, but the rule\u2019s mention of tools does not change the scope of what is permitted or forbidden."
+  },
+  {
+   "id": "g_4a24cf6fcd",
+   "type": "duty",
+   "source": "\u00a76 L175",
+   "restated": "When an incident is updated to status \"on_hold\" with an on\u2011hold reason of \"Awaiting Change\", \"Awaiting Caller\" or \"Awaiting Problem\", the assistant must also run the \"update_incident_sla_details\" tool, but only if the incident\u2019s stage is \"paused\". It does not permit the SLA\u2011details update when the stage is not \"paused\" under these conditions.",
+   "verdict": "different",
+   "why": "The policy requires pausing the SLA timer (stage = paused) when the incident is on_hold with specific reasons. The rule instead requires running an 'update_incident_sla_details' tool only if the stage is already paused, which is a different action and condition."
+  },
+  {
+   "id": "g_0672cc7380",
+   "type": "duty",
+   "source": "\u00a76 L177",
+   "restated": "When the update_incident_sla_details tool is invoked and the incident\u2019s SLA stage is \"breached\", the assistant must send a notification. It does not allow sending that notification in any other situation.",
+   "verdict": "different",
+   "why": "The rule requires sending a notification when the SLA stage is breached, but omits the requirement to set the escalation flag to true, which the policy text mandates."
+  },
+  {
+   "id": "g_19d3649455",
+   "type": "verify",
+   "source": "\u00a77 L183",
+   "restated": "The rule permits the Reporter role to search for knowledge articles only if those articles have their state set to \"published\". It forbids the Reporter role from finding any articles that are not published, and it applies whenever a search for knowledge articles is performed using the retrieve_knowledge_articles tool.",
+   "verdict": "equivalent",
+   "why": "The rule accurately captures the condition (state = published) and the restriction (Reporter role can only search published articles) from the policy text."
+  },
+  {
+   "id": "g_5392b3e8c4",
+   "type": "duty",
+   "source": "\u00a77 L185",
+   "restated": "When the assistant uses the create_incident tool, it must also call the retrieve_knowledge_articles tool. It forbids creating an incident without subsequently retrieving knowledge articles, and this rule applies each time create_incident is triggered.",
+   "verdict": "different",
+   "why": "The rule requires calling retrieve_knowledge_articles after create_incident, but the policy requires searching for knowledge and linking matching articles as used_as = suggested, which is a different action."
+  },
+  {
+   "id": "g_399370f156",
+   "type": "duty",
+   "source": "\u00a77 L185",
+   "restated": "When the assistant creates an incident, it must link knowledge to that incident, but only if the knowledge is being used as a \"suggested\" item. It does not permit linking knowledge in any other way after incident creation.",
+   "verdict": "different",
+   "why": "The rule incorrectly restricts linking to only 'suggested' knowledge, while the policy requires linking all relevant knowledge with the 'used_as' field set to 'suggested'."
+  },
+  {
+   "id": "g_336215a4dd",
+   "type": "allowed_values",
+   "source": "\u00a77 L187",
+   "restated": "When the IT service desk assistant calls the tool\u202flink_knowledge_to_incident, the argument\u202fused_as\u202fmay only be set to one of the three allowed values:\u202fsuggested,\u202fapplied,\u202for\u202fresolution. Any other value for\u202fused_as\u202fis prohibited, and this restriction applies every time that tool is used.",
+   "verdict": "equivalent",
+   "why": "The rule correctly restricts the used_as parameter to the three values listed in the policy text and applies to the same tool and condition."
+  },
+  {
+   "id": "g_d8107e6b68",
+   "type": "required_args",
+   "source": "\u00a77 L187",
+   "restated": "The rule permits using the tool\u202flink_knowledge_to_incident\u202fonly when the argument\u202fused_as\u202fis supplied, and it forbids calling that tool without providing the\u202fused_as\u202fargument. It applies each time the link_knowledge_to_incident tool is invoked.",
+   "verdict": "equivalent",
+   "why": "The rule correctly requires the used_as argument for every call to link_knowledge_to_incident, matching the policy's mandate that all knowledge links must track used_as type."
+  },
+  {
+   "id": "g_ddb80e2ed3",
+   "type": "reference_status",
+   "source": "\u00a78.1 L195",
+   "restated": "When using the create_incident tool, the assigned_to argument may only reference a record whose active field is true; any assigned_to with active false (or missing) is not allowed. This rule applies each time an incident is created via the create_incident tool.",
+   "verdict": "narrower",
+   "why": "The policy applies to any assignment or update of a user, but the rule only covers the create_incident tool, missing other tools and update operations."
+  },
+  {
+   "id": "g_43d5b9ad65",
+   "type": "reference_status",
+   "source": "\u00a78.1 L195",
+   "restated": "When the update_incident tool is used to modify the assigned_to field, the incident must have its active field set to true; updates are prohibited if active is not true. This rule applies each time the assigned_to argument is used in an incident update.",
+   "verdict": "different",
+   "why": "The policy requires the user (assigned_to) to be active, but the rule incorrectly requires the incident's active field to be true."
+  },
+  {
+   "id": "g_5e7a6e06ec",
+   "type": "reference_status",
+   "source": "\u00a78.1 L195",
+   "restated": "When using the create_problem tool, the assigned_to reference must have its active field set to true; any other value is prohibited. This rule applies each time a problem is created and the assigned_to argument is supplied.",
+   "verdict": "narrower",
+   "why": "The policy applies to both assigning and updating users, but the rule only covers the create_problem tool, missing the update case."
+  },
+  {
+   "id": "g_8319424180",
+   "type": "reference_status",
+   "source": "\u00a78.1 L195",
+   "restated": "This rule permits the assistant to use the update_problem tool to set the assigned_to argument only when the problem\u2019s active field is true, and it blocks such updates when active is not true. It applies whenever an update_problem call attempts to modify assigned_to.",
+   "verdict": "different",
+   "why": "The rule incorrectly applies the active check to the problem\u2019s active field, while the policy requires checking the user\u2019s active status (users.active) for the user being assigned or updated."
+  },
+  {
+   "id": "g_cebfdc3d98",
+   "type": "reference_status",
+   "source": "\u00a78.1 L195",
+   "restated": "When using the create_change tool with the assigned_to argument, the rule allows the operation only if the referenced assigned_to record has its active field set to true; it forbids the operation if that active field is false or not present. This check applies each time a change is created via the create_change tool.",
+   "verdict": "broader",
+   "why": "The policy text applies to both assigning and updating users, but the rule only covers the create_change tool, missing the update case. Additionally, the rule forbids when active is 'not present', which the policy text does not explicitly state."
+  },
+  {
+   "id": "g_ccd9bca2a6",
+   "type": "reference_status",
+   "source": "\u00a78.1 L195",
+   "restated": "This rule permits using the update_change tool to modify the assigned_to argument only when the change\u2019s active field is set to true, and it forbids such updates when active is not true. It applies whenever an update_change operation targets the assigned_to field.",
+   "verdict": "different",
+   "why": "The policy requires checking users.active = true for any user being assigned or updated, but the rule incorrectly checks the change\u2019s active field instead of the user's active field."
+  },
+  {
+   "id": "g_7e65250cc2",
+   "type": "reference_status",
+   "source": "\u00a78.1 L195",
+   "restated": "When using the update_user_details tool to modify a user (identified by user_id), the rule permits setting the user's active field only to \"true\" and disallows any other value. This restriction applies each time the active field is updated for a user.",
+   "verdict": "different",
+   "why": "The policy requires that any user being assigned or updated must have active=true, but the rule incorrectly restricts updates to only allow setting active to true, which is a different constraint."
+  },
+  {
+   "id": "g_365cd500c8",
+   "type": "verify",
+   "source": "\u00a78.1 L197",
+   "restated": "The rule permits closing a record only after confirming that all required dependent items are satisfied, and it forbids closing a record if any mandatory dependencies are missing. It applies whenever an incident, problem, or change is being transitioned to a closed state.",
+   "verdict": "equivalent",
+   "why": "The rule captures the same core requirement: closing a record is only allowed if all mandatory dependencies are satisfied, and it forbids closing if any are missing. The added context about incident, problem, or change records is a specification of the record types, which does not contradict or alter the policy's general mandate."
+  },
+  {
+   "id": "g_a6d9ba8c32",
+   "type": "verify",
+   "source": "\u00a78.1 L199",
+   "restated": "When using the tools create_incident, update_incident, create_problem, or update_problem, the rule requires that the work log include both a timestamp (created_on) and the user_id of the actor. It does not deny the operation, merely enforces these required fields as a reminder.",
+   "verdict": "narrower",
+   "why": "The policy applies to all work logs, but the rule limits the requirement to only four specific tools."
+  },
+  {
+   "id": "g_55104d9dd4",
+   "type": "allowed_values",
+   "source": "\u00a79 L217",
+   "restated": "When the add_new_user tool is used, the role argument may only be set to admin, manager, agent, or reporter. Any other role value is not allowed.",
+   "verdict": "equivalent",
+   "why": "The rule correctly restricts the role argument to exactly the four values listed in the policy text."
+  },
+  {
+   "id": "g_fec9b67344",
+   "type": "allowed_values",
+   "source": "\u00a79 L217",
+   "restated": "When the update_user_details tool is used, the role argument may only be set to \"admin\", \"manager\", \"agent\", or \"reporter\"; any other role value is prohibited. This restriction applies each time the update_user_details tool is invoked.",
+   "verdict": "equivalent",
+   "why": "The rule correctly restricts the role argument to the exact set of values listed in the policy text."
+  },
+  {
+   "id": "g_6f84739da8",
+   "type": "allowed_values",
+   "source": "\u00a79 L219",
+   "restated": "When the assistant calls the create_incident tool, the 'priority' argument is allowed only the values critical, high, moderate, low, or planning. Any other priority value is forbidden; this rule applies to every use of the create_incident tool.",
+   "verdict": "equivalent",
+   "why": "The rule correctly restricts the 'priority' argument of the create_incident tool to exactly the five listed values, matching the policy text."
+  },
+  {
+   "id": "g_dda939efbd",
+   "type": "allowed_values",
+   "source": "\u00a79 L219",
+   "restated": "When the assistant calls the\u202fupdate_incident\u202ftool and sets the\u202fpriority\u202fargument, it may only use the values\u202fcritical,\u202fhigh,\u202fmoderate,\u202flow,\u202for\u202fplanning. Any other priority value is prohibited.",
+   "verdict": "equivalent",
+   "why": "The rule restates the exact list of allowed priority values from the policy text and applies them to the update_incident tool's priority argument, matching the policy's scope and restrictions."
+  },
+  {
+   "id": "g_409af10833",
+   "type": "allowed_values",
+   "source": "\u00a79 L221",
+   "restated": "When the assistant calls the create_incident tool, the impact argument is allowed only the values \"high\", \"medium\", or \"low\"; any other value is prohibited. This rule applies each time the create_incident tool is used.",
+   "verdict": "equivalent",
+   "why": "The rule correctly restricts the impact argument to 'high', 'medium', or 'low' for the create_incident tool, matching the policy text exactly."
+  },
+  {
+   "id": "g_351e601d52",
+   "type": "allowed_values",
+   "source": "\u00a79 L221",
+   "restated": "When the assistant calls the\u202fupdate_incident\u202ftool and sets the\u202fimpact\u202fargument, it may only use the values\u202f\"high\",\u202f\"medium\",\u202for\u202f\"low\". Any other value for\u202fimpact\u202fis prohibited.",
+   "verdict": "equivalent",
+   "why": "The rule restates the exact allowed values for the impact argument as specified in the policy text, with no additional restrictions or omissions."
+  },
+  {
+   "id": "g_71c915336f",
+   "type": "allowed_values",
+   "source": "\u00a79 L223",
+   "restated": "When using the create_incident tool, the urgency argument is allowed only the values \"high\", \"medium\", or \"low\"; any other value is prohibited. This rule applies each time the create_incident tool is invoked.",
+   "verdict": "equivalent",
+   "why": "The rule correctly restricts the urgency argument to exactly the three listed values, matching the policy text."
+  },
+  {
+   "id": "g_e647c817f6",
+   "type": "allowed_values",
+   "source": "\u00a79 L223",
+   "restated": "When the update_incident tool is used, the 'urgency' argument may only be set to \"high\", \"medium\", or \"low\". Any other value for 'urgency' is not allowed.",
+   "verdict": "equivalent",
+   "why": "The rule correctly restricts the 'urgency' argument to the three specified values, matching the policy text exactly."
+  },
+  {
+   "id": "g_44858ff8e8",
+   "type": "allowed_values",
+   "source": "\u00a79 L225",
+   "restated": "When the create_incident tool is used, the 'status' argument is allowed only the values \"new\", \"in_progress\", \"on_hold\", \"resolved\", or \"closed\"; any other value for 'status' is forbidden.",
+   "verdict": "equivalent",
+   "why": "The rule correctly restricts the 'status' argument to exactly the five values listed in the policy text, with no additional restrictions or omissions."
+  },
+  {
+   "id": "g_922aafd3ea",
+   "type": "allowed_values",
+   "source": "\u00a79 L225",
+   "restated": "When the update_incident tool is used, the status argument may only be set to \"new\", \"in_progress\", \"on_hold\", \"resolved\", or \"closed\"; any other status value is prohibited.",
+   "verdict": "equivalent",
+   "why": "The rule correctly restates the allowed status values from the policy text and applies them to the update_incident tool without adding or omitting any restrictions."
+  },
+  {
+   "id": "g_54c515571b",
+   "type": "allowed_values",
+   "source": "\u00a79 L227",
+   "restated": "When the create_incident tool is used, the on_hold_reason argument is allowed only the values \"Awaiting Change\", \"Awaiting Caller\", or \"Awaiting Problem\"; any other value is prohibited.",
+   "verdict": "equivalent",
+   "why": "The rule correctly restricts the on_hold_reason argument to exactly the three values listed in the policy text, with no additional or missing restrictions."
+  },
+  {
+   "id": "g_847335f8d8",
+   "type": "allowed_values",
+   "source": "\u00a79 L227",
+   "restated": "When the update_incident tool is used with the on_hold_reason argument, only the values \"Awaiting Change\", \"Awaiting Caller\", or \"Awaiting Problem\" are permitted; any other value is disallowed.",
+   "verdict": "equivalent",
+   "why": "The rule correctly restricts the on_hold_reason argument to exactly the three listed values, matching the policy text."
+  },
+  {
+   "id": "g_996958cb41",
+   "type": "allowed_values",
+   "source": "\u00a79 L229",
+   "restated": "When the create_incident tool is used, the resolution_code argument is allowed only the values \"fixed\", \"workaround\", \"not_reproducible\", or \"closed_by_caller\"; any other value is not allowed. This rule applies to every call of create_incident, but the allowed values do not match the tool\u2019s defined enum, so the rule can never actually be satisfied.",
+   "verdict": "different",
+   "why": "The rule incorrectly states the allowed values do not match the tool\u2019s defined enum, but the policy text does not mention any enum or imply a contradiction."
+  },
+  {
+   "id": "g_d6f08d716e",
+   "type": "allowed_values",
+   "source": "\u00a79 L229",
+   "restated": "When the update_incident tool is called, the resolution_code argument is allowed only the values \"fixed\", \"workaround\", \"not_reproducible\", or \"closed_by_caller\"; any other value is not permitted. This restriction applies each time update_incident is invoked, though the tool\u2019s schema currently has no matching values, so the rule can never be satisfied.",
+   "verdict": "different",
+   "why": "The rule incorrectly states that the tool's schema has no matching values, so the rule can never be satisfied, which is not stated or implied by the policy text."
+  },
+  {
+   "id": "g_9943aacac4",
+   "type": "allowed_values",
+   "source": "\u00a79 L233",
+   "restated": "When the create_change tool is used, the 'status' argument may only be set to one of the following values: new, assess, authorize, scheduled, implement, review, closed, or canceled. Any other value for 'status' is not allowed.",
+   "verdict": "equivalent",
+   "why": "The rule correctly restates the allowed values for the 'status' argument as listed in the policy text, with no additional restrictions or omissions."
+  },
+  {
+   "id": "g_6dfc44b91b",
+   "type": "allowed_values",
+   "source": "\u00a79 L233",
+   "restated": "When the\u202fupdate_change\u202ftool is used to set the\u202fstatus\u202fargument, only the values\u202fnew, assess, authorize, scheduled, implement, review, closed,\u202for\u202fcanceled\u202fare permitted; any other value is disallowed. This rule applies each time the\u202fupdate_change\u202ftool is invoked with the\u202fstatus\u202fparameter.",
+   "verdict": "equivalent",
+   "why": "The rule correctly restates the policy text, specifying the same allowed status values and applying the constraint to the update_change tool's status argument."
+  },
+  {
+   "id": "g_dffd2caa52",
+   "type": "allowed_values",
+   "source": "\u00a79 L235",
+   "restated": "When the register_configuration_item tool is used, the status argument may only be set to one of the following values: in_use, in_stock, maintenance, retired, or disposed. Any other status value is not allowed.",
+   "verdict": "equivalent",
+   "why": "The rule accurately restates the allowed status values from the policy text without adding or omitting any."
+  },
+  {
+   "id": "g_f2e6428fff",
+   "type": "allowed_values",
+   "source": "\u00a79 L235",
+   "restated": "When the assistant calls the\u202fupdate_configuration_item\u202ftool with the argument\u202fstatus, it may only set the status to one of the following values:\u202fin_use,\u202fin_stock,\u202fmaintenance,\u202fretired,\u202for\u202fdisposed. Any other value for\u202fstatus\u202fis prohibited. This rule applies specifically to calls of the\u202fupdate_configuration_item\u202ftool with the\u202fstatus\u202fargument.",
+   "verdict": "equivalent",
+   "why": "The rule correctly restates the allowed values for the status argument in the update_configuration_item tool, matching the policy text exactly."
+  },
+  {
+   "id": "g_174f6547cd",
+   "type": "allowed_values",
+   "source": "\u00a79 L237",
+   "restated": "When the create_knowledge_article tool is used, the \"state\" argument may only be set to one of the following values: draft, review, published, or retired. Any other value for \"state\" is not allowed.",
+   "verdict": "equivalent",
+   "why": "The rule correctly restates the allowed values for the 'state' argument as listed in the policy text."
+  },
+  {
+   "id": "g_ae61d6761f",
+   "type": "allowed_values",
+   "source": "\u00a79 L237",
+   "restated": "When the update_knowledge_article tool is called with the argument \"state\", only the values \"draft\", \"review\", \"published\", or \"retired\" are permitted; any other value is disallowed. This restriction applies each time the update_knowledge_article tool is used with the state argument.",
+   "verdict": "equivalent",
+   "why": "The rule correctly restates the allowed values for the state argument as listed in the policy text, with no added or missing restrictions."
+  },
+  {
+   "id": "g_ef8e19547f",
+   "type": "allowed_values",
+   "source": "\u00a79 L239",
+   "restated": "When the tool\u202flink_new_incident_sla\u202fis used with the argument\u202fstage, only the values\u202fin_progress,\u202fpaused,\u202fcompleted,\u202fcancelled,\u202for\u202fbreached\u202fare permitted; any other stage value is disallowed.",
+   "verdict": "equivalent",
+   "why": "The rule correctly restricts the stage argument to the exact set of values listed in the policy text."
+  },
+  {
+   "id": "g_f1ea9682bf",
+   "type": "allowed_values",
+   "source": "\u00a79 L239",
+   "restated": "When the update_incident_sla_details tool is used, the 'stage' argument may only be set to one of the following values: in_progress, paused, completed, cancelled, or breached. Any other value for 'stage' is not allowed.",
+   "verdict": "equivalent",
+   "why": "The rule correctly restricts the 'stage' argument to exactly the five values listed in the policy text, with no additional restrictions or omissions."
+  }
+ ]
+}

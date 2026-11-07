@@ -1,0 +1,962 @@
+[
+ {
+  "name": "helpcrunch_find_customer",
+  "description": "Find a customer in HelpCrunch.\n\nArgs:\n    world: The world state.\n    email: Email to search for.\n    user_id: External user ID to search for.\n    query: Text query to search name/email/company.\n\nReturns:\n    JSON string with result.",
+  "inputSchema": {
+   "description": "Find a customer in HelpCrunch.\n\nArgs:\n    world: The world state.\n    email: Email to search for.\n    user_id: External user ID to search for.\n    query: Text query to search name/email/company.\n\nReturns:\n    JSON string with result.",
+   "properties": {
+    "email": {
+     "anyOf": [
+      {
+       "type": "string"
+      },
+      {
+       "type": "null"
+      }
+     ],
+     "default": null,
+     "title": "Email"
+    },
+    "user_id": {
+     "anyOf": [
+      {
+       "type": "string"
+      },
+      {
+       "type": "null"
+      }
+     ],
+     "default": null,
+     "title": "User Id"
+    },
+    "query": {
+     "anyOf": [
+      {
+       "type": "string"
+      },
+      {
+       "type": "null"
+      }
+     ],
+     "default": null,
+     "title": "Query"
+    }
+   },
+   "title": "helpcrunch_find_customer",
+   "type": "object"
+  }
+ },
+ {
+  "name": "helpcrunch_list_customers",
+  "description": "List all customers in HelpCrunch.\n\nArgs:\n    world: The world state.\n\nReturns:\n    JSON string with list of all customers.",
+  "inputSchema": {
+   "description": "List all customers in HelpCrunch.\n\nArgs:\n    world: The world state.\n\nReturns:\n    JSON string with list of all customers.",
+   "properties": {},
+   "title": "helpcrunch_list_customers",
+   "type": "object"
+  }
+ },
+ {
+  "name": "helpcrunch_tag_customer",
+  "description": "Add a tag to a customer.\n\nArgs:\n    world: The world state.\n    customer_id: The customer ID.\n    tag: The tag to add.\n\nReturns:\n    JSON string with result.",
+  "inputSchema": {
+   "description": "Add a tag to a customer.\n\nArgs:\n    world: The world state.\n    customer_id: The customer ID.\n    tag: The tag to add.\n\nReturns:\n    JSON string with result.",
+   "properties": {
+    "customer_id": {
+     "title": "Customer Id",
+     "type": "string"
+    },
+    "tag": {
+     "title": "Tag",
+     "type": "string"
+    }
+   },
+   "required": [
+    "customer_id",
+    "tag"
+   ],
+   "title": "helpcrunch_tag_customer",
+   "type": "object"
+  }
+ },
+ {
+  "name": "helpcrunch_untag_customer",
+  "description": "Remove a tag from a customer.\n\nArgs:\n    world: The world state.\n    customer_id: The customer ID.\n    tag: The tag to remove.\n\nReturns:\n    JSON string with result.",
+  "inputSchema": {
+   "description": "Remove a tag from a customer.\n\nArgs:\n    world: The world state.\n    customer_id: The customer ID.\n    tag: The tag to remove.\n\nReturns:\n    JSON string with result.",
+   "properties": {
+    "customer_id": {
+     "title": "Customer Id",
+     "type": "string"
+    },
+    "tag": {
+     "title": "Tag",
+     "type": "string"
+    }
+   },
+   "required": [
+    "customer_id",
+    "tag"
+   ],
+   "title": "helpcrunch_untag_customer",
+   "type": "object"
+  }
+ },
+ {
+  "name": "helpcrunch_add_customer_event",
+  "description": "Add an event to a customer's timeline.\n\nArgs:\n    world: The world state.\n    customer_id: The customer ID.\n    event_name: Name of the event.\n    data: JSON string of event data.\n\nReturns:\n    JSON string with result.",
+  "inputSchema": {
+   "description": "Add an event to a customer's timeline.\n\nArgs:\n    world: The world state.\n    customer_id: The customer ID.\n    event_name: Name of the event.\n    data: JSON string of event data.\n\nReturns:\n    JSON string with result.",
+   "properties": {
+    "customer_id": {
+     "title": "Customer Id",
+     "type": "string"
+    },
+    "event_name": {
+     "title": "Event Name",
+     "type": "string"
+    },
+    "data": {
+     "anyOf": [
+      {
+       "type": "string"
+      },
+      {
+       "type": "null"
+      }
+     ],
+     "default": null,
+     "title": "Data"
+    }
+   },
+   "required": [
+    "customer_id",
+    "event_name"
+   ],
+   "title": "helpcrunch_add_customer_event",
+   "type": "object"
+  }
+ },
+ {
+  "name": "google_sheets_find_many_rows",
+  "description": "Find multiple rows matching lookup criteria.",
+  "inputSchema": {
+   "description": "Find multiple rows matching lookup criteria.",
+   "properties": {
+    "spreadsheet": {
+     "anyOf": [
+      {
+       "type": "string"
+      },
+      {
+       "type": "null"
+      }
+     ],
+     "default": null,
+     "description": "Spreadsheet ID (required).",
+     "title": "Spreadsheet"
+    },
+    "worksheet": {
+     "anyOf": [
+      {
+       "type": "string"
+      },
+      {
+       "type": "null"
+      }
+     ],
+     "default": null,
+     "description": "Worksheet ID (required).",
+     "title": "Worksheet"
+    },
+    "lookup_key": {
+     "anyOf": [
+      {
+       "type": "string"
+      },
+      {
+       "type": "null"
+      }
+     ],
+     "default": null,
+     "description": "Column to search in (required).",
+     "title": "Lookup Key"
+    },
+    "lookup_value": {
+     "anyOf": [
+      {
+       "type": "string"
+      },
+      {
+       "type": "null"
+      }
+     ],
+     "default": null,
+     "description": "Value to search for (required).",
+     "title": "Lookup Value"
+    },
+    "drive": {
+     "anyOf": [
+      {
+       "type": "string"
+      },
+      {
+       "type": "null"
+      }
+     ],
+     "default": null,
+     "description": "Google Drive location.",
+     "title": "Drive"
+    },
+    "lookup_key_support": {
+     "anyOf": [
+      {
+       "type": "string"
+      },
+      {
+       "type": "null"
+      }
+     ],
+     "default": null,
+     "description": "Secondary column to search in.",
+     "title": "Lookup Key Support"
+    },
+    "lookup_value_support": {
+     "anyOf": [
+      {
+       "type": "string"
+      },
+      {
+       "type": "null"
+      }
+     ],
+     "default": null,
+     "description": "Secondary value to search for.",
+     "title": "Lookup Value Support"
+    },
+    "bottom_up": {
+     "default": false,
+     "description": "Search from bottom of spreadsheet up.",
+     "title": "Bottom Up",
+     "type": "boolean"
+    },
+    "row_count": {
+     "default": 10,
+     "description": "Maximum number of rows to return.",
+     "title": "Row Count",
+     "type": "integer"
+    },
+    "spreadsheet_id": {
+     "anyOf": [
+      {
+       "type": "string"
+      },
+      {
+       "type": "null"
+      }
+     ],
+     "default": null,
+     "title": "Spreadsheet Id"
+    },
+    "worksheet_id": {
+     "anyOf": [
+      {
+       "type": "string"
+      },
+      {
+       "type": "null"
+      }
+     ],
+     "default": null,
+     "title": "Worksheet Id"
+    },
+    "col_name": {
+     "anyOf": [
+      {
+       "type": "string"
+      },
+      {
+       "type": "null"
+      }
+     ],
+     "default": null,
+     "title": "Col Name"
+    },
+    "filters": {
+     "anyOf": [
+      {},
+      {
+       "type": "null"
+      }
+     ],
+     "default": null,
+     "title": "Filters"
+    }
+   },
+   "title": "google_sheets_find_many_rows",
+   "type": "object"
+  }
+ },
+ {
+  "name": "google_sheets_lookup_row",
+  "description": "Find or create a row by lookup criteria.",
+  "inputSchema": {
+   "description": "Find or create a row by lookup criteria.",
+   "properties": {
+    "spreadsheet": {
+     "anyOf": [
+      {
+       "type": "string"
+      },
+      {
+       "type": "null"
+      }
+     ],
+     "default": null,
+     "description": "Spreadsheet ID (required).",
+     "title": "Spreadsheet"
+    },
+    "worksheet": {
+     "anyOf": [
+      {
+       "type": "string"
+      },
+      {
+       "type": "null"
+      }
+     ],
+     "default": null,
+     "description": "Worksheet ID (required).",
+     "title": "Worksheet"
+    },
+    "lookup_key": {
+     "default": "",
+     "description": "Column to search in (required).",
+     "title": "Lookup Key",
+     "type": "string"
+    },
+    "lookup_value": {
+     "default": "",
+     "description": "Value to search for (required).",
+     "title": "Lookup Value",
+     "type": "string"
+    },
+    "drive": {
+     "anyOf": [
+      {
+       "type": "string"
+      },
+      {
+       "type": "null"
+      }
+     ],
+     "default": null,
+     "description": "Google Drive location.",
+     "title": "Drive"
+    },
+    "lookup_key_support": {
+     "anyOf": [
+      {
+       "type": "string"
+      },
+      {
+       "type": "null"
+      }
+     ],
+     "default": null,
+     "description": "Secondary column to search in.",
+     "title": "Lookup Key Support"
+    },
+    "lookup_value_support": {
+     "anyOf": [
+      {
+       "type": "string"
+      },
+      {
+       "type": "null"
+      }
+     ],
+     "default": null,
+     "description": "Secondary value to search for.",
+     "title": "Lookup Value Support"
+    },
+    "bottom_up": {
+     "default": false,
+     "description": "Search from bottom of spreadsheet up.",
+     "title": "Bottom Up",
+     "type": "boolean"
+    },
+    "row_count": {
+     "default": 10,
+     "description": "Maximum number of rows to return.",
+     "title": "Row Count",
+     "type": "integer"
+    },
+    "spreadsheet_id": {
+     "anyOf": [
+      {
+       "type": "string"
+      },
+      {
+       "type": "null"
+      }
+     ],
+     "default": null,
+     "title": "Spreadsheet Id"
+    },
+    "worksheet_id": {
+     "anyOf": [
+      {
+       "type": "string"
+      },
+      {
+       "type": "null"
+      }
+     ],
+     "default": null,
+     "title": "Worksheet Id"
+    }
+   },
+   "title": "google_sheets_lookup_row",
+   "type": "object"
+  }
+ },
+ {
+  "name": "google_sheets_get_spreadsheet_by_id",
+  "description": "Get a spreadsheet by ID.",
+  "inputSchema": {
+   "description": "Get a spreadsheet by ID.",
+   "properties": {
+    "spreadsheet": {
+     "anyOf": [
+      {
+       "type": "string"
+      },
+      {
+       "type": "null"
+      }
+     ],
+     "default": null,
+     "description": "Spreadsheet ID (required).",
+     "title": "Spreadsheet"
+    },
+    "spreadsheet_id": {
+     "anyOf": [
+      {
+       "type": "string"
+      },
+      {
+       "type": "null"
+      }
+     ],
+     "default": null,
+     "description": "Alias for spreadsheet.",
+     "title": "Spreadsheet Id"
+    },
+    "id": {
+     "anyOf": [
+      {
+       "type": "string"
+      },
+      {
+       "type": "null"
+      }
+     ],
+     "default": null,
+     "description": "Alias for spreadsheet.",
+     "title": "Id"
+    },
+    "includeGridData": {
+     "default": true,
+     "description": "Whether to include grid data in response.",
+     "title": "Includegriddata",
+     "type": "boolean"
+    }
+   },
+   "title": "google_sheets_get_spreadsheet_by_id",
+   "type": "object"
+  }
+ },
+ {
+  "name": "gmail_send_email",
+  "description": "Send an email via Gmail. Composes and delivers a new outgoing Gmail message to one or more\nrecipients. Use this to send (not draft) an email — the message is\ntransmitted immediately and appears in the recipient's inbox. Handles\noutbound email dispatch, reply-and-send, forward-and-send, notification\n",
+  "inputSchema": {
+   "description": "Send an email via Gmail. Composes and delivers a new outgoing Gmail message to one or more\nrecipients. Use this to send (not draft) an email — the message is\ntransmitted immediately and appears in the recipient's inbox. Handles\noutbound email dispatch, reply-and-send, forward-and-send, notification\nemails, alerts, and any other Gmail send/deliver/transmit action. Keywords: gmail send email, gmail send mail, gmail compose and send,\nsend outgoing email, send outbound message, deliver email, transmit\nemail, dispatch email, email send, gmail sender, mail send, gmail\nmessage send, send a new email, send notification email, send alert\nemail, email delivery. Note: this SENDS the email. For drafts use gmail_create_draft instead.",
+   "properties": {
+    "to": {
+     "description": "Recipient email address(es), comma-separated for multiple.",
+     "title": "To",
+     "type": "string"
+    },
+    "subject": {
+     "description": "Email subject line.",
+     "title": "Subject",
+     "type": "string"
+    },
+    "body": {
+     "description": "Email body content (plain text or HTML).",
+     "title": "Body",
+     "type": "string"
+    },
+    "cc": {
+     "anyOf": [
+      {
+       "type": "string"
+      },
+      {
+       "type": "null"
+      }
+     ],
+     "default": null,
+     "description": "CC recipients, comma-separated.",
+     "title": "Cc"
+    },
+    "bcc": {
+     "anyOf": [
+      {
+       "type": "string"
+      },
+      {
+       "type": "null"
+      }
+     ],
+     "default": null,
+     "description": "BCC recipients, comma-separated.",
+     "title": "Bcc"
+    },
+    "from_": {
+     "anyOf": [
+      {
+       "type": "string"
+      },
+      {
+       "type": "null"
+      }
+     ],
+     "default": null,
+     "description": "Sender email address (alias).",
+     "title": "From"
+    },
+    "from_name": {
+     "anyOf": [
+      {
+       "type": "string"
+      },
+      {
+       "type": "null"
+      }
+     ],
+     "default": null,
+     "description": "Display name for sender.",
+     "title": "From Name"
+    },
+    "reply_to": {
+     "anyOf": [
+      {
+       "type": "string"
+      },
+      {
+       "type": "null"
+      }
+     ],
+     "default": null,
+     "description": "Reply-to email address.",
+     "title": "Reply To"
+    },
+    "body_type": {
+     "anyOf": [
+      {
+       "type": "string"
+      },
+      {
+       "type": "null"
+      }
+     ],
+     "default": "plain",
+     "description": "Body format - \"plain\" or \"html\" (default: \"plain\").",
+     "title": "Body Type"
+    },
+    "signature": {
+     "anyOf": [
+      {
+       "type": "string"
+      },
+      {
+       "type": "null"
+      }
+     ],
+     "default": null,
+     "description": "Email signature to append.",
+     "title": "Signature"
+    },
+    "label_ids": {
+     "anyOf": [
+      {
+       "type": "string"
+      },
+      {
+       "type": "null"
+      }
+     ],
+     "default": null,
+     "description": "Comma-separated label IDs to apply.",
+     "title": "Label Ids"
+    },
+    "file": {
+     "anyOf": [
+      {
+       "type": "string"
+      },
+      {
+       "type": "null"
+      }
+     ],
+     "default": null,
+     "description": "File to attach (URL or path).",
+     "title": "File"
+    }
+   },
+   "required": [
+    "to",
+    "subject",
+    "body"
+   ],
+   "title": "gmail_send_email",
+   "type": "object"
+  }
+ },
+ {
+  "name": "salesforce_task_create",
+  "description": "Create a new Task in Salesforce.",
+  "inputSchema": {
+   "description": "Create a new Task in Salesforce.",
+   "properties": {
+    "subject": {
+     "anyOf": [
+      {
+       "type": "string"
+      },
+      {
+       "type": "null"
+      }
+     ],
+     "default": null,
+     "description": "Task subject (required)",
+     "title": "Subject"
+    },
+    "status": {
+     "anyOf": [
+      {
+       "type": "string"
+      },
+      {
+       "type": "null"
+      }
+     ],
+     "default": null,
+     "description": "Task status (default: Not Started)",
+     "title": "Status"
+    },
+    "priority": {
+     "anyOf": [
+      {
+       "type": "string"
+      },
+      {
+       "type": "null"
+      }
+     ],
+     "default": null,
+     "description": "Task priority (default: Normal)",
+     "title": "Priority"
+    },
+    "due_date": {
+     "anyOf": [
+      {
+       "type": "string"
+      },
+      {
+       "type": "null"
+      }
+     ],
+     "default": null,
+     "description": "Due date (ISO format)",
+     "title": "Due Date"
+    },
+    "description": {
+     "anyOf": [
+      {
+       "type": "string"
+      },
+      {
+       "type": "null"
+      }
+     ],
+     "default": null,
+     "description": "Task description",
+     "title": "Description"
+    },
+    "contact_id": {
+     "anyOf": [
+      {
+       "type": "string"
+      },
+      {
+       "type": "null"
+      }
+     ],
+     "default": null,
+     "description": "Related Contact or Lead ID (alias: who_id)",
+     "title": "Contact Id"
+    },
+    "who_id": {
+     "anyOf": [
+      {
+       "type": "string"
+      },
+      {
+       "type": "null"
+      }
+     ],
+     "default": null,
+     "description": "Related Contact or Lead ID (Salesforce-style)",
+     "title": "Who Id"
+    },
+    "related_to_id": {
+     "anyOf": [
+      {
+       "type": "string"
+      },
+      {
+       "type": "null"
+      }
+     ],
+     "default": null,
+     "description": "Related Account, Opportunity, etc. (alias: what_id)",
+     "title": "Related To Id"
+    },
+    "what_id": {
+     "anyOf": [
+      {
+       "type": "string"
+      },
+      {
+       "type": "null"
+      }
+     ],
+     "default": null,
+     "description": "Related Account, Opportunity, etc. (Salesforce-style)",
+     "title": "What Id"
+    },
+    "assigned_to_id": {
+     "anyOf": [
+      {
+       "type": "string"
+      },
+      {
+       "type": "null"
+      }
+     ],
+     "default": null,
+     "description": "User ID of task assignee (alias: owner_id)",
+     "title": "Assigned To Id"
+    },
+    "owner_id": {
+     "anyOf": [
+      {
+       "type": "string"
+      },
+      {
+       "type": "null"
+      }
+     ],
+     "default": null,
+     "description": "User ID of task assignee (Salesforce-style)",
+     "title": "Owner Id"
+    },
+    "activity_date": {
+     "anyOf": [
+      {
+       "type": "string"
+      },
+      {
+       "type": "null"
+      }
+     ],
+     "default": null,
+     "title": "Activity Date"
+    }
+   },
+   "title": "salesforce_task_create",
+   "type": "object"
+  }
+ },
+ {
+  "name": "google_drive_find_multiple_files",
+  "description": "Tool for Find Multiple Files.",
+  "inputSchema": {
+   "description": "Tool for Find Multiple Files.",
+   "properties": {
+    "info": {
+     "anyOf": [
+      {
+       "type": "string"
+      },
+      {
+       "type": "null"
+      }
+     ],
+     "default": null,
+     "title": "Info"
+    },
+    "title": {
+     "anyOf": [
+      {
+       "type": "string"
+      },
+      {
+       "type": "null"
+      }
+     ],
+     "default": null,
+     "title": "Title"
+    },
+    "search_type": {
+     "anyOf": [
+      {
+       "type": "string"
+      },
+      {
+       "type": "null"
+      }
+     ],
+     "default": null,
+     "title": "Search Type"
+    },
+    "drive": {
+     "anyOf": [
+      {
+       "type": "string"
+      },
+      {
+       "type": "null"
+      }
+     ],
+     "default": null,
+     "title": "Drive"
+    },
+    "folder": {
+     "anyOf": [
+      {
+       "type": "string"
+      },
+      {
+       "type": "null"
+      }
+     ],
+     "default": null,
+     "title": "Folder"
+    },
+    "file_types": {
+     "anyOf": [
+      {
+       "items": {
+        "anyOf": [
+         {
+          "type": "string"
+         },
+         {
+          "type": "null"
+         }
+        ]
+       },
+       "type": "array"
+      },
+      {
+       "type": "null"
+      }
+     ],
+     "default": null,
+     "title": "File Types"
+    },
+    "max_results": {
+     "anyOf": [
+      {
+       "type": "integer"
+      },
+      {
+       "type": "null"
+      }
+     ],
+     "default": null,
+     "title": "Max Results"
+    }
+   },
+   "title": "google_drive_find_multiple_files",
+   "type": "object"
+  }
+ },
+ {
+  "name": "google_sheets_find_worksheet",
+  "description": "Find a worksheet by title.",
+  "inputSchema": {
+   "description": "Find a worksheet by title.",
+   "properties": {
+    "spreadsheet": {
+     "anyOf": [
+      {
+       "type": "string"
+      },
+      {
+       "type": "null"
+      }
+     ],
+     "default": null,
+     "description": "Spreadsheet ID (required).",
+     "title": "Spreadsheet"
+    },
+    "title": {
+     "anyOf": [
+      {
+       "type": "string"
+      },
+      {
+       "type": "null"
+      }
+     ],
+     "default": null,
+     "description": "Worksheet title to search for (required).",
+     "title": "Title"
+    },
+    "spreadsheet_id": {
+     "anyOf": [
+      {
+       "type": "string"
+      },
+      {
+       "type": "null"
+      }
+     ],
+     "default": null,
+     "description": "Alias for spreadsheet.",
+     "title": "Spreadsheet Id"
+    },
+    "drive": {
+     "anyOf": [
+      {
+       "type": "string"
+      },
+      {
+       "type": "null"
+      }
+     ],
+     "default": null,
+     "description": "Google Drive location.",
+     "title": "Drive"
+    }
+   },
+   "title": "google_sheets_find_worksheet",
+   "type": "object"
+  }
+ }
+]

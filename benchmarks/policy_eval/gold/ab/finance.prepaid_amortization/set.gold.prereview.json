@@ -1,0 +1,516 @@
+{
+ "documents": [
+  {
+   "id": "msg_amort_rules",
+   "kind": "md",
+   "title": "Prepaid Amortization Rules",
+   "trust": "trusted",
+   "effective_date": "2026-01-28",
+   "authority_rank": 0,
+   "sections": [
+    {
+     "id": "preamble",
+     "title": "Preamble",
+     "page": null,
+     "parent": null,
+     "statements": [
+      {
+       "id": "msg_amort_rules:preamble:1",
+       "text": "Amortization rules:",
+       "types": [],
+       "modality": null,
+       "source": {
+        "document": "msg_amort_rules",
+        "section": "preamble",
+        "page": null,
+        "line": 3
+       },
+       "quote": "Amortization rules:"
+      },
+      {
+       "id": "msg_amort_rules:preamble:2",
+       "text": "Monthly amount = Total Prepaid / Term in Months",
+       "types": [
+        "derived_value"
+       ],
+       "modality": "must",
+       "source": {
+        "document": "msg_amort_rules",
+        "section": "preamble",
+        "page": null,
+        "line": 5,
+        "step": 1
+       },
+       "quote": "Monthly amount = Total Prepaid / Term in Months"
+      },
+      {
+       "id": "msg_amort_rules:preamble:3",
+       "text": "Only amortize items where the current date falls within the coverage period",
+       "types": [
+        "eligibility_filter"
+       ],
+       "modality": "must",
+       "source": {
+        "document": "msg_amort_rules",
+        "section": "preamble",
+        "page": null,
+        "line": 6,
+        "step": 2
+       },
+       "quote": "Only amortize items where the current date falls within the coverage period"
+      },
+      {
+       "id": "msg_amort_rules:preamble:4",
+       "text": "Items that haven't started yet (Start Date > current month): skip",
+       "types": [
+        "eligibility_filter"
+       ],
+       "modality": "must",
+       "source": {
+        "document": "msg_amort_rules",
+        "section": "preamble",
+        "page": null,
+        "line": 7,
+        "step": 3
+       },
+       "quote": "Items that haven't started yet (Start Date > current month): skip"
+      },
+      {
+       "id": "msg_amort_rules:preamble:5",
+       "text": "Items fully amortized (Remaining = $0): skip",
+       "types": [
+        "eligibility_filter"
+       ],
+       "modality": "must",
+       "source": {
+        "document": "msg_amort_rules",
+        "section": "preamble",
+        "page": null,
+        "line": 8,
+        "step": 4
+       },
+       "quote": "Items fully amortized (Remaining = $0): skip"
+      },
+      {
+       "id": "msg_amort_rules:preamble:6",
+       "text": "Round to nearest cent",
+       "types": [
+        "format"
+       ],
+       "modality": "must",
+       "source": {
+        "document": "msg_amort_rules",
+        "section": "preamble",
+        "page": null,
+        "line": 9,
+        "step": 5
+       },
+       "quote": "Round to nearest cent"
+      },
+      {
+       "id": "msg_amort_rules:preamble:7",
+       "text": "Report: Debit Expense Account, Credit Prepaid Asset",
+       "types": [
+        "format"
+       ],
+       "modality": "must",
+       "source": {
+        "document": "msg_amort_rules",
+        "section": "preamble",
+        "page": null,
+        "line": 10,
+        "step": 6
+       },
+       "quote": "Report: Debit Expense Account, Credit Prepaid Asset"
+      },
+      {
+       "id": "msg_amort_rules:preamble:8",
+       "text": "Controller",
+       "types": [],
+       "modality": null,
+       "source": {
+        "document": "msg_amort_rules",
+        "section": "preamble",
+        "page": null,
+        "line": 12
+       },
+       "quote": "Controller"
+      }
+     ],
+     "source": {},
+     "quote": ""
+    }
+   ],
+   "structure": {
+    "headings": [
+     {
+      "pattern": "^(?:ARTICLE|Article|PART|Part|CHAPTER|Chapter|SECTION|Section|CLAUSE|Clause|SCHEDULE|Schedule|ANNEX|Annex|EXHIBIT|Exhibit|RULE|Rule)\\s+(?P<id>[0-9]+[A-Za-z]?|[IVXLC]+)\\b[.:\\-–]?\\s*(?P<title>.*)$",
+      "level": 1,
+      "kind": "heading"
+     },
+     {
+      "pattern": "^(?P<id>[IVX]{1,5})\\.\\s+(?P<title>[A-Z][^.]{0,80})$",
+      "level": 1,
+      "kind": "heading"
+     },
+     {
+      "pattern": "^\\((?P<id>[a-z])\\)\\s+",
+      "level": 2,
+      "kind": "clause"
+     }
+    ],
+    "references": [
+     "\\b(?:Article|Part|Chapter|Clause|Schedule|Annex|Exhibit|Rule|Item)\\s+(?P<ref>[0-9]+(?:\\.[0-9]+)*[A-Za-z]?|[IVXLCDM]+|[A-Z])\\b",
+     "\\bclause\\s+\\((?P<ref>[a-z])\\)",
+     "\\bparagraph\\s+(?P<ref>\\d+(?:\\.\\d+)*)"
+    ],
+    "by": "code"
+   },
+   "source": {
+    "document": "msg_amort_rules",
+    "file": "docs/msg_amort_rules.md"
+   },
+   "quote": "Prepaid Amortization Rules"
+  },
+  {
+   "id": "msg_vp_accel",
+   "kind": "md",
+   "title": "Insurance Amortization Acceleration",
+   "trust": "trusted",
+   "effective_date": "2026-01-30",
+   "authority_rank": 1,
+   "sections": [
+    {
+     "id": "preamble",
+     "title": "Preamble",
+     "page": null,
+     "parent": null,
+     "statements": [
+      {
+       "id": "msg_vp_accel:preamble:1",
+       "text": "Team - per the policy review, the Annual Insurance prepaid should be amortized at double the monthly rate for February (2x the standard monthly amount).",
+       "types": [
+        "exception_override",
+        "derived_value"
+       ],
+       "modality": "must",
+       "source": {
+        "document": "msg_vp_accel",
+        "section": "preamble",
+        "page": null,
+        "line": 3
+       },
+       "quote": "Team - per the policy review, the Annual Insurance prepaid should be amortized at double the monthly rate for February (2x the standard monthly amount)."
+      },
+      {
+       "id": "msg_vp_accel:preamble:2",
+       "text": "We're accelerating recognition due to the mid-year policy change.",
+       "types": [],
+       "modality": null,
+       "source": {
+        "document": "msg_vp_accel",
+        "section": "preamble",
+        "page": null,
+        "line": 3
+       },
+       "quote": "We're accelerating recognition due to the mid-year policy change."
+      },
+      {
+       "id": "msg_vp_accel:preamble:3",
+       "text": "This overrides the standard straight-line calculation for this item only.",
+       "types": [
+        "exception_override"
+       ],
+       "modality": "must",
+       "source": {
+        "document": "msg_vp_accel",
+        "section": "preamble",
+        "page": null,
+        "line": 3
+       },
+       "quote": "This overrides the standard straight-line calculation for this item only."
+      },
+      {
+       "id": "msg_vp_accel:preamble:4",
+       "text": "All other items use standard amortization.",
+       "types": [
+        "derived_value"
+       ],
+       "modality": "must",
+       "source": {
+        "document": "msg_vp_accel",
+        "section": "preamble",
+        "page": null,
+        "line": 3
+       },
+       "quote": "All other items use standard amortization."
+      },
+      {
+       "id": "msg_vp_accel:preamble:5",
+       "text": "VP Finance",
+       "types": [],
+       "modality": null,
+       "source": {
+        "document": "msg_vp_accel",
+        "section": "preamble",
+        "page": null,
+        "line": 5
+       },
+       "quote": "VP Finance"
+      }
+     ],
+     "source": {},
+     "quote": ""
+    }
+   ],
+   "structure": {
+    "headings": [
+     {
+      "pattern": "^(?:ARTICLE|Article|PART|Part|CHAPTER|Chapter|SECTION|Section|CLAUSE|Clause|SCHEDULE|Schedule|ANNEX|Annex|EXHIBIT|Exhibit|RULE|Rule)\\s+(?P<id>[0-9]+[A-Za-z]?|[IVXLC]+)\\b[.:\\-–]?\\s*(?P<title>.*)$",
+      "level": 1,
+      "kind": "heading"
+     },
+     {
+      "pattern": "^(?P<id>[IVX]{1,5})\\.\\s+(?P<title>[A-Z][^.]{0,80})$",
+      "level": 1,
+      "kind": "heading"
+     },
+     {
+      "pattern": "^\\((?P<id>[a-z])\\)\\s+",
+      "level": 2,
+      "kind": "clause"
+     }
+    ],
+    "references": [
+     "\\b(?:Article|Part|Chapter|Clause|Schedule|Annex|Exhibit|Rule|Item)\\s+(?P<ref>[0-9]+(?:\\.[0-9]+)*[A-Za-z]?|[IVXLCDM]+|[A-Z])\\b",
+     "\\bclause\\s+\\((?P<ref>[a-z])\\)",
+     "\\bparagraph\\s+(?P<ref>\\d+(?:\\.\\d+)*)"
+    ],
+    "by": "code"
+   },
+   "source": {
+    "document": "msg_vp_accel",
+    "file": "docs/msg_vp_accel.md"
+   },
+   "quote": "Insurance Amortization Acceleration"
+  },
+  {
+   "id": "slk_sw_corr",
+   "kind": "md",
+   "title": "Slack message in #accounting from U_CONTROLLER",
+   "trust": "trusted",
+   "effective_date": "2026-02-01",
+   "authority_rank": 0,
+   "sections": [
+    {
+     "id": "preamble",
+     "title": "Preamble",
+     "page": null,
+     "parent": null,
+     "statements": [
+      {
+       "id": "slk_sw_corr:preamble:1",
+       "text": "Correction on the Software License prepaid: the total should be $7,200 not $6,000.",
+       "types": [
+        "source_of_truth"
+       ],
+       "modality": "must",
+       "source": {
+        "document": "slk_sw_corr",
+        "section": "preamble",
+        "page": null,
+        "line": 3
+       },
+       "quote": "Correction on the Software License prepaid: the total should be $7,200 not $6,000."
+      },
+      {
+       "id": "slk_sw_corr:preamble:2",
+       "text": "The vendor sent an updated invoice.",
+       "types": [],
+       "modality": null,
+       "source": {
+        "document": "slk_sw_corr",
+        "section": "preamble",
+        "page": null,
+        "line": 3
+       },
+       "quote": "The vendor sent an updated invoice."
+      },
+      {
+       "id": "slk_sw_corr:preamble:3",
+       "text": "This changes the monthly amortization amount.",
+       "types": [
+        "derived_value"
+       ],
+       "modality": "must",
+       "source": {
+        "document": "slk_sw_corr",
+        "section": "preamble",
+        "page": null,
+        "line": 3
+       },
+       "quote": "This changes the monthly amortization amount."
+      },
+      {
+       "id": "slk_sw_corr:preamble:4",
+       "text": "However, since Jan is already recorded, apply the corrected monthly rate starting this month.",
+       "types": [
+        "exception_override",
+        "derived_value"
+       ],
+       "modality": "must",
+       "source": {
+        "document": "slk_sw_corr",
+        "section": "preamble",
+        "page": null,
+        "line": 3
+       },
+       "quote": "However, since Jan is already recorded, apply the corrected monthly rate starting this month."
+      }
+     ],
+     "source": {},
+     "quote": ""
+    }
+   ],
+   "structure": {
+    "headings": [
+     {
+      "pattern": "^(?:ARTICLE|Article|PART|Part|CHAPTER|Chapter|SECTION|Section|CLAUSE|Clause|SCHEDULE|Schedule|ANNEX|Annex|EXHIBIT|Exhibit|RULE|Rule)\\s+(?P<id>[0-9]+[A-Za-z]?|[IVXLC]+)\\b[.:\\-–]?\\s*(?P<title>.*)$",
+      "level": 1,
+      "kind": "heading"
+     },
+     {
+      "pattern": "^(?P<id>[IVX]{1,5})\\.\\s+(?P<title>[A-Z][^.]{0,80})$",
+      "level": 1,
+      "kind": "heading"
+     },
+     {
+      "pattern": "^\\((?P<id>[a-z])\\)\\s+",
+      "level": 2,
+      "kind": "clause"
+     }
+    ],
+    "references": [
+     "\\b(?:Article|Part|Chapter|Clause|Schedule|Annex|Exhibit|Rule|Item)\\s+(?P<ref>[0-9]+(?:\\.[0-9]+)*[A-Za-z]?|[IVXLCDM]+|[A-Z])\\b",
+     "\\bclause\\s+\\((?P<ref>[a-z])\\)",
+     "\\bparagraph\\s+(?P<ref>\\d+(?:\\.\\d+)*)"
+    ],
+    "by": "code"
+   },
+   "source": {
+    "document": "slk_sw_corr",
+    "file": "docs/slk_sw_corr.md"
+   },
+   "quote": "Slack message in #accounting from U_CONTROLLER"
+  },
+  {
+   "id": "ws_prepaid_items_row_3",
+   "kind": "md",
+   "title": "Prepaid Schedule: Active Prepaids, row 3",
+   "trust": "trusted",
+   "effective_date": null,
+   "authority_rank": 0,
+   "sections": [
+    {
+     "id": "preamble",
+     "title": "Preamble",
+     "page": null,
+     "parent": null,
+     "statements": [
+      {
+       "id": "ws_prepaid_items_row_3:preamble:1",
+       "text": "Software License | Jan amortization already recorded - skip this month",
+       "types": [
+        "eligibility_filter"
+       ],
+       "modality": "must",
+       "source": {
+        "document": "ws_prepaid_items_row_3",
+        "section": "preamble",
+        "page": null,
+        "line": 5,
+        "table_header": [
+         "Item",
+         "Notes"
+        ]
+       },
+       "quote": "Software License | Jan amortization already recorded - skip this month"
+      }
+     ],
+     "source": {},
+     "quote": ""
+    }
+   ],
+   "structure": {
+    "headings": [
+     {
+      "pattern": "^(?:ARTICLE|Article|PART|Part|CHAPTER|Chapter|SECTION|Section|CLAUSE|Clause|SCHEDULE|Schedule|ANNEX|Annex|EXHIBIT|Exhibit|RULE|Rule)\\s+(?P<id>[0-9]+[A-Za-z]?|[IVXLC]+)\\b[.:\\-–]?\\s*(?P<title>.*)$",
+      "level": 1,
+      "kind": "heading"
+     },
+     {
+      "pattern": "^(?P<id>[IVX]{1,5})\\.\\s+(?P<title>[A-Z][^.]{0,80})$",
+      "level": 1,
+      "kind": "heading"
+     },
+     {
+      "pattern": "^\\((?P<id>[a-z])\\)\\s+",
+      "level": 2,
+      "kind": "clause"
+     }
+    ],
+    "references": [
+     "\\b(?:Article|Part|Chapter|Clause|Schedule|Annex|Exhibit|Rule|Item)\\s+(?P<ref>[0-9]+(?:\\.[0-9]+)*[A-Za-z]?|[IVXLCDM]+|[A-Z])\\b",
+     "\\bclause\\s+\\((?P<ref>[a-z])\\)",
+     "\\bparagraph\\s+(?P<ref>\\d+(?:\\.\\d+)*)"
+    ],
+    "by": "code"
+   },
+   "source": {
+    "document": "ws_prepaid_items_row_3",
+    "file": "docs/ws_prepaid_items_row_3.md"
+   },
+   "quote": "Prepaid Schedule: Active Prepaids, row 3"
+  }
+ ],
+ "links": [
+  {
+   "type": "exception_of",
+   "src": "msg_vp_accel:preamble:1",
+   "dst": "msg_amort_rules:preamble:2",
+   "source": {
+    "document": "msg_vp_accel",
+    "section": "preamble",
+    "page": null,
+    "line": 3
+   },
+   "quote": "the Annual Insurance prepaid should be amortized at double the monthly rate for February"
+  },
+  {
+   "type": "supersedes",
+   "src": "slk_sw_corr:preamble:4",
+   "dst": "ws_prepaid_items_row_3:preamble:1",
+   "source": {
+    "document": "slk_sw_corr",
+    "section": "preamble",
+    "page": null,
+    "line": 3
+   },
+   "quote": "since Jan is already recorded, apply the corrected monthly rate starting this month"
+  },
+  {
+   "type": "source_of_truth",
+   "src": "slk_sw_corr:preamble:1",
+   "dst": "ws_prepaid_items_row_3",
+   "source": {
+    "document": "slk_sw_corr",
+    "section": "preamble",
+    "page": null,
+    "line": 3
+   },
+   "quote": "the total should be $7,200 not $6,000"
+  }
+ ],
+ "source": {},
+ "quote": ""
+}

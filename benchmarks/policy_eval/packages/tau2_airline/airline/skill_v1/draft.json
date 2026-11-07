@@ -1,0 +1,1976 @@
+{
+ "modality": {
+  "policy:preamble:2": "may",
+  "policy:preamble:3": "may",
+  "policy:preamble:4": "must",
+  "policy:preamble:5": "must_not",
+  "policy:preamble:6": "must",
+  "policy:preamble:7": "must_not",
+  "policy:preamble:8": "must",
+  "policy:preamble:9": "must",
+  "policy:preamble:10": "must",
+  "policy:flight:9": "must_not",
+  "policy:flight:10": "must_not",
+  "policy:book-flight:1": "must",
+  "policy:book-flight:2": "must",
+  "policy:book-flight:4": "must",
+  "policy:book-flight:6": "must",
+  "policy:book-flight:7": "must",
+  "policy:book-flight:8": "must",
+  "policy:book-flight:10": "must",
+  "policy:book-flight:12": "must",
+  "policy:book-flight:15": "must",
+  "policy:book-flight:16": "must",
+  "policy:book-flight:17": "must",
+  "policy:book-flight:19": "must",
+  "policy:book-flight:20": "must",
+  "policy:book-flight:21": "must",
+  "policy:book-flight:23": "must",
+  "policy:book-flight:24": "must",
+  "policy:book-flight:25": "must",
+  "policy:book-flight:26": "must",
+  "policy:book-flight:27": "must_not",
+  "policy:book-flight:29": "must",
+  "policy:modify-flight:1": "must",
+  "policy:modify-flight:2": "must",
+  "policy:modify-flight:3": "must",
+  "policy:modify-flight:5": "must_not",
+  "policy:modify-flight:6": "must",
+  "policy:modify-flight:7": "may",
+  "policy:modify-flight:8": "must",
+  "policy:modify-flight:10": "must_not",
+  "policy:modify-flight:11": "must",
+  "policy:modify-flight:12": "must",
+  "policy:modify-flight:13": "must",
+  "policy:modify-flight:14": "must",
+  "policy:modify-flight:16": "must_not",
+  "policy:modify-flight:17": "must_not",
+  "policy:modify-flight:19": "must_not",
+  "policy:modify-flight:22": "must",
+  "policy:modify-flight:23": "must",
+  "policy:cancel-flight:1": "must",
+  "policy:cancel-flight:2": "must",
+  "policy:cancel-flight:3": "must",
+  "policy:cancel-flight:4": "must",
+  "policy:cancel-flight:5": "must_not",
+  "policy:cancel-flight:6": "must",
+  "policy:cancel-flight:11": "must",
+  "policy:refunds-and-compensation:1": "must_not",
+  "policy:refunds-and-compensation:2": "must_not",
+  "policy:refunds-and-compensation:3": "must",
+  "policy:refunds-and-compensation:4": "must",
+  "policy:refunds-and-compensation:5": "must",
+  "policy:refunds-and-compensation:6": "must",
+  "policy:refunds-and-compensation:7": "must_not"
+ },
+ "rules": [
+  {
+   "id": "r_confirm_writes",
+   "class": "judgment",
+   "level": "remind",
+   "statement_ids": [
+    "policy:preamble:4"
+   ],
+   "why": "The confirmation is in the conversation, and no argument of the write tools carries it.",
+   "rule": {
+    "type": "verify",
+    "tools": [
+     "book_reservation",
+     "update_reservation_flights",
+     "update_reservation_baggages",
+     "update_reservation_passengers"
+    ],
+    "statement": "Before taking any actions that update the booking database (booking, modifying flights, editing baggage, changing cabin class, or updating passenger information), you must list the action details and obtain explicit user confirmation (yes) to proceed."
+   }
+  },
+  {
+   "id": "r_no_outside_info",
+   "class": "guidance",
+   "level": "observe",
+   "statement_ids": [
+    "policy:preamble:5"
+   ],
+   "rule": {
+    "type": "guidance",
+    "text": "You should not provide any information, knowledge, or procedures not provided by the user or available tools, or give subjective recommendations or comments."
+   }
+  },
+  {
+   "id": "r_grounded_values",
+   "class": "hard",
+   "level": "observe",
+   "statement_ids": [
+    "policy:preamble:5"
+   ],
+   "rule": {
+    "type": "grounded_values"
+   }
+  },
+  {
+   "id": "r_id_provenance",
+   "class": "hard",
+   "level": "observe",
+   "statement_ids": [
+    "policy:preamble:5"
+   ],
+   "rule": {
+    "type": "id_provenance"
+   }
+  },
+  {
+   "id": "r_one_call",
+   "class": "guidance",
+   "level": "observe",
+   "statement_ids": [
+    "policy:preamble:6"
+   ],
+   "rule": {
+    "type": "guidance",
+    "text": "You should only make one tool call at a time, and if you make a tool call, you should not respond to the user simultaneously."
+   }
+  },
+  {
+   "id": "r_reply_no_call",
+   "class": "guidance",
+   "level": "observe",
+   "statement_ids": [
+    "policy:preamble:7"
+   ],
+   "rule": {
+    "type": "guidance",
+    "text": "If you respond to the user, you should not make a tool call at the same time."
+   }
+  },
+  {
+   "id": "r_deny_against_policy",
+   "class": "guidance",
+   "level": "observe",
+   "statement_ids": [
+    "policy:preamble:8"
+   ],
+   "rule": {
+    "type": "guidance",
+    "text": "You should deny user requests that are against this policy."
+   }
+  },
+  {
+   "id": "r_transfer_scope",
+   "class": "judgment",
+   "level": "remind",
+   "statement_ids": [
+    "policy:preamble:9"
+   ],
+   "why": "Whether a request is in the scope of the agent's actions is a reading of the case; the summary argument does not decide it.",
+   "rule": {
+    "type": "verify",
+    "tools": [
+     "transfer_to_human_agents"
+    ],
+    "statement": "You should transfer the user to a human agent if and only if the request cannot be handled within the scope of your actions."
+   }
+  },
+  {
+   "id": "r_book_flight_status",
+   "class": "judgment",
+   "level": "remind",
+   "statement_ids": [
+    "policy:flight:9",
+    "policy:flight:10"
+   ],
+   "why": "The status belongs to one flight on one date inside the array flights and is read from a search result; no typed rule reads an array of flight and date pairs.",
+   "rule": {
+    "type": "verify",
+    "tools": [
+     "book_reservation"
+    ],
+    "statement": "If the status is delayed or on time, the flight has not taken off, cannot be booked. If the status is flying, the flight has taken off but not landed, cannot be booked."
+   }
+  },
+  {
+   "id": "r_book_max_passengers",
+   "class": "judgment",
+   "level": "remind",
+   "statement_ids": [
+    "policy:book-flight:6"
+   ],
+   "why": "The limit is on the number of items of the array passengers; threshold compares a number argument and no typed rule counts items.",
+   "rule": {
+    "type": "verify",
+    "tools": [
+     "book_reservation"
+    ],
+    "statement": "Each reservation can have at most five passengers."
+   }
+  },
+  {
+   "id": "r_book_payment_counts",
+   "class": "judgment",
+   "level": "remind",
+   "statement_ids": [
+    "policy:book-flight:10"
+   ],
+   "why": "The limits count the items of the array payment_methods per kind of payment method; no typed rule counts items of an array.",
+   "rule": {
+    "type": "verify",
+    "tools": [
+     "book_reservation"
+    ],
+    "statement": "Each reservation can use at most one travel certificate, at most one credit card, and at most three gift cards."
+   }
+  },
+  {
+   "id": "r_book_payment_profile",
+   "class": "judgment",
+   "level": "remind",
+   "statement_ids": [
+    "policy:book-flight:12"
+   ],
+   "why": "The ids are inside the array payment_methods and membership takes one id argument; the profile is a get_user_details result.",
+   "rule": {
+    "type": "verify",
+    "tools": [
+     "book_reservation"
+    ],
+    "statement": "All payment methods must already be in user profile for safety reasons."
+   }
+  },
+  {
+   "id": "r_book_bag_allowance",
+   "class": "judgment",
+   "level": "remind",
+   "statement_ids": [
+    "policy:book-flight:15",
+    "policy:book-flight:16",
+    "policy:book-flight:17",
+    "policy:book-flight:19",
+    "policy:book-flight:20",
+    "policy:book-flight:21",
+    "policy:book-flight:23",
+    "policy:book-flight:24",
+    "policy:book-flight:25",
+    "policy:book-flight:26"
+   ],
+   "why": "The free bags depend on the membership level in the profile and on the number of passengers; derived_value reads only arguments of the call, and neither is a number argument of book_reservation.",
+   "rule": {
+    "type": "verify",
+    "tools": [
+     "book_reservation"
+    ],
+    "statement": "Checked bag allowance: If the booking user is a regular member: 0 free checked bag for each basic economy passenger, 1 free checked bag for each economy passenger, 2 free checked bags for each business passenger. If the booking user is a silver member: 1 free checked bag for each basic economy passenger, 2 free checked bag for each economy passenger, 3 free checked bags for each business passenger. If the booking user is a gold member: 2 free checked bag for each basic economy passenger, 3 free checked bag for each economy passenger, 4 free checked bags for each business passenger. Each extra baggage is 50 dollars."
+   }
+  },
+  {
+   "id": "r_basic_economy_flights",
+   "class": "hard",
+   "level": "block_once",
+   "statement_ids": [
+    "policy:modify-flight:5"
+   ],
+   "quote": "Basic economy flights cannot be modified.",
+   "rule": {
+    "type": "record_condition",
+    "tools": [
+     "update_reservation_flights"
+    ],
+    "field": "cabin",
+    "op": "equals",
+    "value": "basic_economy",
+    "effect": "forbid",
+    "when": {
+     "cabin": [
+      "basic_economy"
+     ]
+    }
+   }
+  },
+  {
+   "id": "r_same_route",
+   "class": "judgment",
+   "level": "remind",
+   "statement_ids": [
+    "policy:modify-flight:6"
+   ],
+   "why": "The call names flight numbers only; origin, destination and trip type of the stored reservation and of the new flights are in tool results.",
+   "rule": {
+    "type": "verify",
+    "tools": [
+     "update_reservation_flights"
+    ],
+    "statement": "Other reservations can be modified without changing the origin, destination, and trip type."
+   }
+  },
+  {
+   "id": "r_cabin_flown",
+   "class": "judgment",
+   "level": "remind",
+   "statement_ids": [
+    "policy:modify-flight:10"
+   ],
+   "why": "Flown or not is a fact of each flight on its date, read with get_flight_status; no typed rule reads every flight of a reservation.",
+   "rule": {
+    "type": "verify",
+    "tools": [
+     "update_reservation_flights"
+    ],
+    "statement": "Cabin cannot be changed if any flight in the reservation has already been flown."
+   }
+  },
+  {
+   "id": "r_cabin_without_flights",
+   "class": "judgment",
+   "level": "remind",
+   "statement_ids": [
+    "policy:modify-flight:11"
+   ],
+   "why": "The same tool changes flights and cabin; a change of flights is seen only by comparing the array flights with the stored reservation.",
+   "rule": {
+    "type": "verify",
+    "tools": [
+     "update_reservation_flights"
+    ],
+    "statement": "In other cases, all reservations, including basic economy, can change cabin without changing the flights."
+   }
+  },
+  {
+   "id": "r_bags_add_only",
+   "class": "judgment",
+   "level": "remind",
+   "statement_ids": [
+    "policy:modify-flight:16"
+   ],
+   "why": "The new total must be compared with the stored total; threshold compares an argument with a fixed value only.",
+   "rule": {
+    "type": "verify",
+    "tools": [
+     "update_reservation_baggages"
+    ],
+    "statement": "The user can add but not remove checked bags."
+   }
+  },
+  {
+   "id": "r_same_passenger_count",
+   "class": "judgment",
+   "level": "remind",
+   "statement_ids": [
+    "policy:modify-flight:19"
+   ],
+   "why": "The number of items of the array passengers must be compared with the stored reservation; no typed rule counts items or compares with a record.",
+   "rule": {
+    "type": "verify",
+    "tools": [
+     "update_reservation_passengers"
+    ],
+    "statement": "The user can modify passengers but cannot modify the number of passengers."
+   }
+  },
+  {
+   "id": "r_flight_change_payment",
+   "class": "judgment",
+   "level": "remind",
+   "statement_ids": [
+    "policy:modify-flight:22"
+   ],
+   "why": "The kind of payment holds only if the flights are changed; a format rule has no such condition, and the same tool also changes only the cabin.",
+   "rule": {
+    "type": "verify",
+    "tools": [
+     "update_reservation_flights"
+    ],
+    "statement": "If the flights are changed, the user needs to provide a single gift card or credit card for payment or refund method."
+   }
+  },
+  {
+   "id": "r_flight_change_payment_profile",
+   "class": "judgment",
+   "level": "remind",
+   "statement_ids": [
+    "policy:modify-flight:23"
+   ],
+   "why": "The call has payment_id and reservation_id but no user id for membership; the profile is a get_user_details result.",
+   "rule": {
+    "type": "verify",
+    "tools": [
+     "update_reservation_flights"
+    ],
+    "statement": "If the flights are changed, the user needs to provide a single gift card or credit card for payment or refund method. The payment method must already be in user profile for safety reasons."
+   }
+  },
+  {
+   "id": "r_cancel_flown",
+   "class": "judgment",
+   "level": "remind",
+   "statement_ids": [
+    "policy:cancel-flight:5"
+   ],
+   "why": "Flown or not is a fact of each flight on its date, read with get_flight_status; no typed rule reads every flight of a reservation.",
+   "rule": {
+    "type": "verify",
+    "tools": [
+     "cancel_reservation"
+    ],
+    "statement": "If any portion of the flight has already been flown, the agent cannot help and transfer is needed."
+   }
+  },
+  {
+   "id": "r_cancel_conditions",
+   "class": "judgment",
+   "level": "remind",
+   "statement_ids": [
+    "policy:cancel-flight:6",
+    "policy:cancel-flight:7",
+    "policy:cancel-flight:8",
+    "policy:cancel-flight:9",
+    "policy:cancel-flight:10"
+   ],
+   "why": "The test is an any-of over the created time, the flight status, the cabin, the insurance and the stated reason; record_condition tests one field and cancel_reservation has only an id argument.",
+   "rule": {
+    "type": "verify",
+    "tools": [
+     "cancel_reservation"
+    ],
+    "statement": "Otherwise, flight can be cancelled if any of the following is true: The booking was made within the last 24 hrs. The flight is cancelled by airline. It is a business flight. The user has travel insurance and the reason for cancellation is covered by insurance."
+   }
+  },
+  {
+   "id": "r_comp_asked",
+   "class": "judgment",
+   "level": "remind",
+   "statement_ids": [
+    "policy:refunds-and-compensation:1"
+   ],
+   "why": "Whether the user asked is in the conversation; no argument of send_certificate carries it.",
+   "rule": {
+    "type": "verify",
+    "tools": [
+     "send_certificate"
+    ],
+    "statement": "Do not proactively offer a compensation unless the user explicitly asks for one."
+   }
+  },
+  {
+   "id": "r_comp_eligible",
+   "class": "judgment",
+   "level": "remind",
+   "statement_ids": [
+    "policy:refunds-and-compensation:2",
+    "policy:refunds-and-compensation:4"
+   ],
+   "why": "The test joins the membership level in the profile with the insurance and the cabin of the reservation; record_condition tests one field of one record.",
+   "rule": {
+    "type": "verify",
+    "tools": [
+     "send_certificate"
+    ],
+    "statement": "Do not compensate if the user is regular member and has no travel insurance and flies (basic) economy. Only compensate if the user is a silver/gold member or has travel insurance or flies business."
+   }
+  },
+  {
+   "id": "r_comp_facts",
+   "class": "judgment",
+   "level": "remind",
+   "statement_ids": [
+    "policy:refunds-and-compensation:3"
+   ],
+   "why": "Confirming the facts is a sequence of earlier reads and replies; no argument of send_certificate carries it.",
+   "rule": {
+    "type": "verify",
+    "tools": [
+     "send_certificate"
+    ],
+    "statement": "Always confirms the facts before offering compensation."
+   }
+  },
+  {
+   "id": "r_comp_amount_cancelled",
+   "class": "judgment",
+   "level": "remind",
+   "statement_ids": [
+    "policy:refunds-and-compensation:5"
+   ],
+   "why": "The amount depends on the number of passengers of the reservation, which send_certificate does not carry; derived_value reads only arguments.",
+   "rule": {
+    "type": "verify",
+    "tools": [
+     "send_certificate"
+    ],
+    "statement": "If the user complains about cancelled flights in a reservation, the agent can offer a certificate as a gesture after confirming the facts, with the amount being $100 times the number of passengers."
+   }
+  },
+  {
+   "id": "r_comp_amount_delayed",
+   "class": "judgment",
+   "level": "remind",
+   "statement_ids": [
+    "policy:refunds-and-compensation:6"
+   ],
+   "why": "The amount depends on the number of passengers, and the order after the change or cancellation is a sequence of calls; no typed rule reads both.",
+   "rule": {
+    "type": "verify",
+    "tools": [
+     "send_certificate"
+    ],
+    "statement": "If the user complains about delayed flights in a reservation and wants to change or cancel the reservation, the agent can offer a certificate as a gesture after confirming the facts and changing or cancelling the reservation, with the amount being $50 times the number of passengers."
+   }
+  },
+  {
+   "id": "r_comp_other_reason",
+   "class": "judgment",
+   "level": "remind",
+   "statement_ids": [
+    "policy:refunds-and-compensation:7"
+   ],
+   "why": "The reason for a certificate is in the conversation; no argument of send_certificate carries it.",
+   "rule": {
+    "type": "verify",
+    "tools": [
+     "send_certificate"
+    ],
+    "statement": "Do not offer compensation for any other reason than the ones listed above: complaints about cancelled flights in a reservation, and complaints about delayed flights in a reservation from a user who wants to change or cancel the reservation."
+   }
+  }
+ ],
+ "procedures": [
+  {
+   "id": "transfer",
+   "name": "Transfer to a human agent",
+   "category": "Escalation",
+   "src": "preamble",
+   "applies_when": "the request cannot be handled within the scope of your actions",
+   "inputs": [],
+   "decisions": [],
+   "steps": [
+    {
+     "id": "policy:preamble:9",
+     "action": "transfer_to_human_agents",
+     "condition": "if and only if the request cannot be handled within the scope of your actions"
+    },
+    {
+     "id": "policy:preamble:10",
+     "text": "To transfer, first make a tool call to transfer_to_human_agents, and then send the message 'YOU ARE BEING TRANSFERRED TO A HUMAN AGENT. PLEASE HOLD ON.' to the user."
+    }
+   ],
+   "must_not": [],
+   "templates": [
+    {
+     "step": 2,
+     "artifact": "message to the user after the transfer call",
+     "template": "YOU ARE BEING TRANSFERRED TO A HUMAN AGENT. PLEASE HOLD ON.",
+     "quote": "and then send the message 'YOU ARE BEING TRANSFERRED TO A HUMAN AGENT."
+    }
+   ],
+   "links": []
+  },
+  {
+   "id": "book-flight",
+   "name": "Book flight",
+   "category": "Reservations",
+   "src": "Book flight",
+   "applies_when": "As an airline agent, you can help users book",
+   "inputs": [
+    {
+     "fact": "user id",
+     "source": "the user"
+    },
+    {
+     "fact": "trip type, origin, destination",
+     "source": "the user"
+    },
+    {
+     "fact": "first name, last name, and date of birth for each passenger",
+     "source": "the user"
+    },
+    {
+     "fact": "status, available seats and prices of each flight on its date",
+     "source": "search_direct_flight or search_onestop_flight"
+    },
+    {
+     "fact": "membership level and payment methods",
+     "source": "get_user_details"
+    },
+    {
+     "fact": "whether the user wants to buy the travel insurance",
+     "source": "the user"
+    }
+   ],
+   "decisions": [
+    {
+     "id": "flight_available",
+     "rule": "If the status is available, the flight has not taken off, available seats and prices are listed.",
+     "then": "the flight can be booked",
+     "else": "the flight cannot be booked"
+    },
+    {
+     "id": "regular_member",
+     "rule": "If the booking user is a regular member",
+     "then": "0 free checked bag for each basic economy passenger, 1 for each economy passenger, 2 for each business passenger",
+     "else": "see the silver and gold entries"
+    },
+    {
+     "id": "silver_member",
+     "rule": "If the booking user is a silver member",
+     "then": "1 free checked bag for each basic economy passenger, 2 for each economy passenger, 3 for each business passenger",
+     "else": "see the regular and gold entries"
+    },
+    {
+     "id": "gold_member",
+     "rule": "If the booking user is a gold member",
+     "then": "2 free checked bag for each basic economy passenger, 3 for each economy passenger, 4 for each business passenger",
+     "else": "see the regular and silver entries"
+    }
+   ],
+   "steps": [
+    {
+     "id": "policy:book-flight:1",
+     "action": "reply"
+    },
+    {
+     "id": "policy:book-flight:2",
+     "action": "reply"
+    },
+    {
+     "id": "policy:book-flight:4"
+    },
+    {
+     "id": "policy:book-flight:6"
+    },
+    {
+     "id": "policy:book-flight:7",
+     "action": "reply"
+    },
+    {
+     "id": "policy:book-flight:8"
+    },
+    {
+     "id": "policy:book-flight:10"
+    },
+    {
+     "id": "policy:book-flight:12"
+    },
+    {
+     "id": "policy:book-flight:15",
+     "condition": "If the booking user is a regular member"
+    },
+    {
+     "id": "policy:book-flight:16",
+     "condition": "If the booking user is a regular member"
+    },
+    {
+     "id": "policy:book-flight:17",
+     "condition": "If the booking user is a regular member"
+    },
+    {
+     "id": "policy:book-flight:19",
+     "condition": "If the booking user is a silver member"
+    },
+    {
+     "id": "policy:book-flight:20",
+     "condition": "If the booking user is a silver member"
+    },
+    {
+     "id": "policy:book-flight:21",
+     "condition": "If the booking user is a silver member"
+    },
+    {
+     "id": "policy:book-flight:23",
+     "condition": "If the booking user is a gold member"
+    },
+    {
+     "id": "policy:book-flight:24",
+     "condition": "If the booking user is a gold member"
+    },
+    {
+     "id": "policy:book-flight:25",
+     "condition": "If the booking user is a gold member"
+    },
+    {
+     "id": "policy:book-flight:26"
+    },
+    {
+     "id": "policy:book-flight:27"
+    },
+    {
+     "id": "policy:book-flight:29",
+     "action": "reply"
+    },
+    {
+     "id": "policy:preamble:4",
+     "action": "reply"
+    },
+    {
+     "id": "policy:preamble:2",
+     "action": "book_reservation"
+    }
+   ],
+   "must_not": [
+    "If the status is delayed or on time, the flight has not taken off, cannot be booked.",
+    "If the status is flying, the flight has taken off but not landed, cannot be booked.",
+    "Each reservation can have at most five passengers.",
+    "Each reservation can use at most one travel certificate, at most one credit card, and at most three gift cards.",
+    "All payment methods must already be in user profile for safety reasons.",
+    "Do not add checked bags that the user does not need."
+   ],
+   "preconditions": [
+    {
+     "condition": "the user id is obtained from the user",
+     "if_not": "ask",
+     "quote": "The agent must first obtain the user id from the user."
+    },
+    {
+     "condition": "the action details are listed and the user confirmed (yes)",
+     "if_not": "ask",
+     "quote": "you must list the action details and obtain explicit user confirmation (yes) to proceed."
+    }
+   ],
+   "notes": [
+    "The remaining amount of a travel certificate is not refundable.",
+    "The travel insurance is 30 dollars per passenger and enables full refund if the user needs to cancel the flight given health or weather reasons."
+   ],
+   "links": []
+  },
+  {
+   "id": "modify-flight",
+   "name": "Modify flight",
+   "category": "Reservations",
+   "src": "Modify flight",
+   "applies_when": "modifying flights, editing baggage, changing cabin class, or updating passenger information",
+   "inputs": [
+    {
+     "fact": "user id",
+     "source": "the user"
+    },
+    {
+     "fact": "reservation id",
+     "source": "the user, or get_user_details when the user does not know it"
+    },
+    {
+     "fact": "cabin, flights, origin, destination, trip type, passengers, baggages of the reservation",
+     "source": "get_reservation_details"
+    },
+    {
+     "fact": "whether any flight in the reservation has already been flown",
+     "source": "get_flight_status"
+    },
+    {
+     "fact": "payment methods in the user profile",
+     "source": "get_user_details"
+    },
+    {
+     "fact": "status and price of a new flight",
+     "source": "search_direct_flight or search_onestop_flight"
+    }
+   ],
+   "decisions": [
+    {
+     "id": "reservation_id_unknown",
+     "rule": "If the user doesn't know their reservation id",
+     "then": "the agent should help locate it using available tools",
+     "else": "use the reservation id that the user gives"
+    },
+    {
+     "id": "basic_economy_flights",
+     "rule": "Basic economy flights cannot be modified.",
+     "then": "deny the change of flights (a change of cabin stays possible)",
+     "else": "the flights can be modified without changing the origin, destination, and trip type"
+    },
+    {
+     "id": "any_flight_flown",
+     "rule": "Cabin cannot be changed if any flight in the reservation has already been flown.",
+     "then": "deny the change of cabin",
+     "else": "the cabin can change without changing the flights"
+    },
+    {
+     "id": "change_cabin",
+     "rule": "all reservations, including basic economy, can change cabin without changing the flights",
+     "then": "call update_reservation_flights with the new cabin for all the flights and the same flights",
+     "else": "no change of cabin"
+    },
+    {
+     "id": "price_higher",
+     "rule": "If the price after cabin change is higher than the original price",
+     "then": "the user is required to pay for the difference",
+     "else": "see price_lower"
+    },
+    {
+     "id": "price_lower",
+     "rule": "If the price after cabin change is lower than the original price",
+     "then": "the user is should be refunded the difference",
+     "else": "see price_higher"
+    },
+    {
+     "id": "add_checked_bags",
+     "rule": "The user can add but not remove checked bags.",
+     "then": "the bags are added with update_reservation_baggages",
+     "else": "deny the removal of checked bags"
+    },
+    {
+     "id": "modify_passengers",
+     "rule": "The user can modify passengers but cannot modify the number of passengers.",
+     "then": "update_reservation_passengers with the same number of passengers",
+     "else": "deny the change of the number of passengers; even a human agent cannot modify it"
+    },
+    {
+     "id": "flights_changed",
+     "rule": "If the flights are changed",
+     "then": "the user needs to provide a single gift card or credit card for payment or refund method, already in user profile",
+     "else": "this payment statement does not apply"
+    }
+   ],
+   "steps": [
+    {
+     "id": "policy:modify-flight:1",
+     "action": "reply"
+    },
+    {
+     "id": "policy:modify-flight:2",
+     "action": "reply"
+    },
+    {
+     "id": "policy:modify-flight:3",
+     "required": false,
+     "condition": "If the user doesn't know their reservation id"
+    },
+    {
+     "id": "policy:modify-flight:5"
+    },
+    {
+     "id": "policy:modify-flight:6",
+     "action": "update_reservation_flights",
+     "condition": "If the flights are changed"
+    },
+    {
+     "id": "policy:modify-flight:8"
+    },
+    {
+     "id": "policy:modify-flight:10"
+    },
+    {
+     "id": "policy:modify-flight:11",
+     "action": "update_reservation_flights"
+    },
+    {
+     "id": "policy:modify-flight:12"
+    },
+    {
+     "id": "policy:modify-flight:13",
+     "condition": "If the price after cabin change is higher than the original price"
+    },
+    {
+     "id": "policy:modify-flight:14",
+     "condition": "If the price after cabin change is lower than the original price"
+    },
+    {
+     "id": "policy:modify-flight:16",
+     "action": "update_reservation_baggages"
+    },
+    {
+     "id": "policy:modify-flight:17"
+    },
+    {
+     "id": "policy:modify-flight:19",
+     "action": "update_reservation_passengers"
+    },
+    {
+     "id": "policy:modify-flight:22",
+     "condition": "If the flights are changed"
+    },
+    {
+     "id": "policy:modify-flight:23",
+     "condition": "If the flights are changed"
+    },
+    {
+     "id": "policy:preamble:4",
+     "action": "reply"
+    }
+   ],
+   "must_not": [
+    "Change flights: Basic economy flights cannot be modified.",
+    "Cabin cannot be changed if any flight in the reservation has already been flown.",
+    "The user can add but not remove checked bags.",
+    "The user cannot add insurance after initial booking.",
+    "The user can modify passengers but cannot modify the number of passengers."
+   ],
+   "preconditions": [
+    {
+     "condition": "the user id and reservation id are obtained, and the user provides the user id",
+     "if_not": "ask",
+     "quote": "First, the agent must obtain the user id and reservation id."
+    },
+    {
+     "condition": "the action details are listed and the user confirmed (yes)",
+     "if_not": "ask",
+     "quote": "you must list the action details and obtain explicit user confirmation (yes) to proceed."
+    }
+   ],
+   "exceptions": [
+    {
+     "when": "the reservation is basic economy and the request is a change of cabin without a change of flights",
+     "then": "the change is allowed",
+     "quote": "all reservations, including basic economy, can change cabin without changing the flights."
+    }
+   ],
+   "notes": [
+    "Some flight segments can be kept, but their prices will not be updated based on the current price.",
+    "Even a human agent cannot modify the number of passengers."
+   ],
+   "links": []
+  },
+  {
+   "id": "cancel-flight",
+   "name": "Cancel flight",
+   "category": "Reservations",
+   "src": "Cancel flight",
+   "applies_when": "you can help users cancel flight reservations",
+   "inputs": [
+    {
+     "fact": "user id",
+     "source": "the user"
+    },
+    {
+     "fact": "reservation id",
+     "source": "the user, or get_user_details when the user does not know it"
+    },
+    {
+     "fact": "reason for cancellation",
+     "source": "the user"
+    },
+    {
+     "fact": "created time, cabin, flights and travel insurance of the reservation",
+     "source": "get_reservation_details"
+    },
+    {
+     "fact": "whether any portion of the flight has already been flown, and whether the flight is cancelled by airline",
+     "source": "get_flight_status"
+    }
+   ],
+   "decisions": [
+    {
+     "id": "reservation_id_unknown",
+     "rule": "If the user doesn't know their reservation id",
+     "then": "the agent should help locate it using available tools",
+     "else": "use the reservation id that the user gives"
+    },
+    {
+     "id": "any_portion_flown",
+     "rule": "If any portion of the flight has already been flown",
+     "then": "the agent cannot help and transfer is needed (procedure transfer)",
+     "else": "check the entries below"
+    },
+    {
+     "id": "booked_within_24_hrs",
+     "rule": "The booking was made within the last 24 hrs",
+     "then": "flight can be cancelled",
+     "else": "check the other entries"
+    },
+    {
+     "id": "cancelled_by_airline",
+     "rule": "The flight is cancelled by airline",
+     "then": "flight can be cancelled",
+     "else": "check the other entries"
+    },
+    {
+     "id": "business_flight",
+     "rule": "It is a business flight",
+     "then": "flight can be cancelled",
+     "else": "check the other entries"
+    },
+    {
+     "id": "insurance_covers_reason",
+     "rule": "The user has travel insurance and the reason for cancellation is covered by insurance.",
+     "then": "flight can be cancelled",
+     "else": "check the other entries"
+    },
+    {
+     "id": "cancel_allowed",
+     "rule": "flight can be cancelled if any of the following is true",
+     "then": "call cancel_reservation",
+     "else": "deny the cancellation"
+    }
+   ],
+   "steps": [
+    {
+     "id": "policy:cancel-flight:1",
+     "action": "reply"
+    },
+    {
+     "id": "policy:cancel-flight:2",
+     "action": "reply"
+    },
+    {
+     "id": "policy:cancel-flight:3",
+     "required": false,
+     "condition": "If the user doesn't know their reservation id"
+    },
+    {
+     "id": "policy:cancel-flight:4",
+     "action": "reply"
+    },
+    {
+     "id": "policy:cancel-flight:5",
+     "condition": "If any portion of the flight has already been flown"
+    },
+    {
+     "id": "policy:cancel-flight:6",
+     "action": "cancel_reservation"
+    },
+    {
+     "id": "policy:cancel-flight:11"
+    }
+   ],
+   "must_not": [
+    "If any portion of the flight has already been flown, the agent cannot help and transfer is needed."
+   ],
+   "preconditions": [
+    {
+     "condition": "the user id and reservation id are obtained, and the user provides the user id",
+     "if_not": "ask",
+     "quote": "First, the agent must obtain the user id and reservation id."
+    },
+    {
+     "condition": "the reason for cancellation is obtained",
+     "if_not": "ask",
+     "quote": "The agent must also obtain the reason for cancellation"
+    }
+   ],
+   "exceptions": [
+    {
+     "when": "any portion of the flight has already been flown",
+     "then": "do not cancel; transfer",
+     "quote": "If any portion of the flight has already been flown, the agent cannot help and transfer is needed."
+    }
+   ],
+   "deadlines": [
+    "The refund will go to original payment methods within 5 to 7 business days."
+   ],
+   "links": []
+  },
+  {
+   "id": "refunds-and-compensation",
+   "name": "Refunds and Compensation",
+   "category": "Compensation",
+   "src": "Refunds and Compensation",
+   "applies_when": "You also handle refunds and compensation.",
+   "inputs": [
+    {
+     "fact": "whether the user explicitly asks for a compensation, and the complaint",
+     "source": "the user"
+    },
+    {
+     "fact": "membership level",
+     "source": "get_user_details"
+    },
+    {
+     "fact": "travel insurance, cabin and number of passengers",
+     "source": "get_reservation_details"
+    },
+    {
+     "fact": "whether the flights are cancelled or delayed",
+     "source": "get_flight_status"
+    }
+   ],
+   "decisions": [
+    {
+     "id": "explicitly_asked",
+     "rule": "unless the user explicitly asks for one",
+     "then": "compensation can be considered",
+     "else": "do not proactively offer a compensation"
+    },
+    {
+     "id": "eligible",
+     "rule": "Only compensate if the user is a silver/gold member or has travel insurance or flies business.",
+     "then": "check the complaint",
+     "else": "do not compensate"
+    },
+    {
+     "id": "cancelled_flights_complaint",
+     "rule": "If the user complains about cancelled flights in a reservation",
+     "then": "the agent can offer a certificate after confirming the facts, with the amount being $100 times the number of passengers",
+     "else": "check the delayed flights entry"
+    },
+    {
+     "id": "delayed_flights_complaint",
+     "rule": "If the user complains about delayed flights in a reservation and wants to change or cancel the reservation",
+     "then": "the agent can offer a certificate after confirming the facts and changing or cancelling the reservation, with the amount being $50 times the number of passengers",
+     "else": "do not offer compensation for this reason"
+    }
+   ],
+   "steps": [
+    {
+     "id": "policy:refunds-and-compensation:1"
+    },
+    {
+     "id": "policy:refunds-and-compensation:2"
+    },
+    {
+     "id": "policy:refunds-and-compensation:3"
+    },
+    {
+     "id": "policy:refunds-and-compensation:4"
+    },
+    {
+     "id": "policy:refunds-and-compensation:5",
+     "action": "send_certificate",
+     "condition": "If the user complains about cancelled flights in a reservation"
+    },
+    {
+     "id": "policy:refunds-and-compensation:6",
+     "action": "send_certificate",
+     "condition": "If the user complains about delayed flights in a reservation and wants to change or cancel the reservation"
+    },
+    {
+     "id": "policy:refunds-and-compensation:7"
+    }
+   ],
+   "must_not": [
+    "Do not proactively offer a compensation unless the user explicitly asks for one.",
+    "Do not compensate if the user is regular member and has no travel insurance and flies (basic) economy.",
+    "Only compensate if the user is a silver/gold member or has travel insurance or flies business."
+   ],
+   "links": []
+  }
+ ],
+ "obligations": [
+  {
+   "id": "ob_transfer_call",
+   "origin": "package",
+   "scope": {
+    "procedure": "transfer"
+   },
+   "effect": {
+    "kind": "write",
+    "tools": [
+     "transfer_to_human_agents"
+    ]
+   },
+   "values": {},
+   "check": "code",
+   "level": "observe",
+   "source": {
+    "section": "preamble",
+    "quote": "To transfer, first make a tool call to transfer_to_human_agents"
+   }
+  },
+  {
+   "id": "ob_transfer_message",
+   "origin": "package",
+   "scope": {
+    "procedure": "transfer"
+   },
+   "effect": {
+    "kind": "reply"
+   },
+   "values": {
+    "message": {
+     "from": "literal",
+     "value": "YOU ARE BEING TRANSFERRED TO A HUMAN AGENT. PLEASE HOLD ON."
+    }
+   },
+   "check": "code",
+   "level": "observe",
+   "source": {
+    "section": "preamble",
+    "quote": "and then send the message 'YOU ARE BEING TRANSFERRED TO A HUMAN AGENT."
+   }
+  },
+  {
+   "id": "ob_book_confirm",
+   "origin": "package",
+   "scope": {
+    "procedure": "book-flight"
+   },
+   "effect": {
+    "kind": "reply"
+   },
+   "values": {},
+   "check": "code",
+   "level": "observe",
+   "source": {
+    "section": "preamble",
+    "quote": "you must list the action details and obtain explicit user confirmation (yes) to proceed."
+   }
+  },
+  {
+   "id": "ob_book_trip",
+   "origin": "package",
+   "scope": {
+    "procedure": "book-flight"
+   },
+   "effect": {
+    "kind": "write",
+    "tools": [
+     "book_reservation"
+    ],
+    "match": {
+     "flight_type": {
+      "pattern": "{flight_type}"
+     },
+     "origin": {
+      "pattern": "{origin}"
+     },
+     "destination": {
+      "pattern": "{destination}"
+     },
+     "user_id": {
+      "pattern": "{user_id}"
+     }
+    }
+   },
+   "values": {
+    "flight_type": {
+     "from": "request",
+     "about": "the trip type"
+    },
+    "origin": {
+     "from": "request",
+     "about": "the origin"
+    },
+    "destination": {
+     "from": "request",
+     "about": "the destination"
+    },
+    "user_id": {
+     "from": "request",
+     "about": "the user id"
+    }
+   },
+   "check": "code",
+   "level": "observe",
+   "source": {
+    "section": "book-flight",
+    "quote": "The agent should then ask for the trip type, origin, destination."
+   }
+  },
+  {
+   "id": "ob_book_bags",
+   "origin": "package",
+   "scope": {
+    "procedure": "book-flight"
+   },
+   "effect": {
+    "kind": "write",
+    "tools": [
+     "book_reservation"
+    ],
+    "match": {
+     "nonfree_baggages": {
+      "pattern": "{nonfree_baggages}"
+     }
+    }
+   },
+   "values": {
+    "nonfree_baggages": {
+     "from": "computed",
+     "fn": "total_baggages minus the free checked bags of the reservation, not below 0. Free checked bags per passenger, by membership level of the booking user and cabin: regular: basic economy 0, economy 1, business 2; silver: basic economy 1, economy 2, business 3; gold: basic economy 2, economy 3, business 4. The free checked bags of the reservation are this number times the number of passengers."
+    }
+   },
+   "check": "code",
+   "level": "observe",
+   "source": {
+    "section": "book-flight",
+    "quote": "Each extra baggage is 50 dollars."
+   }
+  },
+  {
+   "id": "ob_book_insurance_ask",
+   "origin": "package",
+   "scope": {
+    "procedure": "book-flight"
+   },
+   "effect": {
+    "kind": "reply"
+   },
+   "values": {},
+   "check": "code",
+   "level": "observe",
+   "source": {
+    "section": "book-flight",
+    "quote": "The agent should ask if the user wants to buy the travel insurance."
+   }
+  },
+  {
+   "id": "ob_book_insurance",
+   "origin": "package",
+   "scope": {
+    "procedure": "book-flight"
+   },
+   "effect": {
+    "kind": "write",
+    "tools": [
+     "book_reservation"
+    ],
+    "match": {
+     "insurance": {
+      "pattern": "{insurance}"
+     }
+    }
+   },
+   "values": {
+    "insurance": {
+     "from": "request",
+     "about": "whether the user wants to buy the travel insurance"
+    }
+   },
+   "check": "code",
+   "level": "observe",
+   "source": {
+    "section": "book-flight",
+    "quote": "if the user wants to buy the travel insurance."
+   }
+  },
+  {
+   "id": "ob_modify_confirm",
+   "origin": "package",
+   "scope": {
+    "procedure": "modify-flight"
+   },
+   "effect": {
+    "kind": "reply"
+   },
+   "values": {},
+   "check": "code",
+   "level": "observe",
+   "source": {
+    "section": "preamble",
+    "quote": "you must list the action details and obtain explicit user confirmation (yes) to proceed."
+   }
+  },
+  {
+   "id": "ob_modify_flights",
+   "origin": "package",
+   "scope": {
+    "procedure": "modify-flight",
+    "when": {
+     "flights_changed": "yes"
+    }
+   },
+   "effect": {
+    "kind": "write",
+    "tools": [
+     "update_reservation_flights"
+    ],
+    "match": {
+     "payment_id": {
+      "pattern": "{payment_id}"
+     }
+    }
+   },
+   "values": {
+    "payment_id": {
+     "from": "request",
+     "about": "the single gift card or credit card that the user provides"
+    }
+   },
+   "check": "code",
+   "level": "observe",
+   "source": {
+    "section": "modify-flight",
+    "quote": "the user needs to provide a single gift card or credit card for payment or refund method."
+   }
+  },
+  {
+   "id": "ob_modify_cabin",
+   "origin": "package",
+   "scope": {
+    "procedure": "modify-flight",
+    "when": {
+     "change_cabin": "yes",
+     "any_flight_flown": "no"
+    }
+   },
+   "effect": {
+    "kind": "write",
+    "tools": [
+     "update_reservation_flights"
+    ],
+    "match": {
+     "cabin": {
+      "pattern": "{cabin}"
+     }
+    }
+   },
+   "values": {
+    "cabin": {
+     "from": "request",
+     "about": "the new cabin"
+    }
+   },
+   "check": "code",
+   "level": "observe",
+   "source": {
+    "section": "modify-flight",
+    "quote": "all reservations, including basic economy, can change cabin without changing the flights."
+   }
+  },
+  {
+   "id": "ob_modify_cabin_pay",
+   "origin": "package",
+   "scope": {
+    "procedure": "modify-flight",
+    "when": {
+     "price_higher": "yes"
+    }
+   },
+   "effect": {
+    "kind": "write",
+    "tools": [
+     "update_reservation_flights"
+    ],
+    "match": {
+     "payment_id": {
+      "pattern": "{payment_id}"
+     }
+    }
+   },
+   "values": {
+    "payment_id": {
+     "from": "request",
+     "about": "the payment method for the difference"
+    }
+   },
+   "check": "code",
+   "level": "observe",
+   "source": {
+    "section": "modify-flight",
+    "quote": "the user is required to pay for the difference."
+   }
+  },
+  {
+   "id": "ob_modify_cabin_refund",
+   "origin": "package",
+   "scope": {
+    "procedure": "modify-flight",
+    "when": {
+     "price_lower": "yes"
+    }
+   },
+   "effect": {
+    "kind": "write",
+    "tools": [
+     "update_reservation_flights"
+    ],
+    "match": {
+     "payment_id": {
+      "pattern": "{payment_id}"
+     }
+    }
+   },
+   "values": {
+    "payment_id": {
+     "from": "request",
+     "about": "the payment method for the refund of the difference"
+    }
+   },
+   "check": "code",
+   "level": "observe",
+   "source": {
+    "section": "modify-flight",
+    "quote": "the user is should be refunded the difference."
+   }
+  },
+  {
+   "id": "ob_modify_bags",
+   "origin": "package",
+   "scope": {
+    "procedure": "modify-flight",
+    "when": {
+     "add_checked_bags": "yes"
+    }
+   },
+   "effect": {
+    "kind": "write",
+    "tools": [
+     "update_reservation_baggages"
+    ],
+    "match": {
+     "total_baggages": {
+      "pattern": "{total_baggages}"
+     }
+    }
+   },
+   "values": {
+    "total_baggages": {
+     "from": "request",
+     "about": "the number of checked bags after the bags that the user adds"
+    }
+   },
+   "check": "code",
+   "level": "observe",
+   "source": {
+    "section": "modify-flight",
+    "quote": "The user can add but not remove checked bags."
+   }
+  },
+  {
+   "id": "ob_modify_passengers",
+   "origin": "package",
+   "scope": {
+    "procedure": "modify-flight",
+    "when": {
+     "modify_passengers": "yes"
+    }
+   },
+   "effect": {
+    "kind": "write",
+    "tools": [
+     "update_reservation_passengers"
+    ]
+   },
+   "values": {},
+   "check": "code",
+   "level": "observe",
+   "source": {
+    "section": "modify-flight",
+    "quote": "The user can modify passengers but cannot modify the number of passengers."
+   }
+  },
+  {
+   "id": "ob_cancel_reason",
+   "origin": "package",
+   "scope": {
+    "procedure": "cancel-flight"
+   },
+   "effect": {
+    "kind": "reply"
+   },
+   "values": {},
+   "check": "code",
+   "level": "observe",
+   "source": {
+    "section": "cancel-flight",
+    "quote": "The agent must also obtain the reason for cancellation"
+   }
+  },
+  {
+   "id": "ob_cancel_write",
+   "origin": "package",
+   "scope": {
+    "procedure": "cancel-flight",
+    "when": {
+     "any_portion_flown": "no",
+     "cancel_allowed": "yes"
+    }
+   },
+   "effect": {
+    "kind": "write",
+    "tools": [
+     "cancel_reservation"
+    ],
+    "match": {
+     "reservation_id": {
+      "pattern": "{reservation_id}"
+     }
+    }
+   },
+   "values": {
+    "reservation_id": {
+     "from": "case_fact",
+     "field": "reservation id",
+     "record": "the reservation to cancel"
+    }
+   },
+   "check": "code",
+   "level": "observe",
+   "source": {
+    "section": "cancel-flight",
+    "quote": "Otherwise, flight can be cancelled if any of the following is true:"
+   }
+  },
+  {
+   "id": "ob_cancel_transfer",
+   "origin": "package",
+   "scope": {
+    "procedure": "cancel-flight",
+    "when": {
+     "any_portion_flown": "yes"
+    }
+   },
+   "effect": {
+    "kind": "write",
+    "tools": [
+     "transfer_to_human_agents"
+    ]
+   },
+   "values": {},
+   "check": "code",
+   "level": "observe",
+   "source": {
+    "section": "cancel-flight",
+    "quote": "the agent cannot help and transfer is needed."
+   }
+  },
+  {
+   "id": "ob_comp_cancelled",
+   "origin": "package",
+   "scope": {
+    "procedure": "refunds-and-compensation",
+    "when": {
+     "explicitly_asked": "yes",
+     "eligible": "yes",
+     "cancelled_flights_complaint": "yes"
+    }
+   },
+   "effect": {
+    "kind": "write",
+    "tools": [
+     "send_certificate"
+    ],
+    "match": {
+     "amount": {
+      "pattern": "{amount}"
+     },
+     "user_id": {
+      "pattern": "{user_id}"
+     }
+    }
+   },
+   "values": {
+    "amount": {
+     "from": "computed",
+     "fn": "100 times the number of passengers of the reservation"
+    },
+    "user_id": {
+     "from": "case_fact",
+     "field": "user id",
+     "record": "the user profile"
+    }
+   },
+   "check": "code",
+   "level": "observe",
+   "source": {
+    "section": "refunds-and-compensation",
+    "quote": "with the amount being $100 times the number of passengers."
+   }
+  },
+  {
+   "id": "ob_comp_delayed",
+   "origin": "package",
+   "scope": {
+    "procedure": "refunds-and-compensation",
+    "when": {
+     "explicitly_asked": "yes",
+     "eligible": "yes",
+     "delayed_flights_complaint": "yes"
+    }
+   },
+   "effect": {
+    "kind": "write",
+    "tools": [
+     "send_certificate"
+    ],
+    "match": {
+     "amount": {
+      "pattern": "{amount}"
+     },
+     "user_id": {
+      "pattern": "{user_id}"
+     }
+    }
+   },
+   "values": {
+    "amount": {
+     "from": "computed",
+     "fn": "50 times the number of passengers of the reservation"
+    },
+    "user_id": {
+     "from": "case_fact",
+     "field": "user id",
+     "record": "the user profile"
+    }
+   },
+   "check": "code",
+   "level": "observe",
+   "source": {
+    "section": "refunds-and-compensation",
+    "quote": "with the amount being $50 times the number of passengers."
+   }
+  }
+ ],
+ "global": {
+  "global_rules": [
+   {
+    "id": "G-time",
+    "src": "preamble",
+    "rule": "The current time is 2024-05-15 15:00:00 EST."
+   },
+   {
+    "id": "G-confirm",
+    "src": "preamble",
+    "rule": "Before taking any actions that update the booking database (booking, modifying flights, editing baggage, changing cabin class, or updating passenger information), you must list the action details and obtain explicit user confirmation (yes) to proceed."
+   },
+   {
+    "id": "G-no-outside-info",
+    "src": "preamble",
+    "rule": "You should not provide any information, knowledge, or procedures not provided by the user or available tools, or give subjective recommendations or comments."
+   },
+   {
+    "id": "G-one-call",
+    "src": "preamble",
+    "rule": "You should only make one tool call at a time, and if you make a tool call, you should not respond to the user simultaneously."
+   },
+   {
+    "id": "G-reply-no-call",
+    "src": "preamble",
+    "rule": "If you respond to the user, you should not make a tool call at the same time."
+   },
+   {
+    "id": "G-deny",
+    "src": "preamble",
+    "rule": "You should deny user requests that are against this policy."
+   }
+  ],
+  "escalation": {
+   "id": "escalation",
+   "src": "preamble",
+   "name": "Transfer to a human agent",
+   "steps": [
+    "You should transfer the user to a human agent if and only if the request cannot be handled within the scope of your actions.",
+    "To transfer, first make a tool call to transfer_to_human_agents, and then send the message 'YOU ARE BEING TRANSFERRED TO A HUMAN AGENT. PLEASE HOLD ON.' to the user."
+   ],
+   "must_not": []
+  },
+  "definitions": [
+   {
+    "term": "payment methods",
+    "meaning": "There are three types of payment methods: credit card, gift card, travel certificate.",
+    "source": {
+     "statement": "policy:user:9"
+    }
+   },
+   {
+    "term": "membership levels",
+    "meaning": "There are three membership levels: regular, silver, gold.",
+    "source": {
+     "statement": "policy:user:10"
+    }
+   },
+   {
+    "term": "the status is available",
+    "meaning": "If the status is available, the flight has not taken off, available seats and prices are listed.",
+    "source": {
+     "statement": "policy:flight:8"
+    }
+   },
+   {
+    "term": "the status is delayed or on time",
+    "meaning": "If the status is delayed or on time, the flight has not taken off, cannot be booked.",
+    "source": {
+     "statement": "policy:flight:9"
+    }
+   },
+   {
+    "term": "the status is flying",
+    "meaning": "If the status is flying, the flight has taken off but not landed, cannot be booked.",
+    "source": {
+     "statement": "policy:flight:10"
+    }
+   },
+   {
+    "term": "cabin classes",
+    "meaning": "There are three cabin classes: basic economy, economy, business. basic economy is its own class, completely distinct from economy.",
+    "source": {
+     "statement": "policy:flight:11"
+    }
+   },
+   {
+    "term": "two types of trip",
+    "meaning": "There are two types of trip: one way and round trip.",
+    "source": {
+     "statement": "policy:reservation:11"
+    }
+   },
+   {
+    "term": "travel insurance",
+    "meaning": "The travel insurance is 30 dollars per passenger and enables full refund if the user needs to cancel the flight given health or weather reasons.",
+    "source": {
+     "statement": "policy:book-flight:30"
+    }
+   }
+  ]
+ },
+ "links": [
+  {
+   "type": "exception_of",
+   "src": "policy:modify-flight:11",
+   "dst": "policy:modify-flight:5",
+   "quote": "all reservations, including basic economy, can change cabin"
+  },
+  {
+   "type": "refers_to",
+   "src": "policy:modify-flight:8",
+   "dst": "policy:modify-flight:5",
+   "quote": "The API does not check these for the agent"
+  },
+  {
+   "type": "refers_to",
+   "src": "policy:modify-flight:8",
+   "dst": "policy:modify-flight:6",
+   "quote": "The API does not check these for the agent"
+  },
+  {
+   "type": "depends_on",
+   "src": "policy:modify-flight:23",
+   "dst": "policy:modify-flight:22",
+   "quote": "The payment method must already be in user profile"
+  },
+  {
+   "type": "refers_to",
+   "src": "policy:cancel-flight:5",
+   "dst": "policy:preamble:10",
+   "quote": "the agent cannot help and transfer is needed"
+  },
+  {
+   "type": "depends_on",
+   "src": "policy:cancel-flight:6",
+   "dst": "policy:cancel-flight:5",
+   "quote": "Otherwise, flight can be cancelled"
+  },
+  {
+   "type": "refers_to",
+   "src": "policy:cancel-flight:11",
+   "dst": "policy:cancel-flight:6",
+   "quote": "The API does not check that cancellation rules are met"
+  },
+  {
+   "type": "defines",
+   "src": "policy:book-flight:30",
+   "dst": "policy:cancel-flight:10",
+   "quote": "enables full refund if the user needs to cancel the flight given health or weather reasons"
+  },
+  {
+   "type": "refers_to",
+   "src": "policy:refunds-and-compensation:7",
+   "dst": "policy:refunds-and-compensation:5",
+   "quote": "the ones listed above"
+  },
+  {
+   "type": "refers_to",
+   "src": "policy:refunds-and-compensation:7",
+   "dst": "policy:refunds-and-compensation:6",
+   "quote": "the ones listed above"
+  }
+ ],
+ "coverage": [],
+ "policy_questions": [
+  {
+   "statement_ids": [
+    "policy:preamble:4"
+   ],
+   "rule_ids": [
+    "r_confirm_writes"
+   ],
+   "question": "The list of actions that update the booking database does not name a cancellation or a certificate. Must the agent also list the details and obtain a yes before cancel_reservation and send_certificate?",
+   "default_level": "remind"
+  },
+  {
+   "statement_ids": [
+    "policy:preamble:8",
+    "policy:preamble:9"
+   ],
+   "rule_ids": [
+    "r_transfer_scope"
+   ],
+   "question": "When a request is against this policy, the agent should deny it, and when it cannot be handled within the scope of its actions, the agent should transfer. Which of the two applies to a request that the policy forbids and no tool can do, such as adding insurance after booking?",
+   "default_level": "remind"
+  },
+  {
+   "statement_ids": [
+    "policy:flight:9",
+    "policy:flight:10"
+   ],
+   "rule_ids": [
+    "r_book_flight_status"
+   ],
+   "question": "Does 'cannot be booked' also hold for a new flight chosen in update_reservation_flights, and for a kept segment that is delayed, on time or flying?",
+   "default_level": "remind"
+  },
+  {
+   "statement_ids": [
+    "policy:modify-flight:6",
+    "policy:modify-flight:11"
+   ],
+   "rule_ids": [
+    "r_same_route",
+    "r_cabin_without_flights"
+   ],
+   "question": "Can a reservation that is not basic economy change its flights and its cabin in the same change, or must the flights stay the same whenever the cabin changes?",
+   "default_level": "remind"
+  },
+  {
+   "statement_ids": [
+    "policy:modify-flight:22",
+    "policy:modify-flight:23"
+   ],
+   "rule_ids": [
+    "r_flight_change_payment",
+    "r_flight_change_payment_profile"
+   ],
+   "question": "The payment statements start with 'If the flights are changed'. Do the single gift card or credit card and the user profile also hold for a change of cabin only, and for added bags in update_reservation_baggages, whose payment_id description also gives a certificate as an example?",
+   "default_level": "remind"
+  },
+  {
+   "statement_ids": [
+    "policy:book-flight:15",
+    "policy:book-flight:26",
+    "policy:modify-flight:16"
+   ],
+   "rule_ids": [
+    "r_book_bag_allowance",
+    "r_bags_add_only"
+   ],
+   "question": "The free bag table and the 50 dollars are in the section Book flight. Do they also set nonfree_baggages and the price when bags are added later with update_reservation_baggages?",
+   "default_level": "remind"
+  },
+  {
+   "statement_ids": [
+    "policy:modify-flight:10",
+    "policy:cancel-flight:5"
+   ],
+   "rule_ids": [
+    "r_cabin_flown",
+    "r_cancel_flown"
+   ],
+   "question": "Does 'already been flown' include a flight with the status flying, which has taken off but not landed? The text defines no status for a flight that has landed.",
+   "default_level": "remind"
+  },
+  {
+   "statement_ids": [
+    "policy:cancel-flight:8"
+   ],
+   "rule_ids": [
+    "r_cancel_conditions"
+   ],
+   "question": "'The flight is cancelled by airline': is the reason that the user states enough, or must a flight record show it? The listed flight statuses do not include a cancelled status.",
+   "default_level": "remind"
+  },
+  {
+   "statement_ids": [
+    "policy:refunds-and-compensation:5",
+    "policy:refunds-and-compensation:6"
+   ],
+   "rule_ids": [
+    "r_comp_amount_cancelled",
+    "r_comp_amount_delayed"
+   ],
+   "question": "'The agent can offer a certificate': when the user asks, is eligible and the facts are confirmed, must the agent send the certificate, or may the agent still decide not to?",
+   "default_level": "remind"
+  },
+  {
+   "statement_ids": [
+    "policy:book-flight:11",
+    "policy:cancel-flight:13"
+   ],
+   "question": "The remaining amount of a travel certificate is not refundable, and the refund goes to original payment methods. When a reservation paid with a travel certificate is cancelled, does the certificate part of the payment come back?",
+   "default_level": "remind"
+  },
+  {
+   "statement_ids": [
+    "policy:book-flight:26",
+    "policy:book-flight:30"
+   ],
+   "rule_ids": [
+    "r_book_bag_allowance"
+   ],
+   "question": "Must the amounts in payment_methods add up to the flight prices plus the extra bags and the insurance? The text gives the prices of bags and insurance but no rule for the total.",
+   "default_level": "remind"
+  }
+ ]
+}

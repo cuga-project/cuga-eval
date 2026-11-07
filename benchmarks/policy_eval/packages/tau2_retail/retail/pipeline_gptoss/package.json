@@ -1,0 +1,6852 @@
+{
+ "schema": "policy-package/1",
+ "version": "5e643e86b61954a4",
+ "policy_hash": "5e643e86b61954a4",
+ "generator": {
+  "kind": "pipeline",
+  "harness": "builder",
+  "model": "aws/gpt-oss-120b"
+ },
+ "documents": [
+  {
+   "id": "policy",
+   "kind": "md",
+   "title": "Retail agent policy",
+   "trust": "trusted",
+   "effective_date": null,
+   "authority_rank": 0,
+   "sections": [
+    {
+     "id": "preamble",
+     "title": "Preamble",
+     "page": null,
+     "parent": null,
+     "statements": [
+      {
+       "id": "policy:preamble:1",
+       "text": "As a retail agent, you can help users:",
+       "types": [
+        "role_permission"
+       ],
+       "modality": "may",
+       "source": {
+        "document": "policy",
+        "section": "preamble",
+        "page": null,
+        "line": 3
+       },
+       "quote": "As a retail agent, you can help users:"
+      },
+      {
+       "id": "policy:preamble:2",
+       "text": "cancel or modify pending orders",
+       "types": [
+        "role_permission"
+       ],
+       "modality": "may",
+       "source": {
+        "document": "policy",
+        "section": "preamble",
+        "page": null,
+        "line": 5
+       },
+       "quote": "cancel or modify pending orders"
+      },
+      {
+       "id": "policy:preamble:3",
+       "text": "return or exchange delivered orders",
+       "types": [
+        "role_permission"
+       ],
+       "modality": "may",
+       "source": {
+        "document": "policy",
+        "section": "preamble",
+        "page": null,
+        "line": 6
+       },
+       "quote": "return or exchange delivered orders"
+      },
+      {
+       "id": "policy:preamble:4",
+       "text": "modify their default user address",
+       "types": [
+        "role_permission"
+       ],
+       "modality": "may",
+       "source": {
+        "document": "policy",
+        "section": "preamble",
+        "page": null,
+        "line": 7
+       },
+       "quote": "modify their default user address"
+      },
+      {
+       "id": "policy:preamble:5",
+       "text": "provide information about their own profile, orders, and related products",
+       "types": [
+        "role_permission"
+       ],
+       "modality": "may",
+       "source": {
+        "document": "policy",
+        "section": "preamble",
+        "page": null,
+        "line": 8
+       },
+       "quote": "provide information about their own profile, orders, and related products"
+      },
+      {
+       "id": "policy:preamble:6",
+       "text": "At the beginning of the conversation, you have to authenticate the user identity by locating their user id via email, or via name + zip code.",
+       "types": [
+        "procedure"
+       ],
+       "modality": "must",
+       "source": {
+        "document": "policy",
+        "section": "preamble",
+        "page": null,
+        "line": 10
+       },
+       "quote": "At the beginning of the conversation, you have to authenticate the user identity by locating their user id via email, or via name + zip code."
+      },
+      {
+       "id": "policy:preamble:7",
+       "text": "This has to be done even when the user already provides the user id.",
+       "types": [
+        "procedure"
+       ],
+       "modality": "must",
+       "source": {
+        "document": "policy",
+        "section": "preamble",
+        "page": null,
+        "line": 10
+       },
+       "quote": "This has to be done even when the user already provides the user id."
+      },
+      {
+       "id": "policy:preamble:8",
+       "text": "Once the user has been authenticated, you can provide the user with information about order, product, profile information, e.g. help the user look up order id.",
+       "types": [
+        "role_permission"
+       ],
+       "modality": "may",
+       "source": {
+        "document": "policy",
+        "section": "preamble",
+        "page": null,
+        "line": 12
+       },
+       "quote": "Once the user has been authenticated, you can provide the user with information about order, product, profile information, e.g. help the user look up order id."
+      },
+      {
+       "id": "policy:preamble:9",
+       "text": "You can only help one user per conversation (but you can handle multiple requests from the same user), and must deny any requests for tasks related to any other user.",
+       "types": [
+        "eligibility_filter",
+        "prohibition"
+       ],
+       "modality": "must",
+       "source": {
+        "document": "policy",
+        "section": "preamble",
+        "page": null,
+        "line": 14
+       },
+       "quote": "You can only help one user per conversation (but you can handle multiple requests from the same user), and must deny any requests for tasks related to any other user."
+      },
+      {
+       "id": "policy:preamble:10",
+       "text": "Before taking any action that updates the database (cancel, modify, return, exchange), you must list the action details and obtain explicit user confirmation (yes) to proceed.",
+       "types": [
+        "procedure",
+        "approval"
+       ],
+       "modality": "must",
+       "source": {
+        "document": "policy",
+        "section": "preamble",
+        "page": null,
+        "line": 16
+       },
+       "quote": "Before taking any action that updates the database (cancel, modify, return, exchange), you must list the action details and obtain explicit user confirmation (yes) to proceed."
+      },
+      {
+       "id": "policy:preamble:11",
+       "text": "You should not make up any information or knowledge or procedures not provided by the user or the tools, or give subjective recommendations or comments.",
+       "types": [
+        "prohibition"
+       ],
+       "modality": "should",
+       "source": {
+        "document": "policy",
+        "section": "preamble",
+        "page": null,
+        "line": 18
+       },
+       "quote": "You should not make up any information or knowledge or procedures not provided by the user or the tools, or give subjective recommendations or comments."
+      },
+      {
+       "id": "policy:preamble:12",
+       "text": "You should at most make one tool call at a time, and if you take a tool call, you should not respond to the user at the same time.",
+       "types": [
+        "procedure"
+       ],
+       "modality": "should",
+       "source": {
+        "document": "policy",
+        "section": "preamble",
+        "page": null,
+        "line": 20
+       },
+       "quote": "You should at most make one tool call at a time, and if you take a tool call, you should not respond to the user at the same time."
+      },
+      {
+       "id": "policy:preamble:13",
+       "text": "If you respond to the user, you should not make a tool call at the same time.",
+       "types": [
+        "procedure"
+       ],
+       "modality": "should",
+       "source": {
+        "document": "policy",
+        "section": "preamble",
+        "page": null,
+        "line": 20
+       },
+       "quote": "If you respond to the user, you should not make a tool call at the same time."
+      },
+      {
+       "id": "policy:preamble:14",
+       "text": "You should deny user requests that are against this policy.",
+       "types": [
+        "prohibition"
+       ],
+       "modality": "should",
+       "source": {
+        "document": "policy",
+        "section": "preamble",
+        "page": null,
+        "line": 22
+       },
+       "quote": "You should deny user requests that are against this policy."
+      },
+      {
+       "id": "policy:preamble:15",
+       "text": "You should transfer the user to a human agent if and only if the request cannot be handled within the scope of your actions.",
+       "types": [
+        "eligibility_filter",
+        "procedure"
+       ],
+       "modality": "should",
+       "source": {
+        "document": "policy",
+        "section": "preamble",
+        "page": null,
+        "line": 24
+       },
+       "quote": "You should transfer the user to a human agent if and only if the request cannot be handled within the scope of your actions."
+      },
+      {
+       "id": "policy:preamble:16",
+       "text": "To transfer, first make a tool call to transfer_to_human_agents, and then send the message 'YOU ARE BEING TRANSFERRED TO A HUMAN AGENT.",
+       "types": [
+        "procedure"
+       ],
+       "modality": "must",
+       "source": {
+        "document": "policy",
+        "section": "preamble",
+        "page": null,
+        "line": 24
+       },
+       "quote": "To transfer, first make a tool call to transfer_to_human_agents, and then send the message 'YOU ARE BEING TRANSFERRED TO A HUMAN AGENT."
+      },
+      {
+       "id": "policy:preamble:17",
+       "text": "PLEASE HOLD ON.' to the user.",
+       "types": [
+        "open_judgment"
+       ],
+       "modality": null,
+       "source": {
+        "document": "policy",
+        "section": "preamble",
+        "page": null,
+        "line": 24
+       },
+       "quote": "PLEASE HOLD ON.' to the user."
+      }
+     ],
+     "source": {},
+     "quote": ""
+    },
+    {
+     "id": "domain-basic",
+     "title": "Domain basic",
+     "page": null,
+     "parent": null,
+     "statements": [
+      {
+       "id": "policy:domain-basic:1",
+       "text": "All times in the database are EST and 24 hour based.",
+       "types": [
+        "definition",
+        "format"
+       ],
+       "modality": "must",
+       "source": {
+        "document": "policy",
+        "section": "domain-basic",
+        "page": null,
+        "line": 28
+       },
+       "quote": "All times in the database are EST and 24 hour based."
+      },
+      {
+       "id": "policy:domain-basic:2",
+       "text": "For example \"02:30:00\" means 2:30 AM EST.",
+       "types": [
+        "definition"
+       ],
+       "modality": "must",
+       "source": {
+        "document": "policy",
+        "section": "domain-basic",
+        "page": null,
+        "line": 28
+       },
+       "quote": "For example \"02:30:00\" means 2:30 AM EST."
+      }
+     ],
+     "source": {
+      "document": "policy",
+      "section": "domain-basic",
+      "page": null
+     },
+     "quote": "Domain basic"
+    },
+    {
+     "id": "user",
+     "title": "User",
+     "page": null,
+     "parent": null,
+     "statements": [
+      {
+       "id": "policy:user:1",
+       "text": "Each user has a profile containing:",
+       "types": [
+        "definition"
+       ],
+       "modality": "must",
+       "source": {
+        "document": "policy",
+        "section": "user",
+        "page": null,
+        "line": 32
+       },
+       "quote": "Each user has a profile containing:"
+      },
+      {
+       "id": "policy:user:2",
+       "text": "unique user id",
+       "types": [
+        "required_field"
+       ],
+       "modality": "must",
+       "source": {
+        "document": "policy",
+        "section": "user",
+        "page": null,
+        "line": 34
+       },
+       "quote": "unique user id"
+      },
+      {
+       "id": "policy:user:3",
+       "text": "email",
+       "types": [
+        "required_field"
+       ],
+       "modality": "must",
+       "source": {
+        "document": "policy",
+        "section": "user",
+        "page": null,
+        "line": 35
+       },
+       "quote": "email"
+      },
+      {
+       "id": "policy:user:4",
+       "text": "default address",
+       "types": [
+        "required_field"
+       ],
+       "modality": "must",
+       "source": {
+        "document": "policy",
+        "section": "user",
+        "page": null,
+        "line": 36
+       },
+       "quote": "default address"
+      },
+      {
+       "id": "policy:user:5",
+       "text": "payment methods.",
+       "types": [
+        "required_field"
+       ],
+       "modality": "must",
+       "source": {
+        "document": "policy",
+        "section": "user",
+        "page": null,
+        "line": 37
+       },
+       "quote": "payment methods."
+      },
+      {
+       "id": "policy:user:6",
+       "text": "There are three types of payment methods: gift card, paypal account, credit card.",
+       "types": [
+        "allowed_values",
+        "definition"
+       ],
+       "modality": "must",
+       "source": {
+        "document": "policy",
+        "section": "user",
+        "page": null,
+        "line": 39
+       },
+       "quote": "There are three types of payment methods: gift card, paypal account, credit card."
+      }
+     ],
+     "source": {
+      "document": "policy",
+      "section": "user",
+      "page": null
+     },
+     "quote": "User"
+    },
+    {
+     "id": "product",
+     "title": "Product",
+     "page": null,
+     "parent": null,
+     "statements": [
+      {
+       "id": "policy:product:1",
+       "text": "Our retail store has 50 types of products.",
+       "types": [
+        "threshold"
+       ],
+       "modality": "must",
+       "source": {
+        "document": "policy",
+        "section": "product",
+        "page": null,
+        "line": 43
+       },
+       "quote": "Our retail store has 50 types of products."
+      },
+      {
+       "id": "policy:product:2",
+       "text": "For each type of product, there are variant items of different options.",
+       "types": [
+        "required_field",
+        "definition"
+       ],
+       "modality": "must",
+       "source": {
+        "document": "policy",
+        "section": "product",
+        "page": null,
+        "line": 45
+       },
+       "quote": "For each type of product, there are variant items of different options."
+      },
+      {
+       "id": "policy:product:3",
+       "text": "For example, for a 't-shirt' product, there could be a variant item with option 'color blue size M', and another variant item with option 'color red size L'.",
+       "types": [
+        "definition"
+       ],
+       "modality": "may",
+       "source": {
+        "document": "policy",
+        "section": "product",
+        "page": null,
+        "line": 47
+       },
+       "quote": "For example, for a 't-shirt' product, there could be a variant item with option 'color blue size M', and another variant item with option 'color red size L'."
+      },
+      {
+       "id": "policy:product:4",
+       "text": "Each product has the following attributes:",
+       "types": [
+        "definition"
+       ],
+       "modality": "must",
+       "source": {
+        "document": "policy",
+        "section": "product",
+        "page": null,
+        "line": 49
+       },
+       "quote": "Each product has the following attributes:"
+      },
+      {
+       "id": "policy:product:5",
+       "text": "unique product id",
+       "types": [
+        "definition"
+       ],
+       "modality": "must",
+       "source": {
+        "document": "policy",
+        "section": "product",
+        "page": null,
+        "line": 51
+       },
+       "quote": "unique product id"
+      },
+      {
+       "id": "policy:product:6",
+       "text": "name",
+       "types": [
+        "definition"
+       ],
+       "modality": "must",
+       "source": {
+        "document": "policy",
+        "section": "product",
+        "page": null,
+        "line": 52
+       },
+       "quote": "name"
+      },
+      {
+       "id": "policy:product:7",
+       "text": "list of variants",
+       "types": [
+        "definition"
+       ],
+       "modality": "must",
+       "source": {
+        "document": "policy",
+        "section": "product",
+        "page": null,
+        "line": 53
+       },
+       "quote": "list of variants"
+      },
+      {
+       "id": "policy:product:8",
+       "text": "Each variant item has the following attributes:",
+       "types": [
+        "definition"
+       ],
+       "modality": "must",
+       "source": {
+        "document": "policy",
+        "section": "product",
+        "page": null,
+        "line": 55
+       },
+       "quote": "Each variant item has the following attributes:"
+      },
+      {
+       "id": "policy:product:9",
+       "text": "unique item id",
+       "types": [
+        "definition"
+       ],
+       "modality": "must",
+       "source": {
+        "document": "policy",
+        "section": "product",
+        "page": null,
+        "line": 57
+       },
+       "quote": "unique item id"
+      },
+      {
+       "id": "policy:product:10",
+       "text": "information about the value of the product options for this item.",
+       "types": [
+        "definition"
+       ],
+       "modality": "must",
+       "source": {
+        "document": "policy",
+        "section": "product",
+        "page": null,
+        "line": 58
+       },
+       "quote": "information about the value of the product options for this item."
+      },
+      {
+       "id": "policy:product:11",
+       "text": "availability",
+       "types": [
+        "definition"
+       ],
+       "modality": "must",
+       "source": {
+        "document": "policy",
+        "section": "product",
+        "page": null,
+        "line": 59
+       },
+       "quote": "availability"
+      },
+      {
+       "id": "policy:product:12",
+       "text": "price",
+       "types": [
+        "definition"
+       ],
+       "modality": "must",
+       "source": {
+        "document": "policy",
+        "section": "product",
+        "page": null,
+        "line": 60
+       },
+       "quote": "price"
+      },
+      {
+       "id": "policy:product:13",
+       "text": "Note: Product ID and Item ID have no relations and should not be confused!",
+       "types": [
+        "prohibition"
+       ],
+       "modality": "must_not",
+       "source": {
+        "document": "policy",
+        "section": "product",
+        "page": null,
+        "line": 62
+       },
+       "quote": "Note: Product ID and Item ID have no relations and should not be confused!"
+      }
+     ],
+     "source": {
+      "document": "policy",
+      "section": "product",
+      "page": null
+     },
+     "quote": "Product"
+    },
+    {
+     "id": "order",
+     "title": "Order",
+     "page": null,
+     "parent": null,
+     "statements": [
+      {
+       "id": "policy:order:1",
+       "text": "Each order has the following attributes:",
+       "types": [
+        "definition"
+       ],
+       "modality": "must",
+       "source": {
+        "document": "policy",
+        "section": "order",
+        "page": null,
+        "line": 66
+       },
+       "quote": "Each order has the following attributes:"
+      },
+      {
+       "id": "policy:order:2",
+       "text": "unique order id",
+       "types": [
+        "required_field"
+       ],
+       "modality": "must",
+       "source": {
+        "document": "policy",
+        "section": "order",
+        "page": null,
+        "line": 68
+       },
+       "quote": "unique order id"
+      },
+      {
+       "id": "policy:order:3",
+       "text": "user id",
+       "types": [
+        "required_field"
+       ],
+       "modality": "must",
+       "source": {
+        "document": "policy",
+        "section": "order",
+        "page": null,
+        "line": 69
+       },
+       "quote": "user id"
+      },
+      {
+       "id": "policy:order:4",
+       "text": "address",
+       "types": [
+        "required_field"
+       ],
+       "modality": "must",
+       "source": {
+        "document": "policy",
+        "section": "order",
+        "page": null,
+        "line": 70
+       },
+       "quote": "address"
+      },
+      {
+       "id": "policy:order:5",
+       "text": "items ordered",
+       "types": [
+        "required_field"
+       ],
+       "modality": "must",
+       "source": {
+        "document": "policy",
+        "section": "order",
+        "page": null,
+        "line": 71
+       },
+       "quote": "items ordered"
+      },
+      {
+       "id": "policy:order:6",
+       "text": "status",
+       "types": [
+        "required_field"
+       ],
+       "modality": "must",
+       "source": {
+        "document": "policy",
+        "section": "order",
+        "page": null,
+        "line": 72
+       },
+       "quote": "status"
+      },
+      {
+       "id": "policy:order:7",
+       "text": "fullfilments info (tracking id and item ids)",
+       "types": [
+        "required_field"
+       ],
+       "modality": "must",
+       "source": {
+        "document": "policy",
+        "section": "order",
+        "page": null,
+        "line": 73
+       },
+       "quote": "fullfilments info (tracking id and item ids)"
+      },
+      {
+       "id": "policy:order:8",
+       "text": "payment history",
+       "types": [
+        "required_field"
+       ],
+       "modality": "must",
+       "source": {
+        "document": "policy",
+        "section": "order",
+        "page": null,
+        "line": 74
+       },
+       "quote": "payment history"
+      },
+      {
+       "id": "policy:order:9",
+       "text": "The status of an order can be: pending, processed, delivered, or cancelled.",
+       "types": [
+        "allowed_values"
+       ],
+       "modality": "must",
+       "source": {
+        "document": "policy",
+        "section": "order",
+        "page": null,
+        "line": 76
+       },
+       "quote": "The status of an order can be: pending, processed, delivered, or cancelled."
+      },
+      {
+       "id": "policy:order:10",
+       "text": "Orders can have other optional attributes based on the actions that have been taken (cancellation reason, which items have been exchanged, what was the exchane price difference etc)",
+       "types": [
+        "eligibility_filter"
+       ],
+       "modality": "may",
+       "source": {
+        "document": "policy",
+        "section": "order",
+        "page": null,
+        "line": 78
+       },
+       "quote": "Orders can have other optional attributes based on the actions that have been taken (cancellation reason, which items have been exchanged, what was the exchane price difference etc)"
+      }
+     ],
+     "source": {
+      "document": "policy",
+      "section": "order",
+      "page": null
+     },
+     "quote": "Order"
+    },
+    {
+     "id": "generic-action-rules",
+     "title": "Generic action rules",
+     "page": null,
+     "parent": null,
+     "statements": [
+      {
+       "id": "policy:generic-action-rules:1",
+       "text": "Generally, you can only take action on pending or delivered orders.",
+       "types": [
+        "eligibility_filter"
+       ],
+       "modality": "must",
+       "source": {
+        "document": "policy",
+        "section": "generic-action-rules",
+        "page": null,
+        "line": 82
+       },
+       "quote": "Generally, you can only take action on pending or delivered orders."
+      },
+      {
+       "id": "policy:generic-action-rules:2",
+       "text": "Exchange or modify order tools can only be called once per order.",
+       "types": [
+        "threshold",
+        "prohibition"
+       ],
+       "modality": "must",
+       "source": {
+        "document": "policy",
+        "section": "generic-action-rules",
+        "page": null,
+        "line": 84
+       },
+       "quote": "Exchange or modify order tools can only be called once per order."
+      },
+      {
+       "id": "policy:generic-action-rules:3",
+       "text": "Be sure that all items to be changed are collected into a list before making the tool call!!!",
+       "types": [
+        "format"
+       ],
+       "modality": "must",
+       "source": {
+        "document": "policy",
+        "section": "generic-action-rules",
+        "page": null,
+        "line": 84
+       },
+       "quote": "Be sure that all items to be changed are collected into a list before making the tool call!!!"
+      }
+     ],
+     "source": {
+      "document": "policy",
+      "section": "generic-action-rules",
+      "page": null
+     },
+     "quote": "Generic action rules"
+    },
+    {
+     "id": "cancel-pending-order",
+     "title": "Cancel pending order",
+     "page": null,
+     "parent": null,
+     "statements": [
+      {
+       "id": "policy:cancel-pending-order:1",
+       "text": "An order can only be cancelled if its status is 'pending', and you should check its status before taking the action.",
+       "types": [
+        "state_transition",
+        "eligibility_filter"
+       ],
+       "modality": "must",
+       "source": {
+        "document": "policy",
+        "section": "cancel-pending-order",
+        "page": null,
+        "line": 88
+       },
+       "quote": "An order can only be cancelled if its status is 'pending', and you should check its status before taking the action."
+      },
+      {
+       "id": "policy:cancel-pending-order:2",
+       "text": "The user needs to confirm the order id and the reason (either 'no longer needed' or 'ordered by mistake') for cancellation.",
+       "types": [
+        "required_field",
+        "allowed_values"
+       ],
+       "modality": "must",
+       "source": {
+        "document": "policy",
+        "section": "cancel-pending-order",
+        "page": null,
+        "line": 90
+       },
+       "quote": "The user needs to confirm the order id and the reason (either 'no longer needed' or 'ordered by mistake') for cancellation."
+      },
+      {
+       "id": "policy:cancel-pending-order:3",
+       "text": "Other reasons are not acceptable.",
+       "types": [
+        "allowed_values"
+       ],
+       "modality": "must_not",
+       "source": {
+        "document": "policy",
+        "section": "cancel-pending-order",
+        "page": null,
+        "line": 90
+       },
+       "quote": "Other reasons are not acceptable."
+      },
+      {
+       "id": "policy:cancel-pending-order:4",
+       "text": "After user confirmation, the order status will be changed to 'cancelled', and the total will be refunded via the original payment method immediately if it is gift card, otherwise in 5 to 7 business days.",
+       "types": [
+        "state_transition",
+        "deadline"
+       ],
+       "modality": "must",
+       "source": {
+        "document": "policy",
+        "section": "cancel-pending-order",
+        "page": null,
+        "line": 92
+       },
+       "quote": "After user confirmation, the order status will be changed to 'cancelled', and the total will be refunded via the original payment method immediately if it is gift card, otherwise in 5 to 7 business days."
+      }
+     ],
+     "source": {
+      "document": "policy",
+      "section": "cancel-pending-order",
+      "page": null
+     },
+     "quote": "Cancel pending order"
+    },
+    {
+     "id": "modify-pending-order",
+     "title": "Modify pending order",
+     "page": null,
+     "parent": null,
+     "statements": [
+      {
+       "id": "policy:modify-pending-order:1",
+       "text": "An order can only be modified if its status is 'pending', and you should check its status before taking the action.",
+       "types": [
+        "eligibility_filter"
+       ],
+       "modality": "must",
+       "source": {
+        "document": "policy",
+        "section": "modify-pending-order",
+        "page": null,
+        "line": 96
+       },
+       "quote": "An order can only be modified if its status is 'pending', and you should check its status before taking the action."
+      },
+      {
+       "id": "policy:modify-pending-order:2",
+       "text": "For a pending order, you can take actions to modify its shipping address, payment method, or product item options, but nothing else.",
+       "types": [
+        "allowed_values",
+        "prohibition"
+       ],
+       "modality": "must",
+       "source": {
+        "document": "policy",
+        "section": "modify-pending-order",
+        "page": null,
+        "line": 98
+       },
+       "quote": "For a pending order, you can take actions to modify its shipping address, payment method, or product item options, but nothing else."
+      }
+     ],
+     "source": {
+      "document": "policy",
+      "section": "modify-pending-order",
+      "page": null
+     },
+     "quote": "Modify pending order"
+    },
+    {
+     "id": "modify-payment",
+     "title": "Modify payment",
+     "page": null,
+     "parent": null,
+     "statements": [
+      {
+       "id": "policy:modify-payment:1",
+       "text": "The user can only choose a single payment method different from the original payment method.",
+       "types": [
+        "allowed_values",
+        "prohibition"
+       ],
+       "modality": "must",
+       "source": {
+        "document": "policy",
+        "section": "modify-payment",
+        "page": null,
+        "line": 102
+       },
+       "quote": "The user can only choose a single payment method different from the original payment method."
+      },
+      {
+       "id": "policy:modify-payment:2",
+       "text": "If the user wants the modify the payment method to gift card, it must have enough balance to cover the total amount.",
+       "types": [
+        "threshold"
+       ],
+       "modality": "must",
+       "source": {
+        "document": "policy",
+        "section": "modify-payment",
+        "page": null,
+        "line": 104
+       },
+       "quote": "If the user wants the modify the payment method to gift card, it must have enough balance to cover the total amount."
+      },
+      {
+       "id": "policy:modify-payment:3",
+       "text": "After user confirmation, the order status will be kept as 'pending'.",
+       "types": [
+        "state_transition"
+       ],
+       "modality": "must",
+       "source": {
+        "document": "policy",
+        "section": "modify-payment",
+        "page": null,
+        "line": 106
+       },
+       "quote": "After user confirmation, the order status will be kept as 'pending'."
+      },
+      {
+       "id": "policy:modify-payment:4",
+       "text": "The original payment method will be refunded immediately if it is a gift card, otherwise it will be refunded within 5 to 7 business days.",
+       "types": [
+        "deadline"
+       ],
+       "modality": "must",
+       "source": {
+        "document": "policy",
+        "section": "modify-payment",
+        "page": null,
+        "line": 106
+       },
+       "quote": "The original payment method will be refunded immediately if it is a gift card, otherwise it will be refunded within 5 to 7 business days."
+      }
+     ],
+     "source": {
+      "document": "policy",
+      "section": "modify-payment",
+      "page": null
+     },
+     "quote": "Modify payment"
+    },
+    {
+     "id": "modify-items",
+     "title": "Modify items",
+     "page": null,
+     "parent": null,
+     "statements": [
+      {
+       "id": "policy:modify-items:1",
+       "text": "This action can only be called once, and will change the order status to 'pending (items modifed)'.",
+       "types": [
+        "threshold",
+        "state_transition"
+       ],
+       "modality": "must",
+       "source": {
+        "document": "policy",
+        "section": "modify-items",
+        "page": null,
+        "line": 110
+       },
+       "quote": "This action can only be called once, and will change the order status to 'pending (items modifed)'."
+      },
+      {
+       "id": "policy:modify-items:2",
+       "text": "The agent will not be able to modify or cancel the order anymore.",
+       "types": [
+        "prohibition"
+       ],
+       "modality": "must_not",
+       "source": {
+        "document": "policy",
+        "section": "modify-items",
+        "page": null,
+        "line": 110
+       },
+       "quote": "The agent will not be able to modify or cancel the order anymore."
+      },
+      {
+       "id": "policy:modify-items:3",
+       "text": "So you must confirm all the details are correct and be cautious before taking this action.",
+       "types": [
+        "procedure"
+       ],
+       "modality": "must",
+       "source": {
+        "document": "policy",
+        "section": "modify-items",
+        "page": null,
+        "line": 110
+       },
+       "quote": "So you must confirm all the details are correct and be cautious before taking this action."
+      },
+      {
+       "id": "policy:modify-items:4",
+       "text": "In particular, remember to remind the customer to confirm they have provided all the items they want to modify.",
+       "types": [
+        "notification_duty"
+       ],
+       "modality": "should",
+       "source": {
+        "document": "policy",
+        "section": "modify-items",
+        "page": null,
+        "line": 110
+       },
+       "quote": "In particular, remember to remind the customer to confirm they have provided all the items they want to modify."
+      },
+      {
+       "id": "policy:modify-items:5",
+       "text": "For a pending order, each item can be modified to an available new item of the same product but of different product option.",
+       "types": [
+        "eligibility_filter",
+        "allowed_values"
+       ],
+       "modality": "may",
+       "source": {
+        "document": "policy",
+        "section": "modify-items",
+        "page": null,
+        "line": 112
+       },
+       "quote": "For a pending order, each item can be modified to an available new item of the same product but of different product option."
+      },
+      {
+       "id": "policy:modify-items:6",
+       "text": "There cannot be any change of product types, e.g. modify shirt to shoe.",
+       "types": [
+        "prohibition"
+       ],
+       "modality": "must_not",
+       "source": {
+        "document": "policy",
+        "section": "modify-items",
+        "page": null,
+        "line": 112
+       },
+       "quote": "There cannot be any change of product types, e.g. modify shirt to shoe."
+      },
+      {
+       "id": "policy:modify-items:7",
+       "text": "The user must provide a payment method to pay or receive refund of the price difference.",
+       "types": [
+        "required_field"
+       ],
+       "modality": "must",
+       "source": {
+        "document": "policy",
+        "section": "modify-items",
+        "page": null,
+        "line": 114
+       },
+       "quote": "The user must provide a payment method to pay or receive refund of the price difference."
+      },
+      {
+       "id": "policy:modify-items:8",
+       "text": "If the user provides a gift card, it must have enough balance to cover the price difference.",
+       "types": [
+        "threshold"
+       ],
+       "modality": "must",
+       "source": {
+        "document": "policy",
+        "section": "modify-items",
+        "page": null,
+        "line": 114
+       },
+       "quote": "If the user provides a gift card, it must have enough balance to cover the price difference."
+      }
+     ],
+     "source": {
+      "document": "policy",
+      "section": "modify-items",
+      "page": null
+     },
+     "quote": "Modify items"
+    },
+    {
+     "id": "return-delivered-order",
+     "title": "Return delivered order",
+     "page": null,
+     "parent": null,
+     "statements": [
+      {
+       "id": "policy:return-delivered-order:1",
+       "text": "An order can only be returned if its status is 'delivered', and you should check its status before taking the action.",
+       "types": [
+        "eligibility_filter"
+       ],
+       "modality": "must",
+       "source": {
+        "document": "policy",
+        "section": "return-delivered-order",
+        "page": null,
+        "line": 118
+       },
+       "quote": "An order can only be returned if its status is 'delivered', and you should check its status before taking the action."
+      },
+      {
+       "id": "policy:return-delivered-order:2",
+       "text": "The user needs to confirm the order id and the list of items to be returned.",
+       "types": [
+        "required_field"
+       ],
+       "modality": "must",
+       "source": {
+        "document": "policy",
+        "section": "return-delivered-order",
+        "page": null,
+        "line": 120
+       },
+       "quote": "The user needs to confirm the order id and the list of items to be returned."
+      },
+      {
+       "id": "policy:return-delivered-order:3",
+       "text": "The user needs to provide a payment method to receive the refund.",
+       "types": [
+        "required_field"
+       ],
+       "modality": "must",
+       "source": {
+        "document": "policy",
+        "section": "return-delivered-order",
+        "page": null,
+        "line": 122
+       },
+       "quote": "The user needs to provide a payment method to receive the refund."
+      },
+      {
+       "id": "policy:return-delivered-order:4",
+       "text": "The refund must either go to the original payment method, or an existing gift card.",
+       "types": [
+        "allowed_values"
+       ],
+       "modality": "must",
+       "source": {
+        "document": "policy",
+        "section": "return-delivered-order",
+        "page": null,
+        "line": 124
+       },
+       "quote": "The refund must either go to the original payment method, or an existing gift card."
+      },
+      {
+       "id": "policy:return-delivered-order:5",
+       "text": "After user confirmation, the order status will be changed to 'return requested', and the user will receive an email regarding how to return items.",
+       "types": [
+        "state_transition",
+        "notification_duty"
+       ],
+       "modality": "must",
+       "source": {
+        "document": "policy",
+        "section": "return-delivered-order",
+        "page": null,
+        "line": 126
+       },
+       "quote": "After user confirmation, the order status will be changed to 'return requested', and the user will receive an email regarding how to return items."
+      }
+     ],
+     "source": {
+      "document": "policy",
+      "section": "return-delivered-order",
+      "page": null
+     },
+     "quote": "Return delivered order"
+    },
+    {
+     "id": "exchange-delivered-order",
+     "title": "Exchange delivered order",
+     "page": null,
+     "parent": null,
+     "statements": [
+      {
+       "id": "policy:exchange-delivered-order:1",
+       "text": "An order can only be exchanged if its status is 'delivered', and you should check its status before taking the action.",
+       "types": [
+        "eligibility_filter"
+       ],
+       "modality": "must",
+       "source": {
+        "document": "policy",
+        "section": "exchange-delivered-order",
+        "page": null,
+        "line": 130
+       },
+       "quote": "An order can only be exchanged if its status is 'delivered', and you should check its status before taking the action."
+      },
+      {
+       "id": "policy:exchange-delivered-order:2",
+       "text": "In particular, remember to remind the customer to confirm they have provided all items to be exchanged.",
+       "types": [
+        "notification_duty"
+       ],
+       "modality": "should",
+       "source": {
+        "document": "policy",
+        "section": "exchange-delivered-order",
+        "page": null,
+        "line": 130
+       },
+       "quote": "In particular, remember to remind the customer to confirm they have provided all items to be exchanged."
+      },
+      {
+       "id": "policy:exchange-delivered-order:3",
+       "text": "For a delivered order, each item can be exchanged to an available new item of the same product but of different product option.",
+       "types": [
+        "allowed_values"
+       ],
+       "modality": "must",
+       "source": {
+        "document": "policy",
+        "section": "exchange-delivered-order",
+        "page": null,
+        "line": 132
+       },
+       "quote": "For a delivered order, each item can be exchanged to an available new item of the same product but of different product option."
+      },
+      {
+       "id": "policy:exchange-delivered-order:4",
+       "text": "There cannot be any change of product types, e.g. modify shirt to shoe.",
+       "types": [
+        "prohibition"
+       ],
+       "modality": "must_not",
+       "source": {
+        "document": "policy",
+        "section": "exchange-delivered-order",
+        "page": null,
+        "line": 132
+       },
+       "quote": "There cannot be any change of product types, e.g. modify shirt to shoe."
+      },
+      {
+       "id": "policy:exchange-delivered-order:5",
+       "text": "The user must provide a payment method to pay or receive refund of the price difference.",
+       "types": [
+        "required_field"
+       ],
+       "modality": "must",
+       "source": {
+        "document": "policy",
+        "section": "exchange-delivered-order",
+        "page": null,
+        "line": 134
+       },
+       "quote": "The user must provide a payment method to pay or receive refund of the price difference."
+      },
+      {
+       "id": "policy:exchange-delivered-order:6",
+       "text": "If the user provides a gift card, it must have enough balance to cover the price difference.",
+       "types": [
+        "threshold"
+       ],
+       "modality": "must",
+       "source": {
+        "document": "policy",
+        "section": "exchange-delivered-order",
+        "page": null,
+        "line": 134
+       },
+       "quote": "If the user provides a gift card, it must have enough balance to cover the price difference."
+      },
+      {
+       "id": "policy:exchange-delivered-order:7",
+       "text": "After user confirmation, the order status will be changed to 'exchange requested', and the user will receive an email regarding how to return items.",
+       "types": [
+        "state_transition",
+        "notification_duty"
+       ],
+       "modality": "must",
+       "source": {
+        "document": "policy",
+        "section": "exchange-delivered-order",
+        "page": null,
+        "line": 136
+       },
+       "quote": "After user confirmation, the order status will be changed to 'exchange requested', and the user will receive an email regarding how to return items."
+      },
+      {
+       "id": "policy:exchange-delivered-order:8",
+       "text": "There is no need to place a new order.",
+       "types": [
+        "prohibition"
+       ],
+       "modality": "must_not",
+       "source": {
+        "document": "policy",
+        "section": "exchange-delivered-order",
+        "page": null,
+        "line": 136
+       },
+       "quote": "There is no need to place a new order."
+      }
+     ],
+     "source": {
+      "document": "policy",
+      "section": "exchange-delivered-order",
+      "page": null
+     },
+     "quote": "Exchange delivered order"
+    }
+   ],
+   "structure": {
+    "headings": [
+     {
+      "pattern": "^(?:ARTICLE|Article|PART|Part|CHAPTER|Chapter|SECTION|Section|CLAUSE|Clause|SCHEDULE|Schedule|ANNEX|Annex|EXHIBIT|Exhibit|RULE|Rule)\\s+(?P<id>[0-9]+[A-Za-z]?|[IVXLC]+)\\b[.:\\-–]?\\s*(?P<title>.*)$",
+      "level": 1,
+      "kind": "heading"
+     },
+     {
+      "pattern": "^(?P<id>[IVX]{1,5})\\.\\s+(?P<title>[A-Z][^.]{0,80})$",
+      "level": 1,
+      "kind": "heading"
+     },
+     {
+      "pattern": "^\\((?P<id>[a-z])\\)\\s+",
+      "level": 2,
+      "kind": "clause"
+     }
+    ],
+    "references": [
+     "\\b(?:Article|Part|Chapter|Clause|Schedule|Annex|Exhibit|Rule|Item)\\s+(?P<ref>[0-9]+(?:\\.[0-9]+)*[A-Za-z]?|[IVXLCDM]+|[A-Z])\\b",
+     "\\bclause\\s+\\((?P<ref>[a-z])\\)",
+     "\\bparagraph\\s+(?P<ref>\\d+(?:\\.\\d+)*)"
+    ],
+    "by": "code"
+   },
+   "source": {
+    "document": "policy",
+    "file": "policy.md"
+   },
+   "quote": "Retail agent policy"
+  }
+ ],
+ "rules": [
+  {
+   "id": "g_8c3f3ab05173",
+   "type": "guidance",
+   "rule": {
+    "type": "guidance",
+    "text": "As a retail agent, you can help users:",
+    "tools": [],
+    "quote": "As a retail agent, you can help users:",
+    "by": "model",
+    "from_verify": "8c3f3ab05173",
+    "id": "g_8c3f3ab05173"
+   },
+   "statement_ids": [
+    "policy:preamble:1"
+   ],
+   "checker": "brief",
+   "may_deny": true,
+   "source": {
+    "document": "policy",
+    "section": "preamble",
+    "page": null,
+    "line": 3
+   },
+   "quote": "As a retail agent, you can help users:",
+   "class": "guidance",
+   "level": "observe",
+   "extra": {
+    "_flat": true
+   }
+  },
+  {
+   "id": "8c3407ce6921",
+   "type": "guidance",
+   "rule": {
+    "type": "guidance",
+    "text": "cancel or modify pending orders",
+    "tools": [],
+    "quote": "cancel or modify pending orders",
+    "source": "§preamble",
+    "by": "model",
+    "id": "8c3407ce6921"
+   },
+   "statement_ids": [
+    "policy:preamble:2"
+   ],
+   "checker": "brief",
+   "may_deny": true,
+   "source": {
+    "document": "policy",
+    "section": "preamble",
+    "page": null,
+    "line": 5
+   },
+   "quote": "cancel or modify pending orders",
+   "class": "guidance",
+   "level": "observe",
+   "extra": {
+    "_flat": true
+   }
+  },
+  {
+   "id": "e73406176a0e",
+   "type": "guidance",
+   "rule": {
+    "type": "guidance",
+    "text": "return or exchange delivered orders",
+    "tools": [],
+    "quote": "return or exchange delivered orders",
+    "source": "§preamble",
+    "by": "model",
+    "id": "e73406176a0e"
+   },
+   "statement_ids": [
+    "policy:preamble:3"
+   ],
+   "checker": "brief",
+   "may_deny": true,
+   "source": {
+    "document": "policy",
+    "section": "preamble",
+    "page": null,
+    "line": 6
+   },
+   "quote": "return or exchange delivered orders",
+   "class": "guidance",
+   "level": "observe",
+   "extra": {
+    "_flat": true
+   }
+  },
+  {
+   "id": "4b27db2cc942",
+   "type": "guidance",
+   "rule": {
+    "type": "guidance",
+    "text": "modify their default user address",
+    "tools": [],
+    "quote": "modify their default user address",
+    "source": "§preamble",
+    "by": "model",
+    "id": "4b27db2cc942"
+   },
+   "statement_ids": [
+    "policy:preamble:4"
+   ],
+   "checker": "brief",
+   "may_deny": true,
+   "source": {
+    "document": "policy",
+    "section": "preamble",
+    "page": null,
+    "line": 7
+   },
+   "quote": "modify their default user address",
+   "class": "guidance",
+   "level": "observe",
+   "extra": {
+    "_flat": true
+   }
+  },
+  {
+   "id": "7679d38a602f",
+   "type": "guidance",
+   "rule": {
+    "type": "guidance",
+    "text": "provide information about their own profile, orders, and related products",
+    "tools": [],
+    "quote": "provide information about their own profile, orders, and related products",
+    "source": "§preamble",
+    "by": "model",
+    "id": "7679d38a602f"
+   },
+   "statement_ids": [
+    "policy:preamble:5"
+   ],
+   "checker": "brief",
+   "may_deny": true,
+   "source": {
+    "document": "policy",
+    "section": "preamble",
+    "page": null,
+    "line": 8
+   },
+   "quote": "provide information about their own profile, orders, and related products",
+   "class": "guidance",
+   "level": "observe",
+   "extra": {
+    "_flat": true
+   }
+  },
+  {
+   "id": "ba04aee7d412",
+   "type": "guidance",
+   "rule": {
+    "type": "guidance",
+    "text": "At the beginning of the conversation, you have to authenticate the user identity by locating their user id via email, or via name + zip code.",
+    "tools": [],
+    "quote": "At the beginning of the conversation, you have to authenticate the user identity by locating their user id via email, or via name + zip code.",
+    "source": "§preamble",
+    "by": "model",
+    "id": "ba04aee7d412"
+   },
+   "statement_ids": [
+    "policy:preamble:6"
+   ],
+   "checker": "brief",
+   "may_deny": true,
+   "source": {
+    "document": "policy",
+    "section": "preamble",
+    "page": null,
+    "line": 10
+   },
+   "quote": "At the beginning of the conversation, you have to authenticate the user identity by locating their user id via email, or via name + zip code.",
+   "class": "guidance",
+   "level": "observe",
+   "extra": {
+    "_flat": true
+   }
+  },
+  {
+   "id": "32eceda7d60d",
+   "type": "guidance",
+   "rule": {
+    "type": "guidance",
+    "text": "This has to be done even when the user already provides the user id.",
+    "tools": [],
+    "quote": "This has to be done even when the user already provides the user id.",
+    "source": "§preamble",
+    "by": "model",
+    "id": "32eceda7d60d"
+   },
+   "statement_ids": [
+    "policy:preamble:7"
+   ],
+   "checker": "brief",
+   "may_deny": true,
+   "source": {
+    "document": "policy",
+    "section": "preamble",
+    "page": null,
+    "line": 10
+   },
+   "quote": "This has to be done even when the user already provides the user id.",
+   "class": "guidance",
+   "level": "observe",
+   "extra": {
+    "_flat": true
+   }
+  },
+  {
+   "id": "f57fe035b56d",
+   "type": "guidance",
+   "rule": {
+    "type": "guidance",
+    "text": "Once the user has been authenticated, you can provide the user with information about order, product, profile information, e.g. help the user look up order id.",
+    "tools": [],
+    "quote": "Once the user has been authenticated, you can provide the user with information about order, product, profile information, e.g. help the user look up order id.",
+    "source": "§preamble",
+    "by": "model",
+    "id": "f57fe035b56d"
+   },
+   "statement_ids": [
+    "policy:preamble:8"
+   ],
+   "checker": "brief",
+   "may_deny": true,
+   "source": {
+    "document": "policy",
+    "section": "preamble",
+    "page": null,
+    "line": 12
+   },
+   "quote": "Once the user has been authenticated, you can provide the user with information about order, product, profile information, e.g. help the user look up order id.",
+   "class": "guidance",
+   "level": "observe",
+   "extra": {
+    "_flat": true
+   }
+  },
+  {
+   "id": "f8af27a9dfa7",
+   "type": "guidance",
+   "rule": {
+    "type": "guidance",
+    "text": "You can only help one user per conversation (but you can handle multiple requests from the same user), and must deny any requests for tasks related to any other user.",
+    "tools": [],
+    "quote": "You can only help one user per conversation (but you can handle multiple requests from the same user), and must deny any requests for tasks related to any other user.",
+    "source": "§preamble",
+    "by": "model",
+    "id": "f8af27a9dfa7"
+   },
+   "statement_ids": [
+    "policy:preamble:9"
+   ],
+   "checker": "brief",
+   "may_deny": true,
+   "source": {
+    "document": "policy",
+    "section": "preamble",
+    "page": null,
+    "line": 14
+   },
+   "quote": "You can only help one user per conversation (but you can handle multiple requests from the same user), and must deny any requests for tasks related to any other user.",
+   "class": "guidance",
+   "level": "observe",
+   "extra": {
+    "_flat": true
+   }
+  },
+  {
+   "id": "746ceb917fba",
+   "type": "guidance",
+   "rule": {
+    "type": "guidance",
+    "text": "Before taking any action that updates the database (cancel, modify, return, exchange), you must list the action details and obtain explicit user confirmation (yes) to proceed.",
+    "tools": [],
+    "quote": "Before taking any action that updates the database (cancel, modify, return, exchange), you must list the action details and obtain explicit user confirmation (yes) to proceed.",
+    "source": "§preamble",
+    "by": "model",
+    "id": "746ceb917fba"
+   },
+   "statement_ids": [
+    "policy:preamble:10"
+   ],
+   "checker": "brief",
+   "may_deny": true,
+   "source": {
+    "document": "policy",
+    "section": "preamble",
+    "page": null,
+    "line": 16
+   },
+   "quote": "Before taking any action that updates the database (cancel, modify, return, exchange), you must list the action details and obtain explicit user confirmation (yes) to proceed.",
+   "class": "guidance",
+   "level": "observe",
+   "extra": {
+    "_flat": true
+   }
+  },
+  {
+   "id": "82a59d138868",
+   "type": "guidance",
+   "rule": {
+    "type": "guidance",
+    "text": "You should not make up any information or knowledge or procedures not provided by the user or the tools, or give subjective recommendations or comments.",
+    "tools": [],
+    "quote": "You should not make up any information or knowledge or procedures not provided by the user or the tools, or give subjective recommendations or comments.",
+    "source": "§preamble",
+    "by": "model",
+    "id": "82a59d138868"
+   },
+   "statement_ids": [
+    "policy:preamble:11"
+   ],
+   "checker": "brief",
+   "may_deny": true,
+   "source": {
+    "document": "policy",
+    "section": "preamble",
+    "page": null,
+    "line": 18
+   },
+   "quote": "You should not make up any information or knowledge or procedures not provided by the user or the tools, or give subjective recommendations or comments.",
+   "class": "guidance",
+   "level": "observe",
+   "extra": {
+    "_flat": true
+   }
+  },
+  {
+   "id": "c57892d0fa00",
+   "type": "guidance",
+   "rule": {
+    "type": "guidance",
+    "text": "You should at most make one tool call at a time, and if you take a tool call, you should not respond to the user at the same time.",
+    "tools": [],
+    "quote": "You should at most make one tool call at a time, and if you take a tool call, you should not respond to the user at the same time.",
+    "source": "§preamble",
+    "by": "model",
+    "id": "c57892d0fa00"
+   },
+   "statement_ids": [
+    "policy:preamble:12"
+   ],
+   "checker": "brief",
+   "may_deny": true,
+   "source": {
+    "document": "policy",
+    "section": "preamble",
+    "page": null,
+    "line": 20
+   },
+   "quote": "You should at most make one tool call at a time, and if you take a tool call, you should not respond to the user at the same time.",
+   "class": "guidance",
+   "level": "observe",
+   "extra": {
+    "_flat": true
+   }
+  },
+  {
+   "id": "c9bdc4b36909",
+   "type": "guidance",
+   "rule": {
+    "type": "guidance",
+    "text": "If you respond to the user, you should not make a tool call at the same time.",
+    "tools": [],
+    "quote": "If you respond to the user, you should not make a tool call at the same time.",
+    "source": "§preamble",
+    "by": "model",
+    "id": "c9bdc4b36909"
+   },
+   "statement_ids": [
+    "policy:preamble:13"
+   ],
+   "checker": "brief",
+   "may_deny": true,
+   "source": {
+    "document": "policy",
+    "section": "preamble",
+    "page": null,
+    "line": 20
+   },
+   "quote": "If you respond to the user, you should not make a tool call at the same time.",
+   "class": "guidance",
+   "level": "observe",
+   "extra": {
+    "_flat": true
+   }
+  },
+  {
+   "id": "29dae1d2fa00",
+   "type": "guidance",
+   "rule": {
+    "type": "guidance",
+    "text": "You should deny user requests that are against this policy.",
+    "tools": [],
+    "quote": "You should deny user requests that are against this policy.",
+    "source": "§preamble",
+    "by": "model",
+    "id": "29dae1d2fa00"
+   },
+   "statement_ids": [
+    "policy:preamble:14"
+   ],
+   "checker": "brief",
+   "may_deny": true,
+   "source": {
+    "document": "policy",
+    "section": "preamble",
+    "page": null,
+    "line": 22
+   },
+   "quote": "You should deny user requests that are against this policy.",
+   "class": "guidance",
+   "level": "observe",
+   "extra": {
+    "_flat": true
+   }
+  },
+  {
+   "id": "ad5e105273c2",
+   "type": "guidance",
+   "rule": {
+    "type": "guidance",
+    "text": "You should transfer the user to a human agent if and only if the request cannot be handled within the scope of your actions.",
+    "tools": [],
+    "quote": "You should transfer the user to a human agent if and only if the request cannot be handled within the scope of your actions.",
+    "source": "§preamble",
+    "by": "model",
+    "id": "ad5e105273c2"
+   },
+   "statement_ids": [
+    "policy:preamble:15"
+   ],
+   "checker": "brief",
+   "may_deny": true,
+   "source": {
+    "document": "policy",
+    "section": "preamble",
+    "page": null,
+    "line": 24
+   },
+   "quote": "You should transfer the user to a human agent if and only if the request cannot be handled within the scope of your actions.",
+   "class": "guidance",
+   "level": "observe",
+   "extra": {
+    "_flat": true
+   }
+  },
+  {
+   "id": "1141eef101c7",
+   "type": "guidance",
+   "rule": {
+    "type": "guidance",
+    "text": "To transfer, first make a tool call to transfer_to_human_agents, and then send the message 'YOU ARE BEING TRANSFERRED TO A HUMAN AGENT.",
+    "tools": [],
+    "quote": "To transfer, first make a tool call to transfer_to_human_agents, and then send the message 'YOU ARE BEING TRANSFERRED TO A HUMAN AGENT.",
+    "source": "§preamble",
+    "by": "model",
+    "id": "1141eef101c7"
+   },
+   "statement_ids": [
+    "policy:preamble:16"
+   ],
+   "checker": "brief",
+   "may_deny": true,
+   "source": {
+    "document": "policy",
+    "section": "preamble",
+    "page": null,
+    "line": 24
+   },
+   "quote": "To transfer, first make a tool call to transfer_to_human_agents, and then send the message 'YOU ARE BEING TRANSFERRED TO A HUMAN AGENT.",
+   "class": "guidance",
+   "level": "observe",
+   "extra": {
+    "_flat": true
+   }
+  },
+  {
+   "id": "867c1fc8c806",
+   "type": "guidance",
+   "rule": {
+    "type": "guidance",
+    "text": "PLEASE HOLD ON.' to the user.",
+    "tools": [],
+    "quote": "PLEASE HOLD ON.' to the user.",
+    "source": "§preamble",
+    "by": "model",
+    "id": "867c1fc8c806"
+   },
+   "statement_ids": [
+    "policy:preamble:17"
+   ],
+   "checker": "brief",
+   "may_deny": true,
+   "source": {
+    "document": "policy",
+    "section": "preamble",
+    "page": null,
+    "line": 24
+   },
+   "quote": "PLEASE HOLD ON.' to the user.",
+   "class": "guidance",
+   "level": "observe",
+   "extra": {
+    "_flat": true
+   }
+  },
+  {
+   "id": "g_0fb972c154e1",
+   "type": "guidance",
+   "rule": {
+    "type": "guidance",
+    "text": "unique user id",
+    "tools": [],
+    "quote": "unique user id",
+    "by": "model",
+    "from_verify": "0fb972c154e1",
+    "id": "g_0fb972c154e1"
+   },
+   "statement_ids": [
+    "policy:user:2"
+   ],
+   "checker": "brief",
+   "may_deny": true,
+   "source": {
+    "document": "policy",
+    "section": "user",
+    "page": null,
+    "line": 34
+   },
+   "quote": "unique user id",
+   "class": "guidance",
+   "level": "observe",
+   "extra": {
+    "_flat": true
+   }
+  },
+  {
+   "id": "g_80a6a91cdc9a",
+   "type": "guidance",
+   "rule": {
+    "type": "guidance",
+    "text": "email",
+    "tools": [],
+    "quote": "email",
+    "by": "model",
+    "from_verify": "80a6a91cdc9a",
+    "id": "g_80a6a91cdc9a"
+   },
+   "statement_ids": [
+    "policy:user:3"
+   ],
+   "checker": "brief",
+   "may_deny": true,
+   "source": {
+    "document": "policy",
+    "section": "user",
+    "page": null,
+    "line": 35
+   },
+   "quote": "email",
+   "class": "guidance",
+   "level": "observe",
+   "extra": {
+    "_flat": true
+   }
+  },
+  {
+   "id": "g_4b079a82c555",
+   "type": "guidance",
+   "rule": {
+    "type": "guidance",
+    "text": "default address",
+    "tools": [],
+    "quote": "default address",
+    "by": "model",
+    "from_verify": "4b079a82c555",
+    "id": "g_4b079a82c555"
+   },
+   "statement_ids": [
+    "policy:user:4"
+   ],
+   "checker": "brief",
+   "may_deny": true,
+   "source": {
+    "document": "policy",
+    "section": "user",
+    "page": null,
+    "line": 36
+   },
+   "quote": "default address",
+   "class": "guidance",
+   "level": "observe",
+   "extra": {
+    "_flat": true
+   }
+  },
+  {
+   "id": "g_ffa28bcee2bb",
+   "type": "guidance",
+   "rule": {
+    "type": "guidance",
+    "text": "payment methods.",
+    "tools": [],
+    "quote": "payment methods.",
+    "by": "model",
+    "from_verify": "ffa28bcee2bb",
+    "id": "g_ffa28bcee2bb"
+   },
+   "statement_ids": [
+    "policy:user:5"
+   ],
+   "checker": "brief",
+   "may_deny": true,
+   "source": {
+    "document": "policy",
+    "section": "user",
+    "page": null,
+    "line": 37
+   },
+   "quote": "payment methods.",
+   "class": "guidance",
+   "level": "observe",
+   "extra": {
+    "_flat": true
+   }
+  },
+  {
+   "id": "g_4908ffdcd8f8",
+   "type": "guidance",
+   "rule": {
+    "type": "guidance",
+    "text": "Our retail store has 50 types of products.",
+    "tools": [],
+    "quote": "Our retail store has 50 types of products.",
+    "by": "model",
+    "from_verify": "4908ffdcd8f8",
+    "id": "g_4908ffdcd8f8"
+   },
+   "statement_ids": [
+    "policy:product:1"
+   ],
+   "checker": "brief",
+   "may_deny": true,
+   "source": {
+    "document": "policy",
+    "section": "product",
+    "page": null,
+    "line": 43
+   },
+   "quote": "Our retail store has 50 types of products.",
+   "class": "guidance",
+   "level": "observe",
+   "extra": {
+    "_flat": true
+   }
+  },
+  {
+   "id": "g_64b2a46ee2b7",
+   "type": "guidance",
+   "rule": {
+    "type": "guidance",
+    "text": "Note: Product ID and Item ID have no relations and should not be confused!",
+    "tools": [],
+    "quote": "Note: Product ID and Item ID have no relations and should not be confused!",
+    "by": "model",
+    "from_verify": "64b2a46ee2b7",
+    "id": "g_64b2a46ee2b7"
+   },
+   "statement_ids": [
+    "policy:product:13"
+   ],
+   "checker": "brief",
+   "may_deny": true,
+   "source": {
+    "document": "policy",
+    "section": "product",
+    "page": null,
+    "line": 62
+   },
+   "quote": "Note: Product ID and Item ID have no relations and should not be confused!",
+   "class": "guidance",
+   "level": "observe",
+   "extra": {
+    "_flat": true
+   }
+  },
+  {
+   "id": "g_112334e51a41",
+   "type": "guidance",
+   "rule": {
+    "type": "guidance",
+    "text": "unique order id",
+    "tools": [],
+    "quote": "unique order id",
+    "by": "model",
+    "from_verify": "112334e51a41",
+    "id": "g_112334e51a41"
+   },
+   "statement_ids": [
+    "policy:order:2"
+   ],
+   "checker": "brief",
+   "may_deny": true,
+   "source": {
+    "document": "policy",
+    "section": "order",
+    "page": null,
+    "line": 68
+   },
+   "quote": "unique order id",
+   "class": "guidance",
+   "level": "observe",
+   "extra": {
+    "_flat": true
+   }
+  },
+  {
+   "id": "g_0bba5b23d768",
+   "type": "guidance",
+   "rule": {
+    "type": "guidance",
+    "text": "user id",
+    "tools": [],
+    "quote": "user id",
+    "by": "model",
+    "from_verify": "0bba5b23d768",
+    "id": "g_0bba5b23d768"
+   },
+   "statement_ids": [
+    "policy:order:3"
+   ],
+   "checker": "brief",
+   "may_deny": true,
+   "source": {
+    "document": "policy",
+    "section": "order",
+    "page": null,
+    "line": 69
+   },
+   "quote": "user id",
+   "class": "guidance",
+   "level": "observe",
+   "extra": {
+    "_flat": true
+   }
+  },
+  {
+   "id": "g_20ad1c77e5c3",
+   "type": "guidance",
+   "rule": {
+    "type": "guidance",
+    "text": "address",
+    "tools": [],
+    "quote": "address",
+    "by": "model",
+    "from_verify": "20ad1c77e5c3",
+    "id": "g_20ad1c77e5c3"
+   },
+   "statement_ids": [
+    "policy:order:4"
+   ],
+   "checker": "brief",
+   "may_deny": true,
+   "source": {
+    "document": "policy",
+    "section": "order",
+    "page": null,
+    "line": 70
+   },
+   "quote": "address",
+   "class": "guidance",
+   "level": "observe",
+   "extra": {
+    "_flat": true
+   }
+  },
+  {
+   "id": "g_bb52db9ca47b",
+   "type": "guidance",
+   "rule": {
+    "type": "guidance",
+    "text": "items ordered",
+    "tools": [],
+    "quote": "items ordered",
+    "by": "model",
+    "from_verify": "bb52db9ca47b",
+    "id": "g_bb52db9ca47b"
+   },
+   "statement_ids": [
+    "policy:order:5"
+   ],
+   "checker": "brief",
+   "may_deny": true,
+   "source": {
+    "document": "policy",
+    "section": "order",
+    "page": null,
+    "line": 71
+   },
+   "quote": "items ordered",
+   "class": "guidance",
+   "level": "observe",
+   "extra": {
+    "_flat": true
+   }
+  },
+  {
+   "id": "g_054a819a27e4",
+   "type": "guidance",
+   "rule": {
+    "type": "guidance",
+    "text": "status",
+    "tools": [],
+    "quote": "status",
+    "by": "model",
+    "from_verify": "054a819a27e4",
+    "id": "g_054a819a27e4"
+   },
+   "statement_ids": [
+    "policy:order:6"
+   ],
+   "checker": "brief",
+   "may_deny": true,
+   "source": {
+    "document": "policy",
+    "section": "order",
+    "page": null,
+    "line": 72
+   },
+   "quote": "status",
+   "class": "guidance",
+   "level": "observe",
+   "extra": {
+    "_flat": true
+   }
+  },
+  {
+   "id": "g_8f9cdb290712",
+   "type": "guidance",
+   "rule": {
+    "type": "guidance",
+    "text": "fullfilments info (tracking id and item ids)",
+    "tools": [],
+    "quote": "fullfilments info (tracking id and item ids)",
+    "by": "model",
+    "from_verify": "8f9cdb290712",
+    "id": "g_8f9cdb290712"
+   },
+   "statement_ids": [
+    "policy:order:7"
+   ],
+   "checker": "brief",
+   "may_deny": true,
+   "source": {
+    "document": "policy",
+    "section": "order",
+    "page": null,
+    "line": 73
+   },
+   "quote": "fullfilments info (tracking id and item ids)",
+   "class": "guidance",
+   "level": "observe",
+   "extra": {
+    "_flat": true
+   }
+  },
+  {
+   "id": "g_f2486d2b8e92",
+   "type": "guidance",
+   "rule": {
+    "type": "guidance",
+    "text": "payment history",
+    "tools": [],
+    "quote": "payment history",
+    "by": "model",
+    "from_verify": "f2486d2b8e92",
+    "id": "g_f2486d2b8e92"
+   },
+   "statement_ids": [
+    "policy:order:8"
+   ],
+   "checker": "brief",
+   "may_deny": true,
+   "source": {
+    "document": "policy",
+    "section": "order",
+    "page": null,
+    "line": 74
+   },
+   "quote": "payment history",
+   "class": "guidance",
+   "level": "observe",
+   "extra": {
+    "_flat": true
+   }
+  },
+  {
+   "id": "g_88cb949190ae",
+   "type": "guidance",
+   "rule": {
+    "type": "guidance",
+    "text": "The status of an order can be: pending, processed, delivered, or cancelled.",
+    "tools": [],
+    "quote": "The status of an order can be: pending, processed, delivered, or cancelled.",
+    "by": "model",
+    "from_verify": "88cb949190ae",
+    "id": "g_88cb949190ae"
+   },
+   "statement_ids": [
+    "policy:order:9"
+   ],
+   "checker": "brief",
+   "may_deny": true,
+   "source": {
+    "document": "policy",
+    "section": "order",
+    "page": null,
+    "line": 76
+   },
+   "quote": "The status of an order can be: pending, processed, delivered, or cancelled.",
+   "class": "guidance",
+   "level": "observe",
+   "extra": {
+    "_flat": true
+   }
+  },
+  {
+   "id": "g_5104b6bafd5e",
+   "type": "guidance",
+   "rule": {
+    "type": "guidance",
+    "text": "Generally, you can only take action on pending or delivered orders.",
+    "tools": [],
+    "quote": "Generally, you can only take action on pending or delivered orders.",
+    "by": "model",
+    "from_verify": "5104b6bafd5e",
+    "id": "g_5104b6bafd5e"
+   },
+   "statement_ids": [
+    "policy:generic-action-rules:1"
+   ],
+   "checker": "brief",
+   "may_deny": true,
+   "source": {
+    "document": "policy",
+    "section": "generic-action-rules",
+    "page": null,
+    "line": 82
+   },
+   "quote": "Generally, you can only take action on pending or delivered orders.",
+   "class": "guidance",
+   "level": "observe",
+   "extra": {
+    "_flat": true
+   }
+  },
+  {
+   "id": "05673c4fe000",
+   "type": "threshold",
+   "rule": {
+    "type": "threshold",
+    "quote": "Exchange or modify order tools can only be called once per order.",
+    "tool": "exchange_delivered_order_items",
+    "arg": "order_id",
+    "op": "gt",
+    "value": 1,
+    "then": "forbid",
+    "source": "§generic-action-rules",
+    "by": "model",
+    "id": "05673c4fe000"
+   },
+   "statement_ids": [
+    "policy:generic-action-rules:2"
+   ],
+   "checker": "code",
+   "may_deny": true,
+   "source": {
+    "document": "policy",
+    "section": "generic-action-rules",
+    "page": null,
+    "line": 84
+   },
+   "quote": "Exchange or modify order tools can only be called once per order.",
+   "class": "hard",
+   "level": "deny",
+   "extra": {
+    "_flat": true
+   }
+  },
+  {
+   "id": "09d8ff48c7e6",
+   "type": "threshold",
+   "rule": {
+    "type": "threshold",
+    "quote": "Exchange or modify order tools can only be called once per order.",
+    "tool": "modify_pending_order_address",
+    "arg": "order_id",
+    "op": "gt",
+    "value": 1,
+    "then": "forbid",
+    "source": "§generic-action-rules",
+    "by": "model",
+    "id": "09d8ff48c7e6"
+   },
+   "statement_ids": [
+    "policy:generic-action-rules:2"
+   ],
+   "checker": "code",
+   "may_deny": true,
+   "source": {
+    "document": "policy",
+    "section": "generic-action-rules",
+    "page": null,
+    "line": 84
+   },
+   "quote": "Exchange or modify order tools can only be called once per order.",
+   "class": "hard",
+   "level": "deny",
+   "extra": {
+    "_flat": true
+   }
+  },
+  {
+   "id": "bc39fd2536af",
+   "type": "threshold",
+   "rule": {
+    "type": "threshold",
+    "quote": "Exchange or modify order tools can only be called once per order.",
+    "tool": "modify_pending_order_items",
+    "arg": "order_id",
+    "op": "gt",
+    "value": 1,
+    "then": "forbid",
+    "source": "§generic-action-rules",
+    "by": "model",
+    "id": "bc39fd2536af"
+   },
+   "statement_ids": [
+    "policy:generic-action-rules:2"
+   ],
+   "checker": "code",
+   "may_deny": true,
+   "source": {
+    "document": "policy",
+    "section": "generic-action-rules",
+    "page": null,
+    "line": 84
+   },
+   "quote": "Exchange or modify order tools can only be called once per order.",
+   "class": "hard",
+   "level": "deny",
+   "extra": {
+    "_flat": true
+   }
+  },
+  {
+   "id": "94a5e3f7f7ae",
+   "type": "threshold",
+   "rule": {
+    "type": "threshold",
+    "quote": "Exchange or modify order tools can only be called once per order.",
+    "tool": "modify_pending_order_payment",
+    "arg": "order_id",
+    "op": "gt",
+    "value": 1,
+    "then": "forbid",
+    "source": "§generic-action-rules",
+    "by": "model",
+    "id": "94a5e3f7f7ae"
+   },
+   "statement_ids": [
+    "policy:generic-action-rules:2"
+   ],
+   "checker": "code",
+   "may_deny": true,
+   "source": {
+    "document": "policy",
+    "section": "generic-action-rules",
+    "page": null,
+    "line": 84
+   },
+   "quote": "Exchange or modify order tools can only be called once per order.",
+   "class": "hard",
+   "level": "deny",
+   "extra": {
+    "_flat": true
+   }
+  },
+  {
+   "id": "4e15acfb7b10",
+   "type": "format",
+   "rule": {
+    "type": "format",
+    "quote": "Be sure that all items to be changed are collected into a list before making the tool call!!!",
+    "tool": "exchange_delivered_order_items",
+    "arg": "item_ids",
+    "pattern": "^\\[.*\\]$",
+    "source": "§generic-action-rules",
+    "by": "model",
+    "id": "4e15acfb7b10"
+   },
+   "statement_ids": [
+    "policy:generic-action-rules:3"
+   ],
+   "checker": "code",
+   "may_deny": true,
+   "source": {
+    "document": "policy",
+    "section": "generic-action-rules",
+    "page": null,
+    "line": 84
+   },
+   "quote": "Be sure that all items to be changed are collected into a list before making the tool call!!!",
+   "class": "hard",
+   "level": "deny",
+   "extra": {
+    "_flat": true
+   }
+  },
+  {
+   "id": "7a20ffdfa23c",
+   "type": "format",
+   "rule": {
+    "type": "format",
+    "quote": "Be sure that all items to be changed are collected into a list before making the tool call!!!",
+    "tool": "exchange_delivered_order_items",
+    "arg": "new_item_ids",
+    "pattern": "^\\[.*\\]$",
+    "source": "§generic-action-rules",
+    "by": "model",
+    "id": "7a20ffdfa23c"
+   },
+   "statement_ids": [
+    "policy:generic-action-rules:3"
+   ],
+   "checker": "code",
+   "may_deny": true,
+   "source": {
+    "document": "policy",
+    "section": "generic-action-rules",
+    "page": null,
+    "line": 84
+   },
+   "quote": "Be sure that all items to be changed are collected into a list before making the tool call!!!",
+   "class": "hard",
+   "level": "deny",
+   "extra": {
+    "_flat": true
+   }
+  },
+  {
+   "id": "c760ae1da214",
+   "type": "format",
+   "rule": {
+    "type": "format",
+    "quote": "Be sure that all items to be changed are collected into a list before making the tool call!!!",
+    "tool": "modify_pending_order_items",
+    "arg": "item_ids",
+    "pattern": "^\\[.*\\]$",
+    "source": "§generic-action-rules",
+    "by": "model",
+    "id": "c760ae1da214"
+   },
+   "statement_ids": [
+    "policy:generic-action-rules:3"
+   ],
+   "checker": "code",
+   "may_deny": true,
+   "source": {
+    "document": "policy",
+    "section": "generic-action-rules",
+    "page": null,
+    "line": 84
+   },
+   "quote": "Be sure that all items to be changed are collected into a list before making the tool call!!!",
+   "class": "hard",
+   "level": "deny",
+   "extra": {
+    "_flat": true
+   }
+  },
+  {
+   "id": "1754cb247197",
+   "type": "format",
+   "rule": {
+    "type": "format",
+    "quote": "Be sure that all items to be changed are collected into a list before making the tool call!!!",
+    "tool": "modify_pending_order_items",
+    "arg": "new_item_ids",
+    "pattern": "^\\[.*\\]$",
+    "source": "§generic-action-rules",
+    "by": "model",
+    "id": "1754cb247197"
+   },
+   "statement_ids": [
+    "policy:generic-action-rules:3"
+   ],
+   "checker": "code",
+   "may_deny": true,
+   "source": {
+    "document": "policy",
+    "section": "generic-action-rules",
+    "page": null,
+    "line": 84
+   },
+   "quote": "Be sure that all items to be changed are collected into a list before making the tool call!!!",
+   "class": "hard",
+   "level": "deny",
+   "extra": {
+    "_flat": true
+   }
+  },
+  {
+   "id": "3b933cb86a3c",
+   "type": "format",
+   "rule": {
+    "type": "format",
+    "quote": "Be sure that all items to be changed are collected into a list before making the tool call!!!",
+    "tool": "return_delivered_order_items",
+    "arg": "item_ids",
+    "pattern": "^\\[.*\\]$",
+    "source": "§generic-action-rules",
+    "by": "model",
+    "id": "3b933cb86a3c"
+   },
+   "statement_ids": [
+    "policy:generic-action-rules:3"
+   ],
+   "checker": "code",
+   "may_deny": true,
+   "source": {
+    "document": "policy",
+    "section": "generic-action-rules",
+    "page": null,
+    "line": 84
+   },
+   "quote": "Be sure that all items to be changed are collected into a list before making the tool call!!!",
+   "class": "hard",
+   "level": "deny",
+   "extra": {
+    "_flat": true
+   }
+  },
+  {
+   "id": "3e547a9938de",
+   "type": "required_args",
+   "rule": {
+    "type": "required_args",
+    "quote": "The user needs to confirm the order id and the reason (either 'no longer needed' or 'ordered by mistake') for cancellation.",
+    "tool": "cancel_pending_order",
+    "args": [
+     "order_id",
+     "reason"
+    ],
+    "source": "§cancel-pending-order",
+    "by": "model",
+    "id": "3e547a9938de"
+   },
+   "statement_ids": [
+    "policy:cancel-pending-order:2"
+   ],
+   "checker": "code",
+   "may_deny": true,
+   "source": {
+    "document": "policy",
+    "section": "cancel-pending-order",
+    "page": null,
+    "line": 90
+   },
+   "quote": "The user needs to confirm the order id and the reason (either 'no longer needed' or 'ordered by mistake') for cancellation.",
+   "class": "hard",
+   "level": "deny",
+   "extra": {
+    "_flat": true
+   }
+  },
+  {
+   "id": "d741273e61f9",
+   "type": "allowed_values",
+   "rule": {
+    "type": "allowed_values",
+    "quote": "The user needs to confirm the order id and the reason (either 'no longer needed' or 'ordered by mistake') for cancellation.",
+    "tool": "cancel_pending_order",
+    "arg": "reason",
+    "values": [
+     "no longer needed",
+     "ordered by mistake"
+    ],
+    "source": "§cancel-pending-order",
+    "by": "model",
+    "id": "d741273e61f9"
+   },
+   "statement_ids": [
+    "policy:cancel-pending-order:2"
+   ],
+   "checker": "code",
+   "may_deny": true,
+   "source": {
+    "document": "policy",
+    "section": "cancel-pending-order",
+    "page": null,
+    "line": 90
+   },
+   "quote": "The user needs to confirm the order id and the reason (either 'no longer needed' or 'ordered by mistake') for cancellation.",
+   "class": "hard",
+   "level": "deny",
+   "extra": {
+    "_flat": true
+   }
+  },
+  {
+   "id": "b44aa52b1d4b",
+   "type": "allowed_values",
+   "rule": {
+    "type": "allowed_values",
+    "quote": "Other reasons are not acceptable.",
+    "tool": "cancel_pending_order",
+    "arg": "reason",
+    "values": [
+     "no longer needed",
+     "ordered by mistake"
+    ],
+    "source": "§cancel-pending-order",
+    "by": "model",
+    "id": "b44aa52b1d4b"
+   },
+   "statement_ids": [
+    "policy:cancel-pending-order:3"
+   ],
+   "checker": "code",
+   "may_deny": true,
+   "source": {
+    "document": "policy",
+    "section": "cancel-pending-order",
+    "page": null,
+    "line": 90
+   },
+   "quote": "Other reasons are not acceptable.",
+   "class": "hard",
+   "level": "deny",
+   "extra": {
+    "_flat": true
+   }
+  },
+  {
+   "id": "g_1ceec78df6ec",
+   "type": "guidance",
+   "rule": {
+    "type": "guidance",
+    "text": "After user confirmation, the order status will be changed to 'cancelled', and the total will be refunded via the original payment method immediately if it is gift card, otherwise in 5 to 7 business days.",
+    "tools": [],
+    "quote": "After user confirmation, the order status will be changed to 'cancelled', and the total will be refunded via the original payment method immediately if it is gift card, otherwise in 5 to 7 business days.",
+    "by": "model",
+    "from_verify": "1ceec78df6ec",
+    "id": "g_1ceec78df6ec"
+   },
+   "statement_ids": [
+    "policy:cancel-pending-order:4"
+   ],
+   "checker": "brief",
+   "may_deny": true,
+   "source": {
+    "document": "policy",
+    "section": "cancel-pending-order",
+    "page": null,
+    "line": 92
+   },
+   "quote": "After user confirmation, the order status will be changed to 'cancelled', and the total will be refunded via the original payment method immediately if it is gift card, otherwise in 5 to 7 business days.",
+   "class": "guidance",
+   "level": "observe",
+   "extra": {
+    "_flat": true
+   }
+  },
+  {
+   "id": "4ccad486373d",
+   "type": "record_condition",
+   "rule": {
+    "type": "record_condition",
+    "quote": "An order can only be modified if its status is 'pending', and you should check its status before taking the action.",
+    "tools": [
+     "modify_pending_order_address",
+     "modify_pending_order_items",
+     "modify_pending_order_payment"
+    ],
+    "field": "status",
+    "op": "equals",
+    "value": "pending",
+    "effect": "forbid",
+    "source": "§modify-pending-order",
+    "by": "model",
+    "id": "4ccad486373d"
+   },
+   "statement_ids": [
+    "policy:modify-pending-order:1"
+   ],
+   "checker": "code",
+   "may_deny": true,
+   "source": {
+    "document": "policy",
+    "section": "modify-pending-order",
+    "page": null,
+    "line": 96
+   },
+   "quote": "An order can only be modified if its status is 'pending', and you should check its status before taking the action.",
+   "class": "hard",
+   "level": "deny",
+   "extra": {
+    "_flat": true
+   }
+  },
+  {
+   "id": "2154110b9b5e",
+   "type": "record_condition",
+   "rule": {
+    "type": "record_condition",
+    "quote": "For a pending order, you can take actions to modify its shipping address, payment method, or product item options, but nothing else.",
+    "tools": [
+     "cancel_pending_order",
+     "exchange_delivered_order_items",
+     "return_delivered_order_items"
+    ],
+    "field": "status",
+    "op": "equals",
+    "value": "pending",
+    "effect": "forbid",
+    "source": "§modify-pending-order",
+    "by": "model",
+    "id": "2154110b9b5e"
+   },
+   "statement_ids": [
+    "policy:modify-pending-order:2"
+   ],
+   "checker": "code",
+   "may_deny": true,
+   "source": {
+    "document": "policy",
+    "section": "modify-pending-order",
+    "page": null,
+    "line": 98
+   },
+   "quote": "For a pending order, you can take actions to modify its shipping address, payment method, or product item options, but nothing else.",
+   "class": "hard",
+   "level": "deny",
+   "extra": {
+    "_flat": true
+   }
+  },
+  {
+   "id": "4ccdd57b52a5",
+   "type": "verify",
+   "rule": {
+    "id": "4ccdd57b52a5",
+    "type": "verify",
+    "statement": "The user can only choose a single payment method different from the original payment method.",
+    "tools": [
+     "modify_pending_order_payment"
+    ],
+    "types": [
+     "allowed_values",
+     "prohibition"
+    ],
+    "source": "§modify-payment",
+    "quote": "The user can only choose a single payment method different from the original payment method."
+   },
+   "statement_ids": [
+    "policy:modify-payment:1"
+   ],
+   "checker": "verifier",
+   "may_deny": true,
+   "source": {
+    "document": "policy",
+    "section": "modify-payment",
+    "page": null,
+    "line": 102
+   },
+   "quote": "The user can only choose a single payment method different from the original payment method.",
+   "class": "judgment",
+   "level": "remind",
+   "extra": {
+    "_flat": true
+   }
+  },
+  {
+   "id": "81dd181b8971",
+   "type": "record_condition",
+   "rule": {
+    "type": "record_condition",
+    "quote": "The agent will not be able to modify or cancel the order anymore.",
+    "tools": [
+     "modify_pending_order_items",
+     "cancel_pending_order"
+    ],
+    "field": "status",
+    "op": "equals",
+    "value": "pending (items modifed)",
+    "effect": "forbid",
+    "source": "§modify-items",
+    "by": "model",
+    "id": "81dd181b8971"
+   },
+   "statement_ids": [
+    "policy:modify-items:2"
+   ],
+   "checker": "code",
+   "may_deny": true,
+   "source": {
+    "document": "policy",
+    "section": "modify-items",
+    "page": null,
+    "line": 110
+   },
+   "quote": "The agent will not be able to modify or cancel the order anymore.",
+   "class": "hard",
+   "level": "deny",
+   "extra": {
+    "_flat": true
+   }
+  },
+  {
+   "id": "852a034026a3",
+   "type": "guidance",
+   "rule": {
+    "type": "guidance",
+    "quote": "So you must confirm all the details are correct and be cautious before taking this action.",
+    "text": "So you must confirm all the details are correct and be cautious before taking this action.",
+    "tools": [],
+    "source": "§modify-items",
+    "by": "model",
+    "id": "852a034026a3"
+   },
+   "statement_ids": [
+    "policy:modify-items:3"
+   ],
+   "checker": "brief",
+   "may_deny": true,
+   "source": {
+    "document": "policy",
+    "section": "modify-items",
+    "page": null,
+    "line": 110
+   },
+   "quote": "So you must confirm all the details are correct and be cautious before taking this action.",
+   "class": "guidance",
+   "level": "observe",
+   "extra": {
+    "_flat": true
+   }
+  },
+  {
+   "id": "4a6cf8f41422",
+   "type": "duty",
+   "rule": {
+    "type": "duty",
+    "quote": "In particular, remember to remind the customer to confirm they have provided all the items they want to modify.",
+    "trigger": {
+     "tool": "modify_pending_order_items",
+     "when": {}
+    },
+    "then": {
+     "tool": "transfer_to_human_agents",
+     "when": {}
+    },
+    "source": "§modify-items",
+    "by": "model",
+    "id": "4a6cf8f41422"
+   },
+   "statement_ids": [
+    "policy:modify-items:4"
+   ],
+   "checker": "monitor",
+   "may_deny": true,
+   "source": {
+    "document": "policy",
+    "section": "modify-items",
+    "page": null,
+    "line": 110
+   },
+   "quote": "In particular, remember to remind the customer to confirm they have provided all the items they want to modify.",
+   "class": "hard",
+   "level": "remind",
+   "extra": {
+    "_flat": true
+   }
+  },
+  {
+   "id": "733e9f51d660_t1",
+   "type": "required_args",
+   "rule": {
+    "type": "required_args",
+    "tool": "exchange_delivered_order_items",
+    "args": [
+     "payment_method_id"
+    ],
+    "id": "733e9f51d660_t1",
+    "source": "§modify-items",
+    "quote": "The user must provide a payment method to pay or receive refund of the price difference.",
+    "by": "model",
+    "retyped_from": "733e9f51d660",
+    "may_deny": true
+   },
+   "statement_ids": [
+    "policy:modify-items:7"
+   ],
+   "checker": "code",
+   "may_deny": true,
+   "source": {
+    "document": "policy",
+    "section": "modify-items",
+    "page": null,
+    "line": 114
+   },
+   "quote": "The user must provide a payment method to pay or receive refund of the price difference.",
+   "class": "hard",
+   "level": "deny",
+   "extra": {
+    "_flat": true
+   }
+  },
+  {
+   "id": "733e9f51d660_t2",
+   "type": "required_args",
+   "rule": {
+    "type": "required_args",
+    "tool": "return_delivered_order_items",
+    "args": [
+     "payment_method_id"
+    ],
+    "id": "733e9f51d660_t2",
+    "source": "§modify-items",
+    "quote": "The user must provide a payment method to pay or receive refund of the price difference.",
+    "by": "model",
+    "retyped_from": "733e9f51d660",
+    "may_deny": true
+   },
+   "statement_ids": [
+    "policy:modify-items:7"
+   ],
+   "checker": "code",
+   "may_deny": true,
+   "source": {
+    "document": "policy",
+    "section": "modify-items",
+    "page": null,
+    "line": 114
+   },
+   "quote": "The user must provide a payment method to pay or receive refund of the price difference.",
+   "class": "hard",
+   "level": "deny",
+   "extra": {
+    "_flat": true
+   }
+  },
+  {
+   "id": "9b0cf7310873",
+   "type": "record_condition",
+   "rule": {
+    "type": "record_condition",
+    "quote": "An order can only be returned if its status is 'delivered', and you should check its status before taking the action.",
+    "tools": [
+     "return_delivered_order_items"
+    ],
+    "field": "status",
+    "op": "equals",
+    "value": "delivered",
+    "effect": "forbid",
+    "source": "§return-delivered-order",
+    "by": "model",
+    "id": "9b0cf7310873"
+   },
+   "statement_ids": [
+    "policy:return-delivered-order:1"
+   ],
+   "checker": "code",
+   "may_deny": true,
+   "source": {
+    "document": "policy",
+    "section": "return-delivered-order",
+    "page": null,
+    "line": 118
+   },
+   "quote": "An order can only be returned if its status is 'delivered', and you should check its status before taking the action.",
+   "class": "hard",
+   "level": "deny",
+   "extra": {
+    "_flat": true
+   }
+  },
+  {
+   "id": "dd38d5994936",
+   "type": "required_args",
+   "rule": {
+    "type": "required_args",
+    "quote": "The user needs to confirm the order id and the list of items to be returned.",
+    "tool": "return_delivered_order_items",
+    "args": [
+     "order_id",
+     "item_ids"
+    ],
+    "source": "§return-delivered-order",
+    "by": "model",
+    "id": "dd38d5994936"
+   },
+   "statement_ids": [
+    "policy:return-delivered-order:2"
+   ],
+   "checker": "code",
+   "may_deny": true,
+   "source": {
+    "document": "policy",
+    "section": "return-delivered-order",
+    "page": null,
+    "line": 120
+   },
+   "quote": "The user needs to confirm the order id and the list of items to be returned.",
+   "class": "hard",
+   "level": "deny",
+   "extra": {
+    "_flat": true
+   }
+  },
+  {
+   "id": "16c94c3034ec",
+   "type": "required_args",
+   "rule": {
+    "type": "required_args",
+    "quote": "The user needs to provide a payment method to receive the refund.",
+    "tool": "return_delivered_order_items",
+    "args": [
+     "payment_method_id"
+    ],
+    "source": "§return-delivered-order",
+    "by": "model",
+    "id": "16c94c3034ec"
+   },
+   "statement_ids": [
+    "policy:return-delivered-order:3"
+   ],
+   "checker": "code",
+   "may_deny": true,
+   "source": {
+    "document": "policy",
+    "section": "return-delivered-order",
+    "page": null,
+    "line": 122
+   },
+   "quote": "The user needs to provide a payment method to receive the refund.",
+   "class": "hard",
+   "level": "deny",
+   "extra": {
+    "_flat": true
+   }
+  },
+  {
+   "id": "g_be65ea5678bd",
+   "type": "guidance",
+   "rule": {
+    "type": "guidance",
+    "text": "The refund must either go to the original payment method, or an existing gift card.",
+    "tools": [],
+    "quote": "The refund must either go to the original payment method, or an existing gift card.",
+    "by": "model",
+    "from_verify": "be65ea5678bd",
+    "id": "g_be65ea5678bd"
+   },
+   "statement_ids": [
+    "policy:return-delivered-order:4"
+   ],
+   "checker": "brief",
+   "may_deny": true,
+   "source": {
+    "document": "policy",
+    "section": "return-delivered-order",
+    "page": null,
+    "line": 124
+   },
+   "quote": "The refund must either go to the original payment method, or an existing gift card.",
+   "class": "guidance",
+   "level": "observe",
+   "extra": {
+    "_flat": true
+   }
+  },
+  {
+   "id": "g_f1d9e7fa99f1",
+   "type": "guidance",
+   "rule": {
+    "type": "guidance",
+    "text": "After user confirmation, the order status will be changed to 'return requested', and the user will receive an email regarding how to return items.",
+    "tools": [],
+    "quote": "After user confirmation, the order status will be changed to 'return requested', and the user will receive an email regarding how to return items.",
+    "by": "model",
+    "from_verify": "f1d9e7fa99f1",
+    "id": "g_f1d9e7fa99f1"
+   },
+   "statement_ids": [
+    "policy:return-delivered-order:5"
+   ],
+   "checker": "brief",
+   "may_deny": true,
+   "source": {
+    "document": "policy",
+    "section": "return-delivered-order",
+    "page": null,
+    "line": 126
+   },
+   "quote": "After user confirmation, the order status will be changed to 'return requested', and the user will receive an email regarding how to return items.",
+   "class": "guidance",
+   "level": "observe",
+   "extra": {
+    "_flat": true
+   }
+  },
+  {
+   "id": "379b9a1271af",
+   "type": "required_args",
+   "rule": {
+    "type": "required_args",
+    "quote": "The user must provide a payment method to pay or receive refund of the price difference.",
+    "tool": "exchange_delivered_order_items",
+    "args": [
+     "payment_method_id"
+    ],
+    "source": "§exchange-delivered-order",
+    "by": "model",
+    "id": "379b9a1271af"
+   },
+   "statement_ids": [
+    "policy:exchange-delivered-order:5"
+   ],
+   "checker": "code",
+   "may_deny": true,
+   "source": {
+    "document": "policy",
+    "section": "exchange-delivered-order",
+    "page": null,
+    "line": 134
+   },
+   "quote": "The user must provide a payment method to pay or receive refund of the price difference.",
+   "class": "hard",
+   "level": "deny",
+   "extra": {
+    "_flat": true
+   }
+  },
+  {
+   "id": "2f750b0c3c6f",
+   "type": "duty",
+   "rule": {
+    "type": "duty",
+    "quote": "An order can only be cancelled if its status is 'pending', and you should check its status before taking the action.",
+    "trigger": {
+     "tool": "get_order_details",
+     "when": {
+      "order_id": [
+       "*"
+      ]
+     }
+    },
+    "then": {
+     "tool": "cancel_pending_order",
+     "when": {
+      "order_id": [
+       "*"
+      ],
+      "reason": [
+       "*"
+      ]
+     }
+    },
+    "unless": [
+     {
+      "condition": "order status is not 'pending'"
+     }
+    ],
+    "source": "§cancel-pending-order",
+    "by": "model",
+    "id": "2f750b0c3c6f"
+   },
+   "statement_ids": [
+    "policy:cancel-pending-order:1"
+   ],
+   "checker": "monitor",
+   "may_deny": true,
+   "source": {
+    "document": "policy",
+    "section": "cancel-pending-order",
+    "page": null,
+    "line": 88
+   },
+   "quote": "An order can only be cancelled if its status is 'pending', and you should check its status before taking the action.",
+   "class": "hard",
+   "level": "remind",
+   "extra": {
+    "_flat": true
+   }
+  }
+ ],
+ "procedures": [
+  {
+   "id": "policy:general",
+   "name": "General rules (outside the procedures)",
+   "trigger": {},
+   "steps": [],
+   "edges": [],
+   "source": {},
+   "quote": "",
+   "preconditions": [
+    {
+     "condition": "request involves a different user than the current conversation",
+     "if_not": "deny",
+     "quote": "You can only help one user per conversation (but you can handle multiple requests from the same user), and must deny any requests for tasks related to any other user.",
+     "from_section": "preamble"
+    },
+    {
+     "condition": "about to perform any database‑updating action (cancel, modify, return, exchange)",
+     "if_not": "hold until explicit user confirmation (yes)",
+     "quote": "Before taking any action that updates the database (cancel, modify, return, exchange), you must list the action details and obtain explicit user confirmation (yes) to proceed.",
+     "from_section": "preamble"
+    },
+    {
+     "condition": "order status is neither pending nor delivered",
+     "if_not": "stop",
+     "quote": "Generally, you can only take action on pending or delivered orders.",
+     "from_section": "generic-action-rules"
+    },
+    {
+     "condition": "exchange or modify tool has already been called for the order",
+     "if_not": "deny further calls",
+     "quote": "Exchange or modify order tools can only be called once per order.",
+     "from_section": "generic-action-rules"
+    },
+    {
+     "condition": "order status is not 'pending' for a cancellation request",
+     "if_not": "deny cancellation",
+     "quote": "An order can only be cancelled if its status is 'pending', and you should check its status before taking the action.",
+     "from_section": "cancel-pending-order"
+    },
+    {
+     "condition": "order status is not 'pending' for a modification request",
+     "if_not": "deny modification",
+     "quote": "An order can only be modified if its status is 'pending', and you should check its status before taking the action.",
+     "from_section": "modify-pending-order"
+    },
+    {
+     "condition": "requested modification is not shipping address, payment method, or product item options",
+     "if_not": "deny request",
+     "quote": "For a pending order, you can take actions to modify its shipping address, payment method, or product item options, but nothing else.",
+     "from_section": "modify-pending-order"
+    },
+    {
+     "condition": "user selects more than one payment method or the same as the original",
+     "if_not": "deny payment change",
+     "quote": "The user can only choose a single payment method different from the original payment method.",
+     "from_section": "modify-payment"
+    },
+    {
+     "condition": "modify‑items action has already been called for the order",
+     "if_not": "deny further item modifications",
+     "quote": "This action can only be called once, and will change the order status to 'pending (items modifed)'.",
+     "from_section": "modify-items"
+    },
+    {
+     "condition": "request attempts to change the product type (e.g., shirt to shoe)",
+     "if_not": "deny",
+     "quote": "There cannot be any change of product types, e.g. modify shirt to shoe.",
+     "from_section": "modify-items"
+    },
+    {
+     "condition": "order status is not 'delivered' for a return request",
+     "if_not": "deny return",
+     "quote": "An order can only be returned if its status is 'delivered', and you should check its status before taking the action.",
+     "from_section": "return-delivered-order"
+    },
+    {
+     "condition": "order status is not 'delivered' for an exchange request",
+     "if_not": "deny exchange",
+     "quote": "An order can only be exchanged if its status is 'delivered', and you should check its status before taking the action.",
+     "from_section": "exchange-delivered-order"
+    },
+    {
+     "condition": "exchange request attempts to change the product type (e.g., shirt to shoe)",
+     "if_not": "deny",
+     "quote": "There cannot be any change of product types, e.g. modify shirt to shoe.",
+     "from_section": "exchange-delivered-order"
+    }
+   ],
+   "exceptions": [],
+   "templates": [],
+   "escalations": [
+    {
+     "when": "the request cannot be handled within the scope of available actions",
+     "then": "forward",
+     "quote": "You should transfer the user to a human agent if and only if the request cannot be handled within the scope of your actions.",
+     "from_section": "preamble",
+     "notify": "human agent"
+    }
+   ]
+  }
+ ],
+ "obligations": [],
+ "global": {
+  "definitions": [
+   {
+    "term": "All times in the database are EST and 24 hour based.",
+    "meaning": "All times in the database are EST and 24 hour based.",
+    "used_by": [],
+    "source": {
+     "document": "policy",
+     "section": "domain-basic",
+     "page": null,
+     "line": 28,
+     "statement": "policy:domain-basic:1"
+    },
+    "quote": "All times in the database are EST and 24 hour based."
+   },
+   {
+    "term": "For example \"02:30:00\" means 2:30 AM EST.",
+    "meaning": "For example \"02:30:00\" means 2:30 AM EST.",
+    "used_by": [],
+    "source": {
+     "document": "policy",
+     "section": "domain-basic",
+     "page": null,
+     "line": 28,
+     "statement": "policy:domain-basic:2"
+    },
+    "quote": "For example \"02:30:00\" means 2:30 AM EST."
+   },
+   {
+    "term": "Each user has a profile containing:",
+    "meaning": "Each user has a profile containing:",
+    "used_by": [],
+    "source": {
+     "document": "policy",
+     "section": "user",
+     "page": null,
+     "line": 32,
+     "statement": "policy:user:1"
+    },
+    "quote": "Each user has a profile containing:"
+   },
+   {
+    "term": "There are three types of payment methods: gift card, paypal account, credit card.",
+    "meaning": "There are three types of payment methods: gift card, paypal account, credit card.",
+    "used_by": [],
+    "source": {
+     "document": "policy",
+     "section": "user",
+     "page": null,
+     "line": 39,
+     "statement": "policy:user:6"
+    },
+    "quote": "There are three types of payment methods: gift card, paypal account, credit card."
+   },
+   {
+    "term": "For each type of product, there are variant items of different options.",
+    "meaning": "For each type of product, there are variant items of different options.",
+    "used_by": [],
+    "source": {
+     "document": "policy",
+     "section": "product",
+     "page": null,
+     "line": 45,
+     "statement": "policy:product:2"
+    },
+    "quote": "For each type of product, there are variant items of different options."
+   },
+   {
+    "term": "For example, for a 't-shirt' product, there could be a variant item with option 'color blue size M', and another variant item with option 'color red size L'.",
+    "meaning": "For example, for a 't-shirt' product, there could be a variant item with option 'color blue size M', and another variant item with option 'color red size L'.",
+    "used_by": [],
+    "source": {
+     "document": "policy",
+     "section": "product",
+     "page": null,
+     "line": 47,
+     "statement": "policy:product:3"
+    },
+    "quote": "For example, for a 't-shirt' product, there could be a variant item with option 'color blue size M', and another variant item with option 'color red size L'."
+   },
+   {
+    "term": "Each product has the following attributes:",
+    "meaning": "Each product has the following attributes:",
+    "used_by": [],
+    "source": {
+     "document": "policy",
+     "section": "product",
+     "page": null,
+     "line": 49,
+     "statement": "policy:product:4"
+    },
+    "quote": "Each product has the following attributes:"
+   },
+   {
+    "term": "unique product id",
+    "meaning": "unique product id",
+    "used_by": [],
+    "source": {
+     "document": "policy",
+     "section": "product",
+     "page": null,
+     "line": 51,
+     "statement": "policy:product:5"
+    },
+    "quote": "unique product id"
+   },
+   {
+    "term": "name",
+    "meaning": "name",
+    "used_by": [],
+    "source": {
+     "document": "policy",
+     "section": "product",
+     "page": null,
+     "line": 52,
+     "statement": "policy:product:6"
+    },
+    "quote": "name"
+   },
+   {
+    "term": "list of variants",
+    "meaning": "list of variants",
+    "used_by": [],
+    "source": {
+     "document": "policy",
+     "section": "product",
+     "page": null,
+     "line": 53,
+     "statement": "policy:product:7"
+    },
+    "quote": "list of variants"
+   },
+   {
+    "term": "Each variant item has the following attributes:",
+    "meaning": "Each variant item has the following attributes:",
+    "used_by": [],
+    "source": {
+     "document": "policy",
+     "section": "product",
+     "page": null,
+     "line": 55,
+     "statement": "policy:product:8"
+    },
+    "quote": "Each variant item has the following attributes:"
+   },
+   {
+    "term": "unique item id",
+    "meaning": "unique item id",
+    "used_by": [],
+    "source": {
+     "document": "policy",
+     "section": "product",
+     "page": null,
+     "line": 57,
+     "statement": "policy:product:9"
+    },
+    "quote": "unique item id"
+   },
+   {
+    "term": "information about the value of the product options for this item.",
+    "meaning": "information about the value of the product options for this item.",
+    "used_by": [],
+    "source": {
+     "document": "policy",
+     "section": "product",
+     "page": null,
+     "line": 58,
+     "statement": "policy:product:10"
+    },
+    "quote": "information about the value of the product options for this item."
+   },
+   {
+    "term": "availability",
+    "meaning": "availability",
+    "used_by": [],
+    "source": {
+     "document": "policy",
+     "section": "product",
+     "page": null,
+     "line": 59,
+     "statement": "policy:product:11"
+    },
+    "quote": "availability"
+   },
+   {
+    "term": "price",
+    "meaning": "price",
+    "used_by": [],
+    "source": {
+     "document": "policy",
+     "section": "product",
+     "page": null,
+     "line": 60,
+     "statement": "policy:product:12"
+    },
+    "quote": "price"
+   },
+   {
+    "term": "Each order has the following attributes:",
+    "meaning": "Each order has the following attributes:",
+    "used_by": [],
+    "source": {
+     "document": "policy",
+     "section": "order",
+     "page": null,
+     "line": 66,
+     "statement": "policy:order:1"
+    },
+    "quote": "Each order has the following attributes:"
+   }
+  ]
+ },
+ "links": [
+  {
+   "type": "refers_to",
+   "src": "policy:preamble:2",
+   "dst": "policy:modify-pending-order",
+   "source": {
+    "document": "policy",
+    "section": "preamble",
+    "page": null,
+    "line": 5
+   },
+   "quote": "Modify pending order"
+  },
+  {
+   "type": "refers_to",
+   "src": "policy:preamble:3",
+   "dst": "policy:exchange-delivered-order",
+   "source": {
+    "document": "policy",
+    "section": "preamble",
+    "page": null,
+    "line": 6
+   },
+   "quote": "Exchange delivered order"
+  }
+ ],
+ "coverage": [
+  {
+   "statement_id": "policy:preamble:17",
+   "kind": "classify_fallback",
+   "reason": "no answer from the model",
+   "source": {
+    "document": "policy",
+    "section": "preamble",
+    "page": null,
+    "line": 24
+   },
+   "quote": "PLEASE HOLD ON.' to the user."
+  },
+  {
+   "statement_id": "policy:product:9",
+   "kind": "dangling_link",
+   "reason": "no target for 'item id'",
+   "source": {
+    "document": "policy",
+    "section": "product",
+    "page": null,
+    "line": 57
+   },
+   "quote": "unique item id"
+  },
+  {
+   "statement_id": "policy:product:13",
+   "kind": "dangling_link",
+   "reason": "no target for 'Item ID'",
+   "source": {
+    "document": "policy",
+    "section": "product",
+    "page": null,
+    "line": 62
+   },
+   "quote": "Note: Product ID and Item ID have no relations and should not be confused!"
+  },
+  {
+   "statement_id": "policy:preamble:9",
+   "kind": "procedure_step",
+   "reason": "precondition of General rules (outside the procedures)",
+   "source": {
+    "document": "policy",
+    "section": "preamble",
+    "page": null,
+    "line": 14
+   },
+   "quote": "You can only help one user per conversation (but you can handle multiple requests from the same user), and must deny any requests for tasks related to any other user."
+  },
+  {
+   "statement_id": "policy:preamble:10",
+   "kind": "procedure_step",
+   "reason": "precondition of General rules (outside the procedures)",
+   "source": {
+    "document": "policy",
+    "section": "preamble",
+    "page": null,
+    "line": 16
+   },
+   "quote": "Before taking any action that updates the database (cancel, modify, return, exchange), you must list the action details and obtain explicit user confirmation (yes) to proceed."
+  },
+  {
+   "statement_id": "policy:preamble:15",
+   "kind": "procedure_step",
+   "reason": "escalation of General rules (outside the procedures)",
+   "source": {
+    "document": "policy",
+    "section": "preamble",
+    "page": null,
+    "line": 24
+   },
+   "quote": "You should transfer the user to a human agent if and only if the request cannot be handled within the scope of your actions."
+  },
+  {
+   "statement_id": "policy:generic-action-rules:1",
+   "kind": "procedure_step",
+   "reason": "precondition of General rules (outside the procedures)",
+   "source": {
+    "document": "policy",
+    "section": "generic-action-rules",
+    "page": null,
+    "line": 82
+   },
+   "quote": "Generally, you can only take action on pending or delivered orders."
+  },
+  {
+   "statement_id": "policy:generic-action-rules:2",
+   "kind": "procedure_step",
+   "reason": "precondition of General rules (outside the procedures)",
+   "source": {
+    "document": "policy",
+    "section": "generic-action-rules",
+    "page": null,
+    "line": 84
+   },
+   "quote": "Exchange or modify order tools can only be called once per order."
+  },
+  {
+   "statement_id": "policy:cancel-pending-order:1",
+   "kind": "procedure_step",
+   "reason": "precondition of General rules (outside the procedures)",
+   "source": {
+    "document": "policy",
+    "section": "cancel-pending-order",
+    "page": null,
+    "line": 88
+   },
+   "quote": "An order can only be cancelled if its status is 'pending', and you should check its status before taking the action."
+  },
+  {
+   "statement_id": "policy:modify-pending-order:1",
+   "kind": "procedure_step",
+   "reason": "precondition of General rules (outside the procedures)",
+   "source": {
+    "document": "policy",
+    "section": "modify-pending-order",
+    "page": null,
+    "line": 96
+   },
+   "quote": "An order can only be modified if its status is 'pending', and you should check its status before taking the action."
+  },
+  {
+   "statement_id": "policy:modify-pending-order:2",
+   "kind": "procedure_step",
+   "reason": "precondition of General rules (outside the procedures)",
+   "source": {
+    "document": "policy",
+    "section": "modify-pending-order",
+    "page": null,
+    "line": 98
+   },
+   "quote": "For a pending order, you can take actions to modify its shipping address, payment method, or product item options, but nothing else."
+  },
+  {
+   "statement_id": "policy:modify-payment:1",
+   "kind": "procedure_step",
+   "reason": "precondition of General rules (outside the procedures)",
+   "source": {
+    "document": "policy",
+    "section": "modify-payment",
+    "page": null,
+    "line": 102
+   },
+   "quote": "The user can only choose a single payment method different from the original payment method."
+  },
+  {
+   "statement_id": "policy:modify-items:1",
+   "kind": "procedure_step",
+   "reason": "precondition of General rules (outside the procedures)",
+   "source": {
+    "document": "policy",
+    "section": "modify-items",
+    "page": null,
+    "line": 110
+   },
+   "quote": "This action can only be called once, and will change the order status to 'pending (items modifed)'."
+  },
+  {
+   "statement_id": "policy:modify-items:6",
+   "kind": "procedure_step",
+   "reason": "precondition of General rules (outside the procedures)",
+   "source": {
+    "document": "policy",
+    "section": "modify-items",
+    "page": null,
+    "line": 112
+   },
+   "quote": "There cannot be any change of product types, e.g. modify shirt to shoe."
+  },
+  {
+   "statement_id": "policy:return-delivered-order:1",
+   "kind": "procedure_step",
+   "reason": "precondition of General rules (outside the procedures)",
+   "source": {
+    "document": "policy",
+    "section": "return-delivered-order",
+    "page": null,
+    "line": 118
+   },
+   "quote": "An order can only be returned if its status is 'delivered', and you should check its status before taking the action."
+  },
+  {
+   "statement_id": "policy:exchange-delivered-order:1",
+   "kind": "procedure_step",
+   "reason": "precondition of General rules (outside the procedures)",
+   "source": {
+    "document": "policy",
+    "section": "exchange-delivered-order",
+    "page": null,
+    "line": 130
+   },
+   "quote": "An order can only be exchanged if its status is 'delivered', and you should check its status before taking the action."
+  },
+  {
+   "statement_id": "policy:exchange-delivered-order:4",
+   "kind": "procedure_step",
+   "reason": "precondition of General rules (outside the procedures)",
+   "source": {
+    "document": "policy",
+    "section": "exchange-delivered-order",
+    "page": null,
+    "line": 132
+   },
+   "quote": "There cannot be any change of product types, e.g. modify shirt to shoe."
+  },
+  {
+   "statement_id": "policy:preamble:2",
+   "kind": "guidance",
+   "reason": "",
+   "source": {
+    "document": "policy",
+    "section": "preamble",
+    "page": null,
+    "line": 5
+   },
+   "quote": "cancel or modify pending orders"
+  },
+  {
+   "statement_id": "policy:preamble:3",
+   "kind": "guidance",
+   "reason": "",
+   "source": {
+    "document": "policy",
+    "section": "preamble",
+    "page": null,
+    "line": 6
+   },
+   "quote": "return or exchange delivered orders"
+  },
+  {
+   "statement_id": "policy:preamble:4",
+   "kind": "guidance",
+   "reason": "",
+   "source": {
+    "document": "policy",
+    "section": "preamble",
+    "page": null,
+    "line": 7
+   },
+   "quote": "modify their default user address"
+  },
+  {
+   "statement_id": "policy:preamble:5",
+   "kind": "guidance",
+   "reason": "",
+   "source": {
+    "document": "policy",
+    "section": "preamble",
+    "page": null,
+    "line": 8
+   },
+   "quote": "provide information about their own profile, orders, and related products"
+  },
+  {
+   "statement_id": "policy:preamble:6",
+   "kind": "guidance",
+   "reason": "",
+   "source": {
+    "document": "policy",
+    "section": "preamble",
+    "page": null,
+    "line": 10
+   },
+   "quote": "At the beginning of the conversation, you have to authenticate the user identity by locating their user id via email, or via name + zip code."
+  },
+  {
+   "statement_id": "policy:preamble:7",
+   "kind": "guidance",
+   "reason": "",
+   "source": {
+    "document": "policy",
+    "section": "preamble",
+    "page": null,
+    "line": 10
+   },
+   "quote": "This has to be done even when the user already provides the user id."
+  },
+  {
+   "statement_id": "policy:preamble:8",
+   "kind": "guidance",
+   "reason": "",
+   "source": {
+    "document": "policy",
+    "section": "preamble",
+    "page": null,
+    "line": 12
+   },
+   "quote": "Once the user has been authenticated, you can provide the user with information about order, product, profile information, e.g. help the user look up order id."
+  },
+  {
+   "statement_id": "policy:preamble:9",
+   "kind": "guidance",
+   "reason": "",
+   "source": {
+    "document": "policy",
+    "section": "preamble",
+    "page": null,
+    "line": 14
+   },
+   "quote": "You can only help one user per conversation (but you can handle multiple requests from the same user), and must deny any requests for tasks related to any other user."
+  },
+  {
+   "statement_id": "policy:preamble:10",
+   "kind": "guidance",
+   "reason": "",
+   "source": {
+    "document": "policy",
+    "section": "preamble",
+    "page": null,
+    "line": 16
+   },
+   "quote": "Before taking any action that updates the database (cancel, modify, return, exchange), you must list the action details and obtain explicit user confirmation (yes) to proceed."
+  },
+  {
+   "statement_id": "policy:preamble:11",
+   "kind": "guidance",
+   "reason": "",
+   "source": {
+    "document": "policy",
+    "section": "preamble",
+    "page": null,
+    "line": 18
+   },
+   "quote": "You should not make up any information or knowledge or procedures not provided by the user or the tools, or give subjective recommendations or comments."
+  },
+  {
+   "statement_id": "policy:preamble:12",
+   "kind": "guidance",
+   "reason": "",
+   "source": {
+    "document": "policy",
+    "section": "preamble",
+    "page": null,
+    "line": 20
+   },
+   "quote": "You should at most make one tool call at a time, and if you take a tool call, you should not respond to the user at the same time."
+  },
+  {
+   "statement_id": "policy:preamble:13",
+   "kind": "guidance",
+   "reason": "",
+   "source": {
+    "document": "policy",
+    "section": "preamble",
+    "page": null,
+    "line": 20
+   },
+   "quote": "If you respond to the user, you should not make a tool call at the same time."
+  },
+  {
+   "statement_id": "policy:preamble:14",
+   "kind": "guidance",
+   "reason": "",
+   "source": {
+    "document": "policy",
+    "section": "preamble",
+    "page": null,
+    "line": 22
+   },
+   "quote": "You should deny user requests that are against this policy."
+  },
+  {
+   "statement_id": "policy:preamble:15",
+   "kind": "guidance",
+   "reason": "",
+   "source": {
+    "document": "policy",
+    "section": "preamble",
+    "page": null,
+    "line": 24
+   },
+   "quote": "You should transfer the user to a human agent if and only if the request cannot be handled within the scope of your actions."
+  },
+  {
+   "statement_id": "policy:preamble:16",
+   "kind": "guidance",
+   "reason": "",
+   "source": {
+    "document": "policy",
+    "section": "preamble",
+    "page": null,
+    "line": 24
+   },
+   "quote": "To transfer, first make a tool call to transfer_to_human_agents, and then send the message 'YOU ARE BEING TRANSFERRED TO A HUMAN AGENT."
+  },
+  {
+   "statement_id": "policy:preamble:17",
+   "kind": "guidance",
+   "reason": "",
+   "source": {
+    "document": "policy",
+    "section": "preamble",
+    "page": null,
+    "line": 24
+   },
+   "quote": "PLEASE HOLD ON.' to the user."
+  },
+  {
+   "statement_id": "policy:order:10",
+   "kind": "definition",
+   "reason": "Describes optional attributes based on actions, not a enforceable tool rule.",
+   "source": {
+    "document": "policy",
+    "section": "order",
+    "page": null,
+    "line": 78
+   },
+   "quote": "Orders can have other optional attributes based on the actions that have been taken (cancellation reason, which items have been exchanged, what was the exchane price difference etc)"
+  },
+  {
+   "statement_id": "policy:generic-action-rules:2",
+   "kind": "hard_rule",
+   "reason": "4 rule(s)",
+   "source": {
+    "document": "policy",
+    "section": "generic-action-rules",
+    "page": null,
+    "line": 84
+   },
+   "quote": "Exchange or modify order tools can only be called once per order."
+  },
+  {
+   "statement_id": "policy:generic-action-rules:3",
+   "kind": "hard_rule",
+   "reason": "5 rule(s)",
+   "source": {
+    "document": "policy",
+    "section": "generic-action-rules",
+    "page": null,
+    "line": 84
+   },
+   "quote": "Be sure that all items to be changed are collected into a list before making the tool call!!!"
+  },
+  {
+   "statement_id": "policy:cancel-pending-order:2",
+   "kind": "hard_rule",
+   "reason": "2 rule(s)",
+   "source": {
+    "document": "policy",
+    "section": "cancel-pending-order",
+    "page": null,
+    "line": 90
+   },
+   "quote": "The user needs to confirm the order id and the reason (either 'no longer needed' or 'ordered by mistake') for cancellation."
+  },
+  {
+   "statement_id": "policy:cancel-pending-order:3",
+   "kind": "hard_rule",
+   "reason": "1 rule(s)",
+   "source": {
+    "document": "policy",
+    "section": "cancel-pending-order",
+    "page": null,
+    "line": 90
+   },
+   "quote": "Other reasons are not acceptable."
+  },
+  {
+   "statement_id": "policy:modify-pending-order:1",
+   "kind": "hard_rule",
+   "reason": "1 rule(s)",
+   "source": {
+    "document": "policy",
+    "section": "modify-pending-order",
+    "page": null,
+    "line": 96
+   },
+   "quote": "An order can only be modified if its status is 'pending', and you should check its status before taking the action."
+  },
+  {
+   "statement_id": "policy:modify-pending-order:2",
+   "kind": "hard_rule",
+   "reason": "1 rule(s)",
+   "source": {
+    "document": "policy",
+    "section": "modify-pending-order",
+    "page": null,
+    "line": 98
+   },
+   "quote": "For a pending order, you can take actions to modify its shipping address, payment method, or product item options, but nothing else."
+  },
+  {
+   "statement_id": "policy:modify-payment:1",
+   "kind": "judgment_rule",
+   "reason": "a slot is empty or has the wrong type (value: must be one value, got dict {\"arg\": \"payment_method_id\"})",
+   "source": {
+    "document": "policy",
+    "section": "modify-payment",
+    "page": null,
+    "line": 102
+   },
+   "quote": "The user can only choose a single payment method different from the original payment method."
+  },
+  {
+   "statement_id": "policy:modify-payment:2",
+   "kind": "out_of_scope",
+   "reason": "The statement requires checking gift‑card balance, which cannot be expressed with the available tools.",
+   "source": {
+    "document": "policy",
+    "section": "modify-payment",
+    "page": null,
+    "line": 104
+   },
+   "quote": "If the user wants the modify the payment method to gift card, it must have enough balance to cover the total amount."
+  },
+  {
+   "statement_id": "policy:modify-payment:3",
+   "kind": "out_of_scope",
+   "reason": "The statement describes a state transition of order status after user confirmation, which cannot be enforced via the listed tools.",
+   "source": {
+    "document": "policy",
+    "section": "modify-payment",
+    "page": null,
+    "line": 106
+   },
+   "quote": "After user confirmation, the order status will be kept as 'pending'."
+  },
+  {
+   "statement_id": "policy:modify-payment:4",
+   "kind": "out_of_scope",
+   "reason": "The statement specifies refund timing based on payment method type, which cannot be expressed with the available tools.",
+   "source": {
+    "document": "policy",
+    "section": "modify-payment",
+    "page": null,
+    "line": 106
+   },
+   "quote": "The original payment method will be refunded immediately if it is a gift card, otherwise it will be refunded within 5 to 7 business days."
+  },
+  {
+   "statement_id": "policy:modify-items:1",
+   "kind": "out_of_scope",
+   "reason": "cannot be expressed with available rule types",
+   "source": {
+    "document": "policy",
+    "section": "modify-items",
+    "page": null,
+    "line": 110
+   },
+   "quote": "This action can only be called once, and will change the order status to 'pending (items modifed)'."
+  },
+  {
+   "statement_id": "policy:modify-items:2",
+   "kind": "hard_rule",
+   "reason": "1 rule(s)",
+   "source": {
+    "document": "policy",
+    "section": "modify-items",
+    "page": null,
+    "line": 110
+   },
+   "quote": "The agent will not be able to modify or cancel the order anymore."
+  },
+  {
+   "statement_id": "policy:modify-items:3",
+   "kind": "guidance",
+   "reason": "1 rule(s)",
+   "source": {
+    "document": "policy",
+    "section": "modify-items",
+    "page": null,
+    "line": 110
+   },
+   "quote": "So you must confirm all the details are correct and be cautious before taking this action."
+  },
+  {
+   "statement_id": "policy:modify-items:4",
+   "kind": "hard_rule",
+   "reason": "1 rule(s)",
+   "source": {
+    "document": "policy",
+    "section": "modify-items",
+    "page": null,
+    "line": 110
+   },
+   "quote": "In particular, remember to remind the customer to confirm they have provided all the items they want to modify."
+  },
+  {
+   "statement_id": "policy:modify-items:5",
+   "kind": "out_of_scope",
+   "reason": "eligibility filter based on product relationship cannot be expressed with current rule types",
+   "source": {
+    "document": "policy",
+    "section": "modify-items",
+    "page": null,
+    "line": 112
+   },
+   "quote": "For a pending order, each item can be modified to an available new item of the same product but of different product option."
+  },
+  {
+   "statement_id": "policy:modify-items:6",
+   "kind": "out_of_scope",
+   "reason": "prohibition of changing product types cannot be expressed with current rule types",
+   "source": {
+    "document": "policy",
+    "section": "modify-items",
+    "page": null,
+    "line": 112
+   },
+   "quote": "There cannot be any change of product types, e.g. modify shirt to shoe."
+  },
+  {
+   "statement_id": "policy:modify-items:8",
+   "kind": "out_of_scope",
+   "reason": "balance check on gift card cannot be expressed with current rule types",
+   "source": {
+    "document": "policy",
+    "section": "modify-items",
+    "page": null,
+    "line": 114
+   },
+   "quote": "If the user provides a gift card, it must have enough balance to cover the price difference."
+  },
+  {
+   "statement_id": "policy:return-delivered-order:1",
+   "kind": "hard_rule",
+   "reason": "1 rule(s)",
+   "source": {
+    "document": "policy",
+    "section": "return-delivered-order",
+    "page": null,
+    "line": 118
+   },
+   "quote": "An order can only be returned if its status is 'delivered', and you should check its status before taking the action."
+  },
+  {
+   "statement_id": "policy:return-delivered-order:2",
+   "kind": "hard_rule",
+   "reason": "1 rule(s)",
+   "source": {
+    "document": "policy",
+    "section": "return-delivered-order",
+    "page": null,
+    "line": 120
+   },
+   "quote": "The user needs to confirm the order id and the list of items to be returned."
+  },
+  {
+   "statement_id": "policy:return-delivered-order:3",
+   "kind": "hard_rule",
+   "reason": "1 rule(s)",
+   "source": {
+    "document": "policy",
+    "section": "return-delivered-order",
+    "page": null,
+    "line": 122
+   },
+   "quote": "The user needs to provide a payment method to receive the refund."
+  },
+  {
+   "statement_id": "policy:exchange-delivered-order:1",
+   "kind": "out_of_scope",
+   "reason": "The statement requires checking order status before exchange, but the available rule types cannot express a condition that forbids a tool call when the order status is not 'delivered'.",
+   "source": {
+    "document": "policy",
+    "section": "exchange-delivered-order",
+    "page": null,
+    "line": 130
+   },
+   "quote": "An order can only be exchanged if its status is 'delivered', and you should check its status before taking the action."
+  },
+  {
+   "statement_id": "policy:exchange-delivered-order:2",
+   "kind": "out_of_scope",
+   "reason": "The statement is a reminder to the customer, which cannot be enforced by the available tool‑based rule types.",
+   "source": {
+    "document": "policy",
+    "section": "exchange-delivered-order",
+    "page": null,
+    "line": 130
+   },
+   "quote": "In particular, remember to remind the customer to confirm they have provided all items to be exchanged."
+  },
+  {
+   "statement_id": "policy:exchange-delivered-order:3",
+   "kind": "out_of_scope",
+   "reason": "The allowed‑values constraint involves product‑option logic that cannot be expressed with the defined rule schema.",
+   "source": {
+    "document": "policy",
+    "section": "exchange-delivered-order",
+    "page": null,
+    "line": 132
+   },
+   "quote": "For a delivered order, each item can be exchanged to an available new item of the same product but of different product option."
+  },
+  {
+   "statement_id": "policy:exchange-delivered-order:4",
+   "kind": "out_of_scope",
+   "reason": "Prohibiting change of product types requires comparing product categories of old and new items, which cannot be captured by the existing rule types.",
+   "source": {
+    "document": "policy",
+    "section": "exchange-delivered-order",
+    "page": null,
+    "line": 132
+   },
+   "quote": "There cannot be any change of product types, e.g. modify shirt to shoe."
+  },
+  {
+   "statement_id": "policy:exchange-delivered-order:5",
+   "kind": "hard_rule",
+   "reason": "1 rule(s)",
+   "source": {
+    "document": "policy",
+    "section": "exchange-delivered-order",
+    "page": null,
+    "line": 134
+   },
+   "quote": "The user must provide a payment method to pay or receive refund of the price difference."
+  },
+  {
+   "statement_id": "policy:exchange-delivered-order:6",
+   "kind": "out_of_scope",
+   "reason": "The threshold about gift‑card balance cannot be expressed with the available rule constructs.",
+   "source": {
+    "document": "policy",
+    "section": "exchange-delivered-order",
+    "page": null,
+    "line": 134
+   },
+   "quote": "If the user provides a gift card, it must have enough balance to cover the price difference."
+  },
+  {
+   "statement_id": "policy:exchange-delivered-order:7",
+   "kind": "out_of_scope",
+   "reason": "The duty to change order status and send an email after user confirmation cannot be mapped to a specific tool call in the catalog.",
+   "source": {
+    "document": "policy",
+    "section": "exchange-delivered-order",
+    "page": null,
+    "line": 136
+   },
+   "quote": "After user confirmation, the order status will be changed to 'exchange requested', and the user will receive an email regarding how to return items."
+  },
+  {
+   "statement_id": "policy:exchange-delivered-order:8",
+   "kind": "out_of_scope",
+   "reason": "The prohibition of placing a new order does not correspond to any tool in the catalog that can be forbidden.",
+   "source": {
+    "document": "policy",
+    "section": "exchange-delivered-order",
+    "page": null,
+    "line": 136
+   },
+   "quote": "There is no need to place a new order."
+  },
+  {
+   "statement_id": "policy:cancel-pending-order:1",
+   "kind": "hard_rule",
+   "reason": "1 rule(s)",
+   "source": {
+    "document": "policy",
+    "section": "cancel-pending-order",
+    "page": null,
+    "line": 88
+   },
+   "quote": "An order can only be cancelled if its status is 'pending', and you should check its status before taking the action."
+  },
+  {
+   "statement_id": "policy:domain-basic:1",
+   "kind": "definition",
+   "reason": "All times in the database are EST and 24 hour based.",
+   "source": {},
+   "quote": ""
+  },
+  {
+   "statement_id": "policy:domain-basic:2",
+   "kind": "definition",
+   "reason": "For example \"02:30:00\" means 2:30 AM EST.",
+   "source": {},
+   "quote": ""
+  },
+  {
+   "statement_id": "policy:user:1",
+   "kind": "definition",
+   "reason": "Each user has a profile containing:",
+   "source": {},
+   "quote": ""
+  },
+  {
+   "statement_id": "policy:user:6",
+   "kind": "definition",
+   "reason": "There are three types of payment methods: gift card, paypal account, credit card.",
+   "source": {},
+   "quote": ""
+  },
+  {
+   "statement_id": "policy:product:2",
+   "kind": "definition",
+   "reason": "For each type of product, there are variant items of different options.",
+   "source": {},
+   "quote": ""
+  },
+  {
+   "statement_id": "policy:product:3",
+   "kind": "definition",
+   "reason": "For example, for a 't-shirt' product, there could be a variant item with option 'color blue size M', and another variant item with option 'color red size L'.",
+   "source": {},
+   "quote": ""
+  },
+  {
+   "statement_id": "policy:product:4",
+   "kind": "definition",
+   "reason": "Each product has the following attributes:",
+   "source": {},
+   "quote": ""
+  },
+  {
+   "statement_id": "policy:product:5",
+   "kind": "definition",
+   "reason": "unique product id",
+   "source": {},
+   "quote": ""
+  },
+  {
+   "statement_id": "policy:product:6",
+   "kind": "definition",
+   "reason": "name",
+   "source": {},
+   "quote": ""
+  },
+  {
+   "statement_id": "policy:product:7",
+   "kind": "definition",
+   "reason": "list of variants",
+   "source": {},
+   "quote": ""
+  },
+  {
+   "statement_id": "policy:product:8",
+   "kind": "definition",
+   "reason": "Each variant item has the following attributes:",
+   "source": {},
+   "quote": ""
+  },
+  {
+   "statement_id": "policy:product:9",
+   "kind": "definition",
+   "reason": "unique item id",
+   "source": {},
+   "quote": ""
+  },
+  {
+   "statement_id": "policy:product:10",
+   "kind": "definition",
+   "reason": "information about the value of the product options for this item.",
+   "source": {},
+   "quote": ""
+  },
+  {
+   "statement_id": "policy:product:11",
+   "kind": "definition",
+   "reason": "availability",
+   "source": {},
+   "quote": ""
+  },
+  {
+   "statement_id": "policy:product:12",
+   "kind": "definition",
+   "reason": "price",
+   "source": {},
+   "quote": ""
+  },
+  {
+   "statement_id": "policy:order:1",
+   "kind": "definition",
+   "reason": "Each order has the following attributes:",
+   "source": {},
+   "quote": ""
+  },
+  {
+   "statement_id": "policy:modify-items:7",
+   "kind": "hard_rule",
+   "reason": "typed rules, replacing a verify rule",
+   "source": {
+    "document": "policy",
+    "section": "modify-items",
+    "page": null,
+    "line": 114
+   },
+   "quote": "The user must provide a payment method to pay or receive refund of the price difference."
+  },
+  {
+   "statement_id": "policy:preamble:1",
+   "kind": "guidance",
+   "reason": "no write tool names this statement: shown to the agent, not checked",
+   "source": {
+    "document": "policy",
+    "section": "preamble",
+    "page": null,
+    "line": 3
+   },
+   "quote": "As a retail agent, you can help users:"
+  },
+  {
+   "statement_id": "policy:user:2",
+   "kind": "guidance",
+   "reason": "no write tool names this statement: shown to the agent, not checked",
+   "source": {
+    "document": "policy",
+    "section": "user",
+    "page": null,
+    "line": 34
+   },
+   "quote": "unique user id"
+  },
+  {
+   "statement_id": "policy:user:3",
+   "kind": "guidance",
+   "reason": "no write tool names this statement: shown to the agent, not checked",
+   "source": {
+    "document": "policy",
+    "section": "user",
+    "page": null,
+    "line": 35
+   },
+   "quote": "email"
+  },
+  {
+   "statement_id": "policy:user:4",
+   "kind": "guidance",
+   "reason": "no write tool names this statement: shown to the agent, not checked",
+   "source": {
+    "document": "policy",
+    "section": "user",
+    "page": null,
+    "line": 36
+   },
+   "quote": "default address"
+  },
+  {
+   "statement_id": "policy:user:5",
+   "kind": "guidance",
+   "reason": "no write tool names this statement: shown to the agent, not checked",
+   "source": {
+    "document": "policy",
+    "section": "user",
+    "page": null,
+    "line": 37
+   },
+   "quote": "payment methods."
+  },
+  {
+   "statement_id": "policy:product:1",
+   "kind": "guidance",
+   "reason": "no write tool names this statement: shown to the agent, not checked",
+   "source": {
+    "document": "policy",
+    "section": "product",
+    "page": null,
+    "line": 43
+   },
+   "quote": "Our retail store has 50 types of products."
+  },
+  {
+   "statement_id": "policy:product:13",
+   "kind": "guidance",
+   "reason": "no write tool names this statement: shown to the agent, not checked",
+   "source": {
+    "document": "policy",
+    "section": "product",
+    "page": null,
+    "line": 62
+   },
+   "quote": "Note: Product ID and Item ID have no relations and should not be confused!"
+  },
+  {
+   "statement_id": "policy:order:2",
+   "kind": "guidance",
+   "reason": "no write tool names this statement: shown to the agent, not checked",
+   "source": {
+    "document": "policy",
+    "section": "order",
+    "page": null,
+    "line": 68
+   },
+   "quote": "unique order id"
+  },
+  {
+   "statement_id": "policy:order:3",
+   "kind": "guidance",
+   "reason": "no write tool names this statement: shown to the agent, not checked",
+   "source": {
+    "document": "policy",
+    "section": "order",
+    "page": null,
+    "line": 69
+   },
+   "quote": "user id"
+  },
+  {
+   "statement_id": "policy:order:4",
+   "kind": "guidance",
+   "reason": "no write tool names this statement: shown to the agent, not checked",
+   "source": {
+    "document": "policy",
+    "section": "order",
+    "page": null,
+    "line": 70
+   },
+   "quote": "address"
+  },
+  {
+   "statement_id": "policy:order:5",
+   "kind": "guidance",
+   "reason": "no write tool names this statement: shown to the agent, not checked",
+   "source": {
+    "document": "policy",
+    "section": "order",
+    "page": null,
+    "line": 71
+   },
+   "quote": "items ordered"
+  },
+  {
+   "statement_id": "policy:order:6",
+   "kind": "guidance",
+   "reason": "no write tool names this statement: shown to the agent, not checked",
+   "source": {
+    "document": "policy",
+    "section": "order",
+    "page": null,
+    "line": 72
+   },
+   "quote": "status"
+  },
+  {
+   "statement_id": "policy:order:7",
+   "kind": "guidance",
+   "reason": "no write tool names this statement: shown to the agent, not checked",
+   "source": {
+    "document": "policy",
+    "section": "order",
+    "page": null,
+    "line": 73
+   },
+   "quote": "fullfilments info (tracking id and item ids)"
+  },
+  {
+   "statement_id": "policy:order:8",
+   "kind": "guidance",
+   "reason": "no write tool names this statement: shown to the agent, not checked",
+   "source": {
+    "document": "policy",
+    "section": "order",
+    "page": null,
+    "line": 74
+   },
+   "quote": "payment history"
+  },
+  {
+   "statement_id": "policy:order:9",
+   "kind": "guidance",
+   "reason": "no write tool names this statement: shown to the agent, not checked",
+   "source": {
+    "document": "policy",
+    "section": "order",
+    "page": null,
+    "line": 76
+   },
+   "quote": "The status of an order can be: pending, processed, delivered, or cancelled."
+  },
+  {
+   "statement_id": "policy:generic-action-rules:1",
+   "kind": "guidance",
+   "reason": "no write tool names this statement: shown to the agent, not checked",
+   "source": {
+    "document": "policy",
+    "section": "generic-action-rules",
+    "page": null,
+    "line": 82
+   },
+   "quote": "Generally, you can only take action on pending or delivered orders."
+  },
+  {
+   "statement_id": "policy:cancel-pending-order:4",
+   "kind": "guidance",
+   "reason": "no write tool names this statement: shown to the agent, not checked",
+   "source": {
+    "document": "policy",
+    "section": "cancel-pending-order",
+    "page": null,
+    "line": 92
+   },
+   "quote": "After user confirmation, the order status will be changed to 'cancelled', and the total will be refunded via the original payment method immediately if it is gift card, otherwise in 5 to 7 business days."
+  },
+  {
+   "statement_id": "policy:return-delivered-order:4",
+   "kind": "guidance",
+   "reason": "no write tool names this statement: shown to the agent, not checked",
+   "source": {
+    "document": "policy",
+    "section": "return-delivered-order",
+    "page": null,
+    "line": 124
+   },
+   "quote": "The refund must either go to the original payment method, or an existing gift card."
+  },
+  {
+   "statement_id": "policy:return-delivered-order:5",
+   "kind": "guidance",
+   "reason": "no write tool names this statement: shown to the agent, not checked",
+   "source": {
+    "document": "policy",
+    "section": "return-delivered-order",
+    "page": null,
+    "line": 126
+   },
+   "quote": "After user confirmation, the order status will be changed to 'return requested', and the user will receive an email regarding how to return items."
+  },
+  {
+   "statement_id": "policy:cancel-pending-order:4",
+   "kind": "question",
+   "reason": "policy question open",
+   "source": {
+    "document": "policy",
+    "section": "cancel-pending-order",
+    "page": null,
+    "line": 92
+   },
+   "quote": "After user confirmation, the order status will be changed to 'cancelled', and the total will be refunded via the original payment method immediately if it is gift card, otherwise in 5 to 7 business days."
+  },
+  {
+   "statement_id": "policy:generic-action-rules:1",
+   "kind": "question",
+   "reason": "policy question open",
+   "source": {
+    "document": "policy",
+    "section": "generic-action-rules",
+    "page": null,
+    "line": 82
+   },
+   "quote": "Generally, you can only take action on pending or delivered orders."
+  },
+  {
+   "statement_id": "policy:order:2",
+   "kind": "question",
+   "reason": "policy question open",
+   "source": {
+    "document": "policy",
+    "section": "order",
+    "page": null,
+    "line": 68
+   },
+   "quote": "unique order id"
+  },
+  {
+   "statement_id": "policy:order:3",
+   "kind": "question",
+   "reason": "policy question open",
+   "source": {
+    "document": "policy",
+    "section": "order",
+    "page": null,
+    "line": 69
+   },
+   "quote": "user id"
+  },
+  {
+   "statement_id": "policy:order:4",
+   "kind": "question",
+   "reason": "policy question open",
+   "source": {
+    "document": "policy",
+    "section": "order",
+    "page": null,
+    "line": 70
+   },
+   "quote": "address"
+  },
+  {
+   "statement_id": "policy:order:5",
+   "kind": "question",
+   "reason": "policy question open",
+   "source": {
+    "document": "policy",
+    "section": "order",
+    "page": null,
+    "line": 71
+   },
+   "quote": "items ordered"
+  },
+  {
+   "statement_id": "policy:order:6",
+   "kind": "question",
+   "reason": "policy question open",
+   "source": {
+    "document": "policy",
+    "section": "order",
+    "page": null,
+    "line": 72
+   },
+   "quote": "status"
+  },
+  {
+   "statement_id": "policy:order:7",
+   "kind": "question",
+   "reason": "policy question open",
+   "source": {
+    "document": "policy",
+    "section": "order",
+    "page": null,
+    "line": 73
+   },
+   "quote": "fullfilments info (tracking id and item ids)"
+  },
+  {
+   "statement_id": "policy:order:8",
+   "kind": "question",
+   "reason": "policy question open",
+   "source": {
+    "document": "policy",
+    "section": "order",
+    "page": null,
+    "line": 74
+   },
+   "quote": "payment history"
+  },
+  {
+   "statement_id": "policy:order:9",
+   "kind": "question",
+   "reason": "policy question open",
+   "source": {
+    "document": "policy",
+    "section": "order",
+    "page": null,
+    "line": 76
+   },
+   "quote": "The status of an order can be: pending, processed, delivered, or cancelled."
+  },
+  {
+   "statement_id": "policy:product:1",
+   "kind": "question",
+   "reason": "policy question open",
+   "source": {
+    "document": "policy",
+    "section": "product",
+    "page": null,
+    "line": 43
+   },
+   "quote": "Our retail store has 50 types of products."
+  },
+  {
+   "statement_id": "policy:product:13",
+   "kind": "question",
+   "reason": "policy question open",
+   "source": {
+    "document": "policy",
+    "section": "product",
+    "page": null,
+    "line": 62
+   },
+   "quote": "Note: Product ID and Item ID have no relations and should not be confused!"
+  },
+  {
+   "statement_id": "policy:return-delivered-order:4",
+   "kind": "question",
+   "reason": "policy question open",
+   "source": {
+    "document": "policy",
+    "section": "return-delivered-order",
+    "page": null,
+    "line": 124
+   },
+   "quote": "The refund must either go to the original payment method, or an existing gift card."
+  },
+  {
+   "statement_id": "policy:return-delivered-order:5",
+   "kind": "question",
+   "reason": "policy question open",
+   "source": {
+    "document": "policy",
+    "section": "return-delivered-order",
+    "page": null,
+    "line": 126
+   },
+   "quote": "After user confirmation, the order status will be changed to 'return requested', and the user will receive an email regarding how to return items."
+  },
+  {
+   "statement_id": "policy:user:2",
+   "kind": "question",
+   "reason": "policy question open",
+   "source": {
+    "document": "policy",
+    "section": "user",
+    "page": null,
+    "line": 34
+   },
+   "quote": "unique user id"
+  },
+  {
+   "statement_id": "policy:user:3",
+   "kind": "question",
+   "reason": "policy question open",
+   "source": {
+    "document": "policy",
+    "section": "user",
+    "page": null,
+    "line": 35
+   },
+   "quote": "email"
+  },
+  {
+   "statement_id": "policy:user:4",
+   "kind": "question",
+   "reason": "policy question open",
+   "source": {
+    "document": "policy",
+    "section": "user",
+    "page": null,
+    "line": 36
+   },
+   "quote": "default address"
+  },
+  {
+   "statement_id": "policy:user:5",
+   "kind": "question",
+   "reason": "policy question open",
+   "source": {
+    "document": "policy",
+    "section": "user",
+    "page": null,
+    "line": 37
+   },
+   "quote": "payment methods."
+  }
+ ],
+ "validation": [],
+ "policy_questions": [
+  {
+   "statement_ids": [
+    "policy:user:2"
+   ],
+   "question": "The statement says what must or must not be done, and no write tool names it or fits a typed rule: \"unique user id\" Is it guidance for the agent, a behaviour of the system, or a rule for a tool that the build did not find?",
+   "default_level": "observe"
+  },
+  {
+   "statement_ids": [
+    "policy:user:3"
+   ],
+   "question": "The statement says what must or must not be done, and no write tool names it or fits a typed rule: \"email\" Is it guidance for the agent, a behaviour of the system, or a rule for a tool that the build did not find?",
+   "default_level": "observe"
+  },
+  {
+   "statement_ids": [
+    "policy:user:4"
+   ],
+   "question": "The statement says what must or must not be done, and no write tool names it or fits a typed rule: \"default address\" Is it guidance for the agent, a behaviour of the system, or a rule for a tool that the build did not find?",
+   "default_level": "observe"
+  },
+  {
+   "statement_ids": [
+    "policy:user:5"
+   ],
+   "question": "The statement says what must or must not be done, and no write tool names it or fits a typed rule: \"payment methods.\" Is it guidance for the agent, a behaviour of the system, or a rule for a tool that the build did not find?",
+   "default_level": "observe"
+  },
+  {
+   "statement_ids": [
+    "policy:product:1"
+   ],
+   "question": "The statement says what must or must not be done, and no write tool names it or fits a typed rule: \"Our retail store has 50 types of products.\" Is it guidance for the agent, a behaviour of the system, or a rule for a tool that the build did not find?",
+   "default_level": "observe"
+  },
+  {
+   "statement_ids": [
+    "policy:product:13"
+   ],
+   "question": "The statement says what must or must not be done, and no write tool names it or fits a typed rule: \"Note: Product ID and Item ID have no relations and should not be confused!\" Is it guidance for the agent, a behaviour of the system, or a rule for a tool that the build did not find?",
+   "default_level": "observe"
+  },
+  {
+   "statement_ids": [
+    "policy:order:2"
+   ],
+   "question": "The statement says what must or must not be done, and no write tool names it or fits a typed rule: \"unique order id\" Is it guidance for the agent, a behaviour of the system, or a rule for a tool that the build did not find?",
+   "default_level": "observe"
+  },
+  {
+   "statement_ids": [
+    "policy:order:3"
+   ],
+   "question": "The statement says what must or must not be done, and no write tool names it or fits a typed rule: \"user id\" Is it guidance for the agent, a behaviour of the system, or a rule for a tool that the build did not find?",
+   "default_level": "observe"
+  },
+  {
+   "statement_ids": [
+    "policy:order:4"
+   ],
+   "question": "The statement says what must or must not be done, and no write tool names it or fits a typed rule: \"address\" Is it guidance for the agent, a behaviour of the system, or a rule for a tool that the build did not find?",
+   "default_level": "observe"
+  },
+  {
+   "statement_ids": [
+    "policy:order:5"
+   ],
+   "question": "The statement says what must or must not be done, and no write tool names it or fits a typed rule: \"items ordered\" Is it guidance for the agent, a behaviour of the system, or a rule for a tool that the build did not find?",
+   "default_level": "observe"
+  },
+  {
+   "statement_ids": [
+    "policy:order:6"
+   ],
+   "question": "The statement says what must or must not be done, and no write tool names it or fits a typed rule: \"status\" Is it guidance for the agent, a behaviour of the system, or a rule for a tool that the build did not find?",
+   "default_level": "observe"
+  },
+  {
+   "statement_ids": [
+    "policy:order:7"
+   ],
+   "question": "The statement says what must or must not be done, and no write tool names it or fits a typed rule: \"fullfilments info (tracking id and item ids)\" Is it guidance for the agent, a behaviour of the system, or a rule for a tool that the build did not find?",
+   "default_level": "observe"
+  },
+  {
+   "statement_ids": [
+    "policy:order:8"
+   ],
+   "question": "The statement says what must or must not be done, and no write tool names it or fits a typed rule: \"payment history\" Is it guidance for the agent, a behaviour of the system, or a rule for a tool that the build did not find?",
+   "default_level": "observe"
+  },
+  {
+   "statement_ids": [
+    "policy:order:9"
+   ],
+   "question": "The statement says what must or must not be done, and no write tool names it or fits a typed rule: \"The status of an order can be: pending, processed, delivered, or cancelled.\" Is it guidance for the agent, a behaviour of the system, or a rule for a tool that the build did not find?",
+   "default_level": "observe"
+  },
+  {
+   "statement_ids": [
+    "policy:generic-action-rules:1"
+   ],
+   "question": "The statement says what must or must not be done, and no write tool names it or fits a typed rule: \"Generally, you can only take action on pending or delivered orders.\" Is it guidance for the agent, a behaviour of the system, or a rule for a tool that the build did not find?",
+   "default_level": "observe"
+  },
+  {
+   "statement_ids": [
+    "policy:cancel-pending-order:4"
+   ],
+   "question": "The statement says what must or must not be done, and no write tool names it or fits a typed rule: \"After user confirmation, the order status will be changed to 'cancelled', and the total will be refunded via the original payment method immediately if it is gift card, otherwise in 5 to 7 business da\" Is it guidance for the agent, a behaviour of the system, or a rule for a tool that the build did not find?",
+   "default_level": "observe"
+  },
+  {
+   "statement_ids": [
+    "policy:return-delivered-order:4"
+   ],
+   "question": "The statement says what must or must not be done, and no write tool names it or fits a typed rule: \"The refund must either go to the original payment method, or an existing gift card.\" Is it guidance for the agent, a behaviour of the system, or a rule for a tool that the build did not find?",
+   "default_level": "observe"
+  },
+  {
+   "statement_ids": [
+    "policy:return-delivered-order:5"
+   ],
+   "question": "The statement says what must or must not be done, and no write tool names it or fits a typed rule: \"After user confirmation, the order status will be changed to 'return requested', and the user will receive an email regarding how to return items.\" Is it guidance for the agent, a behaviour of the system, or a rule for a tool that the build did not find?",
+   "default_level": "observe"
+  }
+ ],
+ "tests": [],
+ "extra": {
+  "_build": {
+   "stats": {
+    "documents": 1,
+    "statements": 82,
+    "rules": 60,
+    "by_type": {
+     "allowed_values": 2,
+     "duty": 2,
+     "format": 5,
+     "guidance": 36,
+     "record_condition": 4,
+     "required_args": 6,
+     "threshold": 4,
+     "verify": 1
+    },
+    "procedures": 1,
+    "links": 2,
+    "coverage": {
+     "classify_fallback": 1,
+     "dangling_link": 2,
+     "procedure_step": 14,
+     "guidance": 36,
+     "definition": 17,
+     "hard_rule": 14,
+     "judgment_rule": 1,
+     "out_of_scope": 14,
+     "question": 18
+    },
+    "validation_errors": 0,
+    "model": "aws/gpt-oss-120b",
+    "repair": {
+     "when_normalized": 0,
+     "verify_tools_added": 0,
+     "verify_retyped": 1,
+     "typed_rules_made": 2,
+     "retype_errors": 0,
+     "delayed_to_guidance": 0,
+     "role_rows": 0,
+     "grant_rules": 0,
+     "role_rows_all": 0,
+     "grant_errors": 0,
+     "verify_to_guidance": 19,
+     "questions": 18
+    },
+    "model_calls": 49,
+    "usage": {
+     "calls": 49,
+     "input_tokens": 42393,
+     "output_tokens": 36038
+    },
+    "cache_hits": 2
+   },
+   "rules": [
+    {
+     "id": "g_8c3f3ab05173",
+     "type": "guidance",
+     "rule": {
+      "type": "guidance",
+      "text": "As a retail agent, you can help users:",
+      "tools": [],
+      "quote": "As a retail agent, you can help users:",
+      "by": "model",
+      "from_verify": "8c3f3ab05173",
+      "id": "g_8c3f3ab05173"
+     },
+     "statement_ids": [
+      "policy:preamble:1"
+     ],
+     "checker": "brief",
+     "may_deny": true,
+     "source": {
+      "document": "policy",
+      "section": "preamble",
+      "page": null,
+      "line": 3
+     },
+     "quote": "As a retail agent, you can help users:"
+    },
+    {
+     "id": "8c3407ce6921",
+     "type": "guidance",
+     "rule": {
+      "type": "guidance",
+      "text": "cancel or modify pending orders",
+      "tools": [],
+      "quote": "cancel or modify pending orders",
+      "source": "§preamble",
+      "by": "model",
+      "id": "8c3407ce6921"
+     },
+     "statement_ids": [
+      "policy:preamble:2"
+     ],
+     "checker": "brief",
+     "may_deny": true,
+     "source": {
+      "document": "policy",
+      "section": "preamble",
+      "page": null,
+      "line": 5
+     },
+     "quote": "cancel or modify pending orders"
+    },
+    {
+     "id": "e73406176a0e",
+     "type": "guidance",
+     "rule": {
+      "type": "guidance",
+      "text": "return or exchange delivered orders",
+      "tools": [],
+      "quote": "return or exchange delivered orders",
+      "source": "§preamble",
+      "by": "model",
+      "id": "e73406176a0e"
+     },
+     "statement_ids": [
+      "policy:preamble:3"
+     ],
+     "checker": "brief",
+     "may_deny": true,
+     "source": {
+      "document": "policy",
+      "section": "preamble",
+      "page": null,
+      "line": 6
+     },
+     "quote": "return or exchange delivered orders"
+    },
+    {
+     "id": "4b27db2cc942",
+     "type": "guidance",
+     "rule": {
+      "type": "guidance",
+      "text": "modify their default user address",
+      "tools": [],
+      "quote": "modify their default user address",
+      "source": "§preamble",
+      "by": "model",
+      "id": "4b27db2cc942"
+     },
+     "statement_ids": [
+      "policy:preamble:4"
+     ],
+     "checker": "brief",
+     "may_deny": true,
+     "source": {
+      "document": "policy",
+      "section": "preamble",
+      "page": null,
+      "line": 7
+     },
+     "quote": "modify their default user address"
+    },
+    {
+     "id": "7679d38a602f",
+     "type": "guidance",
+     "rule": {
+      "type": "guidance",
+      "text": "provide information about their own profile, orders, and related products",
+      "tools": [],
+      "quote": "provide information about their own profile, orders, and related products",
+      "source": "§preamble",
+      "by": "model",
+      "id": "7679d38a602f"
+     },
+     "statement_ids": [
+      "policy:preamble:5"
+     ],
+     "checker": "brief",
+     "may_deny": true,
+     "source": {
+      "document": "policy",
+      "section": "preamble",
+      "page": null,
+      "line": 8
+     },
+     "quote": "provide information about their own profile, orders, and related products"
+    },
+    {
+     "id": "ba04aee7d412",
+     "type": "guidance",
+     "rule": {
+      "type": "guidance",
+      "text": "At the beginning of the conversation, you have to authenticate the user identity by locating their user id via email, or via name + zip code.",
+      "tools": [],
+      "quote": "At the beginning of the conversation, you have to authenticate the user identity by locating their user id via email, or via name + zip code.",
+      "source": "§preamble",
+      "by": "model",
+      "id": "ba04aee7d412"
+     },
+     "statement_ids": [
+      "policy:preamble:6"
+     ],
+     "checker": "brief",
+     "may_deny": true,
+     "source": {
+      "document": "policy",
+      "section": "preamble",
+      "page": null,
+      "line": 10
+     },
+     "quote": "At the beginning of the conversation, you have to authenticate the user identity by locating their user id via email, or via name + zip code."
+    },
+    {
+     "id": "32eceda7d60d",
+     "type": "guidance",
+     "rule": {
+      "type": "guidance",
+      "text": "This has to be done even when the user already provides the user id.",
+      "tools": [],
+      "quote": "This has to be done even when the user already provides the user id.",
+      "source": "§preamble",
+      "by": "model",
+      "id": "32eceda7d60d"
+     },
+     "statement_ids": [
+      "policy:preamble:7"
+     ],
+     "checker": "brief",
+     "may_deny": true,
+     "source": {
+      "document": "policy",
+      "section": "preamble",
+      "page": null,
+      "line": 10
+     },
+     "quote": "This has to be done even when the user already provides the user id."
+    },
+    {
+     "id": "f57fe035b56d",
+     "type": "guidance",
+     "rule": {
+      "type": "guidance",
+      "text": "Once the user has been authenticated, you can provide the user with information about order, product, profile information, e.g. help the user look up order id.",
+      "tools": [],
+      "quote": "Once the user has been authenticated, you can provide the user with information about order, product, profile information, e.g. help the user look up order id.",
+      "source": "§preamble",
+      "by": "model",
+      "id": "f57fe035b56d"
+     },
+     "statement_ids": [
+      "policy:preamble:8"
+     ],
+     "checker": "brief",
+     "may_deny": true,
+     "source": {
+      "document": "policy",
+      "section": "preamble",
+      "page": null,
+      "line": 12
+     },
+     "quote": "Once the user has been authenticated, you can provide the user with information about order, product, profile information, e.g. help the user look up order id."
+    },
+    {
+     "id": "f8af27a9dfa7",
+     "type": "guidance",
+     "rule": {
+      "type": "guidance",
+      "text": "You can only help one user per conversation (but you can handle multiple requests from the same user), and must deny any requests for tasks related to any other user.",
+      "tools": [],
+      "quote": "You can only help one user per conversation (but you can handle multiple requests from the same user), and must deny any requests for tasks related to any other user.",
+      "source": "§preamble",
+      "by": "model",
+      "id": "f8af27a9dfa7"
+     },
+     "statement_ids": [
+      "policy:preamble:9"
+     ],
+     "checker": "brief",
+     "may_deny": true,
+     "source": {
+      "document": "policy",
+      "section": "preamble",
+      "page": null,
+      "line": 14
+     },
+     "quote": "You can only help one user per conversation (but you can handle multiple requests from the same user), and must deny any requests for tasks related to any other user."
+    },
+    {
+     "id": "746ceb917fba",
+     "type": "guidance",
+     "rule": {
+      "type": "guidance",
+      "text": "Before taking any action that updates the database (cancel, modify, return, exchange), you must list the action details and obtain explicit user confirmation (yes) to proceed.",
+      "tools": [],
+      "quote": "Before taking any action that updates the database (cancel, modify, return, exchange), you must list the action details and obtain explicit user confirmation (yes) to proceed.",
+      "source": "§preamble",
+      "by": "model",
+      "id": "746ceb917fba"
+     },
+     "statement_ids": [
+      "policy:preamble:10"
+     ],
+     "checker": "brief",
+     "may_deny": true,
+     "source": {
+      "document": "policy",
+      "section": "preamble",
+      "page": null,
+      "line": 16
+     },
+     "quote": "Before taking any action that updates the database (cancel, modify, return, exchange), you must list the action details and obtain explicit user confirmation (yes) to proceed."
+    },
+    {
+     "id": "82a59d138868",
+     "type": "guidance",
+     "rule": {
+      "type": "guidance",
+      "text": "You should not make up any information or knowledge or procedures not provided by the user or the tools, or give subjective recommendations or comments.",
+      "tools": [],
+      "quote": "You should not make up any information or knowledge or procedures not provided by the user or the tools, or give subjective recommendations or comments.",
+      "source": "§preamble",
+      "by": "model",
+      "id": "82a59d138868"
+     },
+     "statement_ids": [
+      "policy:preamble:11"
+     ],
+     "checker": "brief",
+     "may_deny": true,
+     "source": {
+      "document": "policy",
+      "section": "preamble",
+      "page": null,
+      "line": 18
+     },
+     "quote": "You should not make up any information or knowledge or procedures not provided by the user or the tools, or give subjective recommendations or comments."
+    },
+    {
+     "id": "c57892d0fa00",
+     "type": "guidance",
+     "rule": {
+      "type": "guidance",
+      "text": "You should at most make one tool call at a time, and if you take a tool call, you should not respond to the user at the same time.",
+      "tools": [],
+      "quote": "You should at most make one tool call at a time, and if you take a tool call, you should not respond to the user at the same time.",
+      "source": "§preamble",
+      "by": "model",
+      "id": "c57892d0fa00"
+     },
+     "statement_ids": [
+      "policy:preamble:12"
+     ],
+     "checker": "brief",
+     "may_deny": true,
+     "source": {
+      "document": "policy",
+      "section": "preamble",
+      "page": null,
+      "line": 20
+     },
+     "quote": "You should at most make one tool call at a time, and if you take a tool call, you should not respond to the user at the same time."
+    },
+    {
+     "id": "c9bdc4b36909",
+     "type": "guidance",
+     "rule": {
+      "type": "guidance",
+      "text": "If you respond to the user, you should not make a tool call at the same time.",
+      "tools": [],
+      "quote": "If you respond to the user, you should not make a tool call at the same time.",
+      "source": "§preamble",
+      "by": "model",
+      "id": "c9bdc4b36909"
+     },
+     "statement_ids": [
+      "policy:preamble:13"
+     ],
+     "checker": "brief",
+     "may_deny": true,
+     "source": {
+      "document": "policy",
+      "section": "preamble",
+      "page": null,
+      "line": 20
+     },
+     "quote": "If you respond to the user, you should not make a tool call at the same time."
+    },
+    {
+     "id": "29dae1d2fa00",
+     "type": "guidance",
+     "rule": {
+      "type": "guidance",
+      "text": "You should deny user requests that are against this policy.",
+      "tools": [],
+      "quote": "You should deny user requests that are against this policy.",
+      "source": "§preamble",
+      "by": "model",
+      "id": "29dae1d2fa00"
+     },
+     "statement_ids": [
+      "policy:preamble:14"
+     ],
+     "checker": "brief",
+     "may_deny": true,
+     "source": {
+      "document": "policy",
+      "section": "preamble",
+      "page": null,
+      "line": 22
+     },
+     "quote": "You should deny user requests that are against this policy."
+    },
+    {
+     "id": "ad5e105273c2",
+     "type": "guidance",
+     "rule": {
+      "type": "guidance",
+      "text": "You should transfer the user to a human agent if and only if the request cannot be handled within the scope of your actions.",
+      "tools": [],
+      "quote": "You should transfer the user to a human agent if and only if the request cannot be handled within the scope of your actions.",
+      "source": "§preamble",
+      "by": "model",
+      "id": "ad5e105273c2"
+     },
+     "statement_ids": [
+      "policy:preamble:15"
+     ],
+     "checker": "brief",
+     "may_deny": true,
+     "source": {
+      "document": "policy",
+      "section": "preamble",
+      "page": null,
+      "line": 24
+     },
+     "quote": "You should transfer the user to a human agent if and only if the request cannot be handled within the scope of your actions."
+    },
+    {
+     "id": "1141eef101c7",
+     "type": "guidance",
+     "rule": {
+      "type": "guidance",
+      "text": "To transfer, first make a tool call to transfer_to_human_agents, and then send the message 'YOU ARE BEING TRANSFERRED TO A HUMAN AGENT.",
+      "tools": [],
+      "quote": "To transfer, first make a tool call to transfer_to_human_agents, and then send the message 'YOU ARE BEING TRANSFERRED TO A HUMAN AGENT.",
+      "source": "§preamble",
+      "by": "model",
+      "id": "1141eef101c7"
+     },
+     "statement_ids": [
+      "policy:preamble:16"
+     ],
+     "checker": "brief",
+     "may_deny": true,
+     "source": {
+      "document": "policy",
+      "section": "preamble",
+      "page": null,
+      "line": 24
+     },
+     "quote": "To transfer, first make a tool call to transfer_to_human_agents, and then send the message 'YOU ARE BEING TRANSFERRED TO A HUMAN AGENT."
+    },
+    {
+     "id": "867c1fc8c806",
+     "type": "guidance",
+     "rule": {
+      "type": "guidance",
+      "text": "PLEASE HOLD ON.' to the user.",
+      "tools": [],
+      "quote": "PLEASE HOLD ON.' to the user.",
+      "source": "§preamble",
+      "by": "model",
+      "id": "867c1fc8c806"
+     },
+     "statement_ids": [
+      "policy:preamble:17"
+     ],
+     "checker": "brief",
+     "may_deny": true,
+     "source": {
+      "document": "policy",
+      "section": "preamble",
+      "page": null,
+      "line": 24
+     },
+     "quote": "PLEASE HOLD ON.' to the user."
+    },
+    {
+     "id": "g_0fb972c154e1",
+     "type": "guidance",
+     "rule": {
+      "type": "guidance",
+      "text": "unique user id",
+      "tools": [],
+      "quote": "unique user id",
+      "by": "model",
+      "from_verify": "0fb972c154e1",
+      "id": "g_0fb972c154e1"
+     },
+     "statement_ids": [
+      "policy:user:2"
+     ],
+     "checker": "brief",
+     "may_deny": true,
+     "source": {
+      "document": "policy",
+      "section": "user",
+      "page": null,
+      "line": 34
+     },
+     "quote": "unique user id"
+    },
+    {
+     "id": "g_80a6a91cdc9a",
+     "type": "guidance",
+     "rule": {
+      "type": "guidance",
+      "text": "email",
+      "tools": [],
+      "quote": "email",
+      "by": "model",
+      "from_verify": "80a6a91cdc9a",
+      "id": "g_80a6a91cdc9a"
+     },
+     "statement_ids": [
+      "policy:user:3"
+     ],
+     "checker": "brief",
+     "may_deny": true,
+     "source": {
+      "document": "policy",
+      "section": "user",
+      "page": null,
+      "line": 35
+     },
+     "quote": "email"
+    },
+    {
+     "id": "g_4b079a82c555",
+     "type": "guidance",
+     "rule": {
+      "type": "guidance",
+      "text": "default address",
+      "tools": [],
+      "quote": "default address",
+      "by": "model",
+      "from_verify": "4b079a82c555",
+      "id": "g_4b079a82c555"
+     },
+     "statement_ids": [
+      "policy:user:4"
+     ],
+     "checker": "brief",
+     "may_deny": true,
+     "source": {
+      "document": "policy",
+      "section": "user",
+      "page": null,
+      "line": 36
+     },
+     "quote": "default address"
+    },
+    {
+     "id": "g_ffa28bcee2bb",
+     "type": "guidance",
+     "rule": {
+      "type": "guidance",
+      "text": "payment methods.",
+      "tools": [],
+      "quote": "payment methods.",
+      "by": "model",
+      "from_verify": "ffa28bcee2bb",
+      "id": "g_ffa28bcee2bb"
+     },
+     "statement_ids": [
+      "policy:user:5"
+     ],
+     "checker": "brief",
+     "may_deny": true,
+     "source": {
+      "document": "policy",
+      "section": "user",
+      "page": null,
+      "line": 37
+     },
+     "quote": "payment methods."
+    },
+    {
+     "id": "g_4908ffdcd8f8",
+     "type": "guidance",
+     "rule": {
+      "type": "guidance",
+      "text": "Our retail store has 50 types of products.",
+      "tools": [],
+      "quote": "Our retail store has 50 types of products.",
+      "by": "model",
+      "from_verify": "4908ffdcd8f8",
+      "id": "g_4908ffdcd8f8"
+     },
+     "statement_ids": [
+      "policy:product:1"
+     ],
+     "checker": "brief",
+     "may_deny": true,
+     "source": {
+      "document": "policy",
+      "section": "product",
+      "page": null,
+      "line": 43
+     },
+     "quote": "Our retail store has 50 types of products."
+    },
+    {
+     "id": "g_64b2a46ee2b7",
+     "type": "guidance",
+     "rule": {
+      "type": "guidance",
+      "text": "Note: Product ID and Item ID have no relations and should not be confused!",
+      "tools": [],
+      "quote": "Note: Product ID and Item ID have no relations and should not be confused!",
+      "by": "model",
+      "from_verify": "64b2a46ee2b7",
+      "id": "g_64b2a46ee2b7"
+     },
+     "statement_ids": [
+      "policy:product:13"
+     ],
+     "checker": "brief",
+     "may_deny": true,
+     "source": {
+      "document": "policy",
+      "section": "product",
+      "page": null,
+      "line": 62
+     },
+     "quote": "Note: Product ID and Item ID have no relations and should not be confused!"
+    },
+    {
+     "id": "g_112334e51a41",
+     "type": "guidance",
+     "rule": {
+      "type": "guidance",
+      "text": "unique order id",
+      "tools": [],
+      "quote": "unique order id",
+      "by": "model",
+      "from_verify": "112334e51a41",
+      "id": "g_112334e51a41"
+     },
+     "statement_ids": [
+      "policy:order:2"
+     ],
+     "checker": "brief",
+     "may_deny": true,
+     "source": {
+      "document": "policy",
+      "section": "order",
+      "page": null,
+      "line": 68
+     },
+     "quote": "unique order id"
+    },
+    {
+     "id": "g_0bba5b23d768",
+     "type": "guidance",
+     "rule": {
+      "type": "guidance",
+      "text": "user id",
+      "tools": [],
+      "quote": "user id",
+      "by": "model",
+      "from_verify": "0bba5b23d768",
+      "id": "g_0bba5b23d768"
+     },
+     "statement_ids": [
+      "policy:order:3"
+     ],
+     "checker": "brief",
+     "may_deny": true,
+     "source": {
+      "document": "policy",
+      "section": "order",
+      "page": null,
+      "line": 69
+     },
+     "quote": "user id"
+    },
+    {
+     "id": "g_20ad1c77e5c3",
+     "type": "guidance",
+     "rule": {
+      "type": "guidance",
+      "text": "address",
+      "tools": [],
+      "quote": "address",
+      "by": "model",
+      "from_verify": "20ad1c77e5c3",
+      "id": "g_20ad1c77e5c3"
+     },
+     "statement_ids": [
+      "policy:order:4"
+     ],
+     "checker": "brief",
+     "may_deny": true,
+     "source": {
+      "document": "policy",
+      "section": "order",
+      "page": null,
+      "line": 70
+     },
+     "quote": "address"
+    },
+    {
+     "id": "g_bb52db9ca47b",
+     "type": "guidance",
+     "rule": {
+      "type": "guidance",
+      "text": "items ordered",
+      "tools": [],
+      "quote": "items ordered",
+      "by": "model",
+      "from_verify": "bb52db9ca47b",
+      "id": "g_bb52db9ca47b"
+     },
+     "statement_ids": [
+      "policy:order:5"
+     ],
+     "checker": "brief",
+     "may_deny": true,
+     "source": {
+      "document": "policy",
+      "section": "order",
+      "page": null,
+      "line": 71
+     },
+     "quote": "items ordered"
+    },
+    {
+     "id": "g_054a819a27e4",
+     "type": "guidance",
+     "rule": {
+      "type": "guidance",
+      "text": "status",
+      "tools": [],
+      "quote": "status",
+      "by": "model",
+      "from_verify": "054a819a27e4",
+      "id": "g_054a819a27e4"
+     },
+     "statement_ids": [
+      "policy:order:6"
+     ],
+     "checker": "brief",
+     "may_deny": true,
+     "source": {
+      "document": "policy",
+      "section": "order",
+      "page": null,
+      "line": 72
+     },
+     "quote": "status"
+    },
+    {
+     "id": "g_8f9cdb290712",
+     "type": "guidance",
+     "rule": {
+      "type": "guidance",
+      "text": "fullfilments info (tracking id and item ids)",
+      "tools": [],
+      "quote": "fullfilments info (tracking id and item ids)",
+      "by": "model",
+      "from_verify": "8f9cdb290712",
+      "id": "g_8f9cdb290712"
+     },
+     "statement_ids": [
+      "policy:order:7"
+     ],
+     "checker": "brief",
+     "may_deny": true,
+     "source": {
+      "document": "policy",
+      "section": "order",
+      "page": null,
+      "line": 73
+     },
+     "quote": "fullfilments info (tracking id and item ids)"
+    },
+    {
+     "id": "g_f2486d2b8e92",
+     "type": "guidance",
+     "rule": {
+      "type": "guidance",
+      "text": "payment history",
+      "tools": [],
+      "quote": "payment history",
+      "by": "model",
+      "from_verify": "f2486d2b8e92",
+      "id": "g_f2486d2b8e92"
+     },
+     "statement_ids": [
+      "policy:order:8"
+     ],
+     "checker": "brief",
+     "may_deny": true,
+     "source": {
+      "document": "policy",
+      "section": "order",
+      "page": null,
+      "line": 74
+     },
+     "quote": "payment history"
+    },
+    {
+     "id": "g_88cb949190ae",
+     "type": "guidance",
+     "rule": {
+      "type": "guidance",
+      "text": "The status of an order can be: pending, processed, delivered, or cancelled.",
+      "tools": [],
+      "quote": "The status of an order can be: pending, processed, delivered, or cancelled.",
+      "by": "model",
+      "from_verify": "88cb949190ae",
+      "id": "g_88cb949190ae"
+     },
+     "statement_ids": [
+      "policy:order:9"
+     ],
+     "checker": "brief",
+     "may_deny": true,
+     "source": {
+      "document": "policy",
+      "section": "order",
+      "page": null,
+      "line": 76
+     },
+     "quote": "The status of an order can be: pending, processed, delivered, or cancelled."
+    },
+    {
+     "id": "g_5104b6bafd5e",
+     "type": "guidance",
+     "rule": {
+      "type": "guidance",
+      "text": "Generally, you can only take action on pending or delivered orders.",
+      "tools": [],
+      "quote": "Generally, you can only take action on pending or delivered orders.",
+      "by": "model",
+      "from_verify": "5104b6bafd5e",
+      "id": "g_5104b6bafd5e"
+     },
+     "statement_ids": [
+      "policy:generic-action-rules:1"
+     ],
+     "checker": "brief",
+     "may_deny": true,
+     "source": {
+      "document": "policy",
+      "section": "generic-action-rules",
+      "page": null,
+      "line": 82
+     },
+     "quote": "Generally, you can only take action on pending or delivered orders."
+    },
+    {
+     "id": "05673c4fe000",
+     "type": "threshold",
+     "rule": {
+      "type": "threshold",
+      "quote": "Exchange or modify order tools can only be called once per order.",
+      "tool": "exchange_delivered_order_items",
+      "arg": "order_id",
+      "op": "gt",
+      "value": 1,
+      "then": "forbid",
+      "source": "§generic-action-rules",
+      "by": "model",
+      "id": "05673c4fe000"
+     },
+     "statement_ids": [
+      "policy:generic-action-rules:2"
+     ],
+     "checker": "code",
+     "may_deny": true,
+     "source": {
+      "document": "policy",
+      "section": "generic-action-rules",
+      "page": null,
+      "line": 84
+     },
+     "quote": "Exchange or modify order tools can only be called once per order."
+    },
+    {
+     "id": "09d8ff48c7e6",
+     "type": "threshold",
+     "rule": {
+      "type": "threshold",
+      "quote": "Exchange or modify order tools can only be called once per order.",
+      "tool": "modify_pending_order_address",
+      "arg": "order_id",
+      "op": "gt",
+      "value": 1,
+      "then": "forbid",
+      "source": "§generic-action-rules",
+      "by": "model",
+      "id": "09d8ff48c7e6"
+     },
+     "statement_ids": [
+      "policy:generic-action-rules:2"
+     ],
+     "checker": "code",
+     "may_deny": true,
+     "source": {
+      "document": "policy",
+      "section": "generic-action-rules",
+      "page": null,
+      "line": 84
+     },
+     "quote": "Exchange or modify order tools can only be called once per order."
+    },
+    {
+     "id": "bc39fd2536af",
+     "type": "threshold",
+     "rule": {
+      "type": "threshold",
+      "quote": "Exchange or modify order tools can only be called once per order.",
+      "tool": "modify_pending_order_items",
+      "arg": "order_id",
+      "op": "gt",
+      "value": 1,
+      "then": "forbid",
+      "source": "§generic-action-rules",
+      "by": "model",
+      "id": "bc39fd2536af"
+     },
+     "statement_ids": [
+      "policy:generic-action-rules:2"
+     ],
+     "checker": "code",
+     "may_deny": true,
+     "source": {
+      "document": "policy",
+      "section": "generic-action-rules",
+      "page": null,
+      "line": 84
+     },
+     "quote": "Exchange or modify order tools can only be called once per order."
+    },
+    {
+     "id": "94a5e3f7f7ae",
+     "type": "threshold",
+     "rule": {
+      "type": "threshold",
+      "quote": "Exchange or modify order tools can only be called once per order.",
+      "tool": "modify_pending_order_payment",
+      "arg": "order_id",
+      "op": "gt",
+      "value": 1,
+      "then": "forbid",
+      "source": "§generic-action-rules",
+      "by": "model",
+      "id": "94a5e3f7f7ae"
+     },
+     "statement_ids": [
+      "policy:generic-action-rules:2"
+     ],
+     "checker": "code",
+     "may_deny": true,
+     "source": {
+      "document": "policy",
+      "section": "generic-action-rules",
+      "page": null,
+      "line": 84
+     },
+     "quote": "Exchange or modify order tools can only be called once per order."
+    },
+    {
+     "id": "4e15acfb7b10",
+     "type": "format",
+     "rule": {
+      "type": "format",
+      "quote": "Be sure that all items to be changed are collected into a list before making the tool call!!!",
+      "tool": "exchange_delivered_order_items",
+      "arg": "item_ids",
+      "pattern": "^\\[.*\\]$",
+      "source": "§generic-action-rules",
+      "by": "model",
+      "id": "4e15acfb7b10"
+     },
+     "statement_ids": [
+      "policy:generic-action-rules:3"
+     ],
+     "checker": "code",
+     "may_deny": true,
+     "source": {
+      "document": "policy",
+      "section": "generic-action-rules",
+      "page": null,
+      "line": 84
+     },
+     "quote": "Be sure that all items to be changed are collected into a list before making the tool call!!!"
+    },
+    {
+     "id": "7a20ffdfa23c",
+     "type": "format",
+     "rule": {
+      "type": "format",
+      "quote": "Be sure that all items to be changed are collected into a list before making the tool call!!!",
+      "tool": "exchange_delivered_order_items",
+      "arg": "new_item_ids",
+      "pattern": "^\\[.*\\]$",
+      "source": "§generic-action-rules",
+      "by": "model",
+      "id": "7a20ffdfa23c"
+     },
+     "statement_ids": [
+      "policy:generic-action-rules:3"
+     ],
+     "checker": "code",
+     "may_deny": true,
+     "source": {
+      "document": "policy",
+      "section": "generic-action-rules",
+      "page": null,
+      "line": 84
+     },
+     "quote": "Be sure that all items to be changed are collected into a list before making the tool call!!!"
+    },
+    {
+     "id": "c760ae1da214",
+     "type": "format",
+     "rule": {
+      "type": "format",
+      "quote": "Be sure that all items to be changed are collected into a list before making the tool call!!!",
+      "tool": "modify_pending_order_items",
+      "arg": "item_ids",
+      "pattern": "^\\[.*\\]$",
+      "source": "§generic-action-rules",
+      "by": "model",
+      "id": "c760ae1da214"
+     },
+     "statement_ids": [
+      "policy:generic-action-rules:3"
+     ],
+     "checker": "code",
+     "may_deny": true,
+     "source": {
+      "document": "policy",
+      "section": "generic-action-rules",
+      "page": null,
+      "line": 84
+     },
+     "quote": "Be sure that all items to be changed are collected into a list before making the tool call!!!"
+    },
+    {
+     "id": "1754cb247197",
+     "type": "format",
+     "rule": {
+      "type": "format",
+      "quote": "Be sure that all items to be changed are collected into a list before making the tool call!!!",
+      "tool": "modify_pending_order_items",
+      "arg": "new_item_ids",
+      "pattern": "^\\[.*\\]$",
+      "source": "§generic-action-rules",
+      "by": "model",
+      "id": "1754cb247197"
+     },
+     "statement_ids": [
+      "policy:generic-action-rules:3"
+     ],
+     "checker": "code",
+     "may_deny": true,
+     "source": {
+      "document": "policy",
+      "section": "generic-action-rules",
+      "page": null,
+      "line": 84
+     },
+     "quote": "Be sure that all items to be changed are collected into a list before making the tool call!!!"
+    },
+    {
+     "id": "3b933cb86a3c",
+     "type": "format",
+     "rule": {
+      "type": "format",
+      "quote": "Be sure that all items to be changed are collected into a list before making the tool call!!!",
+      "tool": "return_delivered_order_items",
+      "arg": "item_ids",
+      "pattern": "^\\[.*\\]$",
+      "source": "§generic-action-rules",
+      "by": "model",
+      "id": "3b933cb86a3c"
+     },
+     "statement_ids": [
+      "policy:generic-action-rules:3"
+     ],
+     "checker": "code",
+     "may_deny": true,
+     "source": {
+      "document": "policy",
+      "section": "generic-action-rules",
+      "page": null,
+      "line": 84
+     },
+     "quote": "Be sure that all items to be changed are collected into a list before making the tool call!!!"
+    },
+    {
+     "id": "3e547a9938de",
+     "type": "required_args",
+     "rule": {
+      "type": "required_args",
+      "quote": "The user needs to confirm the order id and the reason (either 'no longer needed' or 'ordered by mistake') for cancellation.",
+      "tool": "cancel_pending_order",
+      "args": [
+       "order_id",
+       "reason"
+      ],
+      "source": "§cancel-pending-order",
+      "by": "model",
+      "id": "3e547a9938de"
+     },
+     "statement_ids": [
+      "policy:cancel-pending-order:2"
+     ],
+     "checker": "code",
+     "may_deny": true,
+     "source": {
+      "document": "policy",
+      "section": "cancel-pending-order",
+      "page": null,
+      "line": 90
+     },
+     "quote": "The user needs to confirm the order id and the reason (either 'no longer needed' or 'ordered by mistake') for cancellation."
+    },
+    {
+     "id": "d741273e61f9",
+     "type": "allowed_values",
+     "rule": {
+      "type": "allowed_values",
+      "quote": "The user needs to confirm the order id and the reason (either 'no longer needed' or 'ordered by mistake') for cancellation.",
+      "tool": "cancel_pending_order",
+      "arg": "reason",
+      "values": [
+       "no longer needed",
+       "ordered by mistake"
+      ],
+      "source": "§cancel-pending-order",
+      "by": "model",
+      "id": "d741273e61f9"
+     },
+     "statement_ids": [
+      "policy:cancel-pending-order:2"
+     ],
+     "checker": "code",
+     "may_deny": true,
+     "source": {
+      "document": "policy",
+      "section": "cancel-pending-order",
+      "page": null,
+      "line": 90
+     },
+     "quote": "The user needs to confirm the order id and the reason (either 'no longer needed' or 'ordered by mistake') for cancellation."
+    },
+    {
+     "id": "b44aa52b1d4b",
+     "type": "allowed_values",
+     "rule": {
+      "type": "allowed_values",
+      "quote": "Other reasons are not acceptable.",
+      "tool": "cancel_pending_order",
+      "arg": "reason",
+      "values": [
+       "no longer needed",
+       "ordered by mistake"
+      ],
+      "source": "§cancel-pending-order",
+      "by": "model",
+      "id": "b44aa52b1d4b"
+     },
+     "statement_ids": [
+      "policy:cancel-pending-order:3"
+     ],
+     "checker": "code",
+     "may_deny": true,
+     "source": {
+      "document": "policy",
+      "section": "cancel-pending-order",
+      "page": null,
+      "line": 90
+     },
+     "quote": "Other reasons are not acceptable."
+    },
+    {
+     "id": "g_1ceec78df6ec",
+     "type": "guidance",
+     "rule": {
+      "type": "guidance",
+      "text": "After user confirmation, the order status will be changed to 'cancelled', and the total will be refunded via the original payment method immediately if it is gift card, otherwise in 5 to 7 business days.",
+      "tools": [],
+      "quote": "After user confirmation, the order status will be changed to 'cancelled', and the total will be refunded via the original payment method immediately if it is gift card, otherwise in 5 to 7 business days.",
+      "by": "model",
+      "from_verify": "1ceec78df6ec",
+      "id": "g_1ceec78df6ec"
+     },
+     "statement_ids": [
+      "policy:cancel-pending-order:4"
+     ],
+     "checker": "brief",
+     "may_deny": true,
+     "source": {
+      "document": "policy",
+      "section": "cancel-pending-order",
+      "page": null,
+      "line": 92
+     },
+     "quote": "After user confirmation, the order status will be changed to 'cancelled', and the total will be refunded via the original payment method immediately if it is gift card, otherwise in 5 to 7 business days."
+    },
+    {
+     "id": "4ccad486373d",
+     "type": "record_condition",
+     "rule": {
+      "type": "record_condition",
+      "quote": "An order can only be modified if its status is 'pending', and you should check its status before taking the action.",
+      "tools": [
+       "modify_pending_order_address",
+       "modify_pending_order_items",
+       "modify_pending_order_payment"
+      ],
+      "field": "status",
+      "op": "equals",
+      "value": "pending",
+      "effect": "forbid",
+      "source": "§modify-pending-order",
+      "by": "model",
+      "id": "4ccad486373d"
+     },
+     "statement_ids": [
+      "policy:modify-pending-order:1"
+     ],
+     "checker": "code",
+     "may_deny": true,
+     "source": {
+      "document": "policy",
+      "section": "modify-pending-order",
+      "page": null,
+      "line": 96
+     },
+     "quote": "An order can only be modified if its status is 'pending', and you should check its status before taking the action."
+    },
+    {
+     "id": "2154110b9b5e",
+     "type": "record_condition",
+     "rule": {
+      "type": "record_condition",
+      "quote": "For a pending order, you can take actions to modify its shipping address, payment method, or product item options, but nothing else.",
+      "tools": [
+       "cancel_pending_order",
+       "exchange_delivered_order_items",
+       "return_delivered_order_items"
+      ],
+      "field": "status",
+      "op": "equals",
+      "value": "pending",
+      "effect": "forbid",
+      "source": "§modify-pending-order",
+      "by": "model",
+      "id": "2154110b9b5e"
+     },
+     "statement_ids": [
+      "policy:modify-pending-order:2"
+     ],
+     "checker": "code",
+     "may_deny": true,
+     "source": {
+      "document": "policy",
+      "section": "modify-pending-order",
+      "page": null,
+      "line": 98
+     },
+     "quote": "For a pending order, you can take actions to modify its shipping address, payment method, or product item options, but nothing else."
+    },
+    {
+     "id": "4ccdd57b52a5",
+     "type": "verify",
+     "rule": {
+      "id": "4ccdd57b52a5",
+      "type": "verify",
+      "statement": "The user can only choose a single payment method different from the original payment method.",
+      "tools": [
+       "modify_pending_order_payment"
+      ],
+      "types": [
+       "allowed_values",
+       "prohibition"
+      ],
+      "source": "§modify-payment",
+      "quote": "The user can only choose a single payment method different from the original payment method."
+     },
+     "statement_ids": [
+      "policy:modify-payment:1"
+     ],
+     "checker": "verifier",
+     "may_deny": true,
+     "source": {
+      "document": "policy",
+      "section": "modify-payment",
+      "page": null,
+      "line": 102
+     },
+     "quote": "The user can only choose a single payment method different from the original payment method."
+    },
+    {
+     "id": "81dd181b8971",
+     "type": "record_condition",
+     "rule": {
+      "type": "record_condition",
+      "quote": "The agent will not be able to modify or cancel the order anymore.",
+      "tools": [
+       "modify_pending_order_items",
+       "cancel_pending_order"
+      ],
+      "field": "status",
+      "op": "equals",
+      "value": "pending (items modifed)",
+      "effect": "forbid",
+      "source": "§modify-items",
+      "by": "model",
+      "id": "81dd181b8971"
+     },
+     "statement_ids": [
+      "policy:modify-items:2"
+     ],
+     "checker": "code",
+     "may_deny": true,
+     "source": {
+      "document": "policy",
+      "section": "modify-items",
+      "page": null,
+      "line": 110
+     },
+     "quote": "The agent will not be able to modify or cancel the order anymore."
+    },
+    {
+     "id": "852a034026a3",
+     "type": "guidance",
+     "rule": {
+      "type": "guidance",
+      "quote": "So you must confirm all the details are correct and be cautious before taking this action.",
+      "text": "So you must confirm all the details are correct and be cautious before taking this action.",
+      "tools": [],
+      "source": "§modify-items",
+      "by": "model",
+      "id": "852a034026a3"
+     },
+     "statement_ids": [
+      "policy:modify-items:3"
+     ],
+     "checker": "brief",
+     "may_deny": true,
+     "source": {
+      "document": "policy",
+      "section": "modify-items",
+      "page": null,
+      "line": 110
+     },
+     "quote": "So you must confirm all the details are correct and be cautious before taking this action."
+    },
+    {
+     "id": "4a6cf8f41422",
+     "type": "duty",
+     "rule": {
+      "type": "duty",
+      "quote": "In particular, remember to remind the customer to confirm they have provided all the items they want to modify.",
+      "trigger": {
+       "tool": "modify_pending_order_items",
+       "when": {}
+      },
+      "then": {
+       "tool": "transfer_to_human_agents",
+       "when": {}
+      },
+      "source": "§modify-items",
+      "by": "model",
+      "id": "4a6cf8f41422"
+     },
+     "statement_ids": [
+      "policy:modify-items:4"
+     ],
+     "checker": "monitor",
+     "may_deny": true,
+     "source": {
+      "document": "policy",
+      "section": "modify-items",
+      "page": null,
+      "line": 110
+     },
+     "quote": "In particular, remember to remind the customer to confirm they have provided all the items they want to modify."
+    },
+    {
+     "id": "733e9f51d660_t1",
+     "type": "required_args",
+     "rule": {
+      "type": "required_args",
+      "tool": "exchange_delivered_order_items",
+      "args": [
+       "payment_method_id"
+      ],
+      "id": "733e9f51d660_t1",
+      "source": "§modify-items",
+      "quote": "The user must provide a payment method to pay or receive refund of the price difference.",
+      "by": "model",
+      "retyped_from": "733e9f51d660",
+      "may_deny": true
+     },
+     "statement_ids": [
+      "policy:modify-items:7"
+     ],
+     "checker": "code",
+     "may_deny": true,
+     "source": {
+      "document": "policy",
+      "section": "modify-items",
+      "page": null,
+      "line": 114
+     },
+     "quote": "The user must provide a payment method to pay or receive refund of the price difference."
+    },
+    {
+     "id": "733e9f51d660_t2",
+     "type": "required_args",
+     "rule": {
+      "type": "required_args",
+      "tool": "return_delivered_order_items",
+      "args": [
+       "payment_method_id"
+      ],
+      "id": "733e9f51d660_t2",
+      "source": "§modify-items",
+      "quote": "The user must provide a payment method to pay or receive refund of the price difference.",
+      "by": "model",
+      "retyped_from": "733e9f51d660",
+      "may_deny": true
+     },
+     "statement_ids": [
+      "policy:modify-items:7"
+     ],
+     "checker": "code",
+     "may_deny": true,
+     "source": {
+      "document": "policy",
+      "section": "modify-items",
+      "page": null,
+      "line": 114
+     },
+     "quote": "The user must provide a payment method to pay or receive refund of the price difference."
+    },
+    {
+     "id": "9b0cf7310873",
+     "type": "record_condition",
+     "rule": {
+      "type": "record_condition",
+      "quote": "An order can only be returned if its status is 'delivered', and you should check its status before taking the action.",
+      "tools": [
+       "return_delivered_order_items"
+      ],
+      "field": "status",
+      "op": "equals",
+      "value": "delivered",
+      "effect": "forbid",
+      "source": "§return-delivered-order",
+      "by": "model",
+      "id": "9b0cf7310873"
+     },
+     "statement_ids": [
+      "policy:return-delivered-order:1"
+     ],
+     "checker": "code",
+     "may_deny": true,
+     "source": {
+      "document": "policy",
+      "section": "return-delivered-order",
+      "page": null,
+      "line": 118
+     },
+     "quote": "An order can only be returned if its status is 'delivered', and you should check its status before taking the action."
+    },
+    {
+     "id": "dd38d5994936",
+     "type": "required_args",
+     "rule": {
+      "type": "required_args",
+      "quote": "The user needs to confirm the order id and the list of items to be returned.",
+      "tool": "return_delivered_order_items",
+      "args": [
+       "order_id",
+       "item_ids"
+      ],
+      "source": "§return-delivered-order",
+      "by": "model",
+      "id": "dd38d5994936"
+     },
+     "statement_ids": [
+      "policy:return-delivered-order:2"
+     ],
+     "checker": "code",
+     "may_deny": true,
+     "source": {
+      "document": "policy",
+      "section": "return-delivered-order",
+      "page": null,
+      "line": 120
+     },
+     "quote": "The user needs to confirm the order id and the list of items to be returned."
+    },
+    {
+     "id": "16c94c3034ec",
+     "type": "required_args",
+     "rule": {
+      "type": "required_args",
+      "quote": "The user needs to provide a payment method to receive the refund.",
+      "tool": "return_delivered_order_items",
+      "args": [
+       "payment_method_id"
+      ],
+      "source": "§return-delivered-order",
+      "by": "model",
+      "id": "16c94c3034ec"
+     },
+     "statement_ids": [
+      "policy:return-delivered-order:3"
+     ],
+     "checker": "code",
+     "may_deny": true,
+     "source": {
+      "document": "policy",
+      "section": "return-delivered-order",
+      "page": null,
+      "line": 122
+     },
+     "quote": "The user needs to provide a payment method to receive the refund."
+    },
+    {
+     "id": "g_be65ea5678bd",
+     "type": "guidance",
+     "rule": {
+      "type": "guidance",
+      "text": "The refund must either go to the original payment method, or an existing gift card.",
+      "tools": [],
+      "quote": "The refund must either go to the original payment method, or an existing gift card.",
+      "by": "model",
+      "from_verify": "be65ea5678bd",
+      "id": "g_be65ea5678bd"
+     },
+     "statement_ids": [
+      "policy:return-delivered-order:4"
+     ],
+     "checker": "brief",
+     "may_deny": true,
+     "source": {
+      "document": "policy",
+      "section": "return-delivered-order",
+      "page": null,
+      "line": 124
+     },
+     "quote": "The refund must either go to the original payment method, or an existing gift card."
+    },
+    {
+     "id": "g_f1d9e7fa99f1",
+     "type": "guidance",
+     "rule": {
+      "type": "guidance",
+      "text": "After user confirmation, the order status will be changed to 'return requested', and the user will receive an email regarding how to return items.",
+      "tools": [],
+      "quote": "After user confirmation, the order status will be changed to 'return requested', and the user will receive an email regarding how to return items.",
+      "by": "model",
+      "from_verify": "f1d9e7fa99f1",
+      "id": "g_f1d9e7fa99f1"
+     },
+     "statement_ids": [
+      "policy:return-delivered-order:5"
+     ],
+     "checker": "brief",
+     "may_deny": true,
+     "source": {
+      "document": "policy",
+      "section": "return-delivered-order",
+      "page": null,
+      "line": 126
+     },
+     "quote": "After user confirmation, the order status will be changed to 'return requested', and the user will receive an email regarding how to return items."
+    },
+    {
+     "id": "379b9a1271af",
+     "type": "required_args",
+     "rule": {
+      "type": "required_args",
+      "quote": "The user must provide a payment method to pay or receive refund of the price difference.",
+      "tool": "exchange_delivered_order_items",
+      "args": [
+       "payment_method_id"
+      ],
+      "source": "§exchange-delivered-order",
+      "by": "model",
+      "id": "379b9a1271af"
+     },
+     "statement_ids": [
+      "policy:exchange-delivered-order:5"
+     ],
+     "checker": "code",
+     "may_deny": true,
+     "source": {
+      "document": "policy",
+      "section": "exchange-delivered-order",
+      "page": null,
+      "line": 134
+     },
+     "quote": "The user must provide a payment method to pay or receive refund of the price difference."
+    },
+    {
+     "id": "2f750b0c3c6f",
+     "type": "duty",
+     "rule": {
+      "type": "duty",
+      "quote": "An order can only be cancelled if its status is 'pending', and you should check its status before taking the action.",
+      "trigger": {
+       "tool": "get_order_details",
+       "when": {
+        "order_id": [
+         "*"
+        ]
+       }
+      },
+      "then": {
+       "tool": "cancel_pending_order",
+       "when": {
+        "order_id": [
+         "*"
+        ],
+        "reason": [
+         "*"
+        ]
+       }
+      },
+      "unless": [
+       {
+        "condition": "order status is not 'pending'"
+       }
+      ],
+      "source": "§cancel-pending-order",
+      "by": "model",
+      "id": "2f750b0c3c6f"
+     },
+     "statement_ids": [
+      "policy:cancel-pending-order:1"
+     ],
+     "checker": "monitor",
+     "may_deny": true,
+     "source": {
+      "document": "policy",
+      "section": "cancel-pending-order",
+      "page": null,
+      "line": 88
+     },
+     "quote": "An order can only be cancelled if its status is 'pending', and you should check its status before taking the action."
+    }
+   ]
+  },
+  "_policy_set": {
+   "source": {},
+   "quote": ""
+  },
+  "_layout": {
+   "format": "build",
+   "top": [
+    "policy_hash",
+    "rules",
+    "procedures",
+    "build",
+    "policy_set"
+   ],
+   "build": [
+    "version",
+    "rules",
+    "procedures",
+    "links",
+    "definitions",
+    "coverage",
+    "validation",
+    "generator",
+    "stats",
+    "policy_questions"
+   ],
+   "policy_set": [
+    "documents",
+    "links",
+    "source",
+    "quote"
+   ]
+  }
+ }
+}

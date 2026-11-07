@@ -1,0 +1,608 @@
+{
+ "version": "3b2431e644ff0aec",
+ "rules": [
+  {
+   "id": "g_8913516287",
+   "type": "verify",
+   "rule": {
+    "type": "verify",
+    "tools": [
+     "google_sheets_update_row",
+     "gmail_send_email"
+    ],
+    "statement": "Monthly amount = Total Prepaid / Term in Months",
+    "quote": "Monthly amount = Total Prepaid / Term in Months",
+    "types": [
+     "derived_value"
+    ],
+    "source": "msg_amort_rules §preamble step 1",
+    "by": "skill",
+    "id": "g_8913516287",
+    "unless": [
+     {
+      "condition": "Team - per the policy review, the Annual Insurance prepaid should be amortized at double the monthly rate for February (2x the standard monthly amount).",
+      "source": {
+       "document": "msg_vp_accel",
+       "section": "preamble",
+       "page": null,
+       "line": 3
+      }
+     }
+    ]
+   },
+   "statement_ids": [
+    "msg_amort_rules:preamble:2"
+   ],
+   "checker": "verifier",
+   "may_deny": true,
+   "source": {
+    "document": "msg_amort_rules",
+    "section": "preamble",
+    "page": null,
+    "line": 5,
+    "step": 1
+   },
+   "quote": "Monthly amount = Total Prepaid / Term in Months"
+  },
+  {
+   "id": "g_2ab01d0974",
+   "type": "verify",
+   "rule": {
+    "type": "verify",
+    "tools": [
+     "google_sheets_update_row",
+     "gmail_send_email"
+    ],
+    "statement": "Only amortize items where the current date falls within the coverage period",
+    "quote": "Only amortize items where the current date falls within the coverage period",
+    "types": [
+     "eligibility_filter"
+    ],
+    "source": "msg_amort_rules §preamble step 2",
+    "by": "skill",
+    "id": "g_2ab01d0974"
+   },
+   "statement_ids": [
+    "msg_amort_rules:preamble:3"
+   ],
+   "checker": "verifier",
+   "may_deny": true,
+   "source": {
+    "document": "msg_amort_rules",
+    "section": "preamble",
+    "page": null,
+    "line": 6,
+    "step": 2
+   },
+   "quote": "Only amortize items where the current date falls within the coverage period"
+  },
+  {
+   "id": "g_7684b9cdc8",
+   "type": "verify",
+   "rule": {
+    "type": "verify",
+    "tools": [
+     "google_sheets_update_row",
+     "gmail_send_email"
+    ],
+    "statement": "Items that haven't started yet (Start Date > current month): skip",
+    "quote": "Items that haven't started yet (Start Date > current month): skip",
+    "types": [
+     "eligibility_filter"
+    ],
+    "source": "msg_amort_rules §preamble step 3",
+    "by": "skill",
+    "id": "g_7684b9cdc8"
+   },
+   "statement_ids": [
+    "msg_amort_rules:preamble:4"
+   ],
+   "checker": "verifier",
+   "may_deny": true,
+   "source": {
+    "document": "msg_amort_rules",
+    "section": "preamble",
+    "page": null,
+    "line": 7,
+    "step": 3
+   },
+   "quote": "Items that haven't started yet (Start Date > current month): skip"
+  },
+  {
+   "id": "g_5fb42a94e2",
+   "type": "record_condition",
+   "rule": {
+    "type": "record_condition",
+    "tools": [
+     "google_sheets_update_row"
+    ],
+    "field": "Remaining",
+    "op": "equals",
+    "value": "$0",
+    "effect": "forbid",
+    "quote": "Items fully amortized (Remaining = $0): skip",
+    "source": "msg_amort_rules §preamble step 4",
+    "by": "skill",
+    "id": "g_5fb42a94e2"
+   },
+   "statement_ids": [
+    "msg_amort_rules:preamble:5"
+   ],
+   "checker": "code",
+   "may_deny": true,
+   "source": {
+    "document": "msg_amort_rules",
+    "section": "preamble",
+    "page": null,
+    "line": 8,
+    "step": 4
+   },
+   "quote": "Items fully amortized (Remaining = $0): skip"
+  },
+  {
+   "id": "g_4421900daf",
+   "type": "verify",
+   "rule": {
+    "type": "verify",
+    "tools": [
+     "google_sheets_update_row",
+     "gmail_send_email"
+    ],
+    "statement": "Round to nearest cent",
+    "quote": "Round to nearest cent",
+    "types": [
+     "format"
+    ],
+    "source": "msg_amort_rules §preamble step 5",
+    "by": "skill",
+    "id": "g_4421900daf"
+   },
+   "statement_ids": [
+    "msg_amort_rules:preamble:6"
+   ],
+   "checker": "verifier",
+   "may_deny": true,
+   "source": {
+    "document": "msg_amort_rules",
+    "section": "preamble",
+    "page": null,
+    "line": 9,
+    "step": 5
+   },
+   "quote": "Round to nearest cent"
+  },
+  {
+   "id": "g_ef80c8965d",
+   "type": "verify",
+   "rule": {
+    "type": "verify",
+    "tools": [
+     "gmail_send_email"
+    ],
+    "statement": "Report: Debit Expense Account, Credit Prepaid Asset",
+    "quote": "Report: Debit Expense Account, Credit Prepaid Asset",
+    "types": [
+     "format"
+    ],
+    "source": "msg_amort_rules §preamble step 6",
+    "by": "skill",
+    "id": "g_ef80c8965d"
+   },
+   "statement_ids": [
+    "msg_amort_rules:preamble:7"
+   ],
+   "checker": "verifier",
+   "may_deny": true,
+   "source": {
+    "document": "msg_amort_rules",
+    "section": "preamble",
+    "page": null,
+    "line": 10,
+    "step": 6
+   },
+   "quote": "Report: Debit Expense Account, Credit Prepaid Asset"
+  },
+  {
+   "id": "g_d77befb951",
+   "type": "verify",
+   "rule": {
+    "type": "verify",
+    "tools": [
+     "google_sheets_update_row",
+     "gmail_send_email"
+    ],
+    "statement": "Team - per the policy review, the Annual Insurance prepaid should be amortized at double the monthly rate for February (2x the standard monthly amount). This overrides the standard straight-line calculation for this item only. All other items use standard amortization.",
+    "quote": "Team - per the policy review, the Annual Insurance prepaid should be amortized at double the monthly rate for February (2x the standard monthly amount). This overrides the standard straight-line calculation for this item only. All other items use standard amortization.",
+    "types": [
+     "derived_value",
+     "exception_override"
+    ],
+    "source": "msg_vp_accel §preamble",
+    "by": "skill",
+    "id": "g_d77befb951"
+   },
+   "statement_ids": [
+    "msg_vp_accel:preamble:1",
+    "msg_vp_accel:preamble:3",
+    "msg_vp_accel:preamble:4"
+   ],
+   "checker": "verifier",
+   "may_deny": true,
+   "source": {
+    "document": "msg_vp_accel",
+    "section": "preamble",
+    "page": null,
+    "line": 3
+   },
+   "quote": "Team - per the policy review, the Annual Insurance prepaid should be amortized at double the monthly rate for February (2x the standard monthly amount). This overrides the standard straight-line calculation for this item only. All other items use standard amortization."
+  },
+  {
+   "id": "g_4821814b0e",
+   "type": "verify",
+   "rule": {
+    "type": "verify",
+    "tools": [
+     "google_sheets_update_row",
+     "gmail_send_email"
+    ],
+    "statement": "Correction on the Software License prepaid: the total should be $7,200 not $6,000. This changes the monthly amortization amount.",
+    "quote": "Correction on the Software License prepaid: the total should be $7,200 not $6,000. This changes the monthly amortization amount.",
+    "types": [
+     "derived_value",
+     "source_of_truth"
+    ],
+    "source": "slk_sw_corr §preamble",
+    "by": "skill",
+    "id": "g_4821814b0e"
+   },
+   "statement_ids": [
+    "slk_sw_corr:preamble:1",
+    "slk_sw_corr:preamble:3"
+   ],
+   "checker": "verifier",
+   "may_deny": true,
+   "source": {
+    "document": "slk_sw_corr",
+    "section": "preamble",
+    "page": null,
+    "line": 3
+   },
+   "quote": "Correction on the Software License prepaid: the total should be $7,200 not $6,000. This changes the monthly amortization amount."
+  },
+  {
+   "id": "g_a4c153044e",
+   "type": "verify",
+   "rule": {
+    "type": "verify",
+    "tools": [
+     "google_sheets_update_row",
+     "gmail_send_email"
+    ],
+    "statement": "Correction on the Software License prepaid: the total should be $7,200 not $6,000. However, since Jan is already recorded, apply the corrected monthly rate starting this month.",
+    "quote": "Correction on the Software License prepaid: the total should be $7,200 not $6,000. However, since Jan is already recorded, apply the corrected monthly rate starting this month.",
+    "types": [
+     "derived_value",
+     "exception_override",
+     "source_of_truth"
+    ],
+    "source": "slk_sw_corr §preamble",
+    "by": "skill",
+    "id": "g_a4c153044e"
+   },
+   "statement_ids": [
+    "slk_sw_corr:preamble:1",
+    "slk_sw_corr:preamble:4"
+   ],
+   "checker": "verifier",
+   "may_deny": true,
+   "source": {
+    "document": "slk_sw_corr",
+    "section": "preamble",
+    "page": null,
+    "line": 3
+   },
+   "quote": "Correction on the Software License prepaid: the total should be $7,200 not $6,000. However, since Jan is already recorded, apply the corrected monthly rate starting this month."
+  }
+ ],
+ "procedures": [],
+ "links": [
+  {
+   "type": "exception_of",
+   "src": "msg_vp_accel:preamble:1",
+   "dst": "msg_amort_rules:preamble:2",
+   "source": {
+    "document": "msg_vp_accel",
+    "section": "preamble",
+    "page": null,
+    "line": 3
+   },
+   "quote": "the Annual Insurance prepaid should be amortized at double the monthly rate for February"
+  },
+  {
+   "type": "supersedes",
+   "src": "slk_sw_corr:preamble:4",
+   "dst": "ws_prepaid_items_row_3:preamble:1",
+   "source": {
+    "document": "slk_sw_corr",
+    "section": "preamble",
+    "page": null,
+    "line": 3
+   },
+   "quote": "since Jan is already recorded, apply the corrected monthly rate starting this month"
+  },
+  {
+   "type": "source_of_truth",
+   "src": "slk_sw_corr:preamble:1",
+   "dst": "ws_prepaid_items_row_3",
+   "source": {
+    "document": "slk_sw_corr",
+    "section": "preamble",
+    "page": null,
+    "line": 3
+   },
+   "quote": "the total should be $7,200 not $6,000"
+  }
+ ],
+ "definitions": [],
+ "coverage": [
+  {
+   "statement_id": "msg_amort_rules:preamble:1",
+   "kind": "out_of_scope",
+   "reason": "list heading",
+   "source": {
+    "document": "msg_amort_rules",
+    "section": "preamble",
+    "page": null,
+    "line": 3
+   },
+   "quote": "Amortization rules:"
+  },
+  {
+   "statement_id": "msg_amort_rules:preamble:2",
+   "kind": "verify",
+   "reason": "1 rule(s): verify",
+   "source": {
+    "document": "msg_amort_rules",
+    "section": "preamble",
+    "page": null,
+    "line": 5,
+    "step": 1
+   },
+   "quote": "Monthly amount = Total Prepaid / Term in Months"
+  },
+  {
+   "statement_id": "msg_amort_rules:preamble:3",
+   "kind": "verify",
+   "reason": "1 rule(s): verify",
+   "source": {
+    "document": "msg_amort_rules",
+    "section": "preamble",
+    "page": null,
+    "line": 6,
+    "step": 2
+   },
+   "quote": "Only amortize items where the current date falls within the coverage period"
+  },
+  {
+   "statement_id": "msg_amort_rules:preamble:4",
+   "kind": "verify",
+   "reason": "1 rule(s): verify",
+   "source": {
+    "document": "msg_amort_rules",
+    "section": "preamble",
+    "page": null,
+    "line": 7,
+    "step": 3
+   },
+   "quote": "Items that haven't started yet (Start Date > current month): skip"
+  },
+  {
+   "statement_id": "msg_amort_rules:preamble:5",
+   "kind": "rule",
+   "reason": "1 rule(s): record_condition",
+   "source": {
+    "document": "msg_amort_rules",
+    "section": "preamble",
+    "page": null,
+    "line": 8,
+    "step": 4
+   },
+   "quote": "Items fully amortized (Remaining = $0): skip"
+  },
+  {
+   "statement_id": "msg_amort_rules:preamble:6",
+   "kind": "verify",
+   "reason": "1 rule(s): verify",
+   "source": {
+    "document": "msg_amort_rules",
+    "section": "preamble",
+    "page": null,
+    "line": 9,
+    "step": 5
+   },
+   "quote": "Round to nearest cent"
+  },
+  {
+   "statement_id": "msg_amort_rules:preamble:7",
+   "kind": "verify",
+   "reason": "1 rule(s): verify",
+   "source": {
+    "document": "msg_amort_rules",
+    "section": "preamble",
+    "page": null,
+    "line": 10,
+    "step": 6
+   },
+   "quote": "Report: Debit Expense Account, Credit Prepaid Asset"
+  },
+  {
+   "statement_id": "msg_amort_rules:preamble:8",
+   "kind": "out_of_scope",
+   "reason": "signature",
+   "source": {
+    "document": "msg_amort_rules",
+    "section": "preamble",
+    "page": null,
+    "line": 12
+   },
+   "quote": "Controller"
+  },
+  {
+   "statement_id": "msg_vp_accel:preamble:1",
+   "kind": "verify",
+   "reason": "1 rule(s): verify",
+   "source": {
+    "document": "msg_vp_accel",
+    "section": "preamble",
+    "page": null,
+    "line": 3
+   },
+   "quote": "Team - per the policy review, the Annual Insurance prepaid should be amortized at double the monthly rate for February (2x the standard monthly amount)."
+  },
+  {
+   "statement_id": "msg_vp_accel:preamble:2",
+   "kind": "out_of_scope",
+   "reason": "reason for the override, no rule",
+   "source": {
+    "document": "msg_vp_accel",
+    "section": "preamble",
+    "page": null,
+    "line": 3
+   },
+   "quote": "We're accelerating recognition due to the mid-year policy change."
+  },
+  {
+   "statement_id": "msg_vp_accel:preamble:3",
+   "kind": "verify",
+   "reason": "1 rule(s): verify",
+   "source": {
+    "document": "msg_vp_accel",
+    "section": "preamble",
+    "page": null,
+    "line": 3
+   },
+   "quote": "This overrides the standard straight-line calculation for this item only."
+  },
+  {
+   "statement_id": "msg_vp_accel:preamble:4",
+   "kind": "verify",
+   "reason": "1 rule(s): verify",
+   "source": {
+    "document": "msg_vp_accel",
+    "section": "preamble",
+    "page": null,
+    "line": 3
+   },
+   "quote": "All other items use standard amortization."
+  },
+  {
+   "statement_id": "msg_vp_accel:preamble:5",
+   "kind": "out_of_scope",
+   "reason": "signature",
+   "source": {
+    "document": "msg_vp_accel",
+    "section": "preamble",
+    "page": null,
+    "line": 5
+   },
+   "quote": "VP Finance"
+  },
+  {
+   "statement_id": "slk_sw_corr:preamble:1",
+   "kind": "verify",
+   "reason": "2 rule(s): verify",
+   "source": {
+    "document": "slk_sw_corr",
+    "section": "preamble",
+    "page": null,
+    "line": 3
+   },
+   "quote": "Correction on the Software License prepaid: the total should be $7,200 not $6,000."
+  },
+  {
+   "statement_id": "slk_sw_corr:preamble:2",
+   "kind": "out_of_scope",
+   "reason": "reason for the correction, no rule",
+   "source": {
+    "document": "slk_sw_corr",
+    "section": "preamble",
+    "page": null,
+    "line": 3
+   },
+   "quote": "The vendor sent an updated invoice."
+  },
+  {
+   "statement_id": "slk_sw_corr:preamble:3",
+   "kind": "verify",
+   "reason": "1 rule(s): verify",
+   "source": {
+    "document": "slk_sw_corr",
+    "section": "preamble",
+    "page": null,
+    "line": 3
+   },
+   "quote": "This changes the monthly amortization amount."
+  },
+  {
+   "statement_id": "slk_sw_corr:preamble:4",
+   "kind": "verify",
+   "reason": "1 rule(s): verify",
+   "source": {
+    "document": "slk_sw_corr",
+    "section": "preamble",
+    "page": null,
+    "line": 3
+   },
+   "quote": "However, since Jan is already recorded, apply the corrected monthly rate starting this month."
+  },
+  {
+   "statement_id": "ws_prepaid_items_row_3:preamble:1",
+   "kind": "superseded",
+   "reason": "replaced by slk_sw_corr:preamble:4",
+   "source": {
+    "document": "ws_prepaid_items_row_3",
+    "section": "preamble",
+    "page": null,
+    "line": 5,
+    "table_header": [
+     "Item",
+     "Notes"
+    ]
+   },
+   "quote": "Software License | Jan amortization already recorded - skip this month"
+  }
+ ],
+ "validation": [],
+ "generator": {
+  "kind": "skill",
+  "harness": "claude-code",
+  "model": "claude (gold, reviewed by a person later)"
+ },
+ "stats": {
+  "documents": 4,
+  "statements": 18,
+  "rules": 9,
+  "by_type": {
+   "record_condition": 1,
+   "verify": 8
+  },
+  "procedures": 0,
+  "links": 3,
+  "links_by_type": {
+   "exception_of": 1,
+   "source_of_truth": 1,
+   "supersedes": 1
+  },
+  "coverage": {
+   "out_of_scope": 5,
+   "verify": 11,
+   "rule": 1,
+   "superseded": 1
+  },
+  "validation_errors": 0,
+  "documents_by_trust": {
+   "trusted": 4,
+   "untrusted": 0
+  }
+ }
+}

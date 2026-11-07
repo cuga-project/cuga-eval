@@ -1,0 +1,703 @@
+[
+ {
+  "name": "zendesk_get_tickets",
+  "description": "Get all tickets from Zendesk.",
+  "inputSchema": {
+   "description": "Get all tickets from Zendesk.",
+   "properties": {},
+   "title": "zendesk_get_tickets",
+   "type": "object"
+  }
+ },
+ {
+  "name": "zendesk_add_tags_to_ticket",
+  "description": "Add tags to an existing ticket.",
+  "inputSchema": {
+   "description": "Add tags to an existing ticket.",
+   "properties": {
+    "ticket_id": {
+     "description": "The ticket ID to add tags to.",
+     "title": "Ticket Id",
+     "type": "string"
+    },
+    "tags": {
+     "description": "Comma-separated list of tags to add.",
+     "title": "Tags",
+     "type": "string"
+    }
+   },
+   "required": [
+    "ticket_id",
+    "tags"
+   ],
+   "title": "zendesk_add_tags_to_ticket",
+   "type": "object"
+  }
+ },
+ {
+  "name": "google_sheets_find_many_rows",
+  "description": "Find multiple rows matching lookup criteria.",
+  "inputSchema": {
+   "description": "Find multiple rows matching lookup criteria.",
+   "properties": {
+    "spreadsheet": {
+     "anyOf": [
+      {
+       "type": "string"
+      },
+      {
+       "type": "null"
+      }
+     ],
+     "default": null,
+     "description": "Spreadsheet ID (required).",
+     "title": "Spreadsheet"
+    },
+    "worksheet": {
+     "anyOf": [
+      {
+       "type": "string"
+      },
+      {
+       "type": "null"
+      }
+     ],
+     "default": null,
+     "description": "Worksheet ID (required).",
+     "title": "Worksheet"
+    },
+    "lookup_key": {
+     "anyOf": [
+      {
+       "type": "string"
+      },
+      {
+       "type": "null"
+      }
+     ],
+     "default": null,
+     "description": "Column to search in (required).",
+     "title": "Lookup Key"
+    },
+    "lookup_value": {
+     "anyOf": [
+      {
+       "type": "string"
+      },
+      {
+       "type": "null"
+      }
+     ],
+     "default": null,
+     "description": "Value to search for (required).",
+     "title": "Lookup Value"
+    },
+    "drive": {
+     "anyOf": [
+      {
+       "type": "string"
+      },
+      {
+       "type": "null"
+      }
+     ],
+     "default": null,
+     "description": "Google Drive location.",
+     "title": "Drive"
+    },
+    "lookup_key_support": {
+     "anyOf": [
+      {
+       "type": "string"
+      },
+      {
+       "type": "null"
+      }
+     ],
+     "default": null,
+     "description": "Secondary column to search in.",
+     "title": "Lookup Key Support"
+    },
+    "lookup_value_support": {
+     "anyOf": [
+      {
+       "type": "string"
+      },
+      {
+       "type": "null"
+      }
+     ],
+     "default": null,
+     "description": "Secondary value to search for.",
+     "title": "Lookup Value Support"
+    },
+    "bottom_up": {
+     "default": false,
+     "description": "Search from bottom of spreadsheet up.",
+     "title": "Bottom Up",
+     "type": "boolean"
+    },
+    "row_count": {
+     "default": 10,
+     "description": "Maximum number of rows to return.",
+     "title": "Row Count",
+     "type": "integer"
+    },
+    "spreadsheet_id": {
+     "anyOf": [
+      {
+       "type": "string"
+      },
+      {
+       "type": "null"
+      }
+     ],
+     "default": null,
+     "title": "Spreadsheet Id"
+    },
+    "worksheet_id": {
+     "anyOf": [
+      {
+       "type": "string"
+      },
+      {
+       "type": "null"
+      }
+     ],
+     "default": null,
+     "title": "Worksheet Id"
+    },
+    "col_name": {
+     "anyOf": [
+      {
+       "type": "string"
+      },
+      {
+       "type": "null"
+      }
+     ],
+     "default": null,
+     "title": "Col Name"
+    },
+    "filters": {
+     "anyOf": [
+      {},
+      {
+       "type": "null"
+      }
+     ],
+     "default": null,
+     "title": "Filters"
+    }
+   },
+   "title": "google_sheets_find_many_rows",
+   "type": "object"
+  }
+ },
+ {
+  "name": "google_sheets_add_row",
+  "description": "Create a new row in a spreadsheet.",
+  "inputSchema": {
+   "description": "Create a new row in a spreadsheet.",
+   "properties": {
+    "spreadsheet": {
+     "anyOf": [
+      {
+       "type": "string"
+      },
+      {
+       "type": "null"
+      }
+     ],
+     "default": null,
+     "description": "Spreadsheet ID (required).",
+     "title": "Spreadsheet"
+    },
+    "worksheet": {
+     "anyOf": [
+      {
+       "type": "string"
+      },
+      {
+       "type": "null"
+      }
+     ],
+     "default": null,
+     "description": "Worksheet ID (required).",
+     "title": "Worksheet"
+    },
+    "spreadsheet_id": {
+     "anyOf": [
+      {
+       "type": "string"
+      },
+      {
+       "type": "null"
+      }
+     ],
+     "default": null,
+     "description": "Alias for spreadsheet.",
+     "title": "Spreadsheet Id"
+    },
+    "worksheet_id": {
+     "anyOf": [
+      {
+       "type": "string"
+      },
+      {
+       "type": "null"
+      }
+     ],
+     "default": null,
+     "description": "Alias for worksheet.",
+     "title": "Worksheet Id"
+    },
+    "drive": {
+     "anyOf": [
+      {
+       "type": "string"
+      },
+      {
+       "type": "null"
+      }
+     ],
+     "default": null,
+     "description": "Google Drive location.",
+     "title": "Drive"
+    },
+    "timezone": {
+     "default": false,
+     "description": "Use spreadsheet timezone for date formatting.",
+     "title": "Timezone",
+     "type": "boolean"
+    },
+    "cells": {
+     "anyOf": [
+      {},
+      {
+       "type": "null"
+      }
+     ],
+     "default": null,
+     "description": "JSON object of column name to value pairs, e.g. '{\"Name\": \"John\", \"Age\": \"30\"}'.",
+     "title": "Cells"
+    },
+    "values": {
+     "anyOf": [
+      {},
+      {
+       "type": "null"
+      }
+     ],
+     "default": null,
+     "description": "Alias for cells.",
+     "title": "Values"
+    },
+    "row": {
+     "anyOf": [
+      {},
+      {
+       "type": "null"
+      }
+     ],
+     "default": null,
+     "title": "Row"
+    },
+    "row_data": {
+     "anyOf": [
+      {},
+      {
+       "type": "null"
+      }
+     ],
+     "default": null,
+     "title": "Row Data"
+    },
+    "fields": {
+     "anyOf": [
+      {},
+      {
+       "type": "null"
+      }
+     ],
+     "default": null,
+     "title": "Fields"
+    }
+   },
+   "title": "google_sheets_add_row",
+   "type": "object"
+  }
+ },
+ {
+  "name": "gmail_send_email",
+  "description": "Send an email via Gmail. Composes and delivers a new outgoing Gmail message to one or more\nrecipients. Use this to send (not draft) an email — the message is\ntransmitted immediately and appears in the recipient's inbox. Handles\noutbound email dispatch, reply-and-send, forward-and-send, notification\n",
+  "inputSchema": {
+   "description": "Send an email via Gmail. Composes and delivers a new outgoing Gmail message to one or more\nrecipients. Use this to send (not draft) an email — the message is\ntransmitted immediately and appears in the recipient's inbox. Handles\noutbound email dispatch, reply-and-send, forward-and-send, notification\nemails, alerts, and any other Gmail send/deliver/transmit action. Keywords: gmail send email, gmail send mail, gmail compose and send,\nsend outgoing email, send outbound message, deliver email, transmit\nemail, dispatch email, email send, gmail sender, mail send, gmail\nmessage send, send a new email, send notification email, send alert\nemail, email delivery. Note: this SENDS the email. For drafts use gmail_create_draft instead.",
+   "properties": {
+    "to": {
+     "description": "Recipient email address(es), comma-separated for multiple.",
+     "title": "To",
+     "type": "string"
+    },
+    "subject": {
+     "description": "Email subject line.",
+     "title": "Subject",
+     "type": "string"
+    },
+    "body": {
+     "description": "Email body content (plain text or HTML).",
+     "title": "Body",
+     "type": "string"
+    },
+    "cc": {
+     "anyOf": [
+      {
+       "type": "string"
+      },
+      {
+       "type": "null"
+      }
+     ],
+     "default": null,
+     "description": "CC recipients, comma-separated.",
+     "title": "Cc"
+    },
+    "bcc": {
+     "anyOf": [
+      {
+       "type": "string"
+      },
+      {
+       "type": "null"
+      }
+     ],
+     "default": null,
+     "description": "BCC recipients, comma-separated.",
+     "title": "Bcc"
+    },
+    "from_": {
+     "anyOf": [
+      {
+       "type": "string"
+      },
+      {
+       "type": "null"
+      }
+     ],
+     "default": null,
+     "description": "Sender email address (alias).",
+     "title": "From"
+    },
+    "from_name": {
+     "anyOf": [
+      {
+       "type": "string"
+      },
+      {
+       "type": "null"
+      }
+     ],
+     "default": null,
+     "description": "Display name for sender.",
+     "title": "From Name"
+    },
+    "reply_to": {
+     "anyOf": [
+      {
+       "type": "string"
+      },
+      {
+       "type": "null"
+      }
+     ],
+     "default": null,
+     "description": "Reply-to email address.",
+     "title": "Reply To"
+    },
+    "body_type": {
+     "anyOf": [
+      {
+       "type": "string"
+      },
+      {
+       "type": "null"
+      }
+     ],
+     "default": "plain",
+     "description": "Body format - \"plain\" or \"html\" (default: \"plain\").",
+     "title": "Body Type"
+    },
+    "signature": {
+     "anyOf": [
+      {
+       "type": "string"
+      },
+      {
+       "type": "null"
+      }
+     ],
+     "default": null,
+     "description": "Email signature to append.",
+     "title": "Signature"
+    },
+    "label_ids": {
+     "anyOf": [
+      {
+       "type": "string"
+      },
+      {
+       "type": "null"
+      }
+     ],
+     "default": null,
+     "description": "Comma-separated label IDs to apply.",
+     "title": "Label Ids"
+    },
+    "file": {
+     "anyOf": [
+      {
+       "type": "string"
+      },
+      {
+       "type": "null"
+      }
+     ],
+     "default": null,
+     "description": "File to attach (URL or path).",
+     "title": "File"
+    }
+   },
+   "required": [
+    "to",
+    "subject",
+    "body"
+   ],
+   "title": "gmail_send_email",
+   "type": "object"
+  }
+ },
+ {
+  "name": "google_drive_find_multiple_files",
+  "description": "Tool for Find Multiple Files.",
+  "inputSchema": {
+   "description": "Tool for Find Multiple Files.",
+   "properties": {
+    "info": {
+     "anyOf": [
+      {
+       "type": "string"
+      },
+      {
+       "type": "null"
+      }
+     ],
+     "default": null,
+     "title": "Info"
+    },
+    "title": {
+     "anyOf": [
+      {
+       "type": "string"
+      },
+      {
+       "type": "null"
+      }
+     ],
+     "default": null,
+     "title": "Title"
+    },
+    "search_type": {
+     "anyOf": [
+      {
+       "type": "string"
+      },
+      {
+       "type": "null"
+      }
+     ],
+     "default": null,
+     "title": "Search Type"
+    },
+    "drive": {
+     "anyOf": [
+      {
+       "type": "string"
+      },
+      {
+       "type": "null"
+      }
+     ],
+     "default": null,
+     "title": "Drive"
+    },
+    "folder": {
+     "anyOf": [
+      {
+       "type": "string"
+      },
+      {
+       "type": "null"
+      }
+     ],
+     "default": null,
+     "title": "Folder"
+    },
+    "file_types": {
+     "anyOf": [
+      {
+       "items": {
+        "anyOf": [
+         {
+          "type": "string"
+         },
+         {
+          "type": "null"
+         }
+        ]
+       },
+       "type": "array"
+      },
+      {
+       "type": "null"
+      }
+     ],
+     "default": null,
+     "title": "File Types"
+    },
+    "max_results": {
+     "anyOf": [
+      {
+       "type": "integer"
+      },
+      {
+       "type": "null"
+      }
+     ],
+     "default": null,
+     "title": "Max Results"
+    }
+   },
+   "title": "google_drive_find_multiple_files",
+   "type": "object"
+  }
+ },
+ {
+  "name": "google_sheets_get_spreadsheet_by_id",
+  "description": "Get a spreadsheet by ID.",
+  "inputSchema": {
+   "description": "Get a spreadsheet by ID.",
+   "properties": {
+    "spreadsheet": {
+     "anyOf": [
+      {
+       "type": "string"
+      },
+      {
+       "type": "null"
+      }
+     ],
+     "default": null,
+     "description": "Spreadsheet ID (required).",
+     "title": "Spreadsheet"
+    },
+    "spreadsheet_id": {
+     "anyOf": [
+      {
+       "type": "string"
+      },
+      {
+       "type": "null"
+      }
+     ],
+     "default": null,
+     "description": "Alias for spreadsheet.",
+     "title": "Spreadsheet Id"
+    },
+    "id": {
+     "anyOf": [
+      {
+       "type": "string"
+      },
+      {
+       "type": "null"
+      }
+     ],
+     "default": null,
+     "description": "Alias for spreadsheet.",
+     "title": "Id"
+    },
+    "includeGridData": {
+     "default": true,
+     "description": "Whether to include grid data in response.",
+     "title": "Includegriddata",
+     "type": "boolean"
+    }
+   },
+   "title": "google_sheets_get_spreadsheet_by_id",
+   "type": "object"
+  }
+ },
+ {
+  "name": "google_sheets_find_worksheet",
+  "description": "Find a worksheet by title.",
+  "inputSchema": {
+   "description": "Find a worksheet by title.",
+   "properties": {
+    "spreadsheet": {
+     "anyOf": [
+      {
+       "type": "string"
+      },
+      {
+       "type": "null"
+      }
+     ],
+     "default": null,
+     "description": "Spreadsheet ID (required).",
+     "title": "Spreadsheet"
+    },
+    "title": {
+     "anyOf": [
+      {
+       "type": "string"
+      },
+      {
+       "type": "null"
+      }
+     ],
+     "default": null,
+     "description": "Worksheet title to search for (required).",
+     "title": "Title"
+    },
+    "spreadsheet_id": {
+     "anyOf": [
+      {
+       "type": "string"
+      },
+      {
+       "type": "null"
+      }
+     ],
+     "default": null,
+     "description": "Alias for spreadsheet.",
+     "title": "Spreadsheet Id"
+    },
+    "drive": {
+     "anyOf": [
+      {
+       "type": "string"
+      },
+      {
+       "type": "null"
+      }
+     ],
+     "default": null,
+     "description": "Google Drive location.",
+     "title": "Drive"
+    }
+   },
+   "title": "google_sheets_find_worksheet",
+   "type": "object"
+  }
+ }
+]
