@@ -48,17 +48,25 @@ def eog_context(run: Dict[str, Any]) -> Dict[str, Any]:
     from eog_env import load_task
 
     task = load_task(run["task_id"])
-    return {"sop": task["system_prompt"], "today": "", "pre": [f"user request: {task['user_prompt']}"], "task": task}
+    return {
+        "sop": task["system_prompt"],
+        "today": "",
+        "pre": [f"user request: {task['user_prompt']}"],
+        "task": task,
+    }
 
 
 def handbook_context(run: Dict[str, Any]) -> Dict[str, Any]:
     sys.path.insert(0, str(BENCH / "handbook"))
+    from handbook.sop_text import html_text, largest_sop_file
     from hb_env import TASKS
 
-    from handbook.sop_text import html_text, largest_sop_file
-
     sop = largest_sop_file(TASKS / run["task"])
-    return {"sop": html_text(sop.read_text(errors="replace")), "today": (run.get("world_time") or "")[:10], "pre": []}
+    return {
+        "sop": html_text(sop.read_text(errors="replace")),
+        "today": (run.get("world_time") or "")[:10],
+        "pre": [],
+    }
 
 
 def replay(path: str, bench: str, model: Any) -> Dict[str, Any]:
@@ -123,11 +131,12 @@ def main() -> None:
     for k in ("OPENAI_BASE_URL", "OPENAI_API_KEY"):
         if secrets.get(k) and not os.environ.get(k):
             os.environ[k] = secrets[k]
+    import policy_pilot_costs as costs
     from cuga.policy_layer.llm import openai_json_model
 
-    import policy_pilot_costs as costs
-
-    model = openai_json_model(a.gate_model, timeout=180, max_tokens=16000 if "gpt-oss" in a.gate_model else 4000)
+    model = openai_json_model(
+        a.gate_model, timeout=180, max_tokens=16000 if "gpt-oss" in a.gate_model else 4000
+    )
     paths = sorted({p for g in a.runs for p in glob.glob(g)})
     with ThreadPoolExecutor(a.jobs) as ex:
         results = list(ex.map(lambda p: replay(p, a.bench, model), paths))

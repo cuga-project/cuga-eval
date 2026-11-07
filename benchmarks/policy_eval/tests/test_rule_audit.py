@@ -738,7 +738,9 @@ def test_the_kind_of_numbers_comes_from_the_registry_and_is_never_held_out_by_de
     sys.path.insert(0, str(POLICY_EVAL))
     import audit_report
 
-    kind = lambda bench, policy, build="builds_v5": audit_report.basis_of(bench, policy, build)
+    def kind(bench, policy, build="builds_v5"):
+        return audit_report.basis_of(bench, policy, build)
+
     assert kind("handbook", "hr_crestwood_university_79786c46", "v4")[0] == "tuning"  # set handbook-public3
     assert kind("tau2_telecom", "telecom", "builds")[0] == "tuning"  # tau2-telecom-dev20
     assert kind("itsm", "2e555b5177")[0] == "tuning"  # itsm-pilot

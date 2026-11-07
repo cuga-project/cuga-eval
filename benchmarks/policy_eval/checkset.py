@@ -171,7 +171,11 @@ def main() -> None:
     with ThreadPoolExecutor(max_workers=6) as pool:
         cases = [c for batch in pool.map(one, items) for c in batch]
     OUT.write_text("".join(json.dumps(c, default=str) + "\n" for c in cases))
-    costs.record("checkset", f"{len(items)} statements, {len(cases)} cases", policy={**model.usage, "model": model.model_name})
+    costs.record(
+        "checkset",
+        f"{len(items)} statements, {len(cases)} cases",
+        policy={**model.usage, "model": model.model_name},
+    )
     good = [c for c in cases if "error" not in c]
     print(
         f"{len(items)} statements -> {len(good)} cases ({sum(c['needs_check'] for c in good)} need a hand check); "

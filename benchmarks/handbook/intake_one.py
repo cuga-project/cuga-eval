@@ -61,7 +61,7 @@ def main() -> None:
         ),
         "links": dict(
             collections.Counter(
-                str(l.get("kind") or l.get("type")) for l in j.get("links") or []
+                str(link.get("kind") or link.get("type")) for link in j.get("links") or []
             ).most_common()
         ),
         "procedures": len(j.get("procedures") or []),

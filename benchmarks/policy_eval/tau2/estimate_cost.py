@@ -53,7 +53,7 @@ if __name__ == "__main__":
     a = ap.parse_args()
     ppc.PRICES.setdefault("Azure/gpt-4.1", (2.00, 8.00))
     done = (
-        {json.loads(l)["name"] for l in ppc.LEDGER.read_text().splitlines() if l.strip()}
+        {json.loads(line)["name"] for line in ppc.LEDGER.read_text().splitlines() if line.strip()}
         if ppc.LEDGER.exists()
         else set()
     )

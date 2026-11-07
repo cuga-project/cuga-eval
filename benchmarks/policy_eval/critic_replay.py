@@ -118,9 +118,15 @@ def run_variant(variant: str, rec: dict, models: dict, ask) -> list:
     flagged = []
     if variant in ("C1", "C3"):
         checker = models["gemini"] if variant == "C1" else models["oss"]
-        st = parse(
-            checker(SYSTEM, CHECK_USER.format(effects=json.dumps(effects, ensure_ascii=False), writes=x["writes"]))
-        ).get("status") or []
+        st = (
+            parse(
+                checker(
+                    SYSTEM,
+                    CHECK_USER.format(effects=json.dumps(effects, ensure_ascii=False), writes=x["writes"]),
+                )
+            ).get("status")
+            or []
+        )
         by_id = {e.get("id"): e for e in effects}
         for s in st:
             if isinstance(s, dict) and s.get("status") in ("missing", "wrong") and s.get("id") in by_id:
@@ -141,8 +147,24 @@ def run_variant(variant: str, rec: dict, models: dict, ask) -> list:
 
 
 def check_values(f: dict) -> list:
-    keys = ("to", "channel", "channel_id", "channel_name", "ticket_id", "record_id", "text_contains", "content_contains",
-            "subject_contains", "body_contains", "summary", "name", "email", "subject", "title", "value")
+    keys = (
+        "to",
+        "channel",
+        "channel_id",
+        "channel_name",
+        "ticket_id",
+        "record_id",
+        "text_contains",
+        "content_contains",
+        "subject_contains",
+        "body_contains",
+        "summary",
+        "name",
+        "email",
+        "subject",
+        "title",
+        "value",
+    )
     vals = [str(v) for k, v in (f.get("params") or {}).items() if any(k == x or k.endswith(x) for x in keys)]
     return [v.lower() for v in vals if len(v) >= 3]
 
@@ -196,9 +218,25 @@ def main() -> None:
             "passed_runs": sum(bool(r["pass"]) for r in recs),
             "usage": {k: dict(getattr(m, "usage", {}) or {}) for k, m in models.items()},
             "kev": dict(getattr(ask, "usage", {}) or {}),
-            "per_run": [{"task": r["task"], "pass": r["pass"], "flagged": fl} for r, fl in zip(recs, flagged)],
+            "per_run": [
+                {"task": r["task"], "pass": r["pass"], "flagged": fl} for r, fl in zip(recs, flagged)
+            ],
         }
-        print(v, {k: out[v][k] for k in ("runs", "flagged", "precision", "recall", "failed_checks", "flags_on_passed_runs", "passed_runs")})
+        print(
+            v,
+            {
+                k: out[v][k]
+                for k in (
+                    "runs",
+                    "flagged",
+                    "precision",
+                    "recall",
+                    "failed_checks",
+                    "flags_on_passed_runs",
+                    "passed_runs",
+                )
+            },
+        )
     Path(args.out).write_text(json.dumps(out, indent=1, ensure_ascii=False, default=str))
 
 

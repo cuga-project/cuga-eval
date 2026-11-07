@@ -127,8 +127,16 @@ def score(
         1 for i in enforced if {r["type"] for r in g_rules[i]} & {r["type"] for r in x_rules.get(i, [])}
     )
     exact = sum(1 for i in enforced if {_sig(r) for r in g_rules[i]} & {_sig(r) for r in x_rules.get(i, [])})
-    gl = {(l["type"], l["src"], l["dst"]) for l in gold_build.get("links", []) if l["type"] != "defines"}
-    xl = {(l["type"], l["src"], l["dst"]) for l in gen_build.get("links", []) if l["type"] != "defines"}
+    gl = {
+        (link["type"], link["src"], link["dst"])
+        for link in gold_build.get("links", [])
+        if link["type"] != "defines"
+    }
+    xl = {
+        (link["type"], link["src"], link["dst"])
+        for link in gen_build.get("links", [])
+        if link["type"] != "defines"
+    }
     return {
         "statements": len(ids),
         "covered": sum(i in covered_gen for i in ids) / max(len(ids), 1),

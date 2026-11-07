@@ -86,7 +86,9 @@ class Result:
     code_sha: Optional[str] = None
     profile_hash: Optional[str] = None
     package_version: Optional[str] = None
-    policy: Optional[str] = None  # the policy version of the task (``ctx.policy_version``); old files do not have it
+    policy: Optional[str] = (
+        None  # the policy version of the task (``ctx.policy_version``); old files do not have it
+    )
     env_hash: Optional[str] = None  # the composed env file: the agent's settings
     score: Optional[Score] = None  # None: not graded. Never a 0.
     verdicts: List[Any] = field(default_factory=list)

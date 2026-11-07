@@ -12,7 +12,9 @@ from pathlib import Path
 import pytest
 
 POLICY_EVAL = Path(__file__).resolve().parents[1]
-GATE_PYTHON = os.environ.get("POLICY_GATE_PYTHON") or str(Path.home() / "dev/cuga-agent-gate/.venv/bin/python")
+GATE_PYTHON = os.environ.get("POLICY_GATE_PYTHON") or str(
+    Path.home() / "dev/cuga-agent-gate/.venv/bin/python"
+)
 TOOL = POLICY_EVAL / "tools" / "retrieval_eval.py"
 LABELS = POLICY_EVAL / "sop_retrieval" / "result.json"
 PACKAGES = str(POLICY_EVAL / "packages" / "handbook" / "{task}" / "claude_v1" / "package.json")
@@ -69,7 +71,10 @@ def test_must_not_and_exception_recall_are_computed_from_labels_the_file_has(tmp
     other = next(p for p in pkg["procedures"] if p["id"] != row["label"][0] and p.get("must_not"))
     labelled = {
         **row,
-        "must_not": [first["must_not"][0] if first.get("must_not") else other["must_not"][0], "a rule nobody wrote"],
+        "must_not": [
+            first["must_not"][0] if first.get("must_not") else other["must_not"][0],
+            "a rule nobody wrote",
+        ],
         "exceptions": [row["label"][0], "no such procedure"],
     }
     path = tmp_path / "labels.json"
@@ -77,7 +82,10 @@ def test_must_not_and_exception_recall_are_computed_from_labels_the_file_has(tmp
     summary, _ = measures("--router", "bm25", "--top-k", "5", runs=path, tmp_path=tmp_path)
     assert summary["must_not_labels"] == 2 and summary["exception_labels"] == 2
     assert summary["exception_recall"] == 50.0  # the label procedure is in scope, the made-up one is not
-    assert summary["must_not_recall@5"] in (0.0, 50.0)  # the made-up rule is never found; the real one only if its procedure ranks
+    assert summary["must_not_recall@5"] in (
+        0.0,
+        50.0,
+    )  # the made-up rule is never found; the real one only if its procedure ranks
 
 
 def test_agent_opened_reads_the_procedures_the_saved_runs_opened(tmp_path):
@@ -98,7 +106,9 @@ def test_k_hops_is_measured_by_the_same_command_and_takes_no_model(tmp_path):
 @pytest.mark.parametrize("router, flag", [("llm_cards", "--model"), ("bm25_kev", "--ask")])
 def test_a_router_that_needs_a_model_stops_before_any_call_when_none_is_named(router, flag):
     done = run("--router", router)
-    assert done.returncode != 0 and flag in (done.stderr + done.stdout) and "paid" in (done.stderr + done.stdout)
+    assert (
+        done.returncode != 0 and flag in (done.stderr + done.stdout) and "paid" in (done.stderr + done.stdout)
+    )
 
 
 def test_an_unknown_method_name_is_an_error_that_names_it_and_the_names_there_are():
@@ -130,7 +140,9 @@ def test_must_not_and_exception_labels_on_a_call_that_governs_no_procedure_are_s
     assert summary["must_not_labels"] == 1 + len(esc[:1]) and summary["exception_labels"] == 1
     assert summary["must_not_recall@5"] != "no labels" and summary["exception_recall"] == 0.0
     if esc:
-        assert summary["must_not_recall@5"] >= 100 * len(esc[:1]) / (1 + len(esc[:1]))  # the escalation rule is always in scope
+        assert summary["must_not_recall@5"] >= 100 * len(esc[:1]) / (
+            1 + len(esc[:1])
+        )  # the escalation rule is always in scope
     assert "1 calls scored" in out
 
 
@@ -140,7 +152,9 @@ def test_llm_cards_asks_the_prompt_of_the_measured_router_byte_for_byte(tmp_path
     if not Path(GATE_PYTHON).is_file():
         missing_input("the gate repo's Python is missing")
     saved = json.loads(LABELS.read_text())
-    rows = [r for r in saved["rows"] if r["label"]][::7][:8] + [r for r in saved["rows"] if not r["context"]][:1]
+    rows = [r for r in saved["rows"] if r["label"]][::7][:8] + [r for r in saved["rows"] if not r["context"]][
+        :1
+    ]
     script = """
 import json, sys
 from cuga.policy_layer.package import load_package
@@ -154,7 +168,12 @@ for r in rows:
     out.append(seen[0])
 print(json.dumps(out))
 """
-    done = subprocess.run([GATE_PYTHON, "-I", "-c", script, json.dumps(rows), PACKAGES], capture_output=True, text=True, timeout=120)
+    done = subprocess.run(
+        [GATE_PYTHON, "-I", "-c", script, json.dumps(rows), PACKAGES],
+        capture_output=True,
+        text=True,
+        timeout=120,
+    )
     assert done.returncode == 0, done.stderr[-2000:]
     got = json.loads(done.stdout)
     system = "You map an agent's action to the SOP procedure that governs it. Output JSON only."
@@ -166,7 +185,9 @@ print(json.dumps(out))
     )
     for r, (got_system, got_user) in zip(rows, got):
         graph = json.loads((POLICY_EVAL / "graphs_handbook" / "claude_v1" / f"{r['task']}.json").read_text())
-        cards = "\n".join(f"{p['id']} | {p['name']} | {str(p.get('applies_when') or '')[:300]}" for p in graph["procedures"])
+        cards = "\n".join(
+            f"{p['id']} | {p['name']} | {str(p.get('applies_when') or '')[:300]}" for p in graph["procedures"]
+        )
         want = user.format(cards=cards, context=r["context"] or "(none)", tool=r["tool"], args=r["args"])
         assert got_system == system
         assert got_user == want

@@ -537,7 +537,8 @@ def main() -> int:
         for policy, builds in COMPARE.items()
     }
     for builds in compare.values():
-        assert len({b["tests_hash"] for b in builds}) == 1, "the builds were not measured on the same tests"
+        if len({b["tests_hash"] for b in builds}) != 1:
+            raise AssertionError("the builds were not measured on the same tests")
     Path(a.out).write_text(
         json.dumps({"rows": rows, "compare": compare}, indent=1, ensure_ascii=False, default=str) + "\n",
         encoding="utf-8",

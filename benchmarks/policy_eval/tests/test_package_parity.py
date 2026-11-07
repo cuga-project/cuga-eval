@@ -12,7 +12,9 @@ import pytest
 
 POLICY_EVAL = Path(__file__).resolve().parents[1]
 TOOL = POLICY_EVAL / "tools" / "package_parity.py"
-GATE_PYTHON = os.environ.get("POLICY_GATE_PYTHON") or str(Path.home() / "dev/cuga-agent-gate/.venv/bin/python")
+GATE_PYTHON = os.environ.get("POLICY_GATE_PYTHON") or str(
+    Path.home() / "dev/cuga-agent-gate/.venv/bin/python"
+)
 
 
 def run_check(check):

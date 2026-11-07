@@ -67,10 +67,10 @@ def used_before() -> set[str]:
 
 
 def main() -> None:
+    from ab_env import build_world, tool_app
     from automationbench.domains import PUBLIC_DOMAINS, get_domain_dataset
     from automationbench.rubric.registry import AssertionRegistry
     from automationbench.tools import ALL_TOOLS
-    from ab_env import build_world, tool_app
 
     app_of = {t.__name__: tool_app(t) for t in ALL_TOOLS}
     used = used_before()

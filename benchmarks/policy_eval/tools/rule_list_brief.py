@@ -22,8 +22,8 @@ sys.path[:0] = [str(POLICY_EVAL.parent)]
 
 from cuga.policy_layer.package import load_package  # noqa: E402
 from cuga.policy_layer.policy_config import PolicyConfig  # noqa: E402
-from cuga.policy_layer.runtime import RunContext, build_runtime  # noqa: E402
 from cuga.policy_layer.ruleset import RuleSetHooks  # noqa: E402
+from cuga.policy_layer.runtime import RunContext, build_runtime  # noqa: E402
 
 PACKAGES = {
     "airline": (
@@ -75,7 +75,8 @@ def parts_for(pkg: Any, specs: List[Dict[str, Any]], setting: Dict[str, Any]) ->
 
 def brief_for(pkg: Any, specs: List[Dict[str, Any]], setting: Dict[str, Any]) -> str:
     hooks = [h for h in parts_for(pkg, specs, setting).hooks if isinstance(h, RuleSetHooks)]
-    assert len(hooks) == 1, "the run has one rule hook"
+    if len(hooks) != 1:
+        raise AssertionError("the run has one rule hook")
     return hooks[0].before_llm_call(None).message or ""
 
 
@@ -130,7 +131,9 @@ def measure(name: str) -> Dict[str, Any]:
         "rules": len(pkg.rules),
         "guidance": len(guidance),
         "guidance_with_tool": len(with_tool),
-        "exception_links": len([lk for lk in pkg.links if str(getattr(lk.type, "value", lk.type)) == "exception_of"]),
+        "exception_links": len(
+            [lk for lk in pkg.links if str(getattr(lk.type, "value", lk.type)) == "exception_of"]
+        ),
     }
     texts = {r.rule.get("text", "") for r in guidance}
     for label, setting in SETTINGS.items():
@@ -165,7 +168,11 @@ def main() -> int:
                 f"pending-check parts built: {', '.join(m['pending_parts']) or 'none'}"
             )
     on = [t["package"] for t in trackers if any(t[f"inferred level {n}"] == "on" for n in (1, 2, 3))]
-    flow = [t["package"] for t in trackers if t["declared flow level 2"] == "on" and t["declared flow level 3"] == "on"]
+    flow = [
+        t["package"]
+        for t in trackers
+        if t["declared flow level 2"] == "on" and t["declared flow level 3"] == "on"
+    ]
     print(
         f"SOP tracker under auto, {len(trackers)} skill_v1 packages: on with inferred shapes (levels 1 to 3): {len(on)}; "
         f"on at levels 2 and 3 with shapes: [flow]: {len(flow)}"

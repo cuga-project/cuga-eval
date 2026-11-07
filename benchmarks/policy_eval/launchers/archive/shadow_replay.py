@@ -134,7 +134,10 @@ def replay_task(run: str, name: str) -> Dict[str, Any]:
             )
         hooks.after_tool_call(tool, args, out)
     hooks._drain(120)
-    usage = {**dict(getattr(hooks.model, "usage", {}) or {}), "model": getattr(hooks.model, "model_name", None)}
+    usage = {
+        **dict(getattr(hooks.model, "usage", {}) or {}),
+        "model": getattr(hooks.model, "model_name", None),
+    }
     return {
         "task": name,
         "run": run,

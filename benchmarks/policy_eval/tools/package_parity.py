@@ -38,13 +38,12 @@ from typing import Any, Callable, Dict, Iterator, List, Optional, Tuple
 sys.path[:0] = [str(Path(__file__).resolve().parent), str(Path(__file__).resolve().parent.parent)]
 
 from convert_all import ARTIFACTS, AS_GRAPH, HERE, paths_of, target_of  # noqa: E402
-from rule_audit import load_rules  # noqa: E402
-
 from cuga.policy_layer.model import Verdict  # noqa: E402
 from cuga.policy_layer.package import load_package, runtime_rules  # noqa: E402
 from cuga.policy_layer.procedure_store import ProcedureStore  # noqa: E402
 from cuga.policy_layer.ruleset import RULE_TYPES, RuleSetHooks  # noqa: E402
 from cuga.policy_layer.store_gate import StoreGate  # noqa: E402
+from rule_audit import load_rules  # noqa: E402
 
 UNSEEN = "zzz unseen value"
 
@@ -74,7 +73,9 @@ def check_store() -> int:
         new = store_texts(ProcedureStore.from_package(load_package(target)))
         differ = [k for k in old if old[k] != new.get(k)] + [k for k in new if k not in old]
         wrong += len(differ)
-        print(f"{path.stem:<50} texts {len(old):>3}  chars {sum(map(len, old.values())):>7}  differ {len(differ)}")
+        print(
+            f"{path.stem:<50} texts {len(old):>3}  chars {sum(map(len, old.values())):>7}  differ {len(differ)}"
+        )
     print(f"store differences: {wrong}")
     return wrong
 
@@ -98,7 +99,9 @@ def settings() -> Dict[str, Dict[str, Any]]:
         "no method choice": {},
         "verifier_may_deny": {"verifier_may_deny": True},
         "method_choice.json": {"method_choice": measured},
-        "choice: code may not deny": {"method_choice": every_type({"checker": "code", "code_may_deny": False})},
+        "choice: code may not deny": {
+            "method_choice": every_type({"checker": "code", "code_may_deny": False})
+        },
         "choice: code may deny": {"method_choice": every_type({"checker": "code", "code_may_deny": True})},
         "choice: all to the verifier": {
             "method_choice": every_type({"checker": "verifier", "code_may_deny": False, "may_deny": True}),
@@ -120,7 +123,8 @@ def breaking_call(rule: Dict[str, Any]) -> Tuple[str, Optional[Dict[str, Any]], 
     kind, arg = rule.get("type"), rule.get("arg")
     when = (rule.get("trigger") or {}).get("when") if kind == "duty" else rule.get("when")
     args: Dict[str, Any] = {
-        k: (v[0] if isinstance(v, list) and v and str(v[0]) != "*" else "given") for k, v in (when or {}).items()
+        k: (v[0] if isinstance(v, list) and v and str(v[0]) != "*" else "given")
+        for k, v in (when or {}).items()
     }
     read = None
     if kind in ("allowed_values", "format"):
@@ -215,11 +219,15 @@ def check_rules() -> int:
                     if errors:
                         raised += len(errors)
                         if raised < 6:
-                            print(f"RAISED {path.relative_to(HERE)} [{name}] {rule.get('id')}: {errors[0][:200]}")
+                            print(
+                                f"RAISED {path.relative_to(HERE)} [{name}] {rule.get('id')}: {errors[0][:200]}"
+                            )
                     if a != b:
                         wrong += 1
                         if wrong < 6:
-                            print(f"DIFFER {target_of(artifacts, path)} [{name}] {rule.get('id')}: {a} != {b}")
+                            print(
+                                f"DIFFER {target_of(artifacts, path)} [{name}] {rule.get('id')}: {a} != {b}"
+                            )
                     if name == "no method choice":
                         if rule.get("type") == "guidance":
                             guidance += 1
@@ -234,7 +242,9 @@ def check_rules() -> int:
         f"silent: {sum(silent.values())} ({', '.join(f'{k} {v}' for k, v in silent.most_common())}); "
         f"guidance, never checked: {guidance}"
     )
-    print(f"{builds} builds, {rule_total} rules, {cases} cases, raised calls: {raised}, rule differences: {wrong}")
+    print(
+        f"{builds} builds, {rule_total} rules, {cases} cases, raised calls: {raised}, rule differences: {wrong}"
+    )
     if not all(outcomes["no method choice"][k] for k in ("deny", "remind", "observe")):
         print("no outcome of some kind: the cases do not test the levels")
         return wrong + raised + 1
@@ -276,7 +286,9 @@ def check_gate() -> int:
             if not calls:
                 wrong += 1
                 print(f"GATE DID NOT CALL THE MODEL {path}")
-            print(f"{path.stem:<50} rules after opening all procedures {len(gate._rules()):>3}  model calls {len(calls)}")
+            print(
+                f"{path.stem:<50} rules after opening all procedures {len(gate._rules()):>3}  model calls {len(calls)}"
+            )
             if not StoreGate.from_package(pkg, model, sop_text="The SOP.")._rules():
                 wrong += 1
     print(f"gates that build: {built}; packages that raise: {refused} ({dict(reasons)})")
@@ -376,7 +388,9 @@ def check_hops() -> int:
         if not adds or walk.problem(pkg):
             wrong += 1
             print(f"WALK ADDS NOTHING {path.relative_to(HERE)}")
-        print(f"{str(path.relative_to(HERE / 'packages').parent):<64} procedures {len(pkg.procedures):>3}  pairs {pairs:>3}  gate {buildable}")
+        print(
+            f"{str(path.relative_to(HERE / 'packages').parent):<64} procedures {len(pkg.procedures):>3}  pairs {pairs:>3}  gate {buildable}"
+        )
     print(
         f"{with_procedures} packages with procedures, {with_pairs} with a pair to walk and {grows} where one hop adds a "
         f"procedure; the gate builds on {gate_ok}, and {gate_pairs} of those have a pair; hop differences: {wrong}"
@@ -385,7 +399,13 @@ def check_hops() -> int:
 
 
 def main() -> int:
-    checks = {"store": check_store, "rules": check_rules, "gate": check_gate, "scope": check_scope, "hops": check_hops}
+    checks = {
+        "store": check_store,
+        "rules": check_rules,
+        "gate": check_gate,
+        "scope": check_scope,
+        "hops": check_hops,
+    }
     chosen = sys.argv[1:] or list(checks)
     return 1 if sum(checks[c]() for c in chosen) else 0
 

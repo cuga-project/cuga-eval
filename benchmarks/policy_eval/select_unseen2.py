@@ -41,14 +41,14 @@ def main() -> None:
 
     probe = st.BENCH / "automationbench/results/detector_probe"
     records = {
-        json.loads(l)["id"]: json.loads(l)
-        for l in (probe / "records.jsonl").read_text().splitlines()
-        if l.strip()
+        json.loads(line)["id"]: json.loads(line)
+        for line in (probe / "records.jsonl").read_text().splitlines()
+        if line.strip()
     }
     labels = {
-        json.loads(l)["id"]: json.loads(l)
-        for l in (probe / "labels.jsonl").read_text().splitlines()
-        if l.strip()
+        json.loads(line)["id"]: json.loads(line)
+        for line in (probe / "labels.jsonl").read_text().splitlines()
+        if line.strip()
     }
     review = json.loads((probe / "review.json").read_text()) if (probe / "review.json").exists() else {}
     is_policy = {i: (review[i] if i in review else lab.get("is_policy")) for i, lab in labels.items()}

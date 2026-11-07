@@ -49,7 +49,11 @@ DOCS = [
     },
 ]
 
-U, C, O = "msg_trending_agency:preamble:", "msg_trending_batch:preamble:", "msg_trending_old_policy:preamble:"
+U, C, OLD = (
+    "msg_trending_agency:preamble:",
+    "msg_trending_batch:preamble:",
+    "msg_trending_old_policy:preamble:",
+)
 P, V, N = "slack_msg_mkt_pointer:preamble:", "slack_msg_vp_trend:preamble:", "ws_topics_row_10:preamble:"
 ADD, SLACK = "google_sheets_add_row", "slack_send_channel_message"
 BUILD = {
@@ -68,13 +72,13 @@ BUILD = {
         C + "6": (["threshold", "eligibility_filter"], "must"),
         C + "7": ([], None),
         C + "8": ([], None),
-        O + "1": ([], None),
-        O + "2": ([], None),
-        O + "3": (["threshold", "eligibility_filter"], "must"),
-        O + "4": (["eligibility_filter"], "may"),
-        O + "5": (["eligibility_filter", "threshold"], "must"),
-        O + "6": ([], None),
-        O + "7": ([], None),
+        OLD + "1": ([], None),
+        OLD + "2": ([], None),
+        OLD + "3": (["threshold", "eligibility_filter"], "must"),
+        OLD + "4": (["eligibility_filter"], "may"),
+        OLD + "5": (["eligibility_filter", "threshold"], "must"),
+        OLD + "6": ([], None),
+        OLD + "7": ([], None),
         P + "1": (["source_of_truth", "procedure"], "must"),
         V + "1": (["exception_override"], "must"),
         V + "2": (["threshold", "eligibility_filter"], "must"),
@@ -104,8 +108,8 @@ BUILD = {
         ),
         dict(ids=[C + "6"], type="verify", tools=[ADD]),
         # Editorial Q4 2025 email (3 and 4 are superseded by the newer Content Ops rules)
-        dict(ids=[O + "3"], type="verify", tools=[ADD]),
-        dict(ids=[O + "4"], type="guidance", tools=[ADD]),
+        dict(ids=[OLD + "3"], type="verify", tools=[ADD]),
+        dict(ids=[OLD + "4"], type="guidance", tools=[ADD]),
         # pointer to the VP criteria
         dict(ids=[P + "1"], type="verify", tools=[ADD]),
         # VP Marketing criteria
@@ -190,23 +194,23 @@ BUILD = {
             "slack_msg_vp_trend",
             "Rachel posted updated trending topic criteria in #leadership",
         ),
-        ("supersedes", C + "6", O + "3", "Only add topics with meaningful growth (at least 50% increase)"),
-        ("supersedes", C + "5", O + "4", "Do not add topics with negative sentiment to the backlog"),
+        ("supersedes", C + "6", OLD + "3", "Only add topics with meaningful growth (at least 50% increase)"),
+        ("supersedes", C + "5", OLD + "4", "Do not add topics with negative sentiment to the backlog"),
     ],
     "coverage": {
         C + "1": ("out_of_scope", "greeting"),
         C + "2": ("out_of_scope", "list heading (scope: this week's batch)"),
         C + "7": ("out_of_scope", "closing"),
         C + "8": ("out_of_scope", "signature"),
-        O + "1": ("out_of_scope", "greeting"),
-        O + "2": ("out_of_scope", "list heading (scope: Q4 content backlog)"),
-        O + "5": (
+        OLD + "1": ("out_of_scope", "greeting"),
+        OLD + "2": ("out_of_scope", "list heading (scope: Q4 content backlog)"),
+        OLD + "5": (
             "out_of_scope",
             "expired: the record limits it to the Q4 content backlog criteria (sent 2025-10-01); "
             "the current batch is W04-2026 and no newer record keeps it",
         ),
-        O + "6": ("out_of_scope", "closing"),
-        O + "7": ("out_of_scope", "signature"),
+        OLD + "6": ("out_of_scope", "closing"),
+        OLD + "7": ("out_of_scope", "signature"),
         V + "1": (
             "link",
             "supersedes Content Ops statements 3-5 for this cycle; statement 9 keeps the 50% rule",

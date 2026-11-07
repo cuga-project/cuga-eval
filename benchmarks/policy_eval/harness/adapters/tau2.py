@@ -64,9 +64,10 @@ class Tau2Adapter:
         from cuga.policy_layer.runtime import RunContext
 
         _on_path()
-        from benchmarks.tau2.cuga_runner import _MESSAGE_TOOL
         from tau2.registry import registry
         from tau2.runner.helpers import get_tasks
+
+        from benchmarks.tau2.cuga_runner import _MESSAGE_TOOL
 
         tasks = get_tasks(self.domain, task_ids=[task_id], num_tasks=None)
         if not tasks:
@@ -91,18 +92,19 @@ class Tau2Adapter:
         )
 
     async def run(self, parts: "RuntimeParts", ctx: "RunContext", timeout: float) -> RawOutcome:
-        from benchmarks.tau2.cuga_runner import (
-            _patch_tau2_nl_assertion_model,
-            _populate_sim_outputs,
-        )
-        from benchmarks.tau2.tau2_bridge import ConversationBridge, make_decoy_tools
-        from benchmarks.tau2.tau2_proxy import make_cuga_factory, set_current_bridge
         from cuga.backend.activity_tracker.tracker import ActivityTracker
         from cuga.policy_layer.runtime import RuntimeWiringError
         from cuga.sdk import CugaAgent
         from tau2.data_model.simulation import TextRunConfig
         from tau2.registry import registry
         from tau2.runner.batch import run_single_task
+
+        from benchmarks.tau2.cuga_runner import (
+            _patch_tau2_nl_assertion_model,
+            _populate_sim_outputs,
+        )
+        from benchmarks.tau2.tau2_bridge import ConversationBridge, make_decoy_tools
+        from benchmarks.tau2.tau2_proxy import make_cuga_factory, set_current_bridge
 
         if parts.run is not None:
             raise RuntimeWiringError(

@@ -31,9 +31,9 @@ def _title(
 titles = {f"{doc['id']}:{s['id']}": _title(s) for s in doc["sections"]}
 st_sec = {st["id"]: f"{doc['id']}:{sec['id']}" for sec in doc["sections"] for st in sec["statements"]}
 refs = defaultdict(set)
-for l in build.get("links") or []:
-    if str(l.get("type")) in ("refers_to", "LinkType.REFERS_TO"):
-        a, z = st_sec.get(l["src"], l["src"]), st_sec.get(l["dst"], l["dst"])
+for link in build.get("links") or []:
+    if str(link.get("type")) in ("refers_to", "LinkType.REFERS_TO"):
+        a, z = st_sec.get(link["src"], link["src"]), st_sec.get(link["dst"], link["dst"])
         if a != z:
             refs[a].add(z)
 e = html.escape

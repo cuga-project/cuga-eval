@@ -42,7 +42,8 @@ def main() -> None:
             t.value if hasattr(t, "value") else str(t) for s in sts for t in (s.types or [])[:1]
         )
         links = collections.Counter(
-            str(getattr(l, "kind", getattr(l, "type", "?"))) for l in getattr(build, "links", []) or []
+            str(getattr(link, "kind", getattr(link, "type", "?")))
+            for link in getattr(build, "links", []) or []
         )
         procs = getattr(build, "procedures", []) or []
         stats = {

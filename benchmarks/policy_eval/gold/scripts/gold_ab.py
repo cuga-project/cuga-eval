@@ -328,7 +328,7 @@ def cmd_build(task: str) -> None:
         Definition(
             term=t,
             meaning=texts[sid],
-            used_by=[l.dst for l in links if l.src == sid and l.type == LinkType.DEFINES],
+            used_by=[link.dst for link in links if link.src == sid and link.type == LinkType.DEFINES],
             source={**src_of(sid), "statement": sid},
             quote=texts[sid],
         )
@@ -413,7 +413,8 @@ def cmd_build(task: str) -> None:
         "procedures": len(procedures),
         "links": len(links),
         "links_by_type": {
-            t: sum(l.type.value == t for l in links) for t in sorted({l.type.value for l in links})
+            t: sum(link.type.value == t for link in links)
+            for t in sorted({link.type.value for link in links})
         },
         "coverage": kinds,
         "validation_errors": len(build.validation),

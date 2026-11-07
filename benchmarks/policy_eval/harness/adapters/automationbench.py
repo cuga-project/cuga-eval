@@ -39,7 +39,6 @@ def _bench() -> Any:
     return ab_env
 
 
-
 RULE_FILES = {  # general instructions for the agent, each behind a flag that is off by default
     "AB_AGENT_RULES": "automationbench_agent_rules.md",  # read the procedure first, list worksheets, change only what was asked
     "AB_SPAWN_RULES": "automationbench_spawn_rules.md",  # read-only sub-agents (needs DYNACONF_AGENT_SPAWN__ENABLED=true)
@@ -82,7 +81,9 @@ def _world_clock(world_time: str) -> Callable[[], Any]:
         def today(cls) -> _dt.datetime:  # type: ignore[override]
             return world_now()
 
-    world_time_mod = types.SimpleNamespace(**{k: getattr(time, k) for k in dir(time) if not k.startswith("__")})
+    world_time_mod = types.SimpleNamespace(
+        **{k: getattr(time, k) for k in dir(time) if not k.startswith("__")}
+    )
     world_time_mod.time = lambda: world_now(_dt.timezone.utc).timestamp()
     for name, mod in list(sys.modules.items()):
         if not (name == "automationbench" or name.startswith("automationbench.")) or mod is None:
@@ -130,7 +131,9 @@ def _with_agent_rules(system: str) -> str:
     """Add the instruction files whose flag is set. Added to the agent's instructions only; policy checks do not read
     them as policy."""
     extra = [
-        (Path(__file__).parent / name).read_text().strip() for flag, name in RULE_FILES.items() if os.environ.get(flag)
+        (Path(__file__).parent / name).read_text().strip()
+        for flag, name in RULE_FILES.items()
+        if os.environ.get(flag)
     ]
     return "\n\n".join([system, *extra] if system else extra)
 
@@ -140,15 +143,30 @@ class AutomationBenchAdapter:
     python = HOME / ".venv" / "bin" / "python"
     python_flags = ()
     env_bench = "automationbench"
-    env_extra: Dict[str, Any] = {  # every tool of each app the agent searches for (audit: AB_FC_BIND, AB_SHORTLISTER)
+    env_extra: Dict[
+        str, Any
+    ] = {  # every tool of each app the agent searches for (audit: AB_FC_BIND, AB_SHORTLISTER)
         **FC_DYNAMIC,
-        **({"DYNACONF_ADVANCED_FEATURES__CUGA_LITE_FC_DYNAMIC_TOOLS": os.environ["AB_FC_BIND"]} if os.environ.get("AB_FC_BIND") else {}),
-        **({"DYNACONF_SHORTLISTER__STRATEGY": os.environ["AB_SHORTLISTER"], "DYNACONF_SHORTLISTER__THRESHOLD": "0",
-            "DYNACONF_SHORTLISTER__MAX_RESULTS": "5"} if os.environ.get("AB_SHORTLISTER") else {}),
+        **(
+            {"DYNACONF_ADVANCED_FEATURES__CUGA_LITE_FC_DYNAMIC_TOOLS": os.environ["AB_FC_BIND"]}
+            if os.environ.get("AB_FC_BIND")
+            else {}
+        ),
+        **(
+            {
+                "DYNACONF_SHORTLISTER__STRATEGY": os.environ["AB_SHORTLISTER"],
+                "DYNACONF_SHORTLISTER__THRESHOLD": "0",
+                "DYNACONF_SHORTLISTER__MAX_RESULTS": "5",
+            }
+            if os.environ.get("AB_SHORTLISTER")
+            else {}
+        ),
     }
     grace = 300.0
     default_timeout = 1800.0  # as the old runner
-    toolset = os.environ.get("AB_TOOLSET") or "full"  # all 549 tools; CUGA has to find the ones the task needs (audit: limited_zapier)
+    toolset = (
+        os.environ.get("AB_TOOLSET") or "full"
+    )  # all 549 tools; CUGA has to find the ones the task needs (audit: limited_zapier)
 
     def __init__(self, run_dir: Optional[Path] = None, set_id: Optional[str] = None, run: str = ""):
         self.run_dir, self.run_name = run_dir, run
@@ -219,7 +237,8 @@ class AutomationBenchAdapter:
                 lambda t: self.app_by_tool.get(t.name, "policy"),  # real app names, as in AppWorld
                 # audit: one line per app, made once from tool names and descriptions only (AB_APP_DESC)
                 json.loads((Path(__file__).parents[3] / "automationbench/app_descriptions.json").read_text())
-                if os.environ.get("AB_APP_DESC") else None,
+                if os.environ.get("AB_APP_DESC")
+                else None,
             ),
             special_instructions=with_note(_with_agent_rules(ctx.system_prompt), parts.system_note) or None,
             cuga_folder=str(Path(self.run_dir) / ".cuga" / self.task_id),

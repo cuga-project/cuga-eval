@@ -13,7 +13,6 @@ from __future__ import annotations
 import argparse
 import asyncio
 import json
-import os
 import re
 import sys
 import threading
@@ -33,12 +32,17 @@ def main() -> None:
     ap.add_argument("--toolguard-src", required=True)
     ap.add_argument("--model", default="aws/gpt-oss-120b")
     ap.add_argument("--out", default=str(HERE / "toolguard" / VERSION))
-    ap.add_argument("--short", action="store_true", help="ToolGuard's minimal step 1 (create + examples only)")
+    ap.add_argument(
+        "--short", action="store_true", help="ToolGuard's minimal step 1 (create + examples only)"
+    )
     ap.add_argument("--concurrency", type=int, default=12)
     ap.add_argument("--tools", nargs="*", help="only these write tools")
-    ap.add_argument("--policies-only", action="store_true",
-                    help="ToolGuard's policy stages only (create, add x3, split, merge, review, references, reference "
-                         "check); no examples (those are for step 2 code generation and cost one call per policy)")
+    ap.add_argument(
+        "--policies-only",
+        action="store_true",
+        help="ToolGuard's policy stages only (create, add x3, split, merge, review, references, reference "
+        "check); no examples (those are for step 2 code generation and cost one call per policy)",
+    )
     a = ap.parse_args()
     sys.path.insert(0, a.toolguard_src)
     import types  # register the package without running its __init__ (it imports step 2, which needs mellea)
@@ -46,17 +50,18 @@ def main() -> None:
     pkg = types.ModuleType("toolguard")
     pkg.__path__ = [str(Path(a.toolguard_src) / "toolguard")]
     sys.modules["toolguard"] = pkg
-    from dotenv import dotenv_values
-    from openai import OpenAI
-
     import markdown
     import policy_pilot_costs as costs
+    from dotenv import dotenv_values
+    from openai import OpenAI
     from toolguard.llm.tg_litellm import LitellmModel
     from toolguard.llm.tg_llm import TG_LLM
     from toolguard.stages_tptd.text_tool_policy_generator import TextToolPolicyGenerator, ToolInfo, step1_main
 
     secrets = dotenv_values(EVAL / ".env")
-    client = OpenAI(base_url=secrets["OPENAI_BASE_URL"], api_key=secrets["OPENAI_API_KEY"], timeout=300, max_retries=3)
+    client = OpenAI(
+        base_url=secrets["OPENAI_BASE_URL"], api_key=secrets["OPENAI_API_KEY"], timeout=300, max_retries=3
+    )
     usage = {"calls": 0, "input_tokens": 0, "output_tokens": 0, "model": a.model}
     lock = threading.Lock()
     sem = asyncio.Semaphore(a.concurrency)
@@ -65,7 +70,9 @@ def main() -> None:
         async def generate(self, messages: List[Dict]) -> str:
             async with sem:
                 kw = {"max_tokens": 16000} if "gpt-oss" in a.model else {}
-                r = await asyncio.to_thread(client.chat.completions.create, model=a.model, messages=messages, **kw)
+                r = await asyncio.to_thread(
+                    client.chat.completions.create, model=a.model, messages=messages, **kw
+                )
             with lock:
                 usage["calls"] += 1
                 usage["input_tokens"] += r.usage.prompt_tokens or 0
@@ -82,12 +89,19 @@ def main() -> None:
     tasks = json.loads((BENCH / "enterpriseops_gym/tasks/itsm_oracle.json").read_text())
     policy_md = next(t["system_prompt"] for t in tasks if t["_policy_hash"] == VERSION)
     specs = json.loads((BENCH / "enterpriseops_gym/tasks/itsm_tools.json").read_text())
-    tools = [ToolInfo(name=t["name"], description=t.get("description") or "",
-                      parameters=t.get("input_schema") or t.get("inputSchema") or {}) for t in specs]
+    tools = [
+        ToolInfo(
+            name=t["name"],
+            description=t.get("description") or "",
+            parameters=t.get("input_schema") or t.get("inputSchema") or {},
+        )
+        for t in specs
+    ]
     writes = [t["name"] for t in specs if not READ.match(t["name"])]
     writes = [w for w in writes if not a.tools or w in a.tools]
     Path(a.out).mkdir(parents=True, exist_ok=True)
     print(len(writes), "write tools")
+
     async def policies_only(policy_text: str) -> None:
         proc = Path(a.out) / "process"
         proc.mkdir(parents=True, exist_ok=True)

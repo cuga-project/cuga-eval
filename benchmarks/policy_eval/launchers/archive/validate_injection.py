@@ -22,6 +22,7 @@ import asyncio
 import json
 import os
 import sys
+import tempfile
 from pathlib import Path
 from typing import Any, Dict, List
 
@@ -176,7 +177,7 @@ async def scenario(name: str, hooks: List[Any], task: str) -> Dict[str, Any]:
     agent = CugaAgent(
         tool_provider=AppToolsProvider(tools, lambda t: "notes"),
         hooks=hooks,
-        cuga_folder=f"/tmp/validate_injection/{name}",
+        cuga_folder=str(Path(tempfile.gettempdir()) / "validate_injection" / name),
         auto_load_policies=False,
         filesystem_sync=False,
         enable_knowledge=False,
@@ -217,19 +218,22 @@ async def main_async() -> List[Dict[str, Any]]:
         {"name": "write_note", "inputSchema": {"properties": {"text": {"type": "string"}}}},
         {"name": "read_counter", "inputSchema": {"properties": {}}},
     ]
-    stub = lambda s, u: json.dumps(
-        {
-            "items": [
-                {
-                    "action": "save the note",
-                    "tool": "write_note",
-                    "args": {},  # noqa: E731
-                    "targets": [],
-                    "values": ["counter checked"],
-                }
-            ]
-        }
-    )
+
+    def stub(s, u):
+        return json.dumps(
+            {
+                "items": [
+                    {
+                        "action": "save the note",
+                        "tool": "write_note",
+                        "args": {},
+                        "targets": [],
+                        "values": ["counter checked"],
+                    }
+                ]
+            }
+        )
+
     d = DeliverablesHooks(stub, specs, is_write=lambda n: n == "write_note")
     r = await scenario(
         "deliverables",

@@ -40,9 +40,8 @@ import argparse
 import hashlib
 import json
 import math
-import random
-from fractions import Fraction
 import os
+import random
 import re
 import sys
 import threading
@@ -50,9 +49,10 @@ import time
 import warnings
 from collections import Counter, defaultdict
 from concurrent.futures import ThreadPoolExecutor
-from dataclasses import dataclass, field
+from dataclasses import dataclass
+from fractions import Fraction
 from pathlib import Path
-from typing import Any, Callable, Dict, Iterable, List, Optional, Sequence, Tuple
+from typing import Any, Callable, Dict, List, Optional, Sequence, Tuple
 
 warnings.filterwarnings("ignore")
 HERE = Path(__file__).resolve().parent
@@ -86,7 +86,9 @@ PRODUCERS = ("package", "request", "duty")
 BENCHMARKS = ("handbook", "itsm", "tau2-telecom")
 FALSE_OPEN_MAX = (1, 10)  # <= 10%
 RECALL_MIN = (3, 10)  # >= 30%
-MIN_RECALL_DENOMINATOR = 5  # fewer failed checks a write could meet: recall is not known, whatever the count of hits
+MIN_RECALL_DENOMINATOR = (
+    5  # fewer failed checks a write could meet: recall is not known, whatever the count of hits
+)
 STATUSES = ("met", "open", "held", "unknown", "wrong", "unbound", "not_applicable")
 
 
@@ -137,7 +139,9 @@ class Meter:
             costs.record(kind, name, policy={**row, "model": model})
 
 
-GATE_SRC: Optional[Path] = None  # a copy of the gate repo's src/ at one commit (``git archive``), put before the installed one
+GATE_SRC: Optional[Path] = (
+    None  # a copy of the gate repo's src/ at one commit (``git archive``), put before the installed one
+)
 
 
 def use_gate_src(src: Path) -> None:
@@ -204,7 +208,9 @@ class Cache:
                     fh.write(json.dumps(row, ensure_ascii=False) + "\n")
 
 
-Transport = Callable[[str, str, str, Optional[int]], Tuple[str, int, int]]  # (model, system, user, max_tokens)
+Transport = Callable[
+    [str, str, str, Optional[int]], Tuple[str, int, int]
+]  # (model, system, user, max_tokens)
 
 
 def gateway_transport(timeout: float = 75.0) -> Transport:
@@ -260,12 +266,16 @@ class CachedModel:
         row = self.cache.get(k)
         if row is None:
             if self.transport is None:
-                raise RuntimeError("no model call is possible here (no transport) and the answer is not in the cache")
+                raise RuntimeError(
+                    "no model call is possible here (no transport) and the answer is not in the cache"
+                )
             last: Optional[Exception] = None
             for attempt in range(self.retries):
                 self.meter.check()
                 try:
-                    text, tokens_in, tokens_out = self.transport(self.model_name, system, user, self.max_tokens)
+                    text, tokens_in, tokens_out = self.transport(
+                        self.model_name, system, user, self.max_tokens
+                    )
                     break
                 except BudgetStop:
                     raise
@@ -275,7 +285,9 @@ class CachedModel:
             else:
                 self.failed += 1
                 self.meter.failed_calls += 1
-                raise RuntimeError(f"the gateway call failed after {self.retries} tries: {type(last).__name__}")
+                raise RuntimeError(
+                    f"the gateway call failed after {self.retries} tries: {type(last).__name__}"
+                )
             row = {"k": k, "text": text, "in": tokens_in, "out": tokens_out}
             self.cache.put(row)
             self.meter.charge(self.model_name, tokens_in, tokens_out)
@@ -288,12 +300,20 @@ class CachedModel:
 class ReplayModels:
     """The model factory of ``build_runtime``: every model the wiring asks for is the one cached, metered gateway model."""
 
-    def __init__(self, cache: Cache, meter: Meter, transport: Optional[Transport], sleep: Callable[[float], None] = time.sleep):
+    def __init__(
+        self,
+        cache: Cache,
+        meter: Meter,
+        transport: Optional[Transport],
+        sleep: Callable[[float], None] = time.sleep,
+    ):
         self.cache, self.meter, self.transport, self.sleep = cache, meter, transport, sleep
         self.made: List[CachedModel] = []
 
     def json_model(self, model: str, **kwargs: Any) -> CachedModel:
-        made = CachedModel(model, self.cache, self.meter, self.transport, kwargs.get("max_tokens"), sleep=self.sleep)
+        made = CachedModel(
+            model, self.cache, self.meter, self.transport, kwargs.get("max_tokens"), sleep=self.sleep
+        )
         self.made.append(made)
         return made
 
@@ -314,7 +334,9 @@ class Check:
     id: str
     text: str
     passed: bool
-    writable: Optional[bool] = None  # set where the benchmark says it (a user action is not a write of the agent)
+    writable: Optional[bool] = (
+        None  # set where the benchmark says it (a user action is not a write of the agent)
+    )
 
 
 @dataclass
@@ -433,7 +455,11 @@ def itsm_runs(models: Sequence[str] = (MODEL,), root: Optional[Path] = None) -> 
             checks.append(Check(f"v{i}", text, bool(v.get("passed"))))
         res = from_legacy(path)
         calls = [
-            {"tool": c["tool"], "args": c.get("args") or {}, "result": _result_text(c.get("result"), bool(c.get("error")))}
+            {
+                "tool": c["tool"],
+                "args": c.get("args") or {},
+                "result": _result_text(c.get("result"), bool(c.get("error"))),
+            }
             for c in raw.get("tool_calls") or []
         ]
         runs.append(
@@ -459,7 +485,9 @@ def itsm_runs(models: Sequence[str] = (MODEL,), root: Optional[Path] = None) -> 
     return runs
 
 
-def tau2_runs(tags: Sequence[str] = ("dev1_A", "dev2_A", "test1_A", "test2_A"), root: Optional[Path] = None) -> List[Run]:
+def tau2_runs(
+    tags: Sequence[str] = ("dev1_A", "dev2_A", "test1_A", "test2_A"), root: Optional[Path] = None
+) -> List[Run]:
     """Saved arm-A runs of τ² Telecom. The agent's tools only: the user's tools (``user__``) belong to the customer's phone,
     so the specs hold none. Checks are the environment assertions of the grader (the reward's basis)."""
     root = root or TAU2
@@ -480,12 +508,20 @@ def tau2_runs(tags: Sequence[str] = ("dev1_A", "dev2_A", "test1_A", "test2_A"), 
                         if m.get("content"):
                             answer = str(m["content"])
                         pending += [
-                            c for c in m.get("tool_calls") or [] if c.get("requestor", "assistant") == "assistant"
+                            c
+                            for c in m.get("tool_calls") or []
+                            if c.get("requestor", "assistant") == "assistant"
                         ]
                     elif role == "tool" and m.get("requestor") == "assistant" and pending:
                         c = pending.pop(0)
-                        calls.append({"tool": c["name"], "args": c.get("arguments") or {}, "result": m.get("content")})
-                    elif role == "user" and isinstance(m.get("content"), str) and not m["content"].startswith("###"):
+                        calls.append(
+                            {"tool": c["name"], "args": c.get("arguments") or {}, "result": m.get("content")}
+                        )
+                    elif (
+                        role == "user"
+                        and isinstance(m.get("content"), str)
+                        and not m["content"].startswith("###")
+                    ):
                         user_text.append(m["content"])
                 info = r.get("reward_info") or {}
                 checks = []
@@ -613,7 +649,9 @@ def snapshot(ledger: Any, producer: str = "package") -> Dict[str, Any]:
         }
         if sent:
             row["line"] = _line(it)[:500]
-        if producer != "package":  # these obligations are made in the run, so the package has no text for them
+        if (
+            producer != "package"
+        ):  # these obligations are made in the run, so the package has no text for them
             source = it.ob.source if isinstance(it.ob.source, dict) else {}
             quote = re.sub(r"\s+", " ", str(source.get("quote") or "")).strip()[:140]
             row["text"] = f"{','.join(row['tools']) or row['kind']}: {quote}"
@@ -626,7 +664,13 @@ def replay_run(run: Run, producer: str, models: ReplayModels) -> Dict[str, Any]:
     """One ledger on one run. A failed binding or request call is kept as the result, never a crash."""
     from cuga.policy_layer.obligations import UNBOUND  # noqa: F401  (import check)
 
-    out: Dict[str, Any] = {"uid": run.uid, "producer": producer, "bench": run.bench, "run": run.run, "task": run.task}
+    out: Dict[str, Any] = {
+        "uid": run.uid,
+        "producer": producer,
+        "bench": run.bench,
+        "run": run.run,
+        "task": run.task,
+    }
     mark = len(models.made)
     try:
         ledger = build_ledger(run, producer, models)
@@ -643,7 +687,9 @@ def replay_run(run: Run, producer: str, models: ReplayModels) -> Dict[str, Any]:
     snap = snapshot(ledger, producer)
     from cuga.policy_layer.obligations import _failed_call
 
-    worked = {c["tool"] for c in run.calls if not _failed_call(c["result"])}  # tools with a successful call in this run
+    worked = {
+        c["tool"] for c in run.calls if not _failed_call(c["result"])
+    }  # tools with a successful call in this run
     for it in snap["items"]:
         it["prior_call"] = bool(set(it["tools"]) & worked)
     usage = {"calls": 0, "input_tokens": 0, "output_tokens": 0}
@@ -732,7 +778,9 @@ def write_tools(run: Run) -> List[str]:
     from cuga.policy_layer.ruleset import is_write_tool
 
     in_run = set(run.tools_in_run) if run.tools_in_run is not None else None
-    return sorted(t["name"] for t in run.specs if (in_run is None or t["name"] in in_run) and is_write_tool(t["name"]))
+    return sorted(
+        t["name"] for t in run.specs if (in_run is None or t["name"] in in_run) and is_write_tool(t["name"])
+    )
 
 
 def label_writable(run: Run, model: Callable[[str, str], str]) -> Dict[str, bool]:
@@ -740,7 +788,12 @@ def label_writable(run: Run, model: Callable[[str, str], str]) -> Dict[str, bool
     labels = {c.id: c.writable for c in run.checks if c.writable is not None}
     todo = [c for c in run.checks if c.id not in labels]
     if todo:
-        data = _json_of(model(WRITABLE_SYSTEM, WRITABLE_USER.format(tools=", ".join(write_tools(run)), checks=_check_lines(todo))))
+        data = _json_of(
+            model(
+                WRITABLE_SYSTEM,
+                WRITABLE_USER.format(tools=", ".join(write_tools(run)), checks=_check_lines(todo)),
+            )
+        )
         got = data.get("checks") if isinstance(data.get("checks"), dict) else {}
         for c in todo:
             labels[c.id] = bool(got.get(c.id)) if c.id in got else False
@@ -782,7 +835,11 @@ def ob_text(pkg_obs: Dict[str, Any], ob_id: str) -> str:
 
 
 def cover(
-    run: Run, failed: Sequence[Check], items: Sequence[Dict[str, Any]], texts: Dict[str, str], model: Callable[[str, str], str]
+    run: Run,
+    failed: Sequence[Check],
+    items: Sequence[Dict[str, Any]],
+    texts: Dict[str, str],
+    model: Callable[[str, str], str],
 ) -> Dict[str, List[int]]:
     """For failed checks that no sent item names: which items of the ledger (any status) test the same work."""
     if not failed or not items:
@@ -794,7 +851,9 @@ def cover(
             continue
         seen.add(key)
         lines.append(f"{it['n']} ({it['status']}) {it.get('text') or texts.get(it['ob'], it['ob'])}")
-    data = _json_of(model(COVER_SYSTEM, COVER_USER.format(checks=_check_lines(failed), items="\n".join(lines))))
+    data = _json_of(
+        model(COVER_SYSTEM, COVER_USER.format(checks=_check_lines(failed), items="\n".join(lines)))
+    )
     got = data.get("checks") if isinstance(data.get("checks"), dict) else {}
     by_key: Dict[Tuple[str, str], List[int]] = defaultdict(list)
     for it in items:
@@ -974,7 +1033,9 @@ def measure_group(rows: Sequence[Dict[str, Any]]) -> Dict[str, Any]:
                     if hit:
                         by_n = {i["n"]: i for i in rep.get("items", [])}
                         hitters = [
-                            by_n[int(n)] for n, m in r["maps"].items() if c["id"] in m["meets"] and int(n) in by_n
+                            by_n[int(n)]
+                            for n, m in r["maps"].items()
+                            if c["id"] in m["meets"] and int(n) in by_n
                         ]
                         if any(not h.get("prior_call") for h in hitters):
                             recalled_no_prior += 1
@@ -1065,7 +1126,10 @@ def views_of(rows: Sequence[Dict[str, Any]], meta: Dict[str, Dict[str, Any]]) ->
     for r in rows:
         by_task[r["task"]].append(row_counts(r))
         task_sets[r["task"]] = r.get("sets", [])
-    sums = {t: {k: sum(c[k] for c in cs) for k in ("pc", "fo", "fw", "rc", "fa", "ra")} for t, cs in by_task.items()}
+    sums = {
+        t: {k: sum(c[k] for c in cs) for k in ("pc", "fo", "fw", "rc", "fa", "ra")}
+        for t, cs in by_task.items()
+    }
     runs = {t: len(cs) for t, cs in by_task.items()}
     tot = {k: sum(v[k] for v in sums.values()) for k in ("pc", "fo", "fw", "rc", "fa", "ra")}
     w = {k: sum(Fraction(v[k], runs[t]) for t, v in sums.items()) for k in ("pc", "fo", "fw", "rc")}
@@ -1230,7 +1294,11 @@ def do_judge(
     path = path or OUT / "judge.jsonl"
     done = {(r["uid"], r["producer"]) for r in read_jsonl(path)}
     by_uid = {r.uid: r for r in runs}
-    replays = [r for r in read_jsonl(replay_path) if r["uid"] in by_uid and r["producer"] in producers and (r["uid"], r["producer"]) not in done]
+    replays = [
+        r
+        for r in read_jsonl(replay_path)
+        if r["uid"] in by_uid and r["producer"] in producers and (r["uid"], r["producer"]) not in done
+    ]
     lock = threading.Lock()
     writable: Dict[str, Dict[str, bool]] = {}
     packages: Dict[Path, Dict[str, str]] = {}
@@ -1262,7 +1330,11 @@ def do_judge(
             for c in failed:
                 ids = covered.get(c.id) or []
                 if not ids:
-                    causes[c.id] = "no item" if rep.get("status") == "ok" and rep.get("binding") != "failed" else "no binding"
+                    causes[c.id] = (
+                        "no item"
+                        if rep.get("status") == "ok" and rep.get("binding") != "failed"
+                        else "no binding"
+                    )
                 else:
                     by_n = {i["n"]: i for i in rep["items"]}
                     states = sorted({by_n[n]["status"] for n in ids if n in by_n})
@@ -1286,7 +1358,10 @@ def do_judge(
 
 
 def handcheck_sample(
-    runs: Sequence[Run], replay: Sequence[Dict[str, Any]], judged: Sequence[Dict[str, Any]], per_bench: Dict[str, int]
+    runs: Sequence[Run],
+    replay: Sequence[Dict[str, Any]],
+    judged: Sequence[Dict[str, Any]],
+    per_bench: Dict[str, int],
 ) -> List[Dict[str, Any]]:
     """Sent items to check by hand, by the hash of their identity (no outcome is read), ``per_bench`` of each benchmark. Each
     row has the item, the checks of its run without their outcome, and what the judge mapped."""
@@ -1299,7 +1374,12 @@ def handcheck_sample(
             continue
         for it in rep.get("items", []):
             if it["sent"]:
-                pool[f"{run.bench}|{rep['producer']}"].append((_hash_order(f"{HANDCHECK_SALT}|{rep['uid']}|{rep['producer']}|{it['n']}"), {"rep": rep, "it": it, "j": j}))
+                pool[f"{run.bench}|{rep['producer']}"].append(
+                    (
+                        _hash_order(f"{HANDCHECK_SALT}|{rep['uid']}|{rep['producer']}|{it['n']}"),
+                        {"rep": rep, "it": it, "j": j},
+                    )
+                )
     out: List[Dict[str, Any]] = []
     for bench, want in per_bench.items():
         for _, row in sorted(pool.get(bench, []), key=lambda x: x[0])[:want]:
@@ -1328,10 +1408,18 @@ def handcheck_stats(rows: Sequence[Dict[str, Any]]) -> Dict[str, int]:
         right += len(j & t)
         missed += len(t - j)
         same += int(j == t)
-    return {"items": len(rows), "judge_pairs": judged, "right_pairs": right, "missed_pairs": missed, "same_set": same}
+    return {
+        "items": len(rows),
+        "judge_pairs": judged,
+        "right_pairs": right,
+        "missed_pairs": missed,
+        "same_set": same,
+    }
 
 
-def limits_of(replay: Sequence[Dict[str, Any]], in_run: Optional[Dict[str, Optional[set]]] = None) -> Dict[str, Dict[str, int]]:
+def limits_of(
+    replay: Sequence[Dict[str, Any]], in_run: Optional[Dict[str, Optional[set]]] = None
+) -> Dict[str, Dict[str, int]]:
     """What the known limits mean in this replay, counted on the items of the producer ``package``: by kind of item and by the
     tools it names, with the status each ended in. ``code_only``: every tool is ``executePython`` or ``executeBash``.
     ``user_only``: every tool is the customer's (``user__``). ``no_tool``: the item names no tool (a file or a reply). ``tool_not_in_task_list``: the task gave the agent a
@@ -1375,7 +1463,8 @@ def build_rows(
             {
                 "replay": rep,
                 "checks": [
-                    {"id": c.id, "passed": c.passed, "writable": bool(j["writable"].get(c.id))} for c in run.checks
+                    {"id": c.id, "passed": c.passed, "writable": bool(j["writable"].get(c.id))}
+                    for c in run.checks
                 ],
                 "maps": j["maps"],
                 "causes": j.get("causes", {}),
@@ -1434,7 +1523,11 @@ def truncation_counts(runs: Sequence[Run]) -> Dict[str, Dict[str, int]]:
     for run in runs:
         cut = 0
         for call in run.calls:
-            text = call["result"] if isinstance(call["result"], str) else json.dumps(call["result"], ensure_ascii=False)
+            text = (
+                call["result"]
+                if isinstance(call["result"], str)
+                else json.dumps(call["result"], ensure_ascii=False)
+            )
             out[run.bench]["calls"] += 1
             if TRUNCATED.search(text):
                 cut += 1
@@ -1549,7 +1642,9 @@ def previous_summary(
     }
 
 
-def do_measure(runs: Sequence[Run], replay: Sequence[Dict[str, Any]], judged: Sequence[Dict[str, Any]]) -> Dict[str, Any]:
+def do_measure(
+    runs: Sequence[Run], replay: Sequence[Dict[str, Any]], judged: Sequence[Dict[str, Any]]
+) -> Dict[str, Any]:
     members, meta = set_meta()
     groups = build_rows(runs, replay, judged, members)
     used = {r["uid"] for rows in groups.values() for r in (x["replay"] for x in rows)}
@@ -1571,7 +1666,10 @@ def do_measure(runs: Sequence[Run], replay: Sequence[Dict[str, Any]], judged: Se
             "by_set": dict(
                 sorted(
                     Counter(
-                        sid for r in used_runs if r.bench == b for sid in (members.get(r.task) or ["(in no set)"])
+                        sid
+                        for r in used_runs
+                        if r.bench == b
+                        for sid in (members.get(r.task) or ["(in no set)"])
                     ).items()
                 )
             ),
@@ -1652,7 +1750,11 @@ def _level_cell(g: Dict[str, Any], v: Optional[Dict[str, Any]]) -> str:
 def _disagreement(v: Optional[Dict[str, Any]]) -> str:
     if not v:
         return "no views"
-    bad = [n for n, k in (("one count per task", "per_task"), ("mean of task rates", "mean_task")) if not v[k]["ok"]]
+    bad = [
+        n
+        for n, k in (("one count per task", "per_task"), ("mean of task rates", "mean_task"))
+        if not v[k]["ok"]
+    ]
     return "fails under " + " and ".join(bad)
 
 
@@ -1739,7 +1841,9 @@ def render_tables(results: Dict[str, Any]) -> str:
             f"{frac(g['items_value_shown'], g['items'])} | {g['sent_items']} | {frac(g['sent_value_shown'], g['sent_items'])} |"
         )
     out.append("\n### Cost, with the model `" + MODEL + "`\n")
-    out.append("| Benchmark | Producer | Runs | Cost | Per run | Failed bindings or request calls | Runs with no obligation |")
+    out.append(
+        "| Benchmark | Producer | Runs | Cost | Per run | Failed bindings or request calls | Runs with no obligation |"
+    )
     out.append("|---|---|---:|---:|---:|---:|---:|")
     for bench, producer, g in rows:
         per = f"${g['cost_usd'] / g['runs']:.4f}" if g["runs"] else "n/a"
@@ -1759,7 +1863,9 @@ def render_tables(results: Dict[str, Any]) -> str:
         )
     limits = results.get("limits") or {}
     if limits:
-        out.append("\n### Items of the producer `package` by the tools they name, and the status they ended in\n")
+        out.append(
+            "\n### Items of the producer `package` by the tools they name, and the status they ended in\n"
+        )
         out.append("| Benchmark | Shape | Items | " + " | ".join(STATUSES) + " |")
         out.append("|---|---|---:|" + "---:|" * len(STATUSES))
         for key, counts in limits.items():
@@ -1801,8 +1907,10 @@ def render_tables(results: Dict[str, Any]) -> str:
         out.append("|---|---|---|---|---:|---:|---|---|")
         for bench, producer, g in rows:
             for set_id, x in views[f"{bench}|{producer}"]["sets"].items():
-                label = x["status"] if x["status"] in ("tuning", "-") else (
-                    "status heldout, label seen" if x["seen"] else "heldout"
+                label = (
+                    x["status"]
+                    if x["status"] in ("tuning", "-")
+                    else ("status heldout, label seen" if x["seen"] else "heldout")
                 )
                 out.append(
                     f"| {_label(bench)} | {producer} | {set_id} | {label} | {x['runs']} | {x['tasks']} | "
@@ -1811,7 +1919,9 @@ def render_tables(results: Dict[str, Any]) -> str:
     hand = results.get("handcheck")
     if hand:
         out.append("\n### The mapping of items to checks, against a hand check\n")
-        out.append("| Items checked | Distinct items | Pairs the judge made | of which right | Pairs missed by the judge | Items with the same set |")
+        out.append(
+            "| Items checked | Distinct items | Pairs the judge made | of which right | Pairs missed by the judge | Items with the same set |"
+        )
         out.append("|---:|---:|---:|---|---:|---|")
         out.append(
             f"| {hand['items']} | {hand['distinct_items']} | {hand['judge_pairs']} | "
@@ -1839,7 +1949,8 @@ def report_text(results: Dict[str, Any]) -> str:
     out: List[str] = ["# Obligation replay: may the ledger send follow-ups? (task 4.3)\n"]
     if passes:
         named = "; ".join(
-            f"{BENCH_NAMES[b]} `{p}`" + ("" if views[(b, p)]["firm"] else " (not firm: " + _disagreement(views[(b, p)]) + ")")
+            f"{BENCH_NAMES[b]} `{p}`"
+            + ("" if views[(b, p)]["firm"] else " (not firm: " + _disagreement(views[(b, p)]) + ")")
             for b, p in passes
         )
         out.append(
@@ -1886,7 +1997,9 @@ def report_text(results: Dict[str, Any]) -> str:
         f"(`max_tokens` {BINDER_TOKENS} for the binding), on the data that run read. Every item is at level `follow_up`: the "
         "tables show what level 2 would send. One ledger per producer, so producers do not mix.\n"
     )
-    out.append("| Benchmark | Runs | Distinct tasks | Agent models | Basis (`basis_of`, runs) | Runs by set |")
+    out.append(
+        "| Benchmark | Runs | Distinct tasks | Agent models | Basis (`basis_of`, runs) | Runs by set |"
+    )
     out.append("|---|---:|---:|---|---|---|")
     for b in BENCHMARKS:
         info = sample[b]
@@ -1945,14 +2058,16 @@ def report_text(results: Dict[str, Any]) -> str:
             "three false opens, as that gate would have told the agent:\n"
         )
         for ex in previous["examples"]:
-            out.append(f"- `{ex['item']}` against the passed check \"{ex['check']}\". A successful call existed: `{ex['prior']}`.")
+            out.append(
+                f"- `{ex['item']}` against the passed check \"{ex['check']}\". A successful call existed: `{ex['prior']}`."
+            )
         out.append(
             "\nOn gate `9ab6935cd` (a request or duty item takes no keys) a call that leaves out an enum value is `unknown`, and "
             "the item is not asked for again.\n"
         )
     out.append("## Why the ledger cannot send on `package` today\n")
     pd = results["package_diagnosis"]
-    hb, it, te = pd["handbook"], pd["itsm"], pd["tau2-telecom"]
+    hb, it = pd["handbook"], pd["itsm"]
     pg = {b: groups[(b, "package")] for b in BENCHMARKS}
     out.append(
         f"- **HANDBOOK: binding.** {hb['cases'] / hb['runs']:.2f} cases are bound per run; {hb['unbound_obligation_runs']} of "
@@ -2008,8 +2123,14 @@ def report_text(results: Dict[str, Any]) -> str:
         )
     out.append("## Known limits and what each does to the numbers\n")
     hb_code, hb_file = _lim(results, "handbook", "code_only"), _lim(results, "handbook", "no_tool:file")
-    tel_user, itsm_nl = _lim(results, "tau2-telecom", "user_only"), _lim(results, "itsm", "tool_not_in_task_list")
-    itsm_reply, tel_reply = _lim(results, "itsm", "no_tool:reply"), _lim(results, "tau2-telecom", "no_tool:reply")
+    tel_user, itsm_nl = (
+        _lim(results, "tau2-telecom", "user_only"),
+        _lim(results, "itsm", "tool_not_in_task_list"),
+    )
+    itsm_reply, tel_reply = (
+        _lim(results, "itsm", "no_tool:reply"),
+        _lim(results, "tau2-telecom", "no_tool:reply"),
+    )
     trunc = results["truncation"]["handbook"]
     out.append("| Limit | What the replay shows (producer `package` unless said) |")
     out.append("|---|---|")
@@ -2074,7 +2195,9 @@ def report_text(results: Dict[str, Any]) -> str:
     out.append("## Levels and profiles\n")
     levels = ", ".join(
         f"{BENCH_NAMES[b]} `{p}`: {g['level']}"
-        for (b, p), g in sorted(groups.items(), key=lambda kv: (BENCHMARKS.index(kv[0][0]), PRODUCERS.index(kv[0][1])))
+        for (b, p), g in sorted(
+            groups.items(), key=lambda kv: (BENCHMARKS.index(kv[0][0]), PRODUCERS.index(kv[0][1]))
+        )
     )
     out.append(f"Levels by the pooled rule: {levels}.\n")
     out.append(
@@ -2119,7 +2242,12 @@ def main() -> int:
     ap = argparse.ArgumentParser(description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter)
     ap.add_argument("cmd", choices=["plan", "replay", "judge", "handcheck", "measure", "report"])
     ap.add_argument("--bench", choices=BENCHMARKS)
-    ap.add_argument("--itsm-deepseek", type=int, default=0, help="plan: ITSM DeepSeek runs to add to the gpt-oss ones, by hash")
+    ap.add_argument(
+        "--itsm-deepseek",
+        type=int,
+        default=0,
+        help="plan: ITSM DeepSeek runs to add to the gpt-oss ones, by hash",
+    )
     ap.add_argument("--workers", type=int, default=6)
     ap.add_argument("--producers", default=",".join(PRODUCERS), help="replay and judge only these producers")
     ap.add_argument("--gate-src", help="src/ of a clean copy of the gate repo at the commit to replay on")
@@ -2130,10 +2258,21 @@ def main() -> int:
     if args.cmd == "plan":
         chosen = plan_sample(args.itsm_deepseek)
         sample_file.parent.mkdir(parents=True, exist_ok=True)
-        sample_file.write_text(json.dumps({"uids": [r.uid for r in chosen], "itsm_deepseek": args.itsm_deepseek}, indent=1) + "\n", encoding="utf-8")
+        sample_file.write_text(
+            json.dumps({"uids": [r.uid for r in chosen], "itsm_deepseek": args.itsm_deepseek}, indent=1)
+            + "\n",
+            encoding="utf-8",
+        )
         for b in BENCHMARKS:
             rs = [r for r in chosen if r.bench == b]
-            print(b, len(rs), "runs;", sum(len(r.checks) for r in rs), "checks;", dict(Counter(r.agent_model for r in rs)))
+            print(
+                b,
+                len(rs),
+                "runs;",
+                sum(len(r.checks) for r in rs),
+                "checks;",
+                dict(Counter(r.agent_model for r in rs)),
+            )
         return 0
     wanted = set(json.loads(sample_file.read_text(encoding="utf-8"))["uids"])
     runs = [r for r in plan_runs() if r.uid in wanted]
@@ -2147,28 +2286,40 @@ def main() -> int:
         transport = gateway_transport()
         try:
             if args.cmd == "replay":
-                n = do_replay(chosen, lambda: ReplayModels(cache, meter, transport), args.workers, producers=args.producers.split(","))
+                n = do_replay(
+                    chosen,
+                    lambda: ReplayModels(cache, meter, transport),
+                    args.workers,
+                    producers=args.producers.split(","),
+                )
             else:
                 judge_model = CachedModel(MODEL, cache, meter, transport, BINDER_TOKENS)
                 n = do_judge(chosen, judge_model, args.workers, producers=args.producers.split(","))
         finally:
             meter.flush(name=f"task 4.3 {args.cmd}")
-        print(f"{args.cmd}: {n} jobs, new calls {meter.new_calls}, failed {meter.failed_calls}, spent ${meter.spent:.3f}")
+        print(
+            f"{args.cmd}: {n} jobs, new calls {meter.new_calls}, failed {meter.failed_calls}, spent ${meter.spent:.3f}"
+        )
         return 0
     if args.cmd == "handcheck":
         sample_rows = handcheck_sample(
             runs, read_jsonl(OUT / "replay.jsonl"), read_jsonl(OUT / "judge.jsonl"), HANDCHECK_PER_BENCH
         )
-        (OUT / "handcheck_sample.json").write_text(json.dumps(sample_rows, indent=1, ensure_ascii=False) + "\n", encoding="utf-8")
+        (OUT / "handcheck_sample.json").write_text(
+            json.dumps(sample_rows, indent=1, ensure_ascii=False) + "\n", encoding="utf-8"
+        )
         print(len(sample_rows), "items to check by hand")
         return 0
     if args.cmd == "measure":
         replay, judged = read_jsonl(OUT / "replay.jsonl"), read_jsonl(OUT / "judge.jsonl")
         (OUT / "results.json").write_text(
-            json.dumps(do_measure(runs, replay, judged), indent=1, ensure_ascii=False) + "\n", encoding="utf-8"
+            json.dumps(do_measure(runs, replay, judged), indent=1, ensure_ascii=False) + "\n",
+            encoding="utf-8",
         )
         return 0
-    (OUT / "REPORT.md").write_text(report_text(json.loads((OUT / "results.json").read_text(encoding="utf-8"))), encoding="utf-8")
+    (OUT / "REPORT.md").write_text(
+        report_text(json.loads((OUT / "results.json").read_text(encoding="utf-8"))), encoding="utf-8"
+    )
     return 0
 
 

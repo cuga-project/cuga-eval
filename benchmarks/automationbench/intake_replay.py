@@ -114,7 +114,11 @@ def main() -> None:
         sys.path.insert(0, str(HERE.parent))
         import policy_pilot_costs as costs
 
-        costs.record("replay", f"{a.run}/{a.task}" + (" old-facts" if a.old_facts else ""), policy={**usage, "model": getattr(model, "model_name", None)})
+        costs.record(
+            "replay",
+            f"{a.run}/{a.task}" + (" old-facts" if a.old_facts else ""),
+            policy={**usage, "model": getattr(model, "model_name", None)},
+        )
         print(costs.line())
 
 

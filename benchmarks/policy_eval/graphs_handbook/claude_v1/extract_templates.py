@@ -1,12 +1,16 @@
 """Exact email templates from an SOP converted to text: '## Template N – Name' up to the next heading."""
-import json, re, sys
+
+import json
+import re
+import sys
 
 text = open(sys.argv[1]).read().split("\n")
 out, cur = {}, None
 for line in text:
     m = re.match(r"^## Template (\d+)\s*[–—:-]\s*(.+)$", line)
     if m:
-        cur = m.group(1); out[cur] = {"number": int(cur), "name": m.group(2).strip(), "lines": []}
+        cur = m.group(1)
+        out[cur] = {"number": int(cur), "name": m.group(2).strip(), "lines": []}
         continue
     if line.startswith("#"):
         cur = None

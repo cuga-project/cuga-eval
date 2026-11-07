@@ -48,7 +48,12 @@ def test_a_call_written_from_a_pattern_meets_it_or_is_unknown_when_its_value_has
 
 
 def test_what_the_ledger_cannot_check_has_a_name_for_each_reason(shapes):
-    assert set(shapes["gaps"]) <= {"code_tool_no_pattern", "computed_no_code", "file_no_tool", "reply_no_tool"}
+    assert set(shapes["gaps"]) <= {
+        "code_tool_no_pattern",
+        "computed_no_code",
+        "file_no_tool",
+        "reply_no_tool",
+    }
 
 
 def test_the_cards_of_a_package_fit_in_one_binding_call(shapes):
@@ -110,7 +115,10 @@ for path in sorted(Path(sys.argv[1]).glob("*/*/skill_v1/package.json")):
 print(json.dumps({"packages": packages, "lines": lines, "bad": bad[:10]}))
 """
     done = subprocess.run(
-        [GATE_PYTHON, "-I", "-c", code, str(POLICY_EVAL / "packages")], capture_output=True, text=True, timeout=600
+        [GATE_PYTHON, "-I", "-c", code, str(POLICY_EVAL / "packages")],
+        capture_output=True,
+        text=True,
+        timeout=600,
     )
     assert done.returncode == 0, done.stdout[-1500:] + done.stderr[-2500:]
     out = json.loads(done.stdout)

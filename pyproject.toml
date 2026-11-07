@@ -185,6 +185,12 @@ ignore = ["E402", "E501"]
 "**/tests/**" = ["S101", "S105", "S106"]
 "benchmarks/bpo/tests/**" = ["S101", "S105", "S106"]
 "scripts/**" = ["S603", "S607"]
+# Policy-eval run tooling: subprocess calls with argument lists (runs, docker, git) and seeded random sampling of tasks,
+# not cryptography.
+"benchmarks/policy_eval/**" = ["S603", "S607", "S311"]
+"benchmarks/automationbench/**" = ["S603", "S607", "S311"]
+"benchmarks/enterpriseops_gym/**" = ["S603", "S607", "S311"]
+"benchmarks/handbook/**" = ["S603", "S607", "S311"]
 
 [tool.ruff.format]
 quote-style = "preserve"

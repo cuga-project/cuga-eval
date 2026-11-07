@@ -39,16 +39,22 @@ def main() -> None:
     ap.add_argument("--task", nargs="*")
     ap.add_argument("--user-sim", default="openai/Azure/gpt-5-mini-2025-08-07")
     ap.add_argument("--max-steps", type=int, default=100)
-    ap.add_argument("--snapshot", required=True, help="~/dev/cuga_snapshots/<name>/src (policy_eval/snapshot_src.sh)")
+    ap.add_argument(
+        "--snapshot", required=True, help="~/dev/cuga_snapshots/<name>/src (policy_eval/snapshot_src.sh)"
+    )
     a = ap.parse_args()
     snapshot = Path(a.snapshot).expanduser()
-    if not snapshot.is_dir():  # a missing path would be skipped by Python and cuga would come from the venv (main)
+    if (
+        not snapshot.is_dir()
+    ):  # a missing path would be skipped by Python and cuga would come from the venv (main)
         raise SystemExit(f"no snapshot {snapshot}")
     from dotenv import dotenv_values
 
     env = dict(os.environ)
     sec = dotenv_values(EVAL / ".env")
-    for k in ("OPENAI_API_KEY", "OPENAI_BASE_URL") + (("OPENROUTER_API_KEY",) if env.get("SOP_NAVIGATOR") == "1" else ()):
+    for k in ("OPENAI_API_KEY", "OPENAI_BASE_URL") + (
+        ("OPENROUTER_API_KEY",) if env.get("SOP_NAVIGATOR") == "1" else ()
+    ):
         if sec.get(k):
             env[k] = sec[k]
     for k in [k for k in env if k.startswith("LANGFUSE_")]:

@@ -15,7 +15,9 @@ from typing import Any, Dict
 
 LEDGER = Path(__file__).resolve().parent / "policy_pilot_ledger.jsonl"
 PRICE_IN, PRICE_OUT = 0.75, 3.75  # $ per 1M tokens
-BUDGET = float(os.environ.get("POLICY_PILOT_BUDGET", "2000"))  # raised from 1000 (2026-11-03), 1200, 1500, 1700 and 2000 (2026-11-04) by the user
+BUDGET = float(
+    os.environ.get("POLICY_PILOT_BUDGET", "2000")
+)  # raised from 1000 (2026-11-03), 1200, 1500, 1700 and 2000 (2026-11-04) by the user
 
 
 def cost(input_tokens: int, output_tokens: int) -> float:

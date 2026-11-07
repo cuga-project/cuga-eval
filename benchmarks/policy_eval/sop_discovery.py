@@ -60,7 +60,12 @@ class BM25:
             for w in q:
                 if w in tf:
                     idf = math.log(1 + (self.n - self.df[w] + 0.5) / (self.df[w] + 0.5))
-                    s += idf * tf[w] * (self.k1 + 1) / (tf[w] + self.k1 * (1 - self.b + self.b * len(self.docs[i]) / self.avg))
+                    s += (
+                        idf
+                        * tf[w]
+                        * (self.k1 + 1)
+                        / (tf[w] + self.k1 * (1 - self.b + self.b * len(self.docs[i]) / self.avg))
+                    )
             out.append(s)
         return out
 
@@ -99,7 +104,11 @@ def expand(p: dict, sts, secs, parent, links, general, case_q, one_hop: bool) ->
         f"{st['source']['document']}:{st['source'].get('section')}" for st in p.get("steps") or []
     }
     ids = {s["id"] for s in sts if any(a in psec for a in ancestors(sec_of(s), parent))}
-    quotes = [str(x.get("quote") or "") for k in ("preconditions", "exceptions", "escalations", "templates") for x in p.get(k) or []]
+    quotes = [
+        str(x.get("quote") or "")
+        for k in ("preconditions", "exceptions", "escalations", "templates")
+        for x in p.get(k) or []
+    ]
     ids |= {s["id"] for s in sts if any(q and (s["text"][:60] in q or q[:60] in s["text"]) for q in quotes)}
     if not one_hop:
         return ids
@@ -116,7 +125,11 @@ def expand(p: dict, sts, secs, parent, links, general, case_q, one_hop: bool) ->
         if any(n.lower() in sec["title"].lower() for n in names):
             ids |= set(by_sec.get(k, []))
     if general:  # general rules that match the case
-        g = (general.get("preconditions") or []) + (general.get("exceptions") or []) + (general.get("escalations") or [])
+        g = (
+            (general.get("preconditions") or [])
+            + (general.get("exceptions") or [])
+            + (general.get("escalations") or [])
+        )
         gq = [str(x.get("quote") or "") for x in g]
         if gq:
             sc = BM25(gq).scores(case_q)
@@ -135,11 +148,17 @@ def main() -> None:
     if not args.no_kev:
         from dotenv import dotenv_values
 
-        os.environ.setdefault("OPENROUTER_API_KEY", dotenv_values(BENCH.parent / ".env").get("OPENROUTER_API_KEY") or "")
+        os.environ.setdefault(
+            "OPENROUTER_API_KEY", dotenv_values(BENCH.parent / ".env").get("OPENROUTER_API_KEY") or ""
+        )
         from cuga.policy_layer.detectors import systemone_questions
 
         ask = systemone_questions()
-    tasks = ["hr_crestwood_university_79786c46", "insurance_vanguard_shield_mutual_9b2f7a29", "medical_careig_specialty_pharmacy_f5947c33"]
+    tasks = [
+        "hr_crestwood_university_79786c46",
+        "insurance_vanguard_shield_mutual_9b2f7a29",
+        "medical_careig_specialty_pharmacy_f5947c33",
+    ]
     totals = defaultdict(lambda: Counter())
     for task in tasks:
         b, sts, secs, parent = load_task(task)
@@ -155,10 +174,16 @@ def main() -> None:
                 r = json.load(open(f))
                 for it in r.get("rubrics") or []:
                     rubric[it["id"]] = it["text"]
-                chosen = {e.get("case"): e.get("procedure") for e in r.get("sop_loop") or [] if e.get("phase") == "case"}
+                chosen = {
+                    e.get("case"): e.get("procedure")
+                    for e in r.get("sop_loop") or []
+                    if e.get("phase") == "case"
+                }
                 for e in r.get("sop_loop") or []:
                     if e.get("phase") == "plan":
-                        cases += [(run, c, chosen.get(c.get("case"))) for c in e.get("cases") or [] if c.get("case")]
+                        cases += [
+                            (run, c, chosen.get(c.get("case"))) for c in e.get("cases") or [] if c.get("case")
+                        ]
         deciding = {}
         for iid, text in rubric.items():  # rubric item -> its deciding SOP statement
             sc = sindex.scores(text)
@@ -166,7 +191,11 @@ def main() -> None:
             deciding[iid] = sts[i]["id"] if sc[i] > 8 else None
         for run, c, loop_choice in cases:
             keys = [k for k in c.get("keys") or [] if len(k) >= 3]
-            mine = [iid for iid, t in rubric.items() if deciding.get(iid) and any(k.lower() in t.lower() for k in keys)]
+            mine = [
+                iid
+                for iid, t in rubric.items()
+                if deciding.get(iid) and any(k.lower() in t.lower() for k in keys)
+            ]
             if not mine:
                 continue
             q = f"{c['case']}. {c.get('summary', '')}"
@@ -174,7 +203,9 @@ def main() -> None:
             order = sorted(range(len(procs)), key=lambda i: -sc[i])
             gold_ids = {deciding[i] for i in mine}
             cover = [len(expand(p, sts, secs, parent, links, general, q, True) & gold_ids) for p in procs]
-            best = max(range(len(procs)), key=lambda i: cover[i])  # procedure that holds most of the case's items
+            best = max(
+                range(len(procs)), key=lambda i: cover[i]
+            )  # procedure that holds most of the case's items
             kev_rank = order[:5]
             if ask is not None:
                 ps_ = []
@@ -208,10 +239,14 @@ def main() -> None:
                 t[name]["checklist_chars"] += sum(len(s["text"]) for s in sts if s["id"] in ids)
     n, items = totals["cases"]["n"], totals["cases"]["items"]
     print(f"cases {n} (from runs {args.runs}), rubric items mapped to cases {items}")
-    print(f"{'variant':44} {'right procedure':>16} {'checklist recall':>17} {'statements/case':>16} {'chars/case':>11}")
+    print(
+        f"{'variant':44} {'right procedure':>16} {'checklist recall':>17} {'statements/case':>16} {'chars/case':>11}"
+    )
     for name in [k for k in totals if k != "cases"]:
         v = totals[name]
-        print(f"{name:44} {100 * v['right_procedure'] / n:15.0f}% {100 * v['items_covered'] / items:16.0f}% {v['checklist_statements'] / n:16.1f} {v['checklist_chars'] / n:11.0f}")
+        print(
+            f"{name:44} {100 * v['right_procedure'] / n:15.0f}% {100 * v['items_covered'] / items:16.0f}% {v['checklist_statements'] / n:16.1f} {v['checklist_chars'] / n:11.0f}"
+        )
     if ask is not None:
         print("Kev:", dict(getattr(ask, "usage", {})))
 

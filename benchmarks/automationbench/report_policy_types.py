@@ -20,7 +20,20 @@ sys.path.insert(0, str(HERE))
 sys.path.insert(0, str(HERE.parent))
 from policy_eval.harness.report import sign_p  # noqa: E402  (one place for the statistics)
 
-CELLS = {"AO": "A-O", "AF": "A-F", "BF": "B-F", "TF": "T-F", "BTF": "BT-F", "DF": "D-F", "B3F": "B3-F", "B3TF": "B3T-F", "B4TF": "B4T-F", "B4TFM": "B4T-FM", "B5TF": "B5T-F", "B5aTF": "B5aT-F"}
+CELLS = {
+    "AO": "A-O",
+    "AF": "A-F",
+    "BF": "B-F",
+    "TF": "T-F",
+    "BTF": "BT-F",
+    "DF": "D-F",
+    "B3F": "B3-F",
+    "B3TF": "B3T-F",
+    "B4TF": "B4T-F",
+    "B4TFM": "B4T-FM",
+    "B5TF": "B5T-F",
+    "B5aTF": "B5aT-F",
+}
 LABEL = {
     "A-O": "CUGA alone, oracle tools",
     "A-F": "CUGA alone, 549 tools + dynamic binding",
@@ -38,8 +51,8 @@ LABEL = {
 
 
 def app_of_tool() -> dict:
-    from automationbench.tools import ALL_TOOLS
     from ab_env import tool_app
+    from automationbench.tools import ALL_TOOLS
 
     return {t.__name__: tool_app(t) for t in ALL_TOOLS}
 

@@ -82,7 +82,9 @@ Return {{"is_policy": true|false, "trust": "trusted|untrusted"}}"""
 
 
 def _jsonl(path: Path) -> List[Dict[str, Any]]:
-    return [json.loads(l) for l in path.read_text().splitlines() if l.strip()] if path.exists() else []
+    return (
+        [json.loads(line) for line in path.read_text().splitlines() if line.strip()] if path.exists() else []
+    )
 
 
 def _walk(x):
@@ -181,7 +183,7 @@ def label() -> None:
     if costs.over_budget():
         sys.exit(costs.line())
     recs = _jsonl(RECORDS)
-    done = {l["id"] for l in _jsonl(LABELS)}
+    done = {item["id"] for item in _jsonl(LABELS)}
     todo = [r for r in recs if r["id"] not in done]
     model = _llm("gcp/gemini-3.8-flash")
     batches = [todo[i : i + 10] for i in range(0, len(todo), 10)]
@@ -196,7 +198,7 @@ def label() -> None:
                 ),
             )
         )
-        by_n = {l.get("record"): l for l in out.get("labels") or [] if isinstance(l, dict)}
+        by_n = {label.get("record"): label for label in out.get("labels") or [] if isinstance(label, dict)}
         return [
             {"id": r["id"], **{k: by_n.get(i, {}).get(k) for k in ("is_policy", "trust", "why")}}
             for i, r in enumerate(batch, 1)
@@ -206,7 +208,9 @@ def label() -> None:
         for rows in pool.map(one, batches):
             for row in rows:
                 f.write(json.dumps(row) + "\n")
-    costs.record("detector_probe", "label gemini-3.8-flash", policy={**model.usage, "model": model.model_name})
+    costs.record(
+        "detector_probe", "label gemini-3.8-flash", policy={**model.usage, "model": model.model_name}
+    )
     print(f"labelled {len(todo)} records in {len(batches)} calls; {costs.line()}")
 
 
@@ -291,7 +295,11 @@ def detect(model: str, jobs: int, every: int = 1) -> None:
         for row in pool.map(one, todo):
             f.write(json.dumps(row) + "\n")
     if llm is not None:
-        costs.record("detector_probe", f"detect {model} (Gemini price, upper bound)", policy={**llm.usage, "model": model})
+        costs.record(
+            "detector_probe",
+            f"detect {model} (Gemini price, upper bound)",
+            policy={**llm.usage, "model": model},
+        )
     else:
         rows = _jsonl(path)
         tin = sum((r.get("usage") or {}).get("input_tokens", 0) for r in rows if r["id"] not in done)
@@ -309,7 +317,7 @@ def detect(model: str, jobs: int, every: int = 1) -> None:
 
 def report(threshold_recall: float) -> None:
     recs = {r["id"]: r for r in _jsonl(RECORDS)}
-    ref = {l["id"]: l.get("is_policy") for l in _jsonl(LABELS)}
+    ref = {item["id"]: item.get("is_policy") for item in _jsonl(LABELS)}
     review = json.loads(REVIEW.read_text()) if REVIEW.exists() else {}
     ref.update(review)
     pos = [i for i, v in ref.items() if v is True]

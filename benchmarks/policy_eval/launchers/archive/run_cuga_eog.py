@@ -165,7 +165,9 @@ async def run_one(task_id: str, arm: str, out_dir: Path, timeout: float) -> Dict
                 DeliverablesHooks(
                     _jm(os.environ.get("POLICY_MODEL_NAME") or "aws/gpt-oss-120b"),
                     dspecs,
-                    **({"note_channel": os.environ["POLICY_NOTES"]} if os.environ.get("POLICY_NOTES") else {}),
+                    **(
+                        {"note_channel": os.environ["POLICY_NOTES"]} if os.environ.get("POLICY_NOTES") else {}
+                    ),
                 )
             )
         if (
@@ -174,7 +176,9 @@ async def run_one(task_id: str, arm: str, out_dir: Path, timeout: float) -> Dict
             from cuga.policy_layer.tracker import tracker_from_env
 
             extra_hooks.append(tracker_from_env(policy=task["system_prompt"]))
-        if os.environ.get("POLICY_GATE_SOP") == "1":  # must-not check at write time over the policy text (no graph)
+        if (
+            os.environ.get("POLICY_GATE_SOP") == "1"
+        ):  # must-not check at write time over the policy text (no graph)
             from cuga.policy_layer.llm import openai_json_model as _gm
             from cuga.policy_layer.store_gate import StoreGate
 
@@ -368,7 +372,10 @@ async def run_many(jobs: List[tuple], args: argparse.Namespace) -> None:
             path = run_dir / f"{name}.json"
             if path.exists():
                 r = json.loads(path.read_text())
-                denies = sum(g.get("outcome") == "deny" or bool(g.get("grounded") and not g.get("repeat")) for g in r.get("gate", []))
+                denies = sum(
+                    g.get("outcome") == "deny" or bool(g.get("grounded") and not g.get("repeat"))
+                    for g in r.get("gate", [])
+                )
                 c = costs.record("eog", name, agent=r.get("receipt"), policy=r.get("policy_usage"))
                 for rc in r.get("oracle_receipts") or []:  # earlier rounds of the oracle arm
                     c += costs.record("eog_oracle_round", name, agent=rc)

@@ -102,7 +102,7 @@ def _kev(case: Dict[str, Any]) -> Dict[str, Any]:
     t0 = time.monotonic()
     for attempt in range(3):
         try:
-            with urllib.request.urlopen(req, timeout=60) as r:
+            with urllib.request.urlopen(req, timeout=60) as r:  # noqa: S310 - fixed https URL above
                 data = json.loads(r.read())
             p = float(data.get("answers", {}).get("complies", {}).get("noul", 1.0))
             return {
@@ -194,7 +194,11 @@ def main() -> None:
     clients = {} if a.from_results else {m: _verifier(m) for m in methods if m not in ("code", "kev")}
     rows: List[Dict[str, Any]] = []
     if a.from_results:
-        rows = [json.loads(l) for l in (HERE / "method_results.jsonl").read_text().splitlines() if l.strip()]
+        rows = [
+            json.loads(line)
+            for line in (HERE / "method_results.jsonl").read_text().splitlines()
+            if line.strip()
+        ]
         methods = list(dict.fromkeys(r["method"] for r in rows))
     for method in [] if a.from_results else methods:
         with ThreadPoolExecutor(max_workers=6) as pool:

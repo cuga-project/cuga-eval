@@ -82,7 +82,9 @@ def tokens_of(*models: Any) -> int:
     return total
 
 
-MUST_NOT_N = 5  # must-not recall@5: the rules of the first 5 procedures of the scope, fixed whatever ``--top-k`` is
+MUST_NOT_N = (
+    5  # must-not recall@5: the rules of the first 5 procedures of the scope, fixed whatever ``--top-k`` is
+)
 
 
 def evaluate(
@@ -99,7 +101,9 @@ def evaluate(
     those labels, also one that governs no procedure (``label: []``): a rule may bind a call that no procedure governs."""
     from cuga.policy_layer.router import Query
 
-    pool = [r for r in rows if router.name != "agent_opened" or r.get("opened") is not None]  # only runs with the tools
+    pool = [
+        r for r in rows if router.name != "agent_opened" or r.get("opened") is not None
+    ]  # only runs with the tools
     has_label = lambda r: bool(r.get("label")) and r["label"] != ["<error>"]  # noqa: E731
     run = [r for r in pool if has_label(r) or r.get("must_not") or r.get("exceptions")]
     hit = {1: 0, 3: 0}
@@ -115,7 +119,9 @@ def evaluate(
             no_effect.append(r["task"])
         started = time.perf_counter()
         action = f"{r.get('tool', '')}({r.get('args', '')})"
-        ids = router.select(Query(query_of(r), tuple(r.get("opened") or ()), action, r.get("context") or ""), pkg)
+        ids = router.select(
+            Query(query_of(r), tuple(r.get("opened") or ()), action, r.get("context") or ""), pkg
+        )
         scope = expander.expand(ids, pkg)
         seconds += time.perf_counter() - started
         selected += len(ids)
@@ -168,8 +174,10 @@ def show(name: str, summary: Dict[str, Any]) -> str:
     lines = [
         f"{name}: {summary['with_label']} calls with a procedure label of {summary['queries']} "
         f"({summary['no_procedure']} govern no procedure; {summary['scored_calls']} calls scored)",
-        f"  procedure recall@1  {cell('procedure_recall@1')}" + ("" if summary["ranked"] else " (a set, not a ranking)"),
-        f"  procedure recall@3  {cell('procedure_recall@3')}" + ("" if summary["ranked"] else " (a set, not a ranking)"),
+        f"  procedure recall@1  {cell('procedure_recall@1')}"
+        + ("" if summary["ranked"] else " (a set, not a ranking)"),
+        f"  procedure recall@3  {cell('procedure_recall@3')}"
+        + ("" if summary["ranked"] else " (a set, not a ranking)"),
         f"  procedure in scope  {cell('procedure_in_scope')}",
         f"  must-not recall@5   {cell('must_not_recall@5')}"
         + (f" ({summary['must_not_labels']} labels)" if summary["must_not_labels"] else ""),
@@ -208,14 +216,18 @@ def methods(args: argparse.Namespace) -> Any:
     from cuga.policy_layer import router as R
 
     needs = R.router_needs(args.router)
-    options: Dict[str, Any] = {} if args.top_k is None else {"top_k": args.top_k}  # the router's own default: 3, as in a profile
+    options: Dict[str, Any] = (
+        {} if args.top_k is None else {"top_k": args.top_k}
+    )  # the router's own default: 3, as in a profile
     made: List[Any] = []
     if needs == "model":
         if not args.model:
             raise SystemExit(f"the router {args.router} needs --model (a paid call for every query)")
         from cuga.policy_layer.llm import openai_json_model
 
-        options["model"] = openai_json_model(args.model, timeout=240, max_tokens=16000)  # as the measured router
+        options["model"] = openai_json_model(
+            args.model, timeout=240, max_tokens=16000
+        )  # as the measured router
         made.append(options["model"])
     elif needs == "ask":
         if not args.ask:
@@ -302,7 +314,10 @@ def relabel(args: argparse.Namespace) -> None:
         action = f"{q['tool']}({q['args']})"
         try:
             reply = parse_json(
-                judge(LLM_SYSTEM, LLM_USER.format(cards=text, context=q["context"] or "(none)", action=action, top=3))
+                judge(
+                    LLM_SYSTEM,
+                    LLM_USER.format(cards=text, context=q["context"] or "(none)", action=action, top=3),
+                )
             )
             return [str(x) for x in reply.get("procedures") or []][:3]
         except Exception:  # noqa: BLE001
@@ -322,7 +337,9 @@ def main(argv: Optional[List[str]] = None) -> int:
     ap.add_argument("--router", default="agent_opened")
     ap.add_argument("--expand", default="next_links")
     ap.add_argument("--runs", default=str(OUT / "result.json"), help="saved calls with labels (rows)")
-    ap.add_argument("--top-k", type=int, help="ids a ranking router returns (default: its own, 3, as in a profile)")
+    ap.add_argument(
+        "--top-k", type=int, help="ids a ranking router returns (default: its own, 3, as in a profile)"
+    )
     ap.add_argument("--hops", type=int, help="steps of k_hops (an option of that expander only)")
     ap.add_argument("--model", help="JSON model of llm_cards (paid)")
     ap.add_argument("--ask", help="narrow-question model of bm25_kev (paid)")

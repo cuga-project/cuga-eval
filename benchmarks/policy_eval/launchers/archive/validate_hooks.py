@@ -19,6 +19,7 @@ import asyncio
 import json
 import os
 import sys
+import tempfile
 from pathlib import Path
 from typing import Any, Dict, List
 
@@ -135,7 +136,7 @@ async def run(mode: str) -> Dict[str, Any]:
     agent = CugaAgent(
         **kw,
         hooks=[probe],
-        cuga_folder=f"/tmp/validate_hooks/{mode}",
+        cuga_folder=str(Path(tempfile.gettempdir()) / "validate_hooks" / mode),
         auto_load_policies=False,
         filesystem_sync=False,
         enable_knowledge=False,

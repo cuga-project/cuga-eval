@@ -20,7 +20,9 @@ sys.path.insert(0, str(POLICY_EVAL.parent))
 
 import obligation_replay as r  # noqa: E402
 
-GATE_PYTHON = os.environ.get("POLICY_GATE_PYTHON") or str(Path.home() / "dev/cuga-agent-gate/.venv/bin/python")
+GATE_PYTHON = os.environ.get("POLICY_GATE_PYTHON") or str(
+    Path.home() / "dev/cuga-agent-gate/.venv/bin/python"
+)
 REPORT = POLICY_EVAL / "obligation_replay" / "REPORT.md"
 RESULTS = POLICY_EVAL / "obligation_replay" / "results.json"
 
@@ -59,7 +61,10 @@ def test_a_rate_with_no_denominator_does_not_pass():
 
 def test_the_reason_names_what_failed():
     assert r.decide((5, 10), (9, 10))[1] == "false-open above 10%"
-    assert r.decide((5, 10), (1, 3))[1] == "false-open above 10% and recall is not known: only 3 failed checks that a write could have met"
+    assert (
+        r.decide((5, 10), (1, 3))[1]
+        == "false-open above 10% and recall is not known: only 3 failed checks that a write could have met"
+    )
     assert r.decide((0, 10), (1, 10))[1] == "recall below 30%"
     assert r.decide((5, 10), (1, 10))[1] == "false-open above 10% and recall below 30%"
 
@@ -93,7 +98,18 @@ def mapped(maps):
 
 
 def row(
-    items, checks, maps, run_passed=False, cost=0.01, binding="ok", unbound=0, causes=None, status="ok", task="t0", sets=(), usage=None
+    items,
+    checks,
+    maps,
+    run_passed=False,
+    cost=0.01,
+    binding="ok",
+    unbound=0,
+    causes=None,
+    status="ok",
+    task="t0",
+    sets=(),
+    usage=None,
 ):
     return {
         "task": task,
@@ -142,7 +158,10 @@ FIXTURE = [
 
 def test_false_open_is_passed_checks_given_an_item():
     g = r.measure_group(FIXTURE)
-    assert (g["false_open"], g["passed_checks"]) == (1, 4)  # c1 of run 1 is named; run 1's c2, run 2's c4 and run 4's c1 are not
+    assert (g["false_open"], g["passed_checks"]) == (
+        1,
+        4,
+    )  # c1 of run 1 is named; run 1's c2, run 2's c4 and run 4's c1 are not
     assert g["sent_items_passed_work"] == 1
 
 
@@ -172,7 +191,15 @@ def test_a_failed_binding_is_counted_and_the_checks_it_left_are_not_recalled():
 
 def test_status_counts_value_shares_and_cost():
     g = r.measure_group(FIXTURE)
-    assert g["status"] == {"met": 2, "open": 2, "held": 1, "unknown": 1, "wrong": 0, "unbound": 2, "not_applicable": 0}
+    assert g["status"] == {
+        "met": 2,
+        "open": 2,
+        "held": 1,
+        "unknown": 1,
+        "wrong": 0,
+        "unbound": 2,
+        "not_applicable": 0,
+    }
     assert g["items"] == 6
     assert g["items_with_values"] == 3
     assert g["items_value_known"] == 2  # the item with 1 value and none known is not
@@ -185,9 +212,13 @@ def test_status_counts_value_shares_and_cost():
 def test_the_level_follows_the_rule_on_the_numbers_of_the_group():
     g = r.measure_group(FIXTURE)
     assert g["level"] == 1  # 1 of 4 is 25%, and recall is 1 of 3
-    only_good = [row([item(0, sent=True)], [("c1", False, True), ("c2", True, True)], {"0": ["c1"]}) for _ in range(5)]
+    only_good = [
+        row([item(0, sent=True)], [("c1", False, True), ("c2", True, True)], {"0": ["c1"]}) for _ in range(5)
+    ]
     assert r.measure_group(only_good)["level"] == 2
-    few = r.measure_group(only_good[:4])  # 4 failed checks a write could meet: recall is not known, whatever the hits
+    few = r.measure_group(
+        only_good[:4]
+    )  # 4 failed checks a write could meet: recall is not known, whatever the hits
     assert few["level"] == 1 and "not known" in few["why"]
 
 
@@ -205,7 +236,10 @@ def test_an_item_that_would_break_a_passed_check_is_a_false_open_and_never_a_rec
         )
     ]
     g = r.measure_group(rows)
-    assert (g["false_open"], g["passed_checks"]) == (1, 1)  # the item that asks for forbidden work is sent on a passed check
+    assert (g["false_open"], g["passed_checks"]) == (
+        1,
+        1,
+    )  # the item that asks for forbidden work is sent on a passed check
     assert g["recalled"] == 0 and g["failed_writable"] == 1  # asking for forbidden work is no recall
     assert g["sent_items_break_passed_work"] == 1 and g["sent_items_passed_work"] == 1
 
@@ -228,7 +262,13 @@ def test_handcheck_stats():
         {"judge": d(), "true": d(["c"])},
         {"judge": d(["x"]), "true": d([], ["x"])},  # the right check, the wrong kind
     ]
-    assert r.handcheck_stats(rows) == {"items": 4, "judge_pairs": 4, "right_pairs": 2, "missed_pairs": 2, "same_set": 1}
+    assert r.handcheck_stats(rows) == {
+        "items": 4,
+        "judge_pairs": 4,
+        "right_pairs": 2,
+        "missed_pairs": 2,
+        "same_set": 1,
+    }
 
 
 # -- the model: cache, meter, budget, failure ----------------------------------------------------------------------------
@@ -250,7 +290,9 @@ def scripted(answers):
 
 def make_model(transport, cap=4.0, tmp=None, retries=2):
     meter = r.Meter(cap=cap, price=lambda m, i, o: (i + o) / 1000)
-    return r.CachedModel("m", r.Cache(tmp), meter, transport, 16000, retries=retries, sleep=lambda s: None), meter
+    return r.CachedModel(
+        "m", r.Cache(tmp), meter, transport, 16000, retries=retries, sleep=lambda s: None
+    ), meter
 
 
 def test_a_repeated_call_comes_from_the_cache_and_costs_nothing_new(tmp_path):
@@ -258,7 +300,11 @@ def test_a_repeated_call_comes_from_the_cache_and_costs_nothing_new(tmp_path):
     model, meter = make_model(t, tmp=tmp_path / "c.jsonl")
     assert model("s", "u") == "a" and model("s", "u") == "a" and model("s", "other") == "b"
     assert len(t.calls) == 2 and meter.new_calls == 2
-    assert model.usage == {"calls": 3, "input_tokens": 300, "output_tokens": 150}  # the cost per run counts cached calls too
+    assert model.usage == {
+        "calls": 3,
+        "input_tokens": 300,
+        "output_tokens": 150,
+    }  # the cost per run counts cached calls too
     again, meter2 = make_model(scripted([]), tmp=tmp_path / "c.jsonl")  # a new process reads the file
     assert again("s", "u") == "a" and meter2.new_calls == 0
 
@@ -296,15 +342,36 @@ def test_a_model_with_no_transport_cannot_call():
 
 
 def fake_run(i, bench="itsm"):
-    return r.Run(bench, f"run{i}", f"task{i}", None, "m", "p", Path("x"), "req", [], None, [], "", "", [], i % 2 == 0, source=f"s{i}")
+    return r.Run(
+        bench,
+        f"run{i}",
+        f"task{i}",
+        None,
+        "m",
+        "p",
+        Path("x"),
+        "req",
+        [],
+        None,
+        [],
+        "",
+        "",
+        [],
+        i % 2 == 0,
+        source=f"s{i}",
+    )
 
 
 def test_the_sample_is_by_hash_of_identity_and_not_by_outcome():
     runs = [fake_run(i) for i in range(40)]
     a, b = r.sample(runs, 10), r.sample(list(reversed(runs)), 10)
     assert [x.uid for x in a] == [x.uid for x in b]  # the order of the input does not matter
-    assert len({x.passed for x in a}) == 2  # passes and failures both come in; the hash never reads the outcome
-    assert [x.uid for x in r.sample(runs, None)] == [x.uid for x in sorted(runs, key=lambda x: r._hash_order(x.uid + "|" + x.source))]
+    assert (
+        len({x.passed for x in a}) == 2
+    )  # passes and failures both come in; the hash never reads the outcome
+    assert [x.uid for x in r.sample(runs, None)] == [
+        x.uid for x in sorted(runs, key=lambda x: r._hash_order(x.uid + "|" + x.source))
+    ]
 
 
 # -- the real ledger with a scripted binder (gate Python) ---------------------------------------------------------------
@@ -369,7 +436,9 @@ def ledger_runs():
 def test_with_a_scripted_binder_the_package_producer_sends_open_items_and_counts_cost(ledger_runs):
     rep = ledger_runs["good"]["package"]
     assert rep["status"] == "ok" and rep["binding"] == "ok" and rep["follow_up"] is True
-    assert any(i["sent"] for i in rep["items"]) and all(i["status"] == "open" for i in rep["items"] if i["sent"])
+    assert any(i["sent"] for i in rep["items"]) and all(
+        i["status"] == "open" for i in rep["items"] if i["sent"]
+    )
     assert rep["usage"]["calls"] == 1 and rep["usage"]["input_tokens"] == 1000
     assert rep["cost_usd"] > 0
 
@@ -397,7 +466,9 @@ def test_the_report_is_generated_from_results_json():
     """``REPORT.md`` is written by ``obligation_replay.py report`` (the controller runs it and commits the file); until then
     this test fails."""
     if not (REPORT.exists() and RESULTS.exists()):
-        missing_input("REPORT.md or results.json is not there: run `obligation_replay.py report` after `measure`")
+        missing_input(
+            "REPORT.md or results.json is not there: run `obligation_replay.py report` after `measure`"
+        )
     results = json.loads(RESULTS.read_text(encoding="utf-8"))
     assert REPORT.read_text(encoding="utf-8") == r.report_text(results)
 
@@ -423,10 +494,20 @@ def fixture_results(level2=(), previous=True):
     good, bad = r.measure_group(good_rows), r.measure_group(bad_rows)
     groups = {f"{b}|{p}": (good if (b, p) in level2 else bad) for b in r.BENCHMARKS for p in r.PRODUCERS}
     views = {
-        f"{b}|{p}": r.views_of(good_rows if (b, p) in level2 else bad_rows, META) for b in r.BENCHMARKS for p in r.PRODUCERS
+        f"{b}|{p}": r.views_of(good_rows if (b, p) in level2 else bad_rows, META)
+        for b in r.BENCHMARKS
+        for p in r.PRODUCERS
     }
     sample = {b: {"runs": 4, "tasks": 2, "models": {"m": 4}, "by_set": {"s-tune": 2}} for b in r.BENCHMARKS}
-    diag = {"runs": 4, "obligation_runs": 40, "unbound_obligation_runs": 30, "cases": 8, "no_item_checks": 5, "no_item_with_overlap": 3, "no_item_notification": 2}
+    diag = {
+        "runs": 4,
+        "obligation_runs": 40,
+        "unbound_obligation_runs": 30,
+        "cases": 8,
+        "no_item_checks": 5,
+        "no_item_with_overlap": 3,
+        "no_item_notification": 2,
+    }
     return {
         "groups": groups,
         "views": views,
@@ -437,15 +518,47 @@ def fixture_results(level2=(), previous=True):
         "meta": {"gate_commit": "abc123456"},
         "spent_usd": 0.5,
         "limits": {"handbook|code_only": {"unknown": 3, "met": 1}},
-        "handcheck": {"items": 4, "distinct_items": 3, "judge_pairs": 4, "right_pairs": 3, "missed_pairs": 1, "same_set": 3},
-        "itsm_models": {"aws/gpt-oss-120b": {"runs": 57, "passed": 6}, "azure/DeepSeek-V4-Pro": {"runs": 280, "passed": 145}},
-        "truncation": {b: {"calls": 10, "truncated": 2, "runs": 4, "runs_with_truncation": 4} for b in r.BENCHMARKS},
+        "handcheck": {
+            "items": 4,
+            "distinct_items": 3,
+            "judge_pairs": 4,
+            "right_pairs": 3,
+            "missed_pairs": 1,
+            "same_set": 3,
+        },
+        "itsm_models": {
+            "aws/gpt-oss-120b": {"runs": 57, "passed": 6},
+            "azure/DeepSeek-V4-Pro": {"runs": 280, "passed": 145},
+        },
+        "truncation": {
+            b: {"calls": 10, "truncated": 2, "runs": 4, "runs_with_truncation": 4} for b in r.BENCHMARKS
+        },
         "package_diagnosis": {b: dict(diag) for b in r.BENCHMARKS},
         "previous": {
-            "gate_commit": "61699250e", "false_open": 3, "passed_checks": 95, "recalled": 57, "failed_writable": 134,
-            "sent_items": 58, "sent_with_prior_call": 24, "sent_with_prior_call_in_hits": 20, "runs_with_follow_up": 31,
-            "level": 2, "views": r.views_of(task_rows("a", 3, True, sets=["s-tune"]) + task_rows("b", 3, True, sets=["s-held"]), META), "examples": [{"item": "update_incident", "check": "No open incidents", "prior": "update_incident({})", "run": "x"}],
-        } if previous else None,
+            "gate_commit": "61699250e",
+            "false_open": 3,
+            "passed_checks": 95,
+            "recalled": 57,
+            "failed_writable": 134,
+            "sent_items": 58,
+            "sent_with_prior_call": 24,
+            "sent_with_prior_call_in_hits": 20,
+            "runs_with_follow_up": 31,
+            "level": 2,
+            "views": r.views_of(
+                task_rows("a", 3, True, sets=["s-tune"]) + task_rows("b", 3, True, sets=["s-held"]), META
+            ),
+            "examples": [
+                {
+                    "item": "update_incident",
+                    "check": "No open incidents",
+                    "prior": "update_incident({})",
+                    "run": "x",
+                }
+            ],
+        }
+        if previous
+        else None,
     }
 
 
@@ -458,7 +571,10 @@ def test_the_tables_have_every_column_and_are_deterministic():
     assert "1 of 3 (33.3%)" in text  # recall with its denominator
     assert "1: false-open above 10%" in text
     assert "binding failed" in text and "break a passed check" in text
-    assert "sent while a successful call of the item's tool exists" in text and "name no check, on a passed run" in text
+    assert (
+        "sent while a successful call of the item's tool exists" in text
+        and "name no check, on a passed run" in text
+    )
     assert "status heldout, label seen" in text and "Task bootstrap" in text
 
 
@@ -470,7 +586,12 @@ def test_the_report_says_which_producers_pass_and_that_no_result_is_held_out():
     assert "Level 2 is allowed by the pooled rule for: ITSM `request`" in one
     assert "none is a held-out result" in one and "`abc123456`" in one
     assert "ITSM `request`: 2" in one and "ITSM `package`: 1" in one
-    assert "24 of its 58 sends" in one and "gpt-oss-120b agent only" in one and "6 of 57" in one and "145 of 280" in one
+    assert (
+        "24 of its 58 sends" in one
+        and "gpt-oss-120b agent only" in one
+        and "6 of 57" in one
+        and "145 of 280" in one
+    )
     assert "cannot send on `package` today" in one and "word-overlap estimate" in one
 
 
@@ -511,10 +632,18 @@ def test_a_pass_is_not_firm_when_the_counts_by_task_disagree():
 
 
 def test_sets_are_counted_apart_and_a_run_in_no_set_is_listed():
-    rows = task_rows("a", 2, True, sets=["s-tune"]) + task_rows("b", 3, False, sets=["s-held", "s-tune"]) + task_rows("c", 1, True)
+    rows = (
+        task_rows("a", 2, True, sets=["s-tune"])
+        + task_rows("b", 3, False, sets=["s-held", "s-tune"])
+        + task_rows("c", 1, True)
+    )
     v = r.views_of(rows, META)
     assert v["sets"]["s-tune"]["runs"] == 5 and v["sets"]["s-tune"]["tasks"] == 2
-    assert v["sets"]["s-held"]["rec"] == [0, 3] and v["sets"]["s-held"]["status"] == "heldout" and v["sets"]["s-held"]["seen"]
+    assert (
+        v["sets"]["s-held"]["rec"] == [0, 3]
+        and v["sets"]["s-held"]["status"] == "heldout"
+        and v["sets"]["s-held"]["seen"]
+    )
     assert v["sets"]["(in no set)"]["runs"] == 1
 
 
@@ -541,7 +670,12 @@ def test_failed_bindings_say_why():
     bad = {"producer": "package", "usage": {"output_tokens": 300}}
     assert "16000-token output limit" in r.binding_reason(cut)
     assert "not a JSON list" in r.binding_reason(bad)
-    g = r.measure_group([row([], [("f", False, True)], {}, binding="failed", usage=cut["usage"]), row([], [("f", False, True)], {}, binding="failed", usage=bad["usage"])])
+    g = r.measure_group(
+        [
+            row([], [("f", False, True)], {}, binding="failed", usage=cut["usage"]),
+            row([], [("f", False, True)], {}, binding="failed", usage=bad["usage"]),
+        ]
+    )
     assert sum(g["binding_failures"].values()) == 2 and len(g["binding_failures"]) == 2
 
 
@@ -551,16 +685,22 @@ def test_truncated_results_are_found_by_their_marker():
         {"tool": "t", "args": {}, "result": "x" * 4000 + "... [59586 chars]"},
         {"tool": "t", "args": {}, "result": {"a": 1}},
     ]
-    assert r.truncation_counts([run]) == {"itsm": {"calls": 2, "truncated": 1, "runs": 1, "runs_with_truncation": 1}}
+    assert r.truncation_counts([run]) == {
+        "itsm": {"calls": 2, "truncated": 1, "runs": 1, "runs_with_truncation": 1}
+    }
 
 
 def test_itsm_model_counts_read_runs_by_model(tmp_path):
     for i, (model, passed) in enumerate([("a", True), ("a", False), ("b", True)]):
         folder = tmp_path / f"run{i}"
         folder.mkdir()
-        (folder / "A_x.json").write_text(json.dumps({"model": model, "passed": passed, "verifiers": [{"name": "v"}]}))
+        (folder / "A_x.json").write_text(
+            json.dumps({"model": model, "passed": passed, "verifiers": [{"name": "v"}]})
+        )
     (tmp_path / "run9").mkdir()
-    (tmp_path / "run9" / "A_y.json").write_text(json.dumps({"model": "a", "passed": True, "verifiers": []}))  # not graded
+    (tmp_path / "run9" / "A_y.json").write_text(
+        json.dumps({"model": "a", "passed": True, "verifiers": []})
+    )  # not graded
     assert r.itsm_model_counts(tmp_path) == {"a": {"runs": 2, "passed": 1}, "b": {"runs": 1, "passed": 1}}
 
 

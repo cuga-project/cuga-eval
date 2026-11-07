@@ -37,14 +37,22 @@ def main() -> None:
     ap.add_argument("--pilot", action="store_true")
     ap.add_argument("--versions", help="comma-separated policy hashes")
     ap.add_argument("--model", default=os.environ.get("POLICY_MODEL_NAME", "aws/gpt-oss-120b"))
-    ap.add_argument("--max-tokens", type=int, default=16000, help="answer limit of the model (reasoning included)")
+    ap.add_argument(
+        "--max-tokens", type=int, default=16000, help="answer limit of the model (reasoning included)"
+    )
     ap.add_argument("--no-model", action="store_true", help="code rules only")
     ap.add_argument("--legacy", action="store_true", help="older single-document builder, writes rules/")
     ap.add_argument("--out", help="build directory (default policy_eval/builds_v5)")
     ap.add_argument("--no-repair", action="store_true", help="skip the repair step of the pipeline")
-    ap.add_argument("--variant", default="", help="file name <hash>.<variant>.json, for a build kept beside the main one")
-    ap.add_argument("--max-version-cost", type=float, default=0.30, help="stop after a version that costs more ($)")
-    ap.add_argument("--max-total-cost", type=float, default=1.00, help="stop when this script has spent this much ($)")
+    ap.add_argument(
+        "--variant", default="", help="file name <hash>.<variant>.json, for a build kept beside the main one"
+    )
+    ap.add_argument(
+        "--max-version-cost", type=float, default=0.30, help="stop after a version that costs more ($)"
+    )
+    ap.add_argument(
+        "--max-total-cost", type=float, default=1.00, help="stop when this script has spent this much ($)"
+    )
     args = ap.parse_args()
 
     from dotenv import dotenv_values
@@ -92,11 +100,15 @@ def main() -> None:
             if args.legacy:
                 res = build(text, specs, model=model, cache_dir=out / "cache")
                 (out / f"{h}.json").write_text(json.dumps(res.to_dict(), indent=1))
-                print(h, json.dumps(res.stats), "coverage:", dict(Counter(c.get("class") for c in res.coverage)))
+                print(
+                    h, json.dumps(res.stats), "coverage:", dict(Counter(c.get("class") for c in res.coverage))
+                )
             else:
                 # the call that learns the heading styles is cached like the others, so a rebuild is the same
                 structure_model = cached_model(model, out / "cache")
-                ps = PolicySet(documents=[load_document(text, meta={"id": f"itsm-{h}"}, model=structure_model)])
+                ps = PolicySet(
+                    documents=[load_document(text, meta={"id": f"itsm-{h}"}, model=structure_model)]
+                )
                 b = build_policy_set(ps, specs, model, cache_dir=out / "cache", repair=not args.no_repair)
                 doc = {
                     "policy_hash": h,
@@ -105,7 +117,9 @@ def main() -> None:
                     "build": to_json(b),
                     "policy_set": to_json(ps),
                 }
-                (out / (f"{h}.{args.variant}.json" if args.variant else f"{h}.json")).write_text(json.dumps(doc, indent=1))
+                (out / (f"{h}.{args.variant}.json" if args.variant else f"{h}.json")).write_text(
+                    json.dumps(doc, indent=1)
+                )
                 print(h, json.dumps({k: v for k, v in b.stats.items() if k != "usage"}))
                 found = Counter(f.code for f in validate_package(from_build(doc), specs, legacy=False))
                 print(h, "validate_package(legacy=False):", dict(found) or "no findings")

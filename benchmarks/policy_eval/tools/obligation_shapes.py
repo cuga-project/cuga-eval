@@ -97,7 +97,9 @@ def perfect_call(tool: str, plan: Dict[str, Any], by_name: Dict[str, Any]) -> Di
     """The call that a careful agent makes: each argument holds the pattern's text, in the form the schema wants."""
     args: Dict[str, Any] = {}
     for arg, tokens in plan.items():
-        if arg in CODE_ARGS and arg not in ((by_name.get(tool) or {}).get("inputSchema") or {}).get("properties", {}):
+        if arg in CODE_ARGS and arg not in ((by_name.get(tool) or {}).get("inputSchema") or {}).get(
+            "properties", {}
+        ):
             continue
         text = _show([t if t[1] != GAP else ("x", t[1], t[2]) for t in tokens])
         if arg == "code":
@@ -126,22 +128,35 @@ def perfect_call(tool: str, plan: Dict[str, Any], by_name: Dict[str, Any]) -> Di
 def check(bench: str, policy: str, path: Path) -> Dict[str, Any]:
     pkg = load_package(path)
     specs = specs_of(bench, policy)
-    assert specs, f"no tool specs for {bench}/{policy}"
+    if not specs:
+        raise AssertionError(f"no tool specs for {bench}/{policy}")
     by_name = {t["name"]: t for t in specs}
     cfg = PolicyConfig.from_dict(PROFILE)
     ctx = RunContext(
-        task_id=path.parts[-3], policy_version=policy, request="r", tool_specs=specs, message_tool="", world_time=TODAY
+        task_id=path.parts[-3],
+        policy_version=policy,
+        request="r",
+        tool_specs=specs,
+        message_tool="",
+        world_time=TODAY,
     )
     parts = build_runtime(cfg, pkg, ctx, models=RecordingModels())
-    assert "obligations" in parts.components
+    if "obligations" not in parts.components:
+        raise AssertionError('check failed: "obligations" in parts.components')
     produced = obligations_from_package(pkg)
-    assert [o.id for o in produced] == [o.id for o in pkg.obligations], "the producer must give the package's obligations"
-    per_case = {p.id: [o.id for o in obligations_from_package(pkg, Case(name="c", procedure=p.id))] for p in pkg.procedures}
+    if [o.id for o in produced] != [o.id for o in pkg.obligations]:
+        raise AssertionError("the producer must give the package's obligations")
+    per_case = {
+        p.id: [o.id for o in obligations_from_package(pkg, Case(name="c", procedure=p.id))]
+        for p in pkg.procedures
+    }
     scoped = {o.id: (o.scope or {}).get("procedure") for o in pkg.obligations}
     for pid, ids in per_case.items():
-        assert all(scoped[i] in (None, "", pid) for i in ids), f"{bench}/{policy}: an obligation of another procedure in {pid}"
+        if not all(scoped[i] in (None, "", pid) for i in ids):
+            raise AssertionError(f"{bench}/{policy}: an obligation of another procedure in {pid}")
     in_a_case = {i for ids in per_case.values() for i in ids}
-    assert all(scoped[i] in (None, "") or i in in_a_case or scoped[i] not in per_case for i in scoped), "a lost obligation"
+    if not all(scoped[i] in (None, "") or i in in_a_case or scoped[i] not in per_case for i in scoped):
+        raise AssertionError("a lost obligation")
     row: Dict[str, Any] = {"package": f"{bench}/{policy}", "obligations": len(produced)}
     code_only = [
         o
@@ -169,7 +184,7 @@ def check(bench: str, policy: str, path: Path) -> Dict[str, Any]:
         gaps.update(gaps_of(ob))
         for spec in (ob.values or {}).values():
             origins[spec.get("from")] += 1
-        for key in ((ob.scope or {}).get("when") or {}):
+        for key in (ob.scope or {}).get("when") or {}:
             no_case_when["decision_key" if key in decisions else "free_key"] += 1
         tools = [t for t in (ob.effect or {}).get("tools") or []]
         none_known = plan_of(ob, Case(name="c"), store, TODAY)
@@ -228,7 +243,8 @@ def check(bench: str, policy: str, path: Path) -> Dict[str, Any]:
     )
     message = led.before_reply("done").message
     statuses = Counter(i.status for i in led.items)
-    assert not statuses.get("wrong"), f"{path}: wrong with no call"
+    if statuses.get("wrong"):
+        raise AssertionError(f"{path}: wrong with no call")
     row["final_reply"] = {
         "items": len(led.items),
         "statuses": dict(sorted(statuses.items())),

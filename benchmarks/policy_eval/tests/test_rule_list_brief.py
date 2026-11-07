@@ -13,7 +13,9 @@ import pytest
 
 POLICY_EVAL = Path(__file__).resolve().parents[1]
 TOOL = POLICY_EVAL / "tools" / "rule_list_brief.py"
-GATE_PYTHON = os.environ.get("POLICY_GATE_PYTHON") or str(Path.home() / "dev/cuga-agent-gate/.venv/bin/python")
+GATE_PYTHON = os.environ.get("POLICY_GATE_PYTHON") or str(
+    Path.home() / "dev/cuga-agent-gate/.venv/bin/python"
+)
 
 
 @pytest.fixture(scope="module")
@@ -61,7 +63,9 @@ def test_the_switch_shows_the_22_of_23_guidance_rules_that_never_appeared(rows):
     row = rows["itsm v4A"]
     assert row["guidance"] == 23 and row["guidance_with_tool"] == 1
     assert row["measured"]["guidance_shown"] == 1  # 22 of 23 never appear
-    assert row["rule list"]["chars"] == row["measured"]["chars"]  # no exception link in that build: the brief is the same
+    assert (
+        row["rule list"]["chars"] == row["measured"]["chars"]
+    )  # no exception link in that build: the brief is the same
     assert row["rule list + guidance"]["guidance_shown"] == 23
 
 
@@ -70,7 +74,9 @@ def test_the_switch_shows_the_22_of_23_guidance_rules_that_never_appeared(rows):
 )
 def test_a_declared_airline_rule_list_builds_no_pending_check_part(rows):
     row = rows["airline"]
-    assert row["measured"]["pending_parts"] == ["ProcedureMonitor"]  # shapes procedures: the monitor of change 87
+    assert row["measured"]["pending_parts"] == [
+        "ProcedureMonitor"
+    ]  # shapes procedures: the monitor of change 87
     assert row["rule list"]["pending_parts"] == [] and row["rule list + guidance"]["pending_parts"] == []
     assert rows["retail"]["rule list"]["pending_parts"] == []
 
@@ -82,4 +88,6 @@ def test_the_sop_tracker_under_auto_needs_a_declared_flow_on_all_15_skill_packag
         assert all(t[f"inferred level {n}"] == "off" for n in (1, 2, 3)), t["package"]
         assert t["declared flow level 1"] == "off"
         assert t["declared flow level 2"] == "on" and t["declared flow level 3"] == "on", t["package"]
-    assert any("flow" in t["inferred shapes"] for t in trackers)  # the structure says flow for some: it does not count
+    assert any(
+        "flow" in t["inferred shapes"] for t in trackers
+    )  # the structure says flow for some: it does not count

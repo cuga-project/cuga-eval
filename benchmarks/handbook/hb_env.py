@@ -16,6 +16,7 @@ container. Moved unchanged from the old runner (``policy_eval/launchers/archive/
 
 from __future__ import annotations
 
+import contextlib
 import json
 import os
 import subprocess
@@ -64,17 +65,15 @@ def start_container(task: str, name: str) -> int:
             "mkdir -p /logs/agent && nohup /app/scripts/start.sh --method http --port 8000 </dev/null >>/logs/agent/mcp-proxy.log 2>&1 &",
         ]
     )
-    sh(["docker", "exec", "-d", name, "python3", "/tmp/tcp_forward.py", "8001", "8000"])
+    sh(["docker", "exec", "-d", name, "python3", "/tmp/tcp_forward.py", "8001", "8000"])  # noqa: S108 - path inside the container
     port = int(sh(["docker", "port", name, "8001/tcp"]).stdout.strip().rsplit(":", 1)[1])
     import urllib.request
 
     for _ in range(90):
-        try:
+        with contextlib.suppress(Exception):  # not up yet
             with urllib.request.urlopen(f"http://127.0.0.1:{port}/health", timeout=2) as r:
                 if r.status == 200:
                     return port
-        except Exception:  # noqa: BLE001 - not up yet
-            pass
         time.sleep(2)
     raise RuntimeError("MCP proxy did not become healthy in 180 s")
 

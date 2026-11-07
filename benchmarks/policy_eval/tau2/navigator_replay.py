@@ -53,7 +53,9 @@ def sections(text: str) -> list:
             lv = len(m.group(1))
             while stack and out[stack[-1]]["level"] >= lv:
                 stack.pop()
-            out.append({"level": lv, "title": m.group(2).strip(), "body": "", "parent": stack[-1] if stack else None})
+            out.append(
+                {"level": lv, "title": m.group(2).strip(), "body": "", "parent": stack[-1] if stack else None}
+            )
             stack.append(len(out) - 1)
         elif out:
             out[-1]["body"] += line + "\n"
@@ -66,7 +68,10 @@ def load_tools() -> dict:
     out = {}
     for t in json.load(open(HERE / "telecom_tools.json")):
         t = t.get("function", t)
-        out[t["name"].replace("user__", "")] = {"desc": t.get("description") or "", "user": t["name"].startswith("user__")}
+        out[t["name"].replace("user__", "")] = {
+            "desc": t.get("description") or "",
+            "user": t["name"].startswith("user__"),
+        }
     return out
 
 
@@ -81,8 +86,11 @@ def leaf_tools(secs: list, tools: dict) -> dict:
         named = {n for n in tools if re.search(r"\b" + n + r"\b", text)}
         pre = {w[:5] for w in re.findall(r"[a-z]{3,}", text.lower())}
         matched = {
-            n for n, t in tools.items()
-            if not t["user"] and not n.startswith("get_") and n != "transfer_to_human_agents"
+            n
+            for n, t in tools.items()
+            if not t["user"]
+            and not n.startswith("get_")
+            and n != "transfer_to_human_agents"
             and all(w[:5] in pre for w in n.split("_"))
         }
         if named or matched:
@@ -94,8 +102,11 @@ def tools_in(text: str, tools: dict) -> set:
     named = {n for n in tools if re.search(r"\b" + n + r"\b", text)}
     pre = {w[:5] for w in re.findall(r"[a-z]{3,}", text.lower())}
     return named | {
-        n for n, t in tools.items()
-        if not t["user"] and not n.startswith("get_") and n != "transfer_to_human_agents"
+        n
+        for n, t in tools.items()
+        if not t["user"]
+        and not n.startswith("get_")
+        and n != "transfer_to_human_agents"
         and all(w[:5] in pre for w in n.split("_"))
     }
 
@@ -172,7 +183,9 @@ def visible(r: dict, user_calls: bool = False):
     msgs = r["messages"]
     end = len(msgs)
     for k, m in enumerate(msgs):
-        if m["role"] == "assistant" and any(tc["name"] == "transfer_to_human_agents" for tc in m.get("tool_calls") or []):
+        if m["role"] == "assistant" and any(
+            tc["name"] == "transfer_to_human_agents" for tc in m.get("tool_calls") or []
+        ):
             end = k
             break
     called, agent_text, customer, dialogue = set(), [], [], []
@@ -222,30 +235,50 @@ def main() -> None:
         items = {i: [(secs[i]["title"], secs[i]["title"], ts)] for i, ts in lt.items()}
     escalations = [
         (ids.index(e["from_section"]), re.sub(r"^(if|when)\s+", "", e["when"].strip(), flags=re.I))
-        for p in build["build"]["procedures"] for e in p.get("escalations") or []
+        for p in build["build"]["procedures"]
+        for e in p.get("escalations") or []
         if e.get("from_section") in ids and not a.no_exits
     ]
     print("escalation exits:", [(secs[i]["title"], w[:60]) for i, w in escalations])
-    chapters = [i for i, s in enumerate(secs) if s["parent"] is None and sum(1 for j in subtree(secs, i) if j in lt) >= 3]
+    chapters = [
+        i
+        for i, s in enumerate(secs)
+        if s["parent"] is None and sum(1 for j in subtree(secs, i) if j in lt) >= 3
+    ]
     print("chapters:", [secs[i]["title"][:50] for i in chapters])
     for i, ts in lt.items():
-        print(f"  leaf {secs[i]['title'][:45]:45} <- {secs[chapter_of(i, secs)]['title'][:30]:30} tools {sorted(ts)}")
+        print(
+            f"  leaf {secs[i]['title'][:45]:45} <- {secs[chapter_of(i, secs)]['title'][:30]:30} tools {sorted(ts)}"
+        )
 
     rows = runs(a.runs)
 
     def judge(r):
         end, called, agent_text, customer, dialogue = visible(r, a.user_calls)
         first = "\n".join(customer[:2])
-        p = ask(f"Customer messages:\n{first}", {f"c{i}": TOPIC_Q.format(title=secs[i]["title"]) for i in chapters})
+        p = ask(
+            f"Customer messages:\n{first}",
+            {f"c{i}": TOPIC_Q.format(title=secs[i]["title"]) for i in chapters},
+        )
         root = max(chapters, key=lambda i: p.get(f"c{i}") if p.get(f"c{i}") is not None else -1)
-        solved = ask("Last customer messages:\n" + "\n".join(customer[-2:]), {"solved": SOLVED_Q}).get("solved")
+        solved = ask("Last customer messages:\n" + "\n".join(customer[-2:]), {"solved": SOLVED_Q}).get(
+            "solved"
+        )
         walked = walk(secs, links, root, a.depth)
         steps = [it for i in walked for it in items.get(i, [])]
         exits = {f"e{k}": ESCALATION_Q.format(when=w) for k, (i, w) in enumerate(escalations) if i in walked}
-        exit_p = ask("Conversation (end):\n" + dialogue[-4000:], exits) if exits and (solved is None or solved < 0.5) else {}
+        exit_p = (
+            ask("Conversation (end):\n" + dialogue[-4000:], exits)
+            if exits and (solved is None or solved < 0.5)
+            else {}
+        )
         if any(v is not None and v >= 0.5 for v in exit_p.values()):
             solved = 1.0  # a valid escalation exit: the transfer is what the SOP asks for
-        handled = {it[0] for it in steps if any(t in called or re.search(r"\b" + t + r"\b", agent_text) for t in it[2])}
+        handled = {
+            it[0]
+            for it in steps
+            if any(t in called or re.search(r"\b" + t + r"\b", agent_text) for t in it[2])
+        }
         pending = [it for it in steps if it[0] not in handled] if (solved is None or solved < 0.5) else []
         return {"root": root, "solved": solved, "steps": steps, "pending": pending, "end": end}
 
@@ -257,7 +290,11 @@ def main() -> None:
     for r, j in zip(rows, res):
         passed = r["reward"] == 1.0
         kind = "pass" if passed else ("max_steps" if r["termination_reason"] == "max_steps" else "fail")
-        missed = [c["action"]["name"] for c in (r["reward_info"] or {}).get("action_checks") or [] if not c["action_match"]]
+        missed = [
+            c["action"]["name"]
+            for c in (r["reward_info"] or {}).get("action_checks") or []
+            if not c["action_match"]
+        ]
         caught = any(m in it[2] for it in j["pending"] for m in missed)
         t[f"{kind}_n"] += 1
         t[f"{kind}_flagged"] += bool(j["pending"])
@@ -266,18 +303,29 @@ def main() -> None:
             t["fail_caught"] += caught
             t["fail_missed_leaf_in_walk"] += any(m in it[2] for it in j["steps"] for m in missed)
             t["fail_unsolved"] += bool(j["solved"] is None or j["solved"] < 0.5)
-        per.append({
-            "run": r["_run"], "task": r["task_id"], "kind": kind, "missed": missed,
-            "chapter": secs[j["root"]]["title"], "solved_p": j["solved"],
-            "pending": [it[1][:120] for it in j["pending"]], "caught": caught,
-        })
+        per.append(
+            {
+                "run": r["_run"],
+                "task": r["task_id"],
+                "kind": kind,
+                "missed": missed,
+                "chapter": secs[j["root"]]["title"],
+                "solved_p": j["solved"],
+                "pending": [it[1][:120] for it in j["pending"]],
+                "caught": caught,
+            }
+        )
     print(dict(t))
     n = t["fail_n"]
-    print(f"failed runs (not max_steps): {n}; ended unsolved {t['fail_unsolved']}; missed section in walk "
-          f"{t['fail_missed_leaf_in_walk']}; caught {t['fail_caught']} ({100 * t['fail_caught'] / max(n, 1):.0f}%)")
-    print(f"passed runs flagged: {t['pass_flagged']}/{t['pass_n']} (mean pending items when flagged "
-          f"{t['pass_pending_leaves'] / max(t['pass_flagged'], 1):.1f}); failed runs mean pending "
-          f"{t['fail_pending_leaves'] / max(t['fail_flagged'], 1):.1f}")
+    print(
+        f"failed runs (not max_steps): {n}; ended unsolved {t['fail_unsolved']}; missed section in walk "
+        f"{t['fail_missed_leaf_in_walk']}; caught {t['fail_caught']} ({100 * t['fail_caught'] / max(n, 1):.0f}%)"
+    )
+    print(
+        f"passed runs flagged: {t['pass_flagged']}/{t['pass_n']} (mean pending items when flagged "
+        f"{t['pass_pending_leaves'] / max(t['pass_flagged'], 1):.1f}); failed runs mean pending "
+        f"{t['fail_pending_leaves'] / max(t['fail_flagged'], 1):.1f}"
+    )
     print("chapter picked:", Counter((p["task"].split("]")[0][1:], p["chapter"][:40]) for p in per))
     print("Kev:", dict(getattr(ask, "usage", {})))
     Path(a.out).write_text(json.dumps({"totals": dict(t), "per_run": per}, indent=1, ensure_ascii=False))

@@ -46,13 +46,13 @@ def replay(run: str, verbose: bool) -> dict:
         totals["tasks"].append(
             (
                 rec["task"],
-                any(l == "violating" for l in labels.values()),
+                any(label == "violating" for label in labels.values()),
                 bool(fired),
                 any(fired_l == "violating" for _, _, fired_l, _ in fired),
             )
         )
         if verbose:
-            viol = sum(1 for l in labels.values() if l == "violating")
+            viol = sum(1 for label in labels.values() if label == "violating")
             print(
                 f"\n== {rec['task']}  violating writes {viol}, reminder fired before {len(fired)} of {len(labels)} writes"
             )

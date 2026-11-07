@@ -30,7 +30,7 @@ async def handle(client_r: asyncio.StreamReader, client_w: asyncio.StreamWriter,
 
 
 async def main(listen: int, target: int) -> None:
-    server = await asyncio.start_server(lambda r, w: handle(r, w, target), "0.0.0.0", listen)
+    server = await asyncio.start_server(lambda r, w: handle(r, w, target), "0.0.0.0", listen)  # noqa: S104 - forwards a port of the container
     async with server:
         await server.serve_forever()
 

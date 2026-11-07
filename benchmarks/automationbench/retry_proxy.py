@@ -73,7 +73,9 @@ async def forward(request: Request) -> Response:
     except json.JSONDecodeError:
         payload = {}
     if NO_CACHE and isinstance(payload, dict) and payload.get("messages"):
-        payload["cache"] = {"no-cache": True}  # the gateway returns a stored reply for a repeated request otherwise
+        payload["cache"] = {
+            "no-cache": True
+        }  # the gateway returns a stored reply for a repeated request otherwise
         body = json.dumps(payload).encode()
     stream = bool(payload.get("stream"))
     started, waited = time.monotonic(), 0.0
@@ -152,7 +154,9 @@ def main() -> None:
     global upstream, client, NO_CACHE
     parser = argparse.ArgumentParser()
     parser.add_argument("--port", type=int, default=8799)
-    parser.add_argument("--no-cache", action="store_true", help="ask the gateway for a fresh reply on every chat call")
+    parser.add_argument(
+        "--no-cache", action="store_true", help="ask the gateway for a fresh reply on every chat call"
+    )
     args = parser.parse_args()
     NO_CACHE = args.no_cache
     upstream = (

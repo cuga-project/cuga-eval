@@ -24,7 +24,11 @@ from cuga.policy_layer.validate import validate_package
 HERE = Path(__file__).resolve().parent.parent
 BENCH = HERE.parent
 PACKAGES = HERE / "packages"
-COMPLETE_SOURCES = {"skill_v1", "pipeline_gptoss", "pipeline_dsv4"}  # made with the skill or by the pipeline (task 3.5): checked as new packages, not as converted ones
+COMPLETE_SOURCES = {
+    "skill_v1",
+    "pipeline_gptoss",
+    "pipeline_dsv4",
+}  # made with the skill or by the pipeline (task 3.5): checked as new packages, not as converted ones
 
 
 def specs_of(bench: str, policy_id: str) -> Optional[List[Dict[str, Any]]]:

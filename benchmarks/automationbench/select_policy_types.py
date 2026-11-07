@@ -20,9 +20,15 @@ from pathlib import Path
 HERE = Path(sys.argv[0]).resolve().parent
 ap = argparse.ArgumentParser()
 ap.add_argument("--seed", type=int, default=20261104)
-ap.add_argument("--exclude", action="append", default=[], help="file.json (its tasks) or file.json:key (a list)")
+ap.add_argument(
+    "--exclude", action="append", default=[], help="file.json (its tasks) or file.json:key (a list)"
+)
 ap.add_argument("--out", default="policy_types_subset.json")
-ap.add_argument("--total", type=int, help="fill up to this many tasks at random from the rest of the pool, at most 7 per domain")
+ap.add_argument(
+    "--total",
+    type=int,
+    help="fill up to this many tasks at random from the rest of the pool, at most 7 per domain",
+)
 cli = ap.parse_args()
 SEED, PER_TYPE, PER_DOMAIN = cli.seed, 5, 2
 TYPES = [

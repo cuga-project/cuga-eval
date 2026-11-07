@@ -26,6 +26,7 @@ from __future__ import annotations
 
 import argparse
 import asyncio
+import contextlib
 import importlib.util
 import json
 import os
@@ -95,17 +96,15 @@ def start_container(task: str, name: str) -> int:
             "mkdir -p /logs/agent && nohup /app/scripts/start.sh --method http --port 8000 </dev/null >>/logs/agent/mcp-proxy.log 2>&1 &",
         ]
     )
-    sh(["docker", "exec", "-d", name, "python3", "/tmp/tcp_forward.py", "8001", "8000"])
+    sh(["docker", "exec", "-d", name, "python3", "/tmp/tcp_forward.py", "8001", "8000"])  # noqa: S108 - path inside the container
     port = int(sh(["docker", "port", name, "8001/tcp"]).stdout.strip().rsplit(":", 1)[1])
     import urllib.request
 
     for _ in range(90):
-        try:
+        with contextlib.suppress(Exception):  # not up yet
             with urllib.request.urlopen(f"http://127.0.0.1:{port}/health", timeout=2) as r:
                 if r.status == 200:
                     return port
-        except Exception:  # noqa: BLE001 - not up yet
-            pass
         time.sleep(2)
     raise RuntimeError("MCP proxy did not become healthy in 180 s")
 
@@ -328,12 +327,16 @@ async def run_one(task: str, run: str, arm: str, timeout: float) -> Dict[str, An
                 StoreGate(
                     store,
                     openai_json_model(
-                        os.environ.get("POLICY_GATE_MODEL") or "gcp/gemini-3.8-flash", timeout=180, max_tokens=4000
+                        os.environ.get("POLICY_GATE_MODEL") or "gcp/gemini-3.8-flash",
+                        timeout=180,
+                        max_tokens=4000,
                     ),
                     today=(now or "")[:10],
                 )
             )
-        if store is None and os.environ.get("POLICY_GATE_SOP") == "1":  # ablation: the gate over the raw SOP text
+        if (
+            store is None and os.environ.get("POLICY_GATE_SOP") == "1"
+        ):  # ablation: the gate over the raw SOP text
             from cuga.policy_layer.llm import openai_json_model
             from cuga.policy_layer.store_gate import StoreGate
 
@@ -343,16 +346,22 @@ async def run_one(task: str, run: str, arm: str, timeout: float) -> Dict[str, An
                     StoreGate(
                         None,
                         openai_json_model(
-                            os.environ.get("POLICY_GATE_MODEL") or "gcp/gemini-3.8-flash", timeout=180, max_tokens=4000
+                            os.environ.get("POLICY_GATE_MODEL") or "gcp/gemini-3.8-flash",
+                            timeout=180,
+                            max_tokens=4000,
                         ),
                         today=(now or "")[:10],
                         sop_text=html_text(sop_file.read_text(errors="replace")),
                     )
                 )
                 record["gate_sop"] = sop_file.name
-        for removed in filter(os.environ.get, ("POLICY_STORE_VERIFY", "POLICY_VERIFIER_MODEL")):  # removed (change 137)
+        for removed in filter(
+            os.environ.get, ("POLICY_STORE_VERIFY", "POLICY_VERIFIER_MODEL")
+        ):  # removed (change 137)
             if os.environ[removed] != "0":
-                raise SystemExit(f"{removed} was removed with the end verifier: the obligation ledger replaces it")
+                raise SystemExit(
+                    f"{removed} was removed with the end verifier: the obligation ledger replaces it"
+                )
         loop = rec = None
         if (
             os.environ.get("SOP_LOOP") == "1"

@@ -29,7 +29,7 @@ def load(tag, arm):
                 rows[r["task_id"]] = r
         u = d / "usage.jsonl"
         if u.exists():
-            usage += [json.loads(l) for l in u.read_text().splitlines() if l.strip()]
+            usage += [json.loads(line) for line in u.read_text().splitlines() if line.strip()]
     return rows, usage
 
 
