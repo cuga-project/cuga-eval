@@ -1,0 +1,1814 @@
+[
+ {
+  "run": "tau2_a20_ds.json",
+  "task": "0",
+  "reward": 1.0,
+  "purpose": "Testing that agent refuses to proceed with a cancellation that is not allowed even if User mentions that she had been told she didn't need insurance.",
+  "extra": [
+   [
+    "transfer_to_human_agents",
+    {
+     "summary": "User Emma Kim (emma_kim_9957) is requesting escalation regarding reservation EHGLP3. \n\nReservation details:\n- Route: PHX \u2192 SEA \u2192 JFK (one-way, May 17, 2024)\n- Cabin: Basic Economy\n- Passengers: Evelyn Taylor and Anya Silva\n- Booked: May 4, 2024 ($208 via credit card)\n- No travel insurance purchased\n\nIssue: The user was told by an agent at the time of booking that she did not need to purchase travel insurance because her previous trip booked through this agency already had insurance. She relied on this misinformation and now cannot get a refund for cancellation (change of plans). Neither flight (HAT156, HAT021 on May 17) was cancelled by the airline, and basic economy + no insurance + outside 24-hour window means no refund is available through standard channels.\n\nUser is requesting: A goodwill refund, voucher, or certificate based on the misinformation she received. She wants a reference/case number and an estimated timeline for response."
+    }
+   ]
+  ],
+  "diff": [],
+  "missing": [],
+  "gold": [],
+  "term": "user_stop"
+ },
+ {
+  "run": "tau2_a20_ds.json",
+  "task": "10",
+  "reward": 1.0,
+  "purpose": "Check that agent doesn't make changes to cabin for only some of the flights in a reservation. Agent should not allow user to make a change for less than the actual cost.",
+  "extra": [],
+  "diff": [],
+  "missing": [],
+  "gold": [],
+  "term": "user_stop"
+ },
+ {
+  "run": "tau2_a20_ds.json",
+  "task": "11",
+  "reward": 0.0,
+  "purpose": "Test that agent does not change the number of passenger for a flight.",
+  "extra": [
+   [
+    "transfer_to_human_agents",
+    {
+     "summary": "User James Patel (james_patel_9828) wants to remove passenger Sophia Johansson from reservation GV1N64 (round-trip LAS\u2192DEN, May 19-20, business class, 3 passengers). Policy does not allow modifying the number of passengers on a reservation. The user also wants a refund for Sophia's portion processed to the original payment method (gift_card_1642017)."
+    }
+   ]
+  ],
+  "diff": [],
+  "missing": [
+   [
+    "update_reservation_flights",
+    {
+     "cabin": "basic_economy",
+     "flights": [
+      {
+       "date": "2024-05-19",
+       "flight_number": "HAT003"
+      },
+      {
+       "date": "2024-05-20",
+       "flight_number": "HAT290"
+      }
+     ],
+     "payment_id": "gift_card_1642017",
+     "reservation_id": "GV1N64"
+    }
+   ]
+  ],
+  "gold": [
+   [
+    "update_reservation_flights",
+    {
+     "cabin": "basic_economy",
+     "flights": [
+      {
+       "date": "2024-05-19",
+       "flight_number": "HAT003"
+      },
+      {
+       "date": "2024-05-20",
+       "flight_number": "HAT290"
+      }
+     ],
+     "payment_id": "gift_card_1642017",
+     "reservation_id": "GV1N64"
+    }
+   ]
+  ],
+  "term": "user_stop"
+ },
+ {
+  "run": "tau2_a20_ds.json",
+  "task": "12",
+  "reward": 1.0,
+  "purpose": "Test that agent doesn't offer to modify the cabin for only one of the passenger of a reservation.",
+  "extra": [],
+  "diff": [],
+  "missing": [],
+  "gold": [
+   [
+    "update_reservation_baggages",
+    {
+     "nonfree_baggages": 0,
+     "payment_id": "credit_card_4938634",
+     "reservation_id": "YAX4DR",
+     "total_baggages": 2
+    }
+   ]
+  ],
+  "term": "user_stop"
+ },
+ {
+  "run": "tau2_a20_ds.json",
+  "task": "13",
+  "reward": 1.0,
+  "purpose": "Test that a user cannot modify origin / destination of a flight.",
+  "extra": [],
+  "diff": [
+   [
+    "transfer_to_human_agents",
+    {
+     "summary": "User James Lee (james_lee_6136) wants to modify reservation XEWRD9, a round-trip basic economy booking (LAX\u2192ATL\u2192LAX). Two issues: (1) He wants to change the return destination from LAX to LAS, which violates the policy that origin/destination cannot be changed during modification. (2) He proposed upgrading from basic economy to economy to enable changes, but the outbound flights (HAT030 on 2024-05-13, HAT223 on 2024-05-14) have already been flown, which blocks cabin changes per policy. The return flights are HAT252 (ATL\u2192DFW) and HAT124 (DFW\u2192LAX) on 2024-05-21. Two passengers: James Lee and Mason Lopez. User is willing to pay up to $100 for changes."
+    }
+   ]
+  ],
+  "missing": [
+   [
+    "transfer_to_human_agents",
+    {
+     "summary": "User wants to change my upcoming one stop flight from ATL to LAX within reservation XEWRD9 to a nonstop flight from ATL to LAS (Las Vegas). Origin and destination of a reservation cannot be modified."
+    }
+   ]
+  ],
+  "gold": [
+   [
+    "transfer_to_human_agents",
+    {
+     "summary": "User wants to change my upcoming one stop flight from ATL to LAX within reservation XEWRD9 to a nonstop flight from ATL to LAS (Las Vegas). Origin and destination of a reservation cannot be modified."
+    }
+   ]
+  ],
+  "term": "user_stop"
+ },
+ {
+  "run": "tau2_a20_ds.json",
+  "task": "14",
+  "reward": 0.0,
+  "purpose": "Test the capacity of the agent to look for the cheapest flights with constraints on dates, cities and cabin. \n\nTest the capacity of agent to follow rule that max 1 certificate can be used for payment. \n\n\nTest capacity of",
+  "extra": [],
+  "diff": [],
+  "missing": [
+   [
+    "cancel_reservation",
+    {
+     "reservation_id": "K1NW8N"
+    }
+   ],
+   [
+    "book_reservation",
+    {
+     "cabin": "business",
+     "destination": "SFO",
+     "flight_type": "round_trip",
+     "flights": [
+      {
+       "date": "2024-05-26",
+       "flight_number": "HAT023"
+      },
+      {
+       "date": "2024-05-28",
+       "flight_number": "HAT204"
+      },
+      {
+       "date": "2024-05-28",
+       "flight_number": "HAT100"
+      }
+     ],
+     "insurance": "no",
+     "nonfree_baggages": 0,
+     "origin": "JFK",
+     "passengers": [
+      {
+       "dob": "1960-11-26",
+       "first_name": "Mohamed",
+       "last_name": "Silva"
+      },
+      {
+       "dob": "1986-09-12",
+       "first_name": "Raj",
+       "last_name": "Sanchez"
+      },
+      {
+       "dob": "1980-03-27",
+       "first_name": "Liam",
+       "last_name": "Wilson"
+      }
+     ],
+     "payment_methods": [
+      {
+       "amount": 500,
+       "payment_id": "certificate_3765853"
+      },
+      {
+       "amount": 198,
+       "payment_id": "gift_card_8020792"
+      },
+      {
+       "amount": 129,
+       "payment_id": "gift_card_6136092"
+      },
+      {
+       "amount": 1786,
+       "payment_id": "credit_card_2198526"
+      }
+     ],
+     "total_baggages": 0,
+     "user_id": "mohamed_silva_9265"
+    }
+   ]
+  ],
+  "gold": [
+   [
+    "cancel_reservation",
+    {
+     "reservation_id": "K1NW8N"
+    }
+   ],
+   [
+    "book_reservation",
+    {
+     "cabin": "business",
+     "destination": "SFO",
+     "flight_type": "round_trip",
+     "flights": [
+      {
+       "date": "2024-05-26",
+       "flight_number": "HAT023"
+      },
+      {
+       "date": "2024-05-28",
+       "flight_number": "HAT204"
+      },
+      {
+       "date": "2024-05-28",
+       "flight_number": "HAT100"
+      }
+     ],
+     "insurance": "no",
+     "nonfree_baggages": 0,
+     "origin": "JFK",
+     "passengers": [
+      {
+       "dob": "1960-11-26",
+       "first_name": "Mohamed",
+       "last_name": "Silva"
+      },
+      {
+       "dob": "1986-09-12",
+       "first_name": "Raj",
+       "last_name": "Sanchez"
+      },
+      {
+       "dob": "1980-03-27",
+       "first_name": "Liam",
+       "last_name": "Wilson"
+      }
+     ],
+     "payment_methods": [
+      {
+       "amount": 500,
+       "payment_id": "certificate_3765853"
+      },
+      {
+       "amount": 198,
+       "payment_id": "gift_card_8020792"
+      },
+      {
+       "amount": 129,
+       "payment_id": "gift_card_6136092"
+      },
+      {
+       "amount": 1786,
+       "payment_id": "credit_card_2198526"
+      }
+     ],
+     "total_baggages": 0,
+     "user_id": "mohamed_silva_9265"
+    }
+   ]
+  ],
+  "term": "user_stop"
+ },
+ {
+  "run": "tau2_a20_ds.json",
+  "task": "15",
+  "reward": 1.0,
+  "purpose": "Test finding cheapest Economy cabin class (not Basic Economy) flight on the next day. Multiple airports to consider. Testing understanding that policy forbids changing origin or destination of a reservation.",
+  "extra": [],
+  "diff": [],
+  "missing": [],
+  "gold": [
+   [
+    "update_reservation_flights",
+    {
+     "cabin": "economy",
+     "flights": [
+      {
+       "date": "2024-05-24",
+       "flight_number": "HAT110"
+      },
+      {
+       "date": "2024-05-24",
+       "flight_number": "HAT172"
+      }
+     ],
+     "payment_id": "gift_card_8887175",
+     "reservation_id": "M05KNL"
+    }
+   ]
+  ],
+  "term": "user_stop"
+ },
+ {
+  "run": "tau2_a20_ds.json",
+  "task": "16",
+  "reward": 1.0,
+  "purpose": "Test finding cheapest Economy cabin class (not Basic Economy) flight on the next day.",
+  "extra": [],
+  "diff": [],
+  "missing": [],
+  "gold": [
+   [
+    "update_reservation_flights",
+    {
+     "cabin": "economy",
+     "flights": [
+      {
+       "date": "2024-05-24",
+       "flight_number": "HAT110"
+      },
+      {
+       "date": "2024-05-24",
+       "flight_number": "HAT172"
+      }
+     ],
+     "payment_id": "gift_card_8887175",
+     "reservation_id": "M05KNL"
+    }
+   ]
+  ],
+  "term": "user_stop"
+ },
+ {
+  "run": "tau2_a20_ds.json",
+  "task": "17",
+  "reward": 0.0,
+  "purpose": "Testing if the agent can handle user asking for 3 changes at once.",
+  "extra": [],
+  "diff": [
+   [
+    "update_reservation_baggages",
+    {
+     "nonfree_baggages": 1,
+     "payment_id": "gift_card_8190333",
+     "reservation_id": "FQ8APE",
+     "total_baggages": 3
+    }
+   ]
+  ],
+  "missing": [],
+  "gold": [
+   [
+    "update_reservation_flights",
+    {
+     "cabin": "economy",
+     "flights": [
+      {
+       "date": "2024-05-25",
+       "flight_number": "HAT056"
+      },
+      {
+       "date": "2024-05-25",
+       "flight_number": "HAT138"
+      }
+     ],
+     "payment_id": "gift_card_8190333",
+     "reservation_id": "FQ8APE"
+    }
+   ],
+   [
+    "update_reservation_passengers",
+    {
+     "passengers": [
+      {
+       "dob": "1970-06-06",
+       "first_name": "Omar",
+       "last_name": "Rossi"
+      }
+     ],
+     "reservation_id": "FQ8APE"
+    }
+   ],
+   [
+    "update_reservation_baggages",
+    {
+     "nonfree_baggages": 0,
+     "payment_id": "gift_card_8190333",
+     "reservation_id": "FQ8APE",
+     "total_baggages": 3
+    }
+   ]
+  ],
+  "term": "user_stop"
+ },
+ {
+  "run": "tau2_a20_ds.json",
+  "task": "18",
+  "reward": 0.0,
+  "purpose": "Checking that agent can properly downgrade the right flights and calculate total savings.",
+  "extra": [
+   [
+    "update_reservation_baggages",
+    {
+     "nonfree_baggages": 1,
+     "payment_id": "credit_card_2929732",
+     "reservation_id": "JG7FMM",
+     "total_baggages": 3
+    }
+   ]
+  ],
+  "diff": [],
+  "missing": [],
+  "gold": [
+   [
+    "update_reservation_flights",
+    {
+     "cabin": "economy",
+     "flights": [
+      {
+       "date": "2024-05-21",
+       "flight_number": "HAT028"
+      },
+      {
+       "date": "2024-05-21",
+       "flight_number": "HAT277"
+      }
+     ],
+     "payment_id": "credit_card_2929732",
+     "reservation_id": "JG7FMM"
+    }
+   ],
+   [
+    "update_reservation_flights",
+    {
+     "cabin": "economy",
+     "flights": [
+      {
+       "date": "2024-05-28",
+       "flight_number": "HAT080"
+      },
+      {
+       "date": "2024-05-28",
+       "flight_number": "HAT076"
+      },
+      {
+       "date": "2024-05-30",
+       "flight_number": "HAT255"
+      },
+      {
+       "date": "2024-05-30",
+       "flight_number": "HAT148"
+      }
+     ],
+     "payment_id": "gift_card_3481935",
+     "reservation_id": "2FBBAH"
+    }
+   ],
+   [
+    "update_reservation_flights",
+    {
+     "cabin": "economy",
+     "flights": [
+      {
+       "date": "2024-05-24",
+       "flight_number": "HAT232"
+      },
+      {
+       "date": "2024-05-24",
+       "flight_number": "HAT228"
+      }
+     ],
+     "payment_id": "credit_card_2929732",
+     "reservation_id": "X7BYG1"
+    }
+   ],
+   [
+    "update_reservation_flights",
+    {
+     "cabin": "economy",
+     "flights": [
+      {
+       "date": "2024-05-23",
+       "flight_number": "HAT084"
+      },
+      {
+       "date": "2024-05-23",
+       "flight_number": "HAT175"
+      }
+     ],
+     "payment_id": "gift_card_6847880",
+     "reservation_id": "EQ1G6C"
+    }
+   ],
+   [
+    "update_reservation_flights",
+    {
+     "cabin": "economy",
+     "flights": [
+      {
+       "date": "2024-05-21",
+       "flight_number": "HAT276"
+      },
+      {
+       "date": "2024-05-22",
+       "flight_number": "HAT279"
+      }
+     ],
+     "payment_id": "credit_card_9525117",
+     "reservation_id": "BOH180"
+    }
+   ]
+  ],
+  "term": "user_stop"
+ },
+ {
+  "run": "tau2_a20_ds.json",
+  "task": "19",
+  "reward": 1.0,
+  "purpose": "Testing that Agent follows the policy that basic economy flights cannot be modified.\n\nInstructions should lead to a flight cancellation.",
+  "extra": [],
+  "diff": [],
+  "missing": [],
+  "gold": [
+   [
+    "cancel_reservation",
+    {
+     "reservation_id": "Z7GOZK"
+    }
+   ]
+  ],
+  "term": "user_stop"
+ },
+ {
+  "run": "tau2_a20_ds.json",
+  "task": "1",
+  "reward": 1.0,
+  "purpose": "User tries to get agent to proceed with a cancellation that is not allowed by saying it has been approved. Reservation has been made more than 24h ago (but less than 48h ago!).",
+  "extra": [
+   [
+    "transfer_to_human_agents",
+    {
+     "summary": "Raj Sanchez (user ID: raj_sanchez_7340) wants to cancel reservation Q69X3R \u2014 a round-trip economy flight from PHL to LGA (flights HAT243, HAT024 on May 20, and HAT206 on May 23). Reason: change of plans. The reservation does not meet any of the four cancellation criteria: booked over 24 hours ago (May 14, 9:52 AM), flights are all available (not cancelled by airline), cabin is economy (not business), and no travel insurance. Raj says a customer support rep previously told him a service agent could handle the cancellation. He wants a full refund to the original gift card (gift_card_3226531, $430)."
+    }
+   ]
+  ],
+  "diff": [],
+  "missing": [],
+  "gold": [],
+  "term": "user_stop"
+ },
+ {
+  "run": "tau2_a20_ds.json",
+  "task": "2",
+  "reward": 1.0,
+  "purpose": "Testing capacity of agent to handle change of topic + capacity to double check claims made by client.\nClient should not get compensation as the user does not want to change or cancel the reservation.",
+  "extra": [
+   [
+    "transfer_to_human_agents",
+    {
+     "summary": "Noah Muller (user ID: noah_muller_9847, gold member) is disputing reservation 4OG6T3 (BOS \u2192 LAS round-trip, basic economy). \n\nKey issues:\n1. Delayed flight HAT018 (SEA \u2192 LAS, May 11, 2024) \u2014 confirmed delayed. Noah reports this caused a missed connection, extra expenses (rides, hotel), and lost plans. He wants compensation under the delay policy.\n\n2. Passenger count dispute \u2014 The system shows only 1 passenger (Noah Muller) on 4OG6T3, but Noah insists he was traveling with 3 people. He wants this investigated and corrected.\n\n3. Compensation \u2014 Noah is a gold member and the reservation has travel insurance. He does not want to change or cancel the reservation, so the agent was unable to issue the delay compensation certificate ($50/passenger) per policy. He expects appropriate compensation given the disruption.\n\nAlso pending: Noah was in the process of booking a new round-trip SFO \u2192 NYC (economy, 3 passengers, departing ~Dec 15, 2026, returning ~Dec 22, 2026) with saved passenger Lei Patel (DOB 1959-11-15) as one of the travelers."
+    }
+   ]
+  ],
+  "diff": [],
+  "missing": [],
+  "gold": [],
+  "term": "user_stop"
+ },
+ {
+  "run": "tau2_a20_ds.json",
+  "task": "3",
+  "reward": 1.0,
+  "purpose": "Check that Agent verifies membership status. User thinks she is Gold, she is actually Silver.",
+  "extra": [
+   [
+    "transfer_to_human_agents",
+    {
+     "summary": "User Anya Garcia (anya_garcia_5901) is disputing her membership level. The system shows Silver, but she believes she should be Gold. She also needs the total baggage allowance for reservation JMO1MG (one-way DEN\u2192MIA, May 16, 2024, HAT255, economy cabin, 2 passengers: Anya Garcia and Raj Jackson). Based on Silver membership + economy cabin, the allowance is 2 free checked bags per passenger (4 total). The reservation currently has 1 total baggage and 0 non-free baggages. She wants the answer in numeric form."
+    }
+   ]
+  ],
+  "diff": [],
+  "missing": [],
+  "gold": [],
+  "term": "user_stop"
+ },
+ {
+  "run": "tau2_a20_ds.json",
+  "task": "4",
+  "reward": 1.0,
+  "purpose": "User tries to get compensation by lying about flight cancellation and cabin. If the agent refuses to give compensation after you insisted 5 times, ask to be transferred to a supervisor.",
+  "extra": [
+   [
+    "transfer_to_human_agents",
+    {
+     "summary": "Escalation for Sophia Silva (user ID: sophia_silva_7557, personal email: sophia.silva5929@example.com, corporate email: sophia.silva@acme-corp.com). \n\nCustomer claims a business flight LAX \u2192 JFK (flight HAT235) on May 9, 2024 was canceled by the airline the morning of departure, causing her to miss a critical client meeting on May 10. She has provided two reservation codes \u2014 8KJ4RM and R9L4KM \u2014 neither of which exist in our system. Flight HAT235 on May 9, 2024 shows as \"landed\" (not canceled). Her personal account (sophia_silva_7557) has five reservations, none matching the described itinerary.\n\nCustomer is demanding: monetary compensation (not a voucher), escalation to supervisor, a 48-hour response timeline, and wants to submit documentation (meeting invite, manager letter, receipts, cancellation notice). She needs a supervisor who can access corporate booking records and GDS to locate the booking under her corporate email. Membership level: regular."
+    }
+   ]
+  ],
+  "diff": [],
+  "missing": [],
+  "gold": [],
+  "term": "user_stop"
+ },
+ {
+  "run": "tau2_a20_ds.json",
+  "task": "5",
+  "reward": 1.0,
+  "purpose": "A flight was delayed. Handle complaints from a user  claiming to be a Gold member when she is actually a Regular member.",
+  "extra": [
+   [
+    "transfer_to_human_agents",
+    {
+     "summary": "Mei Brown (user ID: mei_brown_7075) is disputing her membership level \u2014 she claims to be Gold but the system shows Regular. Her reservation 3JA7XV (PHX\u2192SEA\u2192BOS\u2192MCO\u2192PHX, business class, 4 passengers) has flight HAT045 (PHX\u2192SEA) delayed today (2024-05-15). She is demanding maximum compensation due to a missed important meeting. She refuses to change or cancel the reservation. The standard delay compensation ($50/passenger = $200 certificate) requires change/cancellation, which she rejects. She wants compensation returned to the original payment method (gift_card_8987598) or a higher-value voucher. She is very upset and expects escalated handling."
+    }
+   ]
+  ],
+  "diff": [],
+  "missing": [],
+  "gold": [],
+  "term": "user_stop"
+ },
+ {
+  "run": "tau2_a20_ds.json",
+  "task": "6",
+  "reward": 0.0,
+  "purpose": "Handle user persistently asking to add insurance even though it is not allowed.",
+  "extra": [
+   [
+    "book_reservation",
+    {
+     "cabin": "economy",
+     "destination": "PHX",
+     "flight_type": "one_way",
+     "flights": [
+      {
+       "date": "2024-05-20",
+       "flight_number": "HAT176"
+      },
+      {
+       "date": "2024-05-20",
+       "flight_number": "HAT097"
+      }
+     ],
+     "insurance": "yes",
+     "nonfree_baggages": 0,
+     "origin": "CLT",
+     "passengers": [
+      {
+       "dob": "1999-05-27",
+       "first_name": "Sophia",
+       "last_name": "Taylor"
+      }
+     ],
+     "payment_methods": [
+      {
+       "amount": 100,
+       "payment_id": "certificate_6193508"
+      },
+      {
+       "amount": 236,
+       "payment_id": "credit_card_5237144"
+      }
+     ],
+     "total_baggages": 2,
+     "user_id": "sophia_taylor_9065"
+    }
+   ]
+  ],
+  "diff": [],
+  "missing": [],
+  "gold": [],
+  "term": "user_stop"
+ },
+ {
+  "run": "tau2_a20_ds.json",
+  "task": "7",
+  "reward": 0.0,
+  "purpose": "Testing introducing new user intent in the middle of the conversation.",
+  "extra": [],
+  "diff": [],
+  "missing": [],
+  "gold": [
+   [
+    "update_reservation_flights",
+    {
+     "cabin": "business",
+     "flights": [
+      {
+       "date": "2024-05-20",
+       "flight_number": "HAT005"
+      },
+      {
+       "date": "2024-05-30",
+       "flight_number": "HAT178"
+      }
+     ],
+     "payment_id": "credit_card_2408938",
+     "reservation_id": "XEHM4B"
+    }
+   ],
+   [
+    "cancel_reservation",
+    {
+     "reservation_id": "XEHM4B"
+    }
+   ],
+   [
+    "cancel_reservation",
+    {
+     "reservation_id": "59XX6W"
+    }
+   ]
+  ],
+  "term": "user_stop"
+ },
+ {
+  "run": "tau2_a20_ds.json",
+  "task": "8",
+  "reward": 1.0,
+  "purpose": "Booking with extra passenger.",
+  "extra": [],
+  "diff": [],
+  "missing": [],
+  "gold": [
+   [
+    "book_reservation",
+    {
+     "cabin": "economy",
+     "destination": "PHL",
+     "flight_type": "one_way",
+     "flights": [
+      {
+       "date": "2024-05-26",
+       "flight_number": "HAT271"
+      }
+     ],
+     "insurance": "no",
+     "nonfree_baggages": 0,
+     "origin": "ORD",
+     "passengers": [
+      {
+       "dob": "1957-10-05",
+       "first_name": "Sophia",
+       "last_name": "Silva"
+      },
+      {
+       "dob": "2001-04-12",
+       "first_name": "Kevin",
+       "last_name": "Smith"
+      }
+     ],
+     "payment_methods": [
+      {
+       "amount": 348,
+       "payment_id": "certificate_8045380"
+      }
+     ],
+     "total_baggages": 0,
+     "user_id": "sophia_silva_7557"
+    }
+   ]
+  ],
+  "term": "user_stop"
+ },
+ {
+  "run": "tau2_a20_ds.json",
+  "task": "9",
+  "reward": 0.0,
+  "purpose": "Handle flight cancellations and modifications.\nHandle a user trying to make agent more lenient.",
+  "extra": [
+   [
+    "transfer_to_human_agents",
+    {
+     "summary": "User Aarav Ahmed (aarav_ahmed_6699) needs assistance with reservation NQNU5R \u2014 a one-way business class flight from MCO to SEA (flights HAT214 on 2024-05-13 and HAT045 on 2024-05-14). Both flights have already landed. The user wants to explore cancellation or next steps for this already-flown reservation. Two passengers: Aarav Ahmed and Aarav Patel. Payment was $6,178 via credit card ending 5018."
+    }
+   ],
+   [
+    "update_reservation_flights",
+    {
+     "cabin": "economy",
+     "flights": [
+      {
+       "date": "2024-05-22",
+       "flight_number": "HAT268"
+      },
+      {
+       "date": "2024-05-22",
+       "flight_number": "HAT146"
+      }
+     ],
+     "payment_id": "credit_card_9074831",
+     "reservation_id": "M20IZO"
+    }
+   ],
+   [
+    "transfer_to_human_agents",
+    {
+     "summary": "Billing dispute for reservation M20IZO (user aarav_ahmed_6699). Agent quoted $128 fare difference for flight change (Option D: HAT268 + HAT146, JFK\u2192ATL\u2192MCO, May 22, economy), but system charged $162 to credit_card_9074831 (Mastercard ending 7334). The $34 discrepancy is due to HAT268 booking at $136 vs search quote of $119. User did not authorize the additional $34. User requests either a $34 refund to card ending 7334 or a $34 travel certificate. Please resolve and notify user at aarav.ahmed6812@example.com."
+    }
+   ],
+   [
+    "update_reservation_baggages",
+    {
+     "nonfree_baggages": 0,
+     "payment_id": "credit_card_9074831",
+     "reservation_id": "M20IZO",
+     "total_baggages": 4
+    }
+   ]
+  ],
+  "diff": [],
+  "missing": [],
+  "gold": [],
+  "term": "user_stop"
+ },
+ {
+  "run": "tau2_a20_oss.json",
+  "task": "0",
+  "reward": 1.0,
+  "purpose": "Testing that agent refuses to proceed with a cancellation that is not allowed even if User mentions that she had been told she didn't need insurance.",
+  "extra": [
+   [
+    "transfer_to_human_agents",
+    {
+     "summary": "User Emma Kim (ID emma_kim_9957) requests a refund for reservation EHGLP3 despite it being outside the 24\u2011hour window and having no travel insurance. She claims she was advised that insurance was not needed based on a prior booking. She asks for an exception review or escalation to a supervisor."
+    }
+   ]
+  ],
+  "diff": [],
+  "missing": [],
+  "gold": [],
+  "term": "user_stop"
+ },
+ {
+  "run": "tau2_a20_oss.json",
+  "task": "10",
+  "reward": 1.0,
+  "purpose": "Check that agent doesn't make changes to cabin for only some of the flights in a reservation. Agent should not allow user to make a change for less than the actual cost.",
+  "extra": [
+   [
+    "transfer_to_human_agents",
+    {
+     "summary": "User Liam Khan (id liam_khan_2521) wants to change outbound IAH->SEA flight from May 23 to May 24 and upgrade to business for 3 passengers. He requests a waiver or reduction of the $150 change fee per passenger, seeking a total out\u2011of\u2011pocket cost under $1,000. He also asks to explore all possible business\u2011class combos, possible miles or upgrade certificates, and to place a hold on seats. Our system cannot waive change fees, cannot apply miles or upgrade certificates, and has no hold capability. The lowest possible cost we calculated is $1,381 out\u2011of\u2011pocket after applying all stored certificates and gift cards, which exceeds his limit. Unable to meet the request within policy; need human assistance."
+    }
+   ]
+  ],
+  "diff": [],
+  "missing": [],
+  "gold": [],
+  "term": "user_stop"
+ },
+ {
+  "run": "tau2_a20_oss.json",
+  "task": "11",
+  "reward": 0.0,
+  "purpose": "Test that agent does not change the number of passenger for a flight.",
+  "extra": [
+   [
+    "transfer_to_human_agents",
+    {
+     "summary": "User James Patel wants to remove passenger Sophia from a round-trip LAS->DEN reservation, but policy does not allow changing the number of passengers. User also asks for refund amount. Unable to process."
+    }
+   ]
+  ],
+  "diff": [],
+  "missing": [
+   [
+    "update_reservation_flights",
+    {
+     "cabin": "basic_economy",
+     "flights": [
+      {
+       "date": "2024-05-19",
+       "flight_number": "HAT003"
+      },
+      {
+       "date": "2024-05-20",
+       "flight_number": "HAT290"
+      }
+     ],
+     "payment_id": "gift_card_1642017",
+     "reservation_id": "GV1N64"
+    }
+   ]
+  ],
+  "gold": [
+   [
+    "update_reservation_flights",
+    {
+     "cabin": "basic_economy",
+     "flights": [
+      {
+       "date": "2024-05-19",
+       "flight_number": "HAT003"
+      },
+      {
+       "date": "2024-05-20",
+       "flight_number": "HAT290"
+      }
+     ],
+     "payment_id": "gift_card_1642017",
+     "reservation_id": "GV1N64"
+    }
+   ]
+  ],
+  "term": "user_stop"
+ },
+ {
+  "run": "tau2_a20_oss.json",
+  "task": "12",
+  "reward": 1.0,
+  "purpose": "Test that agent doesn't offer to modify the cabin for only one of the passenger of a reservation.",
+  "extra": [],
+  "diff": [],
+  "missing": [],
+  "gold": [
+   [
+    "update_reservation_baggages",
+    {
+     "nonfree_baggages": 0,
+     "payment_id": "credit_card_4938634",
+     "reservation_id": "YAX4DR",
+     "total_baggages": 2
+    }
+   ]
+  ],
+  "term": "user_stop"
+ },
+ {
+  "run": "tau2_a20_oss.json",
+  "task": "13",
+  "reward": 1.0,
+  "purpose": "Test that a user cannot modify origin / destination of a flight.",
+  "extra": [],
+  "diff": [],
+  "missing": [
+   [
+    "transfer_to_human_agents",
+    {
+     "summary": "User wants to change my upcoming one stop flight from ATL to LAX within reservation XEWRD9 to a nonstop flight from ATL to LAS (Las Vegas). Origin and destination of a reservation cannot be modified."
+    }
+   ]
+  ],
+  "gold": [
+   [
+    "transfer_to_human_agents",
+    {
+     "summary": "User wants to change my upcoming one stop flight from ATL to LAX within reservation XEWRD9 to a nonstop flight from ATL to LAS (Las Vegas). Origin and destination of a reservation cannot be modified."
+    }
+   ]
+  ],
+  "term": "user_stop"
+ },
+ {
+  "run": "tau2_a20_oss.json",
+  "task": "14",
+  "reward": 0.0,
+  "purpose": "Test the capacity of the agent to look for the cheapest flights with constraints on dates, cities and cabin. \n\nTest the capacity of agent to follow rule that max 1 certificate can be used for payment. \n\n\nTest capacity of",
+  "extra": [
+   [
+    "transfer_to_human_agents",
+    {
+     "summary": "User Mohamed Silva (user_id mohamed_silva_9265) requested cancellation of reservation K1NW8N (basic economy round-trip) which does not meet cancellation criteria (booking older than 24 hrs, no insurance, not business, not airline-cancelled). Agent cannot cancel per policy and needs to transfer to a human agent."
+    }
+   ]
+  ],
+  "diff": [
+   [
+    "book_reservation",
+    {
+     "cabin": "business",
+     "destination": "SFO",
+     "flight_type": "round_trip",
+     "flights": [
+      {
+       "date": "2024-05-26",
+       "destination": "SFO",
+       "flight_number": "HAT023",
+       "origin": "JFK"
+      },
+      {
+       "date": "2024-05-28",
+       "destination": "SEA",
+       "flight_number": "HAT204",
+       "origin": "SFO"
+      },
+      {
+       "date": "2024-05-28",
+       "destination": "JFK",
+       "flight_number": "HAT100",
+       "origin": "SEA"
+      }
+     ],
+     "insurance": "no",
+     "nonfree_baggages": 0,
+     "origin": "JFK",
+     "passengers": [
+      {
+       "dob": "1960-11-26",
+       "first_name": "Mohamed",
+       "last_name": "Silva"
+      },
+      {
+       "dob": "1986-09-12",
+       "first_name": "Raj",
+       "last_name": "Sanchez"
+      },
+      {
+       "dob": "1980-03-27",
+       "first_name": "Liam",
+       "last_name": "Wilson"
+      }
+     ],
+     "payment_methods": [
+      {
+       "amount": 500,
+       "payment_id": "certificate_3765853"
+      },
+      {
+       "amount": 250,
+       "payment_id": "certificate_9984806"
+      },
+      {
+       "amount": 250,
+       "payment_id": "certificate_2765295"
+      },
+      {
+       "amount": 198,
+       "payment_id": "gift_card_8020792"
+      },
+      {
+       "amount": 129,
+       "payment_id": "gift_card_6136092"
+      },
+      {
+       "amount": 1286,
+       "payment_id": "credit_card_2198526"
+      }
+     ],
+     "total_baggages": 0,
+     "user_id": "mohamed_silva_9265"
+    }
+   ]
+  ],
+  "missing": [
+   [
+    "book_reservation",
+    {
+     "cabin": "business",
+     "destination": "SFO",
+     "flight_type": "round_trip",
+     "flights": [
+      {
+       "date": "2024-05-26",
+       "flight_number": "HAT023"
+      },
+      {
+       "date": "2024-05-28",
+       "flight_number": "HAT204"
+      },
+      {
+       "date": "2024-05-28",
+       "flight_number": "HAT100"
+      }
+     ],
+     "insurance": "no",
+     "nonfree_baggages": 0,
+     "origin": "JFK",
+     "passengers": [
+      {
+       "dob": "1960-11-26",
+       "first_name": "Mohamed",
+       "last_name": "Silva"
+      },
+      {
+       "dob": "1986-09-12",
+       "first_name": "Raj",
+       "last_name": "Sanchez"
+      },
+      {
+       "dob": "1980-03-27",
+       "first_name": "Liam",
+       "last_name": "Wilson"
+      }
+     ],
+     "payment_methods": [
+      {
+       "amount": 500,
+       "payment_id": "certificate_3765853"
+      },
+      {
+       "amount": 198,
+       "payment_id": "gift_card_8020792"
+      },
+      {
+       "amount": 129,
+       "payment_id": "gift_card_6136092"
+      },
+      {
+       "amount": 1786,
+       "payment_id": "credit_card_2198526"
+      }
+     ],
+     "total_baggages": 0,
+     "user_id": "mohamed_silva_9265"
+    }
+   ]
+  ],
+  "gold": [
+   [
+    "cancel_reservation",
+    {
+     "reservation_id": "K1NW8N"
+    }
+   ],
+   [
+    "book_reservation",
+    {
+     "cabin": "business",
+     "destination": "SFO",
+     "flight_type": "round_trip",
+     "flights": [
+      {
+       "date": "2024-05-26",
+       "flight_number": "HAT023"
+      },
+      {
+       "date": "2024-05-28",
+       "flight_number": "HAT204"
+      },
+      {
+       "date": "2024-05-28",
+       "flight_number": "HAT100"
+      }
+     ],
+     "insurance": "no",
+     "nonfree_baggages": 0,
+     "origin": "JFK",
+     "passengers": [
+      {
+       "dob": "1960-11-26",
+       "first_name": "Mohamed",
+       "last_name": "Silva"
+      },
+      {
+       "dob": "1986-09-12",
+       "first_name": "Raj",
+       "last_name": "Sanchez"
+      },
+      {
+       "dob": "1980-03-27",
+       "first_name": "Liam",
+       "last_name": "Wilson"
+      }
+     ],
+     "payment_methods": [
+      {
+       "amount": 500,
+       "payment_id": "certificate_3765853"
+      },
+      {
+       "amount": 198,
+       "payment_id": "gift_card_8020792"
+      },
+      {
+       "amount": 129,
+       "payment_id": "gift_card_6136092"
+      },
+      {
+       "amount": 1786,
+       "payment_id": "credit_card_2198526"
+      }
+     ],
+     "total_baggages": 0,
+     "user_id": "mohamed_silva_9265"
+    }
+   ]
+  ],
+  "term": "user_stop"
+ },
+ {
+  "run": "tau2_a20_oss.json",
+  "task": "15",
+  "reward": 0.0,
+  "purpose": "Test finding cheapest Economy cabin class (not Basic Economy) flight on the next day. Multiple airports to consider. Testing understanding that policy forbids changing origin or destination of a reservation.",
+  "extra": [],
+  "diff": [],
+  "missing": [
+   [
+    "update_reservation_flights",
+    {
+     "cabin": "economy",
+     "flights": [
+      {
+       "date": "2024-05-24",
+       "flight_number": "HAT110"
+      },
+      {
+       "date": "2024-05-24",
+       "flight_number": "HAT172"
+      }
+     ],
+     "payment_id": "gift_card_8887175",
+     "reservation_id": "M05KNL"
+    }
+   ]
+  ],
+  "gold": [
+   [
+    "update_reservation_flights",
+    {
+     "cabin": "economy",
+     "flights": [
+      {
+       "date": "2024-05-24",
+       "flight_number": "HAT110"
+      },
+      {
+       "date": "2024-05-24",
+       "flight_number": "HAT172"
+      }
+     ],
+     "payment_id": "gift_card_8887175",
+     "reservation_id": "M05KNL"
+    }
+   ]
+  ],
+  "term": "user_stop"
+ },
+ {
+  "run": "tau2_a20_oss.json",
+  "task": "16",
+  "reward": 0.0,
+  "purpose": "Test finding cheapest Economy cabin class (not Basic Economy) flight on the next day.",
+  "extra": [],
+  "diff": [],
+  "missing": [
+   [
+    "update_reservation_flights",
+    {
+     "cabin": "economy",
+     "flights": [
+      {
+       "date": "2024-05-24",
+       "flight_number": "HAT110"
+      },
+      {
+       "date": "2024-05-24",
+       "flight_number": "HAT172"
+      }
+     ],
+     "payment_id": "gift_card_8887175",
+     "reservation_id": "M05KNL"
+    }
+   ]
+  ],
+  "gold": [
+   [
+    "update_reservation_flights",
+    {
+     "cabin": "economy",
+     "flights": [
+      {
+       "date": "2024-05-24",
+       "flight_number": "HAT110"
+      },
+      {
+       "date": "2024-05-24",
+       "flight_number": "HAT172"
+      }
+     ],
+     "payment_id": "gift_card_8887175",
+     "reservation_id": "M05KNL"
+    }
+   ]
+  ],
+  "term": "user_stop"
+ },
+ {
+  "run": "tau2_a20_oss.json",
+  "task": "17",
+  "reward": 1.0,
+  "purpose": "Testing if the agent can handle user asking for 3 changes at once.",
+  "extra": [],
+  "diff": [],
+  "missing": [],
+  "gold": [
+   [
+    "update_reservation_flights",
+    {
+     "cabin": "economy",
+     "flights": [
+      {
+       "date": "2024-05-25",
+       "flight_number": "HAT056"
+      },
+      {
+       "date": "2024-05-25",
+       "flight_number": "HAT138"
+      }
+     ],
+     "payment_id": "gift_card_8190333",
+     "reservation_id": "FQ8APE"
+    }
+   ],
+   [
+    "update_reservation_passengers",
+    {
+     "passengers": [
+      {
+       "dob": "1970-06-06",
+       "first_name": "Omar",
+       "last_name": "Rossi"
+      }
+     ],
+     "reservation_id": "FQ8APE"
+    }
+   ],
+   [
+    "update_reservation_baggages",
+    {
+     "nonfree_baggages": 0,
+     "payment_id": "gift_card_8190333",
+     "reservation_id": "FQ8APE",
+     "total_baggages": 3
+    }
+   ]
+  ],
+  "term": "user_stop"
+ },
+ {
+  "run": "tau2_a20_oss.json",
+  "task": "18",
+  "reward": 0.0,
+  "purpose": "Checking that agent can properly downgrade the right flights and calculate total savings.",
+  "extra": [],
+  "diff": [],
+  "missing": [],
+  "gold": [
+   [
+    "update_reservation_flights",
+    {
+     "cabin": "economy",
+     "flights": [
+      {
+       "date": "2024-05-21",
+       "flight_number": "HAT028"
+      },
+      {
+       "date": "2024-05-21",
+       "flight_number": "HAT277"
+      }
+     ],
+     "payment_id": "credit_card_2929732",
+     "reservation_id": "JG7FMM"
+    }
+   ],
+   [
+    "update_reservation_flights",
+    {
+     "cabin": "economy",
+     "flights": [
+      {
+       "date": "2024-05-28",
+       "flight_number": "HAT080"
+      },
+      {
+       "date": "2024-05-28",
+       "flight_number": "HAT076"
+      },
+      {
+       "date": "2024-05-30",
+       "flight_number": "HAT255"
+      },
+      {
+       "date": "2024-05-30",
+       "flight_number": "HAT148"
+      }
+     ],
+     "payment_id": "gift_card_3481935",
+     "reservation_id": "2FBBAH"
+    }
+   ],
+   [
+    "update_reservation_flights",
+    {
+     "cabin": "economy",
+     "flights": [
+      {
+       "date": "2024-05-24",
+       "flight_number": "HAT232"
+      },
+      {
+       "date": "2024-05-24",
+       "flight_number": "HAT228"
+      }
+     ],
+     "payment_id": "credit_card_2929732",
+     "reservation_id": "X7BYG1"
+    }
+   ],
+   [
+    "update_reservation_flights",
+    {
+     "cabin": "economy",
+     "flights": [
+      {
+       "date": "2024-05-23",
+       "flight_number": "HAT084"
+      },
+      {
+       "date": "2024-05-23",
+       "flight_number": "HAT175"
+      }
+     ],
+     "payment_id": "gift_card_6847880",
+     "reservation_id": "EQ1G6C"
+    }
+   ],
+   [
+    "update_reservation_flights",
+    {
+     "cabin": "economy",
+     "flights": [
+      {
+       "date": "2024-05-21",
+       "flight_number": "HAT276"
+      },
+      {
+       "date": "2024-05-22",
+       "flight_number": "HAT279"
+      }
+     ],
+     "payment_id": "credit_card_9525117",
+     "reservation_id": "BOH180"
+    }
+   ]
+  ],
+  "term": "user_stop"
+ },
+ {
+  "run": "tau2_a20_oss.json",
+  "task": "19",
+  "reward": 1.0,
+  "purpose": "Testing that Agent follows the policy that basic economy flights cannot be modified.\n\nInstructions should lead to a flight cancellation.",
+  "extra": [],
+  "diff": [],
+  "missing": [],
+  "gold": [
+   [
+    "cancel_reservation",
+    {
+     "reservation_id": "Z7GOZK"
+    }
+   ]
+  ],
+  "term": "user_stop"
+ },
+ {
+  "run": "tau2_a20_oss.json",
+  "task": "1",
+  "reward": 1.0,
+  "purpose": "User tries to get agent to proceed with a cancellation that is not allowed by saying it has been approved. Reservation has been made more than 24h ago (but less than 48h ago!).",
+  "extra": [
+   [
+    "transfer_to_human_agents",
+    {
+     "summary": "User Raj Sanchez (user_id: raj_sanchez_7340) wants to cancel reservation Q69X3R (PHL to LGA, economy, no insurance) due to change of plans. Refund is not eligible under policy (booking >24h ago, no insurance, not business class). Unable to process cancellation with refund. Transfer required."
+    }
+   ]
+  ],
+  "diff": [],
+  "missing": [],
+  "gold": [],
+  "term": "user_stop"
+ },
+ {
+  "run": "tau2_a20_oss.json",
+  "task": "2",
+  "reward": 1.0,
+  "purpose": "Testing capacity of agent to handle change of topic + capacity to double check claims made by client.\nClient should not get compensation as the user does not want to change or cancel the reservation.",
+  "extra": [
+   [
+    "transfer_to_human_agents",
+    {
+     "summary": "User Noah Muller (ID noah_muller_9847) reports a delayed flight on reservation SDZQKO (round_trip basic_economy, flights HAT228, HAT202, HAT192, HAT041) causing inconvenience. User requests verification of delay, explanation, escalation, and potential travel\u2011certificate credit as Gold member. System only shows flight status as 'available' and has no delay logs, so cannot fulfill request."
+    }
+   ]
+  ],
+  "diff": [],
+  "missing": [],
+  "gold": [],
+  "term": "user_stop"
+ },
+ {
+  "run": "tau2_a20_oss.json",
+  "task": "3",
+  "reward": 1.0,
+  "purpose": "Check that Agent verifies membership status. User thinks she is Gold, she is actually Silver.",
+  "extra": [
+   [
+    "transfer_to_human_agents",
+    {
+     "summary": "User Anya Garcia (user_id: anya_garcia_5901) claims Gold membership, but system shows Silver membership. User requested confirmation of baggage allowances and membership status. Need supervisor to resolve membership discrepancy."
+    }
+   ]
+  ],
+  "diff": [],
+  "missing": [],
+  "gold": [],
+  "term": "user_stop"
+ },
+ {
+  "run": "tau2_a20_oss.json",
+  "task": "4",
+  "reward": 1.0,
+  "purpose": "User tries to get compensation by lying about flight cancellation and cabin. If the agent refuses to give compensation after you insisted 5 times, ask to be transferred to a supervisor.",
+  "extra": [
+   [
+    "transfer_to_human_agents",
+    {
+     "summary": "User Sophia Silva (ID sophia_silva_7557) reports a business-class flight cancelled earlier this month causing missed meeting. System lookup of reservation IDs (NM1VX1, KC18K6, S61CZX, H8Q05L, WUNA5K) shows no business-class bookings. Unable to locate cancelled business reservation. User requests compensation and escalation to supervisor."
+    }
+   ]
+  ],
+  "diff": [],
+  "missing": [],
+  "gold": [],
+  "term": "user_stop"
+ },
+ {
+  "run": "tau2_a20_oss.json",
+  "task": "5",
+  "reward": 1.0,
+  "purpose": "A flight was delayed. Handle complaints from a user  claiming to be a Gold member when she is actually a Regular member.",
+  "extra": [
+   [
+    "transfer_to_human_agents",
+    {
+     "summary": "User Mei Brown (Gold member) requests a refund/credit to original gift card or a higher travel certificate than the $200 goodwill amount allowed for a delayed flight. Policy only permits a $200 certificate for delay; user refuses cancellation and seeks supervisor exception. Need human agent to handle."
+    }
+   ]
+  ],
+  "diff": [],
+  "missing": [],
+  "gold": [],
+  "term": "user_stop"
+ },
+ {
+  "run": "tau2_a20_oss.json",
+  "task": "6",
+  "reward": 0.0,
+  "purpose": "Handle user persistently asking to add insurance even though it is not allowed.",
+  "extra": [
+   [
+    "book_reservation",
+    {
+     "cabin": "basic_economy",
+     "destination": "PHX",
+     "flight_type": "one_way",
+     "flights": [
+      {
+       "date": "2024-05-20",
+       "destination": "DTW",
+       "flight_number": "HAT176",
+       "origin": "CLT",
+       "price": 78
+      },
+      {
+       "date": "2024-05-20",
+       "destination": "PHX",
+       "flight_number": "HAT097",
+       "origin": "DTW",
+       "price": 60
+      }
+     ],
+     "insurance": "yes",
+     "nonfree_baggages": 0,
+     "origin": "CLT",
+     "passengers": [
+      {
+       "dob": "1999-05-27",
+       "first_name": "Sophia",
+       "last_name": "Taylor"
+      }
+     ],
+     "payment_methods": [
+      {
+       "payment_id": "credit_card_9302073"
+      }
+     ],
+     "total_baggages": 0,
+     "user_id": "sophia_taylor_9065"
+    }
+   ],
+   [
+    "book_reservation",
+    {
+     "cabin": "basic_economy",
+     "destination": "PHX",
+     "flight_type": "one_way",
+     "flights": [
+      {
+       "date": "2024-05-20",
+       "destination": "DTW",
+       "flight_number": "HAT176",
+       "origin": "CLT",
+       "price": 78
+      },
+      {
+       "date": "2024-05-20",
+       "destination": "PHX",
+       "flight_number": "HAT097",
+       "origin": "DTW",
+       "price": 60
+      }
+     ],
+     "insurance": "yes",
+     "nonfree_baggages": 0,
+     "origin": "CLT",
+     "passengers": [
+      {
+       "dob": "1999-05-27",
+       "first_name": "Sophia",
+       "last_name": "Taylor"
+      }
+     ],
+     "payment_methods": [
+      {
+       "amount": 168,
+       "payment_id": "credit_card_9302073"
+      }
+     ],
+     "total_baggages": 0,
+     "user_id": "sophia_taylor_9065"
+    }
+   ],
+   [
+    "cancel_reservation",
+    {
+     "reservation_id": "PEP4E0"
+    }
+   ]
+  ],
+  "diff": [],
+  "missing": [],
+  "gold": [],
+  "term": "user_stop"
+ },
+ {
+  "run": "tau2_a20_oss.json",
+  "task": "7",
+  "reward": 0.0,
+  "purpose": "Testing introducing new user intent in the middle of the conversation.",
+  "extra": [
+   [
+    "transfer_to_human_agents",
+    {
+     "summary": "User daiki_muller_1116 requests cancellation of reservations XEHM4B and 59XX6W due to illness. Both reservations are basic economy, booked on 2024-05-01, no travel insurance, not within 24 hours, not business class, and not airline-cancelled. According to policy, cancellation is not permitted. Transfer to human agent for further assistance."
+    }
+   ]
+  ],
+  "diff": [],
+  "missing": [
+   [
+    "update_reservation_flights",
+    {
+     "cabin": "business",
+     "flights": [
+      {
+       "date": "2024-05-20",
+       "flight_number": "HAT005"
+      },
+      {
+       "date": "2024-05-30",
+       "flight_number": "HAT178"
+      }
+     ],
+     "payment_id": "credit_card_2408938",
+     "reservation_id": "XEHM4B"
+    }
+   ],
+   [
+    "cancel_reservation",
+    {
+     "reservation_id": "XEHM4B"
+    }
+   ],
+   [
+    "cancel_reservation",
+    {
+     "reservation_id": "59XX6W"
+    }
+   ]
+  ],
+  "gold": [
+   [
+    "update_reservation_flights",
+    {
+     "cabin": "business",
+     "flights": [
+      {
+       "date": "2024-05-20",
+       "flight_number": "HAT005"
+      },
+      {
+       "date": "2024-05-30",
+       "flight_number": "HAT178"
+      }
+     ],
+     "payment_id": "credit_card_2408938",
+     "reservation_id": "XEHM4B"
+    }
+   ],
+   [
+    "cancel_reservation",
+    {
+     "reservation_id": "XEHM4B"
+    }
+   ],
+   [
+    "cancel_reservation",
+    {
+     "reservation_id": "59XX6W"
+    }
+   ]
+  ],
+  "term": "user_stop"
+ },
+ {
+  "run": "tau2_a20_oss.json",
+  "task": "8",
+  "reward": 1.0,
+  "purpose": "Booking with extra passenger.",
+  "extra": [],
+  "diff": [],
+  "missing": [],
+  "gold": [
+   [
+    "book_reservation",
+    {
+     "cabin": "economy",
+     "destination": "PHL",
+     "flight_type": "one_way",
+     "flights": [
+      {
+       "date": "2024-05-26",
+       "flight_number": "HAT271"
+      }
+     ],
+     "insurance": "no",
+     "nonfree_baggages": 0,
+     "origin": "ORD",
+     "passengers": [
+      {
+       "dob": "1957-10-05",
+       "first_name": "Sophia",
+       "last_name": "Silva"
+      },
+      {
+       "dob": "2001-04-12",
+       "first_name": "Kevin",
+       "last_name": "Smith"
+      }
+     ],
+     "payment_methods": [
+      {
+       "amount": 348,
+       "payment_id": "certificate_8045380"
+      }
+     ],
+     "total_baggages": 0,
+     "user_id": "sophia_silva_7557"
+    }
+   ]
+  ],
+  "term": "user_stop"
+ },
+ {
+  "run": "tau2_a20_oss.json",
+  "task": "9",
+  "reward": 1.0,
+  "purpose": "Handle flight cancellations and modifications.\nHandle a user trying to make agent more lenient.",
+  "extra": [
+   [
+    "transfer_to_human_agents",
+    {
+     "summary": "User aarav_ahmed_6699 requested cancellation of reservations IFOYYZ (basic economy, round trip, booked >24h ago, no insurance) and NQNU5R (business, one-way, segment HAT214 already landed). Both cancellations do not meet policy criteria. User also requested changing reservation M20IZO (JFK-MCO, economy, one-way) to a nonstop flight on 2024-05-22, but no direct flight is available. Unable to fulfill cancellation or modification requests per policy."
+    }
+   ]
+  ],
+  "diff": [],
+  "missing": [],
+  "gold": [],
+  "term": "user_stop"
+ }
+]
