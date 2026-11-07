@@ -1,0 +1,22 @@
+# Best measured for AutomationBench with the agent gcp/gemini-3.8-flash: CUGA alone (best_profiles.json, "A-F (CUGA alone)",
+# branch best/automationbench-gemini-alone). The policy layer did worse with this agent: on policy_types_holdout2, B4T-F
+# scored 75.1% against 80.9% (-5.8 paired, 8 better and 13 worse tasks, p = 0.383); CUGA alone broke 1 guardrail in 60
+# runs and B4T-F broke 24. So this profile is the baseline; it is kept as its own file so that the choice is recorded.
+policy:
+  package: none
+  sources: {data: false, discovery: false, request: false}
+  authority: {supersedes: false}
+  checkers:
+    rules: off
+    gate: {mode: off}
+    verifier: {mode: off}
+    write_checks: off  # separate hooks, as measured
+  organizers:
+    procedure_tools: off
+    guide: off
+    loop: off
+    sop_tracker: off
+    navigator: off
+    requirements_tracker: off
+  obligations: {producers: []}
+  decisions: {mode: off}

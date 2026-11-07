@@ -1,0 +1,28 @@
+# Best measured for HANDBOOK with the agent azure/DeepSeek-V4-Pro: L, the SOP loop with the procedure guide, round 1
+# (best_profiles.json, branch best/handbook-loop-guide-sop-trk1, commit 4b3bcb9be). Round 1 on the 3 public tasks, 3
+# trials: 117 of 153 items (76.5%) against 86 (56.2%) for CUGA alone; pooled over 3 rounds 73.4% against 59.3%. In-sample
+# only.
+# Switches of the measurement: SOP_LOOP=1 HOOKS_MODULE=handbook/guide_hooks.py:make_hooks HB_BUILDS=v3.
+# Not set by a switch, so the default of the old code applies: the loop uses azure/DeepSeek-V4-Pro in control style, the
+# guide stops the first write of a procedure and template mismatches and has no evidence check. The loop takes no
+# evidence requirement (SOP_LOOP_MODE unset), so decisions.require_evidence is false.
+# The package is the pipeline build v3 of each SOP: one package per task, the harness fills in {policy}. The loop's model
+# call has timeout 300 and max_tokens 8000. golden_hooks.json holds the wiring of the old runner.
+policy:
+  package: packages/handbook/{policy}/v3/package.json
+  sources: {data: false, discovery: false, request: false}
+  authority: {supersedes: false}
+  checkers:
+    rules: off
+    gate: {mode: off}
+    verifier: {mode: off}
+    write_checks: off  # separate hooks, as measured
+  organizers:
+    procedure_tools: off
+    guide: {mode: on, stop_first_write: true, stop_templates: true}
+    loop: {mode: on, model: azure/DeepSeek-V4-Pro, style: control, rules_from_data: true}
+    sop_tracker: off
+    navigator: off
+    requirements_tracker: off
+  obligations: {producers: []}
+  decisions: {mode: off}

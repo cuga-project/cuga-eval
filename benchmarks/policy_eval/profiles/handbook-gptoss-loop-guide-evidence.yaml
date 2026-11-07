@@ -1,0 +1,27 @@
+# Best measured for HANDBOOK with the agent aws/gpt-oss-120b: L, the SOP loop with the procedure guide and evidence
+# checks (best_profiles.json, branch best/handbook-gptoss-loop, commit 42c73e491). Weak evidence: trial 5 only, 23 of 51
+# items against 20 of 51 for CUGA alone (discovery style: 19 of 51).
+# Switches of the measurement: SOP_LOOP=1 POLICY_LOOP_MODEL=aws/gpt-oss-120b HOOKS_MODULE=handbook/guide_hooks.py:make_hooks
+# POLICY_GUIDE_EVIDENCE=1 POLICY_MODEL_NAME=aws/gpt-oss-120b. POLICY_MODEL_NAME is read by no component that is on here.
+# Not set by a switch, so the default of the old code applies: the evidence model is POLICY_GUIDE_MODEL unset, which is
+# aws/gpt-oss-120b; the loop is in control style and takes no evidence requirement (SOP_LOOP_MODE unset, so
+# decisions.require_evidence is false); the build folder is HB_BUILDS unset, which is v3. Model calls: loop timeout 300,
+# max_tokens 8000; guide evidence timeout 180, no max_tokens. golden_hooks.json holds the wiring of the old runner.
+policy:
+  package: packages/handbook/{policy}/v3/package.json
+  sources: {data: false, discovery: false, request: false}
+  authority: {supersedes: false}
+  checkers:
+    rules: off
+    gate: {mode: off}
+    verifier: {mode: off}
+    write_checks: off  # separate hooks, as measured
+  organizers:
+    procedure_tools: off
+    guide: {mode: on, evidence_model: aws/gpt-oss-120b, stop_first_write: true, stop_templates: true}
+    loop: {mode: on, model: aws/gpt-oss-120b, style: control, rules_from_data: true}
+    sop_tracker: off
+    navigator: off
+    requirements_tracker: off
+  obligations: {producers: []}
+  decisions: {mode: off}

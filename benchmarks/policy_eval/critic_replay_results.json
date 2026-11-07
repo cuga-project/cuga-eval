@@ -1,0 +1,3746 @@
+{
+ "C1": {
+  "runs": 31,
+  "flagged": 13,
+  "precision": 0.385,
+  "recall": 0.485,
+  "failed_checks": 68,
+  "flags_on_passed_runs": 5,
+  "passed_runs": 16,
+  "usage": {
+   "gemini": {
+    "calls": 60,
+    "input_tokens": 253165,
+    "output_tokens": 81896
+   },
+   "oss": {
+    "calls": 0,
+    "input_tokens": 0,
+    "output_tokens": 0
+   }
+  },
+  "kev": {
+   "calls": 0,
+   "errors": 0,
+   "cost": 0.0
+  },
+  "per_run": [
+   {
+    "task": "finance.airtable_expense_approval",
+    "pass": false,
+    "flagged": []
+   },
+   {
+    "task": "finance.bad_debt_writeoff",
+    "pass": false,
+    "flagged": []
+   },
+   {
+    "task": "finance.invoice_file_organization",
+    "pass": true,
+    "flagged": []
+   },
+   {
+    "task": "finance.qb_bill_payment_batch",
+    "pass": true,
+    "flagged": []
+   },
+   {
+    "task": "finance.qb_sales_receipt_batch",
+    "pass": true,
+    "flagged": []
+   },
+   {
+    "task": "finance.qb_void_stale_invoices",
+    "pass": true,
+    "flagged": [
+     {
+      "id": 5,
+      "action": "send_email",
+      "target": "alice@company.example.com",
+      "values": [
+       "INV-OLD-001",
+       "OldClient Corp",
+       "1500"
+      ],
+      "must_not": false,
+      "status": "wrong",
+      "why": "The email was sent to alice@company.example.com but did not include the required value '1500'."
+     }
+    ]
+   },
+   {
+    "task": "finance.vendor_insurance_verification",
+    "pass": false,
+    "flagged": []
+   },
+   {
+    "task": "hr.airtable_skills_matrix",
+    "pass": true,
+    "flagged": []
+   },
+   {
+    "task": "hr.buddy_assignment",
+    "pass": false,
+    "flagged": []
+   },
+   {
+    "task": "hr.compliance_training_enrollment",
+    "pass": true,
+    "flagged": []
+   },
+   {
+    "task": "hr.contractor_renewal",
+    "pass": false,
+    "flagged": [
+     {
+      "id": 9,
+      "action": "update_row",
+      "target": "Contractor Agreements spreadsheet (ss_contractors_5121), Active Agreements worksheet (ws_agreements_5121), rows for already expired agreements",
+      "values": [
+       "Status: Expired - Not Renewed"
+      ],
+      "must_not": false,
+      "status": "missing",
+      "why": "No update was made to set already expired agreements to 'Status: Expired - Not Renewed'."
+     }
+    ]
+   },
+   {
+    "task": "hr.visa_expiration_monitoring",
+    "pass": true,
+    "flagged": []
+   },
+   {
+    "task": "marketing.ad_platform_audit",
+    "pass": true,
+    "flagged": []
+   },
+   {
+    "task": "marketing.competitor_product_launch",
+    "pass": false,
+    "flagged": [
+     {
+      "id": 1,
+      "action": "slack_post_message",
+      "target": "ch_product",
+      "values": [
+       "CMPBRF-502-Q1",
+       "Athenix",
+       "Zerion",
+       "AI Assistant",
+       "$50/user/month",
+       "Enterprise Tier",
+       "$200/user/month"
+      ],
+      "must_not": false,
+      "status": "missing",
+      "why": "No message was posted to ch_product."
+     },
+     {
+      "id": 2,
+      "action": "slack_post_message",
+      "target": "ch_sales",
+      "values": [
+       "CMPBRF-502-Q1",
+       "Athenix",
+       "Zerion",
+       "AI Assistant",
+       "$50/user/month",
+       "Enterprise Tier",
+       "$200/user/month"
+      ],
+      "must_not": false,
+      "status": "missing",
+      "why": "No message was posted to ch_sales."
+     },
+     {
+      "id": 3,
+      "action": "slack_post_message",
+      "target": "ch_blog",
+      "values": [
+       "COMP-RESP-ATHENIX-Q1",
+       "COMP-RESP-ZERION-Q1",
+       "Athenix",
+       "Zerion"
+      ],
+      "must_not": false,
+      "status": "missing",
+      "why": "No message was posted to ch_blog."
+     }
+    ]
+   },
+   {
+    "task": "marketing.content_expiration_alert",
+    "pass": true,
+    "flagged": []
+   },
+   {
+    "task": "marketing.customer_milestone",
+    "pass": true,
+    "flagged": [
+     {
+      "id": 1,
+      "action": "send_email",
+      "target": "owner@meridian.example.com",
+      "values": [
+       "CMILE-881-Q1",
+       "Meridian Labs",
+       "1-year",
+       "anniversary"
+      ],
+      "must_not": false,
+      "status": "wrong",
+      "why": "The email does not contain the required tracking/reference code 'CMILE-881-Q1'."
+     },
+     {
+      "id": 2,
+      "action": "send_email",
+      "target": "Cascade Analytics contact email",
+      "values": [
+       "CMILE-881-Q1",
+       "Cascade Analytics",
+       "2-year",
+       "anniversary"
+      ],
+      "must_not": false,
+      "status": "wrong",
+      "why": "The email does not contain the required tracking/reference code 'CMILE-881-Q1'."
+     },
+     {
+      "id": 3,
+      "action": "send_email",
+      "target": "Summit Digital contact email",
+      "values": [
+       "CMILE-881-Q1",
+       "Summit Digital",
+       "1-year",
+       "anniversary"
+      ],
+      "must_not": false,
+      "status": "wrong",
+      "why": "The email does not contain the required values 'CMILE-881-Q1' and 'anniversary'."
+     }
+    ]
+   },
+   {
+    "task": "marketing.google_ads_pause_low_ctr",
+    "pass": true,
+    "flagged": []
+   },
+   {
+    "task": "marketing.landing_page_conversion",
+    "pass": false,
+    "flagged": []
+   },
+   {
+    "task": "marketing.linkedin_company_update",
+    "pass": false,
+    "flagged": []
+   },
+   {
+    "task": "marketing.seo_brief_prioritization",
+    "pass": false,
+    "flagged": []
+   },
+   {
+    "task": "marketing.video_repurpose",
+    "pass": false,
+    "flagged": []
+   },
+   {
+    "task": "operations.invoice_shipping_trigger",
+    "pass": false,
+    "flagged": []
+   },
+   {
+    "task": "operations.zoom_change_advisory",
+    "pass": true,
+    "flagged": []
+   },
+   {
+    "task": "sales.calendly_availability_based_routing",
+    "pass": true,
+    "flagged": []
+   },
+   {
+    "task": "sales.call_transcription",
+    "pass": false,
+    "flagged": []
+   },
+   {
+    "task": "sales.create_draft_reply",
+    "pass": true,
+    "flagged": [
+     {
+      "id": 1,
+      "action": "gmail_create_draft",
+      "target": "thread_client_001 or thread_client_004",
+      "values": [
+       "Contract Renewal",
+       "Review: pricing",
+       "Review: support",
+       "Review: security",
+       "48 hours"
+      ],
+      "must_not": false,
+      "status": "wrong",
+      "why": "The draft reply was created on thread_client_004 and included most required phrases, but it is missing the required value 'Contract Renewal'."
+     }
+    ]
+   },
+   {
+    "task": "sales.priority_selection",
+    "pass": false,
+    "flagged": []
+   },
+   {
+    "task": "support.helpscout_jira_bugs",
+    "pass": true,
+    "flagged": []
+   },
+   {
+    "task": "support.hiver_cross_team_handoff",
+    "pass": true,
+    "flagged": []
+   },
+   {
+    "task": "support.intercom_sentiment_escalation",
+    "pass": false,
+    "flagged": [
+     {
+      "id": 1,
+      "action": "assign_conversation",
+      "target": "negatively-tagged Intercom conversations meeting escalation criteria (e.g., conv_s01, conv_s02, conv_s04)",
+      "values": [
+       "escalation assignee or team per policy rules in ss_sentiment ws_rules"
+      ],
+      "status": "missing",
+      "why": "No conversation assignment tool (such as intercom_assign_conversation) was called for the qualifying conversations."
+     }
+    ]
+   },
+   {
+    "task": "support.zoho_freshdesk_escalation",
+    "pass": false,
+    "flagged": [
+     {
+      "id": 1,
+      "action": "create_ticket",
+      "target": "Freshdesk",
+      "values": [
+       "Escalated Zoho Desk tickets meeting criteria",
+       "Priority mapped or overridden according to escalation policy"
+      ],
+      "must_not": false,
+      "status": "missing",
+      "why": "No ticket was created in Freshdesk."
+     },
+     {
+      "id": 2,
+      "action": "create_comment",
+      "target": "Zoho Desk qualifying escalated tickets",
+      "values": [
+       "Escalated to L2"
+      ],
+      "must_not": false,
+      "status": "missing",
+      "why": "No comment was added to the qualifying Zoho Desk tickets."
+     },
+     {
+      "id": 3,
+      "action": "post_message",
+      "target": "Slack #support-escalations (channel ID: C_esc)",
+      "values": [
+       "Summary of escalated tickets",
+       "Names of affected entities preserved verbatim"
+      ],
+      "must_not": false,
+      "status": "missing",
+      "why": "No summary message was posted to the Slack #support-escalations channel."
+     }
+    ]
+   }
+  ]
+ },
+ "C2": {
+  "runs": 31,
+  "flagged": 137,
+  "precision": 0.175,
+  "recall": 0.603,
+  "failed_checks": 68,
+  "flags_on_passed_runs": 74,
+  "passed_runs": 16,
+  "usage": {
+   "gemini": {
+    "calls": 60,
+    "input_tokens": 253165,
+    "output_tokens": 81896
+   },
+   "oss": {
+    "calls": 31,
+    "input_tokens": 173302,
+    "output_tokens": 49871
+   }
+  },
+  "kev": {
+   "calls": 167,
+   "errors": 0,
+   "cost": 0.009814980000000004
+  },
+  "per_run": [
+   {
+    "task": "finance.airtable_expense_approval",
+    "pass": false,
+    "flagged": [
+     {
+      "id": 1,
+      "action": "update_record",
+      "target": "airtable_d5d79f0cf78f4423bbfe66b20136e999",
+      "values": [
+       "Status: Approved"
+      ],
+      "must_not": false,
+      "status": "missing",
+      "why": "target not in any write (code)"
+     },
+     {
+      "id": 2,
+      "action": "send_email",
+      "target": "[submitter email for record airtable_d5d79f0cf78f4423bbfe66b20136e999]",
+      "values": [
+       "Subject: Expense Approved",
+       "Body: Your expense request has been approved."
+      ],
+      "must_not": false,
+      "status": "missing",
+      "why": "target not in any write (code)"
+     },
+     {
+      "id": 3,
+      "action": "update_record",
+      "target": "airtable_d5d79f0cf78f4423bbfe66b20136e999",
+      "values": [
+       "Status: Rejected",
+       "Reason: [rejection reason based on guidelines]"
+      ],
+      "must_not": false,
+      "status": "missing",
+      "why": "target not in any write (code)"
+     },
+     {
+      "id": 4,
+      "action": "send_email",
+      "target": "[submitter email for record airtable_d5d79f0cf78f4423bbfe66b20136e999]",
+      "values": [
+       "Subject: Expense Rejected",
+       "Body: Your expense request has been rejected. Reason: [rejection reason based on guidelines]"
+      ],
+      "must_not": false,
+      "status": "missing",
+      "why": "target not in any write (code)"
+     },
+     {
+      "id": 5,
+      "action": "update_record",
+      "target": "airtable_*equipment_over_2000*",
+      "values": [
+       "Status: Hold"
+      ],
+      "must_not": false,
+      "status": "missing",
+      "why": "target not in any write (code)"
+     },
+     {
+      "id": 6,
+      "action": "update_record",
+      "target": "airtable_*equipment_over_2000*",
+      "values": [
+       "Status: Rejected"
+      ],
+      "must_not": true,
+      "status": "missing",
+      "why": "Kev p=0.34"
+     }
+    ]
+   },
+   {
+    "task": "finance.bad_debt_writeoff",
+    "pass": false,
+    "flagged": [
+     {
+      "id": 1,
+      "action": "send_email",
+      "target": "alice@company.example.com",
+      "values": [
+       "Subject: Bad Debt Write-Off Notification",
+       "Body: Dear Alice,\n\nThe following invoice has been approved for write‑off per the Bad Debt Write‑Off Policy:\n\nCustomer: Defunct Co\nInvoice #: INV-6001\nAmount: $8,400\nDays Past Due: 185\nCollection Attempts: 4\nLast Payment: 2025-08-10\n\nPlease update your records accordingly.\n\nRegards,\nFinance Team"
+      ],
+      "must_not": false,
+      "status": "missing",
+      "why": "Kev p=0.49"
+     },
+     {
+      "id": 3,
+      "action": "send_email",
+      "target": "cfo@company.example.com",
+      "values": [
+       "Subject: Bad Debt Write‑Off Report",
+       "Body: Dear CFO,\n\nPlease find below the list of invoices written off during this review:\n\n1. Customer: Defunct Co | Invoice #: INV-6001 | Amount: $8,400 | Sales Rep: alice@company.example.com\n2. Customer: NoReply Corp | Invoice #: INV-6005 | Amount: $4,100 | Sales Rep: eve@company.example.com\n\nAll write‑offs meet the criteria outlined in the Bad Debt Write‑Off Policy.\n\nRegards,\nFinance Team"
+      ],
+      "must_not": false,
+      "status": "missing",
+      "why": "Kev p=0.40"
+     },
+     {
+      "id": 4,
+      "action": "post_slack_message",
+      "target": "C_FIN_ALERTS",
+      "values": [
+       "Bad Debt Write‑Offs completed:\n• Defunct Co – INV-6001 – $8,400 (Sales Rep: alice@company.example.com)\n• NoReply Corp – INV-6005 – $4,100 (Sales Rep: eve@company.example.com)"
+      ],
+      "must_not": false,
+      "status": "missing",
+      "why": "Kev p=0.30"
+     },
+     {
+      "id": 5,
+      "action": "send_email",
+      "target": "bob@company.example.com",
+      "values": [],
+      "must_not": true,
+      "status": "missing",
+      "why": "Kev p=0.28"
+     },
+     {
+      "id": 6,
+      "action": "send_email",
+      "target": "carol@company.example.com",
+      "values": [],
+      "must_not": true,
+      "status": "missing",
+      "why": "Kev p=0.19"
+     },
+     {
+      "id": 7,
+      "action": "send_email",
+      "target": "dave@company.example.com",
+      "values": [],
+      "must_not": true,
+      "status": "missing",
+      "why": "Kev p=0.34"
+     }
+    ]
+   },
+   {
+    "task": "finance.invoice_file_organization",
+    "pass": true,
+    "flagged": [
+     {
+      "id": 3,
+      "action": "add_row",
+      "target": "Spreadsheet ss_inv_registry, worksheet ws_registry",
+      "values": [],
+      "must_not": true,
+      "note": "Do not add duplicate rows for invoices that are already present.",
+      "status": "missing",
+      "why": "Kev p=0.47"
+     }
+    ]
+   },
+   {
+    "task": "finance.qb_bill_payment_batch",
+    "pass": true,
+    "flagged": [
+     {
+      "id": 1,
+      "action": "create_payment",
+      "target": "QuickBooks BillPayment BL-501",
+      "values": [
+       "Bill # BL-501",
+       "Amount $4,200"
+      ],
+      "must_not": true,
+      "status": "missing",
+      "why": "target not in any write (code)"
+     },
+     {
+      "id": 2,
+      "action": "create_payment",
+      "target": "QuickBooks BillPayment BL-502",
+      "values": [
+       "Bill # BL-502",
+       "Amount $9,600"
+      ],
+      "must_not": true,
+      "status": "missing",
+      "why": "target not in any write (code)"
+     },
+     {
+      "id": 3,
+      "action": "create_payment",
+      "target": "QuickBooks BillPayment BL-503",
+      "values": [
+       "Bill # BL-503",
+       "Amount $1,800"
+      ],
+      "must_not": true,
+      "status": "missing",
+      "why": "Kev p=0.15"
+     },
+     {
+      "id": 4,
+      "action": "create_payment",
+      "target": "QuickBooks BillPayment BL-504",
+      "values": [
+       "Bill # BL-504",
+       "Amount $28,000",
+       "Notes HOLD - pending delivery confirmation"
+      ],
+      "must_not": true,
+      "status": "missing",
+      "why": "Kev p=0.20"
+     },
+     {
+      "id": 5,
+      "action": "create_payment",
+      "target": "QuickBooks BillPayment BL-505",
+      "values": [
+       "Bill # BL-505",
+       "Amount $62,000"
+      ],
+      "must_not": true,
+      "status": "missing",
+      "why": "target not in any write (code)"
+     },
+     {
+      "id": 6,
+      "action": "post_message",
+      "target": "Slack channel C_AP (#accounts-payable)",
+      "values": [
+       "Payment run summary: No bills were paid this week as none were due within the next 7 days."
+      ],
+      "must_not": false,
+      "status": "missing",
+      "why": "target not in any write (code)"
+     }
+    ]
+   },
+   {
+    "task": "finance.qb_sales_receipt_batch",
+    "pass": true,
+    "flagged": [
+     {
+      "id": 4,
+      "action": "skip_creation",
+      "target": "quickbooks",
+      "values": [
+       "DocNumber: TXN-5001",
+       "Reason: sales receipt already exists"
+      ],
+      "must_not": true,
+      "status": "missing",
+      "why": "Kev p=0.18"
+     }
+    ]
+   },
+   {
+    "task": "finance.qb_void_stale_invoices",
+    "pass": true,
+    "flagged": [
+     {
+      "id": 2,
+      "action": "quickbooks_void_invoice",
+      "target": "qi_604",
+      "values": [
+       "Id: qi_604",
+       "DocNumber: INV-OLD-004",
+       "Reason: Stale invoice void per policy"
+      ],
+      "must_not": false,
+      "status": "missing",
+      "why": "target not in any write (code)"
+     },
+     {
+      "id": 4,
+      "action": "email_send",
+      "target": "dave@company.example.com",
+      "values": [
+       "To: dave@company.example.com",
+       "Subject: Invoice INV-OLD-004 voided",
+       "Body: The following invoice has been voided per policy.\nId: qi_604\nDocNumber: INV-OLD-004\nTxnDate: 2025-08-20\nCustomer: GhostCo\nTotalAmt: 4200\nBalance: 4200\nReason: Stale invoice void per policy"
+      ],
+      "must_not": false,
+      "status": "missing",
+      "why": "target not in any write (code)"
+     },
+     {
+      "id": 5,
+      "action": "slack_post_message",
+      "target": "C_BILLING",
+      "values": [
+       "Channel: #billing",
+       "Message: Voided invoices summary:\n- INV-OLD-002 (Id: qi_602) Customer: DeadLead Inc TotalAmt: 3200 Balance: 3200 Reason: Stale invoice void per policy\n- INV-OLD-004 (Id: qi_604) Customer: GhostCo TotalAmt: 4200 Balance: 4200 Reason: Stale invoice void per policy"
+      ],
+      "must_not": false,
+      "status": "missing",
+      "why": "Kev p=0.09"
+     },
+     {
+      "id": 6,
+      "action": "quickbooks_void_invoice",
+      "target": "qi_603",
+      "values": [],
+      "must_not": true,
+      "status": "missing",
+      "why": "Kev p=0.15"
+     },
+     {
+      "id": 7,
+      "action": "email_send",
+      "target": "carol@company.example.com",
+      "values": [],
+      "must_not": true,
+      "status": "missing",
+      "why": "Kev p=0.17"
+     },
+     {
+      "id": 8,
+      "action": "email_send",
+      "target": "alice@company.example.com",
+      "values": [],
+      "must_not": true,
+      "status": "missing",
+      "why": "target not in any write (code)"
+     },
+     {
+      "id": 9,
+      "action": "email_send",
+      "target": "eve@company.example.com",
+      "values": [],
+      "must_not": true,
+      "status": "missing",
+      "why": "Kev p=0.12"
+     }
+    ]
+   },
+   {
+    "task": "finance.vendor_insurance_verification",
+    "pass": false,
+    "flagged": [
+     {
+      "id": 3,
+      "action": "post_message",
+      "target": "Slack channel C_VENDOR (#vendor-management)",
+      "values": [
+       "Compliance Report:",
+       "- Notified vendor Acme Supplies (Certificate Expiry: 2026-03-01) of upcoming expiration.",
+       "- Updated status of Metro Supply to Non-Compliant (Certificate Expiry: 2026-01-31)."
+      ],
+      "must_not": false,
+      "status": "missing",
+      "why": "target not in any write (code)"
+     }
+    ]
+   },
+   {
+    "task": "hr.airtable_skills_matrix",
+    "pass": true,
+    "flagged": [
+     {
+      "id": 1,
+      "action": "update_record",
+      "target": "Airtable record rec_skill_bob (Skills Matrix)",
+      "values": [
+       "Certification",
+       "Certificate ID",
+       "Certification Status"
+      ],
+      "must_not": true,
+      "status": "missing",
+      "why": "Kev p=0.15"
+     }
+    ]
+   },
+   {
+    "task": "hr.buddy_assignment",
+    "pass": false,
+    "flagged": [
+     {
+      "id": 7,
+      "action": "send_email",
+      "target": "email",
+      "values": [
+       "to=vp-sales@company.example.com",
+       "subject=Buddy Assignment Needed for New Hire",
+       "body=Hello,\n\nThere is no eligible onboarding buddy available for the new hire Nora Lindgren (nora.lindgren@company.example.com) in the Sales department. Please assign a suitable buddy manually.\n\nThank you,\nHR Team"
+      ],
+      "must_not": false,
+      "status": "missing",
+      "why": "Kev p=0.47"
+     },
+     {
+      "id": 10,
+      "action": "assign_buddy",
+      "target": "record",
+      "values": [
+       "new_hire=Nora Lindgren",
+       "buddy=none"
+      ],
+      "must_not": false,
+      "status": "missing",
+      "why": "Kev p=0.44"
+     },
+     {
+      "id": 11,
+      "action": "assign_buddy",
+      "target": "record",
+      "values": [
+       "new_hire=Nora Lindgren",
+       "buddy=Brandon Osei"
+      ],
+      "must_not": true,
+      "status": "missing",
+      "why": "Kev p=0.20"
+     }
+    ]
+   },
+   {
+    "task": "hr.compliance_training_enrollment",
+    "pass": true,
+    "flagged": [
+     {
+      "id": 4,
+      "action": "send_email",
+      "target": "marcus.lindgren@company.example.com",
+      "values": [],
+      "must_not": true,
+      "status": "missing",
+      "why": "Kev p=0.30"
+     },
+     {
+      "id": 5,
+      "action": "send_email",
+      "target": "tom.bradford@company.example.com",
+      "values": [],
+      "must_not": true,
+      "status": "missing",
+      "why": "Kev p=0.28"
+     },
+     {
+      "id": 6,
+      "action": "update_google_sheet_row",
+      "target": "ss_training!ws_requirements (row for Marcus Lindgren)",
+      "values": [
+       "Status: Enrolled"
+      ],
+      "must_not": true,
+      "status": "missing",
+      "why": "Kev p=0.21"
+     },
+     {
+      "id": 7,
+      "action": "update_google_sheet_row",
+      "target": "ss_training!ws_requirements (row for Tom Bradford)",
+      "values": [
+       "Status: Enrolled"
+      ],
+      "must_not": true,
+      "status": "missing",
+      "why": "Kev p=0.19"
+     }
+    ]
+   },
+   {
+    "task": "hr.contractor_renewal",
+    "pass": false,
+    "flagged": [
+     {
+      "id": 1,
+      "action": "update_record",
+      "target": "Google Sheet ss_contractors_5121, worksheet ws_agreements_5121, row_id 2 (Ana Petrova)",
+      "values": [
+       "Status = \"Renewed\""
+      ],
+      "must_not": false,
+      "status": "missing",
+      "why": "Kev p=0.12"
+     },
+     {
+      "id": 2,
+      "action": "send_email",
+      "target": "ana.petrova@freelance.example.com",
+      "values": [
+       "Subject: Contractor Agreement Renewal",
+       "Body: Dear Ana,\n\nYour contractor agreement has been renewed and will continue under the existing terms. No changes to the rate have been made.\n\nBest regards,\nHR Ops"
+      ],
+      "must_not": false,
+      "status": "missing",
+      "why": "target not in any write (code)"
+     },
+     {
+      "id": 3,
+      "action": "send_email",
+      "target": "derek.huang@company.example.com",
+      "values": [
+       "Subject: Contractor Agreement Renewal – Ana Petrova",
+       "Body: Dear Derek,\n\nThe agreement for contractor Ana Petrova has been renewed under the existing terms. No rate adjustments were applied.\n\nBest regards,\nHR Ops"
+      ],
+      "must_not": false,
+      "status": "missing",
+      "why": "Kev p=0.14"
+     },
+     {
+      "id": 5,
+      "action": "send_email",
+      "target": "darius.kim@freelance.example.com",
+      "values": [
+       "Subject: Contractor Agreement Renewal",
+       "Body: Dear Darius,\n\nYour contractor agreement has been renewed and will continue under the existing terms. No changes to the rate have been made.\n\nBest regards,\nHR Ops"
+      ],
+      "must_not": false,
+      "status": "missing",
+      "why": "Kev p=0.30"
+     },
+     {
+      "id": 6,
+      "action": "send_email",
+      "target": "derek.huang@company.example.com",
+      "values": [
+       "Subject: Contractor Agreement Renewal – Darius Kim",
+       "Body: Dear Derek,\n\nThe agreement for contractor Darius Kim has been renewed under the existing terms. No rate adjustments were applied.\n\nBest regards,\nHR Ops"
+      ],
+      "must_not": false,
+      "status": "missing",
+      "why": "Kev p=0.40"
+     },
+     {
+      "id": 9,
+      "action": "apply_rate_increase",
+      "target": "contractor rates in tracker",
+      "values": [
+       "Increase by 5%"
+      ],
+      "must_not": true,
+      "status": "missing",
+      "why": "Kev p=0.22"
+     },
+     {
+      "id": 10,
+      "action": "include_new_rate_in_email",
+      "target": "renewal notice emails",
+      "values": [
+       "New rate information"
+      ],
+      "must_not": true,
+      "status": "missing",
+      "why": "Kev p=0.19"
+     }
+    ]
+   },
+   {
+    "task": "hr.visa_expiration_monitoring",
+    "pass": true,
+    "flagged": [
+     {
+      "id": 1,
+      "action": "send_email",
+      "target": "legal@company.example.com, akiko.yamamoto@company.example.com",
+      "values": [
+       "Subject: Visa Expiration Urgent",
+       "Body: Your H‑1B visa expires within 30 days. Immediate renewal required."
+      ],
+      "must_not": true,
+      "status": "missing",
+      "why": "target not in any write (code)"
+     },
+     {
+      "id": 2,
+      "action": "update_record",
+      "target": "Spreadsheet ss_visa_5118, worksheet ws_visas_5118, row 2 (Akiko Yamamoto)",
+      "values": [
+       "Status = URGENT"
+      ],
+      "must_not": true,
+      "status": "missing",
+      "why": "target not in any write (code)"
+     },
+     {
+      "id": 3,
+      "action": "send_email",
+      "target": "legal@company.example.com, boris.kuznetsov@company.example.com",
+      "values": [
+       "Subject: Visa Expiration Urgent",
+       "Body: Your H‑1B visa expires within 30 days. Immediate renewal required."
+      ],
+      "must_not": true,
+      "status": "missing",
+      "why": "Kev p=0.24"
+     },
+     {
+      "id": 4,
+      "action": "update_record",
+      "target": "Spreadsheet ss_visa_5118, worksheet ws_visas_5118, row 3 (Boris Kuznetsov)",
+      "values": [
+       "Status = URGENT"
+      ],
+      "must_not": true,
+      "status": "missing",
+      "why": "target not in any write (code)"
+     },
+     {
+      "id": 5,
+      "action": "send_email",
+      "target": "legal@company.example.com, chen.wei@company.example.com",
+      "values": [
+       "Subject: Visa Expiration Urgent",
+       "Body: Your L‑1 visa expires within 30 days. Immediate renewal required."
+      ],
+      "must_not": true,
+      "status": "missing",
+      "why": "target not in any write (code)"
+     },
+     {
+      "id": 6,
+      "action": "update_record",
+      "target": "Spreadsheet ss_visa_5118, worksheet ws_visas_5118, row 4 (Chen Wei)",
+      "values": [
+       "Status = URGENT"
+      ],
+      "must_not": true,
+      "status": "missing",
+      "why": "target not in any write (code)"
+     },
+     {
+      "id": 7,
+      "action": "send_email",
+      "target": "legal@company.example.com, deepa.krishnan@company.example.com",
+      "values": [
+       "Subject: Visa Expiration Urgent",
+       "Body: Your H‑1B visa expires within 30 days. Immediate renewal required."
+      ],
+      "must_not": true,
+      "status": "missing",
+      "why": "Kev p=0.22"
+     },
+     {
+      "id": 8,
+      "action": "update_record",
+      "target": "Spreadsheet ss_visa_5118, worksheet ws_visas_5118, row 5 (Deepa Krishnan)",
+      "values": [
+       "Status = URGENT"
+      ],
+      "must_not": true,
+      "status": "missing",
+      "why": "target not in any write (code)"
+     },
+     {
+      "id": 9,
+      "action": "send_email",
+      "target": "legal@company.example.com, esteban.ruiz@company.example.com",
+      "values": [
+       "Subject: Visa Expiration Urgent",
+       "Body: Your TN visa expires within 30 days. Immediate renewal required."
+      ],
+      "must_not": true,
+      "status": "missing",
+      "why": "Kev p=0.18"
+     },
+     {
+      "id": 10,
+      "action": "update_record",
+      "target": "Spreadsheet ss_visa_5118, worksheet ws_visas_5118, row 6 (Esteban Ruiz)",
+      "values": [
+       "Status = URGENT"
+      ],
+      "must_not": true,
+      "status": "missing",
+      "why": "target not in any write (code)"
+     },
+     {
+      "id": 11,
+      "action": "send_email",
+      "target": "legal@company.example.com, fatima.hassan@company.example.com",
+      "values": [
+       "Subject: Visa Expiration Urgent",
+       "Body: Your H‑1B visa expires within 30 days. Immediate renewal required."
+      ],
+      "must_not": true,
+      "status": "missing",
+      "why": "Kev p=0.22"
+     },
+     {
+      "id": 12,
+      "action": "update_record",
+      "target": "Spreadsheet ss_visa_5118, worksheet ws_visas_5118, row 7 (Fatima Hassan)",
+      "values": [
+       "Status = URGENT"
+      ],
+      "must_not": true,
+      "status": "missing",
+      "why": "target not in any write (code)"
+     },
+     {
+      "id": 13,
+      "action": "send_email",
+      "target": "immigration-attorney@lawfirm.example.com, akiko.yamamoto@company.example.com",
+      "values": [
+       "Subject: Visa Renewal Initiation Required",
+       "Body: Your H‑1B visa expires within the renewal processing window. Please initiate renewal."
+      ],
+      "must_not": true,
+      "status": "missing",
+      "why": "target not in any write (code)"
+     },
+     {
+      "id": 14,
+      "action": "update_record",
+      "target": "Spreadsheet ss_visa_5118, worksheet ws_visas_5118, row 2 (Akiko Yamamoto)",
+      "values": [
+       "Status = Renewal Initiated"
+      ],
+      "must_not": true,
+      "status": "missing",
+      "why": "target not in any write (code)"
+     },
+     {
+      "id": 15,
+      "action": "send_email",
+      "target": "immigration-attorney@lawfirm.example.com, chen.wei@company.example.com",
+      "values": [
+       "Subject: Visa Renewal Initiation Required",
+       "Body: Your L‑1 visa expires within the renewal processing window. Please initiate renewal."
+      ],
+      "must_not": true,
+      "status": "missing",
+      "why": "target not in any write (code)"
+     },
+     {
+      "id": 16,
+      "action": "update_record",
+      "target": "Spreadsheet ss_visa_5118, worksheet ws_visas_5118, row 4 (Chen Wei)",
+      "values": [
+       "Status = Renewal Initiated"
+      ],
+      "must_not": true,
+      "status": "missing",
+      "why": "target not in any write (code)"
+     },
+     {
+      "id": 17,
+      "action": "send_email",
+      "target": "immigration-attorney@lawfirm.example.com, deepa.krishnan@company.example.com",
+      "values": [
+       "Subject: Visa Renewal Initiation Required",
+       "Body: Your H‑1B visa expires within the renewal processing window. Please initiate renewal."
+      ],
+      "must_not": true,
+      "status": "missing",
+      "why": "Kev p=0.27"
+     },
+     {
+      "id": 18,
+      "action": "update_record",
+      "target": "Spreadsheet ss_visa_5118, worksheet ws_visas_5118, row 5 (Deepa Krishnan)",
+      "values": [
+       "Status = Renewal Initiated"
+      ],
+      "must_not": true,
+      "status": "missing",
+      "why": "target not in any write (code)"
+     },
+     {
+      "id": 19,
+      "action": "send_email",
+      "target": "immigration-attorney@lawfirm.example.com, esteban.ruiz@company.example.com",
+      "values": [
+       "Subject: Visa Renewal Initiation Required",
+       "Body: Your TN visa expires within the renewal processing window. Please initiate renewal."
+      ],
+      "must_not": true,
+      "status": "missing",
+      "why": "Kev p=0.25"
+     },
+     {
+      "id": 20,
+      "action": "update_record",
+      "target": "Spreadsheet ss_visa_5118, worksheet ws_visas_5118, row 6 (Esteban Ruiz)",
+      "values": [
+       "Status = Renewal Initiated"
+      ],
+      "must_not": true,
+      "status": "missing",
+      "why": "target not in any write (code)"
+     }
+    ]
+   },
+   {
+    "task": "marketing.ad_platform_audit",
+    "pass": true,
+    "flagged": [
+     {
+      "id": 3,
+      "action": "pause_campaign",
+      "target": "camp_r3",
+      "values": [],
+      "must_not": true,
+      "status": "missing",
+      "why": "Kev p=0.09"
+     },
+     {
+      "id": 4,
+      "action": "delete_campaign",
+      "target": "camp_r6",
+      "values": [],
+      "must_not": true,
+      "status": "missing",
+      "why": "target not in any write (code)"
+     }
+    ]
+   },
+   {
+    "task": "marketing.competitor_product_launch",
+    "pass": false,
+    "flagged": [
+     {
+      "id": 5,
+      "action": "post_message",
+      "target": "ch_blog",
+      "values": [
+       "Please prepare a counter‑narrative blog post for competitor Athenix. Use code COMP-RESP-ATHENIX-Q1. Include key features and pricing."
+      ],
+      "must_not": false,
+      "status": "missing",
+      "why": "Kev p=0.43"
+     },
+     {
+      "id": 6,
+      "action": "post_message",
+      "target": "ch_blog",
+      "values": [
+       "Please prepare a counter‑narrative blog post for competitor Zerion. Use code COMP-RESP-ZERION-Q1. Include key features and pricing."
+      ],
+      "must_not": false,
+      "status": "missing",
+      "why": "Kev p=0.41"
+     },
+     {
+      "id": 7,
+      "action": "post_message",
+      "target": "ch_product",
+      "values": [
+       "Any alert about Helix Systems (adjacent tier) or non‑product‑launch items"
+      ],
+      "must_not": true,
+      "status": "missing",
+      "why": "Kev p=0.38"
+     },
+     {
+      "id": 8,
+      "action": "post_message",
+      "target": "ch_sales",
+      "values": [
+       "Any alert about Helix Systems (adjacent tier) or non‑product‑launch items"
+      ],
+      "must_not": true,
+      "status": "missing",
+      "why": "Kev p=0.40"
+     },
+     {
+      "id": 9,
+      "action": "post_message",
+      "target": "ch_product",
+      "values": [
+       "Any alert about Industry Hiring Trends 2026 (type not Product Launch)"
+      ],
+      "must_not": true,
+      "status": "missing",
+      "why": "Kev p=0.35"
+     },
+     {
+      "id": 10,
+      "action": "post_message",
+      "target": "ch_sales",
+      "values": [
+       "Any alert about Industry Hiring Trends 2026 (type not Product Launch)"
+      ],
+      "must_not": true,
+      "status": "missing",
+      "why": "Kev p=0.35"
+     },
+     {
+      "id": 11,
+      "action": "post_message",
+      "target": "ch_product",
+      "values": [
+       "Any alert about Our Company (not a competitor)"
+      ],
+      "must_not": true,
+      "status": "missing",
+      "why": "Kev p=0.37"
+     }
+    ]
+   },
+   {
+    "task": "marketing.content_expiration_alert",
+    "pass": true,
+    "flagged": [
+     {
+      "id": 1,
+      "action": "send_email",
+      "target": "campaigns@company.example.com",
+      "values": [
+       "Subject: Content Expiration Alert - January Batch",
+       "Body: Hi,\n\nThe following content assets are expiring soon and need your attention:\n\nPriority: Standard\n- Q4 Promo Banner - Expires: 2026-02-10\n\nBatch: CXPA-227-Q1\n\nPlease review and take action on these items."
+      ],
+      "must_not": false,
+      "status": "missing",
+      "why": "Kev p=0.34"
+     }
+    ]
+   },
+   {
+    "task": "marketing.customer_milestone",
+    "pass": true,
+    "flagged": [
+     {
+      "id": 1,
+      "action": "send_email",
+      "target": "owner@meridian.example.com",
+      "values": [
+       "Subject: Congratulations on your 1-year anniversary!",
+       "Body includes: customer_id: C001",
+       "company: Meridian Labs",
+       "start_date: 2025-02-15",
+       "tracking_code: CMILE-881-Q1",
+       "thank_you_offer: (as per ops email)"
+      ],
+      "must_not": true,
+      "status": "missing",
+      "why": "target not in any write (code)"
+     },
+     {
+      "id": 2,
+      "action": "send_email",
+      "target": "ceo@quantumedge.example.com",
+      "values": [
+       "Subject: Congratulations on your 2-year anniversary!",
+       "Body includes: customer_id: C002",
+       "company: Quantum Edge",
+       "start_date: 2024-02-22",
+       "tracking_code: CMILE-881-Q1",
+       "thank_you_offer: (as per ops email)"
+      ],
+      "must_not": true,
+      "status": "missing",
+      "why": "Kev p=0.30"
+     },
+     {
+      "id": 3,
+      "action": "send_email",
+      "target": "admin@praxis.example.com",
+      "values": [
+       "Subject: Congratulations on your 1-year anniversary!",
+       "Body includes: customer_id: C005",
+       "company: Praxis Technologies",
+       "start_date: 2025-02-10",
+       "tracking_code: CMILE-881-Q1",
+       "thank_you_offer: (as per ops email)"
+      ],
+      "must_not": true,
+      "status": "missing",
+      "why": "Kev p=0.21"
+     },
+     {
+      "id": 5,
+      "action": "add_log_row",
+      "target": "ss_milestones!ws_log",
+      "values": [
+       "customer_id: C002",
+       "company: Quantum Edge",
+       "milestone: 2-year",
+       "date_reached: 2026-02-22",
+       "outreach_sent: Yes"
+      ],
+      "must_not": true,
+      "status": "missing",
+      "why": "Kev p=0.15"
+     },
+     {
+      "id": 6,
+      "action": "add_log_row",
+      "target": "ss_milestones!ws_log",
+      "values": [
+       "customer_id: C005",
+       "company: Praxis Technologies",
+       "milestone: 1-year",
+       "date_reached: 2026-02-10",
+       "outreach_sent: Yes"
+      ],
+      "must_not": true,
+      "status": "missing",
+      "why": "Kev p=0.16"
+     }
+    ]
+   },
+   {
+    "task": "marketing.google_ads_pause_low_ctr",
+    "pass": true,
+    "flagged": [
+     {
+      "id": 5,
+      "action": "pause_campaign",
+      "target": "Google Ads campaign cmp_webinar",
+      "values": [],
+      "must_not": true,
+      "status": "missing",
+      "why": "Kev p=0.09"
+     },
+     {
+      "id": 6,
+      "action": "pause_campaign",
+      "target": "Google Ads campaign cmp_new_test",
+      "values": [],
+      "must_not": true,
+      "status": "missing",
+      "why": "Kev p=0.12"
+     }
+    ]
+   },
+   {
+    "task": "marketing.landing_page_conversion",
+    "pass": false,
+    "flagged": [
+     {
+      "id": 1,
+      "action": "send_email",
+      "target": "web-team@company.example.com",
+      "values": [
+       "Subject: Landing Page Analysis Report LP-RPT-5528",
+       "Body:",
+       "Landing Page Analysis Report (LP-RPT-5528)",
+       "",
+       "Free Trial: visits 8500, conversions 680, conversion_rate 8.0%",
+       "Demo Request: visits 3200, conversions 45, conversion_rate 1.4% (needs optimization)",
+       "Pricing: visits 12000, conversions 180, conversion_rate 1.5% (needs optimization)",
+       "Webinar Registration: visits 2100, conversions 315, conversion_rate 15.0%",
+       "Ebook Download: visits 4500, conversions 67, conversion_rate 1.5% (needs optimization)",
+       "Case Study: visits 1800, conversions 360, conversion_rate 20.0%",
+       "Contact Sales: visits 5200, conversions 0, conversion_rate 0.0% (critical priority)",
+       "",
+       "Aggregate visits: 37,300",
+       "Aggregate conversions: 1,647",
+       "Overall conversion rate: 4.42%"
+      ],
+      "must_not": false,
+      "status": "missing",
+      "why": "Kev p=0.42"
+     },
+     {
+      "id": 2,
+      "action": "send_email",
+      "target": "any_recipient_other_than_web-team@company.example.com",
+      "values": [],
+      "must_not": true,
+      "status": "missing",
+      "why": "Kev p=0.23"
+     }
+    ]
+   },
+   {
+    "task": "marketing.linkedin_company_update",
+    "pass": false,
+    "flagged": [
+     {
+      "id": 1,
+      "action": "linkedin_create_post",
+      "target": "company:li_nimbus",
+      "values": [
+       "🚀 Join us for our upcoming webinar \"AI in Customer Support\"! 🎙️\n\n📅 Date: (insert date)\n🕒 Time: (insert time)\n\n🔗 Register now: https://company.example.com/webinar-register\n\nThis session is designed for #CustomerSupport leaders looking to leverage AI to improve response times, reduce costs, and boost satisfaction. Don't miss the chance to learn from industry experts and see real‑world use cases.\n\n#AI #CustomerSupport #Webinar #Nimbus"
+      ],
+      "must_not": false,
+      "status": "missing",
+      "why": "Kev p=0.33"
+     },
+     {
+      "id": 2,
+      "action": "linkedin_create_post",
+      "target": "company:li_nimbus_labs",
+      "values": [],
+      "must_not": true,
+      "status": "missing",
+      "why": "Kev p=0.34"
+     }
+    ]
+   },
+   {
+    "task": "marketing.seo_brief_prioritization",
+    "pass": false,
+    "flagged": [
+     {
+      "id": 5,
+      "action": "send_email",
+      "target": "seo-lead@company.example.com",
+      "values": [
+       "Subject: SEO Briefs Ready - SEOBR-2026-W04",
+       "Body:",
+       "Batch Reference: SEOBR-2026-W04",
+       "Audit Tracking Code: SEOBRF-221-Q1",
+       "Total Briefs Created: 2",
+       "Pages and Primary Keywords:",
+       "- AI Helpdesk: ai helpdesk software",
+       "- Workflow Analytics: process analytics tools"
+      ],
+      "must_not": false,
+      "status": "missing",
+      "why": "Kev p=0.17"
+     }
+    ]
+   },
+   {
+    "task": "marketing.video_repurpose",
+    "pass": false,
+    "flagged": []
+   },
+   {
+    "task": "operations.invoice_shipping_trigger",
+    "pass": false,
+    "flagged": [
+     {
+      "id": 2,
+      "action": "send_email",
+      "target": "warehouse@company.example.com",
+      "values": [
+       "subject: Expedited shipment details for INV-2026-0452",
+       "body: Expedited Items for Invoice INV-2026-0452\n- Part Number: WG-4410-EXP, Quantity: 50\n- Part Number: FL-7700-EXP, Quantity: 30\nTotal Expedited Value: $13,600.00"
+      ],
+      "must_not": false,
+      "status": "missing",
+      "why": "Kev p=0.28"
+     }
+    ]
+   },
+   {
+    "task": "operations.zoom_change_advisory",
+    "pass": true,
+    "flagged": [
+     {
+      "id": 4,
+      "action": "post_message",
+      "target": "Slack channel #it-changes (id: CITCHG)",
+      "values": [
+       "message: CAB Review: Database Migration - Production scheduled for 2026-02-05T16:00:00Z"
+      ],
+      "must_not": false,
+      "status": "missing",
+      "why": "target not in any write (code)"
+     },
+     {
+      "id": 5,
+      "action": "create_meeting",
+      "target": "Zoom",
+      "values": [
+       "topic: CAB Review: Security Patch Deployment"
+      ],
+      "must_not": true,
+      "status": "missing",
+      "why": "Kev p=0.22"
+     },
+     {
+      "id": 6,
+      "action": "create_task",
+      "target": "Asana project ws_it/proj_changes",
+      "values": [
+       "name: Prepare CAB documentation: Security Patch Deployment"
+      ],
+      "must_not": true,
+      "status": "missing",
+      "why": "Kev p=0.22"
+     },
+     {
+      "id": 7,
+      "action": "send_email",
+      "target": "cab-members@company.example.com",
+      "values": [
+       "subject: CAB Meeting: Security Patch Deployment"
+      ],
+      "must_not": true,
+      "status": "missing",
+      "why": "target not in any write (code)"
+     },
+     {
+      "id": 8,
+      "action": "post_message",
+      "target": "Slack channel #it-changes (id: CITCHG)",
+      "values": [
+       "message: CAB Review: Security Patch Deployment"
+      ],
+      "must_not": true,
+      "status": "missing",
+      "why": "Kev p=0.25"
+     }
+    ]
+   },
+   {
+    "task": "sales.calendly_availability_based_routing",
+    "pass": true,
+    "flagged": [
+     {
+      "id": 1,
+      "action": "schedule_event",
+      "target": "Calendly",
+      "values": [
+       "event_type_id: et_demo",
+       "duration_minutes: 45",
+       "date: 2026-01-22",
+       "host_user_id: user_junior"
+      ],
+      "must_not": false,
+      "status": "missing",
+      "why": "Kev p=0.11"
+     },
+     {
+      "id": 2,
+      "action": "update_record",
+      "target": "Salesforce Lead lead_new",
+      "values": [
+       "OwnerId: sf_junior (no change, retain current owner as per lead note)"
+      ],
+      "must_not": true,
+      "status": "missing",
+      "why": "Kev p=0.34"
+     }
+    ]
+   },
+   {
+    "task": "sales.call_transcription",
+    "pass": false,
+    "flagged": [
+     {
+      "id": 1,
+      "action": "send_message",
+      "target": "U001ALICE",
+      "values": [
+       "Hi Alice Chen,\n\nFollowing the Discovery Call with Acme Corp, please send the pricing proposal by Friday.\n\nRelevant amount: $150,000."
+      ],
+      "must_not": false,
+      "status": "missing",
+      "why": "Kev p=0.28"
+     },
+     {
+      "id": 2,
+      "action": "send_message",
+      "target": "U002BOB",
+      "values": [
+       "Hi Bob Smith,\n\nFollowing the Discovery Call with Acme Corp, please schedule a technical demo with their IT team.\n\nRelevant amount: $150,000."
+      ],
+      "must_not": false,
+      "status": "missing",
+      "why": "Kev p=0.14"
+     },
+     {
+      "id": 3,
+      "action": "send_message",
+      "target": "U003CAROL",
+      "values": [
+       "Hi Carol Davis,\n\nFollowing the Discovery Call with Acme Corp, please prepare the ROI analysis case study.\n\nRelevant amount: $150,000."
+      ],
+      "must_not": false,
+      "status": "missing",
+      "why": "Kev p=0.18"
+     }
+    ]
+   },
+   {
+    "task": "sales.create_draft_reply",
+    "pass": true,
+    "flagged": [
+     {
+      "id": 1,
+      "action": "gmail_create_draft",
+      "target": "vp.alt@almostbig.example.com",
+      "values": [
+       "Subject: Re: Contract Renewal - AlmostBig Ltd",
+       "Body: Hi Jordan,\n\nThank you for reaching out about the renewal of your Enterprise agreement.\n\n**Affected Entity:** AlmostBig Ltd\n**Opportunity Amount:** $480,000\n**Approved Revenue Adjustments:** 1 (total $50,000)\n**Total Deal Value (Opportunity + Adjustments):** $530,000\n\nWe’ve reviewed the pricing, support, and security components and will prepare a customized proposal that reflects your recent expansion needs. I’ll follow up with the detailed proposal by end of day tomorrow.\n\nBest regards,\n[Your Name]\n[Your Title]\n[Company]"
+      ],
+      "must_not": false,
+      "status": "missing",
+      "why": "target not in any write (code)"
+     },
+     {
+      "id": 2,
+      "action": "use_template",
+      "target": "AlmostBig Ltd renewal reply",
+      "values": [
+       "Meridian renewal reply template"
+      ],
+      "must_not": true,
+      "status": "missing",
+      "why": "Kev p=0.50"
+     }
+    ]
+   },
+   {
+    "task": "sales.priority_selection",
+    "pass": false,
+    "flagged": [
+     {
+      "id": 1,
+      "action": "send_email",
+      "target": "r.anderson@apexmfg.example.com",
+      "values": [
+       "subject: Security Advisory",
+       "body: (security advisory content to be provided)"
+      ],
+      "must_not": false,
+      "status": "missing",
+      "why": "target not in any write (code)"
+     }
+    ]
+   },
+   {
+    "task": "support.helpscout_jira_bugs",
+    "pass": true,
+    "flagged": [
+     {
+      "id": 7,
+      "action": "no_create_jira_issue",
+      "target": "helpscout_conversation:hs_conv_204",
+      "values": [],
+      "must_not": true,
+      "status": "missing",
+      "why": "Kev p=0.44"
+     },
+     {
+      "id": 8,
+      "action": "no_add_tag",
+      "target": "helpscout_conversation:hs_conv_204",
+      "values": [],
+      "must_not": true,
+      "status": "missing",
+      "why": "Kev p=0.41"
+     },
+     {
+      "id": 9,
+      "action": "no_add_note",
+      "target": "helpscout_conversation:hs_conv_204",
+      "values": [],
+      "must_not": true,
+      "status": "missing",
+      "why": "Kev p=0.43"
+     },
+     {
+      "id": 10,
+      "action": "post_slack_message",
+      "target": "slack_channel:C_eng",
+      "values": [
+       "Processed bug reports on 2026-02-07:",
+       "- hs_conv_201 (Dashboard crashes when filtering by date) → Jira: <generated_issue_key>",
+       "- hs_conv_203 (500 error on API endpoint /v2/users) → Jira: <generated_issue_key>"
+      ],
+      "must_not": false,
+      "status": "missing",
+      "why": "Kev p=0.47"
+     }
+    ]
+   },
+   {
+    "task": "support.hiver_cross_team_handoff",
+    "pass": true,
+    "flagged": [
+     {
+      "id": 1,
+      "action": "google_sheets_append_row",
+      "target": "ss_handoff!ws_candidates",
+      "values": [
+       "Conversation ID: hv_h01",
+       "Subject: Enterprise account issue - invoice #4821",
+       "Target Team: Finance",
+       "Priority: High",
+       "Status: Pending"
+      ],
+      "must_not": true,
+      "status": "missing",
+      "why": "Kev p=0.43"
+     },
+     {
+      "id": 2,
+      "action": "google_sheets_append_row",
+      "target": "ss_handoff!ws_candidates",
+      "values": [
+       "Conversation ID: hv_h04",
+       "Subject: Possible data exposure in admin panel",
+       "Target Team: Security",
+       "Priority: Critical",
+       "Status: Pending"
+      ],
+      "must_not": true,
+      "status": "missing",
+      "why": "Kev p=0.46"
+     },
+     {
+      "id": 4,
+      "action": "google_sheets_append_row",
+      "target": "ss_handoff!ws_candidates",
+      "values": [
+       "Conversation ID: hv_h10",
+       "Subject: Requesting credit for service outage",
+       "Target Team: Finance",
+       "Priority: Medium",
+       "Status: Pending"
+      ],
+      "must_not": true,
+      "status": "missing",
+      "why": "Kev p=0.46"
+     },
+     {
+      "id": 5,
+      "action": "google_sheets_append_row",
+      "target": "ss_handoff!ws_candidates",
+      "values": [
+       "Conversation ID: hv_h13",
+       "Subject: Security audit for compliance review",
+       "Target Team: Security",
+       "Priority: Critical",
+       "Status: Pending"
+      ],
+      "must_not": true,
+      "status": "missing",
+      "why": "Kev p=0.48"
+     },
+     {
+      "id": 6,
+      "action": "gmail_send_email",
+      "target": "maria@company.example.com",
+      "values": [
+       "Subject: Handoff Candidate – hv_h01 – Enterprise account issue - invoice #4821",
+       "Body: Please review the following conversation for handoff.\nBatch_Reference: HANDOFF-Q1-20260210\nConversation ID: hv_h01\nSubject: Enterprise account issue - invoice #4821\nTarget Team: Finance\nPriority: High"
+      ],
+      "must_not": false,
+      "status": "missing",
+      "why": "Kev p=0.26"
+     },
+     {
+      "id": 7,
+      "action": "gmail_send_email",
+      "target": "tom@company.example.com",
+      "values": [
+       "Subject: Handoff Candidate – hv_h04 – Possible data exposure in admin panel",
+       "Body: Please review the following conversation for handoff.\nBatch_Reference: HANDOFF-Q1-20260210\nConversation ID: hv_h04\nSubject: Possible data exposure in admin panel\nTarget Team: Security\nPriority: Critical"
+      ],
+      "must_not": false,
+      "status": "missing",
+      "why": "Kev p=0.27"
+     },
+     {
+      "id": 8,
+      "action": "gmail_send_email",
+      "target": "lisa@company.example.com",
+      "values": [
+       "Subject: Handoff Candidate – hv_h08 – GDPR data retention policy inquiry",
+       "Body: Please review the following conversation for handoff.\nBatch_Reference: HANDOFF-Q1-20260210\nConversation ID: hv_h08\nSubject: GDPR data retention policy inquiry\nTarget Team: Legal\nPriority: High"
+      ],
+      "must_not": false,
+      "status": "missing",
+      "why": "Kev p=0.32"
+     },
+     {
+      "id": 9,
+      "action": "gmail_send_email",
+      "target": "maria@company.example.com",
+      "values": [
+       "Subject: Handoff Candidate – hv_h10 – Requesting credit for service outage",
+       "Body: Please review the following conversation for handoff.\nBatch_Reference: HANDOFF-Q1-20260210\nConversation ID: hv_h10\nSubject: Requesting credit for service outage\nTarget Team: Finance\nPriority: Medium"
+      ],
+      "must_not": false,
+      "status": "missing",
+      "why": "Kev p=0.22"
+     },
+     {
+      "id": 10,
+      "action": "gmail_send_email",
+      "target": "tom@company.example.com",
+      "values": [
+       "Subject: Handoff Candidate – hv_h13 – Security audit for compliance review",
+       "Body: Please review the following conversation for handoff.\nBatch_Reference: HANDOFF-Q1-20260210\nConversation ID: hv_h13\nSubject: Security audit for compliance review\nTarget Team: Security\nPriority: Critical"
+      ],
+      "must_not": false,
+      "status": "missing",
+      "why": "Kev p=0.21"
+     },
+     {
+      "id": 12,
+      "action": "gmail_send_email",
+      "target": "any",
+      "values": [
+       "Any email to a lead for conversation hv_h07"
+      ],
+      "must_not": true,
+      "status": "missing",
+      "why": "Kev p=0.13"
+     },
+     {
+      "id": 13,
+      "action": "slack_post_message",
+      "target": "C_HANDOFF",
+      "values": [
+       "Any entry for hv_h02, hv_h05, or other non‑candidate conversations"
+      ],
+      "must_not": true,
+      "status": "missing",
+      "why": "Kev p=0.21"
+     }
+    ]
+   },
+   {
+    "task": "support.intercom_sentiment_escalation",
+    "pass": false,
+    "flagged": [
+     {
+      "id": 1,
+      "action": "assign_conversation",
+      "target": "conv_s01",
+      "values": [
+       "Escalation Team"
+      ],
+      "must_not": false,
+      "status": "missing",
+      "why": "Kev p=0.22"
+     },
+     {
+      "id": 3,
+      "action": "assign_conversation",
+      "target": "conv_s02",
+      "values": [
+       "Escalation Team"
+      ],
+      "must_not": false,
+      "status": "missing",
+      "why": "Kev p=0.23"
+     },
+     {
+      "id": 6,
+      "action": "assign_conversation",
+      "target": "conv_s04",
+      "values": [
+       "Escalation Team"
+      ],
+      "must_not": false,
+      "status": "missing",
+      "why": "Kev p=0.22"
+     },
+     {
+      "id": 9,
+      "action": "assign_conversation",
+      "target": "conv_s05",
+      "values": [
+       "Escalation Team"
+      ],
+      "must_not": false,
+      "status": "missing",
+      "why": "target not in any write (code)"
+     },
+     {
+      "id": 10,
+      "action": "add_note",
+      "target": "conv_s05",
+      "values": [
+       "Escalated per Sentiment Policy (angry - Critical severity)"
+      ],
+      "must_not": false,
+      "status": "missing",
+      "why": "target not in any write (code)"
+     },
+     {
+      "id": 11,
+      "action": "create_issue",
+      "target": "conv_s05",
+      "values": [
+       "Conversation ID: conv_s05",
+       "Tag: angry",
+       "Severity: Critical"
+      ],
+      "must_not": false,
+      "status": "missing",
+      "why": "target not in any write (code)"
+     },
+     {
+      "id": 12,
+      "action": "post_slack_message",
+      "target": "C_ESC",
+      "values": [
+       "Escalated 4 conversations:",
+       "conv_s01 (frustrated – High)",
+       "conv_s02 (angry – Critical)",
+       "conv_s04 (disappointed – Medium)",
+       "conv_s05 (angry – Critical)",
+       "Severity totals – High:1, Critical:2, Medium:1"
+      ],
+      "must_not": false,
+      "status": "missing",
+      "why": "Kev p=0.44"
+     },
+     {
+      "id": 13,
+      "action": "add_note",
+      "target": "conv_s01",
+      "values": [
+       "Escalated per Sentiment Policy (frustrated - High severity)"
+      ],
+      "must_not": true,
+      "status": "missing",
+      "why": "target not in any write (code)"
+     },
+     {
+      "id": 14,
+      "action": "assign_conversation",
+      "target": "conv_s03",
+      "values": [
+       "Escalation Team"
+      ],
+      "must_not": true,
+      "status": "missing",
+      "why": "Kev p=0.22"
+     },
+     {
+      "id": 15,
+      "action": "add_note",
+      "target": "conv_s03",
+      "values": [
+       "Escalated per Sentiment Policy (frustrated - High severity)"
+      ],
+      "must_not": true,
+      "status": "missing",
+      "why": "Kev p=0.10"
+     },
+     {
+      "id": 16,
+      "action": "create_issue",
+      "target": "conv_s03",
+      "values": [
+       "Conversation ID: conv_s03",
+       "Tag: frustrated",
+       "Severity: High"
+      ],
+      "must_not": true,
+      "status": "missing",
+      "why": "Kev p=0.21"
+     },
+     {
+      "id": 17,
+      "action": "assign_conversation",
+      "target": "conv_s06",
+      "values": [
+       "Escalation Team"
+      ],
+      "must_not": true,
+      "status": "missing",
+      "why": "Kev p=0.24"
+     },
+     {
+      "id": 18,
+      "action": "add_note",
+      "target": "conv_s06",
+      "values": [
+       "Escalated per Sentiment Policy (angry - Critical severity)"
+      ],
+      "must_not": true,
+      "status": "missing",
+      "why": "Kev p=0.14"
+     },
+     {
+      "id": 19,
+      "action": "create_issue",
+      "target": "conv_s06",
+      "values": [
+       "Conversation ID: conv_s06",
+       "Tag: angry",
+       "Severity: Critical"
+      ],
+      "must_not": true,
+      "status": "missing",
+      "why": "Kev p=0.21"
+     }
+    ]
+   },
+   {
+    "task": "support.zoho_freshdesk_escalation",
+    "pass": false,
+    "flagged": [
+     {
+      "id": 1,
+      "action": "add_comment",
+      "target": "zoho_ticket:zd_801",
+      "values": [
+       "Escalated to L2"
+      ],
+      "must_not": false,
+      "status": "missing",
+      "why": "target not in any write (code)"
+     },
+     {
+      "id": 2,
+      "action": "create_ticket",
+      "target": "freshdesk",
+      "values": [
+       "subject: L2 Escalation: Data corruption in exports",
+       "description: CSV exports contain corrupted UTF-8 characters.",
+       "priority_code: 3",
+       "label: High",
+       "requester_email: jun@datacompany.com"
+      ],
+      "must_not": false,
+      "status": "missing",
+      "why": "Kev p=0.41"
+     },
+     {
+      "id": 3,
+      "action": "add_comment",
+      "target": "zoho_ticket:zd_802",
+      "values": [
+       "Escalated to L2"
+      ],
+      "must_not": false,
+      "status": "missing",
+      "why": "target not in any write (code)"
+     },
+     {
+      "id": 4,
+      "action": "create_ticket",
+      "target": "freshdesk",
+      "values": [
+       "subject: L2 Escalation: Slow dashboard loading",
+       "description: Dashboard takes 30+ seconds to load.",
+       "priority_code: 2",
+       "label: Medium",
+       "requester_email: maria@analytics.co"
+      ],
+      "must_not": false,
+      "status": "missing",
+      "why": "Kev p=0.41"
+     },
+     {
+      "id": 5,
+      "action": "add_comment",
+      "target": "zoho_ticket:zd_805",
+      "values": [
+       "Escalated to L2"
+      ],
+      "must_not": false,
+      "status": "missing",
+      "why": "target not in any write (code)"
+     },
+     {
+      "id": 6,
+      "action": "create_ticket",
+      "target": "freshdesk",
+      "values": [
+       "subject: L2 Escalation: Authentication tokens expiring",
+       "description: Auth tokens expire too quickly.",
+       "priority_code: 3",
+       "label: High",
+       "requester_email: lisa@authtech.com"
+      ],
+      "must_not": false,
+      "status": "missing",
+      "why": "Kev p=0.43"
+     },
+     {
+      "id": 7,
+      "action": "add_comment",
+      "target": "zoho_ticket:zd_806",
+      "values": [
+       "Escalated to L2"
+      ],
+      "must_not": false,
+      "status": "missing",
+      "why": "target not in any write (code)"
+     },
+     {
+      "id": 8,
+      "action": "create_ticket",
+      "target": "freshdesk",
+      "values": [
+       "subject: L2 Escalation: Slow report generation",
+       "description: Reports take too long to generate.",
+       "priority_code: 1",
+       "label: Low",
+       "requester_email: marco@slowco.com"
+      ],
+      "must_not": false,
+      "status": "missing",
+      "why": "Kev p=0.38"
+     },
+     {
+      "id": 9,
+      "action": "post_message",
+      "target": "slack_channel:C_esc",
+      "values": [
+       "Escalated Zoho tickets to Freshdesk L2:",
+       "- zd_801 (Data corruption in exports) → Freshdesk ticket created with priority High (code 3)",
+       "- zd_802 (Slow dashboard loading) → Freshdesk ticket created with priority Medium (code 2)",
+       "- zd_805 (Authentication tokens expiring) → Freshdesk ticket created with priority High (code 3)",
+       "- zd_806 (Slow report generation) → Freshdesk ticket created with priority Low (code 1)",
+       "All comments added: \"Escalated to L2\"."
+      ],
+      "must_not": false,
+      "status": "missing",
+      "why": "Kev p=0.47"
+     }
+    ]
+   }
+  ]
+ },
+ "C3": {
+  "runs": 31,
+  "flagged": 106,
+  "precision": 0.264,
+  "recall": 0.647,
+  "failed_checks": 68,
+  "flags_on_passed_runs": 44,
+  "passed_runs": 16,
+  "usage": {
+   "gemini": {
+    "calls": 60,
+    "input_tokens": 253165,
+    "output_tokens": 81896
+   },
+   "oss": {
+    "calls": 93,
+    "input_tokens": 396802,
+    "output_tokens": 130260
+   }
+  },
+  "kev": {
+   "calls": 167,
+   "errors": 0,
+   "cost": 0.009814980000000004
+  },
+  "per_run": [
+   {
+    "task": "finance.airtable_expense_approval",
+    "pass": false,
+    "flagged": [
+     {
+      "id": 1,
+      "action": "update_record",
+      "target": "airtable_d5d79f0cf78f4423bbfe66b20136e999",
+      "values": [
+       "Status: Approved"
+      ],
+      "must_not": false,
+      "status": "missing",
+      "why": "No update_record was performed on the required target airtable_d5d79f0cf78f4423bbfe66b20136e999 with Status: Approved."
+     },
+     {
+      "id": 2,
+      "action": "send_email",
+      "target": "[submitter email for record airtable_d5d79f0cf78f4423bbfe66b20136e999]",
+      "values": [
+       "Subject: Expense Approved",
+       "Body: Your expense request has been approved."
+      ],
+      "must_not": false,
+      "status": "missing",
+      "why": "No send_email action was executed to the submitter email for the required record."
+     },
+     {
+      "id": 3,
+      "action": "update_record",
+      "target": "airtable_d5d79f0cf78f4423bbfe66b20136e999",
+      "values": [
+       "Status: Rejected",
+       "Reason: [rejection reason based on guidelines]"
+      ],
+      "must_not": false,
+      "status": "missing",
+      "why": "No update_record was performed on the required target airtable_d5d79f0cf78f4423bbfe66b20136e999 with Status: Rejected and a rejection reason."
+     },
+     {
+      "id": 4,
+      "action": "send_email",
+      "target": "[submitter email for record airtable_d5d79f0cf78f4423bbfe66b20136e999]",
+      "values": [
+       "Subject: Expense Rejected",
+       "Body: Your expense request has been rejected. Reason: [rejection reason based on guidelines]"
+      ],
+      "must_not": false,
+      "status": "missing",
+      "why": "No send_email action was executed to the submitter email for the required record with a rejection subject/body."
+     },
+     {
+      "id": 5,
+      "action": "update_record",
+      "target": "airtable_*equipment_over_2000*",
+      "values": [
+       "Status: Hold"
+      ],
+      "must_not": false,
+      "status": "missing",
+      "why": "No update_record was performed on any record matching airtable_*equipment_over_2000* with Status: Hold."
+     }
+    ]
+   },
+   {
+    "task": "finance.bad_debt_writeoff",
+    "pass": false,
+    "flagged": [
+     {
+      "id": 1,
+      "action": "send_email",
+      "target": "alice@company.example.com",
+      "values": [
+       "Subject: Bad Debt Write-Off Notification",
+       "Body: Dear Alice,\n\nThe following invoice has been approved for write‑off per the Bad Debt Write‑Off Policy:\n\nCustomer: Defunct Co\nInvoice #: INV-6001\nAmount: $8,400\nDays Past Due: 185\nCollection Attempts: 4\nLast Payment: 2025-08-10\n\nPlease update your records accordingly.\n\nRegards,\nFinance Team"
+      ],
+      "must_not": false,
+      "status": "wrong",
+      "why": "Email sent to alice@company.example.com, but subject and body do not match the required values. The subject includes extra text and the body uses a different greeting and format."
+     },
+     {
+      "id": 2,
+      "action": "send_email",
+      "target": "eve@company.example.com",
+      "values": [
+       "Subject: Bad Debt Write-Off Notification",
+       "Body: Dear Eve,\n\nThe following invoice has been approved for write‑off per the Bad Debt Write‑Off Policy:\n\nCustomer: NoReply Corp\nInvoice #: INV-6005\nAmount: $4,100\nDays Past Due: 130\nCollection Attempts: 3\nLast Payment: 2025-10-01\n\nPlease update your records accordingly.\n\nRegards,\nFinance Team"
+      ],
+      "must_not": false,
+      "status": "wrong",
+      "why": "Email sent to eve@company.example.com, but subject and body differ from the required strings. The subject has extra details and the body uses a different greeting and layout."
+     },
+     {
+      "id": 3,
+      "action": "send_email",
+      "target": "cfo@company.example.com",
+      "values": [
+       "Subject: Bad Debt Write‑Off Report",
+       "Body: Dear CFO,\n\nPlease find below the list of invoices written off during this review:\n\n1. Customer: Defunct Co | Invoice #: INV-6001 | Amount: $8,400 | Sales Rep: alice@company.example.com\n2. Customer: NoReply Corp | Invoice #: INV-6005 | Amount: $4,100 | Sales Rep: eve@company.example.com\n\nAll write‑offs meet the criteria outlined in the Bad Debt Write‑Off Policy.\n\nRegards,\nFinance Team"
+      ],
+      "must_not": false,
+      "status": "wrong",
+      "why": "Email sent to cfo@company.example.com, but the body content does not match the required list format. The message uses a different wording and structure."
+     },
+     {
+      "id": 4,
+      "action": "post_slack_message",
+      "target": "C_FIN_ALERTS",
+      "values": [
+       "Bad Debt Write‑Offs completed:\n• Defunct Co – INV-6001 – $8,400 (Sales Rep: alice@company.example.com)\n• NoReply Corp – INV-6005 – $4,100 (Sales Rep: eve@company.example.com)"
+      ],
+      "must_not": false,
+      "status": "wrong",
+      "why": "Slack message posted to channel C_FIN_ALERTS, but the text differs from the required concise list. The posted message contains a longer description and different formatting."
+     }
+    ]
+   },
+   {
+    "task": "finance.invoice_file_organization",
+    "pass": true,
+    "flagged": [
+     {
+      "id": 1,
+      "action": "add_row",
+      "target": "Spreadsheet ss_inv_registry, worksheet ws_registry",
+      "values": [
+       "Invoice: ACM-2026-0088, Vendor: Acme Supplies, Amount: $3,400",
+       "Invoice: TS-22104, Vendor: TechServe Solutions, Amount: $11,200",
+       "Invoice: BI-5501, Vendor: Bright Ideas Studio, Amount: $2,750"
+      ],
+      "must_not": false,
+      "note": "Rows already exist; this effect is a no‑op but must not create duplicate entries.",
+      "status": "wrong",
+      "why": "The required effect is a no‑op because the rows already exist; the assistant added three new rows, creating duplicates."
+     },
+     {
+      "id": 3,
+      "action": "add_row",
+      "target": "Spreadsheet ss_inv_registry, worksheet ws_registry",
+      "values": [],
+      "must_not": true,
+      "note": "Do not add duplicate rows for invoices that are already present.",
+      "status": "wrong",
+      "why": "This is a must‑not effect (no duplicate rows). The assistant added rows that already exist, violating the constraint."
+     }
+    ]
+   },
+   {
+    "task": "finance.qb_bill_payment_batch",
+    "pass": true,
+    "flagged": [
+     {
+      "id": 1,
+      "action": "create_payment",
+      "target": "QuickBooks BillPayment BL-501",
+      "values": [
+       "Bill # BL-501",
+       "Amount $4,200"
+      ],
+      "must_not": true,
+      "status": "wrong",
+      "why": "A QuickBooks bill payment was created for BL-501 (amount $4,116 with discount) whereas the requirement was a must‑not effect for BL‑501 with amount $4,200."
+     },
+     {
+      "id": 2,
+      "action": "create_payment",
+      "target": "QuickBooks BillPayment BL-502",
+      "values": [
+       "Bill # BL-502",
+       "Amount $9,600"
+      ],
+      "must_not": true,
+      "status": "wrong",
+      "why": "A QuickBooks bill payment was created for BL-502 (amount $9,600) but the requirement specified that no payment should be created for BL‑502."
+     },
+     {
+      "id": 5,
+      "action": "create_payment",
+      "target": "QuickBooks BillPayment BL-505",
+      "values": [
+       "Bill # BL-505",
+       "Amount $62,000"
+      ],
+      "must_not": true,
+      "status": "wrong",
+      "why": "Two QuickBooks bill payments were created for BL-505 (split $31,000 + $31,000) whereas the requirement was a must‑not effect for BL‑505."
+     },
+     {
+      "id": 6,
+      "action": "post_message",
+      "target": "Slack channel C_AP (#accounts-payable)",
+      "values": [
+       "Payment run summary: No bills were paid this week as none were due within the next 7 days."
+      ],
+      "must_not": false,
+      "status": "wrong",
+      "why": "A Slack message was posted to channel C_AP, but its content lists processed payments instead of the required summary text: \"Payment run summary: No bills were paid this week as none were due within the next 7 days.\""
+     }
+    ]
+   },
+   {
+    "task": "finance.qb_sales_receipt_batch",
+    "pass": true,
+    "flagged": [
+     {
+      "id": 1,
+      "action": "create_sales_receipt",
+      "target": "quickbooks",
+      "values": [
+       "CustomerRef: qc_orchid",
+       "DocNumber: TXN-5002",
+       "TxnDate: 2026-04-10",
+       "Subtotal: $500.00",
+       "TaxRate: 0.06",
+       "Tax: $30.00",
+       "Total: $530.00"
+      ],
+      "must_not": false,
+      "status": "wrong",
+      "why": "Sales receipt was created for qc_orchid TXN-5002 but only the line amount (subtotal) was provided; required tax rate, tax amount and total including tax are missing."
+     },
+     {
+      "id": 2,
+      "action": "create_sales_receipt",
+      "target": "quickbooks",
+      "values": [
+       "CustomerRef: qc_juniper",
+       "DocNumber: TXN-5004",
+       "TxnDate: 2026-04-10",
+       "Subtotal: $800.00",
+       "TaxRate: 0.07",
+       "Tax: $56.00",
+       "Total: $856.00"
+      ],
+      "must_not": false,
+      "status": "wrong",
+      "why": "Sales receipt was created for qc_juniper TXN-5004 without the required tax rate, tax amount, and total (only subtotal $800.00 was recorded)."
+     },
+     {
+      "id": 3,
+      "action": "create_sales_receipt",
+      "target": "quickbooks",
+      "values": [
+       "CustomerRef: qc_beacon",
+       "DocNumber: TXN-5005",
+       "TxnDate: 2026-04-10",
+       "Subtotal: $300.00",
+       "TaxRate: 0.08",
+       "Tax: $24.00",
+       "Total: $324.00"
+      ],
+      "must_not": false,
+      "status": "wrong",
+      "why": "Sales receipt was created for qc_beacon TXN-5005 but tax rate, tax amount, and total (including tax) were not included."
+     },
+     {
+      "id": 4,
+      "action": "skip_creation",
+      "target": "quickbooks",
+      "values": [
+       "DocNumber: TXN-5001",
+       "Reason: sales receipt already exists"
+      ],
+      "must_not": true,
+      "status": "wrong",
+      "why": "A sales receipt was created for TXN-5001 (qc_helix) whereas the requirement was to skip creation (must_not = true)."
+     },
+     {
+      "id": 5,
+      "action": "send_email",
+      "target": "manager@company.example.com",
+      "values": [
+       "Subject: Daily POS Summary",
+       "Body: Subtotal across all included transactions: $2,600.00",
+       "Body: Total tax: $190.00",
+       "Body: Grand total (subtotal + tax): $2,790.00",
+       "Body: Transaction count: 4"
+      ],
+      "must_not": false,
+      "status": "wrong",
+      "why": "Email was sent but the subject does not match the required \"Daily POS Summary\"; therefore the effect does not meet the specification."
+     }
+    ]
+   },
+   {
+    "task": "finance.qb_void_stale_invoices",
+    "pass": true,
+    "flagged": [
+     {
+      "id": 1,
+      "action": "quickbooks_void_invoice",
+      "target": "qi_602",
+      "values": [
+       "Id: qi_602",
+       "DocNumber: INV-OLD-002",
+       "Reason: Stale invoice void per policy"
+      ],
+      "must_not": false,
+      "status": "wrong",
+      "why": "Invoice qi_602 was voided, but the required values (including the Reason) were not supplied in the action."
+     },
+     {
+      "id": 2,
+      "action": "quickbooks_void_invoice",
+      "target": "qi_604",
+      "values": [
+       "Id: qi_604",
+       "DocNumber: INV-OLD-004",
+       "Reason: Stale invoice void per policy"
+      ],
+      "must_not": false,
+      "status": "missing",
+      "why": "No quickbooks_void_invoice action was performed for invoice qi_604."
+     },
+     {
+      "id": 3,
+      "action": "email_send",
+      "target": "bob@company.example.com",
+      "values": [
+       "To: bob@company.example.com",
+       "Subject: Invoice INV-OLD-002 voided",
+       "Body: The following invoice has been voided per policy.\nId: qi_602\nDocNumber: INV-OLD-002\nTxnDate: 2025-06-15\nCustomer: DeadLead Inc\nTotalAmt: 3200\nBalance: 3200\nReason: Stale invoice void per policy"
+      ],
+      "must_not": false,
+      "status": "wrong",
+      "why": "An email was sent to bob@company.example.com, but the subject and body do not match the required values (different subject line and missing detailed body with Reason)."
+     },
+     {
+      "id": 4,
+      "action": "email_send",
+      "target": "dave@company.example.com",
+      "values": [
+       "To: dave@company.example.com",
+       "Subject: Invoice INV-OLD-004 voided",
+       "Body: The following invoice has been voided per policy.\nId: qi_604\nDocNumber: INV-OLD-004\nTxnDate: 2025-08-20\nCustomer: GhostCo\nTotalAmt: 4200\nBalance: 4200\nReason: Stale invoice void per policy"
+      ],
+      "must_not": false,
+      "status": "missing",
+      "why": "No email_send action was performed for dave@company.example.com."
+     },
+     {
+      "id": 5,
+      "action": "slack_post_message",
+      "target": "C_BILLING",
+      "values": [
+       "Channel: #billing",
+       "Message: Voided invoices summary:\n- INV-OLD-002 (Id: qi_602) Customer: DeadLead Inc TotalAmt: 3200 Balance: 3200 Reason: Stale invoice void per policy\n- INV-OLD-004 (Id: qi_604) Customer: GhostCo TotalAmt: 4200 Balance: 4200 Reason: Stale invoice void per policy"
+      ],
+      "must_not": false,
+      "status": "wrong",
+      "why": "A Slack channel message was posted to C_BILLING, but its content differs from the required summary message."
+     },
+     {
+      "id": 8,
+      "action": "email_send",
+      "target": "alice@company.example.com",
+      "values": [],
+      "must_not": true,
+      "status": "wrong",
+      "why": "An email was sent to alice@company.example.com, which was a must-not action."
+     }
+    ]
+   },
+   {
+    "task": "finance.vendor_insurance_verification",
+    "pass": false,
+    "flagged": [
+     {
+      "id": 2,
+      "action": "send_email",
+      "target": "compliance@acme.example.com",
+      "values": [
+       "Subject: Insurance Certificate Expiry Notification",
+       "Body: Vendor: Acme Supplies\nCertificate Expiry: 2026-03-01"
+      ],
+      "must_not": false,
+      "status": "wrong",
+      "why": "Email sent to compliance@acme.example.com, but the subject and body do not match the required values. Subject is different and body contains extra content."
+     },
+     {
+      "id": 3,
+      "action": "post_message",
+      "target": "Slack channel C_VENDOR (#vendor-management)",
+      "values": [
+       "Compliance Report:",
+       "- Notified vendor Acme Supplies (Certificate Expiry: 2026-03-01) of upcoming expiration.",
+       "- Updated status of Metro Supply to Non-Compliant (Certificate Expiry: 2026-01-31)."
+      ],
+      "must_not": false,
+      "status": "wrong",
+      "why": "Message posted to Slack channel C_VENDOR, but the text does not match the required values. The heading and bullet format differ from the specification."
+     },
+     {
+      "id": 4,
+      "action": "send_email",
+      "target": "compliance@company.example.com",
+      "values": [
+       "Subject: Vendor Insurance Compliance Report",
+       "Body: Compliance Report:\n- Notified vendor Acme Supplies (Certificate Expiry: 2026-03-01) of upcoming expiration.\n- Updated status of Metro Supply to Non-Compliant (Certificate Expiry: 2026-01-31)."
+      ],
+      "must_not": false,
+      "status": "wrong",
+      "why": "Email sent to compliance@company.example.com has the correct subject, but the body content does not match the required report format and details."
+     }
+    ]
+   },
+   {
+    "task": "hr.airtable_skills_matrix",
+    "pass": true,
+    "flagged": []
+   },
+   {
+    "task": "hr.buddy_assignment",
+    "pass": false,
+    "flagged": [
+     {
+      "id": 3,
+      "action": "send_email",
+      "target": "email",
+      "values": [
+       "to=li.wei@company.example.com",
+       "subject=Onboarding Buddy Assignment",
+       "body=Hello Li Wei,\n\nYou have been assigned Carlos Mendoza (carlos.mendoza@company.example.com) as your onboarding buddy.\n\nBest,\nHR Team"
+      ],
+      "must_not": false,
+      "status": "wrong",
+      "why": "An email was sent to li.wei@company.example.com but the subject and body do not match the required values."
+     },
+     {
+      "id": 4,
+      "action": "send_email",
+      "target": "email",
+      "values": [
+       "to=carlos.mendoza@company.example.com",
+       "subject=New Onboarding Buddy Assignment",
+       "body=Hello Carlos Mendoza,\n\nYou have been assigned as the onboarding buddy for Li Wei (li.wei@company.example.com).\n\nBest,\nHR Team"
+      ],
+      "must_not": false,
+      "status": "wrong",
+      "why": "An email was sent to carlos.mendoza@company.example.com but the subject and body do not match the required values."
+     },
+     {
+      "id": 5,
+      "action": "send_email",
+      "target": "email",
+      "values": [
+       "to=li.weichen@company.example.com",
+       "subject=Onboarding Buddy Assignment",
+       "body=Hello Li Wei-Chen,\n\nYou have been assigned Sandra Liu (sandra.liu@company.example.com) as your onboarding buddy.\n\nBest,\nHR Team"
+      ],
+      "must_not": false,
+      "status": "wrong",
+      "why": "An email was sent to li.weichen@company.example.com but the subject and body do not match the required values."
+     },
+     {
+      "id": 6,
+      "action": "send_email",
+      "target": "email",
+      "values": [
+       "to=sandra.liu@company.example.com",
+       "subject=New Onboarding Buddy Assignment",
+       "body=Hello Sandra Liu,\n\nYou have been assigned as the onboarding buddy for Li Wei-Chen (li.weichen@company.example.com).\n\nBest,\nHR Team"
+      ],
+      "must_not": false,
+      "status": "wrong",
+      "why": "An email was sent to sandra.liu@company.example.com but the subject and body do not match the required values."
+     },
+     {
+      "id": 7,
+      "action": "send_email",
+      "target": "email",
+      "values": [
+       "to=vp-sales@company.example.com",
+       "subject=Buddy Assignment Needed for New Hire",
+       "body=Hello,\n\nThere is no eligible onboarding buddy available for the new hire Nora Lindgren (nora.lindgren@company.example.com) in the Sales department. Please assign a suitable buddy manually.\n\nThank you,\nHR Team"
+      ],
+      "must_not": false,
+      "status": "wrong",
+      "why": "An email was sent to vp-sales@company.example.com but the subject and body do not match the required values."
+     },
+     {
+      "id": 8,
+      "action": "assign_buddy",
+      "target": "record",
+      "values": [
+       "new_hire=Li Wei",
+       "buddy=Carlos Mendoza"
+      ],
+      "must_not": false,
+      "status": "missing",
+      "why": "No assign_buddy action recorded for new_hire=Li Wei, buddy=Carlos Mendoza."
+     },
+     {
+      "id": 9,
+      "action": "assign_buddy",
+      "target": "record",
+      "values": [
+       "new_hire=Li Wei-Chen",
+       "buddy=Sandra Liu"
+      ],
+      "must_not": false,
+      "status": "missing",
+      "why": "No assign_buddy action recorded for new_hire=Li Wei-Chen, buddy=Sandra Liu."
+     },
+     {
+      "id": 10,
+      "action": "assign_buddy",
+      "target": "record",
+      "values": [
+       "new_hire=Nora Lindgren",
+       "buddy=none"
+      ],
+      "must_not": false,
+      "status": "missing",
+      "why": "No assign_buddy action recorded for new_hire=Nora Lindgren, buddy=none."
+     }
+    ]
+   },
+   {
+    "task": "hr.compliance_training_enrollment",
+    "pass": true,
+    "flagged": [
+     {
+      "id": 1,
+      "action": "send_email",
+      "target": "alice.park@company.example.com",
+      "values": [
+       "Subject: Your Compliance Training Enrollment",
+       "Body: You have been enrolled in the following sessions:",
+       "Session A (Anti-Harassment): April 1, 2026, 10 AM - 12 PM",
+       "Session B (Data Privacy): April 8, 2026, 2 PM - 4 PM"
+      ],
+      "must_not": false,
+      "status": "wrong",
+      "why": "An email was sent to alice.park@company.example.com, but the subject line and body content do not match the required values (subject should be \"Your Compliance Training Enrollment\" and the body should list the sessions exactly as specified)."
+     },
+     {
+      "id": 2,
+      "action": "send_email",
+      "target": "ravi.sundaram@company.example.com",
+      "values": [
+       "Subject: Your Compliance Training Enrollment",
+       "Body: You have been enrolled in the following sessions:",
+       "Session A (Anti-Harassment): April 1, 2026, 10 AM - 12 PM",
+       "Session C (HIPAA): April 15, 2026, 9 AM - 12 PM"
+      ],
+      "must_not": false,
+      "status": "wrong",
+      "why": "An email was sent to ravi.sundaram@company.example.com, but the subject and body differ from the required values (subject should be \"Your Compliance Training Enrollment\" and the body should list the sessions exactly as required)."
+     },
+     {
+      "id": 3,
+      "action": "send_email",
+      "target": "carol.diaz@company.example.com",
+      "values": [
+       "Subject: Your Compliance Training Enrollment",
+       "Body: You have been enrolled in the following sessions:",
+       "Session A (Anti-Harassment): April 1, 2026, 10 AM - 12 PM",
+       "Session C (HIPAA): April 15, 2026, 9 AM - 12 PM"
+      ],
+      "must_not": false,
+      "status": "wrong",
+      "why": "An email was sent to carol.diaz@company.example.com, but the subject and body do not match the required values (subject should be \"Your Compliance Training Enrollment\" and the body should list the sessions exactly as required)."
+     }
+    ]
+   },
+   {
+    "task": "hr.contractor_renewal",
+    "pass": false,
+    "flagged": [
+     {
+      "id": 1,
+      "action": "update_record",
+      "target": "Google Sheet ss_contractors_5121, worksheet ws_agreements_5121, row_id 2 (Ana Petrova)",
+      "values": [
+       "Status = \"Renewed\""
+      ],
+      "must_not": false,
+      "status": "missing",
+      "why": "No update was performed for row_id 2 (Ana Petrova) to set Status = \"Renewed\"."
+     },
+     {
+      "id": 2,
+      "action": "send_email",
+      "target": "ana.petrova@freelance.example.com",
+      "values": [
+       "Subject: Contractor Agreement Renewal",
+       "Body: Dear Ana,\n\nYour contractor agreement has been renewed and will continue under the existing terms. No changes to the rate have been made.\n\nBest regards,\nHR Ops"
+      ],
+      "must_not": false,
+      "status": "missing",
+      "why": "No email was sent to ana.petrova@freelance.example.com."
+     },
+     {
+      "id": 3,
+      "action": "send_email",
+      "target": "derek.huang@company.example.com",
+      "values": [
+       "Subject: Contractor Agreement Renewal – Ana Petrova",
+       "Body: Dear Derek,\n\nThe agreement for contractor Ana Petrova has been renewed under the existing terms. No rate adjustments were applied.\n\nBest regards,\nHR Ops"
+      ],
+      "must_not": false,
+      "status": "missing",
+      "why": "No email was sent to derek.huang@company.example.com regarding Ana Petrova."
+     },
+     {
+      "id": 5,
+      "action": "send_email",
+      "target": "darius.kim@freelance.example.com",
+      "values": [
+       "Subject: Contractor Agreement Renewal",
+       "Body: Dear Darius,\n\nYour contractor agreement has been renewed and will continue under the existing terms. No changes to the rate have been made.\n\nBest regards,\nHR Ops"
+      ],
+      "must_not": false,
+      "status": "wrong",
+      "why": "Email to darus.kim@freelance.example.com had a subject \"Contractor Agreement Renewal - Darius Kim\" instead of the required exact subject \"Contractor Agreement Renewal\" and the body does not match the required template."
+     },
+     {
+      "id": 6,
+      "action": "send_email",
+      "target": "derek.huang@company.example.com",
+      "values": [
+       "Subject: Contractor Agreement Renewal – Darius Kim",
+       "Body: Dear Derek,\n\nThe agreement for contractor Darius Kim has been renewed under the existing terms. No rate adjustments were applied.\n\nBest regards,\nHR Ops"
+      ],
+      "must_not": false,
+      "status": "missing",
+      "why": "No email was sent to derek.huang@company.example.com about Darius Kim's renewal."
+     },
+     {
+      "id": 8,
+      "action": "send_email",
+      "target": "vp-sales@company.example.com",
+      "values": [
+       "Subject: Renewal Approval Request – Carmen Ruiz (PIP)",
+       "Body: Dear VP,\n\nContractor Carmen Ruiz (Sales) is currently on a Performance Improvement Plan (PIP) and her agreement is set to expire on 2026-04-30. Per policy, we require your approval to proceed with renewal. Please advise.\n\nThank you,\nHR Ops"
+      ],
+      "must_not": false,
+      "status": "wrong",
+      "why": "Email to vp-sales@company.example.com used a different subject and body than the required \"Renewal Approval Request – Carmen Ruiz (PIP)\" template."
+     }
+    ]
+   },
+   {
+    "task": "hr.visa_expiration_monitoring",
+    "pass": true,
+    "flagged": [
+     {
+      "id": 13,
+      "action": "send_email",
+      "target": "immigration-attorney@lawfirm.example.com, akiko.yamamoto@company.example.com",
+      "values": [
+       "Subject: Visa Renewal Initiation Required",
+       "Body: Your H‑1B visa expires within the renewal processing window. Please initiate renewal."
+      ],
+      "must_not": true,
+      "status": "wrong",
+      "why": "An email to immigration‑attorney@lawfirm.example.com and Akiko Yamamoto was sent, violating the must‑not requirement."
+     },
+     {
+      "id": 14,
+      "action": "update_record",
+      "target": "Spreadsheet ss_visa_5118, worksheet ws_visas_5118, row 2 (Akiko Yamamoto)",
+      "values": [
+       "Status = Renewal Initiated"
+      ],
+      "must_not": true,
+      "status": "wrong",
+      "why": "Row 2 (Akiko Yamamoto) was updated to \"Renewal Initiated\", which is prohibited by the must‑not condition."
+     },
+     {
+      "id": 15,
+      "action": "send_email",
+      "target": "immigration-attorney@lawfirm.example.com, chen.wei@company.example.com",
+      "values": [
+       "Subject: Visa Renewal Initiation Required",
+       "Body: Your L‑1 visa expires within the renewal processing window. Please initiate renewal."
+      ],
+      "must_not": true,
+      "status": "wrong",
+      "why": "An email to immigration‑attorney@lawfirm.example.com and Chen Wei was sent, violating the must‑not requirement."
+     },
+     {
+      "id": 16,
+      "action": "update_record",
+      "target": "Spreadsheet ss_visa_5118, worksheet ws_visas_5118, row 4 (Chen Wei)",
+      "values": [
+       "Status = Renewal Initiated"
+      ],
+      "must_not": true,
+      "status": "wrong",
+      "why": "Row 4 (Chen Wei) was updated to \"Renewal Initiated\", which is prohibited by the must‑not condition."
+     }
+    ]
+   },
+   {
+    "task": "marketing.ad_platform_audit",
+    "pass": true,
+    "flagged": [
+     {
+      "id": 5,
+      "action": "send_email",
+      "target": "paid-media-ops@company.example.com",
+      "values": [
+       "subject=Google Ads pause/delete summary",
+       "body=Paused campaigns with CTR < 1%:\\n- Display Prospecting - NA (CTR: 0.6)\\n- Competitor Conquest - SEM (CTR: 0.5)\\n\\nHoliday 2024 was NOT deleted because its lifetime spend (8420.0) exceeds $5,000 and no finance sign‑off was found.\\n\\nAverage CTR across paused campaigns: 0.55"
+      ],
+      "must_not": false,
+      "status": "wrong",
+      "why": "Email was sent to the correct address, but the subject and body do not match the required values. Required subject is \"Google Ads pause/delete summary\" and the body must contain the exact summary text; the sent email uses a different subject and a different body format."
+     }
+    ]
+   },
+   {
+    "task": "marketing.competitor_product_launch",
+    "pass": false,
+    "flagged": [
+     {
+      "id": 1,
+      "action": "post_message",
+      "target": "ch_product",
+      "values": [
+       "Batch CMPBRF-502-Q1 – Competitor Launch Alert: Athenix has launched an AI-powered assistant. Key features: AI-powered assistant. Pricing: $50/user/month add‑on. Available Q2. Segment: Enterprise SaaS."
+      ],
+      "must_not": false,
+      "status": "missing",
+      "why": "No post_message was sent to ch_product with the required Athenix alert."
+     },
+     {
+      "id": 2,
+      "action": "post_message",
+      "target": "ch_sales",
+      "values": [
+       "Batch CMPBRF-502-Q1 – Competitor Launch Alert: Athenix has launched an AI-powered assistant. Key features: AI-powered assistant. Pricing: $50/user/month add‑on. Available Q2. Segment: Enterprise SaaS."
+      ],
+      "must_not": false,
+      "status": "missing",
+      "why": "No post_message was sent to ch_sales with the required Athenix alert."
+     },
+     {
+      "id": 3,
+      "action": "post_message",
+      "target": "ch_product",
+      "values": [
+       "Batch CMPBRF-502-Q1 – Competitor Launch Alert: Zerion has announced an Enterprise tier. Key features: SSO, audit logs. Pricing: $200/user/month. Segment: Enterprise SaaS."
+      ],
+      "must_not": false,
+      "status": "missing",
+      "why": "No post_message was sent to ch_product with the required Zerion alert."
+     },
+     {
+      "id": 4,
+      "action": "post_message",
+      "target": "ch_sales",
+      "values": [
+       "Batch CMPBRF-502-Q1 – Competitor Launch Alert: Zerion has announced an Enterprise tier. Key features: SSO, audit logs. Pricing: $200/user/month. Segment: Enterprise SaaS."
+      ],
+      "must_not": false,
+      "status": "missing",
+      "why": "No post_message was sent to ch_sales with the required Zerion alert."
+     },
+     {
+      "id": 5,
+      "action": "post_message",
+      "target": "ch_blog",
+      "values": [
+       "Please prepare a counter‑narrative blog post for competitor Athenix. Use code COMP-RESP-ATHENIX-Q1. Include key features and pricing."
+      ],
+      "must_not": false,
+      "status": "missing",
+      "why": "No post_message was sent to ch_blog requesting a counter‑narrative blog post for Athenix."
+     },
+     {
+      "id": 6,
+      "action": "post_message",
+      "target": "ch_blog",
+      "values": [
+       "Please prepare a counter‑narrative blog post for competitor Zerion. Use code COMP-RESP-ZERION-Q1. Include key features and pricing."
+      ],
+      "must_not": false,
+      "status": "missing",
+      "why": "No post_message was sent to ch_blog requesting a counter‑narrative blog post for Zerion."
+     }
+    ]
+   },
+   {
+    "task": "marketing.content_expiration_alert",
+    "pass": true,
+    "flagged": [
+     {
+      "id": 1,
+      "action": "send_email",
+      "target": "campaigns@company.example.com",
+      "values": [
+       "Subject: Content Expiration Alert - January Batch",
+       "Body: Hi,\n\nThe following content assets are expiring soon and need your attention:\n\nPriority: Standard\n- Q4 Promo Banner - Expires: 2026-02-10\n\nBatch: CXPA-227-Q1\n\nPlease review and take action on these items."
+      ],
+      "must_not": false,
+      "status": "wrong",
+      "why": "The email was sent to the correct target, but the subject and body do not match the required values. The body contains additional priorities and items beyond the required 'Priority: Standard' and the single Q4 Promo Banner entry."
+     }
+    ]
+   },
+   {
+    "task": "marketing.customer_milestone",
+    "pass": true,
+    "flagged": [
+     {
+      "id": 1,
+      "action": "send_email",
+      "target": "owner@meridian.example.com",
+      "values": [
+       "Subject: Congratulations on your 1-year anniversary!",
+       "Body includes: customer_id: C001",
+       "company: Meridian Labs",
+       "start_date: 2025-02-15",
+       "tracking_code: CMILE-881-Q1",
+       "thank_you_offer: (as per ops email)"
+      ],
+      "must_not": true,
+      "status": "wrong",
+      "why": "An email was sent to owner@meridian.example.com, which violates the must-not requirement."
+     },
+     {
+      "id": 4,
+      "action": "add_log_row",
+      "target": "ss_milestones!ws_log",
+      "values": [
+       "customer_id: C001",
+       "company: Meridian Labs",
+       "milestone: 1-year",
+       "date_reached: 2026-02-15",
+       "outreach_sent: Yes"
+      ],
+      "must_not": true,
+      "status": "wrong",
+      "why": "A log row was added to ss_milestones!ws_log for customer C001, which violates the must-not requirement."
+     }
+    ]
+   },
+   {
+    "task": "marketing.google_ads_pause_low_ctr",
+    "pass": true,
+    "flagged": []
+   },
+   {
+    "task": "marketing.landing_page_conversion",
+    "pass": false,
+    "flagged": [
+     {
+      "id": 1,
+      "action": "send_email",
+      "target": "web-team@company.example.com",
+      "values": [
+       "Subject: Landing Page Analysis Report LP-RPT-5528",
+       "Body:",
+       "Landing Page Analysis Report (LP-RPT-5528)",
+       "",
+       "Free Trial: visits 8500, conversions 680, conversion_rate 8.0%",
+       "Demo Request: visits 3200, conversions 45, conversion_rate 1.4% (needs optimization)",
+       "Pricing: visits 12000, conversions 180, conversion_rate 1.5% (needs optimization)",
+       "Webinar Registration: visits 2100, conversions 315, conversion_rate 15.0%",
+       "Ebook Download: visits 4500, conversions 67, conversion_rate 1.5% (needs optimization)",
+       "Case Study: visits 1800, conversions 360, conversion_rate 20.0%",
+       "Contact Sales: visits 5200, conversions 0, conversion_rate 0.0% (critical priority)",
+       "",
+       "Aggregate visits: 37,300",
+       "Aggregate conversions: 1,647",
+       "Overall conversion rate: 4.42%"
+      ],
+      "must_not": false,
+      "status": "wrong",
+      "why": "Email was sent to the correct target, but the subject line and body content do not match the required values. The required subject \"Subject: Landing Page Analysis Report LP-RPT-5528\" and the specific list of body lines (e.g., visit and conversion metrics, aggregate totals) are missing; the sent email contains different metrics and formatting."
+     }
+    ]
+   },
+   {
+    "task": "marketing.linkedin_company_update",
+    "pass": false,
+    "flagged": [
+     {
+      "id": 1,
+      "action": "linkedin_create_post",
+      "target": "company:li_nimbus",
+      "values": [
+       "🚀 Join us for our upcoming webinar \"AI in Customer Support\"! 🎙️\n\n📅 Date: (insert date)\n🕒 Time: (insert time)\n\n🔗 Register now: https://company.example.com/webinar-register\n\nThis session is designed for #CustomerSupport leaders looking to leverage AI to improve response times, reduce costs, and boost satisfaction. Don't miss the chance to learn from industry experts and see real‑world use cases.\n\n#AI #CustomerSupport #Webinar #Nimbus"
+      ],
+      "must_not": false,
+      "status": "wrong",
+      "why": "The required effect expects a `linkedin_create_post` to the company `li_nimbus` with the exact text provided in the `values` array. The assistant used a different action (`linkedin_create_company_update`), and the posted content differs from the required text, so both the action and the values are incorrect."
+     }
+    ]
+   },
+   {
+    "task": "marketing.seo_brief_prioritization",
+    "pass": false,
+    "flagged": [
+     {
+      "id": 5,
+      "action": "send_email",
+      "target": "seo-lead@company.example.com",
+      "values": [
+       "Subject: SEO Briefs Ready - SEOBR-2026-W04",
+       "Body:",
+       "Batch Reference: SEOBR-2026-W04",
+       "Audit Tracking Code: SEOBRF-221-Q1",
+       "Total Briefs Created: 2",
+       "Pages and Primary Keywords:",
+       "- AI Helpdesk: ai helpdesk software",
+       "- Workflow Analytics: process analytics tools"
+      ],
+      "must_not": false,
+      "status": "wrong",
+      "why": "The email sent has an incorrect subject (\"SEO Brief Selections - SEOBR-2026-W04\" instead of \"SEO Briefs Ready - SEOBR-2026-W04\"), includes an extra page (Team Collaboration) and reports 3 briefs instead of the required 2."
+     }
+    ]
+   },
+   {
+    "task": "marketing.video_repurpose",
+    "pass": false,
+    "flagged": []
+   },
+   {
+    "task": "operations.invoice_shipping_trigger",
+    "pass": false,
+    "flagged": [
+     {
+      "id": 2,
+      "action": "send_email",
+      "target": "warehouse@company.example.com",
+      "values": [
+       "subject: Expedited shipment details for INV-2026-0452",
+       "body: Expedited Items for Invoice INV-2026-0452\n- Part Number: WG-4410-EXP, Quantity: 50\n- Part Number: FL-7700-EXP, Quantity: 30\nTotal Expedited Value: $13,600.00"
+      ],
+      "must_not": false,
+      "status": "wrong",
+      "why": "The email was sent to the correct address, but the subject line and body do not match the required values exactly. The subject differs ('Expedited Shipment Details - Invoice INV-2026-0452' vs required 'Expedited shipment details for INV-2026-0452') and the body includes extra greeting and sign‑off text that were not part of the required content."
+     }
+    ]
+   },
+   {
+    "task": "operations.zoom_change_advisory",
+    "pass": true,
+    "flagged": [
+     {
+      "id": 4,
+      "action": "post_message",
+      "target": "Slack channel #it-changes (id: CITCHG)",
+      "values": [
+       "message: CAB Review: Database Migration - Production scheduled for 2026-02-05T16:00:00Z"
+      ],
+      "must_not": false,
+      "status": "wrong",
+      "why": "Slack message was posted, but its content does not match the required exact message \"CAB Review: Database Migration - Production scheduled for 2026-02-05T16:00:00Z\"."
+     }
+    ]
+   },
+   {
+    "task": "sales.calendly_availability_based_routing",
+    "pass": true,
+    "flagged": [
+     {
+      "id": 1,
+      "action": "schedule_event",
+      "target": "Calendly",
+      "values": [
+       "event_type_id: et_demo",
+       "duration_minutes: 45",
+       "date: 2026-01-22",
+       "host_user_id: user_junior"
+      ],
+      "must_not": false,
+      "status": "wrong",
+      "why": "The Calendly event was scheduled with host_id \"user_mike\" instead of the required \"user_junior\" and did not include the required duration_minutes of 45."
+     },
+     {
+      "id": 2,
+      "action": "update_record",
+      "target": "Salesforce Lead lead_new",
+      "values": [
+       "OwnerId: sf_junior (no change, retain current owner as per lead note)"
+      ],
+      "must_not": true,
+      "status": "wrong",
+      "why": "A Salesforce lead update was performed, changing OwnerId to \"sf_mike\"; the required effect was a must‑not update (retain current owner), so any change violates the constraint."
+     }
+    ]
+   },
+   {
+    "task": "sales.call_transcription",
+    "pass": false,
+    "flagged": [
+     {
+      "id": 1,
+      "action": "send_message",
+      "target": "U001ALICE",
+      "values": [
+       "Hi Alice Chen,\n\nFollowing the Discovery Call with Acme Corp, please send the pricing proposal by Friday.\n\nRelevant amount: $150,000."
+      ],
+      "must_not": false,
+      "status": "wrong",
+      "why": "Message was sent to U001ALICE but the text does not match the required value (different greeting, extra wording, and missing the exact phrasing and amount)."
+     },
+     {
+      "id": 2,
+      "action": "send_message",
+      "target": "U002BOB",
+      "values": [
+       "Hi Bob Smith,\n\nFollowing the Discovery Call with Acme Corp, please schedule a technical demo with their IT team.\n\nRelevant amount: $150,000."
+      ],
+      "must_not": false,
+      "status": "wrong",
+      "why": "Message was sent to U002BOB but the text differs from the required value (different greeting, extra context, and not the exact phrasing)."
+     },
+     {
+      "id": 3,
+      "action": "send_message",
+      "target": "U003CAROL",
+      "values": [
+       "Hi Carol Davis,\n\nFollowing the Discovery Call with Acme Corp, please prepare the ROI analysis case study.\n\nRelevant amount: $150,000."
+      ],
+      "must_not": false,
+      "status": "wrong",
+      "why": "Message was sent to U003CAROL but the content does not match the required text (different greeting and wording)."
+     },
+     {
+      "id": 4,
+      "action": "update_record",
+      "target": "Opportunity:006xx000006OPP1",
+      "values": [
+       "Description: Action items – Alice: Send pricing proposal by Friday; Bob: Schedule technical demo with their IT team; Carol: Prepare ROI analysis case study.",
+       "NextStep: Follow up on action items (pricing proposal, demo scheduling, ROI analysis).",
+       "Amount: 150000"
+      ],
+      "must_not": false,
+      "status": "wrong",
+      "why": "Opportunity record was updated, but the description, next step, and amount fields do not match the required values exactly."
+     },
+     {
+      "id": 5,
+      "action": "post_message",
+      "target": "C001ACME",
+      "values": [
+       "*Discovery Call – Acme Corp* (2024‑01‑15)\n\n**Key discussion points**:\n- Current pain points with legacy system\n- Budget approved for Q2\n- Timeline: 90 days to decision\n\n**Action items**:\n- Alice: Send pricing proposal by Friday\n- Bob: Schedule technical demo with their IT team\n- Carol: Prepare ROI analysis case study\n\n**Opportunity amount**: $150,000"
+      ],
+      "must_not": false,
+      "status": "wrong",
+      "why": "Channel message was posted to C001ACME, but the markdown formatting, date, and exact wording differ from the required message."
+     }
+    ]
+   },
+   {
+    "task": "sales.create_draft_reply",
+    "pass": true,
+    "flagged": [
+     {
+      "id": 1,
+      "action": "gmail_create_draft",
+      "target": "vp.alt@almostbig.example.com",
+      "values": [
+       "Subject: Re: Contract Renewal - AlmostBig Ltd",
+       "Body: Hi Jordan,\n\nThank you for reaching out about the renewal of your Enterprise agreement.\n\n**Affected Entity:** AlmostBig Ltd\n**Opportunity Amount:** $480,000\n**Approved Revenue Adjustments:** 1 (total $50,000)\n**Total Deal Value (Opportunity + Adjustments):** $530,000\n\nWe’ve reviewed the pricing, support, and security components and will prepare a customized proposal that reflects your recent expansion needs. I’ll follow up with the detailed proposal by end of day tomorrow.\n\nBest regards,\n[Your Name]\n[Your Title]\n[Company]"
+      ],
+      "must_not": false,
+      "status": "wrong",
+      "why": "The assistant invoked gmail_create_draft_reply using a thread_id and a brief body, not gmail_create_draft targeting vp.alt@almostbig.example.com with the exact subject and full body required."
+     }
+    ]
+   },
+   {
+    "task": "sales.priority_selection",
+    "pass": false,
+    "flagged": [
+     {
+      "id": 1,
+      "action": "send_email",
+      "target": "r.anderson@apexmfg.example.com",
+      "values": [
+       "subject: Security Advisory",
+       "body: (security advisory content to be provided)"
+      ],
+      "must_not": false,
+      "status": "missing",
+      "why": "No email was sent; the writes list is empty, so the required send_email action with the specified target and values was not performed."
+     }
+    ]
+   },
+   {
+    "task": "support.helpscout_jira_bugs",
+    "pass": true,
+    "flagged": [
+     {
+      "id": 10,
+      "action": "post_slack_message",
+      "target": "slack_channel:C_eng",
+      "values": [
+       "Processed bug reports on 2026-02-07:",
+       "- hs_conv_201 (Dashboard crashes when filtering by date) → Jira: <generated_issue_key>",
+       "- hs_conv_203 (500 error on API endpoint /v2/users) → Jira: <generated_issue_key>"
+      ],
+      "must_not": false,
+      "status": "wrong",
+      "why": "The Slack message posted does not match the required text. The required message should list only two processed bug reports with a specific format, but the posted message lists ten reports and uses a different wording."
+     }
+    ]
+   },
+   {
+    "task": "support.hiver_cross_team_handoff",
+    "pass": true,
+    "flagged": [
+     {
+      "id": 1,
+      "action": "google_sheets_append_row",
+      "target": "ss_handoff!ws_candidates",
+      "values": [
+       "Conversation ID: hv_h01",
+       "Subject: Enterprise account issue - invoice #4821",
+       "Target Team: Finance",
+       "Priority: High",
+       "Status: Pending"
+      ],
+      "must_not": true,
+      "status": "wrong",
+      "why": "A row for hv_h01 was added to ss_handoff!ws_candidates, but this effect was marked must_not true."
+     },
+     {
+      "id": 2,
+      "action": "google_sheets_append_row",
+      "target": "ss_handoff!ws_candidates",
+      "values": [
+       "Conversation ID: hv_h04",
+       "Subject: Possible data exposure in admin panel",
+       "Target Team: Security",
+       "Priority: Critical",
+       "Status: Pending"
+      ],
+      "must_not": true,
+      "status": "wrong",
+      "why": "A row for hv_h04 was added to ss_handoff!ws_candidates, but this effect was marked must_not true."
+     },
+     {
+      "id": 3,
+      "action": "google_sheets_append_row",
+      "target": "ss_handoff!ws_candidates",
+      "values": [
+       "Conversation ID: hv_h08",
+       "Subject: GDPR data retention policy inquiry",
+       "Target Team: Legal",
+       "Priority: High",
+       "Status: Pending"
+      ],
+      "must_not": true,
+      "status": "wrong",
+      "why": "A row for hv_h08 was added to ss_handoff!ws_candidates, but this effect was marked must_not true."
+     },
+     {
+      "id": 4,
+      "action": "google_sheets_append_row",
+      "target": "ss_handoff!ws_candidates",
+      "values": [
+       "Conversation ID: hv_h10",
+       "Subject: Requesting credit for service outage",
+       "Target Team: Finance",
+       "Priority: Medium",
+       "Status: Pending"
+      ],
+      "must_not": true,
+      "status": "wrong",
+      "why": "A row for hv_h10 was added to ss_handoff!ws_candidates, but this effect was marked must_not true."
+     },
+     {
+      "id": 5,
+      "action": "google_sheets_append_row",
+      "target": "ss_handoff!ws_candidates",
+      "values": [
+       "Conversation ID: hv_h13",
+       "Subject: Security audit for compliance review",
+       "Target Team: Security",
+       "Priority: Critical",
+       "Status: Pending"
+      ],
+      "must_not": true,
+      "status": "wrong",
+      "why": "A row for hv_h13 was added to ss_handoff!ws_candidates, but this effect was marked must_not true."
+     },
+     {
+      "id": 6,
+      "action": "gmail_send_email",
+      "target": "maria@company.example.com",
+      "values": [
+       "Subject: Handoff Candidate – hv_h01 – Enterprise account issue - invoice #4821",
+       "Body: Please review the following conversation for handoff.\nBatch_Reference: HANDOFF-Q1-20260210\nConversation ID: hv_h01\nSubject: Enterprise account issue - invoice #4821\nTarget Team: Finance\nPriority: High"
+      ],
+      "must_not": false,
+      "status": "wrong",
+      "why": "Email sent to maria@company.example.com, but subject and body do not match the required values for hv_h01."
+     },
+     {
+      "id": 7,
+      "action": "gmail_send_email",
+      "target": "tom@company.example.com",
+      "values": [
+       "Subject: Handoff Candidate – hv_h04 – Possible data exposure in admin panel",
+       "Body: Please review the following conversation for handoff.\nBatch_Reference: HANDOFF-Q1-20260210\nConversation ID: hv_h04\nSubject: Possible data exposure in admin panel\nTarget Team: Security\nPriority: Critical"
+      ],
+      "must_not": false,
+      "status": "wrong",
+      "why": "Email sent to tom@company.example.com, but subject and body do not match the required values for hv_h04."
+     },
+     {
+      "id": 8,
+      "action": "gmail_send_email",
+      "target": "lisa@company.example.com",
+      "values": [
+       "Subject: Handoff Candidate – hv_h08 – GDPR data retention policy inquiry",
+       "Body: Please review the following conversation for handoff.\nBatch_Reference: HANDOFF-Q1-20260210\nConversation ID: hv_h08\nSubject: GDPR data retention policy inquiry\nTarget Team: Legal\nPriority: High"
+      ],
+      "must_not": false,
+      "status": "wrong",
+      "why": "Email sent to lisa@company.example.com, but subject and body do not match the required values for hv_h08."
+     },
+     {
+      "id": 9,
+      "action": "gmail_send_email",
+      "target": "maria@company.example.com",
+      "values": [
+       "Subject: Handoff Candidate – hv_h10 – Requesting credit for service outage",
+       "Body: Please review the following conversation for handoff.\nBatch_Reference: HANDOFF-Q1-20260210\nConversation ID: hv_h10\nSubject: Requesting credit for service outage\nTarget Team: Finance\nPriority: Medium"
+      ],
+      "must_not": false,
+      "status": "missing",
+      "why": "No separate email with the required subject/body for hv_h10 was sent; it was bundled with another email."
+     },
+     {
+      "id": 10,
+      "action": "gmail_send_email",
+      "target": "tom@company.example.com",
+      "values": [
+       "Subject: Handoff Candidate – hv_h13 – Security audit for compliance review",
+       "Body: Please review the following conversation for handoff.\nBatch_Reference: HANDOFF-Q1-20260210\nConversation ID: hv_h13\nSubject: Security audit for compliance review\nTarget Team: Security\nPriority: Critical"
+      ],
+      "must_not": false,
+      "status": "missing",
+      "why": "No separate email with the required subject/body for hv_h13 was sent; it was bundled with another email."
+     },
+     {
+      "id": 11,
+      "action": "slack_post_message",
+      "target": "C_HANDOFF",
+      "values": [
+       "Handoff Batch: HANDOFF-Q1-20260210\n\nCandidates:\n- hv_h01 | Finance | High | Enterprise account issue - invoice #4821\n- hv_h04 | Security | Critical | Possible data exposure in admin panel\n- hv_h08 | Legal | High | GDPR data retention policy inquiry\n- hv_h10 | Finance | Medium | Requesting credit for service outage\n- hv_h13 | Security | Critical | Security audit for compliance review"
+      ],
+      "must_not": false,
+      "status": "wrong",
+      "why": "Slack message posted to C_HANDOFF, but its text does not exactly match the required values list."
+     }
+    ]
+   },
+   {
+    "task": "support.intercom_sentiment_escalation",
+    "pass": false,
+    "flagged": [
+     {
+      "id": 1,
+      "action": "assign_conversation",
+      "target": "conv_s01",
+      "values": [
+       "Escalation Team"
+      ],
+      "must_not": false,
+      "status": "missing",
+      "why": "No assign_conversation action was performed for conv_s01."
+     },
+     {
+      "id": 2,
+      "action": "create_issue",
+      "target": "conv_s01",
+      "values": [
+       "Conversation ID: conv_s01",
+       "Tag: frustrated",
+       "Severity: High"
+      ],
+      "must_not": false,
+      "status": "wrong",
+      "why": "A Jira issue was created for conv_s01 but the required values (Tag: frustrated) are not present in the issue description."
+     },
+     {
+      "id": 3,
+      "action": "assign_conversation",
+      "target": "conv_s02",
+      "values": [
+       "Escalation Team"
+      ],
+      "must_not": false,
+      "status": "missing",
+      "why": "No assign_conversation action was performed for conv_s02."
+     },
+     {
+      "id": 5,
+      "action": "create_issue",
+      "target": "conv_s02",
+      "values": [
+       "Conversation ID: conv_s02",
+       "Tag: angry",
+       "Severity: Critical"
+      ],
+      "must_not": false,
+      "status": "missing",
+      "why": "No create_issue action was performed for conv_s02."
+     },
+     {
+      "id": 6,
+      "action": "assign_conversation",
+      "target": "conv_s04",
+      "values": [
+       "Escalation Team"
+      ],
+      "must_not": false,
+      "status": "missing",
+      "why": "No assign_conversation action was performed for conv_s04."
+     },
+     {
+      "id": 8,
+      "action": "create_issue",
+      "target": "conv_s04",
+      "values": [
+       "Conversation ID: conv_s04",
+       "Tag: disappointed",
+       "Severity: Medium"
+      ],
+      "must_not": false,
+      "status": "wrong",
+      "why": "A Jira issue was created for conv_s04 but the required Tag (disappointed) is not included."
+     },
+     {
+      "id": 9,
+      "action": "assign_conversation",
+      "target": "conv_s05",
+      "values": [
+       "Escalation Team"
+      ],
+      "must_not": false,
+      "status": "missing",
+      "why": "No assign_conversation action was performed for conv_s05."
+     },
+     {
+      "id": 10,
+      "action": "add_note",
+      "target": "conv_s05",
+      "values": [
+       "Escalated per Sentiment Policy (angry - Critical severity)"
+      ],
+      "must_not": false,
+      "status": "missing",
+      "why": "No add_note action was performed for conv_s05."
+     },
+     {
+      "id": 11,
+      "action": "create_issue",
+      "target": "conv_s05",
+      "values": [
+       "Conversation ID: conv_s05",
+       "Tag: angry",
+       "Severity: Critical"
+      ],
+      "must_not": false,
+      "status": "missing",
+      "why": "No create_issue action was performed for conv_s05."
+     },
+     {
+      "id": 12,
+      "action": "post_slack_message",
+      "target": "C_ESC",
+      "values": [
+       "Escalated 4 conversations:",
+       "conv_s01 (frustrated – High)",
+       "conv_s02 (angry – Critical)",
+       "conv_s04 (disappointed – Medium)",
+       "conv_s05 (angry – Critical)",
+       "Severity totals – High:1, Critical:2, Medium:1"
+      ],
+      "must_not": false,
+      "status": "wrong",
+      "why": "The Slack message posted includes the wrong set of conversations (conv_s08 and conv_s09 instead of conv_s05) and incorrect severity totals."
+     },
+     {
+      "id": 13,
+      "action": "add_note",
+      "target": "conv_s01",
+      "values": [
+       "Escalated per Sentiment Policy (frustrated - High severity)"
+      ],
+      "must_not": true,
+      "status": "wrong",
+      "why": "A note was added to conv_s01, but this effect is marked must_not; the note also has different wording."
+     }
+    ]
+   },
+   {
+    "task": "support.zoho_freshdesk_escalation",
+    "pass": false,
+    "flagged": [
+     {
+      "id": 1,
+      "action": "add_comment",
+      "target": "zoho_ticket:zd_801",
+      "values": [
+       "Escalated to L2"
+      ],
+      "must_not": false,
+      "status": "missing",
+      "why": "No write operation performed for adding comment to zoho_ticket:zd_801."
+     },
+     {
+      "id": 2,
+      "action": "create_ticket",
+      "target": "freshdesk",
+      "values": [
+       "subject: L2 Escalation: Data corruption in exports",
+       "description: CSV exports contain corrupted UTF-8 characters.",
+       "priority_code: 3",
+       "label: High",
+       "requester_email: jun@datacompany.com"
+      ],
+      "must_not": false,
+      "status": "missing",
+      "why": "No write operation performed for creating Freshdesk ticket with the specified values."
+     },
+     {
+      "id": 3,
+      "action": "add_comment",
+      "target": "zoho_ticket:zd_802",
+      "values": [
+       "Escalated to L2"
+      ],
+      "must_not": false,
+      "status": "missing",
+      "why": "No write operation performed for adding comment to zoho_ticket:zd_802."
+     },
+     {
+      "id": 4,
+      "action": "create_ticket",
+      "target": "freshdesk",
+      "values": [
+       "subject: L2 Escalation: Slow dashboard loading",
+       "description: Dashboard takes 30+ seconds to load.",
+       "priority_code: 2",
+       "label: Medium",
+       "requester_email: maria@analytics.co"
+      ],
+      "must_not": false,
+      "status": "missing",
+      "why": "No write operation performed for creating Freshdesk ticket with the specified values."
+     },
+     {
+      "id": 5,
+      "action": "add_comment",
+      "target": "zoho_ticket:zd_805",
+      "values": [
+       "Escalated to L2"
+      ],
+      "must_not": false,
+      "status": "missing",
+      "why": "No write operation performed for adding comment to zoho_ticket:zd_805."
+     },
+     {
+      "id": 6,
+      "action": "create_ticket",
+      "target": "freshdesk",
+      "values": [
+       "subject: L2 Escalation: Authentication tokens expiring",
+       "description: Auth tokens expire too quickly.",
+       "priority_code: 3",
+       "label: High",
+       "requester_email: lisa@authtech.com"
+      ],
+      "must_not": false,
+      "status": "missing",
+      "why": "No write operation performed for creating Freshdesk ticket with the specified values."
+     },
+     {
+      "id": 7,
+      "action": "add_comment",
+      "target": "zoho_ticket:zd_806",
+      "values": [
+       "Escalated to L2"
+      ],
+      "must_not": false,
+      "status": "missing",
+      "why": "No write operation performed for adding comment to zoho_ticket:zd_806."
+     },
+     {
+      "id": 8,
+      "action": "create_ticket",
+      "target": "freshdesk",
+      "values": [
+       "subject: L2 Escalation: Slow report generation",
+       "description: Reports take too long to generate.",
+       "priority_code: 1",
+       "label: Low",
+       "requester_email: marco@slowco.com"
+      ],
+      "must_not": false,
+      "status": "missing",
+      "why": "No write operation performed for creating Freshdesk ticket with the specified values."
+     },
+     {
+      "id": 9,
+      "action": "post_message",
+      "target": "slack_channel:C_esc",
+      "values": [
+       "Escalated Zoho tickets to Freshdesk L2:",
+       "- zd_801 (Data corruption in exports) → Freshdesk ticket created with priority High (code 3)",
+       "- zd_802 (Slow dashboard loading) → Freshdesk ticket created with priority Medium (code 2)",
+       "- zd_805 (Authentication tokens expiring) → Freshdesk ticket created with priority High (code 3)",
+       "- zd_806 (Slow report generation) → Freshdesk ticket created with priority Low (code 1)",
+       "All comments added: \"Escalated to L2\"."
+      ],
+      "must_not": false,
+      "status": "missing",
+      "why": "No write operation performed for posting message to slack_channel:C_esc."
+     }
+    ]
+   }
+  ]
+ }
+}

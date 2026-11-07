@@ -1,0 +1,139 @@
+{
+  "note": "Best measured policy-system configuration per benchmark and agent model (2026-11-04). Code lives on LOCAL branches of ~/dev/cuga-agent-gate (never push); runs use a snapshot of that branch's src/ as CUGA_SRC / --snapshot. Numbers are from changes.md; held-out sets are named. Snapshot branches were committed with hooks off so the code is byte-identical to the snapshot. Each entry names its profile file in benchmarks/policy_eval/profiles/ (key profile). Entries with \"best\": false are named profiles, not measured bests. Run a profile with harness/run.py. In an entry, runner, recipe, switches and env_file are the record of what was measured: those scripts and env files are in launchers/archive/ and run only from the local tag policy/pre-migration-removal (ENVIRONMENT.md).",
+  "profiles": [
+    {
+      "benchmark": "automationbench",
+      "model": "aws/gpt-oss-120b",
+      "name": "B4T-F",
+      "profile": "automationbench-gptoss-b4tf",
+      "gate_branch": "best/automationbench-gptoss-b4tf",
+      "gate_commit": "2107a0756",
+      "env_file": "automationbench/cuga.gptoss.fc.dyn.env",
+      "switches": {
+        "POLICY_SUPERSEDES": "1",
+        "POLICY_DISCOVER": "1",
+        "POLICY_TRACKER": "1",
+        "POLICY_V4": "1",
+        "POLICY_MODEL_NAME": "aws/gpt-oss-120b",
+        "POLICY_TRACKER_MODEL": "aws/gpt-oss-120b"
+      },
+      "runner_args": "--toolset full --arm B",
+      "recipe": "automationbench/run_policy_types.sh <snapshot> <trial> with SUBSET=policy_types_holdout.json ONLY=\"A-F B4T-F\" (cell B4T-F)",
+      "result": "held-out policy_types_holdout.json (35 tasks, 2 trials): partial 42.7% vs CUGA alone 23.8% (+18.9, 24/6 tasks, p=0.001); AA 31.8% vs 12.9%; runs breaking a guardrail 19/64 vs 24/64",
+      "changes": [
+        90,
+        91,
+        92,
+        93
+      ]
+    },
+    {
+      "benchmark": "automationbench",
+      "model": "gcp/gemini-3.8-flash",
+      "name": "A-F (CUGA alone)",
+      "profile": "automationbench-gemini-alone",
+      "gate_branch": "best/automationbench-gemini-alone",
+      "gate_commit": "2107a0756",
+      "env_file": "automationbench/cuga.gemini38.fc.dyn.env",
+      "switches": {},
+      "runner_args": "--toolset full --arm A",
+      "result": "policy_types_holdout2 (pg, 2 trials): 80.9% partial, 53.2% strict, 1 guardrail broken in 60 runs; B4T-F was worse (75.1%, -5.8 paired, 8 better / 13 worse, p = 0.383, 24 broken)",
+      "why_no_policy": "control by agent strength: the policy layer's control hurts a strong agent here"
+    },
+    {
+      "benchmark": "tau2-telecom",
+      "model": "azure/DeepSeek-V4-Pro",
+      "name": "T (SOP tracker v3)",
+      "profile": "tau2-telecom-dsv4-sop-tracker",
+      "gate_branch": "best/tau2-telecom-tracker-sop-trk4",
+      "gate_commit": "81061c37b",
+      "runner": "~/dev/cuga-eval-tau2 branch exp/tau2-policy-runner (9d775dc1) benchmarks/tau2/cuga_runner.py",
+      "switches": {
+        "SOP_TRACKER": "1",
+        "POLICY_TRACKER_MODEL": "aws/gpt-oss-120b"
+      },
+      "recipe": "policy_eval/tau2/launch_paired.py --split test --tag <tag> --snapshot ~/dev/cuga_snapshots/<snap>/src --arms A,T --shards 5 --user-sim openai/Azure/gpt-4.1",
+      "result": "test split 40 tasks x 2 runs: 63.8% -> 76.2% (per task 9 better / 3 worse, p=0.146); test split was seen before the freeze",
+      "do_not_use_for": "rule-type policies: airline test 17/20 -> 11/20"
+    },
+    {
+      "benchmark": "handbook",
+      "model": "azure/DeepSeek-V4-Pro",
+      "name": "L (SOP loop control mode + procedure guide), round 1",
+      "profile": "handbook-dsv4-loop-guide",
+      "gate_branch": "best/handbook-loop-guide-sop-trk1",
+      "gate_commit": "4b3bcb9be",
+      "builds": "policy_eval/builds_handbook/v3",
+      "switches": {
+        "SOP_LOOP": "1",
+        "HOOKS_MODULE": "handbook/guide_hooks.py:make_hooks",
+        "HB_BUILDS": "v3"
+      },
+      "recipe": "CUGA_SRC=<snapshot>/src CUGA_ENV_FILE=cuga.fc.dsv4.env SOP_LOOP=1 HOOKS_MODULE=$PWD/handbook/guide_hooks.py:make_hooks python -I handbook/run_cuga_handbook.py --tasks all --run <run> --arm L --trial <n> -j 3",
+      "result": "3 public tasks, round 1 (hbb, 3 trials): 117/153 (76.5%) vs alone 86/153 (56.2%); pooled 3 rounds 73.4% vs 59.3%; in-sample only"
+    },
+    {
+      "benchmark": "handbook",
+      "model": "aws/gpt-oss-120b",
+      "name": "L (SOP loop control mode + procedure guide with evidence)",
+      "profile": "handbook-gptoss-loop-guide-evidence",
+      "gate_branch": "best/handbook-gptoss-loop",
+      "gate_commit": "42c73e491",
+      "switches": {
+        "SOP_LOOP": "1",
+        "POLICY_LOOP_MODEL": "aws/gpt-oss-120b",
+        "HOOKS_MODULE": "handbook/guide_hooks.py:make_hooks",
+        "POLICY_GUIDE_EVIDENCE": "1",
+        "POLICY_MODEL_NAME": "aws/gpt-oss-120b"
+      },
+      "env_file": "handbook/cuga.fc.gptoss.env",
+      "result": "trial 5 only: 23/51 vs alone 20/51 (discovery 19/51); weak evidence"
+    },
+    {
+      "benchmark": "tau2-telecom",
+      "model": "aws/gpt-oss-120b",
+      "name": "N (SOP navigator) - not measured yet",
+      "profile": "tau2-telecom-gptoss-navigator",
+      "gate_branch": "best/tau2-navigator-exp",
+      "gate_commit": "e7647c57b",
+      "switches": {
+        "SOP_NAVIGATOR": "1",
+        "POLICY_BUILD": "policy_eval/tau2/builds/telecom.json",
+        "SOP_NAVIGATOR_HANDOFF_TEXT": "transferred to a human agent|transferring you to a human",
+        "SOP_NAVIGATOR_HANDOFF_TOOLS": "transfer_to_human_agents"
+      },
+      "switches_note": "SOP_NAVIGATOR_HANDOFF_TEXT and SOP_NAVIGATOR_HANDOFF_TOOLS are the defaults of the runner (cuga_runner.py), written out so that the profile holds them: the navigator module names no domain",
+      "result": "offline replay only: catches 24/26 failed DeepSeek runs (7/26 without links); live run on policy_eval/tau2/telecom_fresh40.json pending"
+    },
+    {
+      "benchmark": "handbook",
+      "model": "gcp/gemini-3.8-flash",
+      "name": "GW (procedure graph as policy tools + must-not gate at write time)",
+      "profile": "handbook-gemini-graph-gate",
+      "gate_branch": "best/handbook-gemini-graph-gate",
+      "gate_commit": "f69ebbec8",
+      "graphs": "policy_eval/graphs_handbook/claude_v1/<task>.json (hand-built by Claude from each SOP; *_graph.py rebuild them)",
+      "env_file": "handbook/cuga.fc.gemini38.env",
+      "switches": {
+        "POLICY_STORE_DIR": "policy_eval/graphs_handbook/claude_v1",
+        "POLICY_STORE_GATE": "1",
+        "POLICY_GATE_MODEL": "gcp/gemini-3.8-flash"
+      },
+      "recipe": "handbook/run_store_task.sh <snapshot of the gate branch> <task> <run prefix> 1 2 3 (runs A and GW at the same time; needs the Gemini LiteLLM key)",
+      "result": "3 public tasks, latest version, same time: CUGA alone 100/153 (65.4%) vs GW 139/153 (90.8%), GW better in 9/9 paired trials, 2 full passes (Vanguard). In-sample: graphs hand-built, mechanisms tuned on these tasks. Graph tools without the gate: no gain (Crestwood 16/22 x3)."
+    },
+    {
+      "benchmark": "itsm",
+      "profile": "itsm-rules",
+      "best": false,
+      "name": "B (typed rules from the policy build, write verifier)",
+      "switches": {
+        "POLICY_BUILDS_DIR": "policy_eval/builds"
+      },
+      "runner": "benchmarks/enterpriseops_gym/run_cuga_eog.py --arms A,B",
+      "why_not_best": "nothing beat CUGA alone on IT service tasks, so this is a named profile for typed rules and not a measured best; do not read it as a result that won",
+      "result": "no run beat CUGA alone on tasks passed: changes 26 (gpt-oss, tuning, 1 trial): verifiers 18/39 against 13/39 for CUGA alone, tasks passed 0/10 against 1/10; changes 38 (cross-reference tasks, brief only): verifiers 8/13 against 10/13",
+      "package_note": "policy_eval/builds is the folder the runner reads by default; its 8 files are converted to packages/itsm/<policy>/builds (80cd3ebb50 has no build). Only the runs itv2_t1 and itv2u_t1 read builds_v2"
+    }
+  ]
+}

@@ -1,0 +1,70 @@
+{
+ "seed": 20261101,
+ "written": "2026-11-01",
+ "rules": "Fixed task selection for the policy-intake evaluation (rules written 2026-11-01, before any run).\n\nITSM (EnterpriseOps-Gym oracle tasks):\n  - the user prompt involves status changes, change requests, SLA or approvals (keyword rule below);\n  - minus the 5 pilot tasks (tasks/pilot.json) and the 2 tasks with broken verifiers (upstream issues #21, #22);\n  - cross-reference study: one task on policy version cb2d4ee021 and one on c47f8ceef3 (seeded pick), kept out of\n    the tuning and unseen sets;\n  - the rest: 10 tuning and 10 unseen tasks, seed 20261101.\nAutomationBench (public tasks):\n  - in the detector-probe pool with at least one record that Gemini labelled as a policy (hand review applied);\n  - at least one must-not check in the rubric (an assertion type with \"not\"; only types are read, never values);\n  - minus the 5 pilot tasks and the 5 cross-reference study tasks;\n  - tuning tasks from the probe's tune half, unseen tasks from its test half (so the Kev threshold never saw them);\n  - at most 2 per domain, 10 each, seed 20261101.",
+ "itsm": {
+  "pool": 40,
+  "tune": [
+   "task_20260114_180601_485_99ba2325_2dc8b3ce",
+   "task_20260115_064627_351_66392a82_cd4009dd",
+   "task_20251223_224508_138_97d7df7d_b4505336",
+   "task_20251223_081019_100_d4a463c3_f8774fe4",
+   "task_20260114_174427_042_99ba2325_7915481a",
+   "task_20251218_121722_423_1d219d93_8218da6c",
+   "task_20251218_164829_676_97d7df7d_893f6b2c",
+   "task_20251221_045452_579_99ba2325_0e601eac",
+   "task_20251222_072805_599_99ba2325_ae6b0778",
+   "task_20251218_093719_611_764e5ead_5817d09a"
+  ],
+  "unseen": [
+   "task_20260114_173716_566_46ca2862_301e0b47",
+   "task_20251217_153037_688_97d7df7d_be0bd794",
+   "task_20251219_134543_563_fa1836dc_00dab62f",
+   "task_20260112_194743_238_a8eea1c0_a4b1468a",
+   "task_20251223_153021_454_66392a82_0d6d8897",
+   "task_20251223_063905_655_30600918_3e736be9",
+   "task_20260116_091935_817_d4a463c3_3f20bdca",
+   "task_20251220_074606_220_0be70e35_6bb33392",
+   "task_20260116_235649_372_66392a82_ccb66a9a",
+   "task_20260115_125430_649_fa1836dc_e02d5824"
+  ],
+  "xref": [
+   "task_20260112_181636_272_c4ad7a70_c9cdfa29",
+   "task_20251212_191815_314_391f1eff_c23d76df"
+  ]
+ },
+ "automationbench": {
+  "pool": 163,
+  "xref": [
+   "operations.twilio_afterhours_incident",
+   "operations.sheets_asana_approved_request",
+   "marketing.customer_feedback_aggregation",
+   "hr.benefits_enrollment_review",
+   "marketing.hashtag_performance"
+  ],
+  "tune": [
+   "operations.linkedin_job_change",
+   "support.helpcrunch_usage_alerts",
+   "sales.zoom_regional_webinar_coordinator",
+   "marketing.trending_topic",
+   "sales.zoom_calendar_conflict",
+   "marketing.social_engagement_response",
+   "hr.candidate_offer_negotiation_tracking",
+   "finance.xero_batch_invoice_send",
+   "finance.prepaid_amortization",
+   "support.zendesk_data_quality"
+  ],
+  "unseen": [
+   "hr.mandatory_meeting_compliance",
+   "hr.candidate_rejection_followup",
+   "operations.cross_department_budget_reconciliation",
+   "finance.xero_quote_to_invoice",
+   "finance.xero_credit_allocation",
+   "operations.twilio_production_incident",
+   "support.gorgias_freshdesk_migration",
+   "sales.chatgpt_lead_summary_generator",
+   "marketing.social_crisis_response",
+   "support.helpscout_hubspot_deal_alerts"
+  ]
+ }
+}

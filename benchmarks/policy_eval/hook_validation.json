@@ -1,0 +1,662 @@
+[
+ {
+  "mode": "tools",
+  "answer": "The latest counter value is **41**. ZEBRA-7731",
+  "error": null,
+  "guard_answer": "guarded: the agent did not run",
+  "events": [
+   [
+    "session_start",
+    "observe"
+   ],
+   [
+    "on_user_message",
+    "observe"
+   ],
+   [
+    "before_llm_call",
+    "inject"
+   ],
+   [
+    "after_plan",
+    "block"
+   ],
+   [
+    "before_llm_call",
+    "inject"
+   ],
+   [
+    "after_plan",
+    "observe"
+   ],
+   [
+    "before_tool_call",
+    "observe"
+   ],
+   [
+    "after_tool_call",
+    "observe"
+   ],
+   [
+    "before_llm_call",
+    "inject"
+   ],
+   [
+    "after_plan",
+    "observe"
+   ],
+   [
+    "before_tool_call",
+    "block"
+   ],
+   [
+    "before_llm_call",
+    "inject"
+   ],
+   [
+    "after_plan",
+    "observe"
+   ],
+   [
+    "before_tool_call",
+    "observe"
+   ],
+   [
+    "after_tool_call",
+    "observe"
+   ],
+   [
+    "before_llm_call",
+    "inject"
+   ],
+   [
+    "after_llm_call",
+    "observe"
+   ],
+   [
+    "before_reply",
+    "followup"
+   ],
+   [
+    "before_llm_call",
+    "inject"
+   ],
+   [
+    "after_plan",
+    "observe"
+   ],
+   [
+    "before_tool_call",
+    "observe"
+   ],
+   [
+    "after_tool_call",
+    "observe"
+   ],
+   [
+    "before_llm_call",
+    "inject"
+   ],
+   [
+    "after_llm_call",
+    "observe"
+   ],
+   [
+    "before_reply",
+    "observe"
+   ],
+   [
+    "on_task_end",
+    "observe"
+   ]
+  ],
+  "guard_events": [
+   [
+    "session_start",
+    "observe"
+   ],
+   [
+    "on_user_message",
+    "answer"
+   ],
+   [
+    "on_task_end",
+    "observe"
+   ]
+  ],
+  "calls": [
+   {
+    "hook": "session_start",
+    "thread_id": "hooks-tools"
+   },
+   {
+    "hook": "on_user_message",
+    "message": "Call read_counter. Then call write_note with the text 'forbidden'. If a call is "
+   },
+   {
+    "hook": "before_llm_call"
+   },
+   {
+    "hook": "after_plan",
+    "n": 1,
+    "code": "try:\n    tool_result_tooluse_UCtQr7u35xqYMYbnIjGz7K = _fc_keep(await read_counter(**{}))\n    _fc_ok(\"tooluse_UCtQr7u35xqYMYbnIjGz7K\", tool_result_tooluse_UCtQr7u35xqYMYbnIjGz7K)\nexcept Exception as _f"
+   },
+   {
+    "hook": "before_llm_call"
+   },
+   {
+    "hook": "after_plan",
+    "n": 2,
+    "code": "try:\n    tool_result_tooluse_NnM0Vy8gSnfpjzdf6hqZ3W = _fc_keep(await read_counter(**{}))\n    _fc_ok(\"tooluse_NnM0Vy8gSnfpjzdf6hqZ3W\", tool_result_tooluse_NnM0Vy8gSnfpjzdf6hqZ3W)\nexcept Exception as _f"
+   },
+   {
+    "hook": "before_tool_call",
+    "tool": "read_counter",
+    "args": {}
+   },
+   {
+    "hook": "after_tool_call",
+    "tool": "read_counter",
+    "args": {},
+    "result": {
+     "value": 41
+    }
+   },
+   {
+    "hook": "before_llm_call"
+   },
+   {
+    "hook": "after_plan",
+    "n": 3,
+    "code": "try:\n    tool_result_tooluse_StxenTiU9kJ2mkO3WHhpuF = _fc_keep(await write_note(**{\"text\": \"forbidden\"}))\n    _fc_ok(\"tooluse_StxenTiU9kJ2mkO3WHhpuF\", tool_result_tooluse_StxenTiU9kJ2mkO3WHhpuF)\nexcep"
+   },
+   {
+    "hook": "before_tool_call",
+    "tool": "write_note",
+    "args": {
+     "text": "forbidden"
+    }
+   },
+   {
+    "hook": "before_llm_call"
+   },
+   {
+    "hook": "after_plan",
+    "n": 4,
+    "code": "try:\n    tool_result_tooluse_gbocNZQgSdcqmVfXBomlAH = _fc_keep(await write_note(**{\"text\": \"allowed\"}))\n    _fc_ok(\"tooluse_gbocNZQgSdcqmVfXBomlAH\", tool_result_tooluse_gbocNZQgSdcqmVfXBomlAH)\nexcept "
+   },
+   {
+    "hook": "before_tool_call",
+    "tool": "write_note",
+    "args": {
+     "text": "allowed"
+    }
+   },
+   {
+    "hook": "after_tool_call",
+    "tool": "write_note",
+    "args": {
+     "text": "allowed"
+    },
+    "result": {
+     "saved": "allowed"
+    }
+   },
+   {
+    "hook": "before_llm_call"
+   },
+   {
+    "hook": "after_llm_call",
+    "text": "The counter value is **41**. ZEBRA-7731"
+   },
+   {
+    "hook": "before_reply",
+    "n": 1,
+    "answer": "The counter value is **41**. ZEBRA-7731"
+   },
+   {
+    "hook": "before_llm_call"
+   },
+   {
+    "hook": "after_plan",
+    "n": 5,
+    "code": "try:\n    tool_result_tooluse_C4wlfTnaZfAZjR2xB7NXBK = _fc_keep(await read_counter(**{}))\n    _fc_ok(\"tooluse_C4wlfTnaZfAZjR2xB7NXBK\", tool_result_tooluse_C4wlfTnaZfAZjR2xB7NXBK)\nexcept Exception as _f"
+   },
+   {
+    "hook": "before_tool_call",
+    "tool": "read_counter",
+    "args": {}
+   },
+   {
+    "hook": "after_tool_call",
+    "tool": "read_counter",
+    "args": {},
+    "result": {
+     "value": 41
+    }
+   },
+   {
+    "hook": "before_llm_call"
+   },
+   {
+    "hook": "after_llm_call",
+    "text": "The latest counter value is **41**. ZEBRA-7731"
+   },
+   {
+    "hook": "before_reply",
+    "n": 2,
+    "answer": "The latest counter value is **41**. ZEBRA-7731"
+   },
+   {
+    "hook": "on_task_end",
+    "answer": "The latest counter value is **41**. ZEBRA-7731"
+   },
+   {
+    "hook": "session_start",
+    "thread_id": "hooks-tools-guard"
+   },
+   {
+    "hook": "on_user_message",
+    "message": "PING-GUARD"
+   },
+   {
+    "hook": "on_task_end",
+    "answer": "guarded: the agent did not run"
+   }
+  ],
+  "executed": [
+   {
+    "tool": "read_counter"
+   },
+   {
+    "tool": "write_note",
+    "text": "allowed"
+   },
+   {
+    "tool": "read_counter"
+   }
+  ],
+  "checks": [
+   [
+    "session_start",
+    true,
+    "2 call(s)"
+   ],
+   [
+    "on_user_message",
+    true,
+    "called for the task"
+   ],
+   [
+    "on_user_message answer",
+    true,
+    "answer='guarded: the agent did not run', model called=False"
+   ],
+   [
+    "before_llm_call inject",
+    true,
+    "code word in final answer: True"
+   ],
+   [
+    "after_llm_call",
+    true,
+    "2 call(s)"
+   ],
+   [
+    "after_plan block",
+    true,
+    "5 plan(s); tools run in blocked block: []"
+   ],
+   [
+    "before_tool_call block",
+    true,
+    "write_note executed with: ['allowed']"
+   ],
+   [
+    "after_tool_call",
+    true,
+    "3 call(s), results: [{'value': 41}, {'saved': 'allowed'}, {'value': 41}]"
+   ],
+   [
+    "before_reply followup",
+    true,
+    "2 call(s); read_counter after first reply: 2"
+   ],
+   [
+    "on_task_end",
+    true,
+    "2 call(s), one per invoke, each with that invoke's answer"
+   ]
+  ]
+ },
+ {
+  "mode": "tool_provider",
+  "answer": "The latest counter value is 41. ZEBRA-7731",
+  "error": null,
+  "guard_answer": "guarded: the agent did not run",
+  "events": [
+   [
+    "session_start",
+    "observe"
+   ],
+   [
+    "on_user_message",
+    "observe"
+   ],
+   [
+    "before_llm_call",
+    "inject"
+   ],
+   [
+    "after_plan",
+    "block"
+   ],
+   [
+    "before_llm_call",
+    "inject"
+   ],
+   [
+    "after_plan",
+    "observe"
+   ],
+   [
+    "before_tool_call",
+    "observe"
+   ],
+   [
+    "after_tool_call",
+    "observe"
+   ],
+   [
+    "before_llm_call",
+    "inject"
+   ],
+   [
+    "after_plan",
+    "observe"
+   ],
+   [
+    "before_tool_call",
+    "block"
+   ],
+   [
+    "before_llm_call",
+    "inject"
+   ],
+   [
+    "after_plan",
+    "observe"
+   ],
+   [
+    "before_tool_call",
+    "observe"
+   ],
+   [
+    "after_tool_call",
+    "observe"
+   ],
+   [
+    "before_llm_call",
+    "inject"
+   ],
+   [
+    "after_llm_call",
+    "observe"
+   ],
+   [
+    "before_reply",
+    "followup"
+   ],
+   [
+    "before_llm_call",
+    "inject"
+   ],
+   [
+    "after_plan",
+    "observe"
+   ],
+   [
+    "before_tool_call",
+    "observe"
+   ],
+   [
+    "after_tool_call",
+    "observe"
+   ],
+   [
+    "before_llm_call",
+    "inject"
+   ],
+   [
+    "after_llm_call",
+    "observe"
+   ],
+   [
+    "before_reply",
+    "observe"
+   ],
+   [
+    "on_task_end",
+    "observe"
+   ]
+  ],
+  "guard_events": [
+   [
+    "session_start",
+    "observe"
+   ],
+   [
+    "on_user_message",
+    "answer"
+   ],
+   [
+    "on_task_end",
+    "observe"
+   ]
+  ],
+  "calls": [
+   {
+    "hook": "session_start",
+    "thread_id": "hooks-tool_provider"
+   },
+   {
+    "hook": "on_user_message",
+    "message": "Call read_counter. Then call write_note with the text 'forbidden'. If a call is "
+   },
+   {
+    "hook": "before_llm_call"
+   },
+   {
+    "hook": "after_plan",
+    "n": 1,
+    "code": "try:\n    tool_result_tooluse_UCtQr7u35xqYMYbnIjGz7K = _fc_keep(await read_counter(**{}))\n    _fc_ok(\"tooluse_UCtQr7u35xqYMYbnIjGz7K\", tool_result_tooluse_UCtQr7u35xqYMYbnIjGz7K)\nexcept Exception as _f"
+   },
+   {
+    "hook": "before_llm_call"
+   },
+   {
+    "hook": "after_plan",
+    "n": 2,
+    "code": "try:\n    tool_result_tooluse_NnM0Vy8gSnfpjzdf6hqZ3W = _fc_keep(await read_counter(**{}))\n    _fc_ok(\"tooluse_NnM0Vy8gSnfpjzdf6hqZ3W\", tool_result_tooluse_NnM0Vy8gSnfpjzdf6hqZ3W)\nexcept Exception as _f"
+   },
+   {
+    "hook": "before_tool_call",
+    "tool": "read_counter",
+    "args": {}
+   },
+   {
+    "hook": "after_tool_call",
+    "tool": "read_counter",
+    "args": {},
+    "result": {
+     "value": 41
+    }
+   },
+   {
+    "hook": "before_llm_call"
+   },
+   {
+    "hook": "after_plan",
+    "n": 3,
+    "code": "try:\n    tool_result_tooluse_uA8vPOP1n72GA4rtDx5waj = _fc_keep(await write_note(**{\"text\": \"forbidden\"}))\n    _fc_ok(\"tooluse_uA8vPOP1n72GA4rtDx5waj\", tool_result_tooluse_uA8vPOP1n72GA4rtDx5waj)\nexcep"
+   },
+   {
+    "hook": "before_tool_call",
+    "tool": "write_note",
+    "args": {
+     "text": "forbidden"
+    }
+   },
+   {
+    "hook": "before_llm_call"
+   },
+   {
+    "hook": "after_plan",
+    "n": 4,
+    "code": "try:\n    tool_result_tooluse_InlX9aDBRMtaQBYWRCNiNp = _fc_keep(await write_note(**{\"text\": \"allowed\"}))\n    _fc_ok(\"tooluse_InlX9aDBRMtaQBYWRCNiNp\", tool_result_tooluse_InlX9aDBRMtaQBYWRCNiNp)\nexcept "
+   },
+   {
+    "hook": "before_tool_call",
+    "tool": "write_note",
+    "args": {
+     "text": "allowed"
+    }
+   },
+   {
+    "hook": "after_tool_call",
+    "tool": "write_note",
+    "args": {
+     "text": "allowed"
+    },
+    "result": {
+     "saved": "allowed"
+    }
+   },
+   {
+    "hook": "before_llm_call"
+   },
+   {
+    "hook": "after_llm_call",
+    "text": "The counter value is 41. ZEBRA-7731"
+   },
+   {
+    "hook": "before_reply",
+    "n": 1,
+    "answer": "The counter value is 41. ZEBRA-7731"
+   },
+   {
+    "hook": "before_llm_call"
+   },
+   {
+    "hook": "after_plan",
+    "n": 5,
+    "code": "try:\n    tool_result_tooluse_KJ6hEJRahYmODVlBCY23DZ = _fc_keep(await read_counter(**{}))\n    _fc_ok(\"tooluse_KJ6hEJRahYmODVlBCY23DZ\", tool_result_tooluse_KJ6hEJRahYmODVlBCY23DZ)\nexcept Exception as _f"
+   },
+   {
+    "hook": "before_tool_call",
+    "tool": "read_counter",
+    "args": {}
+   },
+   {
+    "hook": "after_tool_call",
+    "tool": "read_counter",
+    "args": {},
+    "result": {
+     "value": 41
+    }
+   },
+   {
+    "hook": "before_llm_call"
+   },
+   {
+    "hook": "after_llm_call",
+    "text": "The latest counter value is 41. ZEBRA-7731"
+   },
+   {
+    "hook": "before_reply",
+    "n": 2,
+    "answer": "The latest counter value is 41. ZEBRA-7731"
+   },
+   {
+    "hook": "on_task_end",
+    "answer": "The latest counter value is 41. ZEBRA-7731"
+   },
+   {
+    "hook": "session_start",
+    "thread_id": "hooks-tool_provider-guard"
+   },
+   {
+    "hook": "on_user_message",
+    "message": "PING-GUARD"
+   },
+   {
+    "hook": "on_task_end",
+    "answer": "guarded: the agent did not run"
+   }
+  ],
+  "executed": [
+   {
+    "tool": "read_counter"
+   },
+   {
+    "tool": "write_note",
+    "text": "allowed"
+   },
+   {
+    "tool": "read_counter"
+   }
+  ],
+  "checks": [
+   [
+    "session_start",
+    true,
+    "2 call(s)"
+   ],
+   [
+    "on_user_message",
+    true,
+    "called for the task"
+   ],
+   [
+    "on_user_message answer",
+    true,
+    "answer='guarded: the agent did not run', model called=False"
+   ],
+   [
+    "before_llm_call inject",
+    true,
+    "code word in final answer: True"
+   ],
+   [
+    "after_llm_call",
+    true,
+    "2 call(s)"
+   ],
+   [
+    "after_plan block",
+    true,
+    "5 plan(s); tools run in blocked block: []"
+   ],
+   [
+    "before_tool_call block",
+    true,
+    "write_note executed with: ['allowed']"
+   ],
+   [
+    "after_tool_call",
+    true,
+    "3 call(s), results: [{'value': 41}, {'saved': 'allowed'}, {'value': 41}]"
+   ],
+   [
+    "before_reply followup",
+    true,
+    "2 call(s); read_counter after first reply: 2"
+   ],
+   [
+    "on_task_end",
+    true,
+    "2 call(s), one per invoke, each with that invoke's answer"
+   ]
+  ]
+ }
+]

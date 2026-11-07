@@ -1,0 +1,1084 @@
+{
+  "note": "Task sets and which agent model ran their tasks. Built by build_registry.py from the set files and the result folders; do not edit.",
+  "scanned_results": {
+    "automationbench": 3389,
+    "handbook": 419,
+    "itsm": 659,
+    "tau2": 860,
+    "tau2-telecom": 10,
+    "unreadable": 0
+  },
+  "sets": [
+    {
+      "id": "itsm-pilot",
+      "benchmark": "itsm",
+      "path": "benchmarks/enterpriseops_gym/tasks/pilot.json",
+      "key": "tasks",
+      "id_field": "task_id",
+      "status": "tuning",
+      "rule": "Pick the EnterpriseOps-Gym ITSM pilot tasks before any agent or policy code sees them.",
+      "seed": 20261031,
+      "n": 5,
+      "seen_by": {
+        "gcp/gemini-3.8-flash": [
+          "pilot1",
+          "smoke"
+        ]
+      },
+      "seen_n": {
+        "gcp/gemini-3.8-flash": 5
+      },
+      "label": "tuning"
+    },
+    {
+      "id": "itsm-xref",
+      "benchmark": "itsm",
+      "path": "benchmarks/policy_eval/policy_eval_tasks.json",
+      "key": "itsm.xref",
+      "id_field": null,
+      "status": "tuning",
+      "rule": "cross-reference study: one task on policy version cb2d4ee021 and one on c47f8ceef3 (seeded pick), kept out of the tuning and unseen sets",
+      "seed": 20261101,
+      "n": 2,
+      "seen_by": {
+        "aws/gpt-oss-120b": [
+          "g5xA",
+          "g5xB",
+          "g5xnb"
+        ],
+        "azure/DeepSeek-V4-Pro": [
+          "ds2x",
+          "ds4xA",
+          "ds4xB",
+          "ds4xnb"
+        ]
+      },
+      "seen_n": {
+        "aws/gpt-oss-120b": 2,
+        "azure/DeepSeek-V4-Pro": 2
+      },
+      "label": "tuning"
+    },
+    {
+      "id": "itsm-tune",
+      "benchmark": "itsm",
+      "path": "benchmarks/policy_eval/policy_eval_tasks.json",
+      "key": "itsm.tune",
+      "id_field": null,
+      "status": "tuning",
+      "rule": "ITSM oracle tasks whose prompt involves status changes, change requests, SLA or approvals (keyword rule), minus the 5 pilot tasks and the 2 tasks with broken verifiers (upstream issues 21, 22); 10 tuning tasks",
+      "seed": 20261101,
+      "n": 10,
+      "seen_by": {
+        "aws/gpt-oss-120b": [
+          "fc1",
+          "g1_itsm_base",
+          "g1_itsm_rules",
+          "g5tA",
+          "g5tB",
+          "g5tnb",
+          "oss2",
+          "oss3",
+          "oss4",
+          "ossdef",
+          "smk24_itsm_rules",
+          "smk_itsm_base",
+          "smk_itsm_rules",
+          "smoke_hooks_B",
+          "tuneoss"
+        ],
+        "azure/DeepSeek-V4-Pro": [
+          "ds4tA",
+          "ds4tB",
+          "ds4tnb",
+          "itdlv",
+          "itn_A_tune",
+          "itn_N_tune",
+          "itn_O_tune",
+          "ito_A_tune",
+          "ito_O_tune",
+          "itp_A_tune",
+          "itp_T_tune",
+          "ittrk",
+          "itv2",
+          "m_dsv4"
+        ],
+        "gcp/gemini-3.8-flash": [
+          "smoke_eval",
+          "tune",
+          "tune2",
+          "tune4"
+        ]
+      },
+      "seen_n": {
+        "aws/gpt-oss-120b": 10,
+        "azure/DeepSeek-V4-Pro": 10,
+        "gcp/gemini-3.8-flash": 10
+      },
+      "label": "tuning"
+    },
+    {
+      "id": "itsm-unseen",
+      "benchmark": "itsm",
+      "path": "benchmarks/policy_eval/policy_eval_tasks.json",
+      "key": "itsm.unseen",
+      "id_field": null,
+      "status": "heldout",
+      "rule": "ITSM oracle tasks whose prompt involves status changes, change requests, SLA or approvals (keyword rule), minus the 5 pilot tasks and the 2 tasks with broken verifiers (upstream issues 21, 22); 10 tasks, not the tuning tasks",
+      "seed": 20261101,
+      "n": 10,
+      "seen_by": {
+        "aws/gpt-oss-120b": [
+          "g5uA",
+          "g5uB",
+          "g5unb"
+        ],
+        "azure/DeepSeek-V4-Pro": [
+          "ds1u",
+          "ds2u",
+          "ds4uA",
+          "ds4uB",
+          "ds4unb",
+          "itdlvu",
+          "itn_A_unseen",
+          "itn_N_unseen",
+          "itn_O_unseen",
+          "ito_A_unseen",
+          "ito_O_unseen",
+          "itp_A_unseen",
+          "itp_T_unseen",
+          "ittrku",
+          "itv2u"
+        ]
+      },
+      "seen_n": {
+        "aws/gpt-oss-120b": 10,
+        "azure/DeepSeek-V4-Pro": 10
+      },
+      "label": "seen"
+    },
+    {
+      "id": "itsm-unseen2",
+      "benchmark": "itsm",
+      "path": "benchmarks/policy_eval/policy_eval_tasks_unseen2.json",
+      "key": "itsm.unseen2",
+      "id_field": null,
+      "status": "heldout",
+      "rule": "the remaining tasks of the ITSM pool minus tuning, unseen and cross-reference tasks; 10 tasks",
+      "seed": 20261102,
+      "n": 10,
+      "seen_by": {
+        "azure/DeepSeek-V4-Pro": [
+          "fin_u2",
+          "fin_u2nb",
+          "probe_kb_r1",
+          "probe_kb_r2",
+          "probe_kb_r3",
+          "probe_kb_r4",
+          "probe_kb_r5",
+          "probe_kb_r6"
+        ]
+      },
+      "seen_n": {
+        "azure/DeepSeek-V4-Pro": 10
+      },
+      "label": "seen"
+    },
+    {
+      "id": "itsm-unseen3",
+      "benchmark": "itsm",
+      "path": "benchmarks/policy_eval/policy_eval_tasks_unseen3.json",
+      "key": "itsm.unseen3",
+      "id_field": null,
+      "status": "heldout",
+      "rule": "the remaining tasks of the ITSM pool minus tuning, unseen, unseen2 and cross-reference tasks; 10 tasks",
+      "seed": 20261103,
+      "n": 10,
+      "seen_by": {
+        "azure/DeepSeek-V4-Pro": [
+          "itl_A",
+          "itl_L"
+        ]
+      },
+      "seen_n": {
+        "azure/DeepSeek-V4-Pro": 3
+      },
+      "label": "seen"
+    },
+    {
+      "id": "ab-pilot",
+      "benchmark": "automationbench",
+      "path": "benchmarks/automationbench/policy_pilot.json",
+      "key": "tasks",
+      "id_field": "task",
+      "status": "tuning",
+      "rule": "Rule (fixed 2026-10-31): public tasks whose initial sheets or emails contain the word \"policy\"; at most one per domain; 5 domains and 1 task each chosen at random with seed 20261031. Only task names and domains are read here.",
+      "seed": 20261031,
+      "n": 5,
+      "seen_by": {
+        "gcp/gemini-3.8-flash": [
+          "pilot1_A",
+          "pilot1_B",
+          "pilot2_B"
+        ]
+      },
+      "seen_n": {
+        "gcp/gemini-3.8-flash": 5
+      },
+      "label": "tuning"
+    },
+    {
+      "id": "ab-xref",
+      "benchmark": "automationbench",
+      "path": "benchmarks/policy_eval/policy_eval_tasks.json",
+      "key": "automationbench.xref",
+      "id_field": null,
+      "status": "tuning",
+      "rule": "the 5 cross-reference study tasks, kept out of the tuning and unseen sets",
+      "seed": 20261101,
+      "n": 5,
+      "seen_by": {
+        "azure/DeepSeek-V4-Pro": [
+          "ds2x_A",
+          "ds2x_B"
+        ]
+      },
+      "seen_n": {
+        "azure/DeepSeek-V4-Pro": 5
+      },
+      "label": "tuning"
+    },
+    {
+      "id": "ab-tune",
+      "benchmark": "automationbench",
+      "path": "benchmarks/policy_eval/policy_eval_tasks.json",
+      "key": "automationbench.tune",
+      "id_field": null,
+      "status": "tuning",
+      "rule": "AutomationBench public tasks in the detector-probe pool with a record that Gemini labelled as a policy and at least one must-not check; minus the pilot and cross-reference tasks; at most 2 per domain; tuning tasks from the probe's tune half; 10 tasks",
+      "seed": 20261101,
+      "n": 10,
+      "seen_by": {
+        "Azure/gpt-5-mini-2025-08-07": [
+          "smoke_gpt5mini"
+        ],
+        "aws/gpt-oss-120b": [
+          "fc1_A",
+          "fc1_B",
+          "g5_A",
+          "g5blk_B",
+          "g5blknb_B",
+          "g5rem_B",
+          "oss2_A",
+          "oss2_B",
+          "oss3_B",
+          "oss4_B",
+          "ossdef_A",
+          "ossdef_B",
+          "smoke2_AF",
+          "smoke2_BF",
+          "smoke2_TF",
+          "smoke_claimretry_A",
+          "smoke_fc_A",
+          "smoke_full_A",
+          "smoke_hooks_B",
+          "tuneoss_A",
+          "tuneoss_B"
+        ],
+        "aws/nemotron-super-3-120b": [
+          "m_nemo_A",
+          "smoke_nemo"
+        ],
+        "azure/DeepSeek-V4-Pro": [
+          "dlv_A",
+          "ds1_B",
+          "ds1blk_B",
+          "ds3_A",
+          "ds3blk_B",
+          "ds3rem_B",
+          "ds4_A",
+          "ds4blk_B",
+          "ds4rem_B",
+          "ds5blk_B",
+          "ds5blknb_B",
+          "ds5remnb_B",
+          "m_dsv4_A",
+          "smoke_dsv4",
+          "trk_A"
+        ],
+        "gcp/gemini-3.5-flash-lite": [
+          "m_flashlite_A",
+          "smoke_flashlite"
+        ],
+        "gcp/gemini-3.8-flash": [
+          "smoke_eval_A",
+          "smoke_eval_B",
+          "smoke_secure_A",
+          "tune2_A",
+          "tune2_B",
+          "tune3_A",
+          "tune3_B",
+          "tune4_B",
+          "tune_A"
+        ]
+      },
+      "seen_n": {
+        "Azure/gpt-5-mini-2025-08-07": 2,
+        "aws/gpt-oss-120b": 10,
+        "aws/nemotron-super-3-120b": 10,
+        "azure/DeepSeek-V4-Pro": 10,
+        "gcp/gemini-3.5-flash-lite": 10,
+        "gcp/gemini-3.8-flash": 10
+      },
+      "label": "tuning"
+    },
+    {
+      "id": "ab-unseen",
+      "benchmark": "automationbench",
+      "path": "benchmarks/policy_eval/policy_eval_tasks.json",
+      "key": "automationbench.unseen",
+      "id_field": null,
+      "status": "heldout",
+      "rule": "AutomationBench public tasks in the detector-probe pool with a record that Gemini labelled as a policy and at least one must-not check; minus the pilot and cross-reference tasks; at most 2 per domain; unseen tasks from the probe's test half; 10 tasks",
+      "seed": 20261101,
+      "n": 10,
+      "seen_by": {
+        "aws/gpt-oss-120b": [
+          "fc1u_A",
+          "fc1u_B",
+          "g5u_A",
+          "g5ublk_B",
+          "g5ublknb_B",
+          "g5urem_B",
+          "oss2u_A",
+          "oss4u_B"
+        ],
+        "azure/DeepSeek-V4-Pro": [
+          "dlvu_A",
+          "ds1u_A",
+          "ds1u_B",
+          "ds2ublk_B",
+          "ds3u_A",
+          "ds3ublk_B",
+          "ds3urem_B",
+          "ds4u_A",
+          "ds4ublk_B",
+          "ds4urem_B",
+          "ds5ublk_B",
+          "ds5ublknb_B",
+          "ds5uremnb_B",
+          "trku_A"
+        ]
+      },
+      "seen_n": {
+        "aws/gpt-oss-120b": 10,
+        "azure/DeepSeek-V4-Pro": 10
+      },
+      "label": "seen"
+    },
+    {
+      "id": "ab-unseen2",
+      "benchmark": "automationbench",
+      "path": "benchmarks/policy_eval/policy_eval_tasks_unseen2.json",
+      "key": "automationbench.unseen2",
+      "id_field": null,
+      "status": "heldout",
+      "rule": "policy tasks from the detector probe's test half with a must-not check, minus pilot, cross-reference, tuning and unseen tasks; at most 2 per domain; 10 tasks",
+      "seed": 20261102,
+      "n": 10,
+      "seen_by": {
+        "azure/DeepSeek-V4-Pro": [
+          "fin_u2_A",
+          "fin_u2_B",
+          "fin_u2_Bnb"
+        ]
+      },
+      "seen_n": {
+        "azure/DeepSeek-V4-Pro": 10
+      },
+      "label": "seen"
+    },
+    {
+      "id": "ab-unseen3",
+      "benchmark": "automationbench",
+      "path": "benchmarks/policy_eval/policy_eval_tasks_unseen3.json",
+      "key": "automationbench.unseen3",
+      "id_field": null,
+      "status": "heldout",
+      "rule": "policy tasks from the detector probe's test half with a must-not check, minus pilot, cross-reference, tuning, unseen and unseen2 tasks; at most 2 per domain; 10 tasks",
+      "seed": 20261103,
+      "n": 10,
+      "seen_by": {
+        "azure/DeepSeek-V4-Pro": [
+          "abl4_A",
+          "abl4_L",
+          "abl5_A",
+          "abl5_L",
+          "abl_A",
+          "abl_L",
+          "oracle_smoke",
+          "u3_A",
+          "u3_C",
+          "u3_T",
+          "u3n_A",
+          "u3n_N",
+          "u3n_O",
+          "u3o_A",
+          "u3o_O",
+          "u3p_A",
+          "u3p_T"
+        ]
+      },
+      "seen_n": {
+        "azure/DeepSeek-V4-Pro": 10
+      },
+      "label": "seen"
+    },
+    {
+      "id": "ab-versioned-dev",
+      "benchmark": "automationbench",
+      "path": "benchmarks/automationbench/versioned_dev.json",
+      "key": "dev",
+      "id_field": null,
+      "status": "tuning",
+      "rule": "versioned-type tasks of the fresh pool not in policy_types_subset.json; 10 for development",
+      "seed": 20261105,
+      "n": 10,
+      "seen_by": {
+        "aws/gpt-oss-120b": [
+          "vdev_AF",
+          "vdev_B2F",
+          "vdev_B3F",
+          "vdev_B3TF",
+          "vdev_B4TF",
+          "vdev_BF"
+        ]
+      },
+      "seen_n": {
+        "aws/gpt-oss-120b": 10
+      },
+      "label": "tuning"
+    },
+    {
+      "id": "ab-versioned-holdout",
+      "benchmark": "automationbench",
+      "path": "benchmarks/automationbench/versioned_dev.json",
+      "key": "holdout",
+      "id_field": null,
+      "status": "heldout",
+      "rule": "versioned-type tasks of the fresh pool not in policy_types_subset.json; the rest, held out",
+      "seed": 20261105,
+      "n": 9,
+      "seen_by": {
+        "aws/claude-haiku-5-5": [
+          "poli_A_haiku",
+          "poli_B_haiku",
+          "poli_F12_haiku",
+          "poli_F12b_haiku",
+          "poli_F1_haiku",
+          "poli_F2_haiku"
+        ],
+        "aws/gpt-oss-120b": [
+          "ph_AF",
+          "ph_AO",
+          "ph_B3TF",
+          "ph_B4TF",
+          "poli_A_gptoss",
+          "poli_B_gptoss",
+          "poli_F12_gptoss",
+          "poli_F12b_gptoss",
+          "poli_F1_gptoss",
+          "poli_F2_gptoss",
+          "pq_AF",
+          "pq_B4TF",
+          "pq_B4TFM"
+        ],
+        "gcp/gemini-3.8-flash": [
+          "pg_AF",
+          "pg_B4TF"
+        ]
+      },
+      "seen_n": {
+        "aws/claude-haiku-5-5": 5,
+        "aws/gpt-oss-120b": 8,
+        "gcp/gemini-3.8-flash": 3
+      },
+      "label": "seen"
+    },
+    {
+      "id": "ab-policy-types-subset",
+      "benchmark": "automationbench",
+      "path": "benchmarks/automationbench/policy_types_subset.json",
+      "key": "tasks",
+      "id_field": "task",
+      "status": "tuning",
+      "rule": "Input: results/policy_features.json (policy_features.py). Pool: public tasks never used in a run or subset file, without the chatgpt tool (it always fails in our adapter) and without missing tools. Each task gets one primary policy type, first match in this order: no rule text in the data; versioned or conflicting rules; approval gate; threshold; date or deadline; rules spread over 2+ apps; one rule document. 5 tasks per type, at most 2 per domain per type, random with seed 20261104.",
+      "seed": 20261104,
+      "n": 35,
+      "seen_by": {
+        "aws/claude-haiku-5-5": [
+          "aud_A_haiku",
+          "aud_C_haiku",
+          "aud_Hr_haiku",
+          "aud_K_haiku",
+          "aud_L_haiku",
+          "aud_R_haiku",
+          "aud_W_haiku",
+          "smk_aud_K_h",
+          "smk_aud_L_h",
+          "smk_aud_R_h",
+          "smk_aud_W_h"
+        ],
+        "aws/gpt-oss-120b": [
+          "aud_A_gptoss",
+          "aud_C_gptoss",
+          "aud_K_gptoss",
+          "aud_L_gptoss",
+          "aud_R_gptoss",
+          "aud_W_gptoss",
+          "pt_AF",
+          "pt_AO",
+          "pt_B3F",
+          "pt_B3TF",
+          "pt_BF",
+          "pt_BTF",
+          "pt_DF",
+          "pt_TF",
+          "pv5_B4TF",
+          "pv5_B5TF",
+          "pv5_B5aTF"
+        ]
+      },
+      "seen_n": {
+        "aws/claude-haiku-5-5": 10,
+        "aws/gpt-oss-120b": 35
+      },
+      "label": "tuning"
+    },
+    {
+      "id": "ab-policy-types-holdout",
+      "benchmark": "automationbench",
+      "path": "benchmarks/automationbench/policy_types_holdout.json",
+      "key": "tasks",
+      "id_field": "task",
+      "status": "heldout",
+      "rule": "Input: results/policy_features.json (policy_features.py). Pool: public tasks never used in a run or subset file, without the chatgpt tool (it always fails in our adapter) and without missing tools. Each task gets one primary policy type, first match in this order: no rule text in the data; versioned or conflicting rules; approval gate; threshold; date or deadline; rules spread over 2+ apps; one rule document. 5 tasks per type, at most 2 per domain per type, random with seed 20261104. Excluded: policy_types_subset.json, versioned_dev.json:dev.",
+      "seed": 20261106,
+      "n": 35,
+      "seen_by": {
+        "aws/claude-haiku-5-5": [
+          "poli_A_haiku",
+          "poli_B_haiku",
+          "poli_F12_haiku",
+          "poli_F12b_haiku",
+          "poli_F1_haiku",
+          "poli_F2_haiku"
+        ],
+        "aws/gpt-oss-120b": [
+          "g1_ab_base",
+          "g1_ab_best",
+          "ph_AF",
+          "ph_AO",
+          "ph_B3TF",
+          "ph_B4TF",
+          "poli_A_gptoss",
+          "poli_B_gptoss",
+          "poli_F12_gptoss",
+          "poli_F12b_gptoss",
+          "poli_F1_gptoss",
+          "poli_F2_gptoss",
+          "smk24_ab_best",
+          "smk_ab_base",
+          "smk_ab_best",
+          "smk_poli_B_gptoss"
+        ]
+      },
+      "seen_n": {
+        "aws/claude-haiku-5-5": 35,
+        "aws/gpt-oss-120b": 35
+      },
+      "label": "seen"
+    },
+    {
+      "id": "ab-policy-types-holdout2",
+      "benchmark": "automationbench",
+      "path": "benchmarks/automationbench/policy_types_holdout2.json",
+      "key": "tasks",
+      "id_field": "task",
+      "status": "heldout",
+      "rule": "Input: results/policy_features.json (policy_features.py). Pool: public tasks never used in a run or subset file, without the chatgpt tool (it always fails in our adapter) and without missing tools. Each task gets one primary policy type, first match in this order: no rule text in the data; versioned or conflicting rules; approval gate; threshold; date or deadline; rules spread over 2+ apps; one rule document. 5 tasks per type, at most 2 per domain per type, random with seed 20261104. Excluded: policy_types_subset.json, policy_types_holdout.json, versioned_dev.json:dev.",
+      "seed": 20261107,
+      "n": 31,
+      "seen_by": {
+        "aws/gpt-oss-120b": [
+          "pq_AF",
+          "pq_B4TF",
+          "pq_B4TFM"
+        ],
+        "gcp/gemini-3.8-flash": [
+          "pg_AF",
+          "pg_B4TF",
+          "smoke_gem_B4TF"
+        ]
+      },
+      "seen_n": {
+        "aws/gpt-oss-120b": 31,
+        "gcp/gemini-3.8-flash": 31
+      },
+      "label": "seen"
+    },
+    {
+      "id": "ab-policy-types-fresh3",
+      "benchmark": "automationbench",
+      "path": "benchmarks/automationbench/policy_types_fresh3.json",
+      "key": "tasks",
+      "id_field": "task",
+      "status": "tuning",
+      "rule": "Input: results/policy_features.json (policy_features.py). Pool: public tasks never used in a run or subset file, without the chatgpt tool (it always fails in our adapter) and without missing tools. Each task gets one primary policy type, first match in this order: no rule text in the data; versioned or conflicting rules; approval gate; threshold; date or deadline; rules spread over 2+ apps; one rule document. 5 tasks per type, at most 2 per domain per type, random with seed 20261104. Excluded: policy_types_subset.json, versioned_dev.json:dev, versioned_dev.json:holdout, policy_types_holdout.json, policy_types_holdout2.json.",
+      "seed": 20261105,
+      "n": 35,
+      "seen_by": {
+        "f3_plain_haiku55": "2026-11-07",
+        "f3_rules_haiku55": "2026-11-07",
+        "f3_polirules_haiku55": "2026-11-07",
+        "f3o_plain_gptoss": "2026-11-07",
+        "f3o_rules_gptoss": "2026-11-07",
+        "f3o_polirules_gptoss": "2026-11-07"
+      },
+      "seen_n": {
+        "runs": 630
+      },
+      "label": "tuning (failures traced 2026-11-07)"
+    },
+    {
+      "id": "handbook-public3",
+      "benchmark": "handbook",
+      "path": "~/dev/untrusted/handbook-sample/tasks",
+      "key": null,
+      "id_field": null,
+      "status": "tuning",
+      "seed": null,
+      "rule": "the 3 public HANDBOOK tasks; every mechanism was tuned on them (in-sample, see best_profiles.json)",
+      "ids": [
+        "hr_crestwood_university_79786c46",
+        "insurance_vanguard_shield_mutual_9b2f7a29",
+        "medical_careig_specialty_pharmacy_f5947c33"
+      ],
+      "n": 3,
+      "seen_by": {
+        "aws/gpt-oss-120b": [
+          "g1_hb_base",
+          "g1_hb_best",
+          "hbd_A",
+          "hbd_D",
+          "hbo2_A",
+          "hbo2_L",
+          "hbo2_LD",
+          "hbo_A",
+          "hbo_G",
+          "hbo_L",
+          "hbq_ci_A",
+          "hbq_ci_GR",
+          "hbq_ci_GW",
+          "hbq_cw_A",
+          "hbq_cw_GR",
+          "hbq_cw_GW",
+          "hbq_vg_A",
+          "hbq_vg_GR",
+          "hbq_vg_GW",
+          "hbs_ALL",
+          "hbs_APP",
+          "hbs_C15",
+          "hbs_C30",
+          "smk24_hb_best",
+          "smk_hb_base",
+          "smk_hb_best"
+        ],
+        "azure/DeepSeek-V4-Pro": [
+          "hb2_A",
+          "hb2_L",
+          "hb3_A",
+          "hb3_L",
+          "hb_A",
+          "hb_T",
+          "hb_smoke_A",
+          "hbb_A",
+          "hbb_L",
+          "hbg2_A",
+          "hbg2_G",
+          "hbg_A",
+          "hbg_G",
+          "hbh_A",
+          "hbh_G",
+          "hbh_L",
+          "hbl4_A",
+          "hbl4_L",
+          "hbl5_A",
+          "hbl5_L",
+          "hbl_A",
+          "hbl_L",
+          "hbl_smoke",
+          "hbp_A",
+          "hbp_P1",
+          "hbp_P3"
+        ],
+        "gcp/gemini-3.8-flash": [
+          "hba_ci_A",
+          "hba_ci_GR",
+          "hba_cw_A",
+          "hba_cw_GR",
+          "hba_vg_A",
+          "hba_vg_GR",
+          "hbc1_A",
+          "hbc1_GW",
+          "hbc2_A",
+          "hbc2_GW",
+          "hbg38_A",
+          "hbg38_L",
+          "hbg38_LA",
+          "hbg38_LD",
+          "hbs2_A",
+          "hbs2_GW",
+          "hbs3_A",
+          "hbs3_GW",
+          "hbs4_A",
+          "hbs4_GW",
+          "hbs_A",
+          "hbs_G",
+          "hbs_GV",
+          "hbv1_A",
+          "hbv1_GW",
+          "smoke_gem_hb_A"
+        ]
+      },
+      "seen_n": {
+        "aws/gpt-oss-120b": 3,
+        "azure/DeepSeek-V4-Pro": 3,
+        "gcp/gemini-3.8-flash": 3
+      },
+      "label": "tuning"
+    },
+    {
+      "id": "tau2-telecom-dev20",
+      "benchmark": "tau2-telecom",
+      "path": "benchmarks/policy_eval/tau2/telecom_dev20.json",
+      "key": null,
+      "id_field": null,
+      "status": "tuning",
+      "rule": "stratified 20-task subset of the official telecom train split (changes.md 76)",
+      "seed": 7,
+      "n": 20,
+      "seen_by": {
+        "azure/DeepSeek-V4-Pro": [
+          "dev1_A",
+          "dev1_T",
+          "dev2_A",
+          "dev2_T",
+          "smoke_trk",
+          "t20_ds"
+        ]
+      },
+      "seen_n": {
+        "azure/DeepSeek-V4-Pro": 20
+      },
+      "label": "tuning"
+    },
+    {
+      "id": "tau2-telecom-fresh40",
+      "benchmark": "tau2-telecom",
+      "path": "benchmarks/policy_eval/tau2/telecom_fresh40.json",
+      "key": null,
+      "id_field": null,
+      "status": "heldout",
+      "rule": "40 telecom tasks from the full set that are in none of the official train, test, small and base splits; the selection method is not recorded in the repo",
+      "seed": null,
+      "n": 40,
+      "seen_by": {
+        "azure/DeepSeek-V4-Pro": [
+          "t20_ds"
+        ]
+      },
+      "seen_n": {
+        "azure/DeepSeek-V4-Pro": 1
+      },
+      "label": "seen"
+    },
+    {
+      "id": "tau2-telecom-test",
+      "benchmark": "tau2-telecom",
+      "path": "~/dev/cuga-eval-tau2/benchmarks/tau2/tau2-bench/data/tau2/domains/telecom/split_tasks.json",
+      "key": "test",
+      "id_field": null,
+      "status": "heldout",
+      "rule": "official telecom test split (40 tasks); run before the policy freeze, so not a clean bar any more",
+      "seed": null,
+      "n": 40,
+      "seen_by": {
+        "aws/gpt-oss-120b": [
+          "g1_tau2_base",
+          "g1_tau2_best",
+          "g1b_tau2_base",
+          "g1b_tau2_best",
+          "g1c_tau2_base",
+          "g1c_tau2_best",
+          "smk24_tau2_best",
+          "smk24b_tau2_best",
+          "smk_tau2_base",
+          "smk_tau2_best",
+          "smoke2_A_nav1",
+          "smoke2_A_trk4",
+          "smoke2_N_nav1",
+          "smoke_nav_oss"
+        ],
+        "azure/DeepSeek-V4-Pro": [
+          "t20_ds",
+          "tel_test_ds",
+          "tel_test_ds41",
+          "test1_A",
+          "test1_T",
+          "test2_A",
+          "test2_T"
+        ]
+      },
+      "seen_n": {
+        "aws/gpt-oss-120b": 3,
+        "azure/DeepSeek-V4-Pro": 40
+      },
+      "label": "seen"
+    },
+    {
+      "id": "tau2-airline-test",
+      "benchmark": "tau2-airline",
+      "path": "~/dev/cuga-eval-tau2/benchmarks/tau2/tau2-bench/data/tau2/domains/airline/split_tasks.json",
+      "key": "test",
+      "id_field": null,
+      "status": "heldout",
+      "rule": "official airline test split (20 tasks); the no-harm check of the SOP tracker (rule-type policy)",
+      "seed": null,
+      "n": 20,
+      "seen_by": {
+        "aws/gpt-oss-120b": [
+          "a20_oss"
+        ],
+        "azure/DeepSeek-V4-Pro": [
+          "a20_ds",
+          "air1_A",
+          "air1_T"
+        ]
+      },
+      "seen_n": {
+        "aws/gpt-oss-120b": 7,
+        "azure/DeepSeek-V4-Pro": 20
+      },
+      "label": "seen"
+    }
+  ],
+  "policies": {
+    "automationbench/finance.prepaid_amortization": {
+      "tuning_sets": [
+        "ab-tune"
+      ],
+      "heldout_sets": [],
+      "tuned_by_changes": []
+    },
+    "automationbench/finance.xero_batch_invoice_send": {
+      "tuning_sets": [
+        "ab-tune"
+      ],
+      "heldout_sets": [],
+      "tuned_by_changes": []
+    },
+    "automationbench/hr.candidate_offer_negotiation_tracking": {
+      "tuning_sets": [
+        "ab-tune"
+      ],
+      "heldout_sets": [],
+      "tuned_by_changes": []
+    },
+    "automationbench/marketing.social_engagement_response": {
+      "tuning_sets": [
+        "ab-tune"
+      ],
+      "heldout_sets": [],
+      "tuned_by_changes": []
+    },
+    "automationbench/marketing.trending_topic": {
+      "tuning_sets": [
+        "ab-tune"
+      ],
+      "heldout_sets": [],
+      "tuned_by_changes": []
+    },
+    "automationbench/operations.linkedin_job_change": {
+      "tuning_sets": [
+        "ab-tune"
+      ],
+      "heldout_sets": [],
+      "tuned_by_changes": []
+    },
+    "automationbench/sales.zoom_calendar_conflict": {
+      "tuning_sets": [
+        "ab-tune"
+      ],
+      "heldout_sets": [],
+      "tuned_by_changes": []
+    },
+    "automationbench/sales.zoom_regional_webinar_coordinator": {
+      "tuning_sets": [
+        "ab-tune"
+      ],
+      "heldout_sets": [],
+      "tuned_by_changes": []
+    },
+    "automationbench/support.helpcrunch_usage_alerts": {
+      "tuning_sets": [
+        "ab-tune"
+      ],
+      "heldout_sets": [],
+      "tuned_by_changes": []
+    },
+    "automationbench/support.zendesk_data_quality": {
+      "tuning_sets": [
+        "ab-tune"
+      ],
+      "heldout_sets": [],
+      "tuned_by_changes": []
+    },
+    "handbook/hr_crestwood_university_79786c46": {
+      "tuning_sets": [
+        "handbook-public3"
+      ],
+      "heldout_sets": [],
+      "tuned_by_changes": []
+    },
+    "handbook/insurance_vanguard_shield_mutual_9b2f7a29": {
+      "tuning_sets": [
+        "handbook-public3"
+      ],
+      "heldout_sets": [],
+      "tuned_by_changes": []
+    },
+    "handbook/medical_careig_specialty_pharmacy_f5947c33": {
+      "tuning_sets": [
+        "handbook-public3"
+      ],
+      "heldout_sets": [],
+      "tuned_by_changes": []
+    },
+    "itsm/2e555b5177": {
+      "tuning_sets": [
+        "itsm-pilot"
+      ],
+      "heldout_sets": [
+        "itsm-unseen",
+        "itsm-unseen2",
+        "itsm-unseen3"
+      ],
+      "tuned_by_changes": []
+    },
+    "itsm/7bb25d850c": {
+      "tuning_sets": [
+        "itsm-tune"
+      ],
+      "heldout_sets": [
+        "itsm-unseen"
+      ],
+      "tuned_by_changes": []
+    },
+    "itsm/933219af01": {
+      "tuning_sets": [
+        "itsm-pilot",
+        "itsm-tune"
+      ],
+      "heldout_sets": [
+        "itsm-unseen",
+        "itsm-unseen2",
+        "itsm-unseen3"
+      ],
+      "tuned_by_changes": []
+    },
+    "itsm/a5e328395b": {
+      "tuning_sets": [
+        "itsm-pilot"
+      ],
+      "heldout_sets": [
+        "itsm-unseen"
+      ],
+      "tuned_by_changes": []
+    },
+    "itsm/c47f8ceef3": {
+      "tuning_sets": [
+        "itsm-pilot",
+        "itsm-xref"
+      ],
+      "heldout_sets": [
+        "itsm-unseen2",
+        "itsm-unseen3"
+      ],
+      "tuned_by_changes": []
+    },
+    "itsm/cb2d4ee021": {
+      "tuning_sets": [
+        "itsm-xref"
+      ],
+      "heldout_sets": [],
+      "tuned_by_changes": []
+    },
+    "itsm/d5ab75ff0f": {
+      "tuning_sets": [],
+      "heldout_sets": [
+        "itsm-unseen"
+      ],
+      "tuned_by_changes": [
+        131
+      ]
+    },
+    "itsm/e2891a7b98": {
+      "tuning_sets": [
+        "itsm-pilot",
+        "itsm-tune"
+      ],
+      "heldout_sets": [
+        "itsm-unseen",
+        "itsm-unseen2",
+        "itsm-unseen3"
+      ],
+      "tuned_by_changes": [
+        105,
+        107,
+        112,
+        113,
+        114,
+        115,
+        116,
+        117,
+        118,
+        131
+      ]
+    },
+    "tau2_airline/airline": {
+      "tuning_sets": [],
+      "heldout_sets": [
+        "tau2-airline-test"
+      ],
+      "tuned_by_changes": [],
+      "note": "the official test split (20 tasks) was run before this package existed: the headroom checks `a20_ds` and `a20_oss`, and the no-harm check of the SOP tracker `air1` (arms A and T, 5 trials, change 87). The runs and the agent writes were reviewed (change 87, `tau2/labels.md`). The result of `air1` (tracker 17/20 against 11/20) is the evidence for design decision 1 of the design spec (route by the shape of the policy source), and Task 5.3 (rule-list route) implements that decision and is checked on this package. The package was made from the policy text only and no rule, test or setting was changed from these runs, but the tasks, the runs and the failures are seen: numbers on this split are not a clean bar"
+    },
+    "tau2_retail/retail": {
+      "tuning_sets": [],
+      "heldout_sets": [],
+      "tuned_by_changes": [],
+      "note": "no run has used this policy (no task set, no change)"
+    },
+    "tau2_telecom/telecom": {
+      "tuning_sets": [
+        "tau2-telecom-dev20"
+      ],
+      "heldout_sets": [
+        "tau2-telecom-fresh40",
+        "tau2-telecom-test"
+      ],
+      "tuned_by_changes": []
+    }
+  }
+}
