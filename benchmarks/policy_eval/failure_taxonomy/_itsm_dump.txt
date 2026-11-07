@@ -1,0 +1,304 @@
+TOOLCALL SAMPLE: [{"tool": "get_user_using_email", "args": {"email": "priya.sharma@techcorp.com"}, "result": {"user_id": "USER_002", "user_name": "priya.sharma", "first_name": "Priya", "last_name": "Sharma", "email": "priya.sharma@techcorp.com", "phone": "+1-415-555-0102", "role": "manager", "active": true, "org_id": "ORG_001", "location_id": "LOC_001", "created_on": "2024-01-16T10:00:00", "updated_on": "2024-01-16T10:00:00"}, "error": false, "ms": 163}, {"tool": "list_incidents", "args": {"short_description": "Cannot access email account"}, "result": [{"incident_id": "INC_001", "number": "INC0000001", "caller
+
+################# ccb66a9a runs 3 passed runs 0
+USER: I am receiving reports of 'Outlook' email access service failures, which seem to disrupt the development. Although an incident with the name 'Cannot access email account' has already been created, please log a high-impact, high-urgency Problem record linked to this offering with the statement 'Outlook connectivity failure'. Regarding documentation, check if we have any documentation related to 'troubleshooting' or 'configuring' with respect to Outlook email. If so, send a notification to Priya Sharma('priya.sharma@techcorp.com') alerting her about the issue and instructing her to 'Please ask your team to try the steps in '[insert found document title]' for resolving the issue'. Furthermore, if not, create a new internal knowledge article titled 'Outlook Access Troubleshooting' to fill the gap.
+  V1 fail 3/3 name=Sending notification :: select count() from notification where incident_id = 'INC_001' and email = 'priya.sharma@techcorp.com' and type = 'alert' and message = "Please ask your team to try the steps in 'Email Client Configuration Guide' for resolving the issue"
+  CALLS (failing run):
+     get_user_using_email {"email": "priya.sharma@techcorp.com"}
+     list_incidents {"short_description": "Cannot access email account"}
+     find_service_offerings {"name": "Outlook"}
+     retrieve_knowledge_articles {"title": "troubleshooting"}
+     retrieve_knowledge_articles {"title": "configuring"}
+     retrieve_knowledge_articles {"title": "Outlook"}
+     retrieve_knowledge_articles {"body": "Outlook"}
+     create_problem {"problem_statement": "Outlook connectivity failure", "status": "new", "impact": "high", "urgency": "high", "priority": "critical", "service_offering": "SVCOFF_001", "short_description": "Outlook connectivity failure", "category": "software"}
+     send_notification {"incident_id": "INC_001", "email": "priya.sharma@techcorp.com", "type": "alert", "subject": "Outlook Connectivity Issue - Action Required", "message": "Please ask your team to try the steps in 'Email Client Configuration Guide' for resolving the issue."}
+
+################# a4b1468a runs 3 passed runs 0
+USER: Gregory Richards is finalizing the response to that SAP Database Unreachable major incident. He spotted two symptomatic reports that need consolidation: one mentioning HR DB and another for Disk Full. Please find these and link them as children to the major SAP database incident. To ensure the desk doesn't duplicate troubleshooting, put that HR DB ticket on hold while we wait for the root problem resolution. Finally, he needs a Post-Outage Compliance Audit logged. Assign it to the same manager who's already handling the main database outage and link this audit as a child of the major incident as well.
+  V2 fail 3/3 name=incident_inc_101_creation :: SELECT COUNT(*) FROM incident WHERE incident_id = 'INC_101' AND number = 'INC-000101' AND caller_id = 'USER_059' AND assigned_to = 'USER_059' AND short_description = 'Post-Outage Compliance Audit' AND category = 'database' AND status = 'new' AND impact = 'low' AND urgency = 'low' AND priority = 'planning';
+  CALLS (failing run):
+     get_user_using_name {"first_name": "Gregory", "last_name": "Richards"}
+     list_incidents {"short_description": "SAP Database Unreachable"}
+     list_incidents {"short_description": "HR DB"}
+     list_incidents {"short_description": "Disk Full"}
+     add_child_incident {"parent_incident": "INC_001", "child_incident": "INC_057"}
+     add_child_incident {"parent_incident": "INC_001", "child_incident": "INC_030"}
+     update_incident {"incident_id": "INC_057", "status": "on_hold", "on_hold_reason": "Awaiting Problem"}
+     create_incident {"caller_id": "USER_059", "short_description": "Post-Outage Compliance Audit", "assigned_to": "USER_059", "assignment_group": "GROUP_008", "category": "inquiry-help", "impact": "low", "urgency": "low"}
+     add_child_incident {"parent_incident": "INC_001", "child_incident": "INC_101"}
+
+################# 6bb33392 runs 3 passed runs 0
+USER: An email was received from Carlos reporting an issue with his assigned workstation. He stated that the system has started shutting down unexpectedly several times a day, especially during extended development sessions. The device also becomes unusually warm, and performance degrades significantly before each shutdown. This behavior has raised concerns about possible hardware failure or thermal throttling. Please first verify Carlos user details and identify the configuration item currently assigned to him. Once the asset is confirmed, log a new incident to document this issue, marking it with high impact and high urgency due to the repeated interruptions to active work. After the incident is created, determine the appropriate high-priority SLA and associate it with the incident so response timelines are enforced. Finally, notify the user that the issue has been logged for workstation shutdown and is under investigation.
+  V0 fail 3/3 name=Verify Incident CI :: SELECT COUNT(*) FROM incident WHERE incident_id = 'INC_024' AND configuration_item = 'CI_001' AND caller_id = 'USER_003' AND channel = 'phone' AND status = 'new' AND impact = 'high' AND urgency = 'high' AND priority = 'high' AND LOWER(short_description) LIKE '%device%' AND LOWER(short_description) LIKE '%shutdown%';
+  V1 fail 3/3 name=Verify Incident Link to SLA :: SELECT COUNT(*) FROM incident_sla WHERE incident_id = 'INC_024' AND sla_def_id = 'SLA_002' AND stage = 'in_progress';
+  V2 fail 3/3 name=Verify notification :: SELECT COUNT(*) FROM notification WHERE incident_id='INC_024' AND email='carlos.rodriguez@techcorp.com' AND type='alert' AND status='queued' AND LOWER(subject) LIKE '%Incident%' AND LOWER(subject) LIKE '%Workstation%' AND LOWER(subject) LIKE '%shutdown%' AND LOWER(message) LIKE '%issue%' AND LOWER(message) LIKE '%carlos%' AND LOWER(message) LIKE '%logged%' AND LOWER(message) LIKE '%currently%' AND LOWER(message) LIKE '%investigation%' AND LOWER(message) LIKE '%problem%';
+  CALLS (failing run):
+     list_users {"first_name": "Carlos"}
+     find_configuration_items {"owner_id": "USER_003"}
+     create_incident {"caller_id": "USER_003", "short_description": "Workstation shutting down unexpectedly during extended development sessions", "description": "Carlos Rodriguez reports that his assigned workstation (Carlos Laptop, CI_001, SN: LAPTOP-NYC-001) has started shuttin
+     find_sla_definitions {"applies_to_priority": "critical", "active": true}
+     link_new_incident_sla {"incident_id": "INC_024", "sla_def_id": "SLA_001", "start_time": "2026-11-01T22:57:36.748777"}
+     send_notification {"incident_id": "INC_024", "email": "carlos.rodriguez@techcorp.com", "type": "alert", "subject": "Incident INC-000024 Logged: Workstation Shutdown Issue", "message": "Dear Carlos,\n\nYour reported issue regarding the workstation (Carlos Laptop, SN: LAPTOP-NYC-
+
+################# 00dab62f runs 3 passed runs 1
+USER: Reassign change request 'CHG0000017' (Monthly Firewall Rule Audit) to 'steven.hernandez88@servicenow.com' who will lead the implementation. Before creating any mappings, check if they already exist. Then map this change to problem 'PRB0000006' as the root cause resolution and link it to incident 'INC-000025' to establish complete traceability. Verify all change request mappings for this change to ensure proper documentation of the problem-change-incident relationship.
+  V0 fail 2/3 name=Verify Change Assignment Update :: SELECT COUNT(*)
+FROM change
+WHERE change_id = 'CHG_017'
+  AND number = 'CHG0000017'
+  AND assigned_to = 'USER_009'
+  AND org_id = 'ORG_001';
+  V1 fail 2/3 name=Verify Change-Problem Mapping Exists :: SELECT COUNT(*)
+FROM change_request_mapping
+WHERE change_id = 'CHG_017'
+  AND problem_id = 'PRB_006'
+  AND org_id = 'ORG_001';
+  V2 fail 2/3 name=Verify Change-Incident Mapping Exists :: SELECT COUNT(*)
+FROM change_request_mapping
+WHERE change_id = 'CHG_017'
+  AND incident_id = 'INC_025'
+  AND org_id = 'ORG_001';
+  V3 fail 2/3 name=Verify Complete Traceability Chain :: SELECT COUNT(*)
+FROM change_request_mapping
+WHERE change_id = 'CHG_017'
+  AND org_id = 'ORG_001'
+  AND (problem_id = 'PRB_006' OR incident_id = 'INC_025');
+  CALLS (failing run):
+     find_change_by_number {"number": "CHG0000017"}
+     get_user {"user_id": "steven.hernandez88@servicenow.com"}
+     find_problem_by_number {"number": "PRB0000006"}
+     find_incident_by_number {"number": "INC-000025"}
+     list_change_request_mappings {"change_id": "CHG_017"}
+     get_user {"user_id": "steven.hernandez88"}
+     get_user {"user_id": "USER_088"}
+     get_user {"user_id": "steven.hernandez"}
+
+################# 3e736be9 runs 3 passed runs 0
+USER: I have been working on incident INC‑000057 for some time, and after detailed analysis, I noticed that certain configurations need to be updated so the issue can be resolved and moved into production. For this, I would need a standard change to be created so that the deployment can be managed during the change window and completed accordingly. Please inform the caller that the incident resolution is being handled as part of this change.
+  V0 fail 3/3 name=Verify Change :: SELECT COUNT(*) FROM change WHERE change_id = 'CHG_026' AND impact = 'low' AND risk = 'low' AND priority = 'low' AND status = 'new' AND cab_required = false AND category ='other';
+  V3 fail 3/3 name=SLA paused :: SELECT COUNT(*) FROM incident_sla WHERE incident_id = 'INC_057' AND incident_sla_id = 'TSLA_022' AND stage ='paused' AND sla_def_id ='SLA_001';
+  V5 fail 3/3 name=Verify Change :: SELECT COUNT(*) FROM change WHERE change_id = 'CHG_026' AND impact = 'low' AND risk = 'low' AND priority = 'low' AND status = 'new' AND cab_required = false AND category ='other';
+  V8 fail 3/3 name=SLA paused :: SELECT COUNT(*) FROM incident_sla WHERE incident_id = 'INC_057' AND incident_sla_id = 'TSLA_022' AND stage ='paused' AND sla_def_id ='SLA_001';
+  CALLS (failing run):
+     find_incident_by_number {"number": "INC-000057"}
+     get_user {"user_id": "USER_057"}
+     get_user {"user_id": "USER_004"}
+     create_change {"short_description": "Configuration update for HR DB - INC-000057", "status": "new", "impact": "high", "risk": "low", "priority": "moderate", "category": "database", "description": "Configuration updates required to resolve HR database incident INC-000057 and
+     create_change {"short_description": "Configuration update for HR DB - INC-000057", "status": "new", "impact": "high", "risk": "low", "priority": "moderate", "category": "application_software", "description": "Configuration updates required to resolve HR database incident IN
+     map_change_request {"change_id": "CHG_026", "incident_id": "INC_057"}
+     update_incident {"incident_id": "INC_057", "status": "on_hold", "on_hold_reason": "Awaiting Change", "change_request": "CHG_026", "worknotes": "Incident placed on hold pending standard change CHG0000026 for configuration updates. Change created to manage deployment during cha
+     send_notification {"incident_id": "INC_057", "email": "richard.lopez@servicenow.com", "type": "update", "subject": "INC-000057 Resolution Being Handled via Change CHG0000026", "message": "Dear Richard,\n\nYour incident INC-000057 (HR DB) is being resolved as part of a standard 
+
+################# 0e601eac runs 2 passed runs 0
+USER: While working on INC-000061, it became clear that additional clarification from the requester is needed. Please move the incident to on hold using the Awaiting Caller reason and alert the requester that progress will resume once the required details are received. Since this issue overlaps with the one being tracked under INC-000090, ensure the relationship between the two is reflected so that INC-000061 is treated as the primary record. Make sure the related incident reflects this update in its work notes, noting that follow-up and tracking will now be managed through the primary incident.
+  V0 fail 1/2 name=Verify SLA Paused :: SELECT COUNT(*) FROM incident_sla WHERE incident_id = 'INC_061' AND incident_sla_id = 'TSLA_027' AND sla_def_id = "SLA_001" AND stage = "paused";
+  V2 fail 2/2 name=Verify Incident Update Child :: SELECT COUNT(*) FROM incident WHERE incident_id = 'INC_090' AND parent_incident = 'INC_061';
+  CALLS (failing run):
+     find_incident_by_number {"number": "INC-000061"}
+     find_incident_by_number {"number": "INC-000090"}
+     get_user {"user_id": "USER_027"}
+     find_incident_slas {"incident_id": "INC_061"}
+     update_incident {"incident_id": "INC_061", "status": "on_hold", "on_hold_reason": "Awaiting Caller"}
+     update_incident_sla_details {"incident_sla_id": "TSLA_027", "stage": "paused"}
+     add_child_incident {"parent_incident": "INC_061", "child_incident": "INC_090"}
+     update_incident {"incident_id": "INC_090", "worknotes": "This incident has been linked as a child of INC-000061 (Sharepoint). Follow-up and tracking will now be managed through the primary incident INC-000061. All further updates and resolution efforts will be coordinated und
+     send_notification {"incident_id": "INC_061", "email": "ashley.krueger@estradallc.com", "type": "alert", "subject": "Action Required: INC-000061 - Awaiting Your Response", "message": "Dear Ashley,\n\nYour incident INC-000061 (Sharepoint) has been placed on hold as we require add
+
+################# 893f6b2c runs 2 passed runs 0
+USER: Please work with the previously resolved incident that Benjamin reported, the one that was handled by the group named Level 1 Support Team, as this case will serve as the parent record for a related incident. The same user has now reported a new incident involving the service owned by me, describing intermittent screen freezing on the item valued at more than 1000 and located in the city of New York. His report came in by phone, and the impact on the overall project is minimal, so this new incident should be created as a normal standalone incident record and documented with the lowest available levels of impact and urgency. Once documented as its own incident, it needs to be associated under the earlier resolved case as its child incident so the relationship between the two incidents is properly maintained. Regarding this new incident, send a report to the user that reported it regarding this update. Use the subject Update on Your Service Performance Report, and include a brief message indicating that a new incident has been logged in connection with his previous case, noting the observed screen-freezing behavior on his device and encouraging him to reach out if the situation escalates or additional symptoms appear.
+  V2 fail 2/2 name=verify_notification_sent :: SELECT COUNT(*) FROM notification n JOIN incident i ON i.incident_id = n.incident_id WHERE n.incident_id = 'INC_024' AND n.email = 'benjamin.chen@techcorp.com' AND n.type = 'report' AND n.subject = 'Update on Your Service Performance Report' AND LOWER(n.message) LIKE '%previous%' AND LOWER(n.message) LIKE '%screen%' AND LOWER(n.message) LIKE '%freez%' AND LOWER(n.message) LIKE '%symptom%' AND LOWER(n.message) LIKE '%logged%' AND LOWER(n.message) LIKE '%appear%'
+  CALLS (failing run):
+     list_users {"first_name": "Benjamin"}
+     list_user_groups {"name": "Level 1 Support Team"}
+     get_incidents_assigned_to {"assignment_group": "GROUP_001"}
+     find_locations {"city": "New York"}
+     find_configuration_items {"location_id": "LOC_001"}
+     find_services null
+     create_incident {"caller_id": "USER_005", "short_description": "Intermittent screen freezing on device", "description": "User reports intermittent screen freezing behavior on the device.", "service": "SVC_001", "configuration_item": "CI_001", "channel": "phone", "impact": "lo
+     add_child_incident {"parent_incident": "INC_001", "child_incident": "INC_024"}
+     send_notification {"incident_id": "INC_024", "email": "benjamin.chen@techcorp.com", "subject": "Update on Your Service Performance Report", "message": "A new incident (INC-000024) has been logged in connection with your previous case (INC0000001). We have noted the observed scr
+
+################# 2dc8b3ce runs 2 passed runs 0
+USER: The group whose type is IT Support and that is classified as a level 1 support team has adopted a new rule that must be applied today: the oldest incident that is still unresolved and currently assigned to this group must be escalated by setting its impact, urgency, and priority to their highest available levels and by sending reports both to the user who reported it and to the user who is currently assigned to resolve it. The report for the user who originally reported this incident needs to have the subject Good News: Your Incident Has Been Escalated for Immediate Resolution. In the message, greet this reporter by their full name and congratulate them, explaining that their incident has been promoted and will now be handled as a top priority instead of waiting in the normal queue. Make it clear that the expectation is for their incident to be fully resolved no later than tomorrow. On the other hand, the report for the user who is currently assigned to resolve this incident needs to have the subject Urgent Action Required: Highest-Priority Incident for Same-Day Focus. In this message, greet the assignee by their full name and clearly apologize that they must pause their other work and dedicate their full attention to this incident. Provide context by stating the current incident summary so they understand what the issue is about, and emphasize that they also have at most one day to resolve this incident, because the reporting user needs it fully fixed by tomorrow.
+  V1 fail 2/2 name=validate_reporter_notification_escalated :: SELECT COUNT(*) FROM notification WHERE incident_id = 'INC_004' AND type = 'report' AND email = 'carlos.rodriguez@techcorp.com' AND subject = 'Good News: Your Incident Has Been Escalated for Immediate Resolution' AND LOWER(message) LIKE '%carlos rodriguez%' AND LOWER(message) LIKE '%congratulat%' AND LOWER(message) LIKE '%top priority%' AND LOWER(message) LIKE '%queue%' AND LOWER(message) LIKE '%expectat%' AND LOWER(message) LIKE '%full%' AND LOWER(message) LIKE '%resolve%' AND LOWER(message) LIKE '%tomorrow%'
+  V2 fail 2/2 name=validate_assignee_notification_urgent :: SELECT COUNT(*) FROM notification WHERE incident_id = 'INC_004' AND type = 'report' AND email = 'elena.petrov@techcorp.com' AND subject = 'Urgent Action Required: Highest-Priority Incident for Same-Day Focus' AND LOWER(message) LIKE '%elena petrov%' AND LOWER(message) LIKE '%network connectivity issues%' AND LOWER(message) LIKE '%apolog%' AND LOWER(message) LIKE '%pause%' AND LOWER(message) LIKE '%work%' AND LOWER(message) LIKE '%dedicate%' AND LOWER(message) LIKE '%attention%' AND LOWER(message) LIKE '%fixed%' AND LOWER(message) LIKE '%one day%' AND LOWER(message) LIKE '%tomorrow%'
+  CALLS (failing run):
+     list_user_groups {"type": "IT Support"}
+     get_incidents_assigned_to {"assignment_group": "GROUP_001"}
+     get_user {"user_id": "USER_003"}
+     get_user {"user_id": "USER_006"}
+     update_incident {"incident_id": "INC_004", "impact": "high", "urgency": "high", "priority": "critical"}
+     send_notification {"incident_id": "INC_004", "email": "carlos.rodriguez@techcorp.com", "subject": "Good News: Your Incident Has Been Escalated for Immediate Resolution", "message": "Dear Carlos Rodriguez,\n\nCongratulations! Your incident INC0000004 (\"Network connectivity issu
+     send_notification {"incident_id": "INC_004", "email": "elena.petrov@techcorp.com", "subject": "Urgent Action Required: Highest-Priority Incident for Same-Day Focus", "message": "Dear Elena Petrov,\n\nWe apologize for the disruption, but you must pause your other work and dedica
+
+################# f8774fe4 runs 2 passed runs 1
+USER: We have completed the monthly firewall rule audit change CHG0000017 and identified some security issues. Please close the change as successful, with close notes stating, “Found 3 unused rules removed, 2 vendor access rules updated.” Next, check whether this change is linked to any problems in the system—if so, update the related problems to reflect that the residual risk has been accepted.
+  V1 fail 1/2 name=Verify Problem Update :: SELECT COUNT(*) AS verification_result
+FROM problem
+WHERE problem_id = 'PRB_011'
+  AND status = 'closed';
+
+  CALLS (failing run):
+     find_change_by_number {"number": "CHG0000017"}
+     list_change_request_mappings {"change_id": "CHG_017"}
+     update_change {"change_id": "CHG_017", "status": "closed", "close_code": "successful", "close_notes": "Found 3 unused rules removed, 2 vendor access rules updated."}
+     list_problems {"problem_id": "PRB_011"}
+     update_problem {"problem_id": "PRB_011", "worknotes": "Change CHG0000017 closed as successful. Residual risk from firewall rule audit accepted: 3 unused rules removed, 2 vendor access rules updated."}
+
+################# 8218da6c runs 2 passed runs 0
+USER: Regarding the workstation with serial 'DESKTOP-NYC-145', we need to transition it to 'in_use' status, but first, you must identify who currently owns it so we can send them a confirmation message at the very end. The new custodian is Sarah Connor, a new agent joining the Service Desk team in New York—generate a profile for her (sarah.connor@example.com, +1-555-010-9999). Once she is established, map her to the 'Service Desk Operations' group and formally assign the asset to her. Simultaneously, log a ticket for 'Setup Peripherals for Sarah Connor' with her as the caller, ensuring the hardware and the 'Desktop Boot Failure Troubleshooting' article are attached. Conclude by notifying that previous owner we found earlier that 'Sarah's account, asset, and setup ticket have been successfully processed.'
+  V0 fail 2/2 name=Checking for creation of new user. :: SELECT count() FROM users WHERE user_name = 'sarah.connor' AND email = 'sarah.connor@example.com' AND phone = '+1-555-010-9999' AND role = 'agent' AND active = 1 AND location_id = 'LOC_001'
+  CALLS (failing run):
+     find_configuration_item_by_serial_number {"serial_number": "DESKTOP-NYC-145"}
+     find_group_by_name {"name": "Service Desk Operations"}
+     add_new_user {"first_name": "Sarah", "last_name": "Connor", "email": "sarah.connor@example.com", "phone": "+1-555-010-9999", "role": "agent", "active": true}
+     get_user {"user_id": "USER_004"}
+     add_new_group_member {"group_id": "GROUP_002", "user_id": "USER_011"}
+     update_configuration_item {"configuration_item_id": "CI_002", "owner_id": "USER_011", "status": "in_use"}
+     create_incident {"short_description": "Setup Peripherals for Sarah Connor", "caller_id": "USER_011", "category": "hardware"}
+     retrieve_knowledge_articles {"title": "Desktop Boot Failure Troubleshooting"}
+     link_affected_ci_to_incident {"configuration_item": "CI_002", "incident_id": "INC_024"}
+     link_knowledge_to_incident {"incident_id": "INC_024", "knowledge_id": "KB_003", "used_as": "suggested"}
+     send_notification {"incident_id": "INC_024", "email": "aisha.williams@techcorp.com", "type": "update", "subject": "Asset Transfer & Setup Complete: DESKTOP-NYC-145", "message": "Sarah's account, asset, and setup ticket have been successfully processed."}
+
+################# 27934d6b runs 9 passed runs 6
+USER: After resolving the incident INC-000014, Anne Medina identified that no existing knowledge article was referenced during the incident resolution. Since the issue required structured troubleshooting, she creates a new internal knowledge article. The article, titled "Dell Laptop Battery Replacement", includes the following body: "If a Dell laptop battery is not charging, perform battery health diagnostics. Replace the faulty battery and run post-replacement tests to confirm proper charging and normal operation."
+  V1 fail 3/9 name=New KB :: SELECT COUNT(*) FROM knowledge WHERE knowledge_id = "KB_026" AND title = "Dell Laptop Battery Replacement" AND state = "draft" AND visibility = "internal" AND owner_id = "USER_029";
+  V3 fail 3/9 name=New KB :: SELECT COUNT(*) FROM knowledge WHERE knowledge_id = "KB_026" AND title = "Dell Laptop Battery Replacement" AND state = "draft" AND visibility = "internal" AND owner_id = "USER_029";
+  V4 fail 3/9 name=New KB :: SELECT COUNT(*) FROM knowledge WHERE knowledge_id = "KB_026" AND title = "Dell Laptop Battery Replacement" AND state = "draft" AND visibility = "internal" AND owner_id = "USER_029";
+  CALLS (failing run):
+     find_incident_by_number {"number": "INC-000014"}
+     get_user_using_name {"first_name": "Anne", "last_name": "Medina"}
+     find_incident_knowledge_links {"incident_id": "INC_014"}
+     create_knowledge_article {"title": "Dell Laptop Battery Replacement", "body": "If a Dell laptop battery is not charging, perform battery health diagnostics. Replace the faulty battery and run post-replacement tests to confirm proper charging and normal operation.", "state": "published
+     link_knowledge_to_incident {"incident_id": "INC_014", "knowledge_id": "KB_026", "used_as": "resolution"}
+
+################# e6e42358 runs 3 passed runs 0
+USER: A change request related to the migration of the marketing file share to the cloud has been incorrectly assigned, which has resulted in a stoppage in the workflow and is preventing further progress. Please raise a new incident to capture this operational impact and link it to the affected change request, documenting that the issue is causing a delay due to incorrect ownership and configuration data. Update the change request by reassigning it to the L2 Service Desk team, specifically to one of the manager, and correct the associated configuration item by updating its cost to 12,000, as it is currently inaccurate. Once these corrections are completed, send a notification both the previously assigned user and the new assignee with appropriate context regarding the change in ownership and the actions taken to restore normal workflow progression.
+  V3 fail 3/3 name=verify_notification_sent_to_previous_assignee :: SELECT COUNT(*) FROM notification WHERE message LIKE '%marketing%' AND email = 'casey.green@servicenow.com' AND type = 'update' AND status = 'sent';
+  V4 fail 3/3 name=verify_notification_sent_to_new_assignee :: SELECT COUNT(*) FROM notification WHERE message LIKE '%marketing%' AND email = 'robin.monroe83@servicenow.com' AND type = 'update' AND status = 'sent';
+  CALLS (failing run):
+     list_changes {"short_description": "marketing file share"}
+     find_group_by_name {"name": "L2 Service Desk"}
+     list_changes {"short_description": "migration"}
+     list_changes {"short_description": "marketing"}
+     list_changes {"short_description": "cloud"}
+     list_group_members {"group_id": "GROUP_004"}
+     find_configuration_items {"configuration_item_id": "CI_006"}
+     get_user {"user_id": "USER_052"}
+     get_user {"user_id": "USER_002"}
+     get_user {"user_id": "USER_031"}
+     get_user {"user_id": "USER_024"}
+     get_user {"user_id": "USER_025"}
+     create_incident {"short_description": "Operational impact: Incorrect assignment of CHG_020 (Migrate Marketing Share to Cloud) causing workflow stoppage", "caller_id": "USER_031", "description": "The change request CHG_020 (Migrate Marketing Share to Cloud) has been incorrectl
+     update_configuration_item {"configuration_item_id": "CI_006", "cost": 12000}
+     update_change {"change_id": "CHG_020", "assigned_to": "USER_031", "assignment_group": "GROUP_004"}
+     send_notification {"incident_id": "INC_101", "email": "casey.green@servicenow.com", "type": "update", "subject": "CHG_020 Reassignment: Migrate Marketing Share to Cloud - Ownership Change", "message": "The change request CHG_020 (Migrate Marketing Share to Cloud) has been reass
+     send_notification {"incident_id": "INC_101", "email": "robin.monroe83@servicenow.com", "type": "update", "subject": "CHG_020 Assigned to You: Migrate Marketing Share to Cloud - Action Required", "message": "The change request CHG_020 (Migrate Marketing Share to Cloud) has been 
+
+################# a4fb07a9 runs 3 passed runs 0
+USER: The implementation under CHG0000001 completed successfully within the approved maintenance window. During this window, the same remediation was also applied to Application Server SRV-LNX-4421, which was not originally listed. Update the existing change record to reflect all affected configuration items and progress it to the appropriate post-implementation state so it can be finalized without delays. Do not create any new change records.
+  V0 fail 3/3 name=Existing Change Updated with Additional CI :: SELECT COUNT(*)
+FROM change
+WHERE change_id = 'CHG_001'
+AND short_description LIKE '%SRV-LNX-4421%';
+
+  CALLS (failing run):
+     list_changes {"number": "CHG0000001"}
+     find_configuration_item_by_serial_number {"serial_number": "SRV-LNX-4421"}
+     update_change {"change_id": "CHG_001", "status": "review", "implementation_plan": "1. Stop SAP Services. 2. Apply DB Patch to CI_001 and CI_002 (SRV-LNX-4421). 3. Restart DB. 4. Start SAP.", "close_code": "successful"}
+
+################# 7196ef19 runs 3 passed runs 0
+USER: The company took a recent business decision driven by current budget constraints and has decided to deactivate the group whose type is IT Support and that is considered Level 1, meaning this group will no longer handle incidents. All incidents that are currently assigned to this Level 1 IT Support group and are still unresolved should be put on hold until further notice, so it is clear that they are no longer actively being worked on under this group's responsibility. Send reports to the users who originally reported them using the subject Important Update: Temporary Wait of Your IT Support Incident. In the messages greet the reporter by their full name and offer a clear apology, explaining that, due to the company's limited budget, the group previously assigned to their incident has been taken out of service. Remind them what their incident was about by referencing the incident summary, acknowledge that this situation is harmful to their ability to perform their daily tasks, and reassure them that within the next few days a new support group will be assigned to help address their issue so it can still be resolved as soon as possible.
+  V2 fail 3/3 name=verify_notification_inc_016_sent :: SELECT COUNT(*) FROM notification WHERE incident_id = 'INC_016' AND email = 'carlos.rodriguez@techcorp.com' AND type = 'report' AND subject = 'Important Update: Temporary Wait of Your IT Support Incident' AND LOWER(message) LIKE '%carlos rodriguez%' AND LOWER(message) LIKE '%apolog%' AND LOWER(message) LIKE '%company%' AND LOWER(message) LIKE '%limited%' AND LOWER(message) LIKE '%budget%' AND LOWER(message) LIKE '%previous%' AND LOWER(message) LIKE '%service%' AND LOWER(message) LIKE '%wifi connection drops frequently%' AND LOWER(message) LIKE '%perform%' AND LOWER(message) LIKE '%daily task%'  AND LOWER(message) LIKE '%next few days%' AND LOWER(message) LIKE '%new support group%' AND LOWER(
+  V3 fail 3/3 name=verify_notification_inc_014_sent :: SELECT COUNT(*) FROM notification WHERE incident_id = 'INC_014' AND email = 'benjamin.chen@techcorp.com' AND type = 'report' AND subject = 'Important Update: Temporary Wait of Your IT Support Incident' AND LOWER(message) LIKE '%benjamin chen%' AND LOWER(message) LIKE '%apolog%' AND LOWER(message) LIKE '%company%' AND LOWER(message) LIKE '%limited%' AND LOWER(message) LIKE '%budget%' AND LOWER(message) LIKE '%previous%' AND LOWER(message) LIKE '%service%' AND LOWER(message) LIKE '%monitor display flickering%' AND LOWER(message) LIKE '%perform%' AND LOWER(message) LIKE '%daily task%'  AND LOWER(message) LIKE '%next few days%' AND LOWER(message) LIKE '%new support group%' AND LOWER(message) LIK
+  V4 fail 3/3 name=verify_notification_inc_003_sent :: SELECT COUNT(*) FROM notification WHERE incident_id = 'INC_003' AND email = 'benjamin.chen@techcorp.com' AND type = 'report' AND subject = 'Important Update: Temporary Wait of Your IT Support Incident' AND LOWER(message) LIKE '%benjamin chen%' AND LOWER(message) LIKE '%apolog%' AND LOWER(message) LIKE '%company%' AND LOWER(message) LIKE '%limited%' AND LOWER(message) LIKE '%budget%' AND LOWER(message) LIKE '%previous%' AND LOWER(message) LIKE '%service%' AND LOWER(message) LIKE '%printer connectivity issue%' AND LOWER(message) LIKE '%perform%' AND LOWER(message) LIKE '%daily task%'  AND LOWER(message) LIKE '%next few days%' AND LOWER(message) LIKE '%new support group%' AND LOWER(message) LIK
+  V5 fail 3/3 name=verify_notification_inc_004_sent :: SELECT COUNT(*) FROM notification WHERE incident_id = 'INC_004' AND email = 'carlos.rodriguez@techcorp.com' AND type = 'report' AND subject = 'Important Update: Temporary Wait of Your IT Support Incident' AND LOWER(message) LIKE '%carlos rodriguez%' AND LOWER(message) LIKE '%apolog%' AND LOWER(message) LIKE '%company%' AND LOWER(message) LIKE '%limited%' AND LOWER(message) LIKE '%budget%' AND LOWER(message) LIKE '%previous%' AND LOWER(message) LIKE '%service%' AND LOWER(message) LIKE '%network connectivity issues%' AND LOWER(message) LIKE '%perform%' AND LOWER(message) LIKE '%daily task%'  AND LOWER(message) LIKE '%next few days%' AND LOWER(message) LIKE '%new support group%' AND LOWER(messa
+  CALLS (failing run):
+     list_user_groups {"type": "IT Support", "active": true}
+     get_incidents_assigned_to {"assignment_group": "GROUP_001"}
+     get_user {"user_id": "USER_003"}
+     get_user {"user_id": "USER_005"}
+     update_user_group {"group_id": "GROUP_001", "active": false}
+     update_incident {"incident_id": "INC_016", "status": "on_hold", "on_hold_reason": "Awaiting Change"}
+     update_incident {"incident_id": "INC_014", "status": "on_hold", "on_hold_reason": "Awaiting Change"}
+     update_incident {"incident_id": "INC_003", "status": "on_hold", "on_hold_reason": "Awaiting Change"}
+     update_incident {"incident_id": "INC_004", "status": "on_hold", "on_hold_reason": "Awaiting Change"}
+     send_notification {"incident_id": "INC_016", "email": "carlos.rodriguez@techcorp.com", "subject": "Important Update: Temporary Wait of Your IT Support Incident", "message": "Dear Carlos Rodriguez,\n\nWe sincerely apologize for the inconvenience. Due to the company's current bud
+     send_notification {"incident_id": "INC_014", "email": "benjamin.chen@techcorp.com", "subject": "Important Update: Temporary Wait of Your IT Support Incident", "message": "Dear Benjamin Chen,\n\nWe sincerely apologize for the inconvenience. Due to the company's current budget co
+     send_notification {"incident_id": "INC_003", "email": "benjamin.chen@techcorp.com", "subject": "Important Update: Temporary Wait of Your IT Support Incident", "message": "Dear Benjamin Chen,\n\nWe sincerely apologize for the inconvenience. Due to the company's current budget co
+     send_notification {"incident_id": "INC_004", "email": "carlos.rodriguez@techcorp.com", "subject": "Important Update: Temporary Wait of Your IT Support Incident", "message": "Dear Carlos Rodriguez,\n\nWe sincerely apologize for the inconvenience. Due to the company's current bud
+
+################# 55f848d3 runs 3 passed runs 0
+USER: Enterprise Email is being decommissioned as part of our migration to a new cloud-based email platform. The existing Enterprise Email service and its related offerings are no longer supported. Create a new service named Cloud Email Platform with description 'Cloud-based enterprise email platform' while keeping all the fields same as the Enterprise Email service and made a new corresponding service offering for it named as 'Cloud Email Platform - Standard' with short description as 'Standard cloud mailbox', used for a 'production', status as 'operational', service_classification as 'application' and business_criticality as 'critical'. Also, any currently open (new and in_progress) incidents associated with Enterprise Email should be moved to the new service and it's offerings so they can continue to be tracked and resolved under the new service.
+  V0 fail 1/3 name=New service created :: SELECT COUNT(*) FROM service WHERE name = 'Cloud Email Platform' AND business_criticality ='critical' AND status = 'operational' AND owned_by = 'USER_004' AND used_for = 'production' AND service_classification = 'business' AND description = 'Cloud-based enterprise email platform';
+  V1 fail 2/3 name=Open incidents moved to new service and service offering :: SELECT COUNT(*) AS cnt FROM incident WHERE incident_id IN ('INC_004', 'INC_073') AND service = 'SVC_049' AND service_offering = 'SVCOFF_061';
+  V2 fail 3/3 name=Old service is retired :: SELECT COUNT(*) FROM service WHERE service_id = 'SVC_001' AND status = 'retired';
+  V3 fail 3/3 name=Old service offering retired :: SELECT COUNT(*) FROM service_offering WHERE service_offering_id IN ('SVCOFF_001', 'SVCOFF_018') AND status = 'retired';
+  CALLS (failing run):
+     find_service_by_name {"name": "Enterprise Email"}
+     find_service_offerings {"name": "Enterprise Email"}
+     list_incidents {"service": "SVC_001", "status": "new"}
+     list_incidents {"service": "SVC_001", "status": "in_progress"}
+     add_new_service {"name": "Cloud Email Platform", "owned_by": "USER_004", "used_for": "production", "status": "operational", "service_classification": "business", "business_criticality": "critical", "description": "Cloud-based enterprise email platform"}
+     register_new_service_offering {"name": "Cloud Email Platform - Standard", "owned_by": "USER_004", "used_for": "production", "status": "operational", "service_classification": "application", "business_criticality": "critical", "short_description": "Standard cloud mailbox", "parent": "SVC_04
+     update_incident {"incident_id": "INC_004", "service": "SVC_049", "service_offering": "SVCOFF_061"}
+     update_incident {"incident_id": "INC_073", "service": "SVC_049", "service_offering": "SVCOFF_061"}
+
+################# 03a04c19 runs 3 passed runs 2
+USER: Put incident number INC0000002 on hold as we are waiting for the user's response and can't proceed further without his input. Send a reminder notification to the user to provide the unique serial number of his system as it is necessary for resolution.
+  V0 fail 1/3 name=Verify if the SLA is paused if the incident is on hold. :: SELECT COUNT(*) FROM incident_sla WHERE incident_sla_id = 'TSLA_002' AND incident_id = 'INC_002' AND stage = 'paused';
+
+  CALLS (failing run):
+     find_incident_by_number {"number": "INC0000002"}
+     get_user {"user_id": "USER_005"}
+     update_incident {"incident_id": "INC_002", "status": "on_hold", "on_hold_reason": "Awaiting Caller", "worknotes": "Incident placed on hold - awaiting caller response. Need Benjamin Chen to provide the unique serial number of his desktop system to proceed with hardware diagnos
+     send_notification {"incident_id": "INC_002", "email": "benjamin.chen@techcorp.com", "type": "reminder", "subject": "Action Required: Provide Serial Number for INC0000002 - Desktop Not Booting", "message": "Hello Benjamin,\n\nWe are working on your incident INC0000002 regarding 
+
+################# dd00cc8f runs 3 passed runs 0
+USER: Randy Martinez from the L2 Field Support Team no longer requires system access. Cheryl Osborne will be assuming Randy's responsibilities, so ensure her account is updated accordingly to support full ownership and assignment capabilities. Transfer ownership of all configuration items currently assigned to Randy to Cheryl. In addition, review Randy's open and in-progress incidents and reassign them to Cheryl. Once the transition is complete, notify Cheryl with details of the incidents and responsibilities she will be managing.
+  V1 fail 3/3 name=user_added_to_group :: SELECT COUNT(*) FROM user_group_member WHERE user_id = 'USER_049' AND group_id = 'GROUP_006';
+  V3 fail 2/3 name=incidents_assigned_correctly :: SELECT COUNT(*) FROM incident WHERE incident_id IN ('INC_025', 'INC_099', 'INC_016', 'INC_036', 'INC_068') AND assigned_to = 'USER_049';
+  V4 fail 3/3 name=notification_sent :: SELECT COUNT(*) FROM notification WHERE email = 'cheryl.osborne@servicenow.com' AND status = 'sent' AND type = 'update' AND message IS NOT NULL AND (incident_id = 'INC_025' OR incident_id = 'INC_099' OR incident_id = 'INC_016' OR incident_id = 'INC_036' OR incident_id = 'INC_068');
+  CALLS (failing run):
+     get_user_using_name {"first_name": "Randy", "last_name": "Martinez"}
+     get_user_using_name {"first_name": "Cheryl", "last_name": "Osborne"}
+     find_group_by_name {"name": "L2 Field Support Team"}
+     update_user_details {"user_id": "USER_037", "active": false}
+     find_configuration_items {"owner_id": "USER_037"}
+     list_incidents {"assigned_to": "USER_037"}
+     update_configuration_item {"configuration_item_id": "CI_039", "owner_id": "USER_049"}
+     update_incident {"incident_id": "INC_025", "assigned_to": "USER_049"}
+     update_incident {"incident_id": "INC_099", "assigned_to": "USER_049"}
+     update_incident {"incident_id": "INC_016", "assigned_to": "USER_049"}
+     update_incident {"incident_id": "INC_068", "assigned_to": "USER_049"}
+     update_incident {"incident_id": "INC_036", "assigned_to": "USER_049"}
+     send_notification {"incident_id": "INC_025", "email": "cheryl.osborne@servicenow.com", "type": "update", "subject": "Transition Complete: Randy Martinez's Incidents & Assets Transferred to You", "message": "Cheryl Osborne,\n\nThe transition of responsibilities from Randy Martin
+
+################# c088062a runs 3 passed runs 0
+USER: There is an existing incident that is currently assigned to Carlos and concerns the installation of a software application. Carlos has just informed us that, while trying to resolve this incident, he encountered a new issue: the software installation is being blocked because the enterprise Adobe license that the company uses has expired and must be renewed. Because of this, resolving the incident has become more complicated than usual. Create a problem record to capture this newly identified issue with the expired Adobe enterprise license as the cause affecting the resolution of this incident, which is now considered a major incident because it is affecting the whole company. For this software problem, set impact and urgency to their maximum available levels. Once created, this problem needs to be associate it with the previous incident so that this situation is properly recorded. Send a report to the user who reported this incident with the subject Urgent Update: Licensing Issue Affecting Your Software Installation. In the message, greet the reporter by their full name and apologize clearly, explaining that a highly urgent problem has arisen related to their incident and stating what the problem is about. Let them know that this will likely make the resolution take longer than usual, and recommend that they temporarily focus on other tasks that are not related to this software in order to avoid blocking their daily performance while this licensing issue is being addressed.
+  V2 fail 3/3 name=validate_notification_sent :: SELECT COUNT(*) FROM notification WHERE incident_id = 'INC_005' AND email = 'aisha.williams@techcorp.com' AND type = 'report' AND subject = 'Urgent Update: Licensing Issue Affecting Your Software Installation' AND LOWER(message) LIKE '%aisha williams%' AND LOWER(message) LIKE '%apolog%' AND LOWER(message) LIKE '%highly urgent problem%' AND LOWER(message) LIKE '%enterprise%' AND LOWER(message) LIKE '%adobe%' AND LOWER(message) LIKE '%license%' AND LOWER(message) LIKE '%expired%' AND LOWER(message) LIKE '%longer%' AND LOWER(message) LIKE '%address%' AND LOWER(message) LIKE '%recommend%' AND LOWER(message) LIKE '%focus%' AND LOWER(message) LIKE '%performance%' AND LOWER(message) LIKE '%daily%' 
+  CALLS (failing run):
+     get_incidents_assigned_to {"assigned_to": "USER_004"}
+     list_users {"first_name": "Carlos"}
+     get_user {"user_id": "USER_004"}
+     get_incidents_assigned_to {"assigned_to": "USER_003"}
+     get_user {"user_id": "USER_004"}
+     create_problem {"problem_statement": "The enterprise Adobe license used by the company has expired, blocking all Adobe Creative Suite software installations across the organization. This was discovered while attempting to resolve incident INC_005 (Adobe Creative Suite instal
+     update_incident {"incident_id": "INC_005", "problem": "PRB_003"}
+     send_notification {"incident_id": "INC_005", "email": "aisha.williams@techcorp.com", "type": "alert", "subject": "Urgent Update: Licensing Issue Affecting Your Software Installation", "message": "Dear Aisha Williams,\n\nWe sincerely apologize for the inconvenience. A highly urg
+
+################# c23d76df runs 2 passed runs 0
+USER: Isabella Rossi (isabella.rossi@acme.com) wrote to us stating that her software Acme Email Server (serial number: SERVER-SF-SRV01) has been malfunctioning and is out of response for quite a long time. This is very crucial as it is highly impacting her work routines and causing delays in her production delivery. She has a submission due in next 3 days and in order to meet the deadline without failure, she needs this issue fixed ASAP so a high urgency is required. Check for any services linked with her server and associate the same if applicable. Record a new incident to be carried out for her situation and send out a report to let her know that the issue is now registered.
+  V2 fail 2/2 name=Record Incident :: SELECT COUNT(*) FROM incident WHERE incident_id = "INC_024" AND service = "SVC_003" AND configuration_item = "CI_004" AND caller_id = "USER_010" AND channel = "chat" AND status = "new" AND category = "software" AND impact = "high" AND urgency = "high" AND priority = "critical";
+  V5 fail 2/2 name=Record Incident :: SELECT COUNT(*) FROM incident WHERE incident_id = "INC_024" AND service = "SVC_003" AND configuration_item = "CI_004" AND caller_id = "USER_010" AND channel = "chat" AND status = "new" AND category = "software" AND impact = "high" AND urgency = "high" AND priority = "critical";
+  V8 fail 2/2 name=Record Incident :: SELECT COUNT(*) FROM incident WHERE incident_id = "INC_024" AND service = "SVC_003" AND configuration_item = "CI_004" AND caller_id = "USER_010" AND channel = "chat" AND status = "new" AND category = "software" AND impact = "high" AND urgency = "high" AND priority = "critical";
+  CALLS (failing run):
+     get_user_using_email {"email": "isabella.rossi@acme.com"}
+     find_configuration_item_by_serial_number {"serial_number": "SERVER-SF-SRV01"}
+     find_services {"name": "Email"}
+     find_sla_definitions {"applies_to_priority": "critical", "active": true}
+     create_incident {"caller_id": "USER_010", "short_description": "Acme Email Server (SERVER-SF-SRV01) malfunctioning and unresponsive", "description": "Isabella Rossi reports that the Acme Email Server (serial: SERVER-SF-SRV01) has been malfunctioning and is completely unrespon
+     link_new_incident_sla {"incident_id": "INC_024", "sla_def_id": "SLA_007", "start_time": "2026-11-01T23:10:40.641768"}
+     send_notification {"incident_id": "INC_024", "email": "isabella.rossi@acme.com", "type": "report", "subject": "Incident INC-000024 Registered: Acme Email Server Malfunction", "message": "Dear Isabella,\n\nYour incident regarding the Acme Email Server (SERVER-SF-SRV01) has been 

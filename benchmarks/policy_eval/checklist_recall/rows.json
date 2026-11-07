@@ -1,0 +1,2143 @@
+[
+ {
+  "bench": "hb",
+  "task": "hr_crestwood_university_79786c46",
+  "source": "policy",
+  "items": [
+   {
+    "id": "R1",
+    "kind": "step",
+    "text": "List the contents of the /workdir directory.",
+    "quote": "Begin by listing /workdir",
+    "when": "",
+    "check": {
+     "tool": "filesystem",
+     "targets": [
+      "/workdir"
+     ],
+     "values": []
+    }
+   },
+   {
+    "id": "R2",
+    "kind": "step",
+    "text": "Read the SOP file located in /workdir.",
+    "quote": "reading relevant files",
+    "when": "",
+    "check": {
+     "tool": "filesystem",
+     "targets": [
+      "SOP.txt"
+     ],
+     "values": []
+    }
+   },
+   {
+    "id": "R3",
+    "kind": "effect",
+    "text": "Perform the SOP\u2011specified action for each unread email dated April\u202f10\u202f2024.",
+    "quote": "Handle the unread emails from today according to the instructions in the provided SOP",
+    "when": "email.unread == true && email.date == \"2024-04-10\"",
+    "check": {
+     "tool": "google_mail_*",
+     "targets": [
+      "email.id"
+     ],
+     "values": [
+      "action as defined in SOP"
+     ]
+    }
+   },
+   {
+    "id": "R4",
+    "kind": "guard",
+    "text": "Do not defer any action that has a deadline within X days; execute it now.",
+    "quote": "Complete any actions that must be taken \"within x days\" now rather than deferring",
+    "when": "action.deadline <= today + X days",
+    "check": {
+     "tool": "",
+     "targets": [],
+     "values": []
+    }
+   },
+   {
+    "id": "R5",
+    "kind": "decision",
+    "text": "Include emails whose SOP\u2011defined action deadline is within X days for immediate execution.",
+    "quote": "Complete any actions that must be taken \"within x days\" now",
+    "when": "action.deadline <= today + X days",
+    "check": {
+     "tool": "",
+     "targets": [
+      "email.id"
+     ],
+     "values": []
+    }
+   }
+  ],
+  "dropped": 0,
+  "raw": 5,
+  "cover": [
+   "none",
+   "none",
+   "none",
+   "none",
+   "none",
+   "none",
+   "none",
+   "none",
+   "none",
+   "none",
+   "none",
+   "none",
+   "none",
+   "none",
+   "none",
+   "none",
+   "none",
+   "none",
+   "none",
+   "none",
+   "none",
+   "none"
+  ],
+  "fail": [
+   null,
+   null,
+   null,
+   null,
+   null,
+   null,
+   null,
+   null,
+   null,
+   null,
+   null,
+   null,
+   null,
+   null,
+   null,
+   null,
+   null,
+   null,
+   null,
+   null,
+   null,
+   null
+  ],
+  "unrelated": [
+   "R1",
+   "R2",
+   "R3",
+   "R4",
+   "R5"
+  ],
+  "checks": [
+   "In `employee_roster.xlsx` Sheet1, rows for Daniel Yoon (department='Marketing', campus='West', email='danielyoon.work@gmail.com'), Priya Kapoor (department='Finance', campus='Main', email='priya.kapoor@outlook.com'), and Marcus Webb (department='Information Technology', campus='Main', email='marcuswebb84@gmail.com') must exist with non-empty employee_id values.",
+   "In `onboarding_checklist.xlsx` Sheet1, rows must exist for Daniel Yoon, Priya Kapoor, and Marcus Webb.",
+   "In `jira_state.json`, exactly one issue must exist with summary 'ONBOARD-Yoon-04282026', exactly one with 'ONBOARD-Kapoor-05052026', and exactly one with 'ONBOARD-Webb-04282026'.",
+   "In `slack_data.json`, channel `#hr-onboarding` must contain messages containing ALL of: ('NEW HIRE','Daniel Yoon','Marketing Coordinator','Marketing','West','04/28/2026'), ('NEW HIRE','Priya Kapoor','Finance Analyst','Finance','Main','05/05/2026'), and ('NEW HIRE','Marcus Webb','IT Support Specialist','Information Technology','Main','04/28/2026').",
+   "In `mailbox.json`, sent emails must exist: to danielyoon.work@gmail.com with subject containing 'New Hire Welcome' and 'Yoon'; to priya.kapoor@outlook.com with subject containing 'New Hire Welcome' and 'Kapoor'; to marcuswebb84@gmail.com with subject containing 'New Hire Welcome' and 'Webb'.",
+   "In `mailbox.json`, sent emails to j.park@crestwood.edu must exist with subject containing 'IT Access Provisioning Request' and each of 'Yoon', 'Kapoor', 'Webb' (one email each).",
+   "In `mailbox.json`, orientation coordinator request emails must exist: to s.bloom@crestwood.edu with subject containing 'Orientation Coordinator Request' and 'Yoon'; to r.chen@crestwood.edu with subject containing 'Orientation Coordinator Request' and 'Kapoor'; to l.nguyen@crestwood.edu with subject containing 'Orientation Coordinator Request' and 'Webb'.",
+   "In `calendar_data.json`, orientation events must exist: one containing 'Orientation' and 'Daniel Yoon' starting 2026-04-28 at 9:00am ending 12:00pm; one containing 'Orientation' and 'Priya Kapoor' starting 2026-05-05 at 9:00am ending 12:00pm; one containing 'Orientation' and 'Marcus Webb' starting 2026-04-28 at 9:00am ending 12:00pm.",
+   "In `employee_roster.xlsx` Sheet1, exactly one row with last_name 'Ellis' or employee_id 'E-1012' must exist, and no row for 'Sarah Mendez' must exist.",
+   "In `onboarding_checklist.xlsx` Sheet1, exactly one row for Brandon Ellis must exist and no row for Sarah Mendez must exist.",
+   "In `jira_state.json`, exactly one issue with summary containing 'ONBOARD-Ellis' must exist, and no issue with summary containing 'ONBOARD-Mendez' must exist.",
+   "In `slack_data.json`, channel `#hr-onboarding` must contain exactly one message mentioning 'Brandon Ellis'.",
+   "In `mailbox.json`, exactly one sent email to brandon.ellis.personal@gmail.com must exist.",
+   "In `calendar_data.json`, exactly one event mentioning 'Ellis' must exist.",
+   "In `calendar_data.json`, no events after 04-10-26 mentioning 'Mendez' must exist.",
+   "In `mailbox.json`, email with id=6 must have is_read=true and folder='Onboarding'.",
+   "In `mailbox.json`, a sent or forwarded email to d.okonkwo@crestwood.edu with subject containing 'Offer' and 'Academic Advisor' must exist, and email id=9 must have is_read=true and folder='General'.",
+   "In `slack_data.json`, channel `#hr-escalations` must contain at least one message.",
+   "In `jira_state.json`, no issue with summary containing 'OFFBOARD-Navarro' must exist, except a tracking record whose status/description/comments explicitly mark it on hold awaiting written authorization (per SOP 12.1) and record no offboarding execution.",
+   "In `slack_data.json`, channel `#hr-offboarding` must contain no message mentioning 'Navarro'.",
+   "In `mailbox.json`, no sent email to j.park@crestwood.edu or c.briggs@crestwood.edu mentioning 'Navarro' must exist, no sent email to c.navarro@crestwood.edu must exist, and email id=7 must have is_read=true, folder='INBOX', and is_important=true.",
+   "In `benefits_enrollment.xlsx` Sheet1, the row for Chris Navarro (employee_id 'E-1014') must still have status 'Active' and an empty cobra_notification_date."
+  ]
+ },
+ {
+  "bench": "hb",
+  "task": "hr_crestwood_university_79786c46",
+  "source": "policy+data",
+  "items": [
+   {
+    "id": "R1",
+    "kind": "step",
+    "text": "List the contents of /workdir directory.",
+    "quote": "Begin by listing /workdir",
+    "when": "",
+    "check": {
+     "tool": "filesystem",
+     "targets": [
+      "/workdir"
+     ],
+     "values": []
+    }
+   },
+   {
+    "id": "R2",
+    "kind": "guard",
+    "text": "Do not defer any action that the SOP marks as required within 1 business day.",
+    "quote": "Complete any actions that must be taken \"within x days\" now rather than deferring",
+    "when": "",
+    "check": {
+     "tool": "",
+     "targets": [],
+     "values": []
+    }
+   },
+   {
+    "id": "R3",
+    "kind": "effect",
+    "text": "Create Jira issue ONBOARD-MEND-04012026 for Sarah Mendez (Academic Advisor) with status In Progress.",
+    "quote": "New Hire Notifications \u2026 Sarah Mendez \u2026 Start Date: 05/05/2026",
+    "when": "email_id 6 unread",
+    "check": {
+     "tool": "jira",
+     "targets": [
+      "ONBOARD-MEND-04012026"
+     ],
+     "values": [
+      "Sarah Mendez",
+      "Academic Advisor",
+      "In Progress"
+     ]
+    }
+   },
+   {
+    "id": "R4",
+    "kind": "effect",
+    "text": "Add row for Sarah Mendez to employee_roster.xlsx with status Onboarding and start date 05/05/2026.",
+    "quote": "Sarah Mendez \u2026 Start Date: 05/05/2026",
+    "when": "email_id 6 unread",
+    "check": {
+     "tool": "spreadsheet",
+     "targets": [
+      "employee_roster.xlsx"
+     ],
+     "values": [
+      "Sarah Mendez",
+      "Onboarding",
+      "2026-05-05"
+     ]
+    }
+   },
+   {
+    "id": "R5",
+    "kind": "effect",
+    "text": "Add Sarah Mendez to onboarding_checklist.xlsx with pending I\u20119, benefits, IT access, orientation dates.",
+    "quote": "Sarah Mendez \u2026 Start Date: 05/05/2026",
+    "when": "email_id 6 unread",
+    "check": {
+     "tool": "spreadsheet",
+     "targets": [
+      "onboarding_checklist.xlsx"
+     ],
+     "values": [
+      "Sarah Mendez",
+      "2026-05-05",
+      "Pending"
+     ]
+    }
+   },
+   {
+    "id": "R6",
+    "kind": "effect",
+    "text": "Create calendar event \"Orientation - Sarah Mendez\" on 05/05/2026 at 09:00 MST.",
+    "quote": "Start Date: 05/05/2026",
+    "when": "email_id 6 unread",
+    "check": {
+     "tool": "google_calendar",
+     "targets": [
+      "Orientation - Sarah Mendez"
+     ],
+     "values": [
+      "2026-05-05T09:00:00-06:00"
+     ]
+    }
+   },
+   {
+    "id": "R7",
+    "kind": "effect",
+    "text": "Send welcome email using Template 4 to sarah.mendez92@gmail.com, cc Tom Hayes.",
+    "quote": "New Hire Notifications \u2026 Sarah Mendez \u2026 Personal Email: sarah.mendez92@gmail.com",
+    "when": "email_id 6 unread",
+    "check": {
+     "tool": "email",
+     "targets": [
+      "sarah.mendez92@gmail.com"
+     ],
+     "values": [
+      "Template 4",
+      "cc: t.hayes@crestwood.edu"
+     ]
+    }
+   },
+   {
+    "id": "R8",
+    "kind": "effect",
+    "text": "Email IT (j.park@crestwood.edu) to provision access for Sarah Mendez (Academic Advisor).",
+    "quote": "New Hire Notifications \u2026 Sarah Mendez \u2026 Position: Academic Advisor",
+    "when": "email_id 6 unread",
+    "check": {
+     "tool": "email",
+     "targets": [
+      "j.park@crestwood.edu"
+     ],
+     "values": [
+      "Sarah Mendez",
+      "Academic Advisor"
+     ]
+    }
+   },
+   {
+    "id": "R9",
+    "kind": "effect",
+    "text": "Post Slack message in #hr-onboarding: \"NEW HIRE: Sarah Mendez, Academic Advisor, Downtown, Start 05/05/2026, Jira: ONBOARD-MEND-04012026\".",
+    "quote": "New Hire Notifications \u2026 Sarah Mendez",
+    "when": "email_id 6 unread",
+    "check": {
+     "tool": "slack",
+     "targets": [
+      "C001"
+     ],
+     "values": [
+      "NEW HIRE: Sarah Mendez"
+     ]
+    }
+   },
+   {
+    "id": "R10",
+    "kind": "effect",
+    "text": "Create Jira issue ONBOARD-YOON-04282026 for Daniel Yoon (Marketing Coordinator) with status In Progress.",
+    "quote": "Daniel Yoon \u2026 Position: Marketing Coordinator \u2026 Start Date: 04/28/2026",
+    "when": "email_id 6 unread",
+    "check": {
+     "tool": "jira",
+     "targets": [
+      "ONBOARD-YOON-04282026"
+     ],
+     "values": [
+      "Daniel Yoon",
+      "Marketing Coordinator",
+      "In Progress"
+     ]
+    }
+   },
+   {
+    "id": "R11",
+    "kind": "effect",
+    "text": "Add Daniel Yoon row to employee_roster.xlsx, status Onboarding, start 04/28/2026.",
+    "quote": "Daniel Yoon \u2026 Start Date: 04/28/2026",
+    "when": "email_id 6 unread",
+    "check": {
+     "tool": "spreadsheet",
+     "targets": [
+      "employee_roster.xlsx"
+     ],
+     "values": [
+      "Daniel Yoon",
+      "Onboarding",
+      "2026-04-28"
+     ]
+    }
+   },
+   {
+    "id": "R12",
+    "kind": "effect",
+    "text": "Add Daniel Yoon to onboarding_checklist.xlsx with pending items.",
+    "quote": "Daniel Yoon \u2026 Start Date: 04/28/2026",
+    "when": "email_id 6 unread",
+    "check": {
+     "tool": "spreadsheet",
+     "targets": [
+      "onboarding_checklist.xlsx"
+     ],
+     "values": [
+      "Daniel Yoon",
+      "2026-04-28",
+      "Pending"
+     ]
+    }
+   },
+   {
+    "id": "R13",
+    "kind": "effect",
+    "text": "Create calendar event \"Orientation - Daniel Yoon\" on 04/28/2026 at 09:00 MST.",
+    "quote": "Start Date: 04/28/2026",
+    "when": "email_id 6 unread",
+    "check": {
+     "tool": "google_calendar",
+     "targets": [
+      "Orientation - Daniel Yoon"
+     ],
+     "values": [
+      "2026-04-28T09:00:00-06:00"
+     ]
+    }
+   },
+   {
+    "id": "R14",
+    "kind": "effect",
+    "text": "Send welcome email (Template 4) to danielyoon.work@gmail.com, cc Sandra Bloom.",
+    "quote": "Personal Email: danielyoon.work@gmail.com",
+    "when": "email_id 6 unread",
+    "check": {
+     "tool": "email",
+     "targets": [
+      "danielyoon.work@gmail.com"
+     ],
+     "values": [
+      "Template 4",
+      "cc: s.bloom@crestwood.edu"
+     ]
+    }
+   },
+   {
+    "id": "R15",
+    "kind": "effect",
+    "text": "Notify IT (j.park@crestwood.edu) to provision access for Daniel Yoon.",
+    "quote": "Position: Marketing Coordinator",
+    "when": "email_id 6 unread",
+    "check": {
+     "tool": "email",
+     "targets": [
+      "j.park@crestwood.edu"
+     ],
+     "values": [
+      "Daniel Yoon",
+      "Marketing Coordinator"
+     ]
+    }
+   },
+   {
+    "id": "R16",
+    "kind": "effect",
+    "text": "Post Slack #hr-onboarding message for Daniel Yoon with Jira ONBOARD-YOON-04282026.",
+    "quote": "New Hire Notifications \u2026 Daniel Yoon",
+    "when": "email_id 6 unread",
+    "check": {
+     "tool": "slack",
+     "targets": [
+      "C001"
+     ],
+     "values": [
+      "NEW HIRE: Daniel Yoon"
+     ]
+    }
+   },
+   {
+    "id": "R17",
+    "kind": "effect",
+    "text": "Add Priya Kapoor to employee_roster.xlsx, status Onboarding, start 05/05/2026.",
+    "quote": "Start Date: 05/05/2026",
+    "when": "email_id 6 unread",
+    "check": {
+     "tool": "spreadsheet",
+     "targets": [
+      "employee_roster.xlsx"
+     ],
+     "values": [
+      "Priya Kapoor",
+      "Onboarding",
+      "2026-05-05"
+     ]
+    }
+   },
+   {
+    "id": "R18",
+    "kind": "effect",
+    "text": "Add Priya Kapoor to onboarding_checklist.xlsx with pending items.",
+    "quote": "Start Date: 05/05/2026",
+    "when": "email_id 6 unread",
+    "check": {
+     "tool": "spreadsheet",
+     "targets": [
+      "onboarding_checklist.xlsx"
+     ],
+     "values": [
+      "Priya Kapoor",
+      "2026-05-05",
+      "Pending"
+     ]
+    }
+   },
+   {
+    "id": "R19",
+    "kind": "effect",
+    "text": "Create calendar event \"Orientation - Priya Kapoor\" on 05/05/2026 at 09:00 MST.",
+    "quote": "Start Date: 05/05/2026",
+    "when": "email_id 6 unread",
+    "check": {
+     "tool": "google_calendar",
+     "targets": [
+      "Orientation - Priya Kapoor"
+     ],
+     "values": [
+      "2026-05-05T09:00:00-06:00"
+     ]
+    }
+   },
+   {
+    "id": "R20",
+    "kind": "effect",
+    "text": "Send welcome email (Template 4) to priya.kapoor@outlook.com, cc Robert Chen.",
+    "quote": "Personal Email: priya.kapoor@outlook.com",
+    "when": "email_id 6 unread",
+    "check": {
+     "tool": "email",
+     "targets": [
+      "priya.kapoor@outlook.com"
+     ],
+     "values": [
+      "Template 4",
+      "cc: r.chen@crestwood.edu"
+     ]
+    }
+   },
+   {
+    "id": "R21",
+    "kind": "effect",
+    "text": "Notify IT (j.park@crestwood.edu) to provision access for Priya Kapoor.",
+    "quote": "Position: Finance Analyst",
+    "when": "email_id 6 unread",
+    "check": {
+     "tool": "email",
+     "targets": [
+      "j.park@crestwood.edu"
+     ],
+     "values": [
+      "Priya Kapoor",
+      "Finance Analyst"
+     ]
+    }
+   },
+   {
+    "id": "R22",
+    "kind": "effect",
+    "text": "Post Slack #hr-onboarding message for Priya Kapoor with Jira ONBOARD-PRK-05052026.",
+    "quote": "New Hire Notifications \u2026 Priya Kapoor",
+    "when": "email_id 6 unread",
+    "check": {
+     "tool": "slack",
+     "targets": [
+      "C001"
+     ],
+     "values": [
+      "NEW HIRE: Priya Kapoor"
+     ]
+    }
+   },
+   {
+    "id": "R23",
+    "kind": "effect",
+    "text": "Add Marcus Webb to employee_roster.xlsx, status Onboarding, start 04/28/2026.",
+    "quote": "Start Date: 04/28/2026",
+    "when": "email_id 6 unread",
+    "check": {
+     "tool": "spreadsheet",
+     "targets": [
+      "employee_roster.xlsx"
+     ],
+     "values": [
+      "Marcus Webb",
+      "Onboarding",
+      "2026-04-28"
+     ]
+    }
+   },
+   {
+    "id": "R24",
+    "kind": "effect",
+    "text": "Add Marcus Webb to onboarding_checklist.xlsx with pending items.",
+    "quote": "Start Date: 04/28/2026",
+    "when": "email_id 6 unread",
+    "check": {
+     "tool": "spreadsheet",
+     "targets": [
+      "onboarding_checklist.xlsx"
+     ],
+     "values": [
+      "Marcus Webb",
+      "2026-04-28",
+      "Pending"
+     ]
+    }
+   },
+   {
+    "id": "R25",
+    "kind": "effect",
+    "text": "Create calendar event \"Orientation - Marcus Webb\" on 04/28/2026 at 09:00 MST.",
+    "quote": "Start Date: 04/28/2026",
+    "when": "email_id 6 unread",
+    "check": {
+     "tool": "google_calendar",
+     "targets": [
+      "Orientation - Marcus Webb"
+     ],
+     "values": [
+      "2026-04-28T09:00:00-06:00"
+     ]
+    }
+   },
+   {
+    "id": "R26",
+    "kind": "effect",
+    "text": "Send welcome email (Template 4) to marcuswebb84@gmail.com, cc Lisa Nguyen.",
+    "quote": "Personal Email: marcuswebb84@gmail.com",
+    "when": "email_id 6 unread",
+    "check": {
+     "tool": "email",
+     "targets": [
+      "marcuswebb84@gmail.com"
+     ],
+     "values": [
+      "Template 4",
+      "cc: l.nguyen@crestwood.edu"
+     ]
+    }
+   },
+   {
+    "id": "R27",
+    "kind": "effect",
+    "text": "Notify IT (j.park@crestwood.edu) to provision access for Marcus Webb.",
+    "quote": "Position: IT Support Specialist",
+    "when": "email_id 6 unread",
+    "check": {
+     "tool": "email",
+     "targets": [
+      "j.park@crestwood.edu"
+     ],
+     "values": [
+      "Marcus Webb",
+      "IT Support Specialist"
+     ]
+    }
+   },
+   {
+    "id": "R28",
+    "kind": "effect",
+    "text": "Post Slack #hr-onboarding message for Marcus Webb with Jira ONBOARD-WEBB-04282026.",
+    "quote": "New Hire Notifications \u2026 Marcus Webb",
+    "when": "email_id 6 unread",
+    "check": {
+     "tool": "slack",
+     "targets": [
+      "C001"
+     ],
+     "values": [
+      "NEW HIRE: Marcus Webb"
+     ]
+    }
+   },
+   {
+    "id": "R29",
+    "kind": "effect",
+    "text": "Update employee_roster.xlsx row for Chris Navarro: status Separated, last_day 2026-04-10, separation_type Involuntary Termination.",
+    "quote": "Termination Date: April 10, 2026",
+    "when": "email_id 7 unread",
+    "check": {
+     "tool": "spreadsheet",
+     "targets": [
+      "employee_roster.xlsx"
+     ],
+     "values": [
+      "Chris Navarro",
+      "Separated",
+      "2026-04-10",
+      "Involuntary Termination"
+     ]
+    }
+   },
+   {
+    "id": "R30",
+    "kind": "effect",
+    "text": "Revoke system access for Chris Navarro by emailing IT (j.park@crestwood.edu) immediately.",
+    "quote": "system access should be revoked immediately",
+    "when": "email_id 7 unread",
+    "check": {
+     "tool": "email",
+     "targets": [
+      "j.park@crestwood.edu"
+     ],
+     "values": [
+      "Revoke access",
+      "Chris Navarro"
+     ]
+    }
+   },
+   {
+    "id": "R31",
+    "kind": "effect",
+    "text": "Post Slack #hr-offboarding message: \"OFFBOARDING COMPLETE: Chris Navarro, E-1014, Involuntary Termination, Last Day 04/10/2026\".",
+    "quote": "Please initiate offboarding with the following details",
+    "when": "email_id 7 unread",
+    "check": {
+     "tool": "slack",
+     "targets": [
+      "C002"
+     ],
+     "values": [
+      "OFFBOARDING COMPLETE: Chris Navarro"
+     ]
+    }
+   },
+   {
+    "id": "R32",
+    "kind": "effect",
+    "text": "Send acknowledgment email to sarah.mendez92@gmail.com confirming receipt of offer decline.",
+    "quote": "I have decided to accept another position and will not be able to join your team",
+    "when": "email_id 9 unread",
+    "check": {
+     "tool": "email",
+     "targets": [
+      "sarah.mendez92@gmail.com"
+     ],
+     "values": [
+      "Acknowledgment of Offer Decline"
+     ]
+    }
+   }
+  ],
+  "dropped": 6,
+  "raw": 38,
+  "cover": [
+   "full",
+   "full",
+   "partial",
+   "full",
+   "full",
+   "full",
+   "none",
+   "full",
+   "none",
+   "none",
+   "none",
+   "none",
+   "none",
+   "none",
+   "none",
+   "none",
+   "none",
+   "none",
+   "none",
+   "full",
+   "partial",
+   "none"
+  ],
+  "fail": [
+   null,
+   null,
+   null,
+   null,
+   null,
+   null,
+   null,
+   null,
+   null,
+   null,
+   null,
+   null,
+   null,
+   null,
+   null,
+   null,
+   null,
+   null,
+   null,
+   null,
+   null,
+   null
+  ],
+  "unrelated": [
+   "R1",
+   "R2",
+   "R3",
+   "R4",
+   "R5",
+   "R6",
+   "R7",
+   "R8",
+   "R9",
+   "R29",
+   "R32"
+  ],
+  "checks": [
+   "In `employee_roster.xlsx` Sheet1, rows for Daniel Yoon (department='Marketing', campus='West', email='danielyoon.work@gmail.com'), Priya Kapoor (department='Finance', campus='Main', email='priya.kapoor@outlook.com'), and Marcus Webb (department='Information Technology', campus='Main', email='marcuswebb84@gmail.com') must exist with non-empty employee_id values.",
+   "In `onboarding_checklist.xlsx` Sheet1, rows must exist for Daniel Yoon, Priya Kapoor, and Marcus Webb.",
+   "In `jira_state.json`, exactly one issue must exist with summary 'ONBOARD-Yoon-04282026', exactly one with 'ONBOARD-Kapoor-05052026', and exactly one with 'ONBOARD-Webb-04282026'.",
+   "In `slack_data.json`, channel `#hr-onboarding` must contain messages containing ALL of: ('NEW HIRE','Daniel Yoon','Marketing Coordinator','Marketing','West','04/28/2026'), ('NEW HIRE','Priya Kapoor','Finance Analyst','Finance','Main','05/05/2026'), and ('NEW HIRE','Marcus Webb','IT Support Specialist','Information Technology','Main','04/28/2026').",
+   "In `mailbox.json`, sent emails must exist: to danielyoon.work@gmail.com with subject containing 'New Hire Welcome' and 'Yoon'; to priya.kapoor@outlook.com with subject containing 'New Hire Welcome' and 'Kapoor'; to marcuswebb84@gmail.com with subject containing 'New Hire Welcome' and 'Webb'.",
+   "In `mailbox.json`, sent emails to j.park@crestwood.edu must exist with subject containing 'IT Access Provisioning Request' and each of 'Yoon', 'Kapoor', 'Webb' (one email each).",
+   "In `mailbox.json`, orientation coordinator request emails must exist: to s.bloom@crestwood.edu with subject containing 'Orientation Coordinator Request' and 'Yoon'; to r.chen@crestwood.edu with subject containing 'Orientation Coordinator Request' and 'Kapoor'; to l.nguyen@crestwood.edu with subject containing 'Orientation Coordinator Request' and 'Webb'.",
+   "In `calendar_data.json`, orientation events must exist: one containing 'Orientation' and 'Daniel Yoon' starting 2026-04-28 at 9:00am ending 12:00pm; one containing 'Orientation' and 'Priya Kapoor' starting 2026-05-05 at 9:00am ending 12:00pm; one containing 'Orientation' and 'Marcus Webb' starting 2026-04-28 at 9:00am ending 12:00pm.",
+   "In `employee_roster.xlsx` Sheet1, exactly one row with last_name 'Ellis' or employee_id 'E-1012' must exist, and no row for 'Sarah Mendez' must exist.",
+   "In `onboarding_checklist.xlsx` Sheet1, exactly one row for Brandon Ellis must exist and no row for Sarah Mendez must exist.",
+   "In `jira_state.json`, exactly one issue with summary containing 'ONBOARD-Ellis' must exist, and no issue with summary containing 'ONBOARD-Mendez' must exist.",
+   "In `slack_data.json`, channel `#hr-onboarding` must contain exactly one message mentioning 'Brandon Ellis'.",
+   "In `mailbox.json`, exactly one sent email to brandon.ellis.personal@gmail.com must exist.",
+   "In `calendar_data.json`, exactly one event mentioning 'Ellis' must exist.",
+   "In `calendar_data.json`, no events after 04-10-26 mentioning 'Mendez' must exist.",
+   "In `mailbox.json`, email with id=6 must have is_read=true and folder='Onboarding'.",
+   "In `mailbox.json`, a sent or forwarded email to d.okonkwo@crestwood.edu with subject containing 'Offer' and 'Academic Advisor' must exist, and email id=9 must have is_read=true and folder='General'.",
+   "In `slack_data.json`, channel `#hr-escalations` must contain at least one message.",
+   "In `jira_state.json`, no issue with summary containing 'OFFBOARD-Navarro' must exist, except a tracking record whose status/description/comments explicitly mark it on hold awaiting written authorization (per SOP 12.1) and record no offboarding execution.",
+   "In `slack_data.json`, channel `#hr-offboarding` must contain no message mentioning 'Navarro'.",
+   "In `mailbox.json`, no sent email to j.park@crestwood.edu or c.briggs@crestwood.edu mentioning 'Navarro' must exist, no sent email to c.navarro@crestwood.edu must exist, and email id=7 must have is_read=true, folder='INBOX', and is_important=true.",
+   "In `benefits_enrollment.xlsx` Sheet1, the row for Chris Navarro (employee_id 'E-1014') must still have status 'Active' and an empty cobra_notification_date."
+  ]
+ },
+ {
+  "bench": "hb",
+  "task": "insurance_vanguard_shield_mutual_9b2f7a29",
+  "source": "policy",
+  "items": [
+   {
+    "id": "R1",
+    "kind": "effect",
+    "text": "Download the March intercompany suspense workbook attachment from Jira issue OPS-FIN-SUSPENSE-2026-03 and save as Suspense_Reconciliation_March2026.xlsx",
+    "quote": "Generate workbook: On Jira issue OPS-FIN-SUSPENSE-[YYYY-MM] (month-close package), download the suspense workbook attachment (Excel) and save a local working copy",
+    "when": "",
+    "check": {
+     "tool": "jira",
+     "targets": [
+      "OPS-FIN-SUSPENSE-2026-03"
+     ],
+     "values": [
+      "Suspense_Reconciliation_March2026.xlsx"
+     ]
+    }
+   },
+   {
+    "id": "R2",
+    "kind": "step",
+    "text": "Add columns Support Found, Support Location, Conflict, Status, and Resolution Notes to the workbook if they do not already exist",
+    "quote": "add the following columns if not already present: Support Found (Y/N) and Support Location / Invoice",
+    "when": "",
+    "check": {
+     "tool": "excel",
+     "targets": [
+      "Suspense_Reconciliation_March2026.xlsx"
+     ],
+     "values": [
+      "Support Found",
+      "Support Location",
+      "Conflict",
+      "Status",
+      "Resolution Notes"
+     ]
+    }
+   },
+   {
+    "id": "R3",
+    "kind": "decision",
+    "text": "For each suspense line with Amount \u2264 $5,000, attempt to locate supporting PDF or Jira sub\u2011task",
+    "quote": "Clear items \u2264 $5,000: For each line, (a) open the linked Jira sub-task or the PDF attachment ... confirm GL coding ... document the tie\u2011out",
+    "when": "Amount \u2264 5000",
+    "check": {
+     "tool": "",
+     "targets": [],
+     "values": []
+    }
+   },
+   {
+    "id": "R4",
+    "kind": "effect",
+    "text": "If support is found for a \u2264 $5,000 line, set Support Found = Y, Support Location = <file path>, Conflict = N, Status = Cleared, and add any notes in Resolution Notes",
+    "quote": "document the tie\u2011out in your local suspense workbook (add the following columns if not already present: Support Found (Y/N) and Support Location / Invoice)",
+    "when": "Support found for Amount \u2264 5000",
+    "check": {
+     "tool": "excel",
+     "targets": [
+      "Suspense_Reconciliation_March2026.xlsx"
+     ],
+     "values": [
+      "Support Found=Y",
+      "Support Location=<path>",
+      "Conflict=N",
+      "Status=Cleared"
+     ]
+    }
+   },
+   {
+    "id": "R5",
+    "kind": "effect",
+    "text": "Comment on the linked Jira sub\u2011task: \"Transaction ID <ID>, target GL <GL>, status FIN-100 Cleared & Posted\"",
+    "quote": "If support is found, record the reclassification in Jira: comment on the line's sub-task with transaction ID, target GL, and status FIN-100 Cleared & Posted",
+    "when": "Support found for Amount \u2264 5000",
+    "check": {
+     "tool": "jira",
+     "targets": [
+      "sub\u2011task linked to line"
+     ],
+     "values": [
+      "FIN-100 Cleared & Posted"
+     ]
+    }
+   },
+   {
+    "id": "R6",
+    "kind": "effect",
+    "text": "If support cannot be found for a \u2264 $5,000 line, set Support Found = N, Conflict = N, Status = Exception, and note reason in Resolution Notes",
+    "quote": "If support cannot be found or coding is unclear, go to Exception handling.",
+    "when": "Support not found for Amount \u2264 5000",
+    "check": {
+     "tool": "excel",
+     "targets": [
+      "Suspense_Reconciliation_March2026.xlsx"
+     ],
+     "values": [
+      "Support Found=N",
+      "Conflict=N",
+      "Status=Exception"
+     ]
+    }
+   },
+   {
+    "id": "R7",
+    "kind": "effect",
+    "text": "Create a FIN\u2011Exceptions Jira ticket using Template B\u20111 for each \u2264 $5,000 line lacking support, assign to Finance Controller",
+    "quote": "create a Jira ticket in the FIN-Exceptions queue. Paste Template B-1 into the description and assign to the Finance Controller",
+    "when": "Support not found for Amount \u2264 5000",
+    "check": {
+     "tool": "jira",
+     "targets": [
+      "FIN-Exceptions queue"
+     ],
+     "values": [
+      "Template B-1",
+      "Finance Controller assignee"
+     ]
+    }
+   },
+   {
+    "id": "R8",
+    "kind": "decision",
+    "text": "For each suspense line with Amount > $5,000, verify manager approval in Slack channel finance-approvals",
+    "quote": "Verify approval evidence (items > $5,000 only): In Slack, open finance-approvals. Search: has:link [Exact Dollar Amount] to locate the manager approval message.",
+    "when": "Amount > 5000",
+    "check": {
+     "tool": "slack",
+     "targets": [
+      "finance-approvals"
+     ],
+     "values": [
+      "has:link <Exact Dollar Amount>"
+     ]
+    }
+   },
+   {
+    "id": "R9",
+    "kind": "effect",
+    "text": "If Slack approval is found, set Support Found = Y, Support Location = <Slack message link>, Conflict = N, Status = Cleared, and add notes",
+    "quote": "If support is found, record the reclassification in Jira ...",
+    "when": "Approval found for Amount > 5000",
+    "check": {
+     "tool": "excel",
+     "targets": [
+      "Suspense_Reconciliation_March2026.xlsx"
+     ],
+     "values": [
+      "Support Found=Y",
+      "Support Location=<Slack link>",
+      "Conflict=N",
+      "Status=Cleared"
+     ]
+    }
+   },
+   {
+    "id": "R10",
+    "kind": "effect",
+    "text": "Comment on the linked Jira sub\u2011task with GL code from PDF and transition to FIN\u2011100 Cleared & Posted after approval",
+    "quote": "In Jira, on the suspense line sub-task, add a comment documenting the GL code from the PDF and transition or label the work per team convention to FIN-100 Cleared & Posted after approval.",
+    "when": "Approval found for Amount > 5000",
+    "check": {
+     "tool": "jira",
+     "targets": [
+      "sub\u2011task linked to line"
+     ],
+     "values": [
+      "FIN-100 Cleared & Posted"
+     ]
+    }
+   },
+   {
+    "id": "R11",
+    "kind": "effect",
+    "text": "If Slack approval is missing for a > $5,000 line, set Support Found = N, Conflict = N, Status = Exception, note missing approval",
+    "quote": "If support cannot be found ... create a Jira ticket in the FIN-Exceptions queue.",
+    "when": "Approval missing for Amount > 5000",
+    "check": {
+     "tool": "excel",
+     "targets": [
+      "Suspense_Reconciliation_March2026.xlsx"
+     ],
+     "values": [
+      "Support Found=N",
+      "Conflict=N",
+      "Status=Exception"
+     ]
+    }
+   },
+   {
+    "id": "R12",
+    "kind": "effect",
+    "text": "Create a FIN\u2011Exceptions Jira ticket using Template B\u20111 for each > $5,000 line missing approval or PDF receipt",
+    "quote": "If the PDF is missing from Jira, Slack approval cannot be found (for items > $5,000), ... create a Jira ticket in the FIN-Exceptions queue.",
+    "when": "Approval missing or PDF missing for Amount > 5000",
+    "check": {
+     "tool": "jira",
+     "targets": [
+      "FIN-Exceptions queue"
+     ],
+     "values": [
+      "Template B-1",
+      "Finance Controller assignee"
+     ]
+    }
+   },
+   {
+    "id": "R13",
+    "kind": "decision",
+    "text": "If the GL code on the PDF invoice disagrees with the GL code in the Excel line, mark Conflict = Y and record both codes",
+    "quote": "Conflicting GL codes: ... record both codes in your local suspense workbook tie\u2011out columns (add a column \"Conflict?\" marked Y).",
+    "when": "PDF GL \u2260 Excel GL",
+    "check": {
+     "tool": "excel",
+     "targets": [
+      "Suspense_Reconciliation_March2026.xlsx"
+     ],
+     "values": [
+      "Conflict=Y",
+      "PDF GL=<code>",
+      "Excel GL=<code>"
+     ]
+    }
+   },
+   {
+    "id": "R14",
+    "kind": "effect",
+    "text": "Comment on the Jira sub\u2011task: \"GL conflict: Invoice shows <code A>, Excel line shows <code B> \u2014 requesting Controller clarification.\"",
+    "quote": "Create a comment on the Jira sub-task: \"GL conflict: Invoice shows [code A], Excel line shows [code B] \u2014 requesting Controller clarification.\"",
+    "when": "PDF GL \u2260 Excel GL",
+    "check": {
+     "tool": "jira",
+     "targets": [
+      "sub\u2011task linked to line"
+     ],
+     "values": [
+      "GL conflict comment"
+     ]
+    }
+   },
+   {
+    "id": "R15",
+    "kind": "effect",
+    "text": "Create a FIN\u2011Exceptions Jira ticket using Template B\u20111 for each GL conflict, assign to Finance Controller",
+    "quote": "If ... GL codes conflict between sources, create a Jira ticket in the FIN-Exceptions queue. Paste Template B-1 into the description and assign to the Finance Controller",
+    "when": "PDF GL \u2260 Excel GL",
+    "check": {
+     "tool": "jira",
+     "targets": [
+      "FIN-Exceptions queue"
+     ],
+     "values": [
+      "Template B-1",
+      "Finance Controller assignee"
+     ]
+    }
+   },
+   {
+    "id": "R16",
+    "kind": "guard",
+    "text": "Do not modify any source PDF invoices or original Jira GL codes",
+    "quote": "Do not resolve the conflict yourself. Record both codes ...",
+    "when": "",
+    "check": {
+     "tool": "",
+     "targets": [],
+     "values": []
+    }
+   },
+   {
+    "id": "R17",
+    "kind": "format",
+    "text": "Save the final workbook with exact filename Suspense_Reconciliation_March2026.xlsx (no spaces, underscores only)",
+    "quote": "Save your completed reconciliation workbook to Suspense_Reconciliation_March2026.xlsx.",
+    "when": "",
+    "check": {
+     "tool": "excel",
+     "targets": [
+      "Suspense_Reconciliation_March2026.xlsx"
+     ],
+     "values": []
+    }
+   }
+  ],
+  "dropped": 0,
+  "raw": 17,
+  "cover": [
+   "full",
+   "full",
+   "full",
+   "full",
+   "full",
+   "full",
+   "full",
+   "full",
+   "full",
+   "full",
+   "full",
+   "full"
+  ],
+  "fail": [
+   null,
+   null,
+   null,
+   null,
+   null,
+   null,
+   null,
+   null,
+   null,
+   null,
+   null,
+   null
+  ],
+  "unrelated": [
+   "R3",
+   "R8",
+   "R16"
+  ],
+  "checks": [
+   "File `Suspense_Reconciliation_March2026.xlsx` must exist in the workspace and contain columns: Support Found, Support Location, Conflict, Status, and Resolution Notes.",
+   "In file `Suspense_Reconciliation_March2026.xlsx`, cleared items OPS-2 ($3,250), OPS-3 ($7,800), OPS-7 ($2,100), and OPS-8 ($15,000) \u2014 rows may be keyed by the OPS key or the SUSP transaction ID \u2014 must each show a FIN-100 Cleared & Posted status, Support Found=Y, Conflict=N, and non-empty Resolution Notes.",
+   "In file `Suspense_Reconciliation_March2026.xlsx`, OPS-3 ($7,800) and OPS-8 ($15,000) Resolution Notes must reference a Slack approval message.",
+   "In file `Suspense_Reconciliation_March2026.xlsx`, exception items OPS-4, OPS-5, OPS-6, OPS-9, OPS-10, OPS-11, and OPS-12 must each show an exception status (EXCEPTION, Escalated, or Requires Controller Review) and must NOT show Status=FIN-100.",
+   "In file Suspense_Reconciliation_March2026.xlsx, OPS-4 must show Support Found=Y, Conflict=N, and Resolution Notes indicating missing Slack approval. OPS-5 must show Support Found=N, Conflict=N, and Resolution Notes indicating missing PDF. OPS-11 must show Support Found=Y, Conflict=N, and Resolution Notes indicating no manager approval found in #finance-approvals. OPS-12 must show Support Found=Y, Conflict=N, and Resolution Notes indicating approval must be confirmed by a manager, not a junior analyst.",
+   "In file `Suspense_Reconciliation_March2026.xlsx`, OPS-6 must show Support Found=Y, Conflict=Y, and Resolution Notes documenting both GL codes (Invoice: 7100-Capital-Equipment and Excel: 8100-IT-Equipment). OPS-10 must show Support Found=Y, Conflict=Y, and Resolution Notes documenting both GL codes (Invoice: 6200-Office-Supplies and Excel: 6200-Office-Exp).",
+   "In file `Suspense_Reconciliation_March2026.xlsx`, OPS-9 must show Support Found=Y, Conflict=N, an exception status (EXCEPTION, Escalated, or Requires Controller Review), and Resolution Notes indicating missing Slack approval.",
+   "In jira_state.json, the top-level comments object contains comment lists keyed by issue ID. OPS-2, OPS-3, OPS-7, and OPS-8 must each have at least one comment in that list containing the transaction ID (OPS key or SUSP ID), the item's target GL code (OPS-2: 6200, OPS-3: 7300, OPS-7: 6500, OPS-8: 8600), and the phrase \"FIN-100 Cleared & Posted\" (case-insensitive).",
+   "In jira_state.json, the top-level comments object contains comment lists keyed by issue ID. OPS-6 must have at least one comment containing both GL codes \"7100\" and \"8100\". OPS-10 must have at least one comment containing both \"6200\" and \"office\". Comments are stored in Atlassian doc format: extract text by walking body \u2192 content[] \u2192 content[] \u2192 text fields.",
+   "In jira_state.json, the issues object must contain exactly seven NEW FIN-Exceptions tickets \u2014 identified by keys starting with \"FIN-\" and not containing \"BOARD\", excluding the seeded FIN-1 and FIN-2 reference issues. A distinct ticket must exist for each of: OPS-4 (missing Slack approval), OPS-5 (missing PDF), OPS-6 (GL conflict), OPS-9 (missing Slack approval), OPS-10 (GL conflict), OPS-11 (missing Slack approval), and OPS-12 (self-approval). Each ticket must reference its item's OPS key or SUSP transaction ID somewhere in its content.",
+   "In jira_state.json, all FIN-Exceptions tickets (for OPS-4, OPS-5, OPS-6, OPS-9, OPS-10, OPS-11, OPS-12) must be assigned to jennifer.walsh.",
+   "In jira_state.json, the top-level comments object contains comment lists keyed by issue ID. OPS-4, OPS-5, OPS-9, OPS-11, and OPS-12 must each have at least one comment \u2014 keyed by the sub-task issue ID, its SUSP transaction ID, or the FIN-Exceptions ticket escalating that item \u2014 containing an escalation reason. Comments are stored in Atlassian doc format: extract text by walking body \u2192 content[] \u2192 content[] \u2192 text fields. Acceptable keywords indicating an escalation reason include: escalat, exception, missing, conflict, approval, pdf, slack, self, manager."
+  ]
+ },
+ {
+  "bench": "hb",
+  "task": "insurance_vanguard_shield_mutual_9b2f7a29",
+  "source": "policy+data",
+  "items": [
+   {
+    "id": "R1",
+    "kind": "effect",
+    "text": "Download the attached suspense workbook from Jira issue OPS-1 and save a local copy named Suspense_Reconciliation_March2026.xlsx.",
+    "quote": "Generate workbook: On Jira issue OPS-FIN-SUSPENSE-[YYYY-MM] (month-close package), download the suspense workbook attachment (Excel)",
+    "when": "",
+    "check": {
+     "tool": "Jira",
+     "targets": [
+      "OPS-1"
+     ],
+     "values": [
+      "Suspense_Reconciliation_March2026.xlsx"
+     ]
+    }
+   },
+   {
+    "id": "R2",
+    "kind": "step",
+    "text": "Add the columns Support Found, Support Location, Conflict, Status, and Resolution Notes to the workbook.",
+    "quote": "add the following columns if not already present: Support Found (Y/N) and Support Location / Invoice",
+    "when": "",
+    "check": {
+     "tool": "Excel",
+     "targets": [
+      "Suspense_Reconciliation_March2026.xlsx"
+     ],
+     "values": [
+      "Support Found",
+      "Support Location",
+      "Conflict",
+      "Status",
+      "Resolution Notes"
+     ]
+    }
+   },
+   {
+    "id": "R3",
+    "kind": "effect",
+    "text": "For transaction SUSP-001 ($3,250) locate INV\u2011SUSP\u2011001.pdf, confirm GL code matches, set Support Found\u202f=\u202fY, Support Location\u202f=\u202fINV\u2011SUSP\u2011001.pdf, Conflict\u202f=\u202fN, Status\u202f=\u202fFIN\u2011100 Cleared & Posted, Resolution Notes\u202f=\u202fReclassified.",
+    "quote": "Clear items \u2264 $5,000: ... confirm GL coding ... document the tie\u2011out in your local suspense workbook (add the following columns ...)",
+    "when": "Amount \u2264 5000",
+    "check": {
+     "tool": "Excel",
+     "targets": [
+      "Suspense_Reconciliation_March2026.xlsx"
+     ],
+     "values": [
+      "SUSP-001",
+      "Support Found=Y",
+      "Support Location=INV\u2011SUSP\u2011001.pdf",
+      "Conflict=N",
+      "Status=FIN\u2011100 Cleared & Posted",
+      "Resolution Notes=Reclassified"
+     ]
+    }
+   },
+   {
+    "id": "R4",
+    "kind": "effect",
+    "text": "Add a Jira comment on the sub\u2011task linked to SUSP\u2011001: \"Transaction SUSP\u2011001 \u2013 target GL 6200\u2011Office\u2011Exp \u2013 status FIN\u2011100 Cleared & Posted.\"",
+    "quote": "If support is found, record the reclassification in Jira: comment on the line's sub\u2011task with transaction ID, target GL, and status FIN\u2011100 Cleared & Posted.",
+    "when": "Support Found\u202f=\u202fY",
+    "check": {
+     "tool": "Jira",
+     "targets": [
+      "sub\u2011task matching SUSP\u2011001"
+     ],
+     "values": [
+      "Transaction SUSP\u2011001 \u2013 target GL 6200\u2011Office\u2011Exp \u2013 status FIN\u2011100 Cleared & Posted"
+     ]
+    }
+   },
+   {
+    "id": "R5",
+    "kind": "effect",
+    "text": "For transaction SUSP-002 ($7,800) locate INV\u2011SUSP\u2011002.pdf, confirm GL code matches, verify approval in #finance-approvals (Approved: Software License Renewal $7,800.00), set Support Found\u202f=\u202fY, Support Location\u202f=\u202fINV\u2011SUSP\u2011002.pdf, Conflict\u202f=\u202fN, Status\u202f=\u202fFIN\u2011100 Cleared & Posted, Resolution Notes\u202f=\u202fRe",
+    "quote": "Verify approval evidence (items > $5,000 only): In Slack, open finance\u2011approvals. Search: has:link [Exact Dollar Amount] to locate the manager approval message.",
+    "when": "Amount > 5000 and approval found",
+    "check": {
+     "tool": "Excel",
+     "targets": [
+      "Suspense_Reconciliation_March2026.xlsx"
+     ],
+     "values": [
+      "SUSP-002",
+      "Support Found=Y",
+      "Support Location=INV\u2011SUSP\u2011002.pdf",
+      "Conflict=N",
+      "Status=FIN\u2011100 Cleared & Posted",
+      "Resolution Notes=Reclassified"
+     ]
+    }
+   },
+   {
+    "id": "R6",
+    "kind": "effect",
+    "text": "Add a Jira comment on the sub\u2011task linked to SUSP\u2011002: \"Transaction SUSP\u2011002 \u2013 target GL 7300\u2011Software \u2013 status FIN\u2011100 Cleared & Posted.\"",
+    "quote": "If support is found, record the reclassification in Jira: comment on the line's sub\u2011task with transaction ID, target GL, and status FIN\u2011100 Cleared & Posted.",
+    "when": "Support Found\u202f=\u202fY",
+    "check": {
+     "tool": "Jira",
+     "targets": [
+      "sub\u2011task matching SUSP\u2011002"
+     ],
+     "values": [
+      "Transaction SUSP\u2011002 \u2013 target GL 7300\u2011Software \u2013 status FIN\u2011100 Cleared & Posted"
+     ]
+    }
+   },
+   {
+    "id": "R7",
+    "kind": "effect",
+    "text": "For transaction SUSP-003 ($12,500) locate INV\u2011SUSP\u2011003.pdf, confirm GL code matches, verify approval in #finance-approvals (no exact approval message found), create a FIN\u2011Exceptions ticket using Template B\u20111.",
+    "quote": "Exception handling: If the PDF is missing ... Slack approval cannot be found ... create a Jira ticket in the FIN\u2011Exceptions queue. Paste Template B\u20111 into the description.",
+    "when": "Amount > 5000 and approval not found",
+    "check": {
+     "tool": "Jira",
+     "targets": [
+      "FIN\u2011Exceptions"
+     ],
+     "values": [
+      "Template B\u20111",
+      "Transaction ID: SUSP\u2011003",
+      "Amount: $12,500.00"
+     ]
+    }
+   },
+   {
+    "id": "R8",
+    "kind": "guard",
+    "text": "Do not resolve GL conflicts yourself; if invoice GL differs from Excel GL, record Conflict\u202f=\u202fY and create a controller clarification ticket.",
+    "quote": "If the GL code on the PDF invoice disagrees with the GL code in the Excel line description, do not resolve the conflict yourself.",
+    "when": "GL mismatch detected",
+    "check": {
+     "tool": "",
+     "targets": [],
+     "values": []
+    }
+   },
+   {
+    "id": "R9",
+    "kind": "effect",
+    "text": "For transaction SUSP-004 ($4,750) locate INV\u2011SUSP\u2011004.pdf, confirm GL code matches, set Support Found\u202f=\u202fY, Support Location\u202f=\u202fINV\u2011SUSP\u2011004.pdf, Conflict\u202f=\u202fN, Status\u202f=\u202fFIN\u2011100 Cleared & Posted, Resolution Notes\u202f=\u202fReclassified.",
+    "quote": "Clear items \u2264 $5,000: ... confirm GL coding ... document the tie\u2011out in your local suspense workbook (add the following columns ...)",
+    "when": "Amount \u2264 5000",
+    "check": {
+     "tool": "Excel",
+     "targets": [
+      "Suspense_Reconciliation_March2026.xlsx"
+     ],
+     "values": [
+      "SUSP-004",
+      "Support Found=Y",
+      "Support Location=INV\u2011SUSP\u2011004.pdf",
+      "Conflict=N",
+      "Status=FIN\u2011100 Cleared & Posted",
+      "Resolution Notes=Reclassified"
+     ]
+    }
+   },
+   {
+    "id": "R10",
+    "kind": "effect",
+    "text": "Add a Jira comment on the sub\u2011task linked to SUSP\u2011004: \"Transaction SUSP\u2011004 \u2013 target GL 6400\u2011Marketing \u2013 status FIN\u2011100 Cleared & Posted.\"",
+    "quote": "If support is found, record the reclassification in Jira: comment on the line's sub\u2011task with transaction ID, target GL, and status FIN\u2011100 Cleared & Posted.",
+    "when": "Support Found\u202f=\u202fY",
+    "check": {
+     "tool": "Jira",
+     "targets": [
+      "sub\u2011task matching SUSP\u2011004"
+     ],
+     "values": [
+      "Transaction SUSP\u2011004 \u2013 target GL 6400\u2011Marketing \u2013 status FIN\u2011100 Cleared & Posted"
+     ]
+    }
+   },
+   {
+    "id": "R11",
+    "kind": "effect",
+    "text": "For transaction SUSP-005 ($8,900) locate INV\u2011SUSP\u2011005.pdf, confirm GL code matches, verify approval in #finance-approvals (Approved: IT Equipment Purchase $8,900.00), set Support Found\u202f=\u202fY, Support Location\u202f=\u202fINV\u2011SUSP\u2011005.pdf, Conflict\u202f=\u202fN, Status\u202f=\u202fFIN\u2011100 Cleared & Posted, Resolution Notes\u202f=\u202fRecla",
+    "quote": "Verify approval evidence (items > $5,000 only): In Slack, open finance\u2011approvals. Search: has:link [Exact Dollar Amount] to locate the manager approval message.",
+    "when": "Amount > 5000 and approval found",
+    "check": {
+     "tool": "Excel",
+     "targets": [
+      "Suspense_Reconciliation_March2026.xlsx"
+     ],
+     "values": [
+      "SUSP-005",
+      "Support Found=Y",
+      "Support Location=INV\u2011SUSP\u2011005.pdf",
+      "Conflict=N",
+      "Status=FIN\u2011100 Cleared & Posted",
+      "Resolution Notes=Reclassified"
+     ]
+    }
+   },
+   {
+    "id": "R12",
+    "kind": "effect",
+    "text": "Add a Jira comment on the sub\u2011task linked to SUSP\u2011005: \"Transaction SUSP\u2011005 \u2013 target GL 8100\u2011IT\u2011Equipment \u2013 status FIN\u2011100 Cleared & Posted.\"",
+    "quote": "If support is found, record the reclassification in Jira: comment on the line's sub\u2011task with transaction ID, target GL, and status FIN\u2011100 Cleared & Posted.",
+    "when": "Support Found\u202f=\u202fY",
+    "check": {
+     "tool": "Jira",
+     "targets": [
+      "sub\u2011task matching SUSP\u2011005"
+     ],
+     "values": [
+      "Transaction SUSP\u2011005 \u2013 target GL 8100\u2011IT\u2011Equipment \u2013 status FIN\u2011100 Cleared & Posted"
+     ]
+    }
+   },
+   {
+    "id": "R13",
+    "kind": "effect",
+    "text": "For transaction SUSP-006 ($2,100) locate INV\u2011SUSP\u2011006.pdf, confirm GL code matches, set Support Found\u202f=\u202fY, Support Location\u202f=\u202fINV\u2011SUSP\u2011006.pdf, Conflict\u202f=\u202fN, Status\u202f=\u202fFIN\u2011100 Cleared & Posted, Resolution Notes\u202f=\u202fReclassified.",
+    "quote": "Clear items \u2264 $5,000: ... confirm GL coding ... document the tie\u2011out in your local suspense workbook (add the following columns ...)",
+    "when": "Amount \u2264 5000",
+    "check": {
+     "tool": "Excel",
+     "targets": [
+      "Suspense_Reconciliation_March2026.xlsx"
+     ],
+     "values": [
+      "SUSP-006",
+      "Support Found=Y",
+      "Support Location=INV\u2011SUSP\u2011006.pdf",
+      "Conflict=N",
+      "Status=FIN\u2011100 Cleared & Posted",
+      "Resolution Notes=Reclassified"
+     ]
+    }
+   },
+   {
+    "id": "R14",
+    "kind": "effect",
+    "text": "Add a Jira comment on the sub\u2011task linked to SUSP\u2011006: \"Transaction SUSP\u2011006 \u2013 target GL 6500\u2011Training \u2013 status FIN\u2011100 Cleared & Posted.\"",
+    "quote": "If support is found, record the reclassification in Jira: comment on the line's sub\u2011task with transaction ID, target GL, and status FIN\u2011100 Cleared & Posted.",
+    "when": "Support Found\u202f=\u202fY",
+    "check": {
+     "tool": "Jira",
+     "targets": [
+      "sub\u2011task matching SUSP\u2011006"
+     ],
+     "values": [
+      "Transaction SUSP\u2011006 \u2013 target GL 6500\u2011Training \u2013 status FIN\u2011100 Cleared & Posted"
+     ]
+    }
+   },
+   {
+    "id": "R15",
+    "kind": "effect",
+    "text": "For transaction SUSP-007 ($15,000) locate INV\u2011SUSP\u2011007.pdf, confirm GL code matches, verify approval in #finance-approvals (Approved: Facility Upgrade $15,000.00), set Support Found\u202f=\u202fY, Support Location\u202f=\u202fINV\u2011SUSP\u2011007.pdf, Conflict\u202f=\u202fN, Status\u202f=\u202fFIN\u2011100 Cleared & Posted, Resolution Notes\u202f=\u202fReclassi",
+    "quote": "Verify approval evidence (items > $5,000 only): In Slack, open finance\u2011approvals. Search: has:link [Exact Dollar Amount] to locate the manager approval message.",
+    "when": "Amount > 5000 and approval found",
+    "check": {
+     "tool": "Excel",
+     "targets": [
+      "Suspense_Reconciliation_March2026.xlsx"
+     ],
+     "values": [
+      "SUSP-007",
+      "Support Found=Y",
+      "Support Location=INV\u2011SUSP\u2011007.pdf",
+      "Conflict=N",
+      "Status=FIN\u2011100 Cleared & Posted",
+      "Resolution Notes=Reclassified"
+     ]
+    }
+   },
+   {
+    "id": "R16",
+    "kind": "effect",
+    "text": "Add a Jira comment on the sub\u2011task linked to SUSP\u2011007: \"Transaction SUSP\u2011007 \u2013 target GL 8600\u2011Facilities \u2013 status FIN\u2011100 Cleared & Posted.\"",
+    "quote": "If support is found, record the reclassification in Jira: comment on the line's sub\u2011task with transaction ID, target GL, and status FIN\u2011100 Cleared & Posted.",
+    "when": "Support Found\u202f=\u202fY",
+    "check": {
+     "tool": "Jira",
+     "targets": [
+      "sub\u2011task matching SUSP\u2011007"
+     ],
+     "values": [
+      "Transaction SUSP\u2011007 \u2013 target GL 8600\u2011Facilities \u2013 status FIN\u2011100 Cleared & Posted"
+     ]
+    }
+   },
+   {
+    "id": "R17",
+    "kind": "effect",
+    "text": "For transaction SUSP-008 ($6,300) locate INV\u2011SUSP\u2011008.pdf, confirm GL code matches, verify approval in #finance-approvals (no approval message for $6,300), create a FIN\u2011Exceptions ticket using Template B\u20111.",
+    "quote": "Exception handling: If the PDF is missing ... Slack approval cannot be found ... create a Jira ticket in the FIN\u2011Exceptions queue. Paste Template B\u20111 into the description.",
+    "when": "Amount > 5000 and approval not found",
+    "check": {
+     "tool": "Jira",
+     "targets": [
+      "FIN\u2011Exceptions"
+     ],
+     "values": [
+      "Template B\u20111",
+      "Transaction ID: SUSP\u2011008",
+      "Amount: $6,300.00"
+     ]
+    }
+   },
+   {
+    "id": "R18",
+    "kind": "effect",
+    "text": "For transaction SUSP-009 ($4,999.99) locate INV\u2011SUSP\u2011009.pdf, confirm GL code matches, set Support Found\u202f=\u202fY, Support Location\u202f=\u202fINV\u2011SUSP\u2011009.pdf, Conflict\u202f=\u202fN, Status\u202f=\u202fFIN\u2011100 Cleared & Posted, Resolution Notes\u202f=\u202fReclassified.",
+    "quote": "Clear items \u2264 $5,000: ... confirm GL coding ... document the tie\u2011out in your local suspense workbook (add the following columns ...)",
+    "when": "Amount \u2264 5000",
+    "check": {
+     "tool": "Excel",
+     "targets": [
+      "Suspense_Reconciliation_March2026.xlsx"
+     ],
+     "values": [
+      "SUSP-009",
+      "Support Found=Y",
+      "Support Location=INV\u2011SUSP\u2011009.pdf",
+      "Conflict=N",
+      "Status=FIN\u2011100 Cleared & Posted",
+      "Resolution Notes=Reclassified"
+     ]
+    }
+   },
+   {
+    "id": "R19",
+    "kind": "effect",
+    "text": "Add a Jira comment on the sub\u2011task linked to SUSP\u2011009: \"Transaction SUSP\u2011009 \u2013 target GL 6200\u2011Office\u2011Exp \u2013 status FIN\u2011100 Cleared & Posted.\"",
+    "quote": "If support is found, record the reclassification in Jira: comment on the line's sub\u2011task with transaction ID, target GL, and status FIN\u2011100 Cleared & Posted.",
+    "when": "Support Found\u202f=\u202fY",
+    "check": {
+     "tool": "Jira",
+     "targets": [
+      "sub\u2011task matching SUSP\u2011009"
+     ],
+     "values": [
+      "Transaction SUSP\u2011009 \u2013 target GL 6200\u2011Office\u2011Exp \u2013 status FIN\u2011100 Cleared & Posted"
+     ]
+    }
+   },
+   {
+    "id": "R20",
+    "kind": "effect",
+    "text": "For transaction SUSP-011 ($8,500) locate INV\u2011SUSP\u2011011.pdf, confirm GL code matches, verify approval in #finance-approvals (no approval message for $8,500), create a FIN\u2011Exceptions ticket using Template B\u20111.",
+    "quote": "Exception handling: If the PDF is missing ... Slack approval cannot be found ... create a Jira ticket in the FIN\u2011Exceptions queue. Paste Template B\u20111 into the description.",
+    "when": "Amount > 5000 and approval not found",
+    "check": {
+     "tool": "Jira",
+     "targets": [
+      "FIN\u2011Exceptions"
+     ],
+     "values": [
+      "Template B\u20111",
+      "Transaction ID: SUSP\u2011011",
+      "Amount: $8,500.00"
+     ]
+    }
+   },
+   {
+    "id": "R21",
+    "kind": "effect",
+    "text": "For transaction SUSP-013 ($7,500) locate INV\u2011SUSP\u2011013.pdf, confirm GL code matches, verify approval in #finance-approvals (Approved: Client Entertainment $7,500.00), set Support Found\u202f=\u202fY, Support Location\u202f=\u202fINV\u2011SUSP\u2011013.pdf, Conflict\u202f=\u202fN, Status\u202f=\u202fFIN\u2011100 Cleared & Posted, Resolution Notes\u202f=\u202fReclas",
+    "quote": "Verify approval evidence (items > $5,000 only): In Slack, open finance\u2011approvals. Search: has:link [Exact Dollar Amount] to locate the manager approval message.",
+    "when": "Amount > 5000 and approval found",
+    "check": {
+     "tool": "Excel",
+     "targets": [
+      "Suspense_Reconciliation_March2026.xlsx"
+     ],
+     "values": [
+      "SUSP-013",
+      "Support Found=Y",
+      "Support Location=INV\u2011SUSP\u2011013.pdf",
+      "Conflict=N",
+      "Status=FIN\u2011100 Cleared & Posted",
+      "Resolution Notes=Reclassified"
+     ]
+    }
+   },
+   {
+    "id": "R22",
+    "kind": "effect",
+    "text": "Add a Jira comment on the sub\u2011task linked to SUSP\u2011013: \"Transaction SUSP\u2011013 \u2013 target GL 6600\u2011Travel \u2013 status FIN\u2011100 Cleared & Posted.\"",
+    "quote": "If support is found, record the reclassification in Jira: comment on the line's sub\u2011task with transaction ID, target GL, and status FIN\u2011100 Cleared & Posted.",
+    "when": "Support Found\u202f=\u202fY",
+    "check": {
+     "tool": "Jira",
+     "targets": [
+      "sub\u2011task matching SUSP\u2011013"
+     ],
+     "values": [
+      "Transaction SUSP\u2011013 \u2013 target GL 6600\u2011Travel \u2013 status FIN\u2011100 Cleared & Posted"
+     ]
+    }
+   },
+   {
+    "id": "R23",
+    "kind": "guard",
+    "text": "Do not modify any GL codes directly in the source Excel workbook; only record tie\u2011out information.",
+    "quote": "Do not resolve the conflict yourself. Record both codes ...",
+    "when": "",
+    "check": {
+     "tool": "",
+     "targets": [],
+     "values": []
+    }
+   },
+   {
+    "id": "R24",
+    "kind": "format",
+    "text": "All exception tickets must use Template B\u20111 with fields: Transaction ID, Amount, Status: Requires Controller Review, and GL Conflict details if applicable.",
+    "quote": "Template B\u20111: Intercompany Suspense Escalation ...",
+    "when": "Exception created",
+    "check": {
+     "tool": "Jira",
+     "targets": [
+      "FIN\u2011Exceptions tickets"
+     ],
+     "values": [
+      "Template B\u20111 format"
+     ]
+    }
+   },
+   {
+    "id": "R25",
+    "kind": "format",
+    "text": "All Jira comments for cleared items must follow: \"Transaction [ID] \u2013 target GL [GL Code] \u2013 status FIN\u2011100 Cleared & Posted.\"",
+    "quote": "comment on the line's sub\u2011task with transaction ID, target GL, and status FIN\u2011100 Cleared & Posted.",
+    "when": "Support Found\u202f=\u202fY",
+    "check": {
+     "tool": "Jira",
+     "targets": [
+      "sub\u2011tasks"
+     ],
+     "values": [
+      "Transaction [ID] \u2013 target GL [GL Code] \u2013 status FIN\u2011100 Cleared & Posted"
+     ]
+    }
+   },
+   {
+    "id": "R26",
+    "kind": "format",
+    "text": "The final workbook file name must be Suspense_Reconciliation_March2026.xlsx (no spaces, underscores).",
+    "quote": "Save your completed reconciliation workbook to Suspense_Reconciliation_March2026.xlsx.",
+    "when": "",
+    "check": {
+     "tool": "FileSystem",
+     "targets": [
+      "/workdir/Suspense_Reconciliation_March2026.xlsx"
+     ],
+     "values": []
+    }
+   }
+  ],
+  "dropped": 0,
+  "raw": 26,
+  "cover": [
+   "full",
+   "partial",
+   "partial",
+   "partial",
+   "partial",
+   "partial",
+   "partial",
+   "partial",
+   "partial",
+   "partial",
+   "none",
+   "partial"
+  ],
+  "fail": [
+   null,
+   null,
+   null,
+   null,
+   null,
+   null,
+   null,
+   null,
+   null,
+   null,
+   null,
+   null
+  ],
+  "unrelated": [
+   "R9",
+   "R10",
+   "R11",
+   "R12",
+   "R18",
+   "R19",
+   "R21",
+   "R22",
+   "R23",
+   "R25"
+  ],
+  "checks": [
+   "File `Suspense_Reconciliation_March2026.xlsx` must exist in the workspace and contain columns: Support Found, Support Location, Conflict, Status, and Resolution Notes.",
+   "In file `Suspense_Reconciliation_March2026.xlsx`, cleared items OPS-2 ($3,250), OPS-3 ($7,800), OPS-7 ($2,100), and OPS-8 ($15,000) \u2014 rows may be keyed by the OPS key or the SUSP transaction ID \u2014 must each show a FIN-100 Cleared & Posted status, Support Found=Y, Conflict=N, and non-empty Resolution Notes.",
+   "In file `Suspense_Reconciliation_March2026.xlsx`, OPS-3 ($7,800) and OPS-8 ($15,000) Resolution Notes must reference a Slack approval message.",
+   "In file `Suspense_Reconciliation_March2026.xlsx`, exception items OPS-4, OPS-5, OPS-6, OPS-9, OPS-10, OPS-11, and OPS-12 must each show an exception status (EXCEPTION, Escalated, or Requires Controller Review) and must NOT show Status=FIN-100.",
+   "In file Suspense_Reconciliation_March2026.xlsx, OPS-4 must show Support Found=Y, Conflict=N, and Resolution Notes indicating missing Slack approval. OPS-5 must show Support Found=N, Conflict=N, and Resolution Notes indicating missing PDF. OPS-11 must show Support Found=Y, Conflict=N, and Resolution Notes indicating no manager approval found in #finance-approvals. OPS-12 must show Support Found=Y, Conflict=N, and Resolution Notes indicating approval must be confirmed by a manager, not a junior analyst.",
+   "In file `Suspense_Reconciliation_March2026.xlsx`, OPS-6 must show Support Found=Y, Conflict=Y, and Resolution Notes documenting both GL codes (Invoice: 7100-Capital-Equipment and Excel: 8100-IT-Equipment). OPS-10 must show Support Found=Y, Conflict=Y, and Resolution Notes documenting both GL codes (Invoice: 6200-Office-Supplies and Excel: 6200-Office-Exp).",
+   "In file `Suspense_Reconciliation_March2026.xlsx`, OPS-9 must show Support Found=Y, Conflict=N, an exception status (EXCEPTION, Escalated, or Requires Controller Review), and Resolution Notes indicating missing Slack approval.",
+   "In jira_state.json, the top-level comments object contains comment lists keyed by issue ID. OPS-2, OPS-3, OPS-7, and OPS-8 must each have at least one comment in that list containing the transaction ID (OPS key or SUSP ID), the item's target GL code (OPS-2: 6200, OPS-3: 7300, OPS-7: 6500, OPS-8: 8600), and the phrase \"FIN-100 Cleared & Posted\" (case-insensitive).",
+   "In jira_state.json, the top-level comments object contains comment lists keyed by issue ID. OPS-6 must have at least one comment containing both GL codes \"7100\" and \"8100\". OPS-10 must have at least one comment containing both \"6200\" and \"office\". Comments are stored in Atlassian doc format: extract text by walking body \u2192 content[] \u2192 content[] \u2192 text fields.",
+   "In jira_state.json, the issues object must contain exactly seven NEW FIN-Exceptions tickets \u2014 identified by keys starting with \"FIN-\" and not containing \"BOARD\", excluding the seeded FIN-1 and FIN-2 reference issues. A distinct ticket must exist for each of: OPS-4 (missing Slack approval), OPS-5 (missing PDF), OPS-6 (GL conflict), OPS-9 (missing Slack approval), OPS-10 (GL conflict), OPS-11 (missing Slack approval), and OPS-12 (self-approval). Each ticket must reference its item's OPS key or SUSP transaction ID somewhere in its content.",
+   "In jira_state.json, all FIN-Exceptions tickets (for OPS-4, OPS-5, OPS-6, OPS-9, OPS-10, OPS-11, OPS-12) must be assigned to jennifer.walsh.",
+   "In jira_state.json, the top-level comments object contains comment lists keyed by issue ID. OPS-4, OPS-5, OPS-9, OPS-11, and OPS-12 must each have at least one comment \u2014 keyed by the sub-task issue ID, its SUSP transaction ID, or the FIN-Exceptions ticket escalating that item \u2014 containing an escalation reason. Comments are stored in Atlassian doc format: extract text by walking body \u2192 content[] \u2192 content[] \u2192 text fields. Acceptable keywords indicating an escalation reason include: escalat, exception, missing, conflict, approval, pdf, slack, self, manager."
+  ]
+ },
+ {
+  "bench": "hb",
+  "task": "medical_careig_specialty_pharmacy_f5947c33",
+  "source": "policy",
+  "items": [
+   {
+    "id": "R1",
+    "kind": "step",
+    "text": "List the contents of the /workdir directory.",
+    "quote": "Begin by listing /workdir and reading relevant files.",
+    "when": "",
+    "check": {
+     "tool": "filesystem",
+     "targets": [
+      "/workdir"
+     ],
+     "values": []
+    }
+   },
+   {
+    "id": "R2",
+    "kind": "step",
+    "text": "Read the Standard Operating Procedure file that describes Prior Authorization submission.",
+    "quote": "following the instructions laid out in the SOP",
+    "when": "",
+    "check": {
+     "tool": "filesystem",
+     "targets": [
+      "SOP_prior_auth.txt",
+      "SOP_*.md"
+     ],
+     "values": []
+    }
+   },
+   {
+    "id": "R3",
+    "kind": "step",
+    "text": "Read Marcus Webb's case file to obtain patient details and required authorization data.",
+    "quote": "process Marcus Webb's case through submitting the Prior Authorization",
+    "when": "",
+    "check": {
+     "tool": "filesystem",
+     "targets": [
+      "Marcus_Webb_*"
+     ],
+     "values": []
+    }
+   },
+   {
+    "id": "R4",
+    "kind": "effect",
+    "text": "Send a Prior Authorization request email for Marcus Webb, including all required fields and signed \"Jake Morrow\".",
+    "quote": "Use my name to sign anything that needs to be signed: Jake Morrow.",
+    "when": "",
+    "check": {
+     "tool": "google_mail_send",
+     "targets": [
+      "prior_auth@company.com"
+     ],
+     "values": [
+      "Patient: Marcus Webb",
+      "Signed, Jake Morrow"
+     ]
+    }
+   },
+   {
+    "id": "R5",
+    "kind": "effect",
+    "text": "Append a record of the Marcus Webb Prior Authorization submission to /workdir/submissions.log.",
+    "quote": "process Marcus Webb's case through submitting the Prior Authorization",
+    "when": "",
+    "check": {
+     "tool": "filesystem",
+     "targets": [
+      "/workdir/submissions.log"
+     ],
+     "values": [
+      "Marcus Webb",
+      "Prior Authorization",
+      "Jake Morrow"
+     ]
+    }
+   },
+   {
+    "id": "R6",
+    "kind": "step",
+    "text": "Read the other patient\u2019s case file(s) to determine its current stage in the workflow.",
+    "quote": "Look at the case files for that other patient, figure out where it's at in the process based on the SOP",
+    "when": "",
+    "check": {
+     "tool": "filesystem",
+     "targets": [
+      "OtherPatient_*"
+     ],
+     "values": []
+    }
+   },
+   {
+    "id": "R7",
+    "kind": "decision",
+    "text": "Determine the next required action for the other patient according to the SOP (e.g., request docs, submit auth, or hold).",
+    "quote": "figure out where it's at in the process based on the SOP, and deal with it accordingly",
+    "when": "",
+    "check": {
+     "tool": "",
+     "targets": [],
+     "values": []
+    }
+   },
+   {
+    "id": "R8",
+    "kind": "effect",
+    "text": "Perform the SOP\u2011determined action for the other patient (send email, create Jira ticket, or update file) and sign with \"Jake Morrow\" if needed.",
+    "quote": "deal with it accordingly",
+    "when": "based on decision outcome",
+    "check": {
+     "tool": "google_mail_send / jira_create / filesystem",
+     "targets": [
+      "appropriate recipient or project"
+     ],
+     "values": [
+      "Signed, Jake Morrow"
+     ]
+    }
+   },
+   {
+    "id": "R9",
+    "kind": "format",
+    "text": "Signature line must be exactly \"Signed, Jake Morrow\".",
+    "quote": "Use my name to sign anything that needs to be signed: Jake Morrow.",
+    "when": "",
+    "check": {
+     "tool": "",
+     "targets": [],
+     "values": [
+      "Signed, Jake Morrow"
+     ]
+    }
+   },
+   {
+    "id": "R10",
+    "kind": "guard",
+    "text": "Do not request any additional information from the user.",
+    "quote": "Do NOT ask the user for more information \u2014 use your tools to discover what you need.",
+    "when": "",
+    "check": {
+     "tool": "",
+     "targets": [],
+     "values": []
+    }
+   }
+  ],
+  "dropped": 0,
+  "raw": 10,
+  "cover": [
+   "none",
+   "none",
+   "none",
+   "none",
+   "none",
+   "none",
+   "none",
+   "none",
+   "none",
+   "none",
+   "none",
+   "none",
+   "none",
+   "none",
+   "none",
+   "none",
+   "none"
+  ],
+  "fail": [
+   null,
+   null,
+   null,
+   null,
+   null,
+   null,
+   null,
+   null,
+   null,
+   null,
+   null,
+   null,
+   null,
+   null,
+   null,
+   null,
+   null
+  ],
+  "unrelated": [
+   "R1",
+   "R2",
+   "R3",
+   "R4",
+   "R5",
+   "R6",
+   "R7",
+   "R8",
+   "R9",
+   "R10"
+  ],
+  "checks": [
+   "In file `audit_log.xlsx` in folder `Rodriguez_07221975`, there must be exactly 2 rows of data (excluding headers).",
+   "In `slack_data.json`, channel `#intake-alerts` must contain a message containing the text: `[UNREACHABLE] Rodriguez_07221975 \u2014 3 failed attempts`.",
+   "In mailbox.json, there must be a sent email to `rcho@greenmedclinic.org` with subject `Unable to Contact Patient  | CASE_ID: Rodriguez_07221975` and sign-off by `Jake Morrow`.",
+   "In file `intake.xlsx` in folder `Webb_03151968`, row 2 must contain `Gammagard Liquid 10%` in column `Drug_Name` and `35` in column `Drug_Dose_Grams`",
+   "In file `auth.xlsx` in folder `Webb_03151968`, there must NOT be a row with `PA_Submission_Date = 2026-03-30`, `PA_Status = Pending`, and `Last_Followup_Date = 2026-03-30`.",
+   "In `slack_data.json`, channel `#intake-team` must NOT contain a message with text `[PA SUBMITTED] Webb_03151968 ",
+   "In `mailbox.json`, there must NOT be a sent email to `pa.submissions@bcpremier.com`.",
+   "In `slack_data.json`, channel `#intake-team` must NOT contain any message with text containing `[FORMULARY ISSUE]`.",
+   "In file `audit_log.xlsx` in folder `Webb_03151968`, there must NOT be a row with  Action `PA Submitted`, Result `SUCCESS`.",
+   "In file `audit_log.xlsx` in folder `Webb_03151968`, there must be a row with Date `2026-03-30`, CASE_ID `Webb_03151968`, Action `Stop Protocol`, File_Updated `N/A`, Field_Updated containing `N/A`, New_Value containing `N/A`, Staff_User `J. Morrow`, Result `STOP - invalid file`.",
+   "In the file `intake.xlsx` in the folder `Webb_03151968`, row 2 must NOT contain `Octagam` in the `Drug_Name` column or `40` in the `Drug_Dose_Grams` column.",
+   "In slack_data.json, the channel `intake-alerts` must contain a message with the text: \"[PA HOLD] Webb_03151968 \u2014 invalid:\" and \"igglevel_09292025.pdf\" or \"Most recent IgG lab result\"",
+   "In `mailbox.json`, there must be exactly 1 email in the Sent folder.",
+   "In the file `audit_log.xlsx` in folder `Webb_03151968`, there must be exactly 4 rows of data (excluding headers).",
+   "In the workspace, there must be a folder titled `Webb_03151968`.",
+   "In the workspace, there must be a folder titled `Rodriguez_07221975`.",
+   "In mailbox.json, the body with the sent email subject `Unable to Contact Patient  | CASE_ID: Rodriguez_07221975` must contain the following in the same order: `Dear Dr. Robert Cho,` or `Dear Dr. Cho,` `We received a referral for Carmen Rodriguez (DOB: 07221975).`, `After 3 contact attempts, we have been unable to reach the patient`, `at the number on file: (555) 618-9043.`, `Attempt 1: 2026-03-25 10:15 \u2014 Voicemail`, `Attempt 2: 2026-03-26 14:30 \u2014 No Answer`, `Attempt 3: 2026-03-28 09:00 \u2014 Voicemail`, `Please provide an alternate contact or assist in connecting the patient`, `with our team. We cannot proceed until contact is established.`"
+  ]
+ },
+ {
+  "bench": "hb",
+  "task": "medical_careig_specialty_pharmacy_f5947c33",
+  "source": "policy+data",
+  "items": [
+   {
+    "id": "R1",
+    "kind": "step",
+    "text": "List the contents of the /workdir directory before any other action.",
+    "quote": "Begin by listing /workdir and reading relevant files.",
+    "when": "",
+    "check": {
+     "tool": "filesystem",
+     "targets": [
+      "/workdir"
+     ],
+     "values": []
+    }
+   },
+   {
+    "id": "R2",
+    "kind": "step",
+    "text": "Read the payer_rules.xlsx file to obtain the PA submission email for BlueCross Premier.",
+    "quote": "PA_Submission_Email",
+    "when": "Processing Marcus Webb\u2019s case",
+    "check": {
+     "tool": "excel",
+     "targets": [
+      "payer_rules.xlsx"
+     ],
+     "values": [
+      "pa.submissions@bcpremier.com"
+     ]
+    }
+   },
+   {
+    "id": "R3",
+    "kind": "effect",
+    "text": "Send a Prior Authorization email for Marcus Webb to pa.submissions@bcpremier.com.",
+    "quote": "process Marcus Webb's case through submitting the Prior Authorization",
+    "when": "When the case is ready for PA submission",
+    "check": {
+     "tool": "email",
+     "targets": [
+      "pa.submissions@bcpremier.com"
+     ],
+     "values": [
+      "Subject includes \"PA Request \u2013 Webb, Marcus \u2013 MemberID: BCX-447821055\""
+     ]
+    }
+   },
+   {
+    "id": "R4",
+    "kind": "format",
+    "text": "Email subject must follow the template: \"PA Request \u2013 [LastName], [FirstName] \u2013 MemberID: [MemberID]\".",
+    "quote": "process Marcus Webb's case through submitting the Prior Authorization",
+    "when": "When composing the PA email",
+    "check": {
+     "tool": "email",
+     "targets": [
+      "subject"
+     ],
+     "values": [
+      "PA Request \u2013 Webb, Marcus \u2013 MemberID: BCX-447821055"
+     ]
+    }
+   },
+   {
+    "id": "R5",
+    "kind": "format",
+    "text": "Email body must contain patient DOB, Member ID, dosage (35\u202fg IV every 28\u202fdays), and the substitution note from Dr. Vasquez.",
+    "quote": "Should BlueCross Premier not cover Octagam, I authorize substitution of Gammagard Liquid 10% at an adjusted dose of 35 grams IV every 28 days.",
+    "when": "When composing the PA email",
+    "check": {
+     "tool": "email",
+     "targets": [
+      "body"
+     ],
+     "values": [
+      "DOB: 03/15/1968",
+      "Member ID: BCX-447821055",
+      "Dose: 35\u202fg IV every 28\u202fdays",
+      "Substitution authorized by Dr. Elena Vasquez"
+     ]
+    }
+   },
+   {
+    "id": "R6",
+    "kind": "effect",
+    "text": "Attach the Letter of Medical Necessity file from Webb_03151968.zip to the PA email.",
+    "quote": "No amendment to the Letter of Medical Necessity is required",
+    "when": "When sending the PA email for Marcus Webb",
+    "check": {
+     "tool": "email",
+     "targets": [
+      "attachments"
+     ],
+     "values": [
+      "Letter_of_Medical_Necessity.pdf"
+     ]
+    }
+   },
+   {
+    "id": "R7",
+    "kind": "effect",
+    "text": "Sign the PA email with the name \"Jake Morrow\".",
+    "quote": "Use my name to sign anything that needs to be signed: Jake Morrow.",
+    "when": "When the PA email is finalized",
+    "check": {
+     "tool": "email",
+     "targets": [
+      "signature"
+     ],
+     "values": [
+      "Jake Morrow"
+     ]
+    }
+   },
+   {
+    "id": "R8",
+    "kind": "guard",
+    "text": "Do not send the PA email without including the substitution note from Dr. Vasquez.",
+    "quote": "Should BlueCross Premier not cover Octagam, I authorize substitution of Gammagard Liquid 10% at an adjusted dose of 35 grams IV every 28 days.",
+    "when": "Before sending the PA email",
+    "check": {
+     "tool": "email",
+     "targets": [
+      "body"
+     ],
+     "values": [
+      "Substitution authorized"
+     ]
+    }
+   },
+   {
+    "id": "R9",
+    "kind": "effect",
+    "text": "Update the case record for Marcus Webb (e.g., Webb_03151968.json) to status \"PA Submitted\" with date 2026\u201103\u201130 and signer \"Jake Morrow\".",
+    "quote": "process Marcus Webb's case through submitting the Prior Authorization",
+    "when": "After the PA email is successfully sent",
+    "check": {
+     "tool": "filesystem",
+     "targets": [
+      "Webb_03151968.json"
+     ],
+     "values": [
+      "status: PA Submitted",
+      "date: 2026-03-30",
+      "signed_by: Jake Morrow"
+     ]
+    }
+   },
+   {
+    "id": "R10",
+    "kind": "effect",
+    "text": "Post a Slack message in channel #intake-team announcing the PA submission for Marcus Webb.",
+    "quote": "process Marcus Webb's case through submitting the Prior Authorization",
+    "when": "After the PA email is sent",
+    "check": {
+     "tool": "slack",
+     "targets": [
+      "C001"
+     ],
+     "values": [
+      "PA submitted for Marcus Webb (MemberID BCX-447821055)"
+     ]
+    }
+   },
+   {
+    "id": "R11",
+    "kind": "decision",
+    "text": "For each additional patient case file in /workdir (excluding Webb_03151968.zip), determine its current SOP step and perform the required action (e.g., submit PA, request documentation, update status).",
+    "quote": "look at the case files for that other patient, figure out where it's at in the process based on the SOP, and deal with it accordingly",
+    "when": "After completing Marcus Webb\u2019s PA submission",
+    "check": {
+     "tool": "filesystem",
+     "targets": [
+      "all zip files in /workdir except Webb_03151968.zip"
+     ],
+     "values": [
+      "SOP step identified",
+      "appropriate action taken"
+     ]
+    }
+   },
+   {
+    "id": "R12",
+    "kind": "guard",
+    "text": "Do not modify any case files other than those explicitly processed (Marcus Webb and the identified other patient).",
+    "quote": "Do NOT ask the user for more information \u2014 use your tools to discover what you need.",
+    "when": "During any file write operations",
+    "check": {
+     "tool": "filesystem",
+     "targets": [
+      "any file not in processed list"
+     ],
+     "values": []
+    }
+   }
+  ],
+  "dropped": 0,
+  "raw": 12,
+  "cover": [
+   "none",
+   "none",
+   "none",
+   "none",
+   "partial",
+   "partial",
+   "partial",
+   "none",
+   "partial",
+   "none",
+   "none",
+   "none",
+   "none",
+   "none",
+   "none",
+   "none",
+   "none"
+  ],
+  "fail": [
+   null,
+   null,
+   null,
+   null,
+   null,
+   null,
+   null,
+   null,
+   null,
+   null,
+   null,
+   null,
+   null,
+   null,
+   null,
+   null,
+   null
+  ],
+  "unrelated": [
+   "R1",
+   "R2",
+   "R4",
+   "R5",
+   "R6",
+   "R7",
+   "R8",
+   "R11",
+   "R12"
+  ],
+  "checks": [
+   "In file `audit_log.xlsx` in folder `Rodriguez_07221975`, there must be exactly 2 rows of data (excluding headers).",
+   "In `slack_data.json`, channel `#intake-alerts` must contain a message containing the text: `[UNREACHABLE] Rodriguez_07221975 \u2014 3 failed attempts`.",
+   "In mailbox.json, there must be a sent email to `rcho@greenmedclinic.org` with subject `Unable to Contact Patient  | CASE_ID: Rodriguez_07221975` and sign-off by `Jake Morrow`.",
+   "In file `intake.xlsx` in folder `Webb_03151968`, row 2 must contain `Gammagard Liquid 10%` in column `Drug_Name` and `35` in column `Drug_Dose_Grams`",
+   "In file `auth.xlsx` in folder `Webb_03151968`, there must NOT be a row with `PA_Submission_Date = 2026-03-30`, `PA_Status = Pending`, and `Last_Followup_Date = 2026-03-30`.",
+   "In `slack_data.json`, channel `#intake-team` must NOT contain a message with text `[PA SUBMITTED] Webb_03151968 ",
+   "In `mailbox.json`, there must NOT be a sent email to `pa.submissions@bcpremier.com`.",
+   "In `slack_data.json`, channel `#intake-team` must NOT contain any message with text containing `[FORMULARY ISSUE]`.",
+   "In file `audit_log.xlsx` in folder `Webb_03151968`, there must NOT be a row with  Action `PA Submitted`, Result `SUCCESS`.",
+   "In file `audit_log.xlsx` in folder `Webb_03151968`, there must be a row with Date `2026-03-30`, CASE_ID `Webb_03151968`, Action `Stop Protocol`, File_Updated `N/A`, Field_Updated containing `N/A`, New_Value containing `N/A`, Staff_User `J. Morrow`, Result `STOP - invalid file`.",
+   "In the file `intake.xlsx` in the folder `Webb_03151968`, row 2 must NOT contain `Octagam` in the `Drug_Name` column or `40` in the `Drug_Dose_Grams` column.",
+   "In slack_data.json, the channel `intake-alerts` must contain a message with the text: \"[PA HOLD] Webb_03151968 \u2014 invalid:\" and \"igglevel_09292025.pdf\" or \"Most recent IgG lab result\"",
+   "In `mailbox.json`, there must be exactly 1 email in the Sent folder.",
+   "In the file `audit_log.xlsx` in folder `Webb_03151968`, there must be exactly 4 rows of data (excluding headers).",
+   "In the workspace, there must be a folder titled `Webb_03151968`.",
+   "In the workspace, there must be a folder titled `Rodriguez_07221975`.",
+   "In mailbox.json, the body with the sent email subject `Unable to Contact Patient  | CASE_ID: Rodriguez_07221975` must contain the following in the same order: `Dear Dr. Robert Cho,` or `Dear Dr. Cho,` `We received a referral for Carmen Rodriguez (DOB: 07221975).`, `After 3 contact attempts, we have been unable to reach the patient`, `at the number on file: (555) 618-9043.`, `Attempt 1: 2026-03-25 10:15 \u2014 Voicemail`, `Attempt 2: 2026-03-26 14:30 \u2014 No Answer`, `Attempt 3: 2026-03-28 09:00 \u2014 Voicemail`, `Please provide an alternate contact or assist in connecting the patient`, `with our team. We cannot proceed until contact is established.`"
+  ]
+ }
+]

@@ -1,0 +1,2560 @@
+{
+ "summary": {
+  "runs": 52,
+  "checks": 173,
+  "errors": 0,
+  "flags": 85,
+  "would_block": 4,
+  "failed_runs_with_block": "3/46",
+  "passed_runs_with_block": "0/6",
+  "cost_usd": 0.1506,
+  "gate_model": "aws/gpt-oss-120b",
+  "blocks_on_failed_table": 3
+ },
+ "runs": [
+  {
+   "run": "enterpriseops_gym/results/fc1_t1/A_task_20251218_093719_611_764e5ead_5817d09a.json",
+   "checks": 3,
+   "errors": 0,
+   "flags": [
+    {
+     "gate": "checked",
+     "tool": "register_new_service_offering",
+     "breaks": true,
+     "rule": "Referential Integrity",
+     "case": "parent service reference",
+     "evidence": "parent \"SVC_049\" is not present in any of the retrieved service records (only SVC_005 is found).",
+     "grounded": false,
+     "repeat": false,
+     "i": 8,
+     "args": "{\"short_description\": \"Customer Self-Service Portal for production users\", \"parent\": \"SVC_049\", \"name\": \"Customer Self-Service Portal\", \"owned_by\": \"USER_031\", \"used_for\": \"production\", \"status\": \"operational\", \"service_classification\": \"business\", \"business_criticality\": \"critical\"}",
+     "would_block": false,
+     "hits_failed_table": true
+    }
+   ],
+   "blocks": 0,
+   "passed": false,
+   "verifiers": "3/7",
+   "failed": [
+    {
+     "name": "verify_service_offerings_reassociated",
+     "tables": [
+      "old",
+      "service",
+      "service_offering"
+     ]
+    },
+    {
+     "name": "verify_no_service_offerings_on_old_service",
+     "tables": [
+      "service",
+      "service_offering"
+     ]
+    },
+    {
+     "name": "verify_incidents_updated_to_new_service",
+     "tables": [
+      "incident",
+      "service"
+     ]
+    },
+    {
+     "name": "verify_no_incidents_on_old_service",
+     "tables": [
+      "incident",
+      "service"
+     ]
+    }
+   ]
+  },
+  {
+   "run": "enterpriseops_gym/results/fc1_t1/A_task_20251218_121722_423_1d219d93_8218da6c.json",
+   "checks": 4,
+   "errors": 0,
+   "flags": [
+    {
+     "gate": "checked",
+     "tool": "add_new_user",
+     "breaks": true,
+     "rule": "Only Administrator has full CRUD access across all tables; other roles cannot create user records.",
+     "case": "Creating a new user (Sarah Connor) with add_new_user",
+     "evidence": "\"Administrator (`admin`) | Full CRUD (Create, Read, Update, Delete) access across all tables.\" and \"Agent ... Full CRUD on Incidents, Service Requests, Tasks, Work Notes, CMDB, Change, Problem, and Knowledge.\" (no CRUD rights for users)",
+     "grounded": false,
+     "repeat": false,
+     "i": 2,
+     "args": "{\"first_name\": \"Sarah\", \"last_name\": \"Connor\", \"email\": \"sarah.connor@example.com\", \"phone\": \"+1-555-010-9999\", \"role\": \"agent\", \"active\": true}",
+     "would_block": false,
+     "hits_failed_table": true
+    },
+    {
+     "gate": "checked",
+     "tool": "add_new_group_member",
+     "breaks": true,
+     "rule": "8.1 Data Integrity Checks \u2013 User Status: Ensure any user being assigned to (`assigned_to`) or updated is `users.active = true`.",
+     "case": "Adding USER_011 to GROUP_002 before the user profile for Sarah Connor (USER_011) is created and marked active.",
+     "evidence": "\"Ensure any user being assigned to (`assigned_to`) or updated is `users.active = true`.\"",
+     "grounded": false,
+     "repeat": false,
+     "i": 5,
+     "args": "{\"group_id\": \"GROUP_002\", \"user_id\": \"USER_011\"}",
+     "would_block": false,
+     "hits_failed_table": false
+    },
+    {
+     "gate": "checked",
+     "tool": "create_incident",
+     "breaks": true,
+     "rule": "Mandatory Inputs: opened_by, caller_id, short_description, impact, and urgency.",
+     "case": "Incident creation",
+     "evidence": "Mandatory Inputs: `opened_by` (user submitting), `caller_id` (user affected), `short_description`, `impact`, and `urgency`.",
+     "grounded": false,
+     "repeat": false,
+     "i": 6,
+     "args": "{\"short_description\": \"Setup Peripherals for Sarah Connor\", \"caller_id\": \"USER_011\"}",
+     "would_block": false,
+     "hits_failed_table": true
+    },
+    {
+     "gate": "checked",
+     "tool": "update_configuration_item",
+     "breaks": true,
+     "rule": "Never assume or fabricate IDs, responses, or outcomes \u2014 rely solely on verified API results.",
+     "case": "Attempting to set owner_id to USER_011 before the user profile for Sarah Connor (USER_011) has been created/verified.",
+     "evidence": "\"When identifiers such as names or IDs are missing, perform lookups, verify that you are reusing correct values from previous responses, and proceed using the retrieved data.\"",
+     "grounded": false,
+     "repeat": false,
+     "i": 7,
+     "args": "{\"configuration_item_id\": \"CI_002\", \"owner_id\": \"USER_011\"}",
+     "would_block": false,
+     "hits_failed_table": false
+    }
+   ],
+   "blocks": 0,
+   "passed": false,
+   "verifiers": "3/7",
+   "failed": [
+    {
+     "name": "Checking for creation of new user.",
+     "tables": [
+      "users"
+     ]
+    },
+    {
+     "name": "Checking for Notifications.",
+     "tables": [
+      "notification"
+     ]
+    },
+    {
+     "name": "linking desktop CI to incident",
+     "tables": [
+      "incident",
+      "incident_affected_cis"
+     ]
+    },
+    {
+     "name": "Linking Knowledge",
+     "tables": [
+      "incident",
+      "incident_knowledge"
+     ]
+    }
+   ]
+  },
+  {
+   "run": "enterpriseops_gym/results/fc1_t1/A_task_20251218_164829_676_97d7df7d_893f6b2c.json",
+   "checks": 3,
+   "errors": 0,
+   "flags": [
+    {
+     "gate": "checked",
+     "tool": "create_incident",
+     "breaks": true,
+     "rule": "Mandatory Inputs: `opened_by` (user submitting), `caller_id` (user affected), `short_description`, `impact`, and `urgency`.",
+     "case": "Creating incident for USER_005",
+     "evidence": "Mandatory Inputs: `opened_by` (user submitting), `caller_id` (user affected), `short_description`, `impact`, and `urgency`.",
+     "grounded": false,
+     "repeat": false,
+     "i": 4,
+     "args": "{\"short_description\": \"Intermittent screen freezing on device\", \"description\": \"User reports intermittent screen freezing on his laptop. Device cost exceeds $1000, located in New York.\", \"caller_id\": \"USER_005\", \"service\": \"SVC_001\", \"configuration_item\": \"CI_001\", \"channel\": \"phone\", \"impact\": \"low\", \"urgency\": \"low\", \"category\": \"hardware\", \"priority\": \"planning\"}",
+     "would_block": false,
+     "hits_failed_table": true
+    },
+    {
+     "gate": "checked",
+     "tool": "add_child_incident",
+     "breaks": true,
+     "rule": "Do not allow a request to proceed if it requires data that is missing or the current record state prevents the action.",
+     "case": "Linking child incident INC_024 to parent incident INC_001",
+     "evidence": "The provided incident list does not contain any record with incident_id \"INC_024\".",
+     "grounded": false,
+     "repeat": false,
+     "i": 5,
+     "args": "{\"parent_incident\": \"INC_001\", \"child_incident\": \"INC_024\"}",
+     "would_block": false,
+     "hits_failed_table": true
+    }
+   ],
+   "blocks": 0,
+   "passed": false,
+   "verifiers": "2/3",
+   "failed": [
+    {
+     "name": "verify_notification_sent",
+     "tables": [
+      "incident",
+      "notification",
+      "on"
+     ]
+    }
+   ]
+  },
+  {
+   "run": "enterpriseops_gym/results/fc1_t1/A_task_20251221_045452_579_99ba2325_0e601eac.json",
+   "checks": 3,
+   "errors": 0,
+   "flags": [],
+   "blocks": 0,
+   "passed": false,
+   "verifiers": "3/5",
+   "failed": [
+    {
+     "name": "Verify SLA Paused",
+     "tables": [
+      "incident_sla"
+     ]
+    },
+    {
+     "name": "Verify Incident Update Child",
+     "tables": [
+      "child",
+      "incident"
+     ]
+    }
+   ]
+  },
+  {
+   "run": "enterpriseops_gym/results/fc1_t1/A_task_20251222_072805_599_99ba2325_ae6b0778.json",
+   "checks": 2,
+   "errors": 0,
+   "flags": [
+    {
+     "gate": "checked",
+     "tool": "update_service",
+     "breaks": true,
+     "rule": "Manager ... Full CRUD on operational tables (`incident`, `problem`, `change`, `knowledge`); READ access to all the tables.",
+     "case": "User with role manager (USER_004) attempting to update a Service record",
+     "evidence": "\"Manager\" ... \"Full CRUD on operational tables (`incident`, `problem`, `change`, `knowledge`); READ access to all the tables.\"",
+     "grounded": false,
+     "repeat": false,
+     "i": 4,
+     "args": "{\"service_id\": \"SVC_041\", \"status\": \"repair_in_progress\"}",
+     "would_block": false,
+     "hits_failed_table": true
+    }
+   ],
+   "blocks": 0,
+   "passed": false,
+   "verifiers": "2/3",
+   "failed": [
+    {
+     "name": "Verify Service Offering Status 1",
+     "tables": [
+      "service_offering"
+     ]
+    }
+   ]
+  },
+  {
+   "run": "enterpriseops_gym/results/fc1_t1/A_task_20251223_081019_100_d4a463c3_f8774fe4.json",
+   "checks": 1,
+   "errors": 0,
+   "flags": [
+    {
+     "gate": "checked",
+     "tool": "update_change",
+     "breaks": true,
+     "rule": "Cannot bypass approvals, or change system administration settings.",
+     "case": "Attempting to close a Change Request that is still in 'review' status without an approval step.",
+     "evidence": "\"status\": \"review\"",
+     "grounded": false,
+     "repeat": false,
+     "i": 1,
+     "args": "{\"change_id\": \"CHG_017\", \"status\": \"closed\", \"close_code\": \"successful\", \"close_notes\": \"Found 3 unused rules removed, 2 vendor access rules updated.\"}",
+     "would_block": false,
+     "hits_failed_table": false
+    }
+   ],
+   "blocks": 0,
+   "passed": false,
+   "verifiers": "1/2",
+   "failed": [
+    {
+     "name": "Verify Problem Update",
+     "tables": []
+    }
+   ]
+  },
+  {
+   "run": "enterpriseops_gym/results/fc1_t1/A_task_20251223_224508_138_97d7df7d_b4505336.json",
+   "checks": 2,
+   "errors": 0,
+   "flags": [],
+   "blocks": 0,
+   "passed": false,
+   "verifiers": "1/2",
+   "failed": [
+    {
+     "name": "verify_incident_notification_sent",
+     "tables": [
+      "notification"
+     ]
+    }
+   ]
+  },
+  {
+   "run": "enterpriseops_gym/results/fc1_t1/A_task_20260114_174427_042_99ba2325_7915481a.json",
+   "checks": 1,
+   "errors": 0,
+   "flags": [
+    {
+     "gate": "checked",
+     "tool": "create_knowledge_article",
+     "breaks": true,
+     "rule": "Only users with role Administrator, Manager, or Agent may create knowledge articles; Reporter role cannot create articles.",
+     "case": "User attempting to create a knowledge article without confirmed appropriate role",
+     "evidence": "\"Reporter ... Can search Public Knowledge articles.\" and \"Access rights are defined by roles... Agent ... Full CRUD on ... Knowledge. Manager ... Full CRUD on ... Knowledge. Administrator ... Full CRUD across all tables.\"",
+     "grounded": false,
+     "repeat": false,
+     "i": 0,
+     "args": "{\"title\": \"E-Commerce Service Restoration Procedure\", \"body\": \"E-Commerce Website Service Restoration Procedure \\n Document Version: 1.0 | Effective Date: December 2025 \\n Author: Joanne Simpson (USER_004) \\n The E-Commerce Website service (SVC_007) is a business-critical service that depends on the primary database server (CI_001) for transaction processing and data availability, along with redundant web application servers to ensure continuous access. \\n During the database upgrade, the environment was enhanced to improve stability and reliability, the database server serial number was updat",
+     "would_block": false,
+     "hits_failed_table": false
+    }
+   ],
+   "blocks": 0,
+   "passed": false,
+   "verifiers": "1/3",
+   "failed": [
+    {
+     "name": "Verify Service Status Update to Operational",
+     "tables": [
+      "service",
+      "to"
+     ]
+    },
+    {
+     "name": "Verify Configuration Item Serial Number Update",
+     "tables": [
+      "configuration_item"
+     ]
+    }
+   ]
+  },
+  {
+   "run": "enterpriseops_gym/results/fc1_t1/A_task_20260114_180601_485_99ba2325_2dc8b3ce.json",
+   "checks": 3,
+   "errors": 0,
+   "flags": [
+    {
+     "gate": "checked",
+     "tool": "update_incident",
+     "breaks": true,
+     "rule": "Priority Calculation: Priority is determined automatically by the system based on Impact x Urgency.",
+     "case": "Updating incident INC_004 with a manually set priority",
+     "evidence": "Priority Calculation: Priority (`critical`, `high`, `moderate`, `low`, `planning`) is determined automatically by the system based on a below pre-defined matrix of **Impact x Urgency**.",
+     "grounded": false,
+     "repeat": false,
+     "i": 4,
+     "args": "{\"incident_id\": \"INC_004\", \"impact\": \"high\", \"urgency\": \"high\", \"priority\": \"critical\"}",
+     "would_block": false,
+     "hits_failed_table": false
+    }
+   ],
+   "blocks": 0,
+   "passed": false,
+   "verifiers": "1/3",
+   "failed": [
+    {
+     "name": "validate_reporter_notification_escalated",
+     "tables": [
+      "notification"
+     ]
+    },
+    {
+     "name": "validate_assignee_notification_urgent",
+     "tables": [
+      "notification"
+     ]
+    }
+   ]
+  },
+  {
+   "run": "enterpriseops_gym/results/fc1_t1/A_task_20260115_064627_351_66392a82_cd4009dd.json",
+   "checks": 0,
+   "errors": 0,
+   "flags": [],
+   "blocks": 0,
+   "passed": false,
+   "verifiers": "0/4",
+   "failed": [
+    {
+     "name": "Checking incident status",
+     "tables": [
+      "incident"
+     ]
+    },
+    {
+     "name": "Sending notitfication to the service manager",
+     "tables": [
+      "notification"
+     ]
+    },
+    {
+     "name": "Sending notitfication to Gegory",
+     "tables": [
+      "notification"
+     ]
+    },
+    {
+     "name": "Sending notitfication to the manager of the assigned group",
+     "tables": [
+      "notification"
+     ]
+    }
+   ]
+  },
+  {
+   "run": "enterpriseops_gym/results/g5tA_t2/A_task_20251218_093719_611_764e5ead_5817d09a.json",
+   "checks": 5,
+   "errors": 0,
+   "flags": [
+    {
+     "gate": "checked",
+     "tool": "update_service",
+     "breaks": true,
+     "rule": "Agent ... Cannot ... change system administration settings.",
+     "case": "Updating service SVC_005 status to retired",
+     "evidence": "\"Agent ... Cannot bypass approvals, or change system administration settings.\"",
+     "grounded": false,
+     "repeat": false,
+     "i": 7,
+     "args": "{\"service_id\": \"SVC_005\", \"status\": \"retired\", \"description\": \"Legacy service deprecated as part of infrastructure transformation. Migrated to Next-Gen Customer Experience Platform.\"}",
+     "would_block": false,
+     "hits_failed_table": false
+    }
+   ],
+   "blocks": 0,
+   "passed": true,
+   "verifiers": "7/7",
+   "failed": []
+  },
+  {
+   "run": "enterpriseops_gym/results/g5tA_t2/A_task_20251218_121722_423_1d219d93_8218da6c.json",
+   "checks": 5,
+   "errors": 0,
+   "flags": [
+    {
+     "gate": "checked",
+     "tool": "add_new_user",
+     "breaks": true,
+     "rule": "Agent ... Full CRUD on Incidents, Service Requests, Tasks, Work Notes, CMDB, Change, Problem, and Knowledge. READ access to all tables. Cannot bypass approvals, or change system administration settings.",
+     "case": "Creating a new user profile for Sarah Connor",
+     "evidence": "\"Agent ... Full CRUD on Incidents, Service Requests, Tasks, Work Notes, CMDB, Change, Problem, and Knowledge. READ access to all tables. Cannot bypass approvals, or change system administration settings.\"",
+     "grounded": false,
+     "repeat": false,
+     "i": 2,
+     "args": "{\"first_name\": \"Sarah\", \"last_name\": \"Connor\", \"email\": \"sarah.connor@example.com\", \"phone\": \"+1-555-010-9999\", \"role\": \"agent\", \"active\": true}",
+     "would_block": false,
+     "hits_failed_table": true
+    },
+    {
+     "gate": "checked",
+     "tool": "add_new_group_member",
+     "breaks": true,
+     "rule": "8.2 Data Integrity Checks \u2013 User Status: Ensure any user being assigned to (`assigned_to`) or updated is `users.active = true`.",
+     "case": "add_new_group_member for USER_011 to GROUP_002",
+     "evidence": "We have no retrieved record for USER_011 confirming `active = true`; the SOP requires verification of user active status before updating group membership.",
+     "grounded": false,
+     "repeat": false,
+     "i": 5,
+     "args": "{\"group_id\": \"GROUP_002\", \"user_id\": \"USER_011\"}",
+     "would_block": false,
+     "hits_failed_table": false
+    },
+    {
+     "gate": "checked",
+     "tool": "update_configuration_item",
+     "breaks": true,
+     "rule": "Never assume or fabricate IDs, responses, or outcomes \u2014 rely solely on verified API results.",
+     "case": "Updating CI owner to a user ID (USER_011) that has not been created or verified.",
+     "evidence": "update_configuration_item({\"configuration_item_id\": \"CI_002\", \"owner_id\": \"USER_011\"})",
+     "grounded": false,
+     "repeat": false,
+     "i": 6,
+     "args": "{\"configuration_item_id\": \"CI_002\", \"owner_id\": \"USER_011\"}",
+     "would_block": false,
+     "hits_failed_table": false
+    },
+    {
+     "gate": "checked",
+     "tool": "create_incident",
+     "breaks": true,
+     "rule": "Mandatory Inputs: `opened_by` (user submitting), `caller_id` (user affected), `short_description`, `impact`, and `urgency`.",
+     "case": "Incident Registration (create_incident)",
+     "evidence": "The request payload only includes \"short_description\", \"caller_id\", \"category\", and \"description\"; it lacks the required fields `opened_by`, `impact`, and `urgency`.",
+     "grounded": false,
+     "repeat": false,
+     "i": 7,
+     "args": "{\"short_description\": \"Setup Peripherals for Sarah Connor\", \"caller_id\": \"USER_011\", \"category\": \"hardware\", \"description\": \"Provision and configure peripherals for new Service Desk agent Sarah Connor.\"}",
+     "would_block": false,
+     "hits_failed_table": true
+    }
+   ],
+   "blocks": 0,
+   "passed": false,
+   "verifiers": "4/7",
+   "failed": [
+    {
+     "name": "Checking for creation of new user.",
+     "tables": [
+      "users"
+     ]
+    },
+    {
+     "name": "Checking for Notifications.",
+     "tables": [
+      "notification"
+     ]
+    },
+    {
+     "name": "linking desktop CI to incident",
+     "tables": [
+      "incident",
+      "incident_affected_cis"
+     ]
+    }
+   ]
+  },
+  {
+   "run": "enterpriseops_gym/results/g5tA_t2/A_task_20251218_164829_676_97d7df7d_893f6b2c.json",
+   "checks": 3,
+   "errors": 0,
+   "flags": [
+    {
+     "gate": "checked",
+     "tool": "create_incident",
+     "breaks": true,
+     "rule": "Mandatory Inputs: opened_by (user submitting), caller_id, short_description, impact, and urgency.",
+     "case": "Incident creation",
+     "evidence": "\"Mandatory Inputs: opened_by (user submitting), caller_id, short_description, impact, and urgency.\"",
+     "grounded": false,
+     "repeat": false,
+     "i": 3,
+     "args": "{\"short_description\": \"Intermittent screen freezing on high-value device\", \"caller_id\": \"USER_005\", \"description\": \"User reports intermittent screen freezing on a device valued over $1000 located in New York.\", \"channel\": \"phone\", \"impact\": \"low\", \"urgency\": \"low\", \"category\": \"hardware\", \"assignment_group\": \"GROUP_001\"}",
+     "would_block": false,
+     "hits_failed_table": true
+    },
+    {
+     "gate": "checked",
+     "tool": "add_child_incident",
+     "breaks": true,
+     "rule": "8.1 Data Integrity Checks \u2013 Referential Integrity: Before closing any record, verify that all mandatory dependencies are satisfied.",
+     "case": "Linking child incident INC_024 to parent incident INC_001",
+     "evidence": "The provided data lists existing incidents (INC_017, INC_016, INC_014, INC_007, INC_003, INC_004, INC_001) but does not contain an incident with ID INC_024.",
+     "grounded": false,
+     "repeat": false,
+     "i": 4,
+     "args": "{\"parent_incident\": \"INC_001\", \"child_incident\": \"INC_024\"}",
+     "would_block": false,
+     "hits_failed_table": true
+    },
+    {
+     "gate": "checked",
+     "tool": "send_notification",
+     "breaks": true,
+     "rule": "Atomic Operations: Perform **one validated operation at a time**... Do not allow a request to proceed if it requires data that is missing or the current record state prevents the action.",
+     "case": "Sending notification for incident INC_024 which does not yet exist",
+     "evidence": "The provided data list of incidents does not contain an incident with `incident_id`: \"INC_024\".",
+     "grounded": false,
+     "repeat": false,
+     "i": 5,
+     "args": "{\"incident_id\": \"INC_024\", \"email\": \"benjamin.chen@techcorp.com\", \"subject\": \"Update on Your Service Performance Report\", \"message\": \"Dear Benjamin,\\n\\nA new incident (INC-000024) has been logged in connection with your previous case, reporting intermittent screen freezing on your high-value device in New York. Please let us know if the situation escalates or you notice additional symptoms.\\n\\nThank you.\"}",
+     "would_block": false,
+     "hits_failed_table": true
+    }
+   ],
+   "blocks": 0,
+   "passed": false,
+   "verifiers": "1/3",
+   "failed": [
+    {
+     "name": "verify_child_incident_created",
+     "tables": [
+      "incident"
+     ]
+    },
+    {
+     "name": "verify_notification_sent",
+     "tables": [
+      "incident",
+      "notification",
+      "on"
+     ]
+    }
+   ]
+  },
+  {
+   "run": "enterpriseops_gym/results/g5tA_t2/A_task_20251221_045452_579_99ba2325_0e601eac.json",
+   "checks": 3,
+   "errors": 0,
+   "flags": [
+    {
+     "gate": "checked",
+     "tool": "update_incident",
+     "breaks": true,
+     "rule": "First you must check the user information and operate exclusively based on **confirmed user roles**.",
+     "case": "Permission verification for updating incident worknotes",
+     "evidence": "The request does not provide a confirmed user ID or role, yet the SOP requires operating only with confirmed user roles.",
+     "grounded": false,
+     "repeat": false,
+     "i": 4,
+     "args": "{\"incident_id\": \"INC_090\", \"worknotes\": \"Check.\\nFollow-up and tracking will now be managed through primary incident INC-000061.\"}",
+     "would_block": false,
+     "hits_failed_table": true
+    }
+   ],
+   "blocks": 0,
+   "passed": false,
+   "verifiers": "2/5",
+   "failed": [
+    {
+     "name": "Verify SLA Paused",
+     "tables": [
+      "incident_sla"
+     ]
+    },
+    {
+     "name": "Verify Incident Update Child",
+     "tables": [
+      "child",
+      "incident"
+     ]
+    },
+    {
+     "name": "Verify Notification",
+     "tables": [
+      "notification"
+     ]
+    }
+   ]
+  },
+  {
+   "run": "enterpriseops_gym/results/g5tA_t2/A_task_20251222_072805_599_99ba2325_ae6b0778.json",
+   "checks": 3,
+   "errors": 0,
+   "flags": [
+    {
+     "gate": "checked",
+     "tool": "update_service_offering",
+     "breaks": true,
+     "rule": "Manager role has Full CRUD only on operational tables (incident, problem, change, knowledge); READ access to all other tables.",
+     "case": "User USER_004 with role manager attempting to update a service offering record.",
+     "evidence": "\"role\": \"manager\" ... \"Full CRUD on operational tables (`incident`, `problem`, `change`, `knowledge`); READ access to all the tables.\"",
+     "grounded": false,
+     "repeat": false,
+     "i": 6,
+     "args": "{\"service_offering_id\": \"SVCOFF_050\", \"status\": \"repair_in_progress\"}",
+     "would_block": false,
+     "hits_failed_table": false
+    },
+    {
+     "gate": "checked",
+     "tool": "send_notification",
+     "breaks": true,
+     "rule": "Never assume or fabricate IDs, responses, or outcomes \u2014 rely solely on verified API results.",
+     "case": "send_notification uses incident_id \"INC_026\" which has not been verified in the provided data.",
+     "evidence": "\"Never assume or fabricate IDs, responses, or outcomes \u2014 rely solely on verified API results.\"",
+     "grounded": false,
+     "repeat": false,
+     "i": 7,
+     "args": "{\"incident_id\": \"INC_026\", \"email\": \"joanne.simpson@servicenow.com\", \"type\": \"alert\", \"status\": \"queued\", \"subject\": \"Urgent: Office Printing Service - Repair In Progress\", \"message\": \"The Office Printing service is currently set to repair_in_progress due to multiple active incidents. Please prioritize resolution.\"}",
+     "would_block": false,
+     "hits_failed_table": false
+    }
+   ],
+   "blocks": 0,
+   "passed": true,
+   "verifiers": "3/3",
+   "failed": []
+  },
+  {
+   "run": "enterpriseops_gym/results/g5tA_t2/A_task_20251223_081019_100_d4a463c3_f8774fe4.json",
+   "checks": 2,
+   "errors": 0,
+   "flags": [
+    {
+     "gate": "checked",
+     "tool": "update_change",
+     "breaks": true,
+     "rule": "Only **Manager** (`manager`) and **Agent** (`agent`) roles have full CRUD access on the **change** table; other roles (e.g., Reporter) cannot modify change records.",
+     "case": "The request is being made without a confirmed user role that grants change\u2011record update permission.",
+     "evidence": "\"Agent\" | Frontline Incident/Request fulfillment | **Full CRUD** on **Incidents, Service Requests, Tasks, Work Notes, CMDB, Change, Problem, and Knowledge**. READ access to all the tables. | Cannot bypass approvals, or change system administration settings.\n\"Manager\" | Supervision, Escalation, Approvals | Full CRUD on operational tables (`incident`, `problem`, `change`, `knowledge`); READ access to all the tables.",
+     "grounded": false,
+     "repeat": false,
+     "i": 2,
+     "args": "{\"change_id\": \"CHG_017\", \"status\": \"closed\", \"close_code\": \"successful\", \"close_notes\": \"Found 3 unused rules removed, 2 vendor access rules updated.\"}",
+     "would_block": false,
+     "hits_failed_table": false
+    }
+   ],
+   "blocks": 0,
+   "passed": false,
+   "verifiers": "1/2",
+   "failed": [
+    {
+     "name": "Verify Problem Update",
+     "tables": []
+    }
+   ]
+  },
+  {
+   "run": "enterpriseops_gym/results/g5tA_t2/A_task_20251223_224508_138_97d7df7d_b4505336.json",
+   "checks": 2,
+   "errors": 0,
+   "flags": [],
+   "blocks": 0,
+   "passed": false,
+   "verifiers": "0/2",
+   "failed": [
+    {
+     "name": "verify_incident_escalated_and_updated",
+     "tables": [
+      "incident"
+     ]
+    },
+    {
+     "name": "verify_incident_notification_sent",
+     "tables": [
+      "notification"
+     ]
+    }
+   ]
+  },
+  {
+   "run": "enterpriseops_gym/results/g5tA_t2/A_task_20260114_174427_042_99ba2325_7915481a.json",
+   "checks": 1,
+   "errors": 0,
+   "flags": [],
+   "blocks": 0,
+   "passed": false,
+   "verifiers": "1/3",
+   "failed": [
+    {
+     "name": "Verify Service Status Update to Operational",
+     "tables": [
+      "service",
+      "to"
+     ]
+    },
+    {
+     "name": "Verify Configuration Item Serial Number Update",
+     "tables": [
+      "configuration_item"
+     ]
+    }
+   ]
+  },
+  {
+   "run": "enterpriseops_gym/results/g5tA_t2/A_task_20260114_180601_485_99ba2325_2dc8b3ce.json",
+   "checks": 3,
+   "errors": 0,
+   "flags": [],
+   "blocks": 0,
+   "passed": false,
+   "verifiers": "1/3",
+   "failed": [
+    {
+     "name": "validate_reporter_notification_escalated",
+     "tables": [
+      "notification"
+     ]
+    },
+    {
+     "name": "validate_assignee_notification_urgent",
+     "tables": [
+      "notification"
+     ]
+    }
+   ]
+  },
+  {
+   "run": "enterpriseops_gym/results/g5tA_t2/A_task_20260115_064627_351_66392a82_cd4009dd.json",
+   "checks": 0,
+   "errors": 0,
+   "flags": [],
+   "blocks": 0,
+   "passed": false,
+   "verifiers": "0/4",
+   "failed": [
+    {
+     "name": "Checking incident status",
+     "tables": [
+      "incident"
+     ]
+    },
+    {
+     "name": "Sending notitfication to the service manager",
+     "tables": [
+      "notification"
+     ]
+    },
+    {
+     "name": "Sending notitfication to Gegory",
+     "tables": [
+      "notification"
+     ]
+    },
+    {
+     "name": "Sending notitfication to the manager of the assigned group",
+     "tables": [
+      "notification"
+     ]
+    }
+   ]
+  },
+  {
+   "run": "enterpriseops_gym/results/g5uA_t1/A_task_20251217_153037_688_97d7df7d_be0bd794.json",
+   "checks": 2,
+   "errors": 0,
+   "flags": [],
+   "blocks": 0,
+   "passed": true,
+   "verifiers": "2/2",
+   "failed": []
+  },
+  {
+   "run": "enterpriseops_gym/results/g5uA_t1/A_task_20251219_134543_563_fa1836dc_00dab62f.json",
+   "checks": 0,
+   "errors": 0,
+   "flags": [],
+   "blocks": 0,
+   "passed": false,
+   "verifiers": "0/4",
+   "failed": [
+    {
+     "name": "Verify Change Assignment Update",
+     "tables": []
+    },
+    {
+     "name": "Verify Change-Problem Mapping Exists",
+     "tables": []
+    },
+    {
+     "name": "Verify Change-Incident Mapping Exists",
+     "tables": []
+    },
+    {
+     "name": "Verify Complete Traceability Chain",
+     "tables": []
+    }
+   ]
+  },
+  {
+   "run": "enterpriseops_gym/results/g5uA_t1/A_task_20251220_074606_220_0be70e35_6bb33392.json",
+   "checks": 3,
+   "errors": 0,
+   "flags": [
+    {
+     "gate": "checked",
+     "tool": "create_incident",
+     "breaks": true,
+     "rule": "Mandatory Inputs: opened_by (user submitting)",
+     "case": "Incident creation",
+     "evidence": "The create_incident payload includes short_description, description, caller_id, impact, urgency, category, configuration_item but does not contain the required field opened_by.",
+     "grounded": false,
+     "repeat": false,
+     "i": 3,
+     "args": "{\"short_description\": \"Workstation shuts down unexpectedly and overheats\", \"description\": \"Carlos reported that his assigned workstation (Laptop) shuts down several times per day during extended development sessions. The device becomes unusually warm and performance degrades before each shutdown, indicating potential hardware failure or thermal throttling.\", \"caller_id\": \"USER_003\", \"impact\": \"high\", \"urgency\": \"high\", \"category\": \"hardware\", \"configuration_item\": \"CI_001\"}",
+     "would_block": false,
+     "hits_failed_table": true
+    }
+   ],
+   "blocks": 0,
+   "passed": false,
+   "verifiers": "1/3",
+   "failed": [
+    {
+     "name": "Verify Incident CI",
+     "tables": [
+      "incident"
+     ]
+    },
+    {
+     "name": "Verify notification",
+     "tables": [
+      "notification"
+     ]
+    }
+   ]
+  },
+  {
+   "run": "enterpriseops_gym/results/g5uA_t1/A_task_20251223_063905_655_30600918_3e736be9.json",
+   "checks": 2,
+   "errors": 0,
+   "flags": [],
+   "blocks": 0,
+   "passed": false,
+   "verifiers": "0/10",
+   "failed": [
+    {
+     "name": "Verify Change",
+     "tables": [
+      "change"
+     ]
+    },
+    {
+     "name": "Verify Change Mapping",
+     "tables": [
+      "change_request_mapping"
+     ]
+    },
+    {
+     "name": "Verify Incident",
+     "tables": [
+      "incident"
+     ]
+    },
+    {
+     "name": "SLA paused",
+     "tables": [
+      "incident_sla"
+     ]
+    },
+    {
+     "name": "Verify Notification",
+     "tables": [
+      "notification"
+     ]
+    },
+    {
+     "name": "Verify Change",
+     "tables": [
+      "change"
+     ]
+    },
+    {
+     "name": "Verify Change Mapping",
+     "tables": [
+      "change_request_mapping"
+     ]
+    },
+    {
+     "name": "Verify Incident",
+     "tables": [
+      "incident"
+     ]
+    },
+    {
+     "name": "SLA paused",
+     "tables": [
+      "incident_sla"
+     ]
+    },
+    {
+     "name": "Verify Notification",
+     "tables": [
+      "notification"
+     ]
+    }
+   ]
+  },
+  {
+   "run": "enterpriseops_gym/results/g5uA_t1/A_task_20251223_153021_454_66392a82_0d6d8897.json",
+   "checks": 2,
+   "errors": 0,
+   "flags": [
+    {
+     "gate": "checked",
+     "tool": "update_incident",
+     "breaks": true,
+     "rule": "incident.resolution_code must be one of the allowed enumeration values",
+     "case": "Updating incident INC_004 to resolved",
+     "evidence": "\"resolution_code\": \"Solution Provided\"",
+     "grounded": true,
+     "repeat": false,
+     "i": 2,
+     "args": "{\"incident_id\": \"INC_004\", \"status\": \"resolved\", \"resolution_code\": \"Solution Provided\", \"resolution_notes\": \"Service decommissioned due to migration.\", \"resolved\": \"2025-12-04T10:00:00\"}",
+     "would_block": true,
+     "hits_failed_table": false
+    },
+    {
+     "gate": "checked",
+     "tool": "update_incident",
+     "breaks": true,
+     "rule": "incident.resolution_code must be one of the allowed enumeration values",
+     "case": "Incident Management - updating INC_073",
+     "evidence": "\"resolution_code\": \"Solution Provided\" is not in the allowed list (fixed, workaround, not_reproducible, closed_by_caller)",
+     "grounded": false,
+     "repeat": false,
+     "i": 3,
+     "args": "{\"incident_id\": \"INC_073\", \"resolution_notes\": \"Service decommissioned due to migration.\", \"resolution_code\": \"Solution Provided\", \"status\": \"resolved\", \"resolved\": \"2025-12-04T11:00:00\"}",
+     "would_block": false,
+     "hits_failed_table": false
+    }
+   ],
+   "blocks": 1,
+   "passed": false,
+   "verifiers": "1/4",
+   "failed": [
+    {
+     "name": "Enterprise Email is retired",
+     "tables": [
+      "service"
+     ]
+    },
+    {
+     "name": "All Enterprise Email offerings are retired",
+     "tables": [
+      "service_offering"
+     ]
+    },
+    {
+     "name": "Owner of Enterprise Email service is inactive",
+     "tables": [
+      "users"
+     ]
+    }
+   ]
+  },
+  {
+   "run": "enterpriseops_gym/results/g5uA_t1/A_task_20260112_194743_238_a8eea1c0_a4b1468a.json",
+   "checks": 5,
+   "errors": 0,
+   "flags": [
+    {
+     "gate": "checked",
+     "tool": "add_child_incident",
+     "breaks": true,
+     "rule": "Do not allow a request to proceed if it requires data that is missing or the current record state prevents the action.",
+     "case": "Missing child incident record",
+     "evidence": "list_incidents does not contain an incident with incident_id 'INC_101'",
+     "grounded": false,
+     "repeat": false,
+     "i": 8,
+     "args": "{\"parent_incident\": \"INC_001\", \"child_incident\": \"INC_101\"}",
+     "would_block": false,
+     "hits_failed_table": true
+    }
+   ],
+   "blocks": 0,
+   "passed": false,
+   "verifiers": "1/6",
+   "failed": [
+    {
+     "name": "child_incident_mappings_creation",
+     "tables": [
+      "child_incident"
+     ]
+    },
+    {
+     "name": "incident_inc_101_creation",
+     "tables": [
+      "incident"
+     ]
+    },
+    {
+     "name": "combined_all_operations_validation",
+     "tables": [
+      "child_incident",
+      "incident"
+     ]
+    },
+    {
+     "name": "parent_child_relationship_integrity",
+     "tables": [
+      "child_incident"
+     ]
+    },
+    {
+     "name": "audit_trail_consistency",
+     "tables": [
+      "child_incident",
+      "incident"
+     ]
+    }
+   ]
+  },
+  {
+   "run": "enterpriseops_gym/results/g5uA_t1/A_task_20260114_173716_566_46ca2862_301e0b47.json",
+   "checks": 7,
+   "errors": 0,
+   "flags": [
+    {
+     "gate": "checked",
+     "tool": "update_knowledge_article",
+     "breaks": true,
+     "rule": "Access rights are defined by roles and grant granular control across tables.",
+     "case": "Knowledge article update requires a confirmed role (admin, manager, or agent) to perform CRUD on knowledge.",
+     "evidence": "No user role information is present in the provided data.",
+     "grounded": false,
+     "repeat": false,
+     "i": 7,
+     "args": "{\"knowledge_id\": \"KB_020\", \"visibility\": \"external\", \"state\": \"published\"}",
+     "would_block": false,
+     "hits_failed_table": false
+    },
+    {
+     "gate": "checked",
+     "tool": "link_knowledge_to_incident",
+     "breaks": true,
+     "rule": "Never assume or fabricate IDs, responses, or outcomes \u2014 rely solely on verified API results.",
+     "case": "link_knowledge_to_incident",
+     "evidence": "retrieve_knowledge_articles returned only KB_020; there is no record of KB_026 in the provided data.",
+     "grounded": false,
+     "repeat": false,
+     "i": 8,
+     "args": "{\"knowledge_id\": \"KB_026\", \"incident_id\": \"INC_001\", \"used_as\": \"suggested\"}",
+     "would_block": false,
+     "hits_failed_table": false
+    },
+    {
+     "gate": "checked",
+     "tool": "link_knowledge_to_incident",
+     "breaks": true,
+     "rule": "Referential Integrity \u2013 must link only to existing knowledge records",
+     "case": "linking knowledge KB_026 to incident INC_044",
+     "evidence": "retrieve_knowledge_articles returned only KB_020; no record for KB_026 exists",
+     "grounded": false,
+     "repeat": false,
+     "i": 10,
+     "args": "{\"knowledge_id\": \"KB_026\", \"used_as\": \"suggested\", \"incident_id\": \"INC_044\"}",
+     "would_block": false,
+     "hits_failed_table": false
+    }
+   ],
+   "blocks": 0,
+   "passed": false,
+   "verifiers": "5/6",
+   "failed": [
+    {
+     "name": "Verify Knowledge Links to All Incidents",
+     "tables": []
+    }
+   ]
+  },
+  {
+   "run": "enterpriseops_gym/results/g5uA_t1/A_task_20260115_125430_649_fa1836dc_e02d5824.json",
+   "checks": 3,
+   "errors": 0,
+   "flags": [
+    {
+     "gate": "checked",
+     "tool": "update_incident",
+     "breaks": true,
+     "rule": "First you must check the user information and operate exclusively based on confirmed user roles",
+     "case": "update_incident linking problem PRB_001 to incident INC_006",
+     "evidence": "First you must check the user information and operate exclusively based on **confirmed user roles**",
+     "grounded": false,
+     "repeat": false,
+     "i": 3,
+     "args": "{\"incident_id\": \"INC_006\", \"problem\": \"PRB_001\"}",
+     "would_block": false,
+     "hits_failed_table": false
+    },
+    {
+     "gate": "checked",
+     "tool": "create_knowledge_article",
+     "breaks": true,
+     "rule": "Access rights are defined by roles and grant granular control across tables.",
+     "case": "Creating a knowledge article without confirming that USER_002 has a role (Agent or Manager) that permits full CRUD on Knowledge.",
+     "evidence": "The SOP states that only Manager and Agent roles have full CRUD on Knowledge, while Reporter cannot modify records. No role information for USER_002 is provided in the data.",
+     "grounded": false,
+     "repeat": false,
+     "i": 4,
+     "args": "{\"title\": \"Critical Email Service Outage - Investigation and Workaround\", \"body\": \"**System Outage Symptoms**\\n- Complete loss of email delivery and receipt for all users.\\n- Webmail access also intermittently unavailable.\\n\\n**Current Investigation Steps**\\n1. Attempted server restart of mail servers.\\n2. Investigating possible database corruption affecting mail store.\\n3. Monitoring network latency and load balancer configuration.\\n\\n**Workaround**\\n- Users instructed to access email via Webmail (https://webmail.techcorp.com) as a temporary solution.\\n- Provide alternative communication chan",
+     "would_block": false,
+     "hits_failed_table": false
+    },
+    {
+     "gate": "checked",
+     "tool": "link_knowledge_to_incident",
+     "breaks": true,
+     "rule": "Referential Integrity / Data Integrity Checks",
+     "case": "linking knowledge article to incident",
+     "evidence": "No knowledge article with ID KB_006 is present in the provided data; only incident and problem records are listed.",
+     "grounded": false,
+     "repeat": false,
+     "i": 5,
+     "args": "{\"knowledge_id\": \"KB_006\", \"incident_id\": \"INC_006\", \"used_as\": \"suggested\"}",
+     "would_block": false,
+     "hits_failed_table": false
+    }
+   ],
+   "blocks": 0,
+   "passed": false,
+   "verifiers": "5/6",
+   "failed": [
+    {
+     "name": "verify_notification_sent_to_marcus",
+     "tables": [
+      "notification"
+     ]
+    }
+   ]
+  },
+  {
+   "run": "enterpriseops_gym/results/g5uA_t1/A_task_20260116_091935_817_d4a463c3_3f20bdca.json",
+   "checks": 1,
+   "errors": 0,
+   "flags": [
+    {
+     "gate": "checked",
+     "tool": "create_incident",
+     "breaks": true,
+     "rule": "Incident creation requires mandatory inputs: `opened_by`, `caller_id`, `short_description`, `impact`, and `urgency`.",
+     "case": "create_incident",
+     "evidence": "Payload: {\"short_description\": \"...\", \"caller_id\": \"USER_025\", \"impact\": \"medium\", \"urgency\": \"medium\", \"worknotes\": \"...\", \"channel\": \"phone\"} \u2013 missing the required `opened_by` field.",
+     "grounded": false,
+     "repeat": false,
+     "i": 2,
+     "args": "{\"short_description\": \"Barbara Perry cannot access the new HR portal and needs UI walkthrough\", \"caller_id\": \"USER_025\", \"impact\": \"medium\", \"urgency\": \"medium\", \"worknotes\": \"Reference KB article KB0000023 \\\"New HR Portal Guide\\\" for walkthrough steps.\", \"channel\": \"phone\"}",
+     "would_block": false,
+     "hits_failed_table": false
+    }
+   ],
+   "blocks": 0,
+   "passed": true,
+   "verifiers": "3/3",
+   "failed": []
+  },
+  {
+   "run": "enterpriseops_gym/results/g5uA_t1/A_task_20260116_235649_372_66392a82_ccb66a9a.json",
+   "checks": 3,
+   "errors": 0,
+   "flags": [
+    {
+     "gate": "checked",
+     "tool": "create_problem",
+     "breaks": true,
+     "rule": "Reporter role cannot create Problem records (only Agent/Manager have CRUD on Problem).",
+     "case": "User role Reporter attempting to create a Problem",
+     "evidence": "\"Reporter ... Can view and update **their own submitted Incidents/Requests**. ... Cannot view or modify records opened by other users, CMDB, or internal work notes.\"",
+     "grounded": false,
+     "repeat": false,
+     "i": 2,
+     "args": "{\"short_description\": \"Outlook connectivity failure\", \"problem_statement\": \"Outlook connectivity failure\", \"status\": \"NEW\", \"impact\": \"HIGH\", \"urgency\": \"HIGH\", \"priority\": \"CRITICAL\", \"category\": \"SOFTWARE\", \"service_offering\": \"SVCOFF_001\", \"original_task\": \"INC_001\"}",
+     "would_block": false,
+     "hits_failed_table": false
+    },
+    {
+     "gate": "checked",
+     "tool": "create_problem",
+     "breaks": true,
+     "rule": "Roles & Responsibilities \u2013 Reporter role cannot create Problem records (must operate exclusively based on confirmed user roles).",
+     "case": "User (likely Reporter) attempting to create a Problem record",
+     "evidence": "\"Reporter ... Can view and update **their own submitted Incidents/Requests**. ... Cannot view or modify records opened by other users, CMDB, or internal work notes.\"",
+     "grounded": false,
+     "repeat": false,
+     "i": 4,
+     "args": "{\"short_description\": \"Outlook connectivity failure\", \"original_task\": \"INC_001\", \"urgency\": \"high\", \"impact\": \"high\", \"problem_statement\": \"Outlook connectivity failure\", \"priority\": \"critical\", \"category\": \"software\", \"service_offering\": \"SVCOFF_001\", \"status\": \"new\"}",
+     "would_block": false,
+     "hits_failed_table": false
+    },
+    {
+     "gate": "checked",
+     "tool": "send_notification",
+     "breaks": true,
+     "rule": "If documentation exists, send a notification to Priya Sharma; if not, create a new internal knowledge article.",
+     "case": "Sending notification referencing a knowledge article that does not exist",
+     "evidence": "retrieve_knowledge_articles: {'knowledges': [], 'total_count': 0}",
+     "grounded": true,
+     "repeat": false,
+     "i": 5,
+     "args": "{\"incident_id\": \"INC_001\", \"email\": \"priya.sharma@techcorp.com\", \"type\": \"alert\", \"subject\": \"Outlook connectivity failure - Action Required\", \"message\": \"Please ask your team to try the steps in 'Outlook Access Troubleshooting' for resolving the issue.\"}",
+     "would_block": true,
+     "hits_failed_table": true
+    }
+   ],
+   "blocks": 1,
+   "passed": false,
+   "verifiers": "1/2",
+   "failed": [
+    {
+     "name": "Sending notification",
+     "tables": [
+      "notification"
+     ]
+    }
+   ]
+  },
+  {
+   "run": "enterpriseops_gym/results/g5xA_t1/A_task_20251212_191815_314_391f1eff_c23d76df.json",
+   "checks": 3,
+   "errors": 0,
+   "flags": [
+    {
+     "gate": "checked",
+     "tool": "create_incident",
+     "breaks": true,
+     "rule": "Priority is determined automatically by the system based on the below pre-defined matrix of Impact x Urgency.",
+     "case": "Incident creation",
+     "evidence": "\"Priority (`critical`, `high`, `moderate`, `low`, `planning`) is determined automatically by the system based on the below pre-defined matrix of **Impact x Urgency**.\"",
+     "grounded": false,
+     "repeat": false,
+     "i": 4,
+     "args": "{\"short_description\": \"Acme Email Server is unresponsive\", \"urgency\": \"high\", \"impact\": \"high\", \"channel\": \"email\", \"description\": \"Isabella Rossi reported that her Acme Email Server (serial SERVER-SF-SRV01) is malfunctioning and out of response, severely impacting her work routines and production delivery. Urgent resolution required.\", \"category\": \"software\", \"configuration_item\": \"CI_004\", \"caller_id\": \"USER_010\", \"priority\": \"critical\"}",
+     "would_block": false,
+     "hits_failed_table": true
+    }
+   ],
+   "blocks": 0,
+   "passed": false,
+   "verifiers": "0/9",
+   "failed": [
+    {
+     "name": "Link SLA",
+     "tables": [
+      "incident_sla"
+     ]
+    },
+    {
+     "name": "Send notification",
+     "tables": [
+      "notification"
+     ]
+    },
+    {
+     "name": "Record Incident",
+     "tables": [
+      "incident"
+     ]
+    },
+    {
+     "name": "Link SLA",
+     "tables": [
+      "incident_sla"
+     ]
+    },
+    {
+     "name": "Send notification",
+     "tables": [
+      "notification"
+     ]
+    },
+    {
+     "name": "Record Incident",
+     "tables": [
+      "incident"
+     ]
+    },
+    {
+     "name": "Link SLA",
+     "tables": [
+      "incident_sla"
+     ]
+    },
+    {
+     "name": "Send notification",
+     "tables": [
+      "notification"
+     ]
+    },
+    {
+     "name": "Record Incident",
+     "tables": [
+      "incident"
+     ]
+    }
+   ]
+  },
+  {
+   "run": "enterpriseops_gym/results/g5xA_t1/A_task_20260112_181636_272_c4ad7a70_c9cdfa29.json",
+   "checks": 3,
+   "errors": 0,
+   "flags": [
+    {
+     "gate": "checked",
+     "tool": "create_incident",
+     "breaks": true,
+     "rule": "Mandatory Inputs: `opened_by` (user submitting), `caller_id` (user affected), `short_description`, `impact`, and `urgency`.",
+     "case": "Incident creation",
+     "evidence": "The create_incident call includes caller_id, short_description, impact, urgency, but does not include the required `opened_by` field.",
+     "grounded": false,
+     "repeat": false,
+     "i": 4,
+     "args": "{\"short_description\": \"Production-wide SAP outage - all users unable to connect\", \"caller_id\": \"USER_001\", \"impact\": \"high\", \"urgency\": \"high\", \"priority\": \"critical\", \"description\": \"All SAP users reported by phone that they cannot connect. Oracle database server SRV-ORC-9981 is down, causing a production-wide SAP outage.\", \"configuration_item\": \"CI_001\", \"problem\": \"PRB_011\", \"category\": \"software\"}",
+     "would_block": false,
+     "hits_failed_table": true
+    }
+   ],
+   "blocks": 0,
+   "passed": false,
+   "verifiers": "2/4",
+   "failed": [
+    {
+     "name": "Underlying SAP DB Problem Created ",
+     "tables": [
+      "problem"
+     ]
+    },
+    {
+     "name": "Affected CI Mapping Exists",
+     "tables": [
+      "incident_affected_cis"
+     ]
+    }
+   ]
+  },
+  {
+   "run": "enterpriseops_gym/results/oss2_t1/A_task_20251218_093719_611_764e5ead_5817d09a.json",
+   "checks": 3,
+   "errors": 0,
+   "flags": [],
+   "blocks": 0,
+   "passed": false,
+   "verifiers": "0/7",
+   "failed": [
+    {
+     "name": "verify_new_service_created",
+     "tables": [
+      "service"
+     ]
+    },
+    {
+     "name": "verify_old_service_retired",
+     "tables": [
+      "service"
+     ]
+    },
+    {
+     "name": "verify_new_service_offering_created",
+     "tables": [
+      "service",
+      "service_offering"
+     ]
+    },
+    {
+     "name": "verify_service_offerings_reassociated",
+     "tables": [
+      "old",
+      "service",
+      "service_offering"
+     ]
+    },
+    {
+     "name": "verify_no_service_offerings_on_old_service",
+     "tables": [
+      "service",
+      "service_offering"
+     ]
+    },
+    {
+     "name": "verify_incidents_updated_to_new_service",
+     "tables": [
+      "incident",
+      "service"
+     ]
+    },
+    {
+     "name": "verify_no_incidents_on_old_service",
+     "tables": [
+      "incident",
+      "service"
+     ]
+    }
+   ]
+  },
+  {
+   "run": "enterpriseops_gym/results/oss2_t1/A_task_20251218_121722_423_1d219d93_8218da6c.json",
+   "checks": 7,
+   "errors": 0,
+   "flags": [
+    {
+     "gate": "checked",
+     "tool": "add_new_user",
+     "breaks": true,
+     "rule": "Agent ... Full CRUD on Incidents, Service Requests, Tasks, Work Notes, CMDB, Change, Problem, and Knowledge. READ access to all tables. Cannot bypass approvals, or change system administration settings.",
+     "case": "Creating a new user profile for Sarah Connor",
+     "evidence": "\"Agent ... Full CRUD on Incidents, Service Requests, Tasks, Work Notes, CMDB, Change, Problem, and Knowledge. READ access to all tables. Cannot bypass approvals, or change system administration settings.\"",
+     "grounded": false,
+     "repeat": false,
+     "i": 2,
+     "args": "{\"first_name\": \"Sarah\", \"last_name\": \"Connor\", \"email\": \"sarah.connor@example.com\", \"phone\": \"+1-555-010-9999\", \"role\": \"agent\", \"active\": true}",
+     "would_block": false,
+     "hits_failed_table": true
+    },
+    {
+     "gate": "checked",
+     "tool": "add_new_group_member",
+     "breaks": true,
+     "rule": "Mandatory Fields: Any request to create or update a record must validate all mandatory fields.",
+     "case": "add_new_group_member action missing required group identifier (and the user does not yet exist/active).",
+     "evidence": "add_new_group_member({\"user_id\": \"USER_011\"}) \u2013 only a user_id is provided, no group_id.",
+     "grounded": false,
+     "repeat": false,
+     "i": 4,
+     "args": "{\"user_id\": \"USER_011\"}",
+     "would_block": false,
+     "hits_failed_table": false
+    },
+    {
+     "gate": "checked",
+     "tool": "update_configuration_item",
+     "breaks": true,
+     "rule": "8.1 Data Integrity Checks \u2013 User Status: Ensure any user being assigned to (`assigned_to`) or updated is `users.active = true`.",
+     "case": "Assigning non\u2011existent/inactive user USER_011 as the new owner of CI_002",
+     "evidence": "\"Ensure any user being assigned to (`assigned_to`) or updated is `users.active = true`.\"",
+     "grounded": false,
+     "repeat": false,
+     "i": 5,
+     "args": "{\"configuration_item_id\": \"CI_002\", \"owner_id\": \"USER_011\", \"status\": \"in_use\"}",
+     "would_block": false,
+     "hits_failed_table": false
+    },
+    {
+     "gate": "checked",
+     "tool": "create_incident",
+     "breaks": true,
+     "rule": "Mandatory Inputs: opened_by, caller_id, short_description, impact, and urgency.",
+     "case": "Incident creation",
+     "evidence": "\"Mandatory Inputs:\" `opened_by` (user submitting), `caller_id` (user affected), `short_description`, `impact`, and `urgency`.",
+     "grounded": false,
+     "repeat": false,
+     "i": 6,
+     "args": "{\"short_description\": \"Setup Peripherals for Sarah Connor\", \"caller_id\": \"USER_011\"}",
+     "would_block": false,
+     "hits_failed_table": true
+    },
+    {
+     "gate": "checked",
+     "tool": "link_knowledge_to_incident",
+     "breaks": true,
+     "rule": "Mandatory Fields: Any request to create or update a record must validate all mandatory fields.",
+     "case": "link_knowledge_to_incident",
+     "evidence": "\"Any request to create or update a record must validate all mandatory fields.\"",
+     "grounded": false,
+     "repeat": false,
+     "i": 8,
+     "args": "{\"incident_id\": \"INC_024\", \"used_as\": \"suggested\"}",
+     "would_block": false,
+     "hits_failed_table": true
+    },
+    {
+     "gate": "checked",
+     "tool": "link_affected_ci_to_incident",
+     "breaks": true,
+     "rule": "Do not allow a request to proceed if it requires data that is missing or the current record state prevents the action.",
+     "case": "link_affected_ci_to_incident with incident_id INC_024",
+     "evidence": "We have no retrieved data for incident \"INC_024\"; the only provided records are the CI and other entities, but the incident record is absent.",
+     "grounded": false,
+     "repeat": false,
+     "i": 9,
+     "args": "{\"configuration_item\": \"CI_002\", \"incident_id\": \"INC_024\"}",
+     "would_block": false,
+     "hits_failed_table": true
+    }
+   ],
+   "blocks": 0,
+   "passed": false,
+   "verifiers": "4/7",
+   "failed": [
+    {
+     "name": "Checking for creation of new user.",
+     "tables": [
+      "users"
+     ]
+    },
+    {
+     "name": "Checking for the configuration assignment",
+     "tables": [
+      "user_group_member",
+      "users"
+     ]
+    },
+    {
+     "name": "Linking Knowledge",
+     "tables": [
+      "incident",
+      "incident_knowledge"
+     ]
+    }
+   ]
+  },
+  {
+   "run": "enterpriseops_gym/results/oss2_t1/A_task_20251218_164829_676_97d7df7d_893f6b2c.json",
+   "checks": 14,
+   "errors": 0,
+   "flags": [
+    {
+     "gate": "checked",
+     "tool": "create_incident",
+     "breaks": true,
+     "rule": "Mandatory Inputs: `opened_by` (user submitting), `caller_id` (user affected), `short_description`, `impact`, and `urgency` must be provided when creating an Incident.",
+     "case": "New incident for user Benjamin (USER_005)",
+     "evidence": "The create_incident call includes `caller_id`, `short_description`, `impact`, `urgency` but does **not** include the required `opened_by` field.",
+     "grounded": false,
+     "repeat": false,
+     "i": 3,
+     "args": "{\"short_description\": \"Intermittent screen freezing\", \"description\": \"User reports intermittent screen freezing on the device.\", \"caller_id\": \"USER_005\", \"channel\": \"phone\", \"impact\": \"low\", \"urgency\": \"low\", \"assignment_group\": \"GROUP_001\", \"configuration_item\": \"CI_101\"}",
+     "would_block": false,
+     "hits_failed_table": true
+    },
+    {
+     "gate": "checked",
+     "tool": "create_incident",
+     "breaks": true,
+     "rule": "Mandatory Inputs: opened_by (user submitting), caller_id (user affected), short_description, impact, and urgency.",
+     "case": "Creating new incident for Benjamin (USER_005)",
+     "evidence": "Mandatory Inputs: opened_by (user submitting), caller_id (user affected), short_description, impact, and urgency.",
+     "grounded": false,
+     "repeat": false,
+     "i": 4,
+     "args": "{\"short_description\": \"Intermittent screen freezing\", \"description\": \"User reports intermittent screen freezing on the device.\", \"caller_id\": \"USER_005\", \"channel\": \"phone\", \"impact\": \"low\", \"urgency\": \"low\", \"assignment_group\": \"GROUP_001\"}",
+     "would_block": false,
+     "hits_failed_table": true
+    },
+    {
+     "gate": "checked",
+     "tool": "create_incident",
+     "breaks": true,
+     "rule": "Mandatory Inputs: opened_by (user submitting), caller_id (user affected), short_description, impact, and urgency.",
+     "case": "Creating new incident",
+     "evidence": "\"Mandatory Inputs: opened_by (user submitting), caller_id (user affected), short_description, impact, and urgency.\"",
+     "grounded": false,
+     "repeat": false,
+     "i": 5,
+     "args": "{\"short_description\": \"Intermittent screen freezing\", \"description\": \"User reports intermittent screen freezing on the device.\", \"caller_id\": \"USER_005\", \"channel\": \"phone\", \"impact\": \"low\", \"urgency\": \"low\", \"assignment_group\": \"GROUP_001\", \"configuration_item_id\": \"CI_101\", \"incident_id\": \"INC_024\"}",
+     "would_block": false,
+     "hits_failed_table": true
+    },
+    {
+     "gate": "checked",
+     "tool": "add_child_incident",
+     "breaks": true,
+     "rule": "When identifiers such as names or IDs are missing, perform lookups, verify that you are reusing correct values from previous responses, and proceed using the retrieved data.",
+     "case": "Linking child incident INC_024 to parent INC_2001",
+     "evidence": "The provided data contains no record for incident ID \"INC_024\"; only the parent incident and user information are present.",
+     "grounded": false,
+     "repeat": false,
+     "i": 6,
+     "args": "{\"parent_incident\": \"INC_2001\", \"child_incident\": \"INC_024\"}",
+     "would_block": false,
+     "hits_failed_table": true
+    },
+    {
+     "gate": "checked",
+     "tool": "create_incident",
+     "breaks": true,
+     "rule": "Mandatory Inputs: opened_by (user submitting), caller_id (user affected), short_description, impact, and urgency.",
+     "case": "Incident creation",
+     "evidence": "\"Mandatory Inputs: opened_by (user submitting), caller_id (user affected), short_description, impact, and urgency.\"",
+     "grounded": false,
+     "repeat": false,
+     "i": 8,
+     "args": "{\"short_description\": \"Intermittent screen freezing\", \"description\": \"User reports intermittent screen freezing on the device.\", \"caller_id\": \"USER_005\", \"channel\": \"phone\", \"impact\": \"low\", \"urgency\": \"low\", \"assignment_group\": \"GROUP_001\", \"configuration_item\": \"CI_101\", \"parent_incident\": \"INC_2001\"}",
+     "would_block": false,
+     "hits_failed_table": true
+    },
+    {
+     "gate": "checked",
+     "tool": "create_incident",
+     "breaks": true,
+     "rule": "Mandatory Fields: Any request to create or update a record must validate all mandatory fields.",
+     "case": "Incident creation",
+     "evidence": "Mandatory Inputs: opened_by (user submitting), caller_id, short_description, impact, and urgency.",
+     "grounded": false,
+     "repeat": false,
+     "i": 9,
+     "args": "{\"short_description\": \"Intermittent screen freezing\", \"description\": \"User reports intermittent screen freezing on the device.\", \"caller_id\": \"USER_005\", \"channel\": \"phone\", \"impact\": \"low\", \"urgency\": \"low\", \"assignment_group\": \"GROUP_001\", \"configuration_item_id\": \"CI_101\", \"parent_incident_id\": \"INC_2001\"}",
+     "would_block": false,
+     "hits_failed_table": true
+    },
+    {
+     "gate": "checked",
+     "tool": "send_notification",
+     "breaks": true,
+     "rule": "Never assume or fabricate IDs, responses, or outcomes \u2014 rely solely on verified API results.",
+     "case": "Sending a notification referencing incident_id \"INC_025\" which has not been verified or created.",
+     "evidence": "The provided data contains no record of an incident with ID \"INC_025\"; only user, group, and location information are present.",
+     "grounded": false,
+     "repeat": false,
+     "i": 10,
+     "args": "{\"incident_id\": \"INC_025\", \"email\": \"benjamin.chen@techcorp.com\", \"type\": \"update\", \"subject\": \"Update on Your Service Performance Report\", \"message\": \"Hello Benjamin,\\n\\nA new incident (INC_025) has been logged in connection with your previous case. It records the intermittent screen\\u2011freezing behavior you reported. If the situation escalates or you notice additional symptoms, please let us know.\\n\\nThank you.\"}",
+     "would_block": false,
+     "hits_failed_table": true
+    },
+    {
+     "gate": "checked",
+     "tool": "create_incident",
+     "breaks": true,
+     "rule": "Mandatory Inputs: opened_by (user submitting), caller_id (user affected), short_description, impact, and urgency.",
+     "case": "Incident creation",
+     "evidence": "\"Mandatory Inputs: opened_by (user submitting), caller_id (user affected), short_description, impact, and urgency.\"",
+     "grounded": false,
+     "repeat": false,
+     "i": 11,
+     "args": "{\"short_description\": \"Intermittent screen freezing\", \"description\": \"User reports intermittent screen freezing on the device.\", \"caller_id\": \"USER_005\", \"channel\": \"phone\", \"impact\": \"low\", \"urgency\": \"low\", \"assignment_group\": \"GROUP_001\", \"configuration_item\": \"CI_101\", \"parent_incident\": \"INC_2001\"}",
+     "would_block": false,
+     "hits_failed_table": true
+    },
+    {
+     "gate": "checked",
+     "tool": "create_incident",
+     "breaks": true,
+     "rule": "Incident Registration \u2013 Mandatory Inputs",
+     "case": "Creating incident INC_025",
+     "evidence": "Mandatory Inputs: opened_by (user submitting), caller_id (user affected), short_description, impact, and urgency.",
+     "grounded": false,
+     "repeat": false,
+     "i": 13,
+     "args": "{\"incident_id\": \"INC_025\", \"configuration_item\": \"CI_101\"}",
+     "would_block": false,
+     "hits_failed_table": true
+    },
+    {
+     "gate": "checked",
+     "tool": "create_incident",
+     "breaks": true,
+     "rule": "Mandatory Inputs: `opened_by` (user submitting), `caller_id` (user affected), `short_description`, `impact`, and `urgency`.",
+     "case": "Creating new incident INC_025",
+     "evidence": "Mandatory Inputs: `opened_by` (user submitting), `caller_id` (user affected), `short_description`, `impact`, and `urgency`.",
+     "grounded": false,
+     "repeat": false,
+     "i": 14,
+     "args": "{\"incident_id\": \"INC_025\", \"caller_id\": \"USER_005\", \"short_description\": \"Intermittent screen freezing\", \"configuration_item_id\": \"CI_101\", \"parent_incident_id\": \"INC_2001\"}",
+     "would_block": false,
+     "hits_failed_table": true
+    },
+    {
+     "gate": "checked",
+     "tool": "create_incident",
+     "breaks": true,
+     "rule": "Mandatory Fields: Any request to create or update a record must validate all mandatory fields.",
+     "case": "Incident creation",
+     "evidence": "Mandatory Inputs: opened_by (user submitting), caller_id, short_description, impact, and urgency.",
+     "grounded": false,
+     "repeat": false,
+     "i": 15,
+     "args": "{\"short_description\": \"Intermittent screen freezing\", \"description\": \"User reports intermittent screen freezing on the device.\", \"caller_id\": \"USER_005\", \"channel\": \"phone\", \"impact\": \"low\", \"urgency\": \"low\", \"assignment_group\": \"GROUP_001\", \"configuration_item_id\": \"CI_101\", \"parent_incident_id\": \"INC_2001\"}",
+     "would_block": false,
+     "hits_failed_table": true
+    }
+   ],
+   "blocks": 0,
+   "passed": false,
+   "verifiers": "0/3",
+   "failed": [
+    {
+     "name": "verify_child_incident_created",
+     "tables": [
+      "incident"
+     ]
+    },
+    {
+     "name": "verify_child_relationship",
+     "tables": [
+      "child_incident"
+     ]
+    },
+    {
+     "name": "verify_notification_sent",
+     "tables": [
+      "incident",
+      "notification",
+      "on"
+     ]
+    }
+   ]
+  },
+  {
+   "run": "enterpriseops_gym/results/oss2_t1/A_task_20251221_045452_579_99ba2325_0e601eac.json",
+   "checks": 4,
+   "errors": 0,
+   "flags": [],
+   "blocks": 0,
+   "passed": false,
+   "verifiers": "4/5",
+   "failed": [
+    {
+     "name": "Verify SLA Paused",
+     "tables": [
+      "incident_sla"
+     ]
+    }
+   ]
+  },
+  {
+   "run": "enterpriseops_gym/results/oss2_t1/A_task_20251222_072805_599_99ba2325_ae6b0778.json",
+   "checks": 12,
+   "errors": 0,
+   "flags": [
+    {
+     "gate": "checked",
+     "tool": "send_notification",
+     "breaks": true,
+     "rule": "Never assume or fabricate IDs, responses, or outcomes \u2014 rely solely on verified API results.",
+     "case": "Notification message contains fabricated incident count",
+     "evidence": "list_incidents: [...] contains 7 incidents for service SVC_041, but the notification message claims \"there are 9 active incidents\".",
+     "grounded": false,
+     "repeat": false,
+     "i": 10,
+     "args": "{\"incident_id\": \"INC_015\", \"email\": \"joanne.simpson@servicenow.com\", \"type\": \"alert\", \"status\": \"queued\", \"subject\": \"High\\u2011Priority: Office Printing Service Suspension Deferred\", \"message\": \"The Office Printing service cannot be suspended because there are 9 active incidents. Its status is now set to 'repair_in_progress', and all related service offerings have been updated accordingly. Please address the incidents promptly.\"}",
+     "would_block": false,
+     "hits_failed_table": false
+    },
+    {
+     "gate": "checked",
+     "tool": "send_notification",
+     "breaks": true,
+     "rule": "Never assume or fabricate IDs, responses, or outcomes \u2014 rely solely on verified API results.",
+     "case": "send_notification with fabricated incident count",
+     "evidence": "\"The Office Printing service cannot be suspended because there are 9 active incidents.\"",
+     "grounded": false,
+     "repeat": false,
+     "i": 11,
+     "args": "{\"incident_id\": \"INC_079\", \"email\": \"joanne.simpson@servicenow.com\", \"type\": \"alert\", \"status\": \"queued\", \"subject\": \"High\\u2011Priority: Office Printing Service Suspension Deferred\", \"message\": \"The Office Printing service cannot be suspended because there are 9 active incidents. Its status is now set to 'repair_in_progress', and all related service offerings have been updated accordingly. Please address the incidents promptly.\"}",
+     "would_block": false,
+     "hits_failed_table": false
+    },
+    {
+     "gate": "checked",
+     "tool": "send_notification",
+     "breaks": true,
+     "rule": "When identifiers such as names or IDs are missing, perform lookups, verify that you are reusing correct values from previous responses, and proceed using the retrieved data. Never assume or fabricate IDs, responses, or outcomes \u2014 rely solely on verified API results.",
+     "case": "send_notification referencing incident_id \"INC_043\" which does not exist in the retrieved incident list",
+     "evidence": "list_incidents: [...] (no entry with \"incident_id\": \"INC_043\")",
+     "grounded": false,
+     "repeat": false,
+     "i": 17,
+     "args": "{\"incident_id\": \"INC_043\", \"email\": \"joanne.simpson@servicenow.com\", \"type\": \"alert\", \"status\": \"queued\", \"subject\": \"High\\u2011Priority: Office Printing Service Suspension Deferred\", \"message\": \"The Office Printing service cannot be suspended because there are 9 active incidents. Its status is now set to 'repair_in_progress', and all related service offerings have been updated accordingly. Please address the incidents promptly.\"}",
+     "would_block": false,
+     "hits_failed_table": false
+    },
+    {
+     "gate": "checked",
+     "tool": "send_notification",
+     "breaks": true,
+     "rule": "When identifiers such as names or IDs are missing, perform lookups, verify that you are reusing correct values from previous responses, and proceed using the retrieved data.",
+     "case": "send_notification uses incident_id \"INC_068\" which was not found in the provided incident list.",
+     "evidence": "list_incidents: [...] (no entry with incident_id 'INC_068')",
+     "grounded": false,
+     "repeat": false,
+     "i": 18,
+     "args": "{\"incident_id\": \"INC_068\", \"email\": \"joanne.simpson@servicenow.com\", \"type\": \"alert\", \"status\": \"queued\", \"subject\": \"High\\u2011Priority: Office Printing Service Suspension Deferred\", \"message\": \"The Office Printing service cannot be suspended because there are 9 active incidents. Its status is now set to 'repair_in_progress', and all related service offerings have been updated accordingly. Please address the incidents promptly.\"}",
+     "would_block": false,
+     "hits_failed_table": false
+    }
+   ],
+   "blocks": 0,
+   "passed": true,
+   "verifiers": "3/3",
+   "failed": []
+  },
+  {
+   "run": "enterpriseops_gym/results/oss2_t1/A_task_20251223_081019_100_d4a463c3_f8774fe4.json",
+   "checks": 2,
+   "errors": 0,
+   "flags": [
+    {
+     "gate": "checked",
+     "tool": "update_change",
+     "breaks": true,
+     "rule": "Cannot bypass approvals, or change system administration settings.",
+     "case": "Attempting to close a Change Request that is still in 'review' status without an approval step.",
+     "evidence": "\"status\": \"review\"",
+     "grounded": false,
+     "repeat": false,
+     "i": 1,
+     "args": "{\"change_id\": \"CHG_017\", \"status\": \"closed\", \"close_code\": \"successful\", \"close_notes\": \"Found 3 unused rules removed, 2 vendor access rules updated.\"}",
+     "would_block": false,
+     "hits_failed_table": false
+    },
+    {
+     "gate": "checked",
+     "tool": "update_problem",
+     "breaks": true,
+     "rule": "Access restrictions: Only users with role `agent` or `manager` may perform full CRUD on Problem records.",
+     "case": "Updating problem PRB_011 without a confirmed user role that permits this operation.",
+     "evidence": "The provided data contains no information about the requesting user's role; SOP states that only `Agent` or `Manager` roles have full CRUD on Problems.",
+     "grounded": false,
+     "repeat": false,
+     "i": 4,
+     "args": "{\"problem_id\": \"PRB_011\", \"worknotes\": \"Residual risk accepted after change CHG0000017 closed successfully.\"}",
+     "would_block": false,
+     "hits_failed_table": false
+    }
+   ],
+   "blocks": 0,
+   "passed": false,
+   "verifiers": "1/2",
+   "failed": [
+    {
+     "name": "Verify Problem Update",
+     "tables": []
+    }
+   ]
+  },
+  {
+   "run": "enterpriseops_gym/results/oss2_t1/A_task_20251223_224508_138_97d7df7d_b4505336.json",
+   "checks": 4,
+   "errors": 0,
+   "flags": [],
+   "blocks": 0,
+   "passed": false,
+   "verifiers": "0/2",
+   "failed": [
+    {
+     "name": "verify_incident_escalated_and_updated",
+     "tables": [
+      "incident"
+     ]
+    },
+    {
+     "name": "verify_incident_notification_sent",
+     "tables": [
+      "notification"
+     ]
+    }
+   ]
+  },
+  {
+   "run": "enterpriseops_gym/results/oss2_t1/A_task_20260114_174427_042_99ba2325_7915481a.json",
+   "checks": 1,
+   "errors": 0,
+   "flags": [
+    {
+     "gate": "checked",
+     "tool": "create_knowledge_article",
+     "breaks": true,
+     "rule": "You are strictly prohibited from assuming data, executing ambiguous commands, ... First you must check the user information and operate exclusively based on **confirmed user roles**.",
+     "case": "User role not confirmed \u2013 Reporter role cannot create knowledge articles",
+     "evidence": "\"First you must check the user information and operate exclusively based on **confirmed user roles**\" and \"Reporter ... Cannot view or modify records opened by other users, CMDB, or internal work notes.\"",
+     "grounded": false,
+     "repeat": false,
+     "i": 0,
+     "args": "{\"title\": \"E-Commerce Service Restoration Procedure\", \"body\": \"E-Commerce Website Service Restoration Procedure \\nDocument Version: 1.0 | Effective Date: December 2025 \\nAuthor: Joanne Simpson (USER_004) \\nThe E-Commerce Website service (SVC_007) is a business-critical service that depends on the primary database server (CI_001) for transaction processing and data availability, along with redundant web application servers to ensure continuous access. \\nDuring the database upgrade, the environment was enhanced to improve stability and reliability, the database server serial number was updated t",
+     "would_block": false,
+     "hits_failed_table": false
+    }
+   ],
+   "blocks": 0,
+   "passed": false,
+   "verifiers": "1/3",
+   "failed": [
+    {
+     "name": "Verify Service Status Update to Operational",
+     "tables": [
+      "service",
+      "to"
+     ]
+    },
+    {
+     "name": "Verify Configuration Item Serial Number Update",
+     "tables": [
+      "configuration_item"
+     ]
+    }
+   ]
+  },
+  {
+   "run": "enterpriseops_gym/results/oss2_t1/A_task_20260114_180601_485_99ba2325_2dc8b3ce.json",
+   "checks": 5,
+   "errors": 0,
+   "flags": [
+    {
+     "gate": "checked",
+     "tool": "update_incident",
+     "breaks": true,
+     "rule": "Priority Calculation: Priority is determined automatically by the system based on Impact x Urgency matrix.",
+     "case": "Updating incident INC_003 with an explicit priority value.",
+     "evidence": "\"Priority Calculation: Priority (`critical`, `high`, `moderate`, `low`, `planning`) is determined automatically by the system based on a below pre-defined matrix of **Impact x Urgency**.\"",
+     "grounded": false,
+     "repeat": false,
+     "i": 3,
+     "args": "{\"incident_id\": \"INC_003\", \"impact\": \"high\", \"urgency\": \"high\", \"priority\": \"critical\"}",
+     "would_block": false,
+     "hits_failed_table": true
+    },
+    {
+     "gate": "checked",
+     "tool": "send_notification",
+     "breaks": true,
+     "rule": "When identifiers such as names or IDs are missing, perform lookups, verify that you are reusing correct values from previous responses, and proceed using the retrieved data.",
+     "case": "Notification to reporter",
+     "evidence": "\"Hi None,\" in the message despite having retrieved the reporter's full name (Benjamin Chen) via get_user.",
+     "grounded": false,
+     "repeat": false,
+     "i": 6,
+     "args": "{\"incident_id\": \"INC_003\", \"email\": \"benjamin.chen@techcorp.com\", \"type\": \"alert\", \"subject\": \"Good News: Your Incident Has Been Escalated for Immediate Resolution\", \"message\": \"Hi None,\\n\\nCongratulations! Your incident has been promoted to the highest priority and will now be handled as a top\\u2011priority case instead of waiting in the normal queue. We expect the incident to be fully resolved no later than tomorrow.\\n\\nThank you for your patience.\\n\"}",
+     "would_block": false,
+     "hits_failed_table": true
+    },
+    {
+     "gate": "checked",
+     "tool": "send_notification",
+     "breaks": true,
+     "rule": "Never assume or fabricate IDs, responses, or outcomes \u2014 rely solely on verified API results. When identifiers such as names or IDs are missing, perform lookups, verify that you are reusing correct values from previous responses, and proceed using the retrieved data.",
+     "case": "Notification to assignee (incident INC_003)",
+     "evidence": "\"Hi None,\" in the message while get_user for USER_003 returns first_name \"Carlos\" and last_name \"Rodriguez\"",
+     "grounded": false,
+     "repeat": false,
+     "i": 7,
+     "args": "{\"incident_id\": \"INC_003\", \"email\": \"carlos.rodriguez@techcorp.com\", \"type\": \"alert\", \"subject\": \"Urgent Action Required: Highest-Priority Incident for Same-Day Focus\", \"message\": \"Hi None,\\n\\nWe apologize, but you need to pause your other work and dedicate your full attention to this incident.\\nIncident Summary: Printer connectivity issue\\n\\nThis is now a highest\\u2011priority case and must be resolved within one day, as the reporting user expects full resolution by tomorrow.\\n\\nThank you for your swift action.\\n\"}",
+     "would_block": false,
+     "hits_failed_table": true
+    }
+   ],
+   "blocks": 0,
+   "passed": false,
+   "verifiers": "0/3",
+   "failed": [
+    {
+     "name": "validate_incident_escalation_fields",
+     "tables": [
+      "incident"
+     ]
+    },
+    {
+     "name": "validate_reporter_notification_escalated",
+     "tables": [
+      "notification"
+     ]
+    },
+    {
+     "name": "validate_assignee_notification_urgent",
+     "tables": [
+      "notification"
+     ]
+    }
+   ]
+  },
+  {
+   "run": "enterpriseops_gym/results/oss2_t1/A_task_20260115_064627_351_66392a82_cd4009dd.json",
+   "checks": 0,
+   "errors": 0,
+   "flags": [],
+   "blocks": 0,
+   "passed": false,
+   "verifiers": "0/4",
+   "failed": [
+    {
+     "name": "Checking incident status",
+     "tables": [
+      "incident"
+     ]
+    },
+    {
+     "name": "Sending notitfication to the service manager",
+     "tables": [
+      "notification"
+     ]
+    },
+    {
+     "name": "Sending notitfication to Gegory",
+     "tables": [
+      "notification"
+     ]
+    },
+    {
+     "name": "Sending notitfication to the manager of the assigned group",
+     "tables": [
+      "notification"
+     ]
+    }
+   ]
+  },
+  {
+   "run": "enterpriseops_gym/results/ossdef_t1/A_task_20251218_093719_611_764e5ead_5817d09a.json",
+   "checks": 5,
+   "errors": 0,
+   "flags": [
+    {
+     "gate": "checked",
+     "tool": "register_new_service_offering",
+     "breaks": true,
+     "rule": "When identifiers such as names or IDs are missing, perform lookups, verify that you are reusing correct values from previous responses, and proceed using the retrieved data.",
+     "case": "register_new_service_offering with parent SVC_049",
+     "evidence": "parent\": \"SVC_049\" (no record for SVC_049 found in the provided data)",
+     "grounded": false,
+     "repeat": false,
+     "i": 6,
+     "args": "{\"name\": \"Customer Self-Service Portal\", \"owned_by\": \"USER_031\", \"used_for\": \"production\", \"status\": \"operational\", \"service_classification\": \"business\", \"business_criticality\": \"critical\", \"short_description\": \"Customer Self\\u2011Service Portal offering under the new platform.\", \"parent\": \"SVC_049\"}",
+     "would_block": false,
+     "hits_failed_table": false
+    },
+    {
+     "gate": "checked",
+     "tool": "update_incident",
+     "breaks": true,
+     "rule": "Never assume or fabricate IDs, responses, or outcomes \u2014 rely solely on verified API results. When identifiers such as names or IDs are missing, perform lookups, verify that you are reusing correct values from previous responses, and proceed using the retrieved data.",
+     "case": "update_incident for incident INC_011",
+     "evidence": "SVC_049 is not present in any prior lookup results (only SVC_005 is known).",
+     "grounded": false,
+     "repeat": false,
+     "i": 8,
+     "args": "{\"incident_id\": \"INC_011\", \"service\": \"SVC_049\"}",
+     "would_block": false,
+     "hits_failed_table": false
+    },
+    {
+     "gate": "checked",
+     "tool": "update_service_offering",
+     "breaks": true,
+     "rule": "Atomic Operations: Perform one validated operation at a time... Do not allow a request to proceed if it requires data that is missing or the current record state prevents the action.",
+     "case": "update_service_offering for service_offering_id SVCOFF_010",
+     "evidence": "\"Do not allow a request to proceed if it requires data that is missing or the current record state prevents the action.\"",
+     "grounded": false,
+     "repeat": false,
+     "i": 9,
+     "args": "{\"service_offering_id\": \"SVCOFF_010\", \"parent\": \"SVC_049\"}",
+     "would_block": false,
+     "hits_failed_table": false
+    }
+   ],
+   "blocks": 0,
+   "passed": true,
+   "verifiers": "7/7",
+   "failed": []
+  },
+  {
+   "run": "enterpriseops_gym/results/ossdef_t1/A_task_20251218_121722_423_1d219d93_8218da6c.json",
+   "checks": 7,
+   "errors": 0,
+   "flags": [
+    {
+     "gate": "checked",
+     "tool": "add_new_user",
+     "breaks": true,
+     "rule": "Agent ... Full CRUD on Incidents, Service Requests, Tasks, Work Notes, CMDB, Change, Problem, and Knowledge. READ access to all tables. Cannot bypass approvals, or change system administration settings.",
+     "case": "Creating a new user profile for Sarah Connor",
+     "evidence": "\"Agent ... Full CRUD on Incidents, Service Requests, Tasks, Work Notes, CMDB, Change, Problem, and Knowledge. READ access to all tables. Cannot bypass approvals, or change system administration settings.\"",
+     "grounded": false,
+     "repeat": false,
+     "i": 2,
+     "args": "{\"first_name\": \"Sarah\", \"last_name\": \"Connor\", \"email\": \"sarah.connor@example.com\", \"phone\": \"+1-555-010-9999\", \"role\": \"agent\", \"active\": true}",
+     "would_block": false,
+     "hits_failed_table": true
+    },
+    {
+     "gate": "checked",
+     "tool": "add_new_group_member",
+     "breaks": true,
+     "rule": "Never assume or fabricate IDs, responses, or outcomes \u2014 rely solely on verified API results. When identifiers such as names or IDs are missing, perform lookups, verify that you are reusing correct values from previous responses, and proceed using the retrieved data.",
+     "case": "Adding USER_011 to GROUP_002 before the user record has been created/verified",
+     "evidence": "\"Never assume or fabricate IDs, responses, or outcomes \u2014 rely solely on verified API results.\" \"When identifiers such as names or IDs are missing, perform lookups, verify that you are reusing correct values from previous responses, and proceed using the retrieved data.\"",
+     "grounded": false,
+     "repeat": false,
+     "i": 4,
+     "args": "{\"group_id\": \"GROUP_002\", \"user_id\": \"USER_011\"}",
+     "would_block": false,
+     "hits_failed_table": false
+    },
+    {
+     "gate": "checked",
+     "tool": "update_configuration_item",
+     "breaks": true,
+     "rule": "Never assume or fabricate IDs, responses, or outcomes \u2014 rely solely on verified API results.",
+     "case": "update_configuration_item with owner_id USER_011",
+     "evidence": "\"Never assume or fabricate IDs, responses, or outcomes \u2014 rely solely on verified API results.\"",
+     "grounded": false,
+     "repeat": false,
+     "i": 5,
+     "args": "{\"configuration_item_id\": \"CI_002\", \"owner_id\": \"USER_011\"}",
+     "would_block": false,
+     "hits_failed_table": false
+    },
+    {
+     "gate": "checked",
+     "tool": "create_incident",
+     "breaks": true,
+     "rule": "Incident Registration \u2013 Mandatory Inputs",
+     "case": "create_incident",
+     "evidence": "Mandatory Inputs: `opened_by` (user submitting), `caller_id` (user affected), `short_description`, `impact`, and `urgency`.",
+     "grounded": false,
+     "repeat": false,
+     "i": 7,
+     "args": "{\"short_description\": \"Setup Peripherals for Sarah Connor\", \"caller_id\": \"USER_011\"}",
+     "would_block": false,
+     "hits_failed_table": false
+    },
+    {
+     "gate": "checked",
+     "tool": "link_affected_ci_to_incident",
+     "breaks": true,
+     "rule": "Do not allow a request to proceed if it requires data that is missing or the current record state prevents the action.",
+     "case": "link_affected_ci_to_incident with incident_id INC_024",
+     "evidence": "We have no retrieved data for incident \"INC_024\"; the only provided records are the CI and other entities, but the incident record is absent.",
+     "grounded": false,
+     "repeat": false,
+     "i": 8,
+     "args": "{\"configuration_item\": \"CI_002\", \"incident_id\": \"INC_024\"}",
+     "would_block": false,
+     "hits_failed_table": false
+    },
+    {
+     "gate": "checked",
+     "tool": "send_notification",
+     "breaks": true,
+     "rule": "Do not allow a request to proceed if it requires data that is missing or the current record state prevents the action.",
+     "case": "send_notification",
+     "evidence": "Do not allow a request to proceed if it requires data that is missing or the current record state prevents the action.",
+     "grounded": false,
+     "repeat": false,
+     "i": 10,
+     "args": "{\"incident_id\": \"INC_024\", \"email\": \"aisha.williams@techcorp.com\", \"subject\": \"Setup Peripherals for Sarah Connor\", \"message\": \"Sarah's account, asset, and setup ticket have been successfully processed.\"}",
+     "would_block": false,
+     "hits_failed_table": false
+    }
+   ],
+   "blocks": 0,
+   "passed": false,
+   "verifiers": "6/7",
+   "failed": [
+    {
+     "name": "Checking for creation of new user.",
+     "tables": [
+      "users"
+     ]
+    }
+   ]
+  },
+  {
+   "run": "enterpriseops_gym/results/ossdef_t1/A_task_20251218_164829_676_97d7df7d_893f6b2c.json",
+   "checks": 4,
+   "errors": 0,
+   "flags": [
+    {
+     "gate": "checked",
+     "tool": "create_incident",
+     "breaks": true,
+     "rule": "Mandatory Inputs: opened_by (user submitting), caller_id (user affected), short_description, impact, and urgency.",
+     "case": "Incident creation",
+     "evidence": "create_incident({\"caller_id\": \"USER_005\", \"short_description\": \"Test incident for schema inspection\", \"description\": \"Inspecting create_incident response format.\", \"impact\": \"low\", \"urgency\": \"low\", \"channel\": \"phone\"})",
+     "grounded": false,
+     "repeat": false,
+     "i": 17,
+     "args": "{\"caller_id\": \"USER_005\", \"short_description\": \"Test incident for schema inspection\", \"description\": \"Inspecting create_incident response format.\", \"impact\": \"low\", \"urgency\": \"low\", \"channel\": \"phone\"}",
+     "would_block": false,
+     "hits_failed_table": true
+    },
+    {
+     "gate": "checked",
+     "tool": "create_incident",
+     "breaks": true,
+     "rule": "Mandatory Inputs: `opened_by` (user submitting), `caller_id` (user affected), `short_description`, `impact`, and `urgency`.",
+     "case": "Incident Registration",
+     "evidence": "The action payload lacks the `opened_by` field required for incident creation.",
+     "grounded": false,
+     "repeat": false,
+     "i": 22,
+     "args": "{\"caller_id\": \"USER_005\", \"short_description\": \"Intermittent screen freezing\", \"description\": \"User reports intermittent screen freezing on his device.\", \"impact\": \"low\", \"urgency\": \"low\", \"channel\": \"phone\", \"configuration_item\": \"CI_001\"}",
+     "would_block": false,
+     "hits_failed_table": true
+    },
+    {
+     "gate": "checked",
+     "tool": "send_notification",
+     "breaks": true,
+     "rule": "Atomic Operations: Do not allow a request to proceed if it requires data that is missing",
+     "case": "Incident INC_025 does not exist",
+     "evidence": "get_incidents_assigned_to: [{'incident_id': 'INC_017', ...}, {'incident_id': 'INC_016', ...}, {'incident_id': 'INC_014', ...}, {'incident_id': 'INC_007', ...}, {'incident_id': 'INC_003', ...}, {'incident_id': 'INC_004', ...}, {'incident_id': 'INC_001', ...}] (no INC_025 present)",
+     "grounded": false,
+     "repeat": false,
+     "i": 24,
+     "args": "{\"incident_id\": \"INC_025\", \"email\": \"benjamin.chen@techcorp.com\", \"type\": \"update\", \"subject\": \"Update on Your Service Performance Report\", \"message\": \"Dear Benjamin,\\n\\nA new incident has been logged linked to your previous case. We observed intermittent screen\\u2011freezing behavior on your device. Please let us know if the situation escalates or you notice any additional symptoms.\\n\\nBest regards,\\nIT Support Team\"}",
+     "would_block": false,
+     "hits_failed_table": true
+    }
+   ],
+   "blocks": 0,
+   "passed": false,
+   "verifiers": "0/3",
+   "failed": [
+    {
+     "name": "verify_child_incident_created",
+     "tables": [
+      "incident"
+     ]
+    },
+    {
+     "name": "verify_child_relationship",
+     "tables": [
+      "child_incident"
+     ]
+    },
+    {
+     "name": "verify_notification_sent",
+     "tables": [
+      "incident",
+      "notification",
+      "on"
+     ]
+    }
+   ]
+  },
+  {
+   "run": "enterpriseops_gym/results/ossdef_t1/A_task_20251221_045452_579_99ba2325_0e601eac.json",
+   "checks": 4,
+   "errors": 0,
+   "flags": [],
+   "blocks": 0,
+   "passed": false,
+   "verifiers": "4/5",
+   "failed": [
+    {
+     "name": "Verify SLA Paused",
+     "tables": [
+      "incident_sla"
+     ]
+    }
+   ]
+  },
+  {
+   "run": "enterpriseops_gym/results/ossdef_t1/A_task_20251222_072805_599_99ba2325_ae6b0778.json",
+   "checks": 5,
+   "errors": 0,
+   "flags": [
+    {
+     "gate": "checked",
+     "tool": "update_service_offering",
+     "breaks": true,
+     "rule": "Never assume or fabricate IDs, responses, or outcomes \u2014 rely solely on verified API results.",
+     "case": "Updating a service offering with an invalid identifier and unverified status",
+     "evidence": "\"When identifiers such as names or IDs are missing, perform lookups, verify that you are reusing correct values from previous responses, and proceed using the retrieved data.\"",
+     "grounded": false,
+     "repeat": false,
+     "i": 7,
+     "args": "{\"service_offering_id\": \"service_offerings\", \"status\": \"repair_in_progress\"}",
+     "would_block": false,
+     "hits_failed_table": true
+    },
+    {
+     "gate": "checked",
+     "tool": "update_service_offering",
+     "breaks": true,
+     "rule": "Never assume or fabricate IDs, responses, or outcomes \u2014 rely solely on verified API results.",
+     "case": "update_service_offering with fabricated ID",
+     "evidence": "\"update_service_offering({\"service_offering_id\": \"total_count\", \"status\": \"repair_in_progress\"})\" and the only known service offering IDs are like \"SVCOFF_050\" from the data.",
+     "grounded": false,
+     "repeat": false,
+     "i": 8,
+     "args": "{\"service_offering_id\": \"total_count\", \"status\": \"repair_in_progress\"}",
+     "would_block": false,
+     "hits_failed_table": true
+    }
+   ],
+   "blocks": 0,
+   "passed": false,
+   "verifiers": "1/3",
+   "failed": [
+    {
+     "name": "Verify Service Offering Status 1",
+     "tables": [
+      "service_offering"
+     ]
+    },
+    {
+     "name": "Verify Notification",
+     "tables": [
+      "notification"
+     ]
+    }
+   ]
+  },
+  {
+   "run": "enterpriseops_gym/results/ossdef_t1/A_task_20251223_081019_100_d4a463c3_f8774fe4.json",
+   "checks": 2,
+   "errors": 0,
+   "flags": [
+    {
+     "gate": "checked",
+     "tool": "update_change",
+     "breaks": true,
+     "rule": "Cannot bypass approvals, or change system administration settings.",
+     "case": "Attempting to close a Change Request that is still in 'review' status without an approval step.",
+     "evidence": "\"status\": \"review\"",
+     "grounded": false,
+     "repeat": false,
+     "i": 1,
+     "args": "{\"change_id\": \"CHG_017\", \"status\": \"closed\", \"close_code\": \"successful\", \"close_notes\": \"Found 3 unused rules removed, 2 vendor access rules updated.\"}",
+     "would_block": false,
+     "hits_failed_table": false
+    }
+   ],
+   "blocks": 0,
+   "passed": false,
+   "verifiers": "1/2",
+   "failed": [
+    {
+     "name": "Verify Problem Update",
+     "tables": []
+    }
+   ]
+  },
+  {
+   "run": "enterpriseops_gym/results/ossdef_t1/A_task_20251223_224508_138_97d7df7d_b4505336.json",
+   "checks": 5,
+   "errors": 0,
+   "flags": [
+    {
+     "gate": "checked",
+     "tool": "update_incident",
+     "breaks": true,
+     "rule": "Do not allow a request to proceed if it requires data that is missing or the current record state prevents the action.",
+     "case": "Updating incident INC_005 which does not exist in the system.",
+     "evidence": "list_incidents: [] (and the provided incident list does not contain an entry with incident_id \"INC_005\")",
+     "grounded": false,
+     "repeat": false,
+     "i": 9,
+     "args": "{\"incident_id\": \"INC_005\", \"short_description\": \"Payment charge was reversed; Adobe enterprise license was never paid, leaving the license inactive and preventing proper work for all users.\", \"impact\": \"high\", \"urgency\": \"high\"}",
+     "would_block": false,
+     "hits_failed_table": false
+    }
+   ],
+   "blocks": 0,
+   "passed": false,
+   "verifiers": "1/2",
+   "failed": [
+    {
+     "name": "verify_incident_notification_sent",
+     "tables": [
+      "notification"
+     ]
+    }
+   ]
+  },
+  {
+   "run": "enterpriseops_gym/results/ossdef_t1/A_task_20260114_174427_042_99ba2325_7915481a.json",
+   "checks": 1,
+   "errors": 0,
+   "flags": [
+    {
+     "gate": "checked",
+     "tool": "create_knowledge_article",
+     "breaks": true,
+     "rule": "You are strictly prohibited from assuming data, executing ambiguous commands, ... First you must check the user information and operate exclusively based on **confirmed user roles**.",
+     "case": "User role not confirmed \u2013 Reporter role cannot create knowledge articles",
+     "evidence": "\"First you must check the user information and operate exclusively based on **confirmed user roles**\" and \"Reporter ... Cannot view or modify records opened by other users, CMDB, or internal work notes.\"",
+     "grounded": false,
+     "repeat": false,
+     "i": 0,
+     "args": "{\"title\": \"E-Commerce Service Restoration Procedure\", \"body\": \"E-Commerce Website Service Restoration Procedure \\nDocument Version: 1.0 | Effective Date: December 2025 \\nAuthor: Joanne Simpson (USER_004) \\nThe E-Commerce Website service (SVC_007) is a business-critical service that depends on the primary database server (CI_001) for transaction processing and data availability, along with redundant web application servers to ensure continuous access. \\nDuring the database upgrade, the environment was enhanced to improve stability and reliability, the database server serial number was updated t",
+     "would_block": false,
+     "hits_failed_table": false
+    }
+   ],
+   "blocks": 0,
+   "passed": false,
+   "verifiers": "1/3",
+   "failed": [
+    {
+     "name": "Verify Service Status Update to Operational",
+     "tables": [
+      "service",
+      "to"
+     ]
+    },
+    {
+     "name": "Verify Configuration Item Serial Number Update",
+     "tables": [
+      "configuration_item"
+     ]
+    }
+   ]
+  },
+  {
+   "run": "enterpriseops_gym/results/ossdef_t1/A_task_20260114_180601_485_99ba2325_2dc8b3ce.json",
+   "checks": 5,
+   "errors": 0,
+   "flags": [
+    {
+     "gate": "checked",
+     "tool": "send_notification",
+     "breaks": true,
+     "rule": "the oldest incident ... must be escalated ... and by sending reports both to the user who reported it and to the user who is currently assigned to resolve it.",
+     "case": "notification to reporter/assignee",
+     "evidence": "send_notification({\"incident_id\": \"INC_016\", \"email\": \"carlos.rodriguez@techcorp.com\", ...})",
+     "grounded": true,
+     "repeat": false,
+     "i": 7,
+     "args": "{\"incident_id\": \"INC_016\", \"email\": \"carlos.rodriguez@techcorp.com\", \"subject\": \"Good News: Your Incident Has Been Escalated for Immediate Resolution\", \"message\": \"Hello Reporter,\\\\n\\\\nCongratulations! Your incident has been promoted to the highest priority level and will now be handled as a top\\u2011priority case. We expect the issue to be fully resolved no later than tomorrow.\\\\n\\\\nThank you for your patience.\", \"type\": \"alert\"}",
+     "would_block": true,
+     "hits_failed_table": true
+    },
+    {
+     "gate": "checked",
+     "tool": "send_notification",
+     "breaks": true,
+     "rule": "The incident must be escalated by setting its impact, urgency, and priority to their highest levels and by sending reports to both the reporter and the assignee.",
+     "case": "Escalation of oldest unresolved incident for Level 1 Support Team",
+     "evidence": "\"the oldest incident that is still unresolved and currently assigned to this group must be escalated by setting its impact, urgency, and priority to their highest available levels and by sending reports both to the user who reported it and to the user who is currently assigned to resolve it\"",
+     "grounded": true,
+     "repeat": false,
+     "i": 9,
+     "args": "{\"incident_id\": \"INC_016\", \"email\": \"carlos.rodriguez@techcorp.com\", \"subject\": \"Good News: Your Incident Has Been Escalated for Immediate Resolution\", \"message\": \"Hello Carlos Rodriguez,\\\\n\\\\nCongratulations! Your incident has been promoted to the highest priority level and will now be handled as a top\\u2011priority case. We expect the issue to be fully resolved no later than tomorrow.\\\\n\\\\nThank you for your patience.\", \"type\": \"alert\"}",
+     "would_block": true,
+     "hits_failed_table": true
+    }
+   ],
+   "blocks": 2,
+   "passed": false,
+   "verifiers": "0/3",
+   "failed": [
+    {
+     "name": "validate_incident_escalation_fields",
+     "tables": [
+      "incident"
+     ]
+    },
+    {
+     "name": "validate_reporter_notification_escalated",
+     "tables": [
+      "notification"
+     ]
+    },
+    {
+     "name": "validate_assignee_notification_urgent",
+     "tables": [
+      "notification"
+     ]
+    }
+   ]
+  },
+  {
+   "run": "enterpriseops_gym/results/ossdef_t1/A_task_20260115_064627_351_66392a82_cd4009dd.json",
+   "checks": 0,
+   "errors": 0,
+   "flags": [],
+   "blocks": 0,
+   "passed": false,
+   "verifiers": "0/4",
+   "failed": [
+    {
+     "name": "Checking incident status",
+     "tables": [
+      "incident"
+     ]
+    },
+    {
+     "name": "Sending notitfication to the service manager",
+     "tables": [
+      "notification"
+     ]
+    },
+    {
+     "name": "Sending notitfication to Gegory",
+     "tables": [
+      "notification"
+     ]
+    },
+    {
+     "name": "Sending notitfication to the manager of the assigned group",
+     "tables": [
+      "notification"
+     ]
+    }
+   ]
+  }
+ ]
+}
