@@ -1,0 +1,2343 @@
+{
+ "modality": {
+  "policy:preamble:4": "should",
+  "policy:General:1": "should",
+  "policy:preamble:5": "must_not",
+  "policy:General:2": "must_not",
+  "policy:General:4": "must_not",
+  "policy:General:5": "must_not",
+  "policy:General:3": "must",
+  "policy:Agent:2": "must",
+  "policy:Agent:3": "may",
+  "policy:Agent:4": "may",
+  "policy:Agent:5": "may",
+  "policy:Agent:6": "may",
+  "policy:Agent:7": "must_not",
+  "policy:Manager:2": "may",
+  "policy:Manager:3": "may",
+  "policy:Manager:5": "may",
+  "policy:Manager:6": "may",
+  "policy:Customer:2": "may",
+  "policy:Customer:3": "may",
+  "policy:Customer:4": "may",
+  "policy:Customer:5": "may",
+  "policy:Customer:6": "may",
+  "policy:Customer:7": "must",
+  "policy:Customer:8": "must_not",
+  "policy:Administrator:1": "may",
+  "policy:Administrator:2": "may",
+  "policy:Registering:1": "must",
+  "policy:Registering:2": "must",
+  "policy:Registering:3": "must",
+  "policy:Assigning:1": "may",
+  "policy:Assigning:2": "must",
+  "policy:Assigning:3": "must",
+  "policy:Working:1": "may",
+  "policy:Working:2": "may",
+  "policy:Working:3": "may",
+  "policy:Working:4": "may",
+  "policy:Working:7": "may",
+  "policy:Working:5": "must_not",
+  "policy:Working:6": "must",
+  "policy:Case:1": "must",
+  "policy:Case:2": "must",
+  "policy:Case:3": "must_not",
+  "policy:Entitlement:1": "must",
+  "policy:Entitlement:2": "must",
+  "policy:Entitlement:3": "must",
+  "policy:Installed:1": "must",
+  "policy:Installed:2": "must",
+  "policy:Installed:4": "must",
+  "policy:Installed:3": "must_not",
+  "policy:Linking:1": "must",
+  "policy:Linking:2": "must",
+  "policy:Escalations:1": "may",
+  "policy:Escalations:2": "must",
+  "policy:Escalations:3": "must",
+  "policy:Escalations:4": "must",
+  "policy:Product:1": "must",
+  "policy:Product:2": "must",
+  "policy:Security:1": "must",
+  "policy:Security:2": "must_not",
+  "policy:Validation:1": "must",
+  "policy:Validation:2": "must",
+  "policy:Validation:3": "must",
+  "policy:Validation:4": "must",
+  "policy:Service:3": "must",
+  "policy:Predefined:2": "must",
+  "policy:Predefined:3": "must",
+  "policy:Predefined:4": "must",
+  "policy:Predefined:5": "must",
+  "policy:Predefined:6": "must",
+  "policy:Predefined:7": "must",
+  "policy:Predefined:8": "must",
+  "policy:Knowledge:1": "should",
+  "policy:Knowledge:2": "should",
+  "policy:Knowledge:3": "should",
+  "policy:Knowledge:4": "should",
+  "policy:Knowledge:5": "should",
+  "policy:Knowledge:6": "should",
+  "policy:Knowledge:7": "should",
+  "policy:Knowledge:8": "should",
+  "policy:Knowledge:9": "should",
+  "policy:Free:1": "must"
+ },
+ "rules": [
+  {
+   "id": "r_grounded",
+   "class": "hard",
+   "level": "observe",
+   "statement_ids": [
+    "policy:preamble:5"
+   ],
+   "rule": {
+    "type": "grounded_values"
+   }
+  },
+  {
+   "id": "r_ids",
+   "class": "hard",
+   "level": "observe",
+   "statement_ids": [
+    "policy:preamble:5",
+    "policy:Validation:1"
+   ],
+   "rule": {
+    "type": "id_provenance"
+   }
+  },
+  {
+   "id": "g_confirmed_context",
+   "class": "guidance",
+   "level": "observe",
+   "statement_ids": [
+    "policy:preamble:4"
+   ],
+   "rule": {
+    "type": "guidance",
+    "text": "You should always act based on confirmed user context, ing record relationships, and database integrity best practices."
+   }
+  },
+  {
+   "id": "g_no_assumed_data",
+   "class": "guidance",
+   "level": "observe",
+   "statement_ids": [
+    "policy:preamble:5"
+   ],
+   "rule": {
+    "type": "guidance",
+    "text": "Avoid actions that assume data, do not provide enough context, or seem to be in violation of this policy."
+   }
+  },
+  {
+   "id": "g_admin_default",
+   "class": "guidance",
+   "level": "observe",
+   "statement_ids": [
+    "policy:General:1"
+   ],
+   "rule": {
+    "type": "guidance",
+    "text": "By default, you should assume the roles and responsibilities of an admin to complete a particular request."
+   }
+  },
+  {
+   "id": "g_violating_request",
+   "class": "guidance",
+   "level": "observe",
+   "statement_ids": [
+    "policy:General:2"
+   ],
+   "rule": {
+    "type": "guidance",
+    "text": "If a user request violates policy, do not act on it."
+   }
+  },
+  {
+   "id": "g_one_operation",
+   "class": "guidance",
+   "level": "observe",
+   "statement_ids": [
+    "policy:General:3"
+   ],
+   "rule": {
+    "type": "guidance",
+    "text": "Perform one operation at a time."
+   }
+  },
+  {
+   "id": "g_no_outside_knowledge",
+   "class": "guidance",
+   "level": "observe",
+   "statement_ids": [
+    "policy:General:4"
+   ],
+   "rule": {
+    "type": "guidance",
+    "text": "Do not provide knowledge or procedures not in the system."
+   }
+  },
+  {
+   "id": "g_no_questions",
+   "class": "guidance",
+   "level": "observe",
+   "statement_ids": [
+    "policy:General:5"
+   ],
+   "rule": {
+    "type": "guidance",
+    "text": "Do not ask for any information or confirmation from the user, if you cannot proceed ahead provide the reason for that before pausing."
+   }
+  },
+  {
+   "id": "g_validate_existence",
+   "class": "guidance",
+   "level": "observe",
+   "statement_ids": [
+    "policy:Validation:1"
+   ],
+   "rule": {
+    "type": "guidance",
+    "text": "Always validate existence and integrity of: Users, accounts, contacts, products, entitlements, and cases."
+   }
+  },
+  {
+   "id": "g_no_disclosure",
+   "class": "guidance",
+   "level": "observe",
+   "statement_ids": [
+    "policy:Security:2"
+   ],
+   "rule": {
+    "type": "guidance",
+    "text": "Do not disclose personal data or case details outside these permissions."
+   }
+  },
+  {
+   "id": "g_use_knowledge",
+   "class": "guidance",
+   "level": "observe",
+   "statement_ids": [
+    "policy:Knowledge:9"
+   ],
+   "rule": {
+    "type": "guidance",
+    "text": "If knowledge article is found then it should be used to assist in the next set of actions."
+   }
+  },
+  {
+   "id": "r_role_agent",
+   "class": "hard",
+   "level": "remind",
+   "statement_ids": [
+    "policy:Agent:2",
+    "policy:Agent:3",
+    "policy:Agent:4",
+    "policy:Agent:6"
+   ],
+   "rule": {
+    "type": "role_permission",
+    "tools": [
+     "add_new_user",
+     "update_user_details",
+     "add_new_user_group",
+     "update_user_group",
+     "add_new_group_member",
+     "remove_group_membership",
+     "create_new_account",
+     "update_account_details",
+     "create_contact",
+     "update_contact",
+     "add_location",
+     "update_location",
+     "add_new_product",
+     "update_product",
+     "delete_products",
+     "register_new_installed_product",
+     "update_installed_product_details",
+     "enlist_new_contract",
+     "update_contract",
+     "add_new_entitlement",
+     "update_entitlement",
+     "add_new_sla_definition",
+     "update_sla_definition",
+     "link_new_case_sla",
+     "update_case_sla_details",
+     "delete_case_slas",
+     "create_knowledge",
+     "update_knowledge",
+     "delete_case_knowledge_linkages",
+     "send_notification",
+     "update_notification",
+     "delete_notifications"
+    ],
+    "roles": [
+     "agent"
+    ],
+    "effect": "forbid"
+   },
+   "quote": "Read-only access to all records (accounts, contacts, products, contracts, entitlements)."
+  },
+  {
+   "id": "r_agent_user_data",
+   "class": "hard",
+   "level": "remind",
+   "statement_ids": [
+    "policy:Agent:7"
+   ],
+   "rule": {
+    "type": "role_permission",
+    "tools": [
+     "add_new_user",
+     "update_user_details",
+     "add_new_user_group",
+     "update_user_group",
+     "add_new_group_member",
+     "remove_group_membership"
+    ],
+    "roles": [
+     "agent"
+    ],
+    "effect": "forbid"
+   },
+   "quote": "Cannot modify user, group, or membership data."
+  },
+  {
+   "id": "r_role_manager",
+   "class": "hard",
+   "level": "remind",
+   "statement_ids": [
+    "policy:Manager:2",
+    "policy:Manager:3",
+    "policy:Manager:6"
+   ],
+   "rule": {
+    "type": "role_permission",
+    "tools": [
+     "add_new_user",
+     "update_user_details",
+     "add_new_user_group",
+     "update_user_group",
+     "add_new_group_member",
+     "remove_group_membership",
+     "create_new_account",
+     "update_account_details",
+     "create_contact",
+     "update_contact",
+     "add_location",
+     "update_location",
+     "add_new_product",
+     "update_product",
+     "delete_products",
+     "register_new_installed_product",
+     "update_installed_product_details",
+     "enlist_new_contract",
+     "update_contract",
+     "add_new_entitlement",
+     "update_entitlement",
+     "add_new_sla_definition",
+     "update_sla_definition",
+     "link_new_case_sla",
+     "update_case_sla_details",
+     "delete_case_slas",
+     "delete_case_knowledge_linkages",
+     "send_notification",
+     "update_notification",
+     "delete_notifications"
+    ],
+    "roles": [
+     "manager"
+    ],
+    "effect": "forbid"
+   },
+   "quote": "Has agent privileges plus: Can reassign cases across groups and users."
+  },
+  {
+   "id": "r_role_customer",
+   "class": "hard",
+   "level": "remind",
+   "statement_ids": [
+    "policy:Customer:2",
+    "policy:Customer:3",
+    "policy:Customer:6"
+   ],
+   "rule": {
+    "type": "role_permission",
+    "tools": [
+     "add_new_user",
+     "add_new_user_group",
+     "update_user_group",
+     "add_new_group_member",
+     "remove_group_membership",
+     "create_new_account",
+     "update_account_details",
+     "create_contact",
+     "update_contact",
+     "add_location",
+     "update_location",
+     "add_new_product",
+     "update_product",
+     "delete_products",
+     "register_new_installed_product",
+     "update_installed_product_details",
+     "enlist_new_contract",
+     "update_contract",
+     "add_new_entitlement",
+     "update_entitlement",
+     "add_new_sla_definition",
+     "update_sla_definition",
+     "update_case",
+     "assign_case_to_user",
+     "set_case_assignment_group",
+     "link_new_case_sla",
+     "update_case_sla_details",
+     "delete_case_slas",
+     "update_interaction",
+     "create_knowledge",
+     "update_knowledge",
+     "link_case_knowledge",
+     "updated_linked_case_knowledge",
+     "delete_case_knowledge_linkages",
+     "send_notification",
+     "update_notification",
+     "delete_notifications"
+    ],
+    "roles": [
+     "customer"
+    ],
+    "effect": "forbid"
+   },
+   "quote": "Create new cases and track the status of their submitted cases."
+  },
+  {
+   "id": "r_customer_internal",
+   "class": "hard",
+   "level": "remind",
+   "statement_ids": [
+    "policy:Customer:8"
+   ],
+   "rule": {
+    "type": "role_permission",
+    "tools": [
+     "list_users",
+     "list_user_groups",
+     "list_group_members",
+     "find_user_group",
+     "check_user_membership",
+     "find_sla_definitions",
+     "find_case_slas",
+     "total_sum_of_target_mins_per_priority",
+     "average_target_mins_per_priority",
+     "find_stage_wise_breached_case_sla_counts"
+    ],
+    "roles": [
+     "customer"
+    ],
+    "effect": "forbid"
+   },
+   "quote": "Cannot access internal system data (users, groups, SLAs, contracts of other customers)."
+  },
+  {
+   "id": "r_customer_own_account",
+   "class": "judgment",
+   "level": "remind",
+   "statement_ids": [
+    "policy:Customer:7"
+   ],
+   "rule": {
+    "type": "verify",
+    "tools": [
+     "get_accounts",
+     "find_contacts",
+     "search_cases",
+     "retrieve_installed_products",
+     "find_contracts",
+     "find_entitlements",
+     "find_interactions"
+    ],
+    "statement": "Limited to their own account’s data (cannot see other accounts/customers)."
+   },
+   "why": "Needs the account of the logged-in customer and of each record read; no argument carries the caller's account."
+  },
+  {
+   "id": "r_assignee_active_assign_case_to_user",
+   "class": "hard",
+   "level": "block_once",
+   "statement_ids": [
+    "policy:Assigning:2"
+   ],
+   "rule": {
+    "type": "reference_status",
+    "tool": "assign_case_to_user",
+    "arg": "assigned_to_user_id",
+    "field": "active",
+    "allowed": [
+     "true"
+    ]
+   },
+   "quote": "Agents must: Be active"
+  },
+  {
+   "id": "r_assignee_role_assign_case_to_user",
+   "class": "hard",
+   "level": "block_once",
+   "statement_ids": [
+    "policy:Assigning:3"
+   ],
+   "rule": {
+    "type": "reference_status",
+    "tool": "assign_case_to_user",
+    "arg": "assigned_to_user_id",
+    "field": "role",
+    "allowed": [
+     "agent",
+     "manager"
+    ]
+   },
+   "quote": "assigned_to must reference a user with role agent or manager"
+  },
+  {
+   "id": "r_assignee_active_update_case",
+   "class": "hard",
+   "level": "block_once",
+   "statement_ids": [
+    "policy:Assigning:2"
+   ],
+   "rule": {
+    "type": "reference_status",
+    "tool": "update_case",
+    "arg": "assigned_to",
+    "field": "active",
+    "allowed": [
+     "true"
+    ]
+   },
+   "quote": "Agents must: Be active"
+  },
+  {
+   "id": "r_assignee_role_update_case",
+   "class": "hard",
+   "level": "block_once",
+   "statement_ids": [
+    "policy:Assigning:3"
+   ],
+   "rule": {
+    "type": "reference_status",
+    "tool": "update_case",
+    "arg": "assigned_to",
+    "field": "role",
+    "allowed": [
+     "agent",
+     "manager"
+    ]
+   },
+   "quote": "assigned_to must reference a user with role agent or manager"
+  },
+  {
+   "id": "r_assignee_active_create_new_case",
+   "class": "hard",
+   "level": "block_once",
+   "statement_ids": [
+    "policy:Assigning:2"
+   ],
+   "rule": {
+    "type": "reference_status",
+    "tool": "create_new_case",
+    "arg": "assigned_to",
+    "field": "active",
+    "allowed": [
+     "true"
+    ]
+   },
+   "quote": "Agents must: Be active"
+  },
+  {
+   "id": "r_assignee_role_create_new_case",
+   "class": "hard",
+   "level": "block_once",
+   "statement_ids": [
+    "policy:Assigning:3"
+   ],
+   "rule": {
+    "type": "reference_status",
+    "tool": "create_new_case",
+    "arg": "assigned_to",
+    "field": "role",
+    "allowed": [
+     "agent",
+     "manager"
+    ]
+   },
+   "quote": "assigned_to must reference a user with role agent or manager"
+  },
+  {
+   "id": "r_assignee_member_update_case",
+   "class": "hard",
+   "level": "block_once",
+   "statement_ids": [
+    "policy:Assigning:2",
+    "policy:Assigning:3"
+   ],
+   "rule": {
+    "type": "membership",
+    "tool": "update_case",
+    "arg": "assigned_to",
+    "group_arg": "assignment_group_id"
+   },
+   "quote": "(if used) member of assignment_group_id"
+  },
+  {
+   "id": "r_assignee_member_create_new_case",
+   "class": "hard",
+   "level": "block_once",
+   "statement_ids": [
+    "policy:Assigning:2",
+    "policy:Assigning:3"
+   ],
+   "rule": {
+    "type": "membership",
+    "tool": "create_new_case",
+    "arg": "assigned_to",
+    "group_arg": "assignment_group_id"
+   },
+   "quote": "(if used) member of assignment_group_id"
+  },
+  {
+   "id": "r_assignee_member_assign",
+   "class": "judgment",
+   "level": "remind",
+   "statement_ids": [
+    "policy:Assigning:2",
+    "policy:Assigning:3"
+   ],
+   "rule": {
+    "type": "verify",
+    "tools": [
+     "assign_case_to_user"
+    ],
+    "statement": "Agents must: Be active, and Be members of the assigned group."
+   },
+   "why": "assign_case_to_user has no group argument, so membership cannot compare two arguments; the case's group is in the case record."
+  },
+  {
+   "id": "r_case_transition",
+   "class": "hard",
+   "level": "remind",
+   "statement_ids": [
+    "policy:Case:1",
+    "policy:Validation:2",
+    "policy:Working:2",
+    "policy:Working:6"
+   ],
+   "rule": {
+    "type": "transition",
+    "tool": "update_case",
+    "arg": "state",
+    "id_arg": "case_id",
+    "edges": {
+     "new": [
+      "in_progress",
+      "pending",
+      "resolved"
+     ],
+     "in_progress": [
+      "pending",
+      "resolved"
+     ],
+     "pending": [
+      "in_progress",
+      "resolved"
+     ],
+     "resolved": [
+      "closed",
+      "new"
+     ]
+    }
+   },
+   "quote": "Valid state transitions: new → in_progress / pending / resolved in_progress → pending / resolved pending → in_progress / resolved resolved → closed / new"
+  },
+  {
+   "id": "r_no_direct_close",
+   "class": "hard",
+   "level": "block_once",
+   "statement_ids": [
+    "policy:Working:5",
+    "policy:Working:6",
+    "policy:Case:3"
+   ],
+   "rule": {
+    "type": "record_condition",
+    "tools": [
+     "update_case"
+    ],
+    "field": "state",
+    "op": "in",
+    "value": [
+     "new",
+     "in_progress",
+     "pending"
+    ],
+    "effect": "forbid",
+    "when": {
+     "state": [
+      "closed"
+     ]
+    }
+   },
+   "quote": "Cases cannot be closed directly."
+  },
+  {
+   "id": "r_closed_on_update_case",
+   "class": "hard",
+   "level": "deny",
+   "statement_ids": [
+    "policy:Case:2",
+    "policy:Validation:4"
+   ],
+   "rule": {
+    "type": "required_args",
+    "tool": "update_case",
+    "args": [
+     "closed_on"
+    ],
+    "when": {
+     "state": [
+      "closed"
+     ]
+    }
+   },
+   "quote": "Capture timestamps (e.g., closed_on for case closure)."
+  },
+  {
+   "id": "r_closed_on_create_new_case",
+   "class": "hard",
+   "level": "deny",
+   "statement_ids": [
+    "policy:Case:2",
+    "policy:Validation:4"
+   ],
+   "rule": {
+    "type": "required_args",
+    "tool": "create_new_case",
+    "args": [
+     "closed_on"
+    ],
+    "when": {
+     "state": [
+      "closed"
+     ]
+    }
+   },
+   "quote": "Capture timestamps (e.g., closed_on for case closure)."
+  },
+  {
+   "id": "r_case_relationship",
+   "class": "judgment",
+   "level": "remind",
+   "statement_ids": [
+    "policy:Security:1",
+    "policy:Case:1"
+   ],
+   "rule": {
+    "type": "verify",
+    "tools": [
+     "update_case",
+     "assign_case_to_user",
+     "set_case_assignment_group",
+     "search_cases"
+    ],
+    "statement": "Users may only view or update cases they own, are assigned to, or are in the assigned group."
+   },
+   "why": "Needs the acting user and the case's owner, assignee and group; the call carries only the case id."
+  },
+  {
+   "id": "r_ip_in_use_create_new_case",
+   "class": "hard",
+   "level": "block_once",
+   "statement_ids": [
+    "policy:Installed:1",
+    "policy:Installed:3"
+   ],
+   "rule": {
+    "type": "reference_status",
+    "tool": "create_new_case",
+    "arg": "installed_product_id",
+    "field": "status",
+    "allowed": [
+     "in_use"
+    ]
+   },
+   "quote": "Installed products must: Be active / in_use."
+  },
+  {
+   "id": "r_product_active_create_new_case",
+   "class": "hard",
+   "level": "block_once",
+   "statement_ids": [
+    "policy:Product:1"
+   ],
+   "rule": {
+    "type": "reference_status",
+    "tool": "create_new_case",
+    "arg": "product_id",
+    "field": "lifecycle_state",
+    "allowed": [
+     "active"
+    ]
+   },
+   "quote": "In lifecycle_state = active."
+  },
+  {
+   "id": "r_ip_in_use_update_case",
+   "class": "hard",
+   "level": "block_once",
+   "statement_ids": [
+    "policy:Installed:1",
+    "policy:Installed:3"
+   ],
+   "rule": {
+    "type": "reference_status",
+    "tool": "update_case",
+    "arg": "installed_product_id",
+    "field": "status",
+    "allowed": [
+     "in_use"
+    ]
+   },
+   "quote": "Installed products must: Be active / in_use."
+  },
+  {
+   "id": "r_product_active_update_case",
+   "class": "hard",
+   "level": "block_once",
+   "statement_ids": [
+    "policy:Product:1"
+   ],
+   "rule": {
+    "type": "reference_status",
+    "tool": "update_case",
+    "arg": "product_id",
+    "field": "lifecycle_state",
+    "allowed": [
+     "active"
+    ]
+   },
+   "quote": "In lifecycle_state = active."
+  },
+  {
+   "id": "r_ip_account",
+   "class": "judgment",
+   "level": "remind",
+   "statement_ids": [
+    "policy:Registering:3",
+    "policy:Installed:2",
+    "policy:Product:2"
+   ],
+   "rule": {
+    "type": "verify",
+    "tools": [
+     "create_new_case",
+     "update_case"
+    ],
+    "statement": "Verify the product or installed product belongs to the customer’s account."
+   },
+   "why": "Compares the installed product's account with the case account; no typed rule compares a field of one record with an argument."
+  },
+  {
+   "id": "r_ip_product",
+   "class": "judgment",
+   "level": "remind",
+   "statement_ids": [
+    "policy:Installed:4",
+    "policy:Product:2"
+   ],
+   "rule": {
+    "type": "verify",
+    "tools": [
+     "create_new_case",
+     "update_case"
+    ],
+    "statement": "Ensure installed product’s product matches the case product."
+   },
+   "why": "Compares the installed product's product with the case product; no typed rule compares a field of one record with an argument."
+  },
+  {
+   "id": "r_kb_published_link_case_knowledge",
+   "class": "hard",
+   "level": "block_once",
+   "statement_ids": [
+    "policy:Linking:1"
+   ],
+   "rule": {
+    "type": "reference_status",
+    "tool": "link_case_knowledge",
+    "arg": "knowledge_id",
+    "field": "state",
+    "allowed": [
+     "published"
+    ]
+   },
+   "quote": "Articles must be in state = published."
+  },
+  {
+   "id": "r_kb_published_updated_linked_case_knowledge",
+   "class": "hard",
+   "level": "block_once",
+   "statement_ids": [
+    "policy:Linking:1"
+   ],
+   "rule": {
+    "type": "reference_status",
+    "tool": "updated_linked_case_knowledge",
+    "arg": "knowledge_id",
+    "field": "state",
+    "allowed": [
+     "published"
+    ]
+   },
+   "quote": "Articles must be in state = published."
+  },
+  {
+   "id": "r_kb_used_as",
+   "class": "hard",
+   "level": "deny",
+   "statement_ids": [
+    "policy:Linking:2"
+   ],
+   "rule": {
+    "type": "allowed_values",
+    "tool": "link_case_knowledge",
+    "arg": "used_as",
+    "values": [
+     "suggested",
+     "applied",
+     "resolution"
+    ]
+   },
+   "quote": "usage = suggested, applied, resolution"
+  },
+  {
+   "id": "r_kb_visibility",
+   "class": "judgment",
+   "level": "remind",
+   "statement_ids": [
+    "policy:Linking:2"
+   ],
+   "rule": {
+    "type": "verify",
+    "tools": [
+     "retrieve_knowledge"
+    ],
+    "statement": "Visibility rules apply: internal = agents only external = customers can view"
+   },
+   "why": "Depends on the role of the user who will see the article; allowed_values has no condition on the role."
+  },
+  {
+   "id": "r_esc_reason_update_case",
+   "class": "hard",
+   "level": "deny",
+   "statement_ids": [
+    "policy:Escalations:3"
+   ],
+   "rule": {
+    "type": "required_args",
+    "tool": "update_case",
+    "args": [
+     "escalation_reason"
+    ],
+    "when": {
+     "escalation": [
+      "true"
+     ]
+    }
+   },
+   "quote": "Capture escalation_reason."
+  },
+  {
+   "id": "r_esc_reason_create_new_case",
+   "class": "hard",
+   "level": "deny",
+   "statement_ids": [
+    "policy:Escalations:3"
+   ],
+   "rule": {
+    "type": "required_args",
+    "tool": "create_new_case",
+    "args": [
+     "escalation_reason"
+    ],
+    "when": {
+     "escalation": [
+      "true"
+     ]
+    }
+   },
+   "quote": "Capture escalation_reason."
+  },
+  {
+   "id": "r_duty_sla_pause",
+   "class": "hard",
+   "level": "remind",
+   "statement_ids": [
+    "policy:Service:3"
+   ],
+   "rule": {
+    "type": "duty",
+    "trigger": {
+     "tool": "update_case",
+     "when": {
+      "state": [
+       "pending"
+      ]
+     }
+    },
+    "then": {
+     "tool": "update_case_sla_details",
+     "when": {
+      "stage": [
+       "paused"
+      ]
+     }
+    },
+    "unless": [
+     {
+      "condition": "Obey sla_definition.pause_on_pending"
+     }
+    ]
+   },
+   "quote": "when case state is pending, pause applicable SLAs."
+  },
+  {
+   "id": "r_duty_sla_align",
+   "class": "hard",
+   "level": "remind",
+   "statement_ids": [
+    "policy:Knowledge:5"
+   ],
+   "rule": {
+    "type": "duty",
+    "trigger": {
+     "tool": "update_case",
+     "when": {
+      "state": [
+       "in_progress"
+      ]
+     }
+    },
+    "then": {
+     "tool": "link_new_case_sla"
+    }
+   },
+   "quote": "When new case moves to work in progress appropriate SLA should be aligned to it."
+  },
+  {
+   "id": "r_duty_kb_link",
+   "class": "hard",
+   "level": "remind",
+   "statement_ids": [
+    "policy:Knowledge:4"
+   ],
+   "rule": {
+    "type": "duty",
+    "trigger": {
+     "tool": "create_knowledge"
+    },
+    "then": {
+     "tool": "link_case_knowledge"
+    }
+   },
+   "quote": "If a knowledge article is created, it should be linked to the case for future reference."
+  },
+  {
+   "id": "r_duty_kb_search",
+   "class": "hard",
+   "level": "remind",
+   "statement_ids": [
+    "policy:Knowledge:1"
+   ],
+   "rule": {
+    "type": "duty",
+    "trigger": {
+     "tool": "create_new_case"
+    },
+    "then": {
+     "tool": "retrieve_knowledge"
+    },
+    "unless": [
+     {
+      "condition": "the case is not asked to be investigated"
+     }
+    ]
+   },
+   "quote": "a knowledge base search should be performed"
+  },
+  {
+   "id": "r_enum_user_role",
+   "class": "hard",
+   "level": "deny",
+   "statement_ids": [
+    "policy:Predefined:2"
+   ],
+   "rule": {
+    "type": "allowed_values",
+    "tool": "add_new_user",
+    "arg": "role",
+    "values": [
+     "admin",
+     "agent",
+     "manager",
+     "customer"
+    ]
+   },
+   "quote": "user.role: admin, agent, manager, customer"
+  },
+  {
+   "id": "r_enum_user_group_type",
+   "class": "hard",
+   "level": "deny",
+   "statement_ids": [
+    "policy:Predefined:2"
+   ],
+   "rule": {
+    "type": "allowed_values",
+    "tool": "add_new_user_group",
+    "arg": "type",
+    "values": [
+     "support",
+     "backoffice",
+     "field",
+     "vendor"
+    ]
+   },
+   "quote": "user_group.type: support, backoffice, field, vendor"
+  },
+  {
+   "id": "r_enum_location_city",
+   "class": "hard",
+   "level": "deny",
+   "statement_ids": [
+    "policy:Predefined:3"
+   ],
+   "rule": {
+    "type": "allowed_values",
+    "tool": "add_location",
+    "arg": "city",
+    "values": [
+     "new_york",
+     "london",
+     "mumbai",
+     "tokyo",
+     "sydney"
+    ]
+   },
+   "quote": "location.city: new_york, london, mumbai, tokyo, sydney"
+  },
+  {
+   "id": "r_enum_location_country",
+   "class": "hard",
+   "level": "deny",
+   "statement_ids": [
+    "policy:Predefined:3"
+   ],
+   "rule": {
+    "type": "allowed_values",
+    "tool": "add_location",
+    "arg": "country",
+    "values": [
+     "usa",
+     "uk",
+     "india",
+     "japan",
+     "australia"
+    ]
+   },
+   "quote": "location.country: usa, uk, india, japan, australia"
+  },
+  {
+   "id": "r_enum_account_account_type",
+   "class": "hard",
+   "level": "deny",
+   "statement_ids": [
+    "policy:Predefined:4"
+   ],
+   "rule": {
+    "type": "allowed_values",
+    "tool": "create_new_account",
+    "arg": "account_type",
+    "values": [
+     "customer",
+     "partner",
+     "internal"
+    ]
+   },
+   "quote": "account.account_type: customer, partner, internal"
+  },
+  {
+   "id": "r_enum_product_category",
+   "class": "hard",
+   "level": "deny",
+   "statement_ids": [
+    "policy:Predefined:5"
+   ],
+   "rule": {
+    "type": "allowed_values",
+    "tool": "add_new_product",
+    "arg": "category",
+    "values": [
+     "software",
+     "hardware",
+     "service"
+    ]
+   },
+   "quote": "product.category: software, hardware, service"
+  },
+  {
+   "id": "r_enum_product_lifecycle_state",
+   "class": "hard",
+   "level": "deny",
+   "statement_ids": [
+    "policy:Predefined:5"
+   ],
+   "rule": {
+    "type": "allowed_values",
+    "tool": "add_new_product",
+    "arg": "lifecycle_state",
+    "values": [
+     "active",
+     "retired"
+    ]
+   },
+   "quote": "product.lifecycle_state: active, retired"
+  },
+  {
+   "id": "r_enum_installed_product_status",
+   "class": "hard",
+   "level": "deny",
+   "statement_ids": [
+    "policy:Predefined:5"
+   ],
+   "rule": {
+    "type": "allowed_values",
+    "tool": "register_new_installed_product",
+    "arg": "status",
+    "values": [
+     "in_use",
+     "in_stock",
+     "repair",
+     "retired"
+    ]
+   },
+   "quote": "installed_product.status: in_use, in_stock, repair, retired"
+  },
+  {
+   "id": "r_enum_contract_contract_type",
+   "class": "hard",
+   "level": "deny",
+   "statement_ids": [
+    "policy:Predefined:6"
+   ],
+   "rule": {
+    "type": "allowed_values",
+    "tool": "enlist_new_contract",
+    "arg": "contract_type",
+    "values": [
+     "support",
+     "warranty",
+     "subscription"
+    ]
+   },
+   "quote": "contract.contract_type: support, warranty, subscription"
+  },
+  {
+   "id": "r_enum_contract_status",
+   "class": "hard",
+   "level": "deny",
+   "statement_ids": [
+    "policy:Predefined:6"
+   ],
+   "rule": {
+    "type": "allowed_values",
+    "tool": "enlist_new_contract",
+    "arg": "status",
+    "values": [
+     "active",
+     "suspended",
+     "expired"
+    ]
+   },
+   "quote": "contract.status: active, suspended, expired"
+  },
+  {
+   "id": "r_enum_entitlement_support_level",
+   "class": "hard",
+   "level": "deny",
+   "statement_ids": [
+    "policy:Predefined:6"
+   ],
+   "rule": {
+    "type": "allowed_values",
+    "tool": "add_new_entitlement",
+    "arg": "support_level",
+    "values": [
+     "standard",
+     "premium",
+     "enterprise"
+    ]
+   },
+   "quote": "entitlement.support_level: standard, premium, enterprise"
+  },
+  {
+   "id": "r_enum_entitlement_coverage_hours",
+   "class": "hard",
+   "level": "deny",
+   "statement_ids": [
+    "policy:Predefined:6"
+   ],
+   "rule": {
+    "type": "allowed_values",
+    "tool": "add_new_entitlement",
+    "arg": "coverage_hours",
+    "values": [
+     "h8x5",
+     "h12x6",
+     "h24x7"
+    ]
+   },
+   "quote": "entitlement.coverage_hours: h8x5, h12x6, h24x7"
+  },
+  {
+   "id": "r_enum_sla_definition_metric",
+   "class": "hard",
+   "level": "deny",
+   "statement_ids": [
+    "policy:Predefined:6"
+   ],
+   "rule": {
+    "type": "allowed_values",
+    "tool": "add_new_sla_definition",
+    "arg": "metric",
+    "values": [
+     "response",
+     "resolution"
+    ]
+   },
+   "quote": "sla_definition.metric: response, resolution"
+  },
+  {
+   "id": "r_enum_sla_definition_applies_to_priority",
+   "class": "hard",
+   "level": "deny",
+   "statement_ids": [
+    "policy:Predefined:6"
+   ],
+   "rule": {
+    "type": "allowed_values",
+    "tool": "add_new_sla_definition",
+    "arg": "applies_to_priority",
+    "values": [
+     "critical",
+     "high",
+     "moderate",
+     "low"
+    ]
+   },
+   "quote": "sla_definition.applies_to_priority: critical, high, moderate, low"
+  },
+  {
+   "id": "r_enum_customer_case_channel",
+   "class": "hard",
+   "level": "deny",
+   "statement_ids": [
+    "policy:Predefined:7"
+   ],
+   "rule": {
+    "type": "allowed_values",
+    "tool": "create_new_case",
+    "arg": "channel",
+    "values": [
+     "web",
+     "email",
+     "phone",
+     "chat",
+     "social",
+     "alert",
+     "community"
+    ]
+   },
+   "quote": "customer_case.channel: web, email, phone, chat, social, alert, community"
+  },
+  {
+   "id": "r_enum_customer_case_priority",
+   "class": "hard",
+   "level": "deny",
+   "statement_ids": [
+    "policy:Predefined:7"
+   ],
+   "rule": {
+    "type": "allowed_values",
+    "tool": "create_new_case",
+    "arg": "priority",
+    "values": [
+     "critical",
+     "high",
+     "moderate",
+     "low"
+    ]
+   },
+   "quote": "customer_case.priority: critical, high, moderate, low"
+  },
+  {
+   "id": "r_enum_customer_case_state",
+   "class": "hard",
+   "level": "deny",
+   "statement_ids": [
+    "policy:Predefined:7"
+   ],
+   "rule": {
+    "type": "allowed_values",
+    "tool": "create_new_case",
+    "arg": "state",
+    "values": [
+     "new",
+     "in_progress",
+     "pending",
+     "resolved",
+     "closed",
+     "canceled"
+    ]
+   },
+   "quote": "customer_case.state: new, in_progress, pending, resolved, closed, canceled"
+  },
+  {
+   "id": "r_enum_customer_case_escalation_reason",
+   "class": "hard",
+   "level": "deny",
+   "statement_ids": [
+    "policy:Predefined:7"
+   ],
+   "rule": {
+    "type": "allowed_values",
+    "tool": "create_new_case",
+    "arg": "escalation_reason",
+    "values": [
+     "urgency",
+     "vip",
+     "impact",
+     "breach_risk",
+     "customer_request"
+    ]
+   },
+   "quote": "customer_case.escalation_reason: urgency, vip, impact, breach_risk, customer_request"
+  },
+  {
+   "id": "r_enum_interaction_channel",
+   "class": "hard",
+   "level": "deny",
+   "statement_ids": [
+    "policy:Predefined:8"
+   ],
+   "rule": {
+    "type": "allowed_values",
+    "tool": "register_new_interaction",
+    "arg": "channel",
+    "values": [
+     "web",
+     "email",
+     "phone",
+     "chat",
+     "social",
+     "alert",
+     "community"
+    ]
+   },
+   "quote": "interaction.channel: web, email, phone, chat, social, alert, community"
+  },
+  {
+   "id": "r_enum_knowledge_state",
+   "class": "hard",
+   "level": "deny",
+   "statement_ids": [
+    "policy:Predefined:8"
+   ],
+   "rule": {
+    "type": "allowed_values",
+    "tool": "create_knowledge",
+    "arg": "state",
+    "values": [
+     "draft",
+     "published",
+     "retired"
+    ]
+   },
+   "quote": "knowledge.state: draft, published, retired"
+  },
+  {
+   "id": "r_enum_knowledge_visibility",
+   "class": "hard",
+   "level": "deny",
+   "statement_ids": [
+    "policy:Predefined:8"
+   ],
+   "rule": {
+    "type": "allowed_values",
+    "tool": "create_knowledge",
+    "arg": "visibility",
+    "values": [
+     "internal",
+     "external"
+    ]
+   },
+   "quote": "knowledge.visibility: internal, external"
+  },
+  {
+   "id": "r_enum_case_knowledge_used_as",
+   "class": "hard",
+   "level": "deny",
+   "statement_ids": [
+    "policy:Predefined:8"
+   ],
+   "rule": {
+    "type": "allowed_values",
+    "tool": "link_case_knowledge",
+    "arg": "used_as",
+    "values": [
+     "suggested",
+     "applied",
+     "resolution"
+    ]
+   },
+   "quote": "case_knowledge.used_as: suggested, applied, resolution"
+  },
+  {
+   "id": "r_len_short_description",
+   "class": "hard",
+   "level": "deny",
+   "statement_ids": [
+    "policy:Free:1"
+   ],
+   "rule": {
+    "type": "format",
+    "tool": "create_new_case",
+    "arg": "short_description",
+    "pattern": "^[\\s\\S]{30,120}$"
+   },
+   "quote": "Character limits: 30–120 chars"
+  },
+  {
+   "id": "r_len_kb_title",
+   "class": "hard",
+   "level": "deny",
+   "statement_ids": [
+    "policy:Free:1"
+   ],
+   "rule": {
+    "type": "format",
+    "tool": "create_knowledge",
+    "arg": "title",
+    "pattern": "^[\\s\\S]{30,120}$"
+   },
+   "quote": "Character limits: 30–120 chars"
+  },
+  {
+   "id": "r_len_kb_body",
+   "class": "hard",
+   "level": "remind",
+   "statement_ids": [
+    "policy:Free:1"
+   ],
+   "rule": {
+    "type": "format",
+    "tool": "create_knowledge",
+    "arg": "body",
+    "pattern": "^[\\s\\S]{30,120}$"
+   },
+   "quote": "Character limits: 30–120 chars"
+  }
+ ],
+ "procedures": [
+  {
+   "id": "Registering",
+   "name": "Registering a Customer Case",
+   "category": "Core Operations",
+   "src": "Registering a Customer Case",
+   "applies_when": "helping them register cases",
+   "inputs": [
+    {
+     "fact": "the reporting contact and its account",
+     "source": "find_contact_by_portal_user, find_contacts, get_accounts"
+    },
+    {
+     "fact": "the product or installed product and its account",
+     "source": "find_product, retrieve_installed_products"
+    },
+    {
+     "fact": "the entitlement for the product",
+     "source": "find_entitlements"
+    }
+   ],
+   "decisions": [
+    {
+     "id": "priority_given",
+     "rule": "Priority (if not provided → default = moderate)",
+     "then": "use the priority provided",
+     "else": "priority = moderate"
+    },
+    {
+     "id": "state_given",
+     "rule": "Default state = new",
+     "then": "use the state provided",
+     "else": "state = new"
+    }
+   ],
+   "steps": [
+    {
+     "id": "policy:Registering:1"
+    },
+    {
+     "id": "policy:Registering:2",
+     "action": "create_new_case"
+    },
+    {
+     "id": "policy:Registering:3"
+    },
+    {
+     "id": "policy:Knowledge:2"
+    },
+    {
+     "id": "policy:Knowledge:1",
+     "action": "retrieve_knowledge",
+     "required": false,
+     "condition": "When a new case is created and is asked to be investigated"
+    }
+   ],
+   "must_not": [],
+   "links": []
+  },
+  {
+   "id": "Entitlement",
+   "name": "Entitlement Validation",
+   "category": "Core Operations",
+   "src": "Entitlement Validation",
+   "applies_when": "Before applying entitlement",
+   "inputs": [
+    {
+     "fact": "the entitlement and its contract",
+     "source": "find_entitlements, find_contracts"
+    }
+   ],
+   "decisions": [
+    {
+     "id": "entitlement_valid",
+     "rule": "Check it is active and within contract validity",
+     "then": "apply the entitlement",
+     "else": "If entitlement is invalid → inform the user."
+    }
+   ],
+   "steps": [
+    {
+     "id": "policy:Entitlement:1"
+    },
+    {
+     "id": "policy:Entitlement:2"
+    },
+    {
+     "id": "policy:Entitlement:3",
+     "action": "reply",
+     "condition": "If entitlement is invalid"
+    }
+   ],
+   "must_not": [],
+   "links": []
+  },
+  {
+   "id": "Escalations",
+   "name": "Escalations",
+   "category": "Core Operations",
+   "src": "Escalations",
+   "applies_when": "Escalations may be raised when: SLA breach risk exists, or Customer explicitly requests escalation, or High business risk/impact.",
+   "inputs": [
+    {
+     "fact": "the case",
+     "source": "search_cases"
+    }
+   ],
+   "decisions": [],
+   "steps": [
+    {
+     "id": "policy:Escalations:2",
+     "action": "update_case"
+    },
+    {
+     "id": "policy:Escalations:3",
+     "action": "update_case"
+    },
+    {
+     "id": "policy:Escalations:4"
+    }
+   ],
+   "must_not": [],
+   "notes": [
+    "There is no separate escalation record.",
+    "Escalation is tracked within the case."
+   ],
+   "links": []
+  },
+  {
+   "id": "Knowledge",
+   "name": "Knowledge Related Policies",
+   "category": "Knowledge",
+   "src": "Knowledge Related Policies",
+   "applies_when": "When a new case is created and is asked to be investigated",
+   "inputs": [
+    {
+     "fact": "knowledge articles for the case",
+     "source": "retrieve_knowledge"
+    }
+   ],
+   "decisions": [
+    {
+     "id": "knowledge_found",
+     "rule": "If no relevant knowledge is found and case is being closed",
+     "then": "a new knowledge article should be created",
+     "else": "use the knowledge found"
+    },
+    {
+     "id": "found_by_automated_search",
+     "rule": "When the knowledge is found through automated search",
+     "then": "link as suggested",
+     "else": "see useful_to_resolve"
+    },
+    {
+     "id": "useful_to_resolve",
+     "rule": "If the knowledge is found to be useful to resolve the case or is being created after case resolution",
+     "then": "link as resolution",
+     "else": "link as applied"
+    }
+   ],
+   "steps": [
+    {
+     "id": "policy:Knowledge:1",
+     "action": "retrieve_knowledge",
+     "condition": "When a new case is created and is asked to be investigated"
+    },
+    {
+     "id": "policy:Knowledge:3",
+     "action": "create_knowledge",
+     "condition": "If no relevant knowledge is found and case is being closed"
+    },
+    {
+     "id": "policy:Knowledge:4",
+     "action": "link_case_knowledge",
+     "condition": "If a knowledge article is created"
+    },
+    {
+     "id": "policy:Knowledge:5",
+     "action": "link_new_case_sla",
+     "condition": "When new case moves to work in progress"
+    },
+    {
+     "id": "policy:Knowledge:6",
+     "action": "link_case_knowledge"
+    },
+    {
+     "id": "policy:Knowledge:7",
+     "action": "link_case_knowledge"
+    },
+    {
+     "id": "policy:Knowledge:8",
+     "action": "link_case_knowledge"
+    },
+    {
+     "id": "policy:Knowledge:9"
+    }
+   ],
+   "must_not": [],
+   "links": []
+  }
+ ],
+ "obligations": [
+  {
+   "id": "ob_reg_priority",
+   "origin": "package",
+   "scope": {
+    "procedure": "Registering",
+    "when": {
+     "priority_given": "no"
+    }
+   },
+   "effect": {
+    "kind": "write",
+    "tools": [
+     "create_new_case"
+    ],
+    "match": {
+     "priority": {
+      "pattern": "{priority}"
+     }
+    }
+   },
+   "values": {
+    "priority": {
+     "from": "literal",
+     "value": "moderate"
+    }
+   },
+   "check": "code",
+   "level": "observe",
+   "source": {
+    "section": "Registering",
+    "quote": "Priority (if not provided → default = moderate)"
+   }
+  },
+  {
+   "id": "ob_reg_state",
+   "origin": "package",
+   "scope": {
+    "procedure": "Registering",
+    "when": {
+     "state_given": "no"
+    }
+   },
+   "effect": {
+    "kind": "write",
+    "tools": [
+     "create_new_case"
+    ],
+    "match": {
+     "state": {
+      "pattern": "{state}"
+     }
+    }
+   },
+   "values": {
+    "state": {
+     "from": "literal",
+     "value": "new"
+    }
+   },
+   "check": "code",
+   "level": "observe",
+   "source": {
+    "section": "Registering",
+    "quote": "Default state = new."
+   }
+  },
+  {
+   "id": "ob_ent_inform",
+   "origin": "package",
+   "scope": {
+    "procedure": "Entitlement",
+    "when": {
+     "entitlement_valid": "no"
+    }
+   },
+   "effect": {
+    "kind": "reply"
+   },
+   "values": {},
+   "check": "code",
+   "level": "observe",
+   "source": {
+    "section": "Entitlement",
+    "quote": "If entitlement is invalid → inform the user."
+   }
+  },
+  {
+   "id": "ob_esc_flag",
+   "origin": "package",
+   "scope": {
+    "procedure": "Escalations"
+   },
+   "effect": {
+    "kind": "write",
+    "tools": [
+     "update_case"
+    ],
+    "match": {
+     "escalation": {
+      "pattern": "{escalation}"
+     }
+    }
+   },
+   "values": {
+    "escalation": {
+     "from": "literal",
+     "value": true
+    }
+   },
+   "check": "code",
+   "level": "observe",
+   "source": {
+    "section": "Escalations",
+    "quote": "Record escalation = true on case."
+   }
+  },
+  {
+   "id": "ob_esc_reason",
+   "origin": "package",
+   "scope": {
+    "procedure": "Escalations"
+   },
+   "effect": {
+    "kind": "write",
+    "tools": [
+     "update_case"
+    ],
+    "match": {
+     "escalation_reason": {
+      "pattern": "{reason}"
+     }
+    }
+   },
+   "values": {
+    "reason": {
+     "from": "request",
+     "about": "why the escalation is raised"
+    }
+   },
+   "check": "code",
+   "level": "observe",
+   "source": {
+    "section": "Escalations",
+    "quote": "Capture escalation_reason."
+   }
+  },
+  {
+   "id": "ob_kn_create",
+   "origin": "package",
+   "scope": {
+    "procedure": "Knowledge",
+    "when": {
+     "knowledge_found": "no"
+    }
+   },
+   "effect": {
+    "kind": "write",
+    "tools": [
+     "create_knowledge"
+    ]
+   },
+   "values": {},
+   "check": "code",
+   "level": "observe",
+   "source": {
+    "section": "Knowledge",
+    "quote": "a new knowledge article should be created to capture the findings and resolution steps"
+   }
+  },
+  {
+   "id": "ob_kn_link_created",
+   "origin": "package",
+   "scope": {
+    "procedure": "Knowledge",
+    "when": {
+     "knowledge_found": "no"
+    }
+   },
+   "effect": {
+    "kind": "write",
+    "tools": [
+     "link_case_knowledge"
+    ]
+   },
+   "values": {},
+   "check": "code",
+   "level": "observe",
+   "source": {
+    "section": "Knowledge",
+    "quote": "it should be linked to the case for future reference"
+   }
+  },
+  {
+   "id": "ob_kn_sla",
+   "origin": "package",
+   "scope": {
+    "procedure": "Knowledge"
+   },
+   "effect": {
+    "kind": "write",
+    "tools": [
+     "link_new_case_sla"
+    ]
+   },
+   "values": {},
+   "check": "code",
+   "level": "observe",
+   "source": {
+    "section": "Knowledge",
+    "quote": "appropriate SLA should be aligned to it"
+   }
+  },
+  {
+   "id": "ob_kn_suggested",
+   "origin": "package",
+   "scope": {
+    "procedure": "Knowledge",
+    "when": {
+     "found_by_automated_search": "yes"
+    }
+   },
+   "effect": {
+    "kind": "write",
+    "tools": [
+     "link_case_knowledge"
+    ],
+    "match": {
+     "used_as": {
+      "pattern": "{used_as}"
+     }
+    }
+   },
+   "values": {
+    "used_as": {
+     "from": "literal",
+     "value": "suggested"
+    }
+   },
+   "check": "code",
+   "level": "observe",
+   "source": {
+    "section": "Knowledge",
+    "quote": "When the knowledge is found through automated search it should be linked as suggested."
+   }
+  },
+  {
+   "id": "ob_kn_resolution",
+   "origin": "package",
+   "scope": {
+    "procedure": "Knowledge",
+    "when": {
+     "useful_to_resolve": "yes"
+    }
+   },
+   "effect": {
+    "kind": "write",
+    "tools": [
+     "link_case_knowledge"
+    ],
+    "match": {
+     "used_as": {
+      "pattern": "{used_as}"
+     }
+    }
+   },
+   "values": {
+    "used_as": {
+     "from": "literal",
+     "value": "resolution"
+    }
+   },
+   "check": "code",
+   "level": "observe",
+   "source": {
+    "section": "Knowledge",
+    "quote": "it should have used as type to resolution in linking"
+   }
+  },
+  {
+   "id": "ob_kn_applied",
+   "origin": "package",
+   "scope": {
+    "procedure": "Knowledge",
+    "when": {
+     "found_by_automated_search": "no",
+     "useful_to_resolve": "no"
+    }
+   },
+   "effect": {
+    "kind": "write",
+    "tools": [
+     "link_case_knowledge"
+    ],
+    "match": {
+     "used_as": {
+      "pattern": "{used_as}"
+     }
+    }
+   },
+   "values": {
+    "used_as": {
+     "from": "literal",
+     "value": "applied"
+    }
+   },
+   "check": "code",
+   "level": "observe",
+   "source": {
+    "section": "Knowledge",
+    "quote": "In other cases if knowledge is linked it should as applied."
+   }
+  }
+ ],
+ "global": {
+  "global_rules": [
+   {
+    "id": "G-admin",
+    "src": "General Instructions",
+    "rule": "By default, you should assume the roles and responsibilities of an admin to complete a particular request."
+   },
+   {
+    "id": "G-violation",
+    "src": "General Instructions",
+    "rule": "If a user request violates policy, do not act on it."
+   },
+   {
+    "id": "G-one-op",
+    "src": "General Instructions",
+    "rule": "Perform one operation at a time."
+   },
+   {
+    "id": "G-no-outside",
+    "src": "General Instructions",
+    "rule": "Do not provide knowledge or procedures not in the system."
+   },
+   {
+    "id": "G-no-ask",
+    "src": "General Instructions",
+    "rule": "Do not ask for any information or confirmation from the user, if you cannot proceed ahead provide the reason for that before pausing."
+   },
+   {
+    "id": "G-no-assume",
+    "src": "Preamble",
+    "rule": "Avoid actions that assume data, do not provide enough context, or seem to be in violation of this policy."
+   },
+   {
+    "id": "G-validate",
+    "src": "Validation, Error Handling & Logging",
+    "rule": "Always validate existence and integrity of: Users, accounts, contacts, products, entitlements, and cases."
+   },
+   {
+    "id": "G-close",
+    "src": "Working on a Case",
+    "rule": "Important: Cases cannot be closed directly. They must first be moved to resolved, then to closed.",
+    "attach_when": "(?i)clos|resolv"
+   },
+   {
+    "id": "G-entitlement",
+    "src": "Knowledge Related Policies",
+    "rule": "For all cases the entitlement for the product should be verified and should be actively running.",
+    "attach_when": "(?i)case|entitlement"
+   },
+   {
+    "id": "G-installed",
+    "src": "Installed Product Management",
+    "rule": "Do not attach items in retired / repair status to new cases.",
+    "attach_when": "(?i)installed product"
+   },
+   {
+    "id": "G-security",
+    "src": "Security",
+    "rule": "Users may only view or update cases they own, are assigned to, or are in the assigned group. Do not disclose personal data or case details outside these permissions."
+   },
+   {
+    "id": "G-sla-pause",
+    "src": "Service Levels & Timelines",
+    "rule": "SLA pause behavior: Obey sla_definition.pause_on_pending; when case state is pending, pause applicable SLAs.",
+    "attach_when": "(?i)pending|sla"
+   }
+  ],
+  "templates": {
+   "Case Short Description": {
+    "number": "Case Short Description",
+    "name": "Case Short Description",
+    "slots": [
+     "Product name"
+    ],
+    "text": "\"\"Product: \"\" + Product name + \"\", Issue: is not working as expected.\"\""
+   },
+   "KB title": {
+    "number": "KB title",
+    "name": "KB title",
+    "slots": [],
+    "text": "Issue Resolution related to , step-by-step guide"
+   },
+   "KB content/body": {
+    "number": "KB content/body",
+    "name": "KB content/body",
+    "slots": [],
+    "text": "This kind of issues are tackled by Assignment Group: , Assigned to: ."
+   }
+  },
+  "definitions": [
+   {
+    "term": "max_cases_per_month = 0",
+    "meaning": "max_cases_per_month = 0 means unlimited",
+    "source": {
+     "statement": "policy:Entitlement:2"
+    }
+   },
+   {
+    "term": "Visibility rules",
+    "meaning": "internal = agents only external = customers can view",
+    "source": {
+     "statement": "policy:Linking:2"
+    }
+   },
+   {
+    "term": "escalation",
+    "meaning": "Escalation is tracked within the case.",
+    "source": {
+     "statement": "policy:Escalations:6"
+    }
+   }
+  ]
+ },
+ "links": [
+  {
+   "type": "refers_to",
+   "src": "policy:Validation:2",
+   "dst": "policy:Case",
+   "quote": "State transitions follow lifecycle rules."
+  },
+  {
+   "type": "depends_on",
+   "src": "policy:Manager:2",
+   "dst": "policy:Agent",
+   "quote": "Has agent privileges plus"
+  }
+ ],
+ "coverage": [],
+ "policy_questions": [
+  {
+   "statement_ids": [
+    "policy:General:1",
+    "policy:Agent:2",
+    "policy:Agent:7",
+    "policy:Manager:2",
+    "policy:Customer:3",
+    "policy:Customer:8"
+   ],
+   "question": "The assistant assumes the admin role by default. When does the role of the logged-in user (agent, manager, customer) limit what it may do, and how is that role known?",
+   "default_level": "remind",
+   "rule_ids": [
+    "r_role_agent",
+    "r_agent_user_data",
+    "r_role_manager",
+    "r_role_customer",
+    "r_customer_internal"
+   ]
+  },
+  {
+   "statement_ids": [
+    "policy:Agent:3",
+    "policy:Agent:4",
+    "policy:Agent:6"
+   ],
+   "question": "Do the agent grants include linking or updating case SLAs, sending notifications and deleting case-knowledge links, or are these forbidden to agents? The SLA duties (pause on pending, align an SLA when a case moves to in progress) need SLA tools that the agent and manager grant lists do not name.",
+   "default_level": "remind",
+   "rule_ids": [
+    "r_role_agent",
+    "r_role_manager",
+    "r_duty_sla_pause",
+    "r_duty_sla_align"
+   ]
+  },
+  {
+   "statement_ids": [
+    "policy:Manager:6"
+   ],
+   "question": "Does 'contribute to knowledge management as reviewers' let a manager create or update knowledge articles?",
+   "default_level": "remind",
+   "rule_ids": [
+    "r_role_manager"
+   ]
+  },
+  {
+   "statement_ids": [
+    "policy:Case:1",
+    "policy:Working:7",
+    "policy:Working:2"
+   ],
+   "question": "From which states may a case move to canceled? The transition list ends with a bare 'canceled'. Also, do agents only change new → in_progress (Working on a Case), or every transition of the lifecycle list?",
+   "default_level": "remind",
+   "rule_ids": [
+    "r_case_transition"
+   ]
+  },
+  {
+   "statement_ids": [
+    "policy:Validation:3",
+    "policy:Case:2"
+   ],
+   "question": "No tool takes sys_updated_on. Does the system set it, or must the agent do something?",
+   "default_level": "remind"
+  },
+  {
+   "statement_ids": [
+    "policy:Escalations:4",
+    "policy:Working:1"
+   ],
+   "question": "No tool has a case notes, cause or resolution notes argument. Where must the escalation justification be logged?",
+   "default_level": "remind"
+  },
+  {
+   "statement_ids": [
+    "policy:Free:3",
+    "policy:Predefined:7"
+   ],
+   "question": "Escalation reason is described as free text (30–120 chars), but the tool accepts only urgency, vip, impact, breach_risk, customer_request. Which one applies?",
+   "default_level": "remind",
+   "rule_ids": [
+    "r_esc_reason_update_case"
+   ]
+  },
+  {
+   "statement_ids": [
+    "policy:Free:1"
+   ],
+   "question": "Does the 30–120 character limit apply to the knowledge article body too?",
+   "default_level": "remind",
+   "rule_ids": [
+    "r_len_kb_body"
+   ]
+  },
+  {
+   "statement_ids": [
+    "policy:Knowledge:6",
+    "policy:Knowledge:7",
+    "policy:Knowledge:8"
+   ],
+   "question": "An article found by automated search that resolves the case: suggested or resolution?",
+   "default_level": "remind"
+  },
+  {
+   "statement_ids": [
+    "policy:Installed:1",
+    "policy:Installed:3"
+   ],
+   "question": "Installed products must be in_use, but only retired / repair are excluded explicitly. May an in_stock installed product be attached to a case?",
+   "default_level": "remind",
+   "rule_ids": [
+    "r_ip_in_use_create_new_case",
+    "r_ip_in_use_update_case"
+   ]
+  },
+  {
+   "statement_ids": [
+    "policy:Security:1",
+    "policy:Manager:2"
+   ],
+   "question": "Security limits updates to cases the user owns, is assigned to or whose group they are in. Does this hold for a manager who reassigns cases across groups, and for the default admin role?",
+   "default_level": "remind",
+   "rule_ids": [
+    "r_case_relationship"
+   ]
+  },
+  {
+   "statement_ids": [
+    "policy:Registering:2",
+    "policy:General:5"
+   ],
+   "question": "Registering says to collect inputs, but the assistant must not ask the user for information. Must missing inputs come only from the request and the records?",
+   "default_level": "remind"
+  },
+  {
+   "statement_ids": [
+    "policy:preamble:4"
+   ],
+   "question": "The text says 'ing record relationships'. Which word is meant (for example 'existing')?",
+   "default_level": "remind"
+  }
+ ]
+}

@@ -2,6 +2,7 @@
   "note": "Task sets and which agent model ran their tasks. Built by build_registry.py from the set files and the result folders; do not edit.",
   "scanned_results": {
     "automationbench": 1083,
+    "csm": 37,
     "handbook": 247,
     "tau2": 860,
     "unreadable": 0
@@ -67,9 +68,44 @@
       "rule": "CSM oracle tasks without same-name verifiers (upstream issue 23); the 12 policy versions with the longest policy text; one task per version (seed 20261108); first look at the domain",
       "seed": null,
       "n": 12,
+      "seen_by": {
+        "aws/claude-haiku-5-5": [
+          "csm_base",
+          "csm_smoke"
+        ]
+      },
+      "seen_n": {
+        "aws/claude-haiku-5-5": 12
+      },
+      "label": "tuning"
+    },
+    {
+      "id": "csm-tune2",
+      "benchmark": "csm",
+      "path": "benchmarks/enterpriseops_gym/tasks/csm_sets.json",
+      "key": "tune2",
+      "id_field": null,
+      "status": "tuning",
+      "rule": "CSM tasks without same-name verifiers, minus csm-probe; seed 20261109; 18 tuning tasks",
+      "seed": null,
+      "n": 18,
       "seen_by": {},
       "seen_n": {},
       "label": "tuning"
+    },
+    {
+      "id": "csm-heldout",
+      "benchmark": "csm",
+      "path": "benchmarks/enterpriseops_gym/tasks/csm_sets.json",
+      "key": "heldout",
+      "id_field": null,
+      "status": "heldout",
+      "rule": "CSM tasks without same-name verifiers, minus csm-probe and csm-tune2 (seed 20261109); run once, after freeze",
+      "seed": null,
+      "n": 53,
+      "seen_by": {},
+      "seen_n": {},
+      "label": "held-out"
     },
     {
       "id": "itsm-tune",

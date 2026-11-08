@@ -1,0 +1,20 @@
+# CSM (EnterpriseOps-Gym), 2026-11-08: the HANDBOOK combo (procedure tools, must-not gate with the gate fix, sop_literal, readback_sop) on the CSM skill package.
+policy:
+  package: packages/csm/{policy}/skill_v1/package.json
+  sources: {data: false, discovery: false, request: false}
+  authority: {supersedes: false}
+  checkers:
+    rules: off
+    gate: {mode: on, model: aws/claude-haiku-5-5, scope: active_procedures, min_strength: none, missing_needs_read: true, trigger_check: true}
+    verifier: {mode: off}
+    write_checks: off  # separate hooks, as measured
+  organizers:
+    procedure_tools: on
+    guide: off
+    loop: off
+    sop_tracker: off
+    navigator: off
+    requirements_tracker: off
+  obligations: {producers: []}
+  decisions: {mode: off}
+  notes: {work_method: [sop_literal, readback_sop]}

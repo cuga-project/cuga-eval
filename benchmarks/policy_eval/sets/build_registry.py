@@ -128,6 +128,24 @@ SPECS = [
         "CSM oracle tasks without same-name verifiers (upstream issue 23); the 12 policy versions with the longest policy "
         "text; one task per version (seed 20261108); first look at the domain",
     ),
+    S(
+        "csm-tune2",
+        "csm",
+        "benchmarks/enterpriseops_gym/tasks/csm_sets.json",
+        "tune2",
+        None,
+        "tuning",
+        "CSM tasks without same-name verifiers, minus csm-probe; seed 20261109; 18 tuning tasks",
+    ),
+    S(
+        "csm-heldout",
+        "csm",
+        "benchmarks/enterpriseops_gym/tasks/csm_sets.json",
+        "heldout",
+        None,
+        "heldout",
+        "CSM tasks without same-name verifiers, minus csm-probe and csm-tune2 (seed 20261109); run once, after freeze",
+    ),
     S("itsm-tune", "itsm", f"{PE}.json", "itsm.tune", None, "tuning", f"{ITSM_POOL}; 10 tuning tasks"),
     S(
         "itsm-unseen",
