@@ -232,9 +232,9 @@ footer{padding:40px 0 60px;color:var(--muted);font-size:13.5px;border-top:1px so
     </g>
   </svg>
   <div class="wrap content">
-    <div class="eyebrow">CUGA research · policy and SOP adherence · updated 2026-11-05</div>
+    <div class="eyebrow">CUGA research · policy and SOP adherence · updated 2026-11-08</div>
     <h1>Making CUGA follow <span>policies and SOPs</span> it was not built for</h1>
-    <p class="lead">Three weeks, 6 benchmark domains, 3 agent models and 23 methods and setups, most of them built from published work, plus one new design: obligations. This page shows what we built, what we measured, and what we learned, including the methods that did not work.</p>
+    <p class="lead">Four weeks, 6 benchmark domains, 4 agent models and 27 methods and setups, most of them built from published work, plus one new design: obligations. The policy system now lives in its own repository, polisys. This page shows what we built, what we measured, and what we learned, including the methods that did not work.</p>
     <div class="cta">
       <a class="btn primary" href="#learnings">Read the learnings</a>
       <a class="btn" href="#results">See the results</a>
@@ -244,7 +244,7 @@ footer{padding:40px 0 60px;color:var(--muted);font-size:13.5px;border-top:1px so
       <div class="kpi"><div class="v ours" data-count="18.9" data-prefix="+" data-dec="1">+18.9</div><div class="k">points on AutomationBench tasks held out when first run, gpt-oss-120b</div><div class="n">23.8% → 42.7%, p = 0.001 · held-out when first run, the set is now labeled seen; second set +8.8 (p = 0.115)</div></div>
       <div class="kpi"><div class="v" data-count="139" data-suffix=" / 153">139 / 153</div><div class="k">HANDBOOK rubric items, Gemini 3.8 + write gate</div><div class="n">vs 100 for CUGA alone · in-sample · no gain with gpt-oss as gate</div></div>
       <div class="kpi"><div class="v" data-count="-30" data-dec="0">−30</div><div class="k">points on τ² airline with the Telecom SOP tracker</div><div class="n">17/20 → 11/20 · rules lost their exceptions</div></div>
-      <div class="kpi"><div class="v" data-count="143" data-dec="0">143</div><div class="k">logged changes, each with its reason</div><div class="n"><code>policy_eval/changes.md</code></div></div>
+      <div class="kpi"><div class="v ours" data-count="93" data-suffix="%" data-dec="0">93%</div><div class="k">of rule records found by reading every record at the start (listing)</div><div class="n">vs 29% with keyword search · gpt-oss strict 12.4% → 23.8% · tuning set</div></div>
     </div>
   </div>
 </header>
@@ -260,7 +260,7 @@ footer{padding:40px 0 60px;color:var(--muted);font-size:13.5px;border-top:1px so
       <div class="card rv"><div class="k">Goal</div><h4>Follow rules that arrive with the task</h4><p>Rules hidden in emails and sheets, long SOP documents, step-by-step support flows and rule lists with exceptions. Start with small open models (gpt-oss-120b), not frontier models.</p></div>
       <div class="card rv"><div class="k">What works</div><h4>Control for weak agents, narrow checks for strong ones</h4><p>Full control raised gpt-oss by +18.9 and +8.8 points on two sets that were held out when first run (now labeled seen). The same control hurt Gemini 3.8. For Gemini, a narrow check before each write helped; with gpt-oss as the checker, the same check gave no gain.</p></div>
       <div class="card rv"><div class="k">What does not</div><h4>More knowledge, and imprecise feedback</h4><p>The SOP as a graph of tools gave no gain. Checklists with wrong items made the agent change correct work. Naming a failed check without its value adds only +4 to +6 points. Rules shown without their exceptions caused refusals.</p></div>
-      <div class="card rv"><div class="k">Still open</div><h4>Held-out proof on the stable code</h4><p>The stable base is built: one policy package, one config, one runner, an obligation ledger. No package is held-out, HANDBOOK gains are on the 3 public tasks we built on, and the Telecom gain is not significant (p = 0.146). The best profiles are measured again on the stable code first. See <a href="#next">what comes next</a>.</p></div>
+      <div class="card rv"><div class="k">Still open</div><h4>Held-out proof per model</h4><p>On 35 new tasks run once (fresh3), polisys raised gpt-oss by +10.4 partial (p = 0.028) and gave Haiku 5.5 no gain, so it stays off for Haiku. Reading every record finds 93% of the rules, but finding is not following: runs that had every rule still passed strict in 25%. Next is one frozen run on a fresh set. See <a href="#next">what comes next</a>.</p></div>
     </div>
   </div>
 </section>
@@ -292,7 +292,7 @@ footer{padding:40px 0 60px;color:var(--muted);font-size:13.5px;border-top:1px so
 <section class="s" id="timeline">
   <div class="wrap">
     <div class="eyebrow">What we did</div>
-    <h2>Three weeks, day by day</h2>
+    <h2>Four weeks, day by day</h2>
     <p class="sub">Each step came from a measured result in the step before it.</p>
     <div class="tl">
       <div class="item rv"><div class="date">2026-10-14 · 15</div><h4>Playbooks on AppWorld</h4><p>Claude wrote 7 general playbooks from GLM-5.3-flash failures; gpt-oss-120b with playbooks went from 30.0% to 45.6% of tasks. In-sample: the playbooks came from the same 90 tasks.</p><div class="tags"><span class="chip flat">AppWorld</span><span class="chip flat">gpt-oss-120b</span></div></div>
@@ -302,6 +302,10 @@ footer{padding:40px 0 60px;color:var(--muted);font-size:13.5px;border-top:1px so
       <div class="item rv"><div class="date">2026-11-02</div><h4>Requirements tracker, oracle bound, HANDBOOK guide</h4><p>Correct feedback from the grader: +35.9 points; our own checklist: +3.5. Function calling beat CodeAct for gpt-oss (20.9% → 33.7%). On HANDBOOK, the procedure guide and the SOP loop.</p><div class="tags"><span class="chip flat">DeepSeek-V4-Pro</span><span class="chip flat">gpt-oss-120b</span></div></div>
       <div class="item rv"><div class="date">2026-11-03</div><h4>First held-out gain, and first measured harm</h4><p>B4T-F on AutomationBench tasks that were held out when first run (the set is now labeled seen): +18.9 (p = 0.001). τ² Telecom SOP tracker: +12.4 (p = 0.146). The same tracker on airline: −30. Four CUGA pull requests opened (#1103–#1107).</p><div class="tags"><span class="chip good">held-out when run</span><span class="chip bad">harm on airline</span></div></div>
       <div class="item rv"><div class="date">2026-11-04</div><h4>Control by agent strength, graphs and the write gate</h4><p>Gemini: B4T-F −5.8 and SOP loop −7.8, so control hurts a strong agent. τ² navigator offline: 24 of 26 failures caught. HANDBOOK with Gemini: graph tools alone 0; graph + write gate 100 → 139 of 153.</p><div class="tags"><span class="chip ours">design principle</span><span class="chip flat">Gemini 3.8</span></div></div>
+      <div class="item rv"><div class="date">2026-11-05</div><h4>Stable architecture and the problems deck</h4><p>Stabilization phases 0–6 done: one package format, one config, one runner, one audit log, tag <code>policy/stable-v1</code>. A deck of seven problems across benchmarks. Follow-up fixes pre-registered before any code.</p><div class="tags"><span class="chip ours">architecture</span></div></div>
+      <div class="item rv"><div class="date">2026-11-06</div><h4>CUGA setup audit, and trials that were not independent</h4><p>Ten setup arms (tool binding, search, listed tools, prompt placement, reflection): none clearly raised strict pass. The LiteLLM gateway returned stored replies for repeated requests, so trials now run with the cache off. Follow-up fixes failed their criteria and were not adopted.</p><div class="tags"><span class="chip warn">lesson</span><span class="chip flat">Haiku 5.5</span><span class="chip flat">gpt-oss-120b</span></div></div>
+      <div class="item rv"><div class="date">2026-11-07</div><h4>polisys repository, rules for fair work, first run on new tasks</h4><p>polisys moved to its own repository; PRs #1 and #2 merged (task date in every check, general wording, whole-word evidence). New rules for coding agents and the no-harm rule. fresh3 (35 tasks never run, 3 trials): polisys +10.4 for gpt-oss (p = 0.028), −1.4 for Haiku; general agent rules +7.7 for Haiku (p = 0.026). A trace of 161 failures: 65 never read the rule. A benchmark clock bug was found and fixed in the adapter.</p><div class="tags"><span class="chip good">held-out when run</span><span class="chip flat">Haiku 5.5</span><span class="chip flat">gpt-oss-120b</span></div></div>
+      <div class="item rv"><div class="date">2026-11-08</div><h4>Read every record at the start (listing)</h4><p>polisys reads every record through the agent's read tools; a small model keeps the ones that state rules. Rule records found: 29% → 95% offline, 93% live. gpt-oss strict 12.4% → 23.8% against keyword search; Haiku no gain and no harm. polisys PR #3. All policy-eval work sits on one clean local branch.</p><div class="tags"><span class="chip warn">tuning set</span><span class="chip good">gpt-oss</span><span class="chip flat">Haiku 5.5</span></div></div>
     </div>
   </div>
 </section>
@@ -310,13 +314,13 @@ footer{padding:40px 0 60px;color:var(--muted);font-size:13.5px;border-top:1px so
 <section class="s alt" id="benchmarks">
   <div class="wrap">
     <div class="eyebrow">Benchmarks and models</div>
-    <h2>Six benchmark domains, three agent models</h2>
+    <h2>Six benchmark domains, four agent models</h2>
     <p class="sub">The policy layer itself uses small models: gpt-oss-120b for reading and checking, and Kev-4B for narrow yes/no questions (about 1 s and $0.000002 per question).</p>
     <div class="tw rv">
       <table>
         <thead><tr><th>Benchmark</th><th>Policy shape</th><th>Score</th><th>Tasks we ran</th><th>Agent models</th></tr></thead>
         <tbody>
-          <tr><td><b>AutomationBench</b> (Zapier)</td><td>Rules scattered in data</td><td>partial; AA (broken guardrail = 0)</td><td>35-task subset; 35 held out when run; 31 held out when run (set 2); both sets now labeled seen</td><td>gpt-oss-120b, DeepSeek-V4-Pro, Gemini 3.8 Flash</td></tr>
+          <tr><td><b>AutomationBench</b> (Zapier)</td><td>Rules scattered in data</td><td>partial; AA (broken guardrail = 0)</td><td>35-task subset; 35 held out when run; 31 held out when run (set 2); fresh3: 35 never run, run once frozen on 2026-11-07, then traced; all now labeled seen or tuning</td><td>gpt-oss-120b, DeepSeek-V4-Pro, Haiku 5.5, Gemini 3.8 Flash</td></tr>
           <tr><td><b>HANDBOOK.md</b> (Surge)</td><td>Given SOP with procedures</td><td>rubric items</td><td>3 public tasks (full set requested from Surge)</td><td>gpt-oss-120b, DeepSeek-V4-Pro, Gemini 3.8 Flash</td></tr>
           <tr><td><b>τ² Telecom</b></td><td>Step-by-step flow</td><td>task pass</td><td>test 40 × 2; dev 20; fresh 40 prepared</td><td>DeepSeek-V4-Pro</td></tr>
           <tr><td><b>τ² airline</b></td><td>Rule list with exceptions</td><td>task pass</td><td>test 20</td><td>DeepSeek-V4-Pro</td></tr>
@@ -329,6 +333,7 @@ footer{padding:40px 0 60px;color:var(--muted);font-size:13.5px;border-top:1px so
     <div class="grid">
       <div class="card rv"><div class="k">Small, open</div><h4>gpt-oss-120b</h4><p>The target model. CUGA alone: 23.8% partial on AutomationBench tasks held out when first run (set now labeled seen), 33.3% of HANDBOOK items.</p></div>
       <div class="card rv"><div class="k">Large</div><h4>DeepSeek-V4-Pro</h4><p>58.8% of HANDBOOK items alone; 19 of 40 τ² Telecom test tasks alone.</p></div>
+      <div class="card rv"><div class="k">Mid to strong</div><h4>Haiku 5.5</h4><p>fresh3: CUGA alone 30.5% strict, 66.5% partial; with the general agent rules 41.0% and 74.1%. polisys gives it no gain.</p></div>
       <div class="card rv"><div class="k">Strong</div><h4>Gemini 3.8 Flash</h4><p>80.9% partial on AutomationBench set 2, with 1 broken guardrail in 60 runs. Needs 400 steps on HANDBOOK.</p></div>
     </div>
   </div>
@@ -338,7 +343,7 @@ footer{padding:40px 0 60px;color:var(--muted);font-size:13.5px;border-top:1px so
 <section class="s" id="methods">
   <div class="wrap">
     <div class="eyebrow">Methods</div>
-    <h2>23 methods and setups we tested, and one new design</h2>
+    <h2>27 methods and setups we tested, and one new design</h2>
     <p class="sub">Each card names the published method it reuses, the CUGA hook where it acts, and what it did. Filter by where the method acts.</p>
     <div class="filters" id="mfilters" role="group" aria-label="Filter methods">
       <button class="on" data-f="all">All</button>
@@ -367,11 +372,11 @@ footer{padding:40px 0 60px;color:var(--muted);font-size:13.5px;border-top:1px so
     <label class="toggle"><input type="checkbox" id="hoOnly"> Show only results on sets held out when run</label>
     <div class="tw rv">
       <table class="mx">
-        <thead><tr><th>Method · from</th><th>gpt-oss-120b (small)</th><th>DeepSeek-V4-Pro (large)</th><th>Gemini 3.8 Flash (strong)</th></tr></thead>
+        <thead><tr><th>Method · from</th><th>gpt-oss-120b (small)</th><th>DeepSeek-V4-Pro (large)</th><th>Gemini 3.8 Flash (strong)</th><th>Haiku 5.5 (mid to strong)</th></tr></thead>
         <tbody id="mxbody"></tbody>
       </table>
     </div>
-    <div class="note warn"><b>Read with care:</b> no method was tested on all three models. Only one result was held out when first run and is significant (its set is now labeled seen): B4T-F with gpt-oss on AutomationBench (+18.9, p = 0.001). Its second held-out check gave +8.8 (p = 0.115), on newer code. AB = AutomationBench, HB = HANDBOOK.</div>
+    <div class="note warn"><b>Read with care:</b> no method was tested on all four models. Three results were held out when first run and are significant (their sets are now labeled seen or tuning): B4T-F with gpt-oss on AutomationBench (+18.9, p = 0.001), polisys with gpt-oss on fresh3 (+10.4, p = 0.028), and the general agent rules with Haiku on fresh3 (+7.7, p = 0.026). The listing result is on fresh3 after its failures were traced, so it is a tuning result. AB = AutomationBench, HB = HANDBOOK.</div>
   </div>
 </section>
 
@@ -379,7 +384,7 @@ footer{padding:40px 0 60px;color:var(--muted);font-size:13.5px;border-top:1px so
 <section class="s" id="learnings">
   <div class="wrap">
     <div class="eyebrow">Learnings</div>
-    <h2>Twenty-three lessons, each with its number and source</h2>
+    <h2>Thirty lessons, each with its number and source</h2>
     <p class="sub">These lessons set the current design. "Changes N" means entry N of <code>benchmarks/policy_eval/changes.md</code>.</p>
     <div class="lessons" id="lessons"></div>
   </div>
@@ -390,7 +395,7 @@ footer{padding:40px 0 60px;color:var(--muted);font-size:13.5px;border-top:1px so
   <div class="wrap">
     <div class="eyebrow">System architecture</div>
     <h2>One policy package, one runtime, attached to CUGA's lifecycle hooks</h2>
-    <p class="sub">The architecture as built at the stability gate (2026-11-05, gate commit <code>b2d6e0e96</code>). Click any box to see what it does, where the code is, and how far it is built. Dashed boxes were built in the stabilization plan and have not run live. Full text: <a href="../superpowers/specs/2026-11-04-policy-system-design.md">design spec</a>.</p>
+    <p class="sub">The architecture as built at the stability gate (2026-11-05, gate commit <code>b2d6e0e96</code>). Since 2026-11-07 the policy system is its own package, <code>polisys</code> (<code>cuga-project/polisys</code>); CUGA calls it through the lifecycle hooks of PR #1103. Click any box to see what it does, where the code is, and how far it is built. Dashed boxes were built in the stabilization plan and have not run live. Full text: <a href="../superpowers/specs/2026-11-04-policy-system-design.md">design spec</a>.</p>
     <div class="arch rv">
       <svg id="archsvg" viewBox="0 0 1000 520" role="group" aria-label="Policy system architecture">
         <defs><marker id="ar" markerWidth="8" markerHeight="8" refX="7" refY="4" orient="auto"><path d="M0 0 L8 4 L0 8 z" fill="#94a3b8"/></marker></defs>
@@ -414,11 +419,11 @@ footer{padding:40px 0 60px;color:var(--muted);font-size:13.5px;border-top:1px so
         <text x="480" y="397" font-size="12" fill="#64748b">tool results feed back into intake</text>
       </svg>
     </div>
-    <div class="panel" id="panel" aria-live="polite"><h4>Select a box</h4><p>Each box shows the component, its files in <code>~/dev/cuga-agent-gate/src/cuga/policy_layer/</code>, its status and the evidence for it.</p></div>
+    <div class="panel" id="panel" aria-live="polite"><h4>Select a box</h4><p>Each box shows the component, its files in <code>polisys/src/polisys/</code> (earlier <code>cuga/policy_layer/</code> in the gate repo), its status and the evidence for it.</p></div>
 
     <h3>Where each method acts during one agent turn</h3>
     <div class="hooks rv">
-      <div class="hk"><div class="h">on_user_message</div><ul><li>Policy discovery</li><li>Obligations from the request</li><li>SOP tracker picks chapters (τ²)</li></ul></div>
+      <div class="hk"><div class="h">on_user_message</div><ul><li>Policy discovery, or the listing of every record</li><li>Obligations from the request</li><li>SOP tracker picks chapters (τ²)</li></ul></div>
       <div class="hk"><div class="h">before_llm_call</div><ul><li>Brief and checklist</li><li>SOP loop: one case per turn</li></ul></div>
       <div class="hk"><div class="h">before_tool_call</div><ul><li>1. Code rules + Cedar</li><li>2. Judgment gate</li><li>3. Verifier (level 3)</li><li>Kev questions: online intake only</li><li>Guide check before the first write</li></ul></div>
       <div class="hk"><div class="h">after_tool_call</div><ul><li>Online intake of rules</li><li>Reminders in tool results</li><li>Write log, ledger update</li></ul></div>
@@ -441,7 +446,7 @@ footer{padding:40px 0 60px;color:var(--muted);font-size:13.5px;border-top:1px so
         <thead><tr><th>Policy shape</th><th>Route</th><th>Evidence</th><th>Status</th></tr></thead>
         <tbody>
           <tr><td>Given SOP with procedures</td><td>Package + procedure tools + judgment gate + obligations; guide and loop at level 3</td><td>Gemini 100 → 139 of 153; DeepSeek loop + guide +14.2; gpt-oss as gate: 49 → 54</td><td><span class="chip warn">in-sample</span></td></tr>
-          <tr><td>Rules scattered in data</td><td>Online intake + discovery + newer rule wins + Kev write checks + tracker (B4T-F)</td><td>gpt-oss +18.9 and +8.8; Gemini −5.8</td><td><span class="chip good">held-out</span></td></tr>
+          <tr><td>Rules scattered in data</td><td>Online intake + discovery or listing + newer rule wins + Kev write checks + tracker (B4T-F)</td><td>gpt-oss +18.9, +8.8 and +10.4 (fresh3); listing strict +11.4 more; Haiku −1.4; Gemini −5.8</td><td><span class="chip good">held-out</span></td></tr>
           <tr><td>Step-by-step flow</td><td>SOP tracker, only when the profile declares a flow; navigator at hand-off</td><td>Telecom +12.5 (p = 0.146); navigator 24/26 offline</td><td><span class="chip warn">not proven</span></td></tr>
           <tr><td>Rule list with exceptions</td><td>Hard rules; the brief shows each rule with its exceptions; no SOP tracker</td><td>Tracker without exceptions: 17/20 → 11/20</td><td><span class="chip warn">built, not run</span></td></tr>
         </tbody>
@@ -522,7 +527,7 @@ footer{padding:40px 0 60px;color:var(--muted);font-size:13.5px;border-top:1px so
 <section class="s" id="testing">
   <div class="wrap">
     <div class="eyebrow">How we test</div>
-    <h2>Nine rules for a fair result</h2>
+    <h2>Eleven rules for a fair result</h2>
     <p class="sub">Most were added after a result turned out to be wrong.</p>
     <div class="grid">
       <div class="card rv"><div class="k">Rule 1</div><h4>All arms at the same time</h4><p>From one frozen code snapshot. An arm A run 3 hours earlier gave a false +13.8.</p></div>
@@ -534,6 +539,8 @@ footer{padding:40px 0 60px;color:var(--muted);font-size:13.5px;border-top:1px so
       <div class="card rv"><div class="k">Rule 7</div><h4>Official splits and simulator</h4><p>The first 20 Telecom tasks gave 18/20; the official test split gave 19/40.</p></div>
       <div class="card rv"><div class="k">Rule 8</div><h4>Replay before live</h4><p>Run a new checker over saved runs first. Replay predicted no gate effect on ITSM for about $0.53.</p></div>
       <div class="card rv"><div class="k">Rule 9</div><h4>Two fidelity reports</h4><p>Test rules against the policy text and against real use. On ITSM the two disagree.</p></div>
+      <div class="card rv"><div class="k">Rule 10</div><h4>No harm, per model</h4><p>policy − no policy ≥ −2 × SE on strict and partial, for every model and benchmark, never averaged. A model that fails has the policy system off.</p></div>
+      <div class="card rv"><div class="k">Rule 11</div><h4>Decide the rule before the run</h4><p>Write the metric and threshold first, run independent trials with the cache off, and run a fresh set once, frozen, with 3 trials. A set whose failures we traced becomes a tuning set.</p></div>
     </div>
   </div>
 </section>
@@ -542,8 +549,18 @@ footer{padding:40px 0 60px;color:var(--muted);font-size:13.5px;border-top:1px so
 <section class="s alt" id="code">
   <div class="wrap">
     <div class="eyebrow">Where the code is</div>
-    <h2>Best version per benchmark and model, kept in code</h2>
-    <p class="sub">The policy layer lives on local branches of <code>~/dev/cuga-agent-gate</code> and is never pushed. Switches and recipes are in <code>benchmarks/policy_eval/best_profiles.json</code>. The stable code is on branch <code>policy/stable</code> (tag <code>policy/stable-v1</code>); these branches stay as records of measured code.</p>
+    <h2>Three repositories, and the best version per benchmark kept in code</h2>
+    <p class="sub">Three places since 2026-11-07. A run combines the CUGA code at the gate tag with a polisys snapshot (<code>benchmarks/policy_eval/snapshot_polisys.sh</code>). The table below lists the older measured branches of the gate repo; they stay as records of measured code.</p>
+    <div class="tw rv" style="margin-bottom:22px">
+      <table>
+        <thead><tr><th>Repository · branch</th><th>Holds</th><th>State</th></tr></thead>
+        <tbody>
+          <tr><td><code>cuga-project/polisys</code> · <code>main</code></td><td>The policy system: package, intake, checks, organizers, ledger, audit; 3,460 tests</td><td>PRs #1 and #2 merged (2026-11-07); PR #3 listing open</td></tr>
+          <tr><td><code>cuga-eval</code> · <code>policy-eval</code></td><td>Harness, 4 adapters, profiles, task sets, replays, pre-registrations, results docs</td><td>Local branch on <code>origin/main</code>, everything committed; no PR yet</td></tr>
+          <tr><td><code>cuga-agent</code> · gate repo <code>policy/stable</code></td><td>CUGA with hooks, FC dynamic binding, claim retry (tag <code>policy/stable-v1</code>)</td><td>Local; the CUGA parts are PRs #1103–#1107</td></tr>
+        </tbody>
+      </table>
+    </div>
     <div class="tw rv">
       <table>
         <thead><tr><th>Benchmark · model</th><th>Profile</th><th>Branch · commit</th><th>Result</th></tr></thead>
@@ -558,12 +575,13 @@ footer{padding:40px 0 60px;color:var(--muted);font-size:13.5px;border-top:1px so
         </tbody>
       </table>
     </div>
-    <h3>Delivered to CUGA: four open pull requests</h3>
+    <h3>Delivered to CUGA: four open pull requests and one issue</h3>
     <div class="grid">
-      <div class="card rv"><div class="k">#1103</div><h4>Lifecycle hooks</h4><p>9 hooks in <code>CugaAgent</code>. Every policy check runs at a hook.</p></div>
-      <div class="card rv"><div class="k">#1104</div><h4>Dynamic tool binding</h4><p>With 549 tools, binds only the tools of apps in use: 12–43 per call.</p></div>
-      <div class="card rv"><div class="k">#1105</div><h4>Retry on an empty claim</h4><p>gpt-oss reported actions as done with zero tool calls; CUGA now retries once.</p></div>
-      <div class="card rv"><div class="k">#1107</div><h4>SDK tools grouped by app</h4><p>Closes issue #1106. Binding by app and <code>find_tools</code> need each tool's app.</p></div>
+      <div class="card rv"><div class="k">#1103 · review required</div><h4>Lifecycle hooks</h4><p>9 hooks in <code>CugaAgent</code>. Every policy check runs at a hook.</p></div>
+      <div class="card rv"><div class="k">#1104 · review required</div><h4>Dynamic tool binding</h4><p>With 549 tools, binds only the tools of apps in use: 12–43 per call.</p></div>
+      <div class="card rv"><div class="k">#1105 · review required</div><h4>Retry on an empty claim</h4><p>gpt-oss reported actions as done with zero tool calls; CUGA now retries once.</p></div>
+      <div class="card rv"><div class="k">#1107 · changes requested</div><h4>SDK tools grouped by app</h4><p>Closes issue #1106. Binding by app and <code>find_tools</code> need each tool's app.</p></div>
+      <div class="card rv"><div class="k">Issue #1123</div><h4>Sub-agents in function calling</h4><p>Spawned children bind all 551 tools (about 27× the cost), and the spawn tools are dropped under dynamic binding.</p></div>
     </div>
   </div>
 </section>
@@ -572,17 +590,15 @@ footer{padding:40px 0 60px;color:var(--muted);font-size:13.5px;border-top:1px so
 <section class="s" id="next">
   <div class="wrap">
     <div class="eyebrow">Next</div>
-    <h2>The stable architecture is built; experiments come next</h2>
-    <p class="sub">Phases 0 to 6 of the <a href="../superpowers/plans/2026-11-04-policy-architecture-stabilization.md">stabilization plan</a> are done. The gate has 10 checks: 9 pass and 1 is a partial pass (compile coverage). The gate report is <code>benchmarks/policy_eval/STABILITY_REPORT.md</code>; the stable code is tagged <code>policy/stable-v1</code> on a local branch of the gate repo. No experiment was run: the 12 smoke runs of the gate cost $1.40.</p>
+    <h2>Finish and confirm what is built; no new features</h2>
+    <p class="sub">The stable architecture (phases 0–6 of the <a href="../superpowers/plans/2026-11-04-policy-architecture-stabilization.md">stabilization plan</a>, gate report <code>benchmarks/policy_eval/STABILITY_REPORT.md</code>) is done. What is left confirms results and closes known gaps.</p>
     <div class="grid">
-      <div class="card rv"><div class="k">Phase 0</div><h4>Freeze and clean</h4><p>Commit everything locally on one branch, durable snapshots, composed env files, task-set registry, old prototype removed.</p></div>
-      <div class="card rv"><div class="k">Phase 1</div><h4>Policy package</h4><p>One format, converters with no lost fields, validator with coverage and conflicts.</p></div>
-      <div class="card rv"><div class="k">Phase 2</div><h4>Config, runtime, runner</h4><p>One YAML, one assembly, one runner and result schema for 4 benchmarks. Saved results must reproduce known numbers.</p></div>
-      <div class="card rv"><div class="k">Phase 3</div><h4>Compile coverage</h4><p>Repairs in the pipeline, audit for any package, skill makes full packages, pipeline vs skill measured.</p></div>
-      <div class="card rv"><div class="k">Phase 4</div><h4>Obligations</h4><p>Ledger, producers, replay report. Live only after the acceptance bar.</p></div>
-      <div class="card rv"><div class="k">Phase 5</div><h4>Levels, priorities, retrieval</h4><p>Level switch, priority classes, swappable retrieval with an offline test bench, rule-list route.</p></div>
-      <div class="card rv"><div class="k">Phase 6</div><h4>Stability gate</h4><p>10 checks run, migration code removed, local tag set, docs updated to match the code.</p></div>
-      <div class="card rv"><div class="k">After the gate</div><h4>Re-baseline, then plan experiments</h4><p>Best profiles are measured again on stable code first. The open decisions are listed in the gate report and are decided with the user, not in advance.</p></div>
+      <div class="card rv"><div class="k">1 · Confirm</div><h4>One frozen run on a fresh set</h4><p>fresh4, 35 tasks never run, gpt-oss, no policy / keyword search / listing, 3 trials, decision rule written first. About $15.</p></div>
+      <div class="card rv"><div class="k">2 · Close a gap</div><h4>Notes in table rows</h4><p>Holds and exclusions in single rows are lost in extraction (7 of 17 misses). A general rule, measured on the tuning set first.</p></div>
+      <div class="card rv"><div class="k">3 · Report</div><h4>polisys off for Haiku 5.5 on AutomationBench</h4><p>No gain on fresh3, and a strict loss beyond the no-harm limit in the latest run. General agent rules stay on.</p></div>
+      <div class="card rv"><div class="k">4 · Review</div><h4>HANDBOOK and ITSM adapters</h4><p>Check them against the coding-agent rules, then look at the HANDBOOK tasks again.</p></div>
+      <div class="card rv"><div class="k">5 · Merge</div><h4>CUGA pull requests</h4><p>#1103–#1105 wait for review; #1107 needs the requested changes. polisys PR #3 (listing).</p></div>
+      <div class="card rv"><div class="k">Deferred</div><h4>A general crawler</h4><p>So a user can bring any tools and say where the policies are. Designed in polisys <code>docs/design.md</code>; not built.</p></div>
     </div>
   </div>
 </section>
@@ -596,17 +612,17 @@ footer{padding:40px 0 60px;color:var(--muted);font-size:13.5px;border-top:1px so
       <div class="card rv"><div class="k">Published methods we reused</div>
         <p>ToolGuard (IBM, arXiv 2507.16459) · PolicyGuard (arXiv 2606.29225) · STAGE (arXiv 2608.22538) · PolicyGuide (arXiv 2608.19861) · JevAct (arXiv 2610.38620) · PolicyKG (arXiv 2608.09028) · AWS AgentCore Policy (Cedar) · Parlant ARQs · Rasa CALM · Boaz's semantic verifier (IBM internship report, October 2026) · GraphCompliance (arXiv 2510.26309) · SOPRAG (arXiv 2602.01858) · AWS Automated Reasoning checks (arXiv 2511.09008) · FORGE (arXiv 2602.16708) · AutoCedar (arXiv 2607.03656). Authors' numbers are not reproduced by us. <a href="2026-11-04-graph-and-rule-testing-research.md">Open-source graph and rule-testing notes</a>.</p></div>
       <div class="card rv"><div class="k">Our decks and pages</div>
-        <p><a href="2026-10-21-policy-sota-benchmarks-slides.html">SOTA and benchmarks slides</a> · <a href="2026-11-03-policy-summary-deck.html">Summary deck (11-03)</a> · <a href="2026-11-03-policy-proposal-methods.html">Methods proposal</a> · <a href="2026-11-03-checkpoint-lessons.html">Checkpoint lessons</a> · <a href="policy-flow.html">Policy flow</a> · <a href="2026-10-20-policy-gate-architecture-v2.html">Gate architecture v2</a></p></div>
+        <p><a href="2026-10-21-policy-sota-benchmarks-slides.html">SOTA and benchmarks slides</a> · <a href="2026-11-03-policy-summary-deck.html">Summary deck (11-03)</a> · <a href="2026-11-03-policy-proposal-methods.html">Methods proposal</a> · <a href="2026-11-03-checkpoint-lessons.html">Checkpoint lessons</a> · <a href="2026-11-05-problems-across-benchmarks-deck.html">Problems across benchmarks (11-05)</a> · <a href="2026-11-05-followup-fixes-preregistration.md">Follow-up fixes pre-registration</a> · <a href="2026-11-08-listing-preregistration.md">Listing pre-registration and results</a> · <a href="policy-flow.html">Policy flow</a> · <a href="2026-10-20-policy-gate-architecture-v2.html">Gate architecture v2</a></p></div>
       <div class="card rv"><div class="k">HANDBOOK SOP graphs</div>
         <p><a href="2026-11-02-crestwood-sop-graph.html">Crestwood (HR)</a> · <a href="2026-11-02-medical-sop-graph.html">CareIG (medical)</a> · <a href="2026-11-02-insurance-sop-graph.html">Vanguard (insurance)</a> · <a href="2026-11-02-handbook-side-by-side.html">Side-by-side runs</a></p></div>
       <div class="card rv"><div class="k">Records</div>
-        <p><code>benchmarks/policy_eval/changes.md</code> (143 changes) · <code>best_profiles.json</code> · <code>policy_eval/rule_audit/</code> · <code>policy_eval/store_gate_replay/</code> · <a href="../superpowers/specs/2026-11-04-policy-system-design.md">Design spec v2</a> · <a href="../superpowers/plans/2026-11-04-policy-architecture-stabilization.md">Stabilization plan</a> · spend ledger <code>benchmarks/policy_pilot_ledger.jsonl</code> ($1,633.54 of $2,000)</p></div>
+        <p><code>benchmarks/policy_eval/changes.md</code> (143 changes) · <code>best_profiles.json</code> · <code>policy_eval/rule_audit/</code> · <code>policy_eval/store_gate_replay/</code> · <a href="../superpowers/specs/2026-11-04-policy-system-design.md">Design spec v2</a> · <a href="../superpowers/plans/2026-11-04-policy-architecture-stabilization.md">Stabilization plan</a> · spend ledger <code>benchmarks/policy_pilot_ledger.jsonl</code> ($1,781.01 of $2,000 on 2026-11-08; about $3.5 of judge calls for the listing check are not in it) · polisys PRs <a href="https://github.com/cuga-project/polisys/pull/3">#3</a> and the merged #1, #2</p></div>
     </div>
   </div>
 </section>
 </main>
 
-<footer><div class="wrap">CUGA policy and SOP adherence research · updated 2026-11-05 · Numbers from <code>changes.md</code>, <code>best_profiles.json</code> and the run records. In-sample results are marked as such.</div></footer>
+<footer><div class="wrap">CUGA policy and SOP adherence research · updated 2026-11-08 · Numbers from <code>changes.md</code>, <code>best_profiles.json</code> and the run records. In-sample results are marked as such.</div></footer>
 
 <script>
 (function(){
@@ -619,6 +635,7 @@ const M = [
  {f:'advice', n:'Procedure router', from:'SOPRAG · GraphCompliance (card stage)', hook:'before_tool_call', what:'A small model picks the procedure for a tool call from short cards (name, when it applies).', r:[['offline','gpt-oss 87.7% top-1, BM25 69.2% (agreement with DeepSeek labels)','ours','offline']], st:['flat','not live yet']},
  {f:'advice', n:'SOP graph as agent tools', from:'STAGE · PolicyGuide · PolicyKG', hook:'tools', what:'The SOP as a graph the agent can query: list procedures, open one with its links, templates and rules, add business days.', r:[['Gemini','HB 0 (Crestwood 16 = 16, 6 runs)','flat','in-sample']], st:['bad','no gain alone']},
  {f:'advice', n:'Long-SOP discovery', from:'Boaz retrieval + expansion', hook:'on_user_message', what:'Finds the procedure for each case (BM25 + Kev) and expands one hop along links, templates and general rules.', r:[['offline','right procedure 74% vs 64%; checklist recall 24% → 47%','ours','offline']], st:['flat','not live yet']},
+ {f:'advice', n:'Listing: read every record at the start', from:'our failure trace (rules never read) · online intake of ToolGuard style', hook:'on_user_message', what:'Reads every record through the agent\'s own read tools, on a copy of the world. A small model keeps the records that state rules (worksheets always), and they go to the online intake. Replaces 8 keyword searches that reached only mail and chat.', r:[['offline','rule records found at the start: 29% → 95% (fresh3)','ours','offline'],['gpt-oss','AB vs keyword search: partial +5.2, strict +11.4 (p = 0.036); 93.7% of rule records found live','good','in-sample'],['Haiku','AB vs keyword search: −0.5; no harm','flat','in-sample']], st:['warn','on for gpt-oss; fresh4 next']},
  {f:'graph', n:'SOP tracker', from:'STAGE · PolicyGuide, without a graph', hook:'on_user_message', what:'Before each turn, picks SOP chapters and lists checks as done, pending or not needed, with exact quotes.', r:[['DeepSeek','τ² Telecom +12.5 (p = 0.146)','good','test set seen before the freeze'],['DeepSeek','τ² airline −30 (p = 0.031)','bad','held-out']], st:['warn','flow SOPs only']},
  {f:'graph', n:'SOP loop (control mode)', from:'Parlant ARQs · Rasa CALM · Jev', hook:'before_llm_call', what:'Explores, splits the work into cases, asks typed questions, decides in code, then gives CUGA one turn per case.', r:[['DeepSeek','HB +14.2 pooled; AB −8.6 (no SOP)','good','in-sample'],['gpt-oss','HB +6.6','good','in-sample'],['Gemini','HB −7.8','bad','in-sample']], st:['warn','small and mid models']},
  {f:'graph', n:'SOP loop (advisory mode)', from:'Parlant ARQs · Jev', hook:'before_llm_call', what:'The same loop, but decisions need quoted evidence and the agent keeps control: one work turn, no stops.', r:[['Gemini','HB 63 vs 63 of 102 (2 trials)','flat','in-sample']], st:['flat','tie']},
@@ -630,8 +647,11 @@ const M = [
  {f:'reply', n:'Requirements tracker (T-F)', from:'JevAct hand-off checklist, at most 2 revisions', hook:'before_reply', what:'Builds a checklist of required work from the request and rules; at the reply, asks for missing items.', r:[['DeepSeek','AB +3.5 (CI includes 0); ITSM +1.0; HB −10 items','flat','mixed'],['gpt-oss','AB −0.3 / +1.1','flat','in-sample']], st:['warn','kept only in B4T-F']},
  {f:'reply', n:'Deliverables check (D-F)', from:'JevAct hand-off checklist', hook:'before_reply', what:'At the reply, checks that every requested deliverable exists.', r:[['gpt-oss','AB +3.4 / +11.0','good','in-sample']], st:['flat','not in B4T-F']},
  {f:'reply', n:'Obligation ledger (new design)', from:'our oracle results + JevAct hand-off + GraphCompliance', hook:'before_reply', what:'What must exist by the end of a case, with its target and expected values. Checked by code against the write log. Never asks for blocked work.', r:[['bound','names only +3.9 to +6.4; with values +15.9 to +34.1','ours','bound']], st:['warn','design only']},
+ {f:'reply', n:'Follow-up as a check (F1, F2)', from:'our trace: follow-ups pushed writes the agent had rightly left out', hook:'before_reply', what:'F1: a follow-up says it is automated and shows the agent\'s reasons to the checker. F2: a new write is pushed only when the source requires it, with a copied value.', r:[['gpt-oss, Haiku','both fixes −8.6 and −8.0 at first; with a read/write split, still fails the criteria on both models','bad','in-sample']], st:['bad','not adopted']},
  {f:'reply', n:'Critic replay', from:'Model verifiers (PolicyGuard style)', hook:'before_reply', what:'A second model reads the run and lists violations. Tested offline on 31 Gemini runs.', r:[['offline','precision 17.5–38.5%','bad','offline']], st:['bad','not ready']},
  {f:'bound', n:'Function calling instead of CodeAct', from:'setup choice', hook:'agent mode', what:'gpt-oss writes tool calls directly instead of Python code blocks.', r:[['gpt-oss','AB 20.9% → 33.7%','good','tuning']], st:['good','kept']},
+ {f:'bound', n:'General agent rules (AutomationBench)', from:'our failure traces; rules that hold for every task', hook:'system prompt', what:'Short instructions true for every task of the benchmark (for example, read the rules before the first write), in a file next to the adapter, off by default (AB_AGENT_RULES).', r:[['Haiku','AB fresh3 +7.7 partial (p = 0.026), strict +10.5, fewer guardrail breaks','good','held-out'],['gpt-oss','AB fresh3 +2.1 (p = 0.39), strict −3.8','flat','held-out']], st:['good','kept']},
+ {f:'bound', n:'CUGA setup audit (10 arms)', from:'our audit of tools, hooks and prompts', hook:'agent setup', what:'Tool binding, search strategy, listed tools, app descriptions, date in the prompt, brief as a message, reflection, spawned sub-agents.', r:[['Haiku','embedding search −34.4 partial (1 up, 20 down)','bad','tuning'],['both','no arm clearly raised strict pass; in function calling, reflection and the auto-continue classifier never run','flat','tuning']], st:['flat','setup kept']},
  {f:'bound', n:'Hook text as newest message', from:'user idea', hook:'before_llm_call', what:'Sends the brief and notes as the newest message of each model call instead of in the system prompt. A CUGA setting.', r:[['gpt-oss','AB −4.2 vs system prompt (6/10/15, p = 0.454)','flat','held-out']], st:['flat','default stays system']},
  {f:'compile', n:'Rule compile audit', from:'AWS Automated Reasoning · FORGE · AutoCedar', hook:'offline', what:'Tests compiled rules 5 ways: static coverage, decision tests written blind from the policy text, back-translation, replay on real runs, Cedar validator and batch check.', r:[['ITSM','Cedar layer correct: 372 of 372 decisions match','good','offline'],['ITSM','text tests favor gold (97 vs 87 of 182); replay favors the pipeline (2 vs 9 of 93 passed runs denied)','ours','offline']], st:['good','kept']},
  {f:'compile', n:'Rule repair + code rules (v4A)', from:'ToolGuard idea: guards as code, without generated Python', hook:'build', what:'Role grants become Cedar forbids on the other write tools. Verify statements become code rules when a rule type fits (membership, conditional values, required fields).', r:[['ITSM','104 of 182 caught vs 87; 1 false deny; no new denies on real runs','good','offline']], st:['good','best rule set']},
@@ -659,14 +679,20 @@ const C = [
  ['AutomationBench · gpt-oss-120b','B4T-F · p = 0.001',18.9,true],
  ['HANDBOOK · DeepSeek-V4-Pro','SOP loop + guide, pooled 3 rounds',14.2,false],
  ['τ² Telecom · DeepSeek-V4-Pro','SOP tracker · p = 0.146; test set seen before the freeze',12.5,false],
+ ['AutomationBench · gpt-oss-120b','polisys vs CUGA + agent rules, fresh3 · p = 0.028',10.4,true],
  ['AutomationBench · gpt-oss-120b','B4T-F, second held-out set · p = 0.115',8.8,true],
+ ['AutomationBench · Haiku 5.5','general agent rules vs CUGA alone, fresh3 · p = 0.026',7.7,true],
+ ['AutomationBench · gpt-oss-120b','listing vs keyword search, fresh3 after tracing · strict +11.4',5.2,false],
  ['HANDBOOK · gpt-oss-120b','SOP loop + guide',6.6,false],
  ['AutomationBench · gpt-oss-120b','B4T-F, hook text as newest message · p = 0.523',4.6,true],
  ['AutomationBench · DeepSeek-V4-Pro','requirements tracker · CI includes 0',3.5,true],
  ['HANDBOOK · gpt-oss-120b','graph + write gate, gpt-oss as gate',3.3,false],
+ ['AutomationBench · gpt-oss-120b','general agent rules vs CUGA alone, fresh3 · p = 0.39',2.1,true],
  ['HANDBOOK · gpt-oss-120b','raw-SOP gate, gpt-oss as gate',1.3,false],
  ['HANDBOOK · Gemini 3.8','graph as tools only (Crestwood)',0,false],
  ['HANDBOOK · Gemini 3.8','SOP loop, advisory mode',0,false],
+ ['AutomationBench · Haiku 5.5','listing vs keyword search, fresh3 after tracing',-0.5,false],
+ ['AutomationBench · Haiku 5.5','polisys vs CUGA + agent rules, fresh3 · p = 0.77',-1.4,true],
  ['AutomationBench · Gemini 3.8','B4T-F',-5.8,true],
  ['HANDBOOK · Gemini 3.8','SOP loop + guide, control mode',-7.8,false],
  ['AutomationBench · DeepSeek-V4-Pro','SOP loop + guide, no SOP (3 tasks)',-8.6,false],
@@ -687,42 +713,61 @@ const X = [
  ['Rule checks on writes (B-F → B4T-F)','ToolGuard · AgentCore Policy · PolicyGuard · JevAct',
   [['AB','+18.9','p = 0.001, 35 tasks × 2','good',1],['AB','+8.8','p = 0.115, 31 other tasks × 2','good',1]],
   [['AB','+3.2','policy layer, CI −5.1..+12.4','flat',1]],
-  [['AB','−5.8','24 vs 1 guardrails broken','bad',1],['ITSM','4 vs 7 of 10','early version, tuning','bad',0]]],
+  [['AB','−5.8','24 vs 1 guardrails broken','bad',1],['ITSM','4 vs 7 of 10','early version, tuning','bad',0]],
+  [['AB','−1.4','fresh3, polisys vs CUGA + agent rules, p = 0.77','flat',1],['AB','+5.5','35 seen tasks, vs CUGA alone, p = 0.21','flat',0]]],
  ['Requirements tracker','JevAct',
   [['AB','−0.3 / +1.1','2 trials','flat',0]],
   [['AB','+3.5','CI includes 0','flat',1],['ITSM','+1.0','','flat',1],['HB','−10 items','','bad',0]],
+  [],
   []],
  ['SOP tracker','STAGE · PolicyGuide',
   [],
   [['τ² Telecom','+12.5','p = 0.146; test set seen before the freeze','good',0],['τ² airline','−30','p = 0.031','bad',1]],
+  [],
   []],
  ['Procedure guide','Boaz verifier',
   [['HB','+0.7','','flat',0]],
   [['HB','+13.4','pooled 3 rounds','good',0]],
+  [],
   []],
  ['SOP loop + guide','Parlant ARQs · Rasa CALM · Jev',
   [['HB','+6.6','','good',0]],
   [['HB','+14.2','pooled 3 rounds','good',0],['AB','−8.6','no SOP, 3 tasks','bad',0]],
-  [['HB','−7.8','control mode','bad',0],['HB','0.0','advisory mode, 2 trials','flat',0]]],
+  [['HB','−7.8','control mode','bad',0],['HB','0.0','advisory mode, 2 trials','flat',0]],
+  []],
  ['SOP graph as agent tools','STAGE · PolicyGuide · PolicyKG',
   [],[],
-  [['HB','0','Crestwood, 6 runs','flat',0]]],
+  [['HB','0','Crestwood, 6 runs','flat',0]],
+  []],
  ['Graph + must-not write gate','PolicyGuard · ToolGuard · Boaz',
   [['HB','+3.3','gpt-oss as gate; 2 better, 2 worse, 5 ties','flat',0],['HB','+1.3','raw SOP, gpt-oss as gate','flat',0],['ITSM','no effect','offline replay: 2 blocks in 52 runs','flat',0]],
   [['ITSM','harm','offline replay: 5 blocks, all on passed runs','bad',0]],
-  [['HB','+25.5','100 → 139 of 153, 9/9 paired','good',0],['HB','+15.7','raw SOP, no graph','good',0]]],
+  [['HB','+25.5','100 → 139 of 153, 9/9 paired','good',0],['HB','+15.7','raw SOP, no graph','good',0]],
+  []],
  ['SOP navigator','STAGE · JevAct',
   [],
   [['τ² Telecom','24/26','failures caught, offline replay','ours',0]],
+  [],
   []],
  ['Playbooks','Parlant guidelines',
-  [['AppWorld','+15.6','learned on the same tasks','good',0]],[],[]],
+  [['AppWorld','+15.6','learned on the same tasks','good',0]],[],[],
+  []],
  ['Hook text as newest message','user idea',
-  [['AB','−4.2','vs B4T-F in the system prompt, p = 0.454','flat',1]],[],[]],
+  [['AB','−4.2','vs B4T-F in the system prompt, p = 0.454','flat',1]],[],[],
+  []],
  ['Oracle feedback (upper bound)','grader data, scoring only',
   [],
   [['AB','+35.9','with expected values','ours',1],['ITSM','+25.3','with expected values','ours',1],['AB','+6.4','names only, no values','ours',1],['ITSM','+3.9','names only, no values','ours',1]],
-  []]
+  [],
+  []],
+ ['Listing: read every record','our failure trace',
+  [['AB','+5.2','vs keyword search; strict +11.4 (p = 0.036); fresh3 after tracing','good',0]],
+  [],[],
+  [['AB','−0.5','vs keyword search; strict +2.9; no harm','flat',0]]],
+ ['General agent rules','our failure traces',
+  [['AB','+2.1','fresh3, p = 0.39; strict −3.8','flat',1]],
+  [],[],
+  [['AB','+7.7','fresh3, p = 0.026; strict +10.5','good',1]]]
 ];
 const body = document.getElementById('mxbody');
 function renderMx(hoOnly){
@@ -762,7 +807,14 @@ const L = [
  ['Package structure cannot tell a step flow from a rule list','The Telecom package has 9 procedures, 59 steps and 10 references; the airline package has 5, 55 and 6. A tracker chosen by structure would run on both. It helped Telecom (not proven) and hurt airline. So a step flow must be declared in the profile; the system never infers it.',[['bad','airline with tracker: 0 wins, 6 losses (p = 0.031)'],['warn','Telecom 63.8% to 76.2% (p = 0.146)']],'changes 86, 87, 141; spec section 8'],
  ['A graph walk needs links in the package and labels to score it','The hand-built HANDBOOK graphs hold no link to walk, so k_hops changes nothing on them and the system refuses it. Of 49 packages with procedures, 8 have a pair to walk. The saved retrieval labels use the hand-built procedure ids, so they cannot score a walk on the skill packages.',[['flat','8 of 49 packages have a pair to walk'],['warn','0 labelled walks on skill packages'],['flat','bm25 on saved labels: 69.2% top-1, 80.0% top-3']],'change 140; spec section 11'],
  ['No package is held-out','A task set called held-out is only held-out until a model has run it. Every held-out set has been run by at least one agent model, so the registry now labels them seen. Airline is "seen, not tuned"; retail and ITSM 80cd3ebb50 are "unseen, no run"; the rest are tuning.',[['warn','0 packages with a held-out label'],['flat','the 17/20 to 11/20 airline result shaped a design decision']],'<code>sets/registry.json</code>; change 134'],
- ['Three earlier readings were wrong, and one was checked','The pilot arm B on ITSM most likely ran with no brief: a crash in the brief code was caught and hidden on 7 older runs. The old τ² navigator smoke runs were invalid: a local variable error stopped every wrapped call. The old τ² runner could also drop a gateway error and grade it as 0, so the Telecom result was checked: 0 of 160 runs had one, and 63.8% to 76.2% (p = 0.146) stands.',[['warn','7 ITSM arm-B runs without the brief (pilot1 5, ds1u_t1_legacyrules 2)'],['warn','2 τ² navigator smoke runs invalid'],['good','Telecom gateway errors: 0 of 160 runs']],'changes 125, 128, 129 (fix round 1)']
+ ['Three earlier readings were wrong, and one was checked','The pilot arm B on ITSM most likely ran with no brief: a crash in the brief code was caught and hidden on 7 older runs. The old τ² navigator smoke runs were invalid: a local variable error stopped every wrapped call. The old τ² runner could also drop a gateway error and grade it as 0, so the Telecom result was checked: 0 of 160 runs had one, and 63.8% to 76.2% (p = 0.146) stands.',[['warn','7 ITSM arm-B runs without the brief (pilot1 5, ds1u_t1_legacyrules 2)'],['warn','2 τ² navigator smoke runs invalid'],['good','Telecom gateway errors: 0 of 160 runs']],'changes 125, 128, 129 (fix round 1)'],
+ ['Most failures were rules the agent never read','On 35 new tasks, the largest cause of 161 traced failures was a rule or procedure the agent never opened. Keyword search for rules reached only mail and chat, while half of the rules learned in runs came from spreadsheets. Reading every record at the start finds almost all of them.',[['bad','rule never read: 65 of 161 (gpt-oss 46 of 96, Haiku 19 of 65)'],['flat','89 of 180 learned rules came from sheets'],['ours','listing: rule records found 29% → 93% live']],'<a href="2026-11-08-listing-preregistration.md">listing pre-registration</a>; failure trace 2026-11-07'],
+ ['Finding a rule is not following it','With every record read, 93% of the rule records reached the policy system. gpt-oss runs that had every rule still passed strict in 25%. Notes in single table rows (holds, exclusions) are often lost in extraction.',[['flat','all rules found: 25.3% strict (gpt-oss)'],['warn','7 of 17 missed rule records are table-row notes']],'<a href="2026-11-08-listing-preregistration.md">listing pre-registration</a>, live coverage check'],
+ ['Help depends on the model, so check harm per model','polisys helped gpt-oss and not Haiku; general agent rules helped Haiku and not gpt-oss. A gain test alone lets harm through, so every result now carries a no-harm check per model. In the 2026-11-08 run polisys was −6.7 strict against CUGA + rules on Haiku, beyond the limit of 6.0, so it stays off for Haiku.',[['good','gpt-oss polisys +10.4 (p = 0.028)'],['good','Haiku agent rules +7.7 (p = 0.026)'],['bad','Haiku polisys strict −6.7, limit 6.0']],'cuga-eval <code>AGENTS.md</code> (no-harm rule); fresh3 runs'],
+ ['Repeated trials were not independent','The LiteLLM gateway returned a stored reply for an identical request, on every model. Trials before 2026-11-06 can repeat more than chance allows. Trials now run through a proxy that turns the cache off.',[['warn','same response ID on repeated requests'],['good','cache off: 3 repeats, 3 different answers']],'<code>automationbench/retry_proxy.py --no-cache</code>'],
+ ['Run-to-run noise is 5 to 7 points','With 25–35 tasks and 3 trials, two arms with no real effect differ by up to 2 × SE: 5–7.5 points strict, 4–6.5 partial. The same arm moved from 41.0 to 44.8 strict between two days.',[['flat','2 × SE strict 4.7–7.5'],['flat','CUGA + rules on Haiku: 41.0 → 44.8']],'<code>AGENTS.md</code> SE formula; fresh3 runs 2026-11-07 and 2026-11-08'],
+ ['The benchmark has defects of its own','44 schema files of AutomationBench give new records the real date, not the task date, so valid records looked expired; the adapter now runs the clock at the task time. 21 of 161 failures were benchmark checks, for example a literal word the task never asked for.',[['bad','44 schema files used the real clock'],['warn','21 of 161 failures: benchmark check']],'cuga-eval commit <code>c0483afa</code> (AB_WORLD_CLOCK); failure trace 2026-11-07'],
+ ['Fewer tools did not help the agent','Binding fewer tools or searching tools by embedding lost points; the agent needs the read tools that a short list drops. In function calling, reflection and the auto-continue classifier never run, whatever the config says.',[['bad','embedding search: Haiku −34.4 (1 up, 20 down)'],['flat','narrower binding: Haiku −9.9 (p = 0.45)']],'setup audit 2026-11-06']
 ];
 document.getElementById('lessons').innerHTML = L.map((l,i)=>`
  <div class="lesson rv"><div class="no">${String(i+1).padStart(2,'0')}</div><div><h4>${l[0]}</h4><p>${l[1]}</p><div class="ev">${l[2].map(e=>`<span class="chip ${e[0]}">${e[1]}</span>`).join('')}</div><p class="src" style="margin:10px 0 0">Source: ${l[3]}</p></div></div>`).join('');
@@ -776,7 +828,7 @@ const A = [
  {id:'s5',x:20,y:312,w:160,h:52,t:'User request',s:'what was asked',d:{h:'User request',p:'The largest recoverable class of failures is the request itself: ITSM 45 of 104, AutomationBench 119 of 414 failed checks. The request produces obligations at the start of the run.',m:[['ours','change 48'],['ours','deliverables.py']]}},
  {id:'i1',x:222,y:70,w:160,h:80,t:'Offline build',s:'Claude skill now|pipeline later',d:{h:'Offline build',p:'Document → package. Now: Claude skill + validator, with humans able to review. Later: builder.py + rule_repair.py and procedure_compiler.py, when they pass the same audit (catches within 5 points, false denies not higher, must-not recall ≥ 80%). The compiler was measured on 7 documents: the pipeline does not pass the bar today.',m:[['ours','skill/SKILL.md, cli.py, validate.py'],['ours','builder.py, handlers/, rule_repair.py'],['bad','procedure_compiler.py: 0 of 7 documents pass the bar'],['flat','ITSM rules build: 11 calls, about $0.01']]}},
  {id:'i2',x:222,y:170,w:160,h:80,t:'Online intake',s:'session overlay',d:{h:'Online intake',p:'Code filter, then one extraction call per tool output: policies with trust and "newer rule wins". Uses the same slots as the package, lives only in the session. Untrusted text cannot change a trusted rule. A B4T-F run costs about $0.03 with gpt-oss.',m:[['ours','intake.py'],['good','part of B4T-F: +18.9, +8.8 held-out']]}},
- {id:'i3',x:222,y:270,w:160,h:80,t:'Discovery',s:'search for rules',d:{h:'Policy discovery',p:'Searches mail and documents for rules at the start of the task (built and measured). For long SOPs, the router picks the procedure and expands one hop along links.',m:[['good','online: in B4T-F'],['flat','long-SOP retrieval: offline only']]}},
+ {id:'i3',x:222,y:270,w:160,h:80,t:'Discovery · listing',s:'find rules at the start',d:{h:'Policy discovery and listing',p:'Discovery runs 8 keyword searches in mail and chat at the start. Listing (sources.listing, off by default) reads every record the host lists through its read tools; a small model keeps the records that state rules, and they go to the online intake. For long SOPs, the router picks the procedure and expands one hop along links.',m:[['good','discovery: in B4T-F'],['ours','listing: rule records found 29% → 93%; polisys PR #3'],['warn','listing walk exists for AutomationBench only; a general crawler is designed, deferred'],['flat','long-SOP retrieval: offline only']]}},
  {id:'p1',x:424,y:56,w:160,h:70,t:'Rules',s:'hard · judgment · guidance',d:{h:'Rules with a class and a level',p:'Hard: decided fully by code or Cedar. Judgment: one specific statement with a scope, checked by Kev or the gate. Guidance: shown only. Each rule has a level: observe, remind, block once or deny. General statements stay guidance or use code rules; they never go to a per-call model.',m:[['ours','ruleset.py, cedar_engine.py'],['good','Cedar 372 of 372; 1 false deny in 165'],['warn','classes and levels: plan phase 1']]}},
  {id:'p2',x:424,y:136,w:160,h:70,t:'Procedures',s:'steps · must_not · templates',d:{h:'Procedures',p:'Cards (when each applies), decisions, ordered steps, must-not rules, templates, links, a business-day calendar. One package format now holds both the old rule build and the store graph; the converters lost no field.',m:[['ours','model.py, procedure_store.py'],['flat','as agent tools alone: no gain'],['good','feeds the write gate'],['good','one package format: 84 files']]}},
  {id:'p4',x:424,y:216,w:160,h:70,t:'Obligations',s:'what must exist at the end',design:true,d:{h:'Obligations',p:'Required work per procedure: target, expected values and where each value comes from (SOP text, template, computed, case fact, request). A value with no origin is not asserted. Built from procedure steps at build time; request and duty items are added at runtime.',m:[['warn','built; no producer passes the replay rule'],['ours','names only +3.9 to +6.4; with values +15.9 to +34.1']]}},
