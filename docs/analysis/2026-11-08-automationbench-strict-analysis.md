@@ -172,3 +172,16 @@ The calendly "Working - Contacted" check: the value appears nowhere in that task
 "Open - Not Contacted"), but it is the standard Salesforce lead status after "Open - Not Contacted". It may be inferable
 from the CRM's picklist, so it is a possible defect, not a certain one. Each claimed defect needs the same check before it
 is reported to the maintainers.
+
+## Verification of the five claimed defects (2026-11-08, task definitions read)
+
+| Task | Check | What the task gives | Verdict |
+|---|---|---|---|
+| hr.zoom_all_hands_setup | Slack post in #company-announcements contains "3:00" | The request asks for the Zoom meeting and invite emails only; no data record asks for a Slack announcement (only the tool list includes `slack_send_channel_message`) | Likely defect: the check needs an action nobody asked for |
+| marketing.utm_audit_and_fix | Email body contains "6 link" | The request and a record ask for "the count of links needing fixes"; agents wrote "Links needing fixes: 6" | Wording-strict, passable: "6 links" passes; the content was right |
+| sales.calendly_discovery_call | Lead status "Working - Contacted" | Not in the task data (leads are "Open - Not Contacted"), but it is the standard next Salesforce lead status | Possible defect, inferable from CRM convention |
+| sales.form_to_crm_qualification | Jake's lead status "New" | Rules set MQL for score >= 5 and say nothing for lower scores; the form row is "New" | Under-specified: "New" is one reasonable reading |
+| hr.employee_transfer_approval_workflow | Sheet Status "Approved" | Rows are "Pending"; no status word is given for a processed transfer | Under-specified: "Approved" is one reasonable choice |
+
+Correction of the summary above: only one check is a likely defect; the other four are passable but strict or under-specified,
+so "strict cannot go above about 50% on this set" overstates it. Report strict with and without these five checks.
