@@ -1,8 +1,8 @@
 {
   "note": "Task sets and which agent model ran their tasks. Built by build_registry.py from the set files and the result folders; do not edit.",
   "scanned_results": {
-    "automationbench": 1083,
-    "csm": 37,
+    "automationbench": 3683,
+    "csm": 684,
     "handbook": 247,
     "tau2": 860,
     "unreadable": 0
@@ -71,7 +71,15 @@
       "seen_by": {
         "aws/claude-haiku-5-5": [
           "csm_base",
-          "csm_smoke"
+          "csm_combo_probe",
+          "csm_rb_probe",
+          "csm_rules_probe",
+          "csm_smoke",
+          "csm_smoke_combo",
+          "csm_smoke_rules",
+          "lfsmoke_baseline",
+          "lfsmoke_csm-combo",
+          "lfsmoke_csm-rules"
         ]
       },
       "seen_n": {
@@ -89,8 +97,17 @@
       "rule": "CSM tasks without same-name verifiers, minus csm-probe; seed 20261109; 18 tuning tasks",
       "seed": null,
       "n": 18,
-      "seen_by": {},
-      "seen_n": {},
+      "seen_by": {
+        "aws/claude-haiku-5-5": [
+          "csm_base_tune2",
+          "csm_combo_tune2",
+          "csm_rb_tune2",
+          "csm_rules_tune2"
+        ]
+      },
+      "seen_n": {
+        "aws/claude-haiku-5-5": 18
+      },
       "label": "tuning"
     },
     {
@@ -103,9 +120,16 @@
       "rule": "CSM tasks without same-name verifiers, minus csm-probe and csm-tune2 (seed 20261109); run once, after freeze",
       "seed": null,
       "n": 53,
-      "seen_by": {},
-      "seen_n": {},
-      "label": "held-out"
+      "seen_by": {
+        "aws/claude-haiku-5-5": [
+          "csm_base_heldout",
+          "csm_rb_heldout"
+        ]
+      },
+      "seen_n": {
+        "aws/claude-haiku-5-5": 53
+      },
+      "label": "seen"
     },
     {
       "id": "itsm-tune",
@@ -799,6 +823,20 @@
         "aws/gpt-oss-120b": 35
       },
       "label": "tuning"
+    },
+    {
+      "id": "ab-policy-types-fresh4",
+      "benchmark": "automationbench",
+      "path": "benchmarks/automationbench/policy_types_fresh4.json",
+      "key": "tasks",
+      "id_field": "task",
+      "status": "heldout",
+      "rule": "Input: results/policy_features.json (policy_features.py). Pool: public tasks never used in a run or subset file, without the chatgpt tool (it always fails in our adapter) and without missing tools. Each task gets one primary policy type, first match in this order: no rule text in the data; versioned or conflicting rules; approval gate; threshold; date or deadline; rules spread over 2+ apps; one rule document. 5 tasks per type, at most 2 per domain per type, random with seed 20261104. Excluded: policy_types_subset.json, versioned_dev.json:dev, versioned_dev.json:holdout, policy_types_holdout.json, policy_types_holdout2.json, policy_types_fresh3.json.",
+      "seed": 20261109,
+      "n": 20,
+      "seen_by": {},
+      "seen_n": {},
+      "label": "held-out"
     },
     {
       "id": "handbook-public3",

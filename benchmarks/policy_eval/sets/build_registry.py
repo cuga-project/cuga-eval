@@ -275,6 +275,15 @@ SPECS = [
         "tuning",
         "file",
     ),
+    S(  # drawn 2026-11-09 for the one frozen run (seed 20261109); only 20 tasks were left in the pool
+        "ab-policy-types-fresh4",
+        "automationbench",
+        f"{AB}/policy_types_fresh4.json",
+        "tasks",
+        "task",
+        "heldout",
+        "file",
+    ),
     # HANDBOOK
     dict(
         id="handbook-public3",
