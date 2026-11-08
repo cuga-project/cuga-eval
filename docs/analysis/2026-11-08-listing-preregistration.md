@@ -107,3 +107,23 @@ Decision rule: 1 mechanism 105/105: pass. 2 gain: partial -0.5 < +2.0: fail. 3 n
 -6.02, partial -2.2 >= -4.33, fewer guardrail breaks). Rule 4: listing stays off for Haiku 5.5; result reported.
 Side finding, not part of this pre-registration: arm P (today's B4T-F) is -6.7 strict against R, below -2 x SE, so P
 fails the no-harm check on Haiku 5.5 for strict on this tuning set. Cost $11.41.
+
+## Check after the run: did the extracted policies contain the rules? (2026-11-08)
+
+Not part of the decision rule. For every L and P run, a judge (Opus 5.5) compared the statements the layer extracted
+with the gold rule records (quote copied into a statement counts without the judge; the judge must cite statement
+numbers, checked by code). 10 judge decisions were checked by hand: 10 correct. The live listing read the same number of
+records as the offline dump in 210 of 210 runs.
+
+| Arm | Gold rule records found (pooled) | Mean per task | Found before the first write | Runs with every rule found |
+|---|---|---|---|---|
+| L gpt-oss | 93.7% | 92.5% | 92.1% | 79 / 99 |
+| L Haiku 5.5 | 92.3% | 90.3% | 92.3% | 75 / 99 |
+| P gpt-oss | 28.6% | 44.0% | 26.7% | 25 / 99 |
+| P Haiku 5.5 | 36.2% | 61.6% | 35.7% | 37 / 99 |
+
+17 gold records were missed in at least one L run: 7 are notes in table rows (holds, exclusions; tables always reach the
+extraction, so the extraction drops them); 4 are one-off corrections in email (a new time, a deal to include); 3 are
+probably not rules (2 status updates, 1 recommendation from an outside agency). Finding the rules is not enough: L
+gpt-oss runs with every rule found pass strict in 25.3%. Not checked: gold records labelled data that state rules.
+Scripts: /tmp/aud/cov/livecov.py, summ.py.
