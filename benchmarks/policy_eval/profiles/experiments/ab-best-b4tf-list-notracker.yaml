@@ -1,0 +1,24 @@
+# AutomationBench best method (2026-11-08), Haiku 5.5 agent, 10 tuning tasks of fresh3. In-sample. B4T-F with listing, requirements tracker off.
+policy:
+  package: none # rules come from business data while the agent runs
+  sources: {data: true, discovery: false, listing: true, request: false}  # nothing on reads the request
+  authority: {supersedes: true}
+  checkers:
+    rules: on
+    compile: aws/gpt-oss-120b
+    narrow_questions: jaredpalmer/kev-4b
+    detector: jaredpalmer/kev-4b
+    gate: {mode: off}
+    verifier: {mode: on, model: aws/gpt-oss-120b, scope: all_statements, may_deny: false}
+    write_checks: off  # separate hooks, as measured
+    guard_code: "off"
+    read_before_write: remind
+  organizers:
+    procedure_tools: off
+    guide: off
+    loop: off
+    sop_tracker: off
+    navigator: off
+    requirements_tracker: off
+  obligations: {producers: []}
+  decisions: {mode: on, effect: block_once, after_repeated_denials: skip, record_checks: false, retry_effect: allow}

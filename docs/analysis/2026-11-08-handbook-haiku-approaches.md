@@ -86,3 +86,43 @@ more than 1 item below r2-base. Ranked by total mean; full passes per task repor
 In-sample (tuning tasks). The read-back turn is the only arm at or above the base on every task. The request-scope and cells
 rules give a full pass on Vanguard in 3 of 3 trials. The CareIG 7 of r2-all is one run: a wrong decision (an alert the SOP
 did not call for), then the read-back turn's "correction" added an email and a log row.
+
+## Round 3 (plan, written before the run)
+
+CareIG failure analysis (`/tmp/aud/hb_careig_analysis.md`): every polisys arm is below CUGA alone on CareIG (13, 13, 13);
+held cases were decided right in all runs. Causes: files edited in a working folder instead of the case folder (18/18);
+template and log fields paraphrased (the package summarizes the SOP; CUGA alone copied the SOP's text); the gate blocked a
+prescriber-authorized change in 9 of 15 gated runs; the read-back compared with the agent's plan, not the SOP.
+
+polisys `cde232a` (snapshot `polisys-cde232a`): `readback_sop` (read back against the opened procedures; complete only the
+outputs of decisions made; no new messages as corrections), `sop_literal` (the SOP document's own text for templates, fields,
+names and locations), `checkers.gate.trigger_check`. All 3 tasks, 3 trials, at the same time:
+
+| Arm | Profile |
+|---|---|
+| r3-alone | baseline (CUGA alone, for the no-harm check) |
+| r3-base | handbook-haiku-graph-gate |
+| r3-readsop | + readback_sop |
+| r3-gatefix | + gate trigger_check and missing_needs_read |
+| r3-combo | + sop_literal, readback_sop, gate fix |
+
+Kept: total mean not below r3-base and no task more than 1 item below r3-base. Also reported: each arm against r3-alone per
+task (no-harm direction; 3 tasks are too few for the SE test).
+
+## Round 3 result (3 tasks, 3 trials)
+
+| Arm | Crestwood | Vanguard | CareIG | Total /51 | Full passes | Items failing every trial | Items failing sometimes | Worst-trial total |
+|---|---|---|---|---|---|---|---|---|
+| r3-alone | 20, 21, 19 | 11, 10, 7 | 13, 9, 12 | 40.7 | 0 | | | 35 |
+| r3-base | 21, 21, 21 | 10, 12, 11 | 10, 11, 9 | 42.0 | 1 | 7 | 5 | 40 |
+| r3-gatefix | 21, 19, 21 | 11, 11, 12 | 10, 11, 13 | 43.0 | 1 | 4 | 9 | 40 |
+| r3-readsop | 22, 21, 21 | 11, 7, 12 | 15, 11, 12 | 44.0 | 2 | 1 | 14 | 39 |
+| r3-combo | 21, 20, 21 | 11, 10, 12 | 13, 13, 15 | 45.3 | 1 | 3 | 5 | 43 |
+
+Round 2 arms for comparison (their base 41.3): readback 44.3 (steady 3, unstable 8, worst 43, 1 full); scope 44.3 (4, 6, 42,
+4 full); all 44.0 (3, 8, 40, 4 full). In-sample.
+
+Steady gaps of the combo: two CareIG audit-log rows (field style and location; partly a benchmark issue per the CareIG
+analysis) and the Crestwood roster rows (the agent left the email of new hires empty although SOP 11.1 says to add "all
+provided details"). Its unstable Vanguard item is a flag cell with text (the `cells` rule, not in the combo, gave 12/12 in
+3 of 3 trials in round 2).
