@@ -11,3 +11,4 @@ Variants of a best profile, made for one measured question. They are not best pr
 | `automationbench-b4tf-remsys` | `automationbench-gptoss-b4tf` | Reminders in the system prompt (`notes.reminders: system`); 2026-11-06 setup audit |
 | `automationbench-b4tf-briefmsg` | `automationbench-gptoss-b4tf` | The brief as a message (`notes.brief: message`); 2026-11-06 setup audit |
 | `automationbench-gptoss-b4tf-list` | `automationbench-gptoss-b4tf` | Read every record at the start instead of keyword searches (`sources.listing: true`); pre-registered in `docs/analysis/2026-11-08-listing-preregistration.md` |
+| `handbook-haiku-graph-gate` | `handbook-gemini-graph-gate` | Haiku 5.5 as the gate for a Haiku 5.5 agent; 2026-11-08 integration check on the 3 public tasks |
