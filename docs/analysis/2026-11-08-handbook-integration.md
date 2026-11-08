@@ -22,3 +22,15 @@ stopped early on Vanguard (a stub workbook in 63 s).
 Reading: gpt-oss 23/51 equals its earlier best (23 vs 20 of 51). Haiku alone is far above gpt-oss (36 vs 15). Haiku's +3
 items come from the procedure tools, not the gate (no block), and CareIG went down 2; with 1 trial on 3 tuning tasks this is
 inside the noise (earlier: 0 of 9 arm/task cells repeated over 3 trials). A gain claim needs new HANDBOOK tasks.
+
+## Recheck with two fixes (plan, written before the run)
+
+Fixes: (1) polisys `44259fa`: in the SOP loop a general SOP rule limits only the actions it names and never stops a case
+(the gpt-oss loop had stopped 4 onboarding cases on a rule about direct messages). (2) The obligation ledger with the loop:
+producer `package` (only the `skill_v1` packages have obligations), items sent as one follow-up at the loop's finish turn.
+
+Arms, 3 trials each, snapshot `polisys-44259fa`, same time: Haiku 5.5 `baseline`, `experiments/handbook-haiku-graph-gate`,
+`experiments/handbook-haiku-loop-guide` (Haiku as loop model, `skill_v1`), `experiments/handbook-haiku-loop-guide-ledger`;
+gpt-oss `baseline` and `handbook-gptoss-loop-guide-evidence` (fix 1 only). Measure: rubric items per arm (mean of 3 trials),
+paired per task. The tasks are in-sample, so this is a direction check, not a claim: a fix is kept only if its arm is not
+below the arm without it on the mean of 3 trials, and no task falls by more than 2 items on the mean.
