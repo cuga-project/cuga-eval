@@ -67,3 +67,19 @@ saved runs of A (CUGA alone) and read-back.
 Decision: strict with the grader fix is the metric. An arm goes on if it beats read-back alone by at least 1 SE (paired)
 and passes no-harm against A on strict and partial. The CSM held-out set is spent, so the claim comes from a fresh
 domain (EnterpriseOps-Gym HR, sets drawn before any run) and an AutomationBench no-harm check on fresh3 (tuning set).
+
+### Round 2 result (2026-11-09)
+
+30 tuning tasks × 3 trials, strict with the grader fix (upstream in brackets), each against CUGA alone and read-back:
+
+| Arm | Strict | Partial | vs alone strict / partial | vs read-back strict / partial |
+|---|---|---|---|---|
+| CUGA alone | 18.9 (14.4) | 55.7 (47.5) | | |
+| read-back | 31.1 (25.6) | 60.6 (52.7) | +12.2 / +4.8 | |
+| + checklist | 26.7 (21.1) | 58.9 (50.8) | +7.8 / +3.2 | −4.4 / −1.6 |
+| + no-ask | 25.0 (16.7) | 60.3 (50.7) | +6.1 / +4.6 | −6.1 / −0.3 |
+| + both | 28.9 (20.0) | 64.5 (54.8) | +10.0 / +8.8 (p 0.001) | −2.2 / +3.9 (p 0.08) |
+
+Rule: an arm goes on if it beats read-back by ≥ 1 SE (3.8) on strict and passes no-harm. None does (all are below
+read-back on strict), so no round-2 arm goes to HR; HR runs A and K only. Both rules together raise partial (+3.9 over
+read-back), not strict: the gap analysis estimate (21 tasks) did not hold. The early 10-task numbers were far higher.
