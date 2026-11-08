@@ -64,6 +64,9 @@ async def _ingest(engine, client, docs, docs_dir: Path, with_title: bool = False
 
     ``with_title`` puts the paragraph title on the first line (MuSiQue and 2Wiki titles name the
     entity the paragraph is about; synth records already carry their token)."""
+    # A Postgres database outlives the run, and a collection keeps the embedding model it was
+    # built with: start empty so an earlier run (maybe another profile) is not measured instead.
+    await engine.drop_collection_vectors(client._agent_collection())
     docs_dir.mkdir(parents=True, exist_ok=True)
     filename_to_doc = {}
     for doc in docs:
