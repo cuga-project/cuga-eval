@@ -83,3 +83,27 @@ Decision rule: 1 mechanism 105/105 L runs: pass. 2 gain: partial +5.2 >= +2.0 an
 partial gain alone is not significant; the strict gain is). 3 no-harm vs R: pass on strict, partial and guardrail
 breaks. Listing goes into the fresh4 frozen run for gpt-oss; Haiku 5.5 runs the same three arms. fresh3 is a tuning set,
 so these numbers are in-sample. Cost $14.05.
+
+## Result: Haiku 5.5 (written after the run, 2026-11-08)
+
+105 runs per arm. 2 x SE = 6.02 (strict), 4.33 (partial), 0.13 (guardrail breaks).
+
+| Arm | Strict | Partial | Guardrail breaks per task |
+|---|---|---|---|
+| R: no policy system | 44.8% | 76.9% | 0.26 |
+| P: keyword discovery | 38.1% | 75.2% | 0.19 |
+| L: listing | 41.0% | 74.7% | 0.11 |
+
+| Paired, per task | Diff | 95% CI | Tasks up / down | p |
+|---|---|---|---|---|
+| L - P strict | +2.9 | -6.7 .. +12.4 | 7 / 4 | 0.706 |
+| L - P partial | -0.5 | -6.6 .. +5.5 | 13 / 9 | 0.882 |
+| L - R strict | -3.8 | -13.3 .. +4.8 | 3 / 5 | 0.548 |
+| L - R partial | -2.2 | -11.9 .. +7.1 | 10 / 10 | 0.670 |
+| L - R guardrail breaks | -0.14 | -0.3 .. +0.0 | 4 / 7 | 0.143 |
+| P - R strict | -6.7 | -14.3 .. -0.0 | 1 / 5 | 0.126 |
+
+Decision rule: 1 mechanism 105/105: pass. 2 gain: partial -0.5 < +2.0: fail. 3 no-harm vs R: pass (strict -3.8 >=
+-6.02, partial -2.2 >= -4.33, fewer guardrail breaks). Rule 4: listing stays off for Haiku 5.5; result reported.
+Side finding, not part of this pre-registration: arm P (today's B4T-F) is -6.7 strict against R, below -2 x SE, so P
+fails the no-harm check on Haiku 5.5 for strict on this tuning set. Cost $11.41.
