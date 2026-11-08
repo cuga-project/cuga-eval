@@ -204,6 +204,16 @@ class AutomationBenchAdapter:
         if os.environ.get("AB_SHOW_DATE") and world_time:  # audit: the agent sees the world's date
             system = f"Current date and time: {world_time}\n\n{system}"
         by_name = {fn.__name__: fn for fn in fns}
+        extra: Dict[str, Any] = {}
+        if "data_list" in getattr(
+            RunContext, "__dataclass_fields__", {}
+        ):  # snapshots before sources.listing lack it
+            from cuga.policy_layer.ruleset import is_write_tool
+
+            from .automationbench_listing import list_world
+
+            world = self.world
+            extra["data_list"] = lambda: list_world(fns, world, bench.tool_app, is_write_tool)[0]
         return RunContext(
             task_id=task_id,
             request=user,
@@ -223,6 +233,7 @@ class AutomationBenchAdapter:
             ],
             policy_version=task_id,
             message_tool="",
+            **extra,
         )
 
     async def run(self, parts: "RuntimeParts", ctx: "RunContext", timeout: float) -> RawOutcome:
