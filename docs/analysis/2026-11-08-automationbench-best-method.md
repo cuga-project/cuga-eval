@@ -30,3 +30,23 @@ benchmark check 21, polisys caused 8 primary and 17 secondary).
 Decision rule: mean over 10 tasks x 3 trials, paired per task with ab-base. An arm is a candidate if partial is at least
 ab-base + 3 points and strict is not below ab-base, and it passes the no-harm check (arm - base >= -2 x SE on strict and
 partial, SE from ab-base). The best candidate then needs a run on fresh tasks before any claim.
+
+## Result (300 runs, Haiku 5.5, 10 tasks x 3 trials; paired per task with ab-base, 95% bootstrap interval, sign-flip p)
+
+2 x SE from ab-base: strict 7.7, partial 7.7 points, guardrail breaks 0.11 per run.
+
+| Arm | Strict diff | Partial diff | Guardrail breaks diff | No-harm | Candidate |
+|---|---|---|---|---|---|
+| ab-b4tf-remind | +6.7 [-6.7, +23.3] | +24.5 [+7.5, +44.1], p = 0.027 | +0.03 | pass | yes |
+| ab-listing-readback | +6.7 [0.0, +16.7] | +21.2 [+5.5, +36.6], p = 0.035 | -0.03 | pass | yes |
+| ab-b4tf-notracker | +3.3 [-6.7, +13.3] | +17.6 [+1.3, +36.0], p = 0.082 | 0.00 | pass | yes |
+| ab-listing | 0.0 [-10, +10] | +16.2 [+2.6, +30.8], p = 0.078 | -0.07 | pass | yes |
+| ab-b4tf-list | 0.0 | +14.4 [-1.4, +31.2] | +0.13 | fail (guards) | no |
+| ab-readback | -3.3 | +6.7 | +0.30 | fail (guards) | no |
+| ab-rules-all | +3.3 | +4.8 | +0.23 | fail (guards) | no |
+| ab-scope | -3.3 | +4.7 | +0.23 | fail (guards) | no |
+| ab-actors | -3.3 | +1.6 | +0.33 | fail (guards) | no |
+
+Absolute: base strict 3%, partial 42.5%; listing-readback 10% / 63.7%; b4tf-remind 10% / 67.0% (approx.). In-sample (tuning
+tasks chosen for low base scores); a candidate needs a run on fresh tasks before any claim. Every arm with listing is a
+candidate; the work-method rule texts break guardrails on AutomationBench and fail the no-harm check.
