@@ -32,3 +32,9 @@ The pool is the 83 CSM tasks without same-name verifiers (upstream issue #23).
 - The tuning score is reported next to the held-out score.
 
 Packages are built from the policy text and the tool schemas only (compiler skill). No task, verifier or run result is read by the builder. Decision tests (skill step 8) are skipped for now.
+
+## Results (2026-11-08)
+
+Tuning (30 tasks × 3, Haiku 5.5): CUGA alone 14.4 / 47.5 (strict / partial); read-back 25.6 / 52.7 (+11.1 / +5.2, p 0.038, no-harm ok); combo 15.6 / 46.4 (no-harm ok); rules + verifier 14.4 / 40.8 (fails no-harm on partial: role-grant rules make the agent refuse writes). Chosen: read-back.
+
+Held-out (53 tasks × 3, one run): CUGA alone 26.4 / 56.0; read-back 27.0 / 60.8. Strict +0.6, sign-flip p 0.455: **the pre-registered gain is not shown**. Partial +4.8 (one-sided sign-flip p 0.048, 95% bootstrap CI −0.6 to +10.8; 16 tasks better, 10 worse). No-harm passes on both (SE 2.6 / 1.6). Cost: tuning $2.73, held-out $2.14.
