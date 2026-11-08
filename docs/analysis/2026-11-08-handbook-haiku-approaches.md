@@ -126,3 +126,36 @@ Steady gaps of the combo: two CareIG audit-log rows (field style and location; p
 analysis) and the Crestwood roster rows (the agent left the email of new hires empty although SOP 11.1 says to add "all
 provided details"). Its unstable Vanguard item is a flag cell with text (the `cells` rule, not in the combo, gave 12/12 in
 3 of 3 trials in round 2).
+
+## Round 4 on gpt-oss-120b (plan, written before the run)
+
+The top Haiku methods on the agent gpt-oss-120b, every polisys model gpt-oss (the checker matches the agent), 70 steps (the
+measured gpt-oss setting), snapshot `polisys-cde232a`, all 3 tasks, 3 trials, all arms at the same time:
+
+| Arm | Profile |
+|---|---|
+| g-alone | baseline |
+| g-loop | handbook-gptoss-loop-guide-evidence (gpt-oss's best before: 18.7 of 51 in the recheck, with the loop fix) |
+| g-base | experiments/hb-g-base (procedure tools + gate) |
+| g-readback | experiments/hb-g-readback |
+| g-scope | experiments/hb-g-scope (request_scope, cells) |
+| g-combo-cells | experiments/hb-g-combo-cells (sop_literal, cells, readback_sop, gate fix) |
+
+Reported: total mean items, full passes, worst-trial total, items failing in every trial vs sometimes; each arm vs g-alone
+and g-base per task. A method is called a gain for gpt-oss if its total is at least g-base + 2 and no task is more than 1
+item below g-base. In-sample.
+
+## Round 4 result on gpt-oss-120b (3 tasks, 3 trials)
+
+| Arm | Crestwood | Vanguard | CareIG | Total /51 | vs g-base |
+|---|---|---|---|---|---|
+| g-loop | 9, 7, 12 | 3, 1, 3 | 9, 7, 9 | 20.0 | +1.0 (worst task -1.0) |
+| g-base | 10, 9, 12 | 4, 4, 0 | 6, 5, 7 | 19.0 | |
+| g-combo-cells | 8, 8, 9 | 0, 5, 1 | 8, 6, 7 | 17.3 | -1.7 |
+| g-scope | 7, 9, 10 | 0, 0, 1 | 8, 7, 9 | 17.0 | -2.0 |
+| g-readback | 6, 7, 11 | 0, 3, 1 | 7, 5, 7 | 15.7 | -3.3 |
+| g-alone | 8, 8, 7 | 0, 0, 1 | 8, 6, 6 | 14.7 | -4.3 |
+
+No method meets the gain rule (base + 2). The Haiku methods do not carry over to gpt-oss: read-back, scope and combo are below
+the base. For gpt-oss the procedure tools + gate (+4.3 over CUGA alone) and the SOP loop (+5.3) help; 0 full passes in every
+arm. In-sample.
