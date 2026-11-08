@@ -71,3 +71,21 @@ Reported: strict as measured and strict without the frozen upstream-flagged chec
 (`benchmarks/automationbench/upstream_flagged_checks_2026-11-08.json`), partial, guardrail breaks; paired per task with sf-lr
 and with sf-base. A fix is kept if strict (without flagged checks) is at least sf-lr + 1 run of 30, partial is not below
 sf-lr by more than 2 x SE, and it passes the no-harm check against sf-base. In-sample (tuning tasks).
+
+## Strict fixes round result (150 runs, Haiku 5.5, 10 tasks x 3 trials)
+
+| Arm | Strict | Strict without flagged checks | Partial | Guardrail breaks per run |
+|---|---|---|---|---|
+| sf-base | 6.7% | 16.7% | 44.1% | 0.27 |
+| sf-lr (listing + read-back, with PR #5) | 13.3% | 26.7% | 60.8% | 0.10 |
+| sf-readfirst | 3.3% | 13.3% | 62.5% | 0.03 |
+| **sf-data** | **16.7%** | **33.3%** | **67.6%** | **0.00** |
+| sf-both | 13.3% | 23.3% | 59.3% | 0.03 |
+
+Paired with sf-lr (2 x SE: strict without flagged 10.9, partial 6.9): sf-data +6.7 (p = 0.75) and +6.8 (p = 0.25), guards
+-0.10; sf-readfirst -13.3 and +1.7; sf-both -3.3 and -1.5. Against sf-base, sf-data +16.7 strict without flagged, +23.5
+partial (p = 0.09), guards -0.27: passes the no-harm check.
+
+Decision: `sources.listing_data` is kept (meets the rule: +2 runs of 30 on strict without flagged checks, partial up,
+no harm); not significant, in-sample. `notes.read_first` is not kept: fewer guardrail breaks but lower strict, alone and
+together with listing_data. Next: listing + read-back + listing_data on fresh tasks.
