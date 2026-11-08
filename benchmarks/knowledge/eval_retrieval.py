@@ -59,6 +59,17 @@ async def _wait(engine, task_id: str, timeout_s: float = 120.0) -> None:
     raise TimeoutError(f"ingest task {task_id} did not finish in {timeout_s}s")
 
 
+def _require_reranker(config) -> None:
+    """Measure a reranking profile with its reranker: while the model cannot load (for example
+    after an interrupted download), search silently falls back to fusion ranking."""
+    if not config.rerank_enabled:
+        return
+    from cuga.backend.knowledge import reranker
+
+    if not reranker.is_ready(config.rerank_model):
+        raise RuntimeError(f"reranker {config.rerank_model} did not load; check the model cache and rerun")
+
+
 async def _ingest(engine, client, docs, docs_dir: Path, with_title: bool = False) -> dict[str, str]:
     """Ingest each doc as its own text file; return filename -> doc_id.
 
@@ -88,8 +99,10 @@ async def run(profile: str, k: int, n_tasks: int, postgres_url: str, pool: str =
         from cuga.backend.knowledge.engine import KnowledgeEngine
         from cuga.config import settings
 
-        engine = KnowledgeEngine(KnowledgeConfig.from_settings(settings))
+        config = KnowledgeConfig.from_settings(settings)
+        engine = KnowledgeEngine(config)
         await engine.warmup()
+        _require_reranker(config)
         per_task = []
         try:
             if pool == "open":  # every task's records in one collection
@@ -169,8 +182,10 @@ async def run_multihop(suite: str, profile: str, k: int, limit: int, postgres_ur
         from cuga.backend.knowledge.engine import KnowledgeEngine
         from cuga.config import settings
 
-        engine = KnowledgeEngine(KnowledgeConfig.from_settings(settings))
+        config = KnowledgeConfig.from_settings(settings)
+        engine = KnowledgeEngine(config)
         await engine.warmup()
+        _require_reranker(config)
         per_task = []
         try:
             for n, task in enumerate(tasks):
