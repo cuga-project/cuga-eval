@@ -214,6 +214,8 @@ class AutomationBenchAdapter:
 
             world = self.world
             extra["data_list"] = lambda: list_world(fns, world, bench.tool_app, is_write_tool)[0]
+        if "tool_apps" in getattr(RunContext, "__dataclass_fields__", {}):  # notes.read_first: which app each tool is
+            extra["tool_apps"] = dict(self.app_by_tool)
         return RunContext(
             task_id=task_id,
             request=user,

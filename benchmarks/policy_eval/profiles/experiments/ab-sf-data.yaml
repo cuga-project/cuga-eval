@@ -1,0 +1,22 @@
+# AutomationBench strict fixes (2026-11-08), Haiku 5.5, the 10 tuning tasks. Base: ab-best-listing-readback on polisys main (with PR #5). In-sample.
+# + sources.listing_data (corrections and examples as data).
+policy:
+  package: none
+  sources: {data: true, discovery: false, listing: true, listing_data: true, request: false}  # nothing on reads the request
+  authority: {supersedes: true}
+  checkers:
+    rules: off
+    compile: aws/gpt-oss-120b  # the intake model (extraction of the listed rule records)
+    gate: {mode: off}
+    verifier: {mode: off}
+    write_checks: off  # separate hooks, as measured
+  organizers:
+    procedure_tools: off
+    guide: off
+    loop: off
+    sop_tracker: off
+    navigator: off
+    requirements_tracker: off
+  obligations: {producers: []}
+  decisions: {mode: off}
+  notes: {work_method: [readback]}

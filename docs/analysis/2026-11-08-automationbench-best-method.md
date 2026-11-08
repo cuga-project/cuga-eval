@@ -50,3 +50,24 @@ partial, SE from ab-base). The best candidate then needs a run on fresh tasks be
 Absolute: base strict 3%, partial 42.5%; listing-readback 10% / 63.7%; b4tf-remind 10% / 67.0% (approx.). In-sample (tuning
 tasks chosen for low base scores); a candidate needs a run on fresh tasks before any claim. Every arm with listing is a
 candidate; the work-method rule texts break guardrails on AutomationBench and fail the no-harm check.
+
+## Strict fixes round (plan, written before the run)
+
+From the strict analysis (`2026-11-08-automationbench-strict-analysis.md`). polisys main with PR #5 (rules replaced one by
+one; the agent's own writes never read as rules) plus `7dc68b0` (snapshot `polisys-7dc68b0`): `notes.read_first` (until the
+first message to people, a reminder of sources the request names that were not read; never a block) and
+`sources.listing_data` (the listing also keeps corrections and examples and shows them to the agent as data). Same 10 tasks,
+Haiku 5.5, `AB_AGENT_RULES=1`, 3 trials, all arms at the same time:
+
+| Arm | Profile |
+|---|---|
+| sf-base | baseline |
+| sf-lr | experiments/ab-best-listing-readback (now with PR #5) |
+| sf-readfirst | experiments/ab-sf-readfirst |
+| sf-data | experiments/ab-sf-data |
+| sf-both | experiments/ab-sf-both |
+
+Reported: strict as measured and strict without the frozen upstream-flagged checks
+(`benchmarks/automationbench/upstream_flagged_checks_2026-11-08.json`), partial, guardrail breaks; paired per task with sf-lr
+and with sf-base. A fix is kept if strict (without flagged checks) is at least sf-lr + 1 run of 30, partial is not below
+sf-lr by more than 2 x SE, and it passes the no-harm check against sf-base. In-sample (tuning tasks).
