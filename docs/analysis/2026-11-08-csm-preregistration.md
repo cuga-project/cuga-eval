@@ -38,3 +38,21 @@ Packages are built from the policy text and the tool schemas only (compiler skil
 Tuning (30 tasks × 3, Haiku 5.5): CUGA alone 14.4 / 47.5 (strict / partial); read-back 25.6 / 52.7 (+11.1 / +5.2, p 0.038, no-harm ok); combo 15.6 / 46.4 (no-harm ok); rules + verifier 14.4 / 40.8 (fails no-harm on partial: role-grant rules make the agent refuse writes). Chosen: read-back.
 
 Held-out (53 tasks × 3, one run): CUGA alone 26.4 / 56.0; read-back 27.0 / 60.8. Strict +0.6, sign-flip p 0.455: **the pre-registered gain is not shown**. Partial +4.8 (one-sided sign-flip p 0.048, 95% bootstrap CI −0.6 to +10.8; 16 tasks better, 10 worse). No-harm passes on both (SE 2.6 / 1.6). Cost: tuning $2.73, held-out $2.14.
+
+## With the grader defect fixed (2026-11-09, recomputed from saved runs)
+
+Defect: 56 `equals` checks store `expected_value` as text; where the text is an integer ("1") the upstream comparison
+with the integer COUNT always fails. `benchmarks/enterpriseops_gym/numeric_string_fix.py` passes such a check when the
+text integer equals the number; every other check keeps the upstream result. Applied to every arm; new runs store it
+beside the upstream result (`passed_numeric_fix`).
+
+| Set | Arm | Strict upstream → fixed | Partial upstream → fixed | vs CUGA alone, fixed (strict / partial) |
+|---|---|---|---|---|
+| Tuning 30 | CUGA alone | 14.4 → 18.9 | 47.5 → 55.7 | |
+| Tuning 30 | read-back | 25.6 → 31.1 | 52.7 → 60.6 | +12.2 (p 0.034) / +4.8 |
+| Tuning 30 | combo | 15.6 → 23.3 | 46.4 → 55.3 | +4.4 / −0.4 |
+| Tuning 30 | rules + verifier | 14.4 → 15.6 | 40.8 → 42.9 | −3.3 / −12.8 (fails no-harm) |
+| Held-out 53 | CUGA alone | 26.4 → 28.3 | 56.0 → 58.7 | |
+| Held-out 53 | read-back | 27.0 → 28.3 | 60.8 → 63.6 | 0.0 / +5.0 (p 0.046) |
+
+The conclusions do not change: the held-out strict gain is not shown; partial +5.

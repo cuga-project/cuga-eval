@@ -17,6 +17,7 @@ from typing import Any, Callable, Dict, List, Optional
 HERE = Path(__file__).resolve().parent
 VENDOR = HERE / "vendor" / "EnterpriseOps-Gym"
 sys.path.insert(0, str(VENDOR))
+sys.path.insert(0, str(HERE))  # numeric_string_fix
 
 from benchmark.mcp_client import MCPClient, create_database_from_file, delete_database  # noqa: E402
 from benchmark.models import VerifierConfig  # noqa: E402
@@ -188,7 +189,13 @@ class EOGTask:
                     "error": res.get("error"),
                 }
             )
+        from numeric_string_fix import fixed_pass  # the grader defect of text integers, reported beside (not instead of)
+
+        for r, v in zip(rows, self.task["verifiers"]):
+            r["passed_numeric_fix"] = fixed_pass(r, v)
         return {
+            "passed_numeric_fix": all(r["passed_numeric_fix"] for r in rows),
+            "verifiers_passed_numeric_fix": sum(r["passed_numeric_fix"] for r in rows),
             "passed": all(r["passed"] for r in rows),
             "verifiers_passed": sum(r["passed"] for r in rows),
             "verifiers_total": len(rows),

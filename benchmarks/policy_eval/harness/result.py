@@ -207,6 +207,9 @@ def itsm_score(raw: Dict[str, Any]) -> Optional[Score]:
             "verifiers_passed": raw.get("verifiers_passed"),
             "verifiers_total": total,
             "verifiers": raw.get("verifiers"),
+            # the grader defect of text integers, fixed (enterpriseops_gym/numeric_string_fix.py): beside, not instead
+            "passed_numeric_fix": raw.get("passed_numeric_fix"),
+            "verifiers_passed_numeric_fix": raw.get("verifiers_passed_numeric_fix"),
         },
     )
 
