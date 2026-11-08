@@ -1,11 +1,9 @@
 {
   "note": "Task sets and which agent model ran their tasks. Built by build_registry.py from the set files and the result folders; do not edit.",
   "scanned_results": {
-    "automationbench": 6334,
-    "handbook": 419,
-    "itsm": 659,
+    "automationbench": 1083,
+    "handbook": 247,
     "tau2": 860,
-    "tau2-telecom": 10,
     "unreadable": 0
   },
   "sets": [
@@ -57,6 +55,20 @@
         "aws/gpt-oss-120b": 2,
         "azure/DeepSeek-V4-Pro": 2
       },
+      "label": "tuning"
+    },
+    {
+      "id": "csm-probe",
+      "benchmark": "csm",
+      "path": "benchmarks/enterpriseops_gym/tasks/csm_sets.json",
+      "key": "probe",
+      "id_field": null,
+      "status": "tuning",
+      "rule": "CSM oracle tasks without same-name verifiers (upstream issue 23); the 12 policy versions with the longest policy text; one task per version (seed 20261108); first look at the domain",
+      "seed": null,
+      "n": 12,
+      "seen_by": {},
+      "seen_n": {},
       "label": "tuning"
     },
     {
@@ -712,14 +724,38 @@
       "n": 35,
       "seen_by": {
         "aws/claude-haiku-5-5": [
+          "ab_actors",
+          "ab_b4tf_list",
+          "ab_b4tf_list_notracker",
+          "ab_b4tf_list_remind",
+          "ab_base",
+          "ab_listing",
+          "ab_listing_readback",
+          "ab_readback",
+          "ab_rules_all",
+          "ab_scope",
           "f3_plain_haiku55",
           "f3_polirules_haiku55",
-          "f3_rules_haiku55"
+          "f3_rules_haiku55",
+          "lx_L_haiku55",
+          "lx_P_haiku55",
+          "lx_R_haiku55",
+          "sf_base",
+          "sf_both",
+          "sf_data",
+          "sf_lr",
+          "sf_readfirst",
+          "sfsmk_both"
         ],
         "aws/gpt-oss-120b": [
           "f3o_plain_gptoss",
           "f3o_polirules_gptoss",
-          "f3o_rules_gptoss"
+          "f3o_rules_gptoss",
+          "lx_L_gptoss",
+          "lx_P_gptoss",
+          "lx_R_gptoss",
+          "smoke2_list_gptoss",
+          "smoke_list_gptoss"
         ]
       },
       "seen_n": {
@@ -744,11 +780,44 @@
       ],
       "n": 3,
       "seen_by": {
+        "aws/claude-haiku-5-5": [
+          "hbi_A_haiku55",
+          "hbi_P_haiku55",
+          "hbr_A_haiku55",
+          "hbr_G_haiku55",
+          "hbr_LO_haiku55",
+          "hbr_L_haiku55",
+          "hbsmk_LO_haiku55",
+          "r1_actors",
+          "r1_all",
+          "r1_base",
+          "r1_gateread",
+          "r1_idem",
+          "r1_readback",
+          "r1_scope",
+          "r1_worksheet",
+          "r1b_advisory",
+          "r1b_base",
+          "r1b_push",
+          "r1b_pushonly",
+          "r2_advisory",
+          "r2_all",
+          "r2_base",
+          "r2_readback",
+          "r2_scope",
+          "r3_alone",
+          "r3_base",
+          "r3_combo",
+          "r3_gatefix",
+          "r3_readsop"
+        ],
         "aws/gpt-oss-120b": [
           "g1_hb_base",
           "g1_hb_best",
           "hbd_A",
           "hbd_D",
+          "hbi_A_gptoss",
+          "hbi_P_gptoss",
           "hbo2_A",
           "hbo2_L",
           "hbo2_LD",
@@ -764,10 +833,18 @@
           "hbq_vg_A",
           "hbq_vg_GR",
           "hbq_vg_GW",
+          "hbr_A_gptoss",
+          "hbr_L_gptoss",
           "hbs_ALL",
           "hbs_APP",
           "hbs_C15",
           "hbs_C30",
+          "r4g_alone",
+          "r4g_base",
+          "r4g_combo",
+          "r4g_loop",
+          "r4g_readback",
+          "r4g_scope",
           "smk24_hb_best",
           "smk_hb_base",
           "smk_hb_best"
@@ -830,6 +907,7 @@
         ]
       },
       "seen_n": {
+        "aws/claude-haiku-5-5": 3,
         "aws/gpt-oss-120b": 3,
         "azure/DeepSeek-V4-Pro": 3,
         "gcp/gemini-3.8-flash": 3

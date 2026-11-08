@@ -31,7 +31,9 @@ def _j(value: Any) -> Any:
 
 
 def load_task(task_id: str) -> dict:
-    for task in json.loads(TASKS.read_text()):
+    """The task from any domain file (tasks/<domain>_oracle.json); IT service first, as before."""
+    files = [TASKS] + sorted(p for p in (HERE / "tasks").glob("*_oracle.json") if p != TASKS)
+    for task in (t for f in files for t in json.loads(f.read_text())):
         if task["task_id"] == task_id:
             for key in ("gym_servers_config", "verifiers"):
                 task[key] = _j(task[key])
@@ -67,7 +69,7 @@ class EOGTask:
         self.task = task
         cfg = task["gym_servers_config"][0]
         self.gym_name = cfg["mcp_server_name"]
-        self.url = os.environ.get("EOG_ITSM_URL", cfg["mcp_server_url"]).rstrip("/")
+        self.url = os.environ.get(f"EOG_{(task.get('domain') or 'itsm').upper()}_URL", cfg["mcp_server_url"]).rstrip("/")
         self.seed_file = VENDOR / cfg["seed_database_file"]
         self.context = cfg.get("context") or {}
         self.user_info = cfg.get("user_info") or {}

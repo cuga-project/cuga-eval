@@ -117,6 +117,17 @@ SPECS = [
         "tuning",
         "cross-reference study: one task on policy version cb2d4ee021 and one on c47f8ceef3 (seeded pick), kept out of the tuning and unseen sets",
     ),
+    # EnterpriseOps-Gym CSM
+    S(
+        "csm-probe",
+        "csm",
+        "benchmarks/enterpriseops_gym/tasks/csm_sets.json",
+        "probe",
+        None,
+        "tuning",
+        "CSM oracle tasks without same-name verifiers (upstream issue 23); the 12 policy versions with the longest policy "
+        "text; one task per version (seed 20261108); first look at the domain",
+    ),
     S("itsm-tune", "itsm", f"{PE}.json", "itsm.tune", None, "tuning", f"{ITSM_POOL}; 10 tuning tasks"),
     S(
         "itsm-unseen",

@@ -62,7 +62,7 @@ class ItsmAdapter:
             task_id=task_id,
             request=task["user_prompt"],
             system_prompt=task["system_prompt"],
-            tool_specs=json.loads((HOME / "tasks/itsm_tools.json").read_text()),
+            tool_specs=json.loads((HOME / f"tasks/{task.get('domain') or 'itsm'}_tools.json").read_text()),
             tools_in_run=task["selected_tools"],
             principal={
                 "id": self.env.user_info.get("user_id"),
@@ -103,3 +103,10 @@ class ItsmAdapter:
     def close(self) -> None:
         if self.env is not None:
             self.env.close()
+
+
+class CsmAdapter(ItsmAdapter):
+    """Customer service (CSM) tasks of EnterpriseOps-Gym: same environment and grading, the CSM server and tools."""
+
+    benchmark = "csm"
+    env_bench = "csm"

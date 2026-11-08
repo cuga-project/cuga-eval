@@ -59,7 +59,7 @@ from policy_eval.envs.compose_env import compose, parse_runner  # noqa: E402
 from policy_eval.harness.adapters.automationbench import AutomationBenchAdapter  # noqa: E402
 from policy_eval.harness.adapters.base import BenchmarkAdapter, save_trajectory  # noqa: E402
 from policy_eval.harness.adapters.handbook import HandbookAdapter  # noqa: E402
-from policy_eval.harness.adapters.itsm import ItsmAdapter  # noqa: E402
+from policy_eval.harness.adapters.itsm import CsmAdapter, ItsmAdapter  # noqa: E402
 from policy_eval.harness.adapters.tau2 import Tau2Adapter  # noqa: E402
 from policy_eval.harness.result import Result, package_identity  # noqa: E402
 
@@ -69,6 +69,7 @@ SNAPSHOTS = Path(os.environ.get("CUGA_SNAPSHOT_ROOT") or Path.home() / "dev/cuga
 ADAPTERS = {
     "automationbench": AutomationBenchAdapter,
     "itsm": ItsmAdapter,
+    "csm": CsmAdapter,
     "handbook": HandbookAdapter,
     "tau2": Tau2Adapter,
 }
