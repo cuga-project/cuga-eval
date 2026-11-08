@@ -59,3 +59,27 @@ SE = `sqrt(2 * mean per-task variance / trials / tasks)` from arm R; paired per 
    reported. If 3 fails, listing is not supported for that model.
 
 Report the paired difference with a 95% bootstrap interval and the sign-flip p-value next to the no-harm check.
+
+## Result: gpt-oss (written after the run, 2026-11-08)
+
+105 runs per arm (35 tasks x 3 trials). SE from arm R; 2 x SE = 4.67 (strict), 4.11 (partial), 0.23 (guardrail breaks).
+
+| Arm | Strict | Partial | Guardrail breaks per task |
+|---|---|---|---|
+| R: no policy system | 9.5% | 40.0% | 0.76 |
+| P: keyword discovery | 12.4% | 52.8% | 0.67 |
+| L: listing | 23.8% | 58.0% | 0.33 |
+
+| Paired, per task | Diff | 95% CI | Tasks up / down | p |
+|---|---|---|---|---|
+| L - P strict | +11.4 | +2.9 .. +21.9 | 9 / 2 | 0.036 |
+| L - P partial | +5.2 | -2.3 .. +12.7 | 18 / 16 | 0.182 |
+| L - P guardrail breaks | -0.33 | -0.8 .. +0.1 | 5 / 15 | 0.150 |
+| L - R strict | +14.3 | +5.7 .. +24.8 | 9 / 0 | 0.004 |
+| L - R partial | +18.0 | +9.8 .. +26.6 | 21 / 7 | <0.001 |
+| L - R guardrail breaks | -0.43 | -0.7 .. -0.2 | 4 / 16 | 0.002 |
+
+Decision rule: 1 mechanism 105/105 L runs: pass. 2 gain: partial +5.2 >= +2.0 and strict +11.4 >= -4.67: pass (the
+partial gain alone is not significant; the strict gain is). 3 no-harm vs R: pass on strict, partial and guardrail
+breaks. Listing goes into the fresh4 frozen run for gpt-oss; Haiku 5.5 runs the same three arms. fresh3 is a tuning set,
+so these numbers are in-sample. Cost $14.05.
