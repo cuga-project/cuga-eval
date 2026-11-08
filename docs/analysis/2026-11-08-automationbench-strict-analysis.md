@@ -197,3 +197,19 @@ so "strict cannot go above about 50% on this set" overstates it. Report strict w
 | hr.employee_transfer_approval_workflow, "Approved" | Not found |
 
 None of these PRs is merged. Our copy (4a8e106) has none of the fixes.
+
+## Strict without the checks flagged upstream (frozen list, recomputed from saved runs, no rerun)
+
+Frozen list: `benchmarks/automationbench/upstream_flagged_checks_2026-11-08.json`, built 2026-11-08 from zapier/AutomationBench
+issue #46 and #44 (exact assertions) and PRs #35-#40 (assertions they remove), for the 35 fresh3 tasks: 10 tasks, 21
+assertions. A run counts as a pass when every check it failed is on the list (type and named fields equal).
+
+| Runs | Strict as measured | Strict without flagged checks |
+|---|---|---|
+| ab-base (Haiku, 10 tasks, 30 runs) | 3.3% | 16.7% |
+| ab-listing-readback | 10.0% | 23.3% |
+| ab-b4tf-remind | 10.0% | 23.3% |
+| lx R Haiku (fresh3, 105 runs) | 44.8% | 52.4% |
+| lx L Haiku | 41.0% | 51.4% |
+| lx R gpt-oss | 9.5% | 9.5% |
+| lx L gpt-oss | 23.8% | 25.7% |
