@@ -126,4 +126,4 @@ records as the offline dump in 210 of 210 runs.
 extraction, so the extraction drops them); 4 are one-off corrections in email (a new time, a deal to include); 3 are
 probably not rules (2 status updates, 1 recommendation from an outside agency). Finding the rules is not enough: L
 gpt-oss runs with every rule found pass strict in 25.3%. Not checked: gold records labelled data that state rules.
-Scripts: /tmp/aud/cov/livecov.py, summ.py.
+Scripts and data: `benchmarks/policy_eval/listing_check/`.
