@@ -117,6 +117,18 @@ SPECS = [
         "tuning",
         "cross-reference study: one task on policy version cb2d4ee021 and one on c47f8ceef3 (seeded pick), kept out of the tuning and unseen sets",
     ),
+    # EnterpriseOps-Gym HR (fresh domain for the CSM findings)
+    S("hr-smoke", "hr", "benchmarks/enterpriseops_gym/tasks/hr_sets.json", "smoke", None, "tuning",
+      "one HR task outside hr-heldout (same-name verifiers), for wiring checks only"),
+    S(
+        "hr-heldout",
+        "hr",
+        "benchmarks/enterpriseops_gym/tasks/hr_sets.json",
+        "heldout",
+        None,
+        "heldout",
+        "every HR oracle task without same-name verifiers (upstream issue 23); drawn 2026-11-09 before any HR run",
+    ),
     # EnterpriseOps-Gym CSM
     S(
         "csm-probe",

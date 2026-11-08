@@ -110,3 +110,10 @@ class CsmAdapter(ItsmAdapter):
 
     benchmark = "csm"
     env_bench = "csm"
+
+
+class HrAdapter(ItsmAdapter):
+    """HR service delivery tasks of EnterpriseOps-Gym: same environment and grading, the HR server and tools."""
+
+    benchmark = "hr"
+    env_bench = "hr"

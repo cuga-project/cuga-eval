@@ -56,3 +56,14 @@ beside the upstream result (`passed_numeric_fix`).
 | Held-out 53 | read-back | 27.0 → 28.3 | 60.8 → 63.6 | 0.0 / +5.0 (p 0.046) |
 
 The conclusions do not change: the held-out strict gain is not shown; partial +5.
+
+## Round 2 (pre-registered 2026-11-09, before the runs): request checklist and no-ask rule
+
+From the gap analysis (`2026-11-08-csm-strict-gaps.md`): two general rules in polisys `work_method` (`request_checklist`,
+`no_ask`, polisys 32100d8, snapshot `polisys-32100d8`). Arms on the 30 tuning tasks, 3 trials, Haiku 5.5:
+`experiments/csm-rb-cl` (read-back + checklist), `csm-rb-na` (read-back + no-ask), `csm-rb-clna` (both), against the
+saved runs of A (CUGA alone) and read-back.
+
+Decision: strict with the grader fix is the metric. An arm goes on if it beats read-back alone by at least 1 SE (paired)
+and passes no-harm against A on strict and partial. The CSM held-out set is spent, so the claim comes from a fresh
+domain (EnterpriseOps-Gym HR, sets drawn before any run) and an AutomationBench no-harm check on fresh3 (tuning set).
