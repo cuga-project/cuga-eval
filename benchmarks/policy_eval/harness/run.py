@@ -359,7 +359,14 @@ def child(args: argparse.Namespace) -> None:
             error=f"not run: {exc}",
         ).write(out)
         raise SystemExit(str(exc)) from exc
-    asyncio.run(run_task(args, adapter, run_dir, sha)).write(out)
+    from policy_eval.harness.langfuse_trace import task_trace
+
+    meta = {"run": run_dir.name, "profile": args.profile, "trial": str(args.trial), "set": args.set,
+            "model": os.environ.get("MODEL_NAME"), "code_sha": sha, "snapshot": args.snapshot}
+    with task_trace(adapter.benchmark, args.child, meta) as trace:
+        result = asyncio.run(run_task(args, adapter, run_dir, sha))
+        trace.finish(result)
+    result.write(out)
 
 
 # -- parent: many tasks --------------------------------------------------------------------------------------------------
@@ -380,12 +387,19 @@ def child_env(adapter: BenchmarkAdapter, args: argparse.Namespace, src: Path) ->
             env[key] = secrets[key]
     if args.proxy:
         env["OPENAI_BASE_URL"] = args.proxy  # automationbench/retry_proxy.py waits out gateway 429s
-    env_file = compose(args.model, adapter.env_bench, adapter.env_extra)
+    extra = dict(adapter.env_extra or {})
+    if args.langfuse:  # in the composed file: cuga reloads it with override, and base.env turns tracing off
+        extra["DYNACONF_ADVANCED_FEATURES__LANGFUSE_TRACING"] = "true"
+    env_file = compose(args.model, adapter.env_bench, extra)
     env["ENV_FILE"] = str(env_file)
     env.update(parse_runner(env_file.read_text(), env_file.name))  # cuga reads some of them at import
     env["PYTHONPATH"] = str(src)
     env["CUGA_SRC"] = str(src)
     env["PYTHONUNBUFFERED"] = "1"
+    if args.langfuse:  # the keys of the local Langfuse; without the flag the child gets no LANGFUSE_ variable
+        from policy_eval.harness.langfuse_trace import env_for_child
+
+        env.update(env_for_child())
     return env
 
 
@@ -513,6 +527,11 @@ def main() -> int:
         action="store_true",
         help="a task whose result has another code_sha or profile_hash runs again and its file is replaced; "
         "by default such a result stops the run",
+    )
+    ap.add_argument(
+        "--langfuse",
+        action="store_true",
+        help="trace each task in the local Langfuse (keys from LANGFUSE_ENV_FILE, default ~/dev/langfuse-latest/cuga.env)",
     )
     ap.add_argument("--child", help=argparse.SUPPRESS)
     args = ap.parse_args()
