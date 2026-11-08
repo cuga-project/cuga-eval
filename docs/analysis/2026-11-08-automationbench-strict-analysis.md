@@ -185,3 +185,15 @@ is reported to the maintainers.
 
 Correction of the summary above: only one check is a likely defect; the other four are passable but strict or under-specified,
 so "strict cannot go above about 50% on this set" overstates it. Report strict with and without these five checks.
+
+## Already reported upstream? (zapier/AutomationBench, searched 2026-11-08)
+
+| Check | Upstream |
+|---|---|
+| hr.zoom_all_hands_setup, Slack "3:00" | Issue #44 (open, 2026-10-15): "a Slack channel's existence does not establish an additional Slack announcement obligation". PR #36 (open, 2026-10-13) removes the check |
+| sales.calendly_discovery_call, "Working - Contacted" | PR #39 (open) removes it: "a particular lead stage that neither the request nor the guidance specified" |
+| sales.form_to_crm_qualification, Jake "New" | PR #39 (open): "we now accept other non-qualifying Salesforce statuses" and other sheet completion labels |
+| marketing.utm_audit_and_fix, "6 link" | Not found in issues or PRs (#32 makes `*_contains` matching more general, not this check) |
+| hr.employee_transfer_approval_workflow, "Approved" | Not found |
+
+None of these PRs is merged. Our copy (4a8e106) has none of the fixes.
