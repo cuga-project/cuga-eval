@@ -1,9 +1,11 @@
 {
   "note": "Task sets and which agent model ran their tasks. Built by build_registry.py from the set files and the result folders; do not edit.",
   "scanned_results": {
-    "automationbench": 3716,
-    "csm": 690,
+    "automationbench": 9703,
+    "csm": 954,
     "handbook": 247,
+    "hr": 1930,
+    "itsm": 951,
     "tau2": 860,
     "unreadable": 0
   },
@@ -19,12 +21,28 @@
       "seed": 20261031,
       "n": 5,
       "seen_by": {
+        "aws/claude-haiku-5-5": [
+          "eogs_A_haiku55",
+          "eogs_F_haiku55",
+          "eogs_G_haiku55",
+          "eogs_H_haiku55",
+          "eogs_I_haiku55"
+        ],
+        "aws/gpt-oss-120b": [
+          "eogs_A_gptoss",
+          "eogs_F_gptoss",
+          "eogs_G_gptoss",
+          "eogs_H_gptoss",
+          "eogs_I_gptoss"
+        ],
         "gcp/gemini-3.8-flash": [
           "pilot1",
           "smoke"
         ]
       },
       "seen_n": {
+        "aws/claude-haiku-5-5": 2,
+        "aws/gpt-oss-120b": 2,
         "gcp/gemini-3.8-flash": 5
       },
       "label": "tuning"
@@ -68,8 +86,14 @@
       "rule": "one HR task outside hr-heldout (same-name verifiers), for wiring checks only",
       "seed": null,
       "n": 1,
-      "seen_by": {},
-      "seen_n": {},
+      "seen_by": {
+        "aws/claude-haiku-5-5": [
+          "hr_smoke"
+        ]
+      },
+      "seen_n": {
+        "aws/claude-haiku-5-5": 1
+      },
       "label": "tuning"
     },
     {
@@ -82,9 +106,183 @@
       "rule": "every HR oracle task without same-name verifiers (upstream issue 23); drawn 2026-11-09 before any HR run",
       "seed": null,
       "n": 80,
-      "seen_by": {},
-      "seen_n": {},
-      "label": "held-out"
+      "seen_by": {
+        "aws/claude-haiku-5-5": [
+          "hr_base_heldout",
+          "hr_rb_heldout",
+          "tsd1_hr_K_haiku55",
+          "tsd1_hr_R_haiku55",
+          "tsd1_hr_T_haiku55",
+          "tsd2_hr_K_haiku55",
+          "tsd2_hr_R_haiku55",
+          "tsd2_hr_T_haiku55"
+        ],
+        "aws/gpt-oss-120b": [
+          "tsd1_hr_K_gptoss",
+          "tsd1_hr_R_gptoss",
+          "tsd1_hr_T_gptoss",
+          "tsd2_hr_K_gptoss",
+          "tsd2_hr_R_gptoss",
+          "tsd2_hr_T_gptoss",
+          "tsh_hr_K_gptoss",
+          "tsh_hr_R_gptoss",
+          "tsh_hr_T_gptoss"
+        ]
+      },
+      "seen_n": {
+        "aws/claude-haiku-5-5": 80,
+        "aws/gpt-oss-120b": 80
+      },
+      "label": "seen"
+    },
+    {
+      "id": "hr-ts-dev",
+      "benchmark": "hr",
+      "path": "benchmarks/enterpriseops_gym/tasks/hr_sets.json",
+      "key": "ts_dev",
+      "id_field": null,
+      "status": "tuning",
+      "rule": "20 of hr-heldout at random (seed 20261110), with the task whose trajectory was read; tuning set of the target-state experiment",
+      "seed": null,
+      "n": 20,
+      "seen_by": {
+        "aws/claude-haiku-5-5": [
+          "hr_base_heldout",
+          "hr_rb_heldout",
+          "tsd1_hr_K_haiku55",
+          "tsd1_hr_R_haiku55",
+          "tsd1_hr_T_haiku55",
+          "tsd2_hr_K_haiku55",
+          "tsd2_hr_R_haiku55",
+          "tsd2_hr_T_haiku55"
+        ],
+        "aws/gpt-oss-120b": [
+          "tsd1_hr_K_gptoss",
+          "tsd1_hr_R_gptoss",
+          "tsd1_hr_T_gptoss",
+          "tsd2_hr_K_gptoss",
+          "tsd2_hr_R_gptoss",
+          "tsd2_hr_T_gptoss"
+        ]
+      },
+      "seen_n": {
+        "aws/claude-haiku-5-5": 20,
+        "aws/gpt-oss-120b": 20
+      },
+      "label": "tuning"
+    },
+    {
+      "id": "hr-ts-test-seen",
+      "benchmark": "hr",
+      "path": "benchmarks/enterpriseops_gym/tasks/hr_sets.json",
+      "key": "ts_test_seen",
+      "id_field": null,
+      "status": "heldout",
+      "rule": "the other 60 of hr-heldout: scored before under baseline and read-back, trajectories not read",
+      "seed": null,
+      "n": 60,
+      "seen_by": {
+        "aws/claude-haiku-5-5": [
+          "hr_base_heldout",
+          "hr_rb_heldout"
+        ],
+        "aws/gpt-oss-120b": [
+          "tsh_hr_K_gptoss",
+          "tsh_hr_R_gptoss",
+          "tsh_hr_T_gptoss"
+        ]
+      },
+      "seen_n": {
+        "aws/claude-haiku-5-5": 60,
+        "aws/gpt-oss-120b": 60
+      },
+      "label": "seen"
+    },
+    {
+      "id": "hr-ts-test-fresh",
+      "benchmark": "hr",
+      "path": "benchmarks/enterpriseops_gym/tasks/hr_sets.json",
+      "key": "ts_test_fresh",
+      "id_field": null,
+      "status": "heldout",
+      "rule": "every HR oracle task outside hr-heldout and hr-smoke (same-name verifiers, upstream issue 23); never run before",
+      "seed": null,
+      "n": 21,
+      "seen_by": {
+        "aws/gpt-oss-120b": [
+          "tsh_hr_K_gptoss",
+          "tsh_hr_R_gptoss",
+          "tsh_hr_T_gptoss"
+        ]
+      },
+      "seen_n": {
+        "aws/gpt-oss-120b": 21
+      },
+      "label": "seen"
+    },
+    {
+      "id": "itsm-toolsearch",
+      "benchmark": "itsm",
+      "path": "benchmarks/enterpriseops_gym/tasks/itsm_toolsearch_sets.json",
+      "key": "heldout",
+      "id_field": null,
+      "status": "heldout",
+      "rule": "ITSM oracle tasks never used in a set, a results folder or the cost ledger; 30 of 55 drawn with seed 20261113; run once, after the setup is frozen",
+      "seed": 20261113,
+      "n": 30,
+      "seen_by": {
+        "aws/claude-haiku-5-5": [
+          "eogh_A_haiku55",
+          "eogh_F_haiku55",
+          "eogh_G_haiku55",
+          "eogh_H_haiku55",
+          "eogh_I_haiku55"
+        ],
+        "aws/gpt-oss-120b": [
+          "eogh_A_gptoss",
+          "eogh_F_gptoss",
+          "eogh_G_gptoss",
+          "eogh_H_gptoss",
+          "eogh_I_gptoss"
+        ]
+      },
+      "seen_n": {
+        "aws/claude-haiku-5-5": 30,
+        "aws/gpt-oss-120b": 30
+      },
+      "label": "seen"
+    },
+    {
+      "id": "itsm-toolsearch-smoke",
+      "benchmark": "itsm",
+      "path": "benchmarks/enterpriseops_gym/tasks/itsm_toolsearch_sets.json",
+      "key": "smoke",
+      "id_field": null,
+      "status": "tuning",
+      "rule": "2 tasks of itsm-pilot: setup check for the tool-search test",
+      "seed": 20261113,
+      "n": 2,
+      "seen_by": {
+        "aws/claude-haiku-5-5": [
+          "eogs_A_haiku55",
+          "eogs_F_haiku55",
+          "eogs_G_haiku55",
+          "eogs_H_haiku55",
+          "eogs_I_haiku55"
+        ],
+        "aws/gpt-oss-120b": [
+          "eogs_A_gptoss",
+          "eogs_F_gptoss",
+          "eogs_G_gptoss",
+          "eogs_H_gptoss",
+          "eogs_I_gptoss"
+        ]
+      },
+      "seen_n": {
+        "aws/claude-haiku-5-5": 2,
+        "aws/gpt-oss-120b": 2
+      },
+      "label": "tuning"
     },
     {
       "id": "csm-probe",
@@ -133,6 +331,9 @@
           "csm_base_tune2",
           "csm_combo_tune2",
           "csm_rb_tune2",
+          "csm_rbcl_tune2",
+          "csm_rbclna_tune2",
+          "csm_rbna_tune2",
           "csm_rules_tune2"
         ]
       },
@@ -231,6 +432,14 @@
       "seed": 20261101,
       "n": 10,
       "seen_by": {
+        "anthropic/claude-haiku-5.5": [
+          "al1_PR_orhaiku55",
+          "al1_P_orhaiku55",
+          "al1_R_orhaiku55",
+          "al1_TR_orhaiku55",
+          "al1_T_orhaiku55",
+          "al1s_R_orhaiku55"
+        ],
         "aws/gpt-oss-120b": [
           "g5uA",
           "g5uB",
@@ -252,11 +461,20 @@
           "itp_T_unseen",
           "ittrku",
           "itv2u"
+        ],
+        "openai/gpt-oss-120b": [
+          "al1_PR_orgptoss",
+          "al1_P_orgptoss",
+          "al1_R_orgptoss",
+          "al1_TR_orgptoss",
+          "al1_T_orgptoss"
         ]
       },
       "seen_n": {
+        "anthropic/claude-haiku-5.5": 1,
         "aws/gpt-oss-120b": 10,
-        "azure/DeepSeek-V4-Pro": 10
+        "azure/DeepSeek-V4-Pro": 10,
+        "openai/gpt-oss-120b": 1
       },
       "label": "seen"
     },
@@ -836,7 +1054,11 @@
           "sf_data",
           "sf_lr",
           "sf_readfirst",
-          "sfsmk_both"
+          "sfsmk_both",
+          "tlv2_S_haiku55",
+          "tlv_L_haiku55",
+          "tlv_R_haiku55",
+          "tlv_S_haiku55"
         ],
         "aws/gpt-oss-120b": [
           "f3o_plain_gptoss",
@@ -846,7 +1068,11 @@
           "lx_P_gptoss",
           "lx_R_gptoss",
           "smoke2_list_gptoss",
-          "smoke_list_gptoss"
+          "smoke_list_gptoss",
+          "tlv2_S_gptoss",
+          "tlv_B_gptoss",
+          "tlv_L_gptoss",
+          "tlv_R_gptoss"
         ]
       },
       "seen_n": {
@@ -868,19 +1094,398 @@
       "seen_by": {
         "aws/claude-haiku-5-5": [
           "f4_B_haiku55",
-          "f4_R_haiku55"
+          "f4_R_haiku55",
+          "sl2t5_F_haiku55",
+          "sl2t5_H_haiku55",
+          "sl2t_F_haiku55",
+          "sl2t_G_haiku55",
+          "sl2t_H_haiku55",
+          "sl3t_I_haiku55",
+          "sl4t_J_haiku55",
+          "slt_A_haiku55",
+          "slt_B_haiku55",
+          "slt_C_haiku55",
+          "slt_D_haiku55",
+          "slt_E_haiku55",
+          "tlt2_L1_haiku55",
+          "tlt2_Lk_haiku55",
+          "tlt2_R_haiku55",
+          "tlt_Le_haiku55",
+          "tlt_Ls_haiku55",
+          "tlt_R_haiku55",
+          "tsd1_ab_K_haiku55",
+          "tsd1_ab_R_haiku55",
+          "tsd1_ab_T_haiku55",
+          "tsd2_ab_K_haiku55",
+          "tsd2_ab_R_haiku55",
+          "tsd2_ab_T_haiku55"
         ],
         "aws/gpt-oss-120b": [
           "f4_B_gptoss",
           "f4_L_gptoss",
-          "f4_R_gptoss"
+          "f4_R_gptoss",
+          "sl2t5_F_gptoss",
+          "sl2t5_H_gptoss",
+          "sl2t_F_gptoss",
+          "sl2t_G_gptoss",
+          "sl2t_H_gptoss",
+          "sl3t_I_gptoss",
+          "sl4t_J_gptoss",
+          "slt_A_gptoss",
+          "slt_B_gptoss",
+          "slt_C_gptoss",
+          "slt_D_gptoss",
+          "slt_E_gptoss",
+          "slv_C_gptoss",
+          "slv_D_gptoss",
+          "slv_E_gptoss",
+          "tlt_Le_gptoss",
+          "tlt_Ls_gptoss",
+          "tlt_R_gptoss",
+          "tsd1_ab_K_gptoss",
+          "tsd1_ab_R_gptoss",
+          "tsd1_ab_T_gptoss",
+          "tsd2_ab_K_gptoss",
+          "tsd2_ab_R_gptoss",
+          "tsd2_ab_T_gptoss"
         ]
       },
       "seen_n": {
-        "aws/claude-haiku-5-5": 9,
-        "aws/gpt-oss-120b": 7
+        "aws/claude-haiku-5-5": 20,
+        "aws/gpt-oss-120b": 20
       },
       "label": "seen"
+    },
+    {
+      "id": "ab-ts-dev",
+      "benchmark": "automationbench",
+      "path": "benchmarks/automationbench/target_state_dev.json",
+      "key": "tasks",
+      "id_field": null,
+      "status": "tuning",
+      "rule": "target-state experiment tuning set: 10 of ab-policy-types-fresh4 at random (fresh4 was traced for the demo video, so it is a tuning set); drawn 2026-11-10 before any run of the experiment",
+      "seed": 20261110,
+      "n": 10,
+      "seen_by": {
+        "aws/claude-haiku-5-5": [
+          "f4_B_haiku55",
+          "f4_R_haiku55",
+          "sl2t5_F_haiku55",
+          "sl2t5_H_haiku55",
+          "sl2t_F_haiku55",
+          "sl2t_G_haiku55",
+          "sl2t_H_haiku55",
+          "sl3t_I_haiku55",
+          "sl4t_J_haiku55",
+          "slt_A_haiku55",
+          "slt_B_haiku55",
+          "slt_C_haiku55",
+          "slt_D_haiku55",
+          "slt_E_haiku55",
+          "tlt2_L1_haiku55",
+          "tlt2_Lk_haiku55",
+          "tlt2_R_haiku55",
+          "tlt_Le_haiku55",
+          "tlt_Ls_haiku55",
+          "tlt_R_haiku55",
+          "tsd1_ab_K_haiku55",
+          "tsd1_ab_R_haiku55",
+          "tsd1_ab_T_haiku55",
+          "tsd2_ab_K_haiku55",
+          "tsd2_ab_R_haiku55",
+          "tsd2_ab_T_haiku55"
+        ],
+        "aws/gpt-oss-120b": [
+          "f4_B_gptoss",
+          "f4_L_gptoss",
+          "f4_R_gptoss",
+          "sl2t5_F_gptoss",
+          "sl2t5_H_gptoss",
+          "sl2t_F_gptoss",
+          "sl2t_G_gptoss",
+          "sl2t_H_gptoss",
+          "sl3t_I_gptoss",
+          "sl4t_J_gptoss",
+          "slt_A_gptoss",
+          "slt_B_gptoss",
+          "slt_C_gptoss",
+          "slt_D_gptoss",
+          "slt_E_gptoss",
+          "slv_C_gptoss",
+          "slv_D_gptoss",
+          "slv_E_gptoss",
+          "tlt_Le_gptoss",
+          "tlt_Ls_gptoss",
+          "tlt_R_gptoss",
+          "tsd1_ab_K_gptoss",
+          "tsd1_ab_R_gptoss",
+          "tsd1_ab_T_gptoss",
+          "tsd2_ab_K_gptoss",
+          "tsd2_ab_R_gptoss",
+          "tsd2_ab_T_gptoss"
+        ]
+      },
+      "seen_n": {
+        "aws/claude-haiku-5-5": 10,
+        "aws/gpt-oss-120b": 10
+      },
+      "label": "tuning"
+    },
+    {
+      "id": "ab-policy-types-fresh5",
+      "benchmark": "automationbench",
+      "path": "benchmarks/automationbench/policy_types_fresh5.json",
+      "key": "tasks",
+      "id_field": "task",
+      "status": "heldout",
+      "rule": "Input: results/policy_features.json (policy_features.py). Pool: public tasks never used in a run or subset file, without the chatgpt tool (it always fails in our adapter) and without missing tools. Each task gets one primary policy type, first match in this order: no rule text in the data; versioned or conflicting rules; approval gate; threshold; date or deadline; rules spread over 2+ apps; one rule document. 5 tasks per type, at most 2 per domain per type, random with seed 20261104. Excluded: policy_types_subset.json, versioned_dev.json:dev, versioned_dev.json:holdout, policy_types_holdout.json, policy_types_holdout2.json, policy_types_fresh3.json, policy_types_fresh4.json.",
+      "seed": 20261110,
+      "n": 30,
+      "seen_by": {
+        "aws/claude-haiku-5-5": [
+          "sl2s_F_haiku55",
+          "sl2s_G_haiku55",
+          "sl2s_H_haiku55",
+          "sl2t5_F_haiku55",
+          "sl2t5_H_haiku55",
+          "sl2t_F_haiku55",
+          "sl2t_G_haiku55",
+          "sl2t_H_haiku55",
+          "sl3s_I_haiku55",
+          "sl3t_I_haiku55",
+          "sl4s_J_haiku55",
+          "sl4t_J_haiku55",
+          "slt_A_haiku55",
+          "slt_B_haiku55",
+          "slt_C_haiku55",
+          "slt_D_haiku55",
+          "slt_E_haiku55",
+          "tlt2_L1_haiku55",
+          "tlt2_Lk_haiku55",
+          "tlt2_R_haiku55",
+          "tlt_Le_haiku55",
+          "tlt_Ls_haiku55",
+          "tlt_R_haiku55",
+          "tsh_ab_K_haiku55",
+          "tsh_ab_R_haiku55",
+          "tsh_ab_T_haiku55"
+        ],
+        "aws/gpt-oss-120b": [
+          "sl2s_F_gptoss",
+          "sl2s_G_gptoss",
+          "sl2s_H_gptoss",
+          "sl2t5_F_gptoss",
+          "sl2t5_H_gptoss",
+          "sl2t_F_gptoss",
+          "sl2t_G_gptoss",
+          "sl2t_H_gptoss",
+          "sl3s_I_gptoss",
+          "sl3t_I_gptoss",
+          "sl4s_J_gptoss",
+          "sl4t_J_gptoss",
+          "slt_A_gptoss",
+          "slt_B_gptoss",
+          "slt_C_gptoss",
+          "slt_D_gptoss",
+          "slt_E_gptoss",
+          "slv_C_gptoss",
+          "slv_D_gptoss",
+          "slv_E_gptoss",
+          "tlt_Le_gptoss",
+          "tlt_Ls_gptoss",
+          "tlt_R_gptoss"
+        ]
+      },
+      "seen_n": {
+        "aws/claude-haiku-5-5": 30,
+        "aws/gpt-oss-120b": 19
+      },
+      "label": "seen"
+    },
+    {
+      "id": "ab-policy-types-fresh6",
+      "benchmark": "automationbench",
+      "path": "benchmarks/automationbench/policy_types_fresh6.json",
+      "key": "tasks",
+      "id_field": "task",
+      "status": "heldout",
+      "rule": "Input: results/policy_features.json (policy_features.py). Pool: public tasks never used in a run or subset file, without the chatgpt tool (it always fails in our adapter) and without missing tools. Each task gets one primary policy type, first match in this order: no rule text in the data; versioned or conflicting rules; approval gate; threshold; date or deadline; rules spread over 2+ apps; one rule document. 5 tasks per type, at most 2 per domain per type, random with seed 20261104. Excluded: policy_types_subset.json, versioned_dev.json:dev, versioned_dev.json:holdout, policy_types_holdout.json, policy_types_holdout2.json, policy_types_fresh3.json, policy_types_fresh4.json, policy_types_fresh5.json, upstream_named_tasks_2026-11-11.json.",
+      "seed": 20261111,
+      "n": 42,
+      "seen_by": {
+        "aws/claude-haiku-5-5": [
+          "tlh_K_haiku55",
+          "tlh_L_haiku55",
+          "tlh_R_haiku55"
+        ],
+        "aws/gpt-oss-120b": [
+          "tlh_B_gptoss",
+          "tlh_K_gptoss",
+          "tlh_L_gptoss",
+          "tlh_R_gptoss"
+        ]
+      },
+      "seen_n": {
+        "aws/claude-haiku-5-5": 42,
+        "aws/gpt-oss-120b": 42
+      },
+      "label": "seen"
+    },
+    {
+      "id": "ab-policy-types-fresh7",
+      "benchmark": "automationbench",
+      "path": "benchmarks/automationbench/policy_types_fresh7.json",
+      "key": "tasks",
+      "id_field": "task",
+      "status": "heldout",
+      "rule": "Input: results/policy_features.json (policy_features.py). Pool: public tasks never used in a run or subset file, without the chatgpt tool (it always fails in our adapter) and without missing tools. Each task gets one primary policy type, first match in this order: no rule text in the data; versioned or conflicting rules; approval gate; threshold; date or deadline; rules spread over 2+ apps; one rule document. 5 tasks per type, at most 2 per domain per type, random with seed 20261104. Excluded: policy_types_subset.json, versioned_dev.json:dev, versioned_dev.json:holdout, policy_types_holdout.json, policy_types_holdout2.json, policy_types_fresh3.json, policy_types_fresh4.json, policy_types_fresh5.json, policy_types_fresh6.json, upstream_named_tasks_2026-11-11.json.",
+      "seed": 20261112,
+      "n": 40,
+      "seen_by": {
+        "aws/claude-haiku-5-5": [
+          "slh_A_haiku55",
+          "slh_B_haiku55",
+          "slh_C_haiku55",
+          "slh_D_haiku55",
+          "slh_E_haiku55"
+        ],
+        "aws/gpt-oss-120b": [
+          "slh_A_gptoss",
+          "slh_B_gptoss",
+          "slh_C_gptoss",
+          "slh_D_gptoss",
+          "slh_E_gptoss"
+        ]
+      },
+      "seen_n": {
+        "aws/claude-haiku-5-5": 40,
+        "aws/gpt-oss-120b": 40
+      },
+      "label": "seen"
+    },
+    {
+      "id": "ab-policy-types-fresh8",
+      "benchmark": "automationbench",
+      "path": "benchmarks/automationbench/policy_types_fresh8.json",
+      "key": "tasks",
+      "id_field": "task",
+      "status": "heldout",
+      "rule": "Input: results/policy_features.json (policy_features.py). Pool: public tasks never used in a run or subset file, without the chatgpt tool (it always fails in our adapter) and without missing tools. Each task gets one primary policy type, first match in this order: no rule text in the data; versioned or conflicting rules; approval gate; threshold; date or deadline; rules spread over 2+ apps; one rule document. 5 tasks per type, at most 2 per domain per type, random with seed 20261104. Excluded: policy_types_subset.json, versioned_dev.json:dev, versioned_dev.json:holdout, policy_types_holdout.json, policy_types_holdout2.json, policy_types_fresh3.json, policy_types_fresh4.json, policy_types_fresh5.json, policy_types_fresh6.json, policy_types_fresh7.json, upstream_named_tasks_2026-11-11.json.",
+      "seed": 202611122,
+      "n": 40,
+      "seen_by": {
+        "aws/claude-haiku-5-5": [
+          "sl2h_A_haiku55",
+          "sl2h_B_haiku55",
+          "sl2h_F_haiku55",
+          "sl2h_G_haiku55",
+          "sl2h_H_haiku55",
+          "sl2h_I_haiku55",
+          "sl2h_J_haiku55"
+        ],
+        "aws/gpt-oss-120b": [
+          "sl2h_A_gptoss",
+          "sl2h_B_gptoss",
+          "sl2h_F_gptoss",
+          "sl2h_G_gptoss",
+          "sl2h_H_gptoss",
+          "sl2h_I_gptoss",
+          "sl2h_J_gptoss"
+        ]
+      },
+      "seen_n": {
+        "aws/claude-haiku-5-5": 40,
+        "aws/gpt-oss-120b": 40
+      },
+      "label": "seen"
+    },
+    {
+      "id": "ab-tl-tune",
+      "benchmark": "automationbench",
+      "path": "benchmarks/automationbench/turn_loop_tune.json",
+      "key": "tasks",
+      "id_field": null,
+      "status": "tuning",
+      "rule": "turn-loop test, tuning set: the tasks of policy_types_fresh4.json and policy_types_fresh5.json that no upstream issue or pull request names (upstream_named_tasks_2026-11-11.json); both sets were run before",
+      "seed": null,
+      "n": 30,
+      "seen_by": {
+        "aws/claude-haiku-5-5": [
+          "f4_B_haiku55",
+          "f4_R_haiku55",
+          "sl2s_F_haiku55",
+          "sl2s_G_haiku55",
+          "sl2s_H_haiku55",
+          "sl2t5_F_haiku55",
+          "sl2t5_H_haiku55",
+          "sl2t_F_haiku55",
+          "sl2t_G_haiku55",
+          "sl2t_H_haiku55",
+          "sl3s_I_haiku55",
+          "sl3t_I_haiku55",
+          "sl4s_J_haiku55",
+          "sl4t_J_haiku55",
+          "slt_A_haiku55",
+          "slt_B_haiku55",
+          "slt_C_haiku55",
+          "slt_D_haiku55",
+          "slt_E_haiku55",
+          "tlt2_L1_haiku55",
+          "tlt2_Lk_haiku55",
+          "tlt2_R_haiku55",
+          "tlt_Le_haiku55",
+          "tlt_Ls_haiku55",
+          "tlt_R_haiku55",
+          "tsd1_ab_K_haiku55",
+          "tsd1_ab_R_haiku55",
+          "tsd1_ab_T_haiku55",
+          "tsd2_ab_K_haiku55",
+          "tsd2_ab_R_haiku55",
+          "tsd2_ab_T_haiku55",
+          "tsh_ab_K_haiku55",
+          "tsh_ab_R_haiku55",
+          "tsh_ab_T_haiku55"
+        ],
+        "aws/gpt-oss-120b": [
+          "f4_B_gptoss",
+          "f4_L_gptoss",
+          "f4_R_gptoss",
+          "sl2s_F_gptoss",
+          "sl2s_G_gptoss",
+          "sl2s_H_gptoss",
+          "sl2t5_F_gptoss",
+          "sl2t5_H_gptoss",
+          "sl2t_F_gptoss",
+          "sl2t_G_gptoss",
+          "sl2t_H_gptoss",
+          "sl3s_I_gptoss",
+          "sl3t_I_gptoss",
+          "sl4s_J_gptoss",
+          "sl4t_J_gptoss",
+          "slt_A_gptoss",
+          "slt_B_gptoss",
+          "slt_C_gptoss",
+          "slt_D_gptoss",
+          "slt_E_gptoss",
+          "slv_C_gptoss",
+          "slv_D_gptoss",
+          "slv_E_gptoss",
+          "tlt_Le_gptoss",
+          "tlt_Ls_gptoss",
+          "tlt_R_gptoss",
+          "tsd1_ab_K_gptoss",
+          "tsd1_ab_R_gptoss",
+          "tsd1_ab_T_gptoss",
+          "tsd2_ab_K_gptoss",
+          "tsd2_ab_R_gptoss",
+          "tsd2_ab_T_gptoss"
+        ]
+      },
+      "seen_n": {
+        "aws/claude-haiku-5-5": 30,
+        "aws/gpt-oss-120b": 30
+      },
+      "label": "tuning"
     },
     {
       "id": "handbook-public3",
@@ -1255,16 +1860,26 @@
         "itsm-tune"
       ],
       "heldout_sets": [
+        "itsm-toolsearch",
         "itsm-unseen"
+      ],
+      "tuned_by_changes": []
+    },
+    "itsm/80cd3ebb50": {
+      "tuning_sets": [],
+      "heldout_sets": [
+        "itsm-toolsearch"
       ],
       "tuned_by_changes": []
     },
     "itsm/933219af01": {
       "tuning_sets": [
         "itsm-pilot",
+        "itsm-toolsearch-smoke",
         "itsm-tune"
       ],
       "heldout_sets": [
+        "itsm-toolsearch",
         "itsm-unseen",
         "itsm-unseen2",
         "itsm-unseen3"
@@ -1276,6 +1891,7 @@
         "itsm-pilot"
       ],
       "heldout_sets": [
+        "itsm-toolsearch",
         "itsm-unseen"
       ],
       "tuned_by_changes": []
@@ -1286,6 +1902,7 @@
         "itsm-xref"
       ],
       "heldout_sets": [
+        "itsm-toolsearch",
         "itsm-unseen2",
         "itsm-unseen3"
       ],
@@ -1310,9 +1927,11 @@
     "itsm/e2891a7b98": {
       "tuning_sets": [
         "itsm-pilot",
+        "itsm-toolsearch-smoke",
         "itsm-tune"
       ],
       "heldout_sets": [
+        "itsm-toolsearch",
         "itsm-unseen",
         "itsm-unseen2",
         "itsm-unseen3"

@@ -747,7 +747,9 @@ def test_the_kind_of_numbers_comes_from_the_registry_and_is_never_held_out_by_de
     assert kind("itsm", "c47f8ceef3")[0] == "tuning"
     d5, why = kind("itsm", "d5ab75ff0f")  # no tuning set; change 131 fixed the pipeline on it
     assert d5 == "tuning" and "131" in why
-    assert kind("itsm", "80cd3ebb50")[0] == "unseen, no run"  # no set and no change names it
+    assert (
+        kind("itsm", "80cd3ebb50")[0] == "seen, not tuned"
+    )  # run by itsm-toolsearch; no tuning set, no change names it
     assert kind("automationbench", "finance.prepaid_amortization", "gold")[0] == "gold, tuning"  # in ab-tune
     gold, why = kind("itsm", "e2891a7b98", "gold")
     assert gold == "gold, tuning" and "reference build" in why and "changes 105" in why  # both facts
@@ -799,7 +801,7 @@ def test_no_package_is_held_out_and_the_labels_of_the_rulings_are_exact():
     kinds = {f: audit_report.basis_of(*f.split("/"), "skill_v1")[0] for f in folders}
     assert "held-out" not in kinds.values()
     assert kinds["tau2_airline/airline"] == "seen, not tuned"
-    assert kinds["tau2_retail/retail"] == "unseen, no run" and kinds["itsm/80cd3ebb50"] == "unseen, no run"
+    assert kinds["tau2_retail/retail"] == "unseen, no run" and kinds["itsm/80cd3ebb50"] == "seen, not tuned"
     assert (
         kinds["tau2_telecom/telecom"] == "tuning"
         and kinds["handbook/hr_crestwood_university_79786c46"] == "tuning"
@@ -857,4 +859,5 @@ def test_the_identity_of_a_package_leaves_the_decision_tests_out_and_the_harness
     if (
         saved.is_file()
     ):  # the hash the smoke run (smk24_itsm_rules_t1) names for this package, before it had tests
-        assert package_identity(saved, "3f8382b04c91277c") == "3f8382b04c91277c+108af1c22be7"
+        before, after = "3f8382b04c91277c", "3f8382b04c91277c+108af1c22be7"  # pragma: allowlist secret
+        assert package_identity(saved, before) == after
