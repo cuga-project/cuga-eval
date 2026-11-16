@@ -410,8 +410,12 @@ if [ -n "$LATEST_RESULT" ] && [ "${NO_BUNDLE:-false}" != "true" ]; then
 
         # Generate eval report
         REPORT_TMP=$(mktemp /tmp/appworld_eval_report_XXXXXX)
-        uv run --no-sync python -m benchmarks.helpers.compare_report eval \
-            --result-file "$LATEST_RESULT" --output "$REPORT_TMP"
+        REPORT_ARGS=(eval --result-file "$LATEST_RESULT" --output "$REPORT_TMP")
+        uv run --no-sync python -m benchmarks.helpers.compare_report "${REPORT_ARGS[@]}"
+        if [[ "${PR_EVAL_FOR_PR_COMMENT:-false}" == "true" ]]; then
+            uv run --no-sync python -m benchmarks.helpers.compare_report \
+                eval --result-file "$LATEST_RESULT" --for-pr-comment --stdout-markdown
+        fi
 
         BUNDLE_ARGS=(assemble --benchmark appworld
             --result-files "$LATEST_RESULT"

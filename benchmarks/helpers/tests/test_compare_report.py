@@ -21,10 +21,12 @@ Covers:
 """
 
 import json
+import sys
 from pathlib import Path
 
 import pytest
 
+from benchmarks.helpers import compare_report as compare_report_module
 from benchmarks.helpers.compare_report import (
     _aggregate_receipt_costs,
     _last_turn_judge_scores,
@@ -219,6 +221,78 @@ def test_parse_sdk_results_includes_react_steps():
         }
     )
     assert parsed["tasks"]["t1"]["steps"] == 3
+
+
+def test_eval_report_default_omits_pr_comment_wrapping(tmp_path):
+    result_file = _appworld_run(tmp_path, "run.json", {"A": True, "B": False})
+
+    report = generate_eval_report(result_file)
+
+    assert report.startswith("# Evaluation Report")
+    assert "######## REPORT START ########" not in report
+    assert "######## REPORT END ########" not in report
+    assert "<summary>Evaluation Report</summary>" not in report
+
+
+def test_eval_report_pr_comment_wrapping_is_opt_in(tmp_path):
+    result_file = _appworld_run(tmp_path, "run.json", {"A": True, "B": False})
+
+    report = generate_eval_report(result_file, for_pr_comment=True)
+
+    assert report.startswith("######## REPORT START ########")
+    assert "<summary>Evaluation Report</summary>" in report
+    assert report.rstrip().endswith("######## REPORT END ########")
+
+
+def test_eval_main_with_output_prints_plain_text_by_default(tmp_path, monkeypatch, capsys):
+    result_file = _appworld_run(tmp_path, "run.json", {"A": True, "B": False})
+    output_file = tmp_path / "report.md"
+    monkeypatch.setattr(
+        sys,
+        "argv",
+        [
+            "compare_report.py",
+            "eval",
+            "--result-file",
+            result_file,
+            "--output",
+            str(output_file),
+        ],
+    )
+
+    compare_report_module.main()
+
+    stdout = capsys.readouterr().out
+    saved_report = output_file.read_text()
+    assert stdout.startswith("\nEvaluation Report")
+    assert "######## REPORT START ########" not in stdout
+    assert saved_report.startswith("# Evaluation Report")
+    assert "######## REPORT START ########" not in saved_report
+
+
+def test_eval_main_pr_comment_mode_prints_markdown_markers(tmp_path, monkeypatch, capsys):
+    result_file = _appworld_run(tmp_path, "run.json", {"A": True, "B": False})
+    output_file = tmp_path / "report.md"
+    monkeypatch.setattr(
+        sys,
+        "argv",
+        [
+            "compare_report.py",
+            "eval",
+            "--result-file",
+            result_file,
+            "--output",
+            str(output_file),
+            "--for-pr-comment",
+        ],
+    )
+
+    compare_report_module.main()
+
+    stdout = capsys.readouterr().out
+    saved_report = output_file.read_text()
+    assert stdout.startswith("######## REPORT START ########")
+    assert saved_report.startswith("######## REPORT START ########")
 
 
 def _m3_run(tmp_path: Path, name: str, tasks) -> str:
