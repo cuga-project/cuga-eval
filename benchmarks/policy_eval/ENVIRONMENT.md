@@ -2,6 +2,8 @@
 
 Where the code, environments, keys, ledger and results are. No key values are written here.
 
+For a new machine start with [SETUP.md](SETUP.md). This file describes the original single-person setup: its paths are that machine's.
+
 ## Repos and branches
 
 | Repo | Path | Branch | Role |
@@ -10,9 +12,9 @@ Where the code, environments, keys, ledger and results are. No key values are wr
 | cuga-eval | `~/dev/cuga-eval` | `evaluation-work` | The harness (one runner), benchmark modules, offline tools, results of offline replays, docs. |
 | cuga-eval-tau2 | `~/dev/cuga-eval-tau2` | `exp/tau2-policy-runner` | Linked worktree of cuga-eval: the code and venv that the τ² adapter runs on (see the τ² section). |
 
-- Code work happens in `cuga-agent-gate` only. Never edit or switch branches in `~/dev/cuga-agent`.
+- Until 2026-11-16 code work happened in `cuga-agent-gate` only. Now an edit is committed in the worktree of the pull request it belongs to and merged into the branch `policy/integration` of cuga-agent (`~/dev/cuga-agent-integration`); the polisys package has its own repo. Never edit or switch branches in `~/dev/cuga-agent`.
 - The `best/*` branches of `cuga-agent-gate` are the code of measured results. Keep them. Do not rebase or delete.
-- Everything is committed locally. Nothing is pushed.
+- The runs of 2026-11-16 and later take their code from snapshots built by `snapshot_polisys.sh` (cuga-agent `policy/integration` plus polisys, see SETUP.md). The gate branch `policy/stable` and the `best/*` branches stay local, as the record of earlier results.
 - Never run `git checkout -- <file>` or `git restore` in `cuga-eval`: uncommitted live files were lost that way before. Read `git status` and `git diff` first.
 - Every change to the policy system is logged in `benchmarks/policy_eval/changes.md`.
 
@@ -158,7 +160,7 @@ The runner stays as benchmark logic. The adapter imports `_MESSAGE_TOOL`, `_patc
 
 A run takes its CUGA code from a frozen copy of the gate worktree, so that editing `~/dev/cuga-agent-gate` does not change a running experiment.
 
-- Create: `benchmarks/policy_eval/snapshot_src.sh <name>` copies `~/dev/cuga-agent-gate/src` to `~/dev/cuga_snapshots/<name>/src` and prints that path.
+- Create: `benchmarks/policy_eval/snapshot_polisys.sh <polisys repo> [cuga-agent repo]` builds `~/dev/cuga_snapshots/polisys-<sha>-cuga-<sha>` from the HEAD of the two repos and prints the name. `snapshot_src.sh <name>` (a copy of the gate worktree's `src`) is the older way and is not used for new runs.
 - Use: `policy_eval/harness/run.py --snapshot <name>`. The child puts the snapshot first in `sys.path` and refuses if `cuga` still comes from elsewhere, and each result holds `code_sha`.
 - A missing snapshot stops the run, for every benchmark, before any task starts.
 - To see which code a command would import: `PYTHONPATH=<snapshot>/src ~/dev/cuga-agent-gate/.venv/bin/python -c "import cuga; print(cuga.__file__)"`.

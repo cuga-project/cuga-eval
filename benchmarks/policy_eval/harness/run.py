@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 """One runner: a benchmark, a profile and a task set give one result file per task, in the common schema.
 
-  ~/dev/cuga-agent-gate/.venv/bin/python -I benchmarks/policy_eval/harness/run.py \
+  python -I benchmarks/policy_eval/harness/run.py \
       --bench automationbench --profile automationbench-gptoss-b4tf --set ab-policy-types-holdout \
       --snapshot stable-ba8474dd6 --trial 1 --run ph_B4TF -j 5
 
@@ -20,7 +20,7 @@ built from the profile file and the task's package, the agent runs, the adapter 
 
 Rules of the harness:
 
-- A run needs a snapshot under ``~/dev/cuga_snapshots/<name>`` (``snapshot_src.sh``). ``code_sha`` comes from it. A child
+- A run needs a snapshot under ``~/dev/cuga_snapshots/<name>`` (``snapshot_polisys.sh``). ``code_sha`` comes from it. A child
   whose ``cuga`` would come from anywhere else refuses to start.
 - The experiment is set by the profile file only. Policy switches in the environment are removed for the child.
 - ``RuntimeWiringError`` is not a task failure. The task is not run and not graded: the result has ``error`` and no score, the
@@ -98,7 +98,9 @@ class HarnessError(ValueError):
 def snapshot_src(name: str, root: Optional[Path] = None) -> Path:
     src = (root or SNAPSHOTS) / name / "src"
     if not src.is_dir():
-        raise HarnessError(f"no snapshot {src}: create it with policy_eval/snapshot_src.sh {name}")
+        raise HarnessError(
+            f"no snapshot {src}: create it with policy_eval/snapshot_polisys.sh <polisys repo> [cuga-agent repo]"
+        )
     return src
 
 
@@ -107,7 +109,9 @@ def code_sha(src: Path) -> str:
     entries (then the sha alone does not describe the code)."""
     source = src.parent / "SOURCE.txt"
     if not source.is_file():
-        raise HarnessError(f"snapshot {src.parent} has no SOURCE.txt: it did not come from snapshot_src.sh")
+        raise HarnessError(
+            f"snapshot {src.parent} has no SOURCE.txt: it did not come from snapshot_polisys.sh"
+        )
     words = source.read_text().split()
     if not words:
         raise HarnessError(f"{source} is empty")
@@ -362,8 +366,15 @@ def child(args: argparse.Namespace) -> None:
         raise SystemExit(str(exc)) from exc
     from policy_eval.harness.langfuse_trace import task_trace
 
-    meta = {"run": run_dir.name, "profile": args.profile, "trial": str(args.trial), "set": args.set,
-            "model": os.environ.get("MODEL_NAME"), "code_sha": sha, "snapshot": args.snapshot}
+    meta = {
+        "run": run_dir.name,
+        "profile": args.profile,
+        "trial": str(args.trial),
+        "set": args.set,
+        "model": os.environ.get("MODEL_NAME"),
+        "code_sha": sha,
+        "snapshot": args.snapshot,
+    }
     with task_trace(adapter.benchmark, args.child, meta) as trace:
         result = asyncio.run(run_task(args, adapter, run_dir, sha))
         trace.finish(result)

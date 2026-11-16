@@ -7,6 +7,7 @@ from __future__ import annotations
 import asyncio
 import json
 import os
+import sys
 import time
 from dataclasses import dataclass, field
 from pathlib import Path
@@ -19,7 +20,19 @@ if TYPE_CHECKING:
 
 HARNESS = Path(__file__).resolve().parents[1]
 BENCHMARKS = HARNESS.parents[1]
-GATE_PYTHON = Path.home() / "dev/cuga-agent-gate/.venv/bin/python"
+
+
+def _gate_python() -> Path:
+    """The Python of the children that need cuga, polisys and the benchmark's own packages (IT service, HR, CSM, HANDBOOK):
+    ``HARNESS_PYTHON``, else the old gate venv when it exists, else the interpreter that runs the harness."""
+    named = os.environ.get("HARNESS_PYTHON")
+    if named:
+        return Path(named)
+    old_venv = Path.home() / "dev/cuga-agent-gate/.venv/bin/python"
+    return old_venv if old_venv.exists() else Path(sys.executable)
+
+
+GATE_PYTHON = _gate_python()
 TOOL_LOG_LIMIT = 4000
 MAX_REPLIES = 20  # a component that keeps refusing a reply stops here, in a benchmark with one user turn
 
