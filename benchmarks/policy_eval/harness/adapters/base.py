@@ -6,6 +6,7 @@ from __future__ import annotations
 
 import asyncio
 import json
+import os
 import time
 from dataclasses import dataclass, field
 from pathlib import Path
@@ -79,6 +80,12 @@ def set_task_ids(entry: Dict[str, Any]) -> List[str]:
 def with_note(prompt: str, note: str) -> str:
     """The system prompt with the policy layer's note. With no note the prompt is the same text: a baseline run must equal
     CUGA with no policy layer, byte for byte."""
+    value = os.environ.get("TURN_LOOP")
+    if value:  # the turn loop's note (its survey instruction); never a part of the first user message
+        from ..turn_loop import parse, system_note
+
+        extra = system_note(parse(value))
+        note = f"{note}\n\n{extra}" if note and extra else note or extra
     return f"{prompt}\n\n{note}" if note else prompt
 
 
@@ -113,6 +120,29 @@ def logged_tools(tools: List[Any], log: List[Dict[str, Any]]) -> List[Any]:
     return [wrap(t) for t in tools]
 
 
+_TURN_LOOP: Dict[str, Any] = {}
+
+
+def turn_loop(
+    is_write: Optional[Callable[[str], bool]] = None, digest: Optional[Callable[[], str]] = None
+) -> Optional[Any]:
+    """The turn loop of this child process (``harness/turn_loop.py``) when ``TURN_LOOP`` is set, for example
+    ``TURN_LOOP=survey,end2``; else None, and the run is unchanged. One task runs per process, so one loop per process.
+    ``is_write`` is the adapter's label of the tools that change data (default: the tool-name label of the policy layer).
+    ``digest`` is used only with ``TURN_LOOP_AUDIT``: a call labeled as a read that changes the state is recorded."""
+    value = os.environ.get("TURN_LOOP")
+    if not value:
+        return None
+    if "loop" not in _TURN_LOOP:
+        from cuga.policy_layer.ruleset import is_write_tool
+
+        from ..turn_loop import TurnLoop, parse
+
+        audit = digest if os.environ.get("TURN_LOOP_AUDIT") else None
+        _TURN_LOOP["loop"] = TurnLoop(parse(value), is_write or is_write_tool, digest=audit)
+    return _TURN_LOOP["loop"]
+
+
 def agent_tools(
     parts: "RuntimeParts",
     tools: List[Any],
@@ -120,9 +150,14 @@ def agent_tools(
     turns: List[Dict[str, Any]],
     live: List[Dict[str, Any]],
     logged: Callable[[List[Any], List[Dict[str, Any]]], List[Any]] = logged_tools,
+    is_write: Optional[Callable[[str], bool]] = None,
+    digest: Optional[Callable[[], str]] = None,
 ) -> List[Any]:
     """What the agent is built with: the benchmark's tools, through ``wrap_tools`` when a component fills it, and the policy
-    layer's tools."""
+    layer's tools. With ``TURN_LOOP`` set, the benchmark's tools get the loop's guard first."""
+    loop = turn_loop(is_write, digest)
+    if loop is not None:
+        tools = loop.guard_tools(tools)
     wrapped = parts.wrap_tools(tools, turns, live) if parts.wrap_tools is not None else list(tools)
     return wrapped + logged(parts.tools, log)
 
@@ -170,11 +205,36 @@ async def drive_one_request(
             "a component fills the slot run, and another fills turn_note or after_reply: the run has no turns for them"
         )
     loop = parts.components.get("loop")
+    tloop = turn_loop()
+    if tloop is not None and (
+        parts.run is not None or parts.turn_note is not None or parts.after_reply is not None or parts.hooks
+    ):
+        raise RuntimeWiringError(
+            "TURN_LOOP is set and the profile fills run, turn_note, after_reply or hooks: the turn loop runs on the "
+            "baseline profile only"
+        )
     watched = _TurnErrors(agent)
     try:
         if parts.run is not None:
             result = await parts.run(watched, request, thread_id, timeout)
             out.answer, out.error = result.answer, watched.first or result.error
+        elif tloop is not None:
+            turns.append({"role": "customer", "text": request})
+            deadline = time.monotonic() + timeout  # one time limit for all the turns of the loop
+
+            async def ask(text: str) -> Optional[str]:
+                left = max(1.0, deadline - time.monotonic())
+                result = await asyncio.wait_for(agent.invoke(text, thread_id=thread_id), timeout=left)
+                receipt = receipt_of(result)
+                if receipt is not None:
+                    out.receipts.append(receipt)
+                out.error = out.error or result.error
+                if result.error or not result.answer:
+                    return None
+                out.answer = result.answer
+                return result.answer
+
+            await tloop.turn(ask, request)
         else:
             prompt = request
             turns.append({"role": "customer", "text": request})
@@ -203,6 +263,8 @@ async def drive_one_request(
     if loop is not None:
         out.receipts = list(loop.receipts)
         out.extra["sop_loop"] = loop.log
+    if tloop is not None:
+        out.extra["turn_loop"] = tloop.report()
     return out
 
 

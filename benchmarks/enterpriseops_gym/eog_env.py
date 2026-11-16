@@ -70,7 +70,9 @@ class EOGTask:
         self.task = task
         cfg = task["gym_servers_config"][0]
         self.gym_name = cfg["mcp_server_name"]
-        self.url = os.environ.get(f"EOG_{(task.get('domain') or 'itsm').upper()}_URL", cfg["mcp_server_url"]).rstrip("/")
+        self.url = os.environ.get(
+            f"EOG_{(task.get('domain') or 'itsm').upper()}_URL", cfg["mcp_server_url"]
+        ).rstrip("/")
         self.seed_file = VENDOR / cfg["seed_database_file"]
         self.context = cfg.get("context") or {}
         self.user_info = cfg.get("user_info") or {}
@@ -90,7 +92,12 @@ class EOGTask:
         if not await self.client.connect():
             raise RuntimeError(f"MCP connect failed: {self.url}")
         tools = await self.client.list_tools()
-        wanted = set(self.task.get("selected_tools") or [t["name"] for t in tools])
+        # EOG_ALL_TOOLS=1: every tool of the domain's server, not only the task's selected tools (restricted tools stay
+        # blocked). Used to test how CUGA finds and binds tools when there are many (89-93 per domain).
+        if os.environ.get("EOG_ALL_TOOLS") == "1":
+            wanted = {t["name"] for t in tools}
+        else:
+            wanted = set(self.task.get("selected_tools") or [t["name"] for t in tools])
         blocked = set(self.task.get("restricted_tools") or [])
         self.specs = [t for t in tools if t["name"] in wanted and t["name"] not in blocked]
         missing = wanted - {t["name"] for t in self.specs} - blocked
@@ -189,7 +196,9 @@ class EOGTask:
                     "error": res.get("error"),
                 }
             )
-        from numeric_string_fix import fixed_pass  # the grader defect of text integers, reported beside (not instead of)
+        from numeric_string_fix import (
+            fixed_pass,  # the grader defect of text integers, reported beside (not instead of)
+        )
 
         for r, v in zip(rows, self.task["verifiers"]):
             r["passed_numeric_fix"] = fixed_pass(r, v)
