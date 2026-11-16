@@ -10,7 +10,7 @@ changed; everything goes through public SDK surfaces:
 | `CugaAgent(final_answer=...)` | deterministic answer function: harmony-token strip + judge-shape canonicalization |
 | `CugaAgent(shortlister=Shortlister(...))` | the exact validated shortlisting: MiniLM embedding, top-k bounded, retriever pinning (custom strategy by dotted path) |
 | `configurable["mcp_few_shot_examples"]` | k similar solved train examples as chat pairs (prose demos) |
-| `configurable["cuga_lite_execution_mode"]` (+ bind_tools mode/cap) | native function-calling execution mode for caps 1-3 (cuga-agent#777; see [Execution mode](#execution-mode-function-calling)) |
+| `configurable["cuga_lite_execution_mode"]` (+ bind_tools mode/cap) | native function-calling execution mode for the `cap1`–`cap4` presets (cuga-agent#777, in CUGA main; see [Execution mode](#execution-mode-function-calling)) |
 | a `ToolProviderInterface` wrapper | tool-call recording (evidence for the guards), runaway cap, cap4 policy tool scoping, and up to 2 retries of a call the benchmark's tool server timed out on (its 30 s limit; slow APIs answer once their database is warm). Sits *inside* CUGA's ToolGuard decorator (ToolGuard stays outermost: positional-arg normalization, policy storage), accepts exactly what the raw tools accept, and keeps the `tool.func` metadata (`_response_schemas`, `_param_constraints`) so the rendered tool docs match a plain run |
 
 Default preset **`off`** builds a plain `CugaAgent` with exactly today's
@@ -28,7 +28,11 @@ bash benchmarks/m3/eval.sh --m3-data <data> --capability m3_task_2 --domain hock
 uv run python benchmarks/m3/eval_m3_task_1_enterprise_style.py \
      --container capability_1_bi_apis --domain movie --adapter-preset cap1
 
-# capability 4 (multiturn runner)
+# capability 4, as the submitted runs did: eval_m3 with the campaign's multi-turn protocol
+# (run_cap4_domain in benchmarks/m3/parity/run_cuga_eval_arm.sh has the full command)
+uv run python -m benchmarks.m3.parity.eval_m3_cap4 <eval_m3 arguments> --adapter-preset cap4
+
+# capability 4, multiturn runner (it does not install the preset's shortlister; see Known behaviors)
 uv run python -m benchmarks.m3.eval_m3_multiturn --adapter-preset cap4
 ```
 
@@ -218,11 +222,10 @@ when the policy system cannot be queried — a run that stops with
 "Function-calling mode could not verify whether a tool-approval policy exists"
 means the policy system was not initialised for that agent.
 
-Native FC lands in cuga-agent with cuga-agent#777. The key names above were
-verified on that branch and must be re-checked once it merges
-(`tests/test_adapter_cuga_integration.py` does so automatically when the cuga
-checkout has native FC); on a cuga main without it the keys are ignored and the
-run stays CodeAct.
+Native FC is in CUGA main since cuga-agent#777; the submitted runs used main
+`88fd3549`. `tests/test_adapter_cuga_integration.py` checks that the key names
+above resolve in the installed CUGA; on a CUGA older than #777 the keys are
+ignored and the run stays CodeAct.
 
 ## Demos
 
@@ -276,9 +279,6 @@ appends to each tool's description up to that many solved questions whose gold c
 
 ## Not ported (and why)
 
-- **Function calling** (`VAKRA_CUGA_FC`) is mapped (see
-  [Execution mode](#execution-mode-function-calling)) but only takes effect once
-  cuga-agent#777 is merged.
 - **`stepwise_struct`**: relied on a module that only existed in a vendored
   CUGA tree.
 - Experimental flags never in a submitted config: `TOOLFINDER`,
@@ -289,6 +289,38 @@ appends to each tool's description up to that many solved questions whose gold c
   `VAKRA_CUGA_MAX_STEPS` (use
   `DYNACONF_ADVANCED_FEATURES__CUGA_LITE_MAX_STEPS`, already in `m3.env`) and
   `VAKRA_CUGA_SUPPRESS_GIVEUP`.
+
+## Known behaviors (kept as submitted)
+
+`cap1`–`cap4` are the configuration submitted to the VAKRA leaderboard: this adapter at
+cuga-eval `93cf615` on CUGA main `88fd3549`. Review found the behaviors below. Fixing any of
+them changes answers, so the presets keep them as submitted; a fix lands as an opt-in field
+first and becomes a default only after a paired train A/B.
+
+- **A CUGA error result goes through the guards.** The answer pipeline does not stop when
+  CUGA returns a result with `error` set. Refusal normalization (`cap4`) and the bluff map
+  (`cap1`–`cap3`) turn an error message that contains a give-up phrase into "I can not
+  answer.". The `cap4` preset has the evidence gate off, so that gate does not refuse an error
+  that came before any tool call. A turn whose LLM transport fails is re-run once
+  (`infra_retries=1`), and the parity kit's recovery pass (`parity/recover.py`) re-runs tasks
+  that died on infrastructure.
+- **A tool result that reports an error counts as a successful call.** The guards treat a call
+  as failed only when the tool raised (recorded as `Error: ...`). A registry tool that returns
+  `{"error": ...}` counts as a successful call for the bluff map and `require_tool_rounds`. The
+  `cap4` preset has the evidence gate and the support check off.
+- **Number cleanup.** `normalize` drops a trailing `.0` (`3.0` → `3`), and a dotted number such
+  as `1.0.2` becomes `1.2`. Underscores inside values are kept.
+- **cap4 through `eval_m3_multiturn.py`.** `wrap_existing_agent` does not install the preset's
+  shortlister, so a domain over 128 tools is cut by CUGA's default bind-time selection. The
+  submitted cap4 runs used `parity/eval_m3_cap4.py`, which builds the agent with
+  `build_m3_agent`.
+- **`M3_ADAPTER_*` overrides.** An override whose name matches no field is ignored, not
+  rejected, and `M3_ADAPTER_CAPABILITY` applies only when the runner passes no capability (the
+  cap1 and multiturn runners always pass one; `eval_m3.py` passes the task id whenever it has
+  one). The log names the active preset and capability; check the override names when running
+  an ablation.
+- **A malformed adapter setting in `eval_m3.py`** fails every domain instead of stopping the
+  run, because the config is resolved inside the per-domain loop.
 
 ## Data & licensing
 
