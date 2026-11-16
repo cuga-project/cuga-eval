@@ -38,6 +38,8 @@ PRICES = {
     "azure/DeepSeek-V4-Pro": (1.74, 3.48),
     "gcp/gemini-3.5-flash-lite": (0.30, 2.50),
     "aws/nemotron-super-3-120b": (0.15, 0.65),
+    "anthropic/claude-haiku-5.5": (0.10, 0.50),  # OpenRouter list price, read 2026-11-16
+    "openai/gpt-oss-120b": (0.15, 0.60),  # OpenRouter list price, read 2026-11-16
     "openai/Azure/gpt-4.1": (2.00, 8.00),  # the τ² user simulator
 }  # $ per 1M in/out (list)
 
