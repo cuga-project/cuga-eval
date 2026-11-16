@@ -1,7 +1,7 @@
 # Setup on a new machine
 
-How to run IT service (ITSM) tasks of EnterpriseOps-Gym with the policy harness. Written on 2026-11-16 and checked on a fresh
-virtual environment: the commands below ran a task to a graded result. `ENVIRONMENT.md` describes the original single-machine
+How to run IT service (ITSM) tasks of EnterpriseOps-Gym with the policy harness. Written on 2026-11-16 and checked on fresh
+clones of the three repositories (GitHub) and a fresh virtual environment: the commands below ran a task to a graded result. `ENVIRONMENT.md` describes the original single-machine
 setup (its paths are that machine's); where the two differ, this file is the newer one.
 
 ## What you need
@@ -43,6 +43,13 @@ Our runs used this commit of the benchmark:
 ```bash
 git clone https://github.com/ServiceNow/EnterpriseOps-Gym.git cuga-eval/benchmarks/enterpriseops_gym/vendor/EnterpriseOps-Gym
 git -C cuga-eval/benchmarks/enterpriseops_gym/vendor/EnterpriseOps-Gym checkout 271f2c3
+```
+
+Unzip the databases of the tasks inside the clone (the benchmark's README asks for this too). Without them the seed files do not exist,
+every tool call fails with `x-database-id header required`, and the harness stops the task with an error:
+
+```bash
+cd cuga-eval/benchmarks/enterpriseops_gym/vendor/EnterpriseOps-Gym && unzip -q gym_dbs.zip
 ```
 
 `vendor/` is git-ignored. The harness imports the benchmark's MCP client and its verifier from this clone, so tasks are graded by

@@ -83,6 +83,12 @@ class EOGTask:
 
     async def start(self) -> None:
         self.database_id = create_database_from_file(self.url, str(self.seed_file))
+        if not self.database_id:
+            # the benchmark's helper returns None when the seed file is missing or the server refuses it; without a
+            # database id every tool call fails and the task would be graded 0 as if the agent had failed
+            raise RuntimeError(
+                f"no database for the task: seed file {self.seed_file} (exists: {self.seed_file.exists()}), server {self.url}"
+            )
         self.client = MCPClient(
             self.url,
             mcp_endpoint=self.task.get("mcp_endpoint") or "/mcp",
