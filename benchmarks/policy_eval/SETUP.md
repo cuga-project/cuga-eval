@@ -21,16 +21,15 @@ mkdir -p "$ROOT"
 cd "$ROOT"
 git clone https://github.com/cuga-project/cuga-eval.git    && git -C cuga-eval  checkout policy-eval
 git clone https://github.com/cuga-project/cuga-agent.git   && git -C cuga-agent checkout policy/integration
-git clone https://github.com/cuga-project/polisys.git      && git -C polisys    checkout feat/finish-check-and-code-guards
+git clone https://github.com/cuga-project/polisys.git      # main
 ```
 
 - cuga-eval: use `main` once this branch is merged.
 - cuga-agent `policy/integration` is `main` plus the open pull requests for lifecycle hooks, dynamic tool binding and the claim retry;
   it holds no policy code.
-- polisys is the policy layer. The branch `feat/finish-check-and-code-guards` (polisys pull request #10, commit `086cb4a`) has the
-  finish check and the code guards that the HR profiles `experiments/sw-*` use; on polisys `main` those profiles stop with
-  `PolicyConfigError: unknown key`. Use `main` once that pull request is merged. Both arms of a comparison must run on one snapshot
-  (step 6) made from this checkout.
+- polisys is the policy layer. Its `main` has the finish check and the code guards that the HR profiles `experiments/sw-*` use
+  (polisys #10, merged 2026-11-17 as `9942191`); an older polisys stops those profiles with `PolicyConfigError: unknown key`.
+  Both arms of a comparison must run on one snapshot (step 6) made from this checkout.
 
 ## 2. Python environment
 
