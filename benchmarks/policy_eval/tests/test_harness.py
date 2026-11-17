@@ -634,7 +634,7 @@ def test_the_snapshot_is_required_on_the_command_line():
 
 @pytest.mark.skipif(
     not (POLICY_EVAL / "packages/itsm/e2891a7b98/builds_v4/package.json").exists(),
-    reason="the archived package builds are not in git (tag archive/policy-eval-2026-11-17)",
+    reason="the archived package builds are not in git (the last commit that has them is 538904ea)",
 )
 def test_two_packages_of_one_policy_have_two_package_versions():
     root = POLICY_EVAL / "packages/itsm/e2891a7b98"

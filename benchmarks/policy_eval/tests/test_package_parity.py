@@ -49,7 +49,7 @@ def test_rule_outcomes_are_the_same_from_the_build_and_from_the_package():
 @pytest.mark.skipif(
     not (POLICY_EVAL / "packages" / "handbook").exists()
     or not (POLICY_EVAL / "packages/itsm/e2891a7b98/builds_v2").is_dir(),
-    reason="the archived package builds are not in git (tag archive/policy-eval-2026-11-17)",
+    reason="the archived package builds are not in git (the last commit that has them is 538904ea)",
 )
 def test_store_gate_builds_only_from_packages_it_can_check():
     out = run_check("gate")
@@ -60,7 +60,7 @@ def test_store_gate_builds_only_from_packages_it_can_check():
 
 @pytest.mark.skipif(
     not (POLICY_EVAL / "packages/itsm/e2891a7b98/builds_v2").is_dir(),
-    reason="the archived package builds are not in git (tag archive/policy-eval-2026-11-17)",
+    reason="the archived package builds are not in git (the last commit that has them is 538904ea)",
 )
 def test_the_gate_scope_from_routers_is_the_scope_the_gate_always_had_on_every_package():
     out = run_check("scope")
