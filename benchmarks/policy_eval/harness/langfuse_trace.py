@@ -70,7 +70,9 @@ def task_trace(benchmark: str, task: str, meta: Dict[str, Optional[str]]) -> Ite
             metadata={k: str(v)[:200] for k, v in meta.items() if v is not None},
             trace_name=f"{benchmark}/{task}",
         )
-        span_cm = client.start_as_current_observation(name=f"{benchmark}/{task}", as_type="span", input={"task": task})
+        span_cm = client.start_as_current_observation(
+            name=f"{benchmark}/{task}", as_type="span", input={"task": task}
+        )
     except Exception as exc:  # noqa: BLE001
         print(f"langfuse: task trace not started: {exc}", flush=True)
         yield TaskTrace()
@@ -81,5 +83,5 @@ def task_trace(benchmark: str, task: str, meta: Dict[str, Optional[str]]) -> Ite
         finally:
             try:
                 client.flush()
-            except Exception:  # noqa: BLE001
+            except Exception:  # noqa: BLE001, S110 - a failed trace flush must not fail the run
                 pass

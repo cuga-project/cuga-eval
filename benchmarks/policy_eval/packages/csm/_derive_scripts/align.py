@@ -1,8 +1,11 @@
 """Align base and derived statements by text; print changes; write a remapped draft (draft.remap.json)."""
-import difflib, json, sys
+
+import difflib
+import json
+import sys
 from pathlib import Path
 
-ROOT = Path("/tmp/csm_pkg")
+ROOT = Path("/tmp/csm_pkg")  # nosec B108 - local work folder of a one-off script
 FAM = json.loads((ROOT / "families.json").read_text())
 
 
@@ -41,7 +44,10 @@ def align(base, new):
                 if r > best:
                     best, bj = r, j
             if len(olds) == len(news):
-                bj, best = news[olds.index(i)], difflib.SequenceMatcher(None, bt[i], nt[news[olds.index(i)]]).ratio()
+                bj, best = (
+                    news[olds.index(i)],
+                    difflib.SequenceMatcher(None, bt[i], nt[news[olds.index(i)]]).ratio(),
+                )
             if bj is not None and (best >= 0.6 or len(olds) == len(news)):
                 used.add(bj)
                 idmap[base[i][0]] = new[bj][0]
@@ -80,7 +86,8 @@ if __name__ == "__main__":
     print(f"== {v} (base {base}) {len(b)} -> {len(n)} statements")
     print("moved ids:", moved)
     print("moved sections:", secmoved)
-    bt = {x[2]: x[3] for x in b}; ntt = {x[2]: x[3] for x in n}
+    bt = {x[2]: x[3] for x in b}
+    ntt = {x[2]: x[3] for x in n}
     for k, x in secmap.items():
         if bt.get(k[7:]) != ntt.get(x[7:]):
             print(f"SECTION TITLE {k} -> {x}: {bt.get(k[7:])!r} -> {ntt.get(x[7:])!r}")
@@ -98,6 +105,10 @@ if __name__ == "__main__":
         s = json.dumps(out, ensure_ascii=False)
         for o, nw, r in changed:
             if o[1] != nw[1]:
-                s = s.replace(json.dumps(o[1], ensure_ascii=False)[1:-1], json.dumps(nw[1], ensure_ascii=False)[1:-1])
-        (ROOT / "derived" / v / "draft.remap.json").write_text(json.dumps(json.loads(s), indent=1, ensure_ascii=False))
+                s = s.replace(
+                    json.dumps(o[1], ensure_ascii=False)[1:-1], json.dumps(nw[1], ensure_ascii=False)[1:-1]
+                )
+        (ROOT / "derived" / v / "draft.remap.json").write_text(
+            json.dumps(json.loads(s), indent=1, ensure_ascii=False)
+        )
         print("wrote draft.remap.json")

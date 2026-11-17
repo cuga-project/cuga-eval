@@ -39,7 +39,7 @@ HANDBOOK = [
 ]
 # (benchmark, policy id, author folder, tests file relative to --src or None)
 ENTRIES: List[Tuple[str, str, str, Optional[str]]] = [
-    ("handbook", HANDBOOK[0], "hb_" + HANDBOOK[0], "/tmp/skill_trial2_tests/tests.json"),  # noqa: S108
+    ("handbook", HANDBOOK[0], "hb_" + HANDBOOK[0], "/tmp/skill_trial2_tests/tests.json"),  # noqa: S108  # nosec B108
     ("handbook", HANDBOOK[1], "hb_" + HANDBOOK[1], "hb_" + HANDBOOK[1] + ".tests/tests.json"),
     ("handbook", HANDBOOK[2], "hb_" + HANDBOOK[2], "hb_" + HANDBOOK[2] + ".tests/tests.json"),
     ("itsm", "e2891a7b98", "itsm_base", None),  # the stored blind tests of the existing package
@@ -160,7 +160,7 @@ def repack(folder: Path) -> List[str]:
 
 def main() -> int:
     ap = argparse.ArgumentParser()
-    ap.add_argument("--src", default="/tmp/pkg34")  # noqa: S108
+    ap.add_argument("--src", default="/tmp/pkg34")  # noqa: S108  # nosec B108
     ap.add_argument("--replace", action="store_true")
     ap.add_argument(
         "--check",

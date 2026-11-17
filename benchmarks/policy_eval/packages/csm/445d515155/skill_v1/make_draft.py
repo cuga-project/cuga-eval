@@ -1,4 +1,5 @@
 """Writes draft.json for the CSM Assistant Policy (policy.md + tools.json only)."""
+
 import json
 import os
 
@@ -76,21 +77,36 @@ ENUM_STMTS = {  # statement -> (field, [(tool, arg)])
     "users-groups:2": [("add_new_user_group", "type"), ("update_user_group", "type")],
     "geography:1": [("add_location", "city"), ("update_location", "city")],
     "geography:2": [("add_location", "country"), ("update_location", "country")],
-    "accounts-contacts:1": [("create_new_account", "account_type"), ("update_account_details", "account_type")],
+    "accounts-contacts:1": [
+        ("create_new_account", "account_type"),
+        ("update_account_details", "account_type"),
+    ],
     "products-installed-base:1": [("add_new_product", "category"), ("update_product", "category")],
-    "products-installed-base:2": [("add_new_product", "lifecycle_state"), ("update_product", "lifecycle_state")],
+    "products-installed-base:2": [
+        ("add_new_product", "lifecycle_state"),
+        ("update_product", "lifecycle_state"),
+    ],
     "products-installed-base:3": [
         ("register_new_installed_product", "status"),
         ("update_installed_product_details", "status"),
     ],
-    "contracts-entitlements-slas:1": [("enlist_new_contract", "contract_type"), ("update_contract", "contract_type")],
+    "contracts-entitlements-slas:1": [
+        ("enlist_new_contract", "contract_type"),
+        ("update_contract", "contract_type"),
+    ],
     "contracts-entitlements-slas:2": [("enlist_new_contract", "status"), ("update_contract", "status")],
-    "contracts-entitlements-slas:3": [("add_new_entitlement", "support_level"), ("update_entitlement", "support_level")],
+    "contracts-entitlements-slas:3": [
+        ("add_new_entitlement", "support_level"),
+        ("update_entitlement", "support_level"),
+    ],
     "contracts-entitlements-slas:4": [
         ("add_new_entitlement", "coverage_hours"),
         ("update_entitlement", "coverage_hours"),
     ],
-    "contracts-entitlements-slas:5": [("add_new_sla_definition", "metric"), ("update_sla_definition", "metric")],
+    "contracts-entitlements-slas:5": [
+        ("add_new_sla_definition", "metric"),
+        ("update_sla_definition", "metric"),
+    ],
     "contracts-entitlements-slas:6": [
         ("add_new_sla_definition", "applies_to_priority"),
         ("update_sla_definition", "applies_to_priority"),
@@ -115,7 +131,13 @@ rules = []
 
 
 def rule(rid, cls, level, sids, rtype, quote=None, why=None, **slots):
-    r = {"id": rid, "class": cls, "level": level, "statement_ids": [P(s) for s in sids], "rule": {"type": rtype, **slots}}
+    r = {
+        "id": rid,
+        "class": cls,
+        "level": level,
+        "statement_ids": [P(s) for s in sids],
+        "rule": {"type": rtype, **slots},
+    }
     if quote:
         r["quote"] = quote
     if why:
@@ -316,7 +338,14 @@ rule(
     args=["short_description"],
 )
 rule(
-    "r_case_channel", "hard", "deny", ["1:5"], "required_args", quote=T("1:5"), tool="create_new_case", args=["channel"]
+    "r_case_channel",
+    "hard",
+    "deny",
+    ["1:5"],
+    "required_args",
+    quote=T("1:5"),
+    tool="create_new_case",
+    args=["channel"],
 )
 rule(
     "v_case_product",
@@ -351,7 +380,11 @@ rule(
 )
 
 # assigning
-for tool, arg in (("create_new_case", "assigned_to"), ("update_case", "assigned_to"), ("assign_case_to_user", "assigned_to_user_id")):
+for tool, arg in (
+    ("create_new_case", "assigned_to"),
+    ("update_case", "assigned_to"),
+    ("assign_case_to_user", "assigned_to_user_id"),
+):
     short = tool.split("_")[0]
     rule(
         f"r_assignee_active_{short}",
@@ -439,7 +472,13 @@ rule(
     ["4:8", "10:1"],
     "verify",
     why="Needs the logged-in user and the case's owner, assignee and group; no argument carries the acting user.",
-    tools=["update_case", "assign_case_to_user", "set_case_assignment_group", "search_cases", "link_case_knowledge"],
+    tools=[
+        "update_case",
+        "assign_case_to_user",
+        "set_case_assignment_group",
+        "search_cases",
+        "link_case_knowledge",
+    ],
     statement=T("4:8") + " " + T("10:1"),
 )
 
@@ -632,9 +671,15 @@ procedures = [
         "src": "§1",
         "applies_when": "helping them register cases",
         "inputs": [
-            {"fact": "the reporting contact and its account", "source": "find_contacts / find_contact_by_portal_user"},
+            {
+                "fact": "the reporting contact and its account",
+                "source": "find_contacts / find_contact_by_portal_user",
+            },
             {"fact": "issue description (short_description)", "source": "the request"},
-            {"fact": "product or installed product involved", "source": "find_product / retrieve_installed_products"},
+            {
+                "fact": "product or installed product involved",
+                "source": "find_product / retrieve_installed_products",
+            },
             {"fact": "contact channel (channel)", "source": "the request"},
             {"fact": "priority", "source": "the request; default moderate"},
             {"fact": "entitlement for the product", "source": "find_entitlements"},
@@ -673,7 +718,10 @@ procedures = [
         "src": "§5",
         "applies_when": "Before applying entitlement",
         "inputs": [
-            {"fact": "the entitlement (active, product_id, max_cases_per_month)", "source": "find_entitlements"},
+            {
+                "fact": "the entitlement (active, product_id, max_cases_per_month)",
+                "source": "find_entitlements",
+            },
             {"fact": "the contract and its validity", "source": "find_contracts"},
             {"fact": "the case product", "source": "the case record (search_cases)"},
         ],
@@ -727,7 +775,11 @@ procedures = [
         ],
         "steps": [
             {"id": P("7:2")},
-            {"id": P(IK + "13"), "action": "link_case_knowledge", "condition": "found through automated search"},
+            {
+                "id": P(IK + "13"),
+                "action": "link_case_knowledge",
+                "condition": "found through automated search",
+            },
             {
                 "id": P(IK + "14"),
                 "action": "link_case_knowledge",
@@ -908,7 +960,11 @@ global_ = {
             "rule": T("general-instructions:4") + " " + T("general-instructions:5"),
         },
         {"id": "G-security", "src": "§10", "rule": T("10:1") + " " + T("10:2")},
-        {"id": "G-validate", "src": "§11", "rule": "Always validate existence and integrity of: " + T("11:2")},
+        {
+            "id": "G-validate",
+            "src": "§11",
+            "rule": "Always validate existence and integrity of: " + T("11:2"),
+        },
         {"id": "G-lifecycle", "src": "§3", "rule": T("3:7") + " " + T("3:8")},
         {
             "id": "G-assign",
@@ -968,9 +1024,24 @@ global_ = {
 
 links = [
     {"type": "refers_to", "src": P("10:2"), "dst": P("10:1"), "quote": "outside these permissions"},
-    {"type": "refers_to", "src": P("11:3"), "dst": "policy:4", "quote": "State transitions follow lifecycle rules."},
-    {"type": "refers_to", "src": P(IK + "5"), "dst": "policy:predefined-lists-enumerations", "quote": "reject any value outside the list"},
-    {"type": "depends_on", "src": P("manager:2"), "dst": "policy:agent", "quote": "Has agent privileges plus:"},
+    {
+        "type": "refers_to",
+        "src": P("11:3"),
+        "dst": "policy:4",
+        "quote": "State transitions follow lifecycle rules.",
+    },
+    {
+        "type": "refers_to",
+        "src": P(IK + "5"),
+        "dst": "policy:predefined-lists-enumerations",
+        "quote": "reject any value outside the list",
+    },
+    {
+        "type": "depends_on",
+        "src": P("manager:2"),
+        "dst": "policy:agent",
+        "quote": "Has agent privileges plus:",
+    },
     {"type": "exception_of", "src": P("5:3"), "dst": P("5:3"), "quote": "unless entitlement is account-wide"},
 ]
 links = links[:4]  # the account-wide exception is inside one statement: kept as a decision, not a link
@@ -1084,4 +1155,6 @@ draft = {
     "policy_questions": Q,
 }
 json.dump(draft, open(os.path.join(HERE, "draft.json"), "w"), indent=1, ensure_ascii=False)
-print(len(rules), "rules", len(procedures), "procedures", len(obligations), "obligations", len(Q), "questions")
+print(
+    len(rules), "rules", len(procedures), "procedures", len(obligations), "obligations", len(Q), "questions"
+)

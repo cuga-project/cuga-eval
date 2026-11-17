@@ -1,11 +1,17 @@
 """Flag draft strings that still carry words of a changed statement's old text (n-grams not in the new text)."""
-import json, re, sys
-sys.path.insert(0, "/tmp/csm_work")
-from align import stmts, align, ROOT, FAM
+
+import json
+import re
+import sys
+
+sys.path.insert(0, "/tmp/csm_work")  # nosec B108 - local work folder of a one-off script
+from align import FAM, ROOT, align, stmts
+
 
 def grams(t, n=3):
     w = re.findall(r"[\w’'<>]+", t)
-    return {" ".join(w[i:i + n]) for i in range(len(w) - n + 1)}
+    return {" ".join(w[i : i + n]) for i in range(len(w) - n + 1)}
+
 
 def walk(o, path=""):
     if isinstance(o, dict):
@@ -16,6 +22,7 @@ def walk(o, path=""):
             yield from walk(v, f"{path}[{i}]")
     elif isinstance(o, str):
         yield path, o
+
 
 v = sys.argv[1]
 b, n = stmts(ROOT / FAM[v] / "set.json"), stmts(ROOT / "derived" / v / "set.json")

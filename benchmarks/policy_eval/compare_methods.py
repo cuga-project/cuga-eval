@@ -102,7 +102,7 @@ def _kev(case: Dict[str, Any]) -> Dict[str, Any]:
     t0 = time.monotonic()
     for attempt in range(3):
         try:
-            with urllib.request.urlopen(req, timeout=60) as r:  # noqa: S310 - fixed https URL above
+            with urllib.request.urlopen(req, timeout=60) as r:  # noqa: S310 - fixed https URL above  # nosec B310
                 data = json.loads(r.read())
             p = float(data.get("answers", {}).get("complies", {}).get("noul", 1.0))
             return {

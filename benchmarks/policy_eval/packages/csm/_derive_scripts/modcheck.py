@@ -1,11 +1,19 @@
-import json, sys
-sys.path.insert(0, "/tmp/csm_work")
-from align import stmts, ROOT, FAM, norm
+import json
+import sys
+
+sys.path.insert(0, "/tmp/csm_work")  # nosec B108 - local work folder of a one-off script
+from align import FAM, ROOT, norm, stmts
+
 for v in sorted(p.name for p in (ROOT / "derived").iterdir()):
     b = {s[0]: s[1] for s in stmts(ROOT / FAM[v] / "set.json")}
     n = {s[0]: s[1] for s in stmts(ROOT / "derived" / v / "set.json")}
-    bm = {norm(b[k]): m for k, m in json.loads((ROOT / FAM[v] / "draft.json").read_text())["modality"].items()}
-    nm = {norm(n[k]): (k, m) for k, m in json.loads((ROOT / "derived" / v / "draft.json").read_text())["modality"].items()}
+    bm = {
+        norm(b[k]): m for k, m in json.loads((ROOT / FAM[v] / "draft.json").read_text())["modality"].items()
+    }
+    nm = {
+        norm(n[k]): (k, m)
+        for k, m in json.loads((ROOT / "derived" / v / "draft.json").read_text())["modality"].items()
+    }
     out = []
     for t, (k, m) in nm.items():
         if bm.get(t) != m:

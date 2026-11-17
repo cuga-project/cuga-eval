@@ -50,7 +50,11 @@ def rescore(result: dict, task: dict) -> Dict[str, Any]:
     if len(rows) != len(configs):
         raise ValueError(f"{task['task_id']}: {len(rows)} rows, {len(configs)} verifiers")
     fixed = [fixed_pass(r, c) for r, c in zip(rows, configs)]
-    return {"pass": all(fixed), "partial": sum(fixed) / len(fixed), "changed": sum(f and not r["passed"] for f, r in zip(fixed, rows))}
+    return {
+        "pass": all(fixed),
+        "partial": sum(fixed) / len(fixed),
+        "changed": sum(f and not r["passed"] for f, r in zip(fixed, rows)),
+    }
 
 
 def main(prefixes: List[str]) -> None:
@@ -64,10 +68,17 @@ def main(prefixes: List[str]) -> None:
                 continue
             r = rescore(d, T[d["task"]])
             changed += r["changed"]
-            for D, v in ((S, d["score"]["pass"]), (P, d["score"]["partial"]), (S2, r["pass"]), (P2, r["partial"])):
+            for D, v in (
+                (S, d["score"]["pass"]),
+                (P, d["score"]["partial"]),
+                (S2, r["pass"]),
+                (P2, r["partial"]),
+            ):
                 D.setdefault(d["task"], []).append(float(v or 0))
         m = lambda D: 100 * st.mean(st.mean(v) for v in D.values()) if D else float("nan")  # noqa: E731
-        print(f"{pre}: tasks {len(S)} strict {m(S):.1f} -> {m(S2):.1f}  partial {m(P):.1f} -> {m(P2):.1f}  checks changed {changed}")
+        print(
+            f"{pre}: tasks {len(S)} strict {m(S):.1f} -> {m(S2):.1f}  partial {m(P):.1f} -> {m(P2):.1f}  checks changed {changed}"
+        )
 
 
 if __name__ == "__main__":
