@@ -8,11 +8,15 @@ split before any ``--task`` / ``--domain`` / ``--capability`` filters apply.
 
 from __future__ import annotations
 
+import os
 import tomllib
 from pathlib import Path
 from typing import Any, Dict, List, Optional, Set
 
 _CONFIG_PATH = Path(__file__).resolve().parent / "eval_config.toml"
+#: Optional extra TOML of named id sets, consulted only for keys the main config lacks (the parity
+#: kit's recovery pass puts its temporary subset there instead of editing eval_config.toml).
+EXTRA_CONFIG_ENV = "M3_EVAL_CONFIG_EXTRA"
 
 
 def load_eval_key_ids(eval_key: Optional[str], config_path: Path = _CONFIG_PATH) -> Optional[List[str]]:
@@ -39,6 +43,10 @@ def load_eval_key_ids(eval_key: Optional[str], config_path: Path = _CONFIG_PATH)
         return None
 
     ids = config.get(key)
+    extra = os.environ.get(EXTRA_CONFIG_ENV)
+    if not isinstance(ids, list) and extra and Path(extra).exists():
+        with open(extra, "rb") as f:
+            ids = tomllib.load(f).get(key)
     if not isinstance(ids, list):
         available = sorted(k for k, v in config.items() if isinstance(v, list))
         raise KeyError(f"eval_key {key!r} not found in {config_path}. Available: {available}")

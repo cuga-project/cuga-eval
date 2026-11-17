@@ -1,0 +1,29 @@
+# Parity kit: registry config for VAKRA capability 4 (multiturn + policy + RAG), paired with
+# --m3-data (the kit's converted cap4 train data). The repo's config/m3_registry_4.yaml serves
+# /app/m3-rest/mcp_server.py (REST tools only, no query_* retrievers); the campaign's cap4 server
+# is /app/mcp_dispatch.py with CAPABILITY_ID=4 (vakra-main benchmark/mcp_connection_config.yaml).
+# Domains are filled in from the data at run time.
+services:
+  - m3_task_4:
+      transport: "stdio"
+      type: "mcp"
+      description: "M3 Task 4 environment (VAKRA capability 4 via mcp_dispatch)"
+      command: "${CONTAINER_RUNTIME}"
+      args:
+        - "exec"
+        - "-i"
+        - "-e"
+        - "MCP_DOMAIN={domain}"
+        - "-e"
+        - "CAPABILITY_ID=4"
+        - "-e"
+        - "MCP_DB_ROOT=/app/db"
+        - "-e"
+        - "PRELOAD_COLLECTIONS=false"
+        - "capability_4_multiturn"
+        - "python3"
+        - "/app/mcp_dispatch.py"
+      metadata:
+        task_id: 4
+        container: "capability_4_multiturn"
+        domains: []

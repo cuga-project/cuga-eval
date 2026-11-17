@@ -1,0 +1,138 @@
+{
+ "subset": "parity_est1_ref30",
+ "task_id": 1,
+ "capability_dir": "capability_1_bi_apis",
+ "adapter_preset": "cap1",
+ "data_source": "vakra-main data/train/capability_1_bi_apis (a slice of the campaign's cap1 train scorecard), converted locally by prepare_vakra_train.py",
+ "vakra_train_data": "data/train/capability_1_bi_apis",
+ "m3_data": "local:vakra_train",
+ "demo_data": "local:vakra_train",
+ "no_ground_truth": true,
+ "campaign_predictions": "output/est_treat",
+ "default_arms": "cuga_eval_cap1_fc",
+ "n": 30,
+ "selection": {
+  "from": "vakra-main cuga_runs/estimate_sample_by_dom.json (119 scored items)",
+  "method": "stratified by the campaign's recorded outcome (pass rate preserved), spread across domains, sha1(seed:uuid) order",
+  "seed": 0
+ },
+ "reference": {
+  "description": "VAKRA campaign cap1 train scorecard (56.3% on all 119 items): fc_canon + FC + re-list (cap1_estimate.sh), temperature 1.0, judge azure/gpt-oss-120b via the proxy. Per-item verdicts as recorded.",
+  "source_runs": {
+   "on": "vakra-main cuga_runs/est_score_treat"
+  },
+  "pass_rate": {
+   "on": 0.5666666666666667
+  },
+  "pass_by_uuid": {
+   "on": {
+    "d80c9bf910f1-604f469f5c06": true,
+    "d80c9bf910f1-cbde9436dc99": true,
+    "1b288c5c6dc9-256147ab3ce2": false,
+    "840942187214-034e207d560d": true,
+    "a823e527d383-2536b32bdd2e": true,
+    "5661cd917583-0db47e6e47ec": false,
+    "5661cd917583-df184354abd3": true,
+    "6e317bcd6839-94e343d84a9a": true,
+    "6e317bcd6839-dd4804f5cc94": true,
+    "1f58b1e965af-52e2e4ca86f7": true,
+    "1f58b1e965af-c8c0ee76f1fe": false,
+    "39a28b2592a2-dce48035fac7": false,
+    "ec134bf7bda5-8a501e6101b8": true,
+    "34a533dfd727-1bd5ad982571": true,
+    "d0d7be63ebc2-b9965c45b7fe": true,
+    "e71440999ce8-46ae9d9f9b56": false,
+    "398991009da1-2a8ea3d71068": false,
+    "398991009da1-61611c61a74a": false,
+    "55b7e50368aa-466151606331": true,
+    "55b7e50368aa-ba36e779cc2f": true,
+    "d14bbb0be92d-08a74c67b8b6": false,
+    "d14bbb0be92d-6f582884b1c5": false,
+    "ee275d64dafc-9aca527cde77": false,
+    "ac8f8d8803cd-0e7a3a5c8822": false,
+    "fe971e7f850a-1c722b21255f": true,
+    "fe971e7f850a-a6d79a5bf10b": true,
+    "35a1befb81d1-ef22c4f0b96f": false,
+    "3e2b8f7655a2-9b9c24b359f2": true,
+    "adba6c0ec8a8-77a54beabca5": false,
+    "486ea46224d1-ae8dabefaf24": true
+   }
+  }
+ },
+ "ids_by_domain": {
+  "address": [
+   "d80c9bf910f1-604f469f5c06",
+   "d80c9bf910f1-cbde9436dc99"
+  ],
+  "airline": [
+   "1b288c5c6dc9-256147ab3ce2"
+  ],
+  "authors": [
+   "840942187214-034e207d560d"
+  ],
+  "beer_factory": [
+   "a823e527d383-2536b32bdd2e"
+  ],
+  "book_publishing_company": [
+   "5661cd917583-0db47e6e47ec",
+   "5661cd917583-df184354abd3"
+  ],
+  "books": [
+   "6e317bcd6839-94e343d84a9a",
+   "6e317bcd6839-dd4804f5cc94"
+  ],
+  "cars": [
+   "1f58b1e965af-52e2e4ca86f7",
+   "1f58b1e965af-c8c0ee76f1fe"
+  ],
+  "computer_student": [
+   "39a28b2592a2-dce48035fac7"
+  ],
+  "cookbook": [
+   "ec134bf7bda5-8a501e6101b8"
+  ],
+  "disney": [
+   "34a533dfd727-1bd5ad982571"
+  ],
+  "ice_hockey_draft": [
+   "d0d7be63ebc2-b9965c45b7fe"
+  ],
+  "law_episode": [
+   "e71440999ce8-46ae9d9f9b56"
+  ],
+  "menu": [
+   "398991009da1-2a8ea3d71068",
+   "398991009da1-61611c61a74a"
+  ],
+  "mondial_geo": [
+   "55b7e50368aa-466151606331",
+   "55b7e50368aa-ba36e779cc2f"
+  ],
+  "professional_basketball": [
+   "d14bbb0be92d-08a74c67b8b6",
+   "d14bbb0be92d-6f582884b1c5"
+  ],
+  "restaurant": [
+   "ee275d64dafc-9aca527cde77"
+  ],
+  "shakespeare": [
+   "ac8f8d8803cd-0e7a3a5c8822"
+  ],
+  "soccer_2016": [
+   "fe971e7f850a-1c722b21255f",
+   "fe971e7f850a-a6d79a5bf10b"
+  ],
+  "talkingdata": [
+   "35a1befb81d1-ef22c4f0b96f"
+  ],
+  "trains": [
+   "3e2b8f7655a2-9b9c24b359f2"
+  ],
+  "university": [
+   "adba6c0ec8a8-77a54beabca5"
+  ],
+  "world": [
+   "486ea46224d1-ae8dabefaf24"
+  ]
+ }
+}

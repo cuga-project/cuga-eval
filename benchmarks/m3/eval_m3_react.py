@@ -804,6 +804,9 @@ async def main():
     parser.add_argument(
         "--parallel-containers", dest="parallel_containers", default=None, help=argparse.SUPPRESS
     )
+    # VAKRA adapter flags (benchmarks/m3/ADAPTER.md) apply to the CUGA runners only.
+    parser.add_argument("--adapter-preset", dest="adapter_preset", default=None, help=argparse.SUPPRESS)
+    parser.add_argument("--demo-data", dest="demo_data", default=None, help=argparse.SUPPRESS)
 
     from benchmarks.helpers.logging_args import add_log_level_args, apply_log_level
 
