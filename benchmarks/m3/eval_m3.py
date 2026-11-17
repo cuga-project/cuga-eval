@@ -1434,15 +1434,19 @@ async def evaluate_single_task(
         # skips it across every domain, not just the ones on disk.
         resume_completed_keys |= set(args.resume_task_ids)
 
+    # NOTE: `domains` is NOT re-derived from the loader here. It already
+    # reflects the loader's domains, narrowed to exactly the one domain this
+    # call is scoped to: rewrite_config_with_loader_domains() rewrites the
+    # source YAML's metadata.domains from loader data *before*
+    # expand_registry_config() expands each service down to a single domain
+    # (see both in run_config_mode). Sequential mode then starts a fresh
+    # one-service registry per domain and calls this function once per
+    # domain. Overriding `domains` back to the loader's *full* domain list
+    # here (as a previous version of this function did) discarded that
+    # narrowing — this call would then try to walk every domain for the
+    # task using only the single-domain registry that was actually started,
+    # so every domain past the first had zero tools registered.
     no_gt_mode = bool(m3_data_loader and getattr(m3_data_loader, "allow_missing_output", False))
-    if no_gt_mode and m3_data_loader is not None:
-        loader_domains = m3_data_loader.available_domains(task_id)
-        if loader_domains:
-            logger.info(
-                f"[{service_name}] --no-ground-truth: overriding YAML domains "
-                f"with {len(loader_domains)} domain(s) from data source: {loader_domains}"
-            )
-            domains = loader_domains
 
     logger.info(f"\n{'=' * 80}")
     logger.info(f"🚀 Processing {service_name} (Task ID: {task_id})")
@@ -1695,6 +1699,16 @@ async def evaluate_single_task(
             # capability_name is resolved from the numeric task_id so the wrapper
             # connects to the matching capability container instead of always
             # defaulting to capability_bi_apis.
+            # Scope Vakra prediction/groundtruth files under the workspace bundle
+            # (when one exists) instead of the shared benchmarks/m3/results/
+            # directory. Two concurrent runs for different experiments/capabilities
+            # can hit the same domain name and clobber each other's
+            # _vakra/prediction/<domain>.json under the shared path, and stale
+            # files from old runs never get cleared there. Same fallback pattern
+            # as _finalize_and_save_results above.
+            vakra_output_dir = (
+                Path(bundle_dir) / "results" if bundle_dir is not None else Path(__file__).parent / "results"
+            )
             if evaluator.results:
                 if no_gt_mode:
                     # No ground truth → skip scoring entirely, just dump
@@ -1702,7 +1716,7 @@ async def evaluate_single_task(
                     try:
                         write_predictions_no_gt(
                             evaluator.results,
-                            output_dir=Path(__file__).parent / "results",
+                            output_dir=vakra_output_dir,
                             domain=domain,
                         )
                     except Exception as e:
@@ -1717,7 +1731,7 @@ async def evaluate_single_task(
                     try:
                         await vakra_score_results_async(
                             evaluator.results,
-                            output_dir=Path(__file__).parent / "results",
+                            output_dir=vakra_output_dir,
                             capability_name=cap_name,
                             domain=domain_name,
                         )
