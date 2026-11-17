@@ -13,6 +13,12 @@ if str(Path(__file__).resolve().parents[1] / "sets") not in sys.path:
 import build_registry as br  # noqa: E402
 
 
+def need_tau2_checkout():
+    """The scan reads the τ² split files of the τ² checkout (``TAU2_WORKTREE``), which is not part of this repo."""
+    if not Path(br.TAU2_SPLITS.format(domain="telecom")).is_file():
+        pytest.skip("needs the τ² checkout with tau2-bench: set TAU2_WORKTREE (see SETUP.md)")
+
+
 def entry(set_id, benchmark, ids, status="heldout"):
     return {
         "id": set_id,
@@ -92,6 +98,7 @@ def test_a_rebuild_adds_what_it_finds_and_says_nothing_when_nothing_is_lost():
 
 
 def test_a_scan_that_finds_nothing_leaves_a_seen_set_seen(monkeypatch, tmp_path):
+    need_tau2_checkout()
     """The whole path: the real set list, no result folder found, the labels stay as they were."""
     before = br.load_registry()
     path = tmp_path / "registry.json"
@@ -108,6 +115,7 @@ def test_a_scan_that_finds_nothing_leaves_a_seen_set_seen(monkeypatch, tmp_path)
 
 
 def test_a_first_build_with_no_file_has_only_what_the_scan_finds(monkeypatch, tmp_path):
+    need_tau2_checkout()
     monkeypatch.setattr(br, "REGISTRY", tmp_path / "no_file.json")
     monkeypatch.setattr(br, "scan_results", lambda stats=None: iter(()))
     after = br.build(write=False, out=lambda line: None)

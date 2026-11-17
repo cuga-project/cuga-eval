@@ -922,6 +922,11 @@ def test_adapters_match_the_protocol(name):
     ],
 )
 def test_task_ids_come_from_the_registry(name, set_id, n):
+    if name == "tau2":
+        from policy_eval.harness.adapters import tau2 as t2
+
+        if not (t2.WORKTREE / "benchmarks/tau2/tau2-bench").is_dir():
+            pytest.skip("needs the τ² checkout with tau2-bench: set TAU2_WORKTREE (see SETUP.md)")
     assert len(hr.ADAPTERS[name](set_id=set_id).task_ids(set_id)) == n
 
 
