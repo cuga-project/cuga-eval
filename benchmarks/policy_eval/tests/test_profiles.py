@@ -14,6 +14,8 @@ from pathlib import Path
 
 import pytest
 
+pytestmark = pytest.mark.regression  # CI runs "sanity or regression"
+
 POLICY_EVAL = Path(__file__).resolve().parents[1]
 BENCHMARKS = POLICY_EVAL.parent
 PROFILES = POLICY_EVAL / "profiles"

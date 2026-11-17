@@ -2,7 +2,14 @@ import json
 import sys
 from pathlib import Path
 
-sys.path.insert(0, str(Path(__file__).resolve().parents[1] / "sets"))
+import pytest
+
+pytestmark = pytest.mark.regression  # CI runs "sanity or regression"
+
+# at the end of sys.path: in the whole suite, a folder first on the path would hide installed packages
+# (benchmarks/appworld, benchmarks/tau2 and benchmarks/policy_eval/tau2 have the names of real ones)
+if str(Path(__file__).resolve().parents[1] / "sets") not in sys.path:
+    sys.path.append(str(Path(__file__).resolve().parents[1] / "sets"))
 import build_registry as br  # noqa: E402
 
 

@@ -13,9 +13,14 @@ from pathlib import Path
 
 import pytest
 
+pytestmark = pytest.mark.regression  # CI runs "sanity or regression"
+
 POLICY_EVAL = Path(__file__).resolve().parents[1]
 BENCHMARKS = POLICY_EVAL.parent
-sys.path.insert(0, str(BENCHMARKS))
+# at the end of sys.path: in the whole suite, a folder first on the path would hide installed packages
+# (benchmarks/appworld, benchmarks/tau2 and benchmarks/policy_eval/tau2 have the names of real ones)
+if str(BENCHMARKS) not in sys.path:
+    sys.path.append(str(BENCHMARKS))
 import policy_pilot_costs as costs  # noqa: E402
 from policy_eval.envs.compose_env import TAU2_AGENT, compose, merge, parse_runner  # noqa: E402
 from policy_eval.harness import report as rp  # noqa: E402
@@ -379,7 +384,9 @@ def test_an_error_of_the_agent_is_no_gateway_error(error):
 def test_each_benchmark_keeps_the_time_it_has_used(monkeypatch):
     assert {name: cls().default_timeout for name, cls in hr.ADAPTERS.items()} == {
         "automationbench": 1800.0,
+        "csm": 1200.0,
         "handbook": 3600.0,
+        "hr": 1200.0,
         "itsm": 1200.0,
         "tau2": 1800.0,
     }
@@ -463,6 +470,39 @@ def test_a_result_of_another_code_or_profile_stops_the_run_unless_the_flag_says_
         hr.is_done(path, sha, phash)
     assert "--rerun-mismatch" in str(stop.value) and str(path) in str(stop.value)
     assert hr.is_done(path, sha, phash, rerun_mismatch=True) is False
+
+
+def test_switches_from_the_shell_are_recorded_and_a_folder_holds_one_set_of_them(tmp_path):
+    env = {
+        "AB_AGENT_RULES": "1",
+        "TURN_LOOP": "end2",
+        "EOG_HR_URL": "http://x",
+        "EOG_FC_BIND": "true",
+        "HOME": "/h",
+    }
+    assert hr.experiment_switches(env) == {"AB_AGENT_RULES": "1", "EOG_FC_BIND": "true", "TURN_LOOP": "end2"}
+    assert hr.switch_hash(env) == hr.switch_hash(
+        {**env, "EOG_HR_URL": "http://y", "HOME": "/other"}
+    )  # not settings
+    assert hr.switch_hash(env) != hr.switch_hash({k: v for k, v in env.items() if k != "TURN_LOOP"})
+    assert hr.switch_hash({}) != hr.switch_hash({"AB_SHOW_DATE": "1"})  # none is a value too
+    path = tmp_path / "t.json"
+    Result(
+        benchmark="itsm",
+        task="t",
+        run="r",
+        code_sha="abc",
+        profile_hash="p1",
+        switch_hash="s1",
+        score=Score(1, 1, True),
+    ).write(path)
+    assert hr.is_done(path, "abc", "p1", switches="s1") is True
+    with pytest.raises(hr.HarnessError, match="switch_hash s1"):
+        hr.is_done(path, "abc", "p1", switches="s2")
+    assert hr.is_done(path, "abc", "p1", rerun_mismatch=True, switches="s2") is False
+    assert (
+        hr.is_done(versioned(tmp_path / "old.json"), "abc", "p1", switches="s2") is True
+    )  # old file: not recorded
 
 
 def test_a_result_with_no_score_of_another_code_is_run_again_with_no_flag(tmp_path):
@@ -819,7 +859,7 @@ def test_a_policy_switch_does_not_reach_the_child(monkeypatch):
     monkeypatch.setenv("POLICY_PILOT_BUDGET", "2000")
     for name in ("OPENAI_API_KEY", "OPENROUTER_API_KEY", "OPENAI_BASE_URL"):
         monkeypatch.delenv(name, raising=False)
-    args = type("A", (), {"proxy": None, "model": "gptoss"})()
+    args = type("A", (), {"proxy": None, "model": "gptoss", "langfuse": False})()
     env = hr.child_env(hr.ADAPTERS["automationbench"](), args, Path("/snap/src"))
     assert not {"POLICY_MODEL_NAME", "SOP_LOOP", "HOOKS_MODULE", "HB_BUILDS", "LANGFUSE_HOST"} & set(env)
     assert env["POLICY_PILOT_BUDGET"] == "2000"
@@ -1384,6 +1424,42 @@ print(json.dumps({"prompts": row["prompts"], "seen": seen_by_slot, "raised": rai
     assert out["prompts"] == ["Do it.\n\nPROGRESS", "[Policy note]\nnot yet"]
     assert out["seen"] == ["Do it.", "Do it."]
     assert out["raised"] is True
+
+
+def test_the_send_backs_of_a_task_share_its_time_limit(monkeypatch):
+    """A component that sends the agent back gets no fresh time limit per answer: the parent kills a child at timeout +
+    grace, so a fresh limit would end a slow task with no result, where the agent alone gets a graded timeout."""
+    import asyncio
+    import types
+
+    from policy_eval.harness.adapters import base
+
+    runtime = types.ModuleType("cuga.policy_layer.runtime")
+    runtime.RuntimeWiringError = type("RuntimeWiringError", (Exception,), {})
+    for name in ("cuga", "cuga.policy_layer"):
+        monkeypatch.setitem(sys.modules, name, sys.modules.get(name) or types.ModuleType(name))
+    if "cuga.policy_layer.runtime" not in sys.modules:
+        monkeypatch.setitem(sys.modules, "cuga.policy_layer.runtime", runtime)
+    monkeypatch.delenv("TURN_LOOP", raising=False)
+    calls = []
+
+    class Agent:
+        async def invoke(self, prompt, thread_id=None):
+            calls.append(prompt)
+            await asyncio.sleep(0.4)
+            return types.SimpleNamespace(answer="done", error=None)
+
+    replies = ["do the rest", None]
+    parts = types.SimpleNamespace(
+        run=None,
+        turn_note=None,
+        hooks=[],
+        components={},
+        after_reply=lambda answer, turns, live: replies.pop(0),
+    )
+    out = asyncio.run(base.drive_one_request(Agent(), parts, "Do it.", "t1", 0.6, [], [], []))
+    assert calls == ["Do it.", "do the rest"]  # the send-back started, with 0.2 s of the 0.6 s left
+    assert out.error == "timeout after 1s"  # and the task's one limit ended it
 
 
 TAU2_CONVERSATION = r"""

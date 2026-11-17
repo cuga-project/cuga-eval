@@ -22,7 +22,8 @@ Rules of the harness:
 
 - A run needs a snapshot under ``~/dev/cuga_snapshots/<name>`` (``snapshot_polisys.sh``). ``code_sha`` comes from it. A child
   whose ``cuga`` would come from anywhere else refuses to start.
-- The experiment is set by the profile file only. Policy switches in the environment are removed for the child.
+- The experiment is set by the profile file, plus the adapter and turn-loop switches of the shell (``SWITCH_PREFIXES``),
+  which every result records as ``switch_hash``. Policy switches in the environment are removed for the child.
 - ``RuntimeWiringError`` is not a task failure. The task is not run and not graded: the result has ``error`` and no score, the
   report does not count it, and the parent exits with code 2. The same for a task whose policy version has no package, a
   task that cannot be prepared, and a run that ended on a gateway error.
@@ -76,6 +77,9 @@ ADAPTERS = {
 }
 SECRET_KEYS = ("OPENAI_API_KEY", "OPENAI_BASE_URL", "OPENROUTER_API_KEY")
 OLD_SWITCHES = ("POLICY_", "SOP_", "HOOKS_", "HB_")
+# Settings a run takes from the shell, not from the profile: benchmark-adapter and turn-loop switches. They change the
+# agent, so each result records them (``switch_hash``) and a folder holds one set of them. Server addresses are not settings.
+SWITCH_PREFIXES = ("AB_", "EOG_", "TURN_LOOP")
 KEPT_SWITCHES = ("POLICY_PILOT_BUDGET",)
 # A gateway stopped the agent. A number alone counts (old ITSM list: 401, 403, 408; old report: 502, 503, 504): a false match
 # gives "no score" and a rerun, which shows, and a missed one gives a graded failure, which does not. "after 500s" and
@@ -138,6 +142,16 @@ def profile_path(name: str) -> Path:
     return path
 
 
+def experiment_switches(env: Dict[str, str]) -> Dict[str, str]:
+    """The switches of a child's environment (``SWITCH_PREFIXES``), without server addresses (``*_URL``)."""
+    return {k: env[k] for k in sorted(env) if k.startswith(SWITCH_PREFIXES) and not k.endswith("_URL")}
+
+
+def switch_hash(env: Dict[str, str]) -> str:
+    """One value for the switches of a child; no switch is a value too, so a later run with one does not match."""
+    return hashlib.sha256(json.dumps(experiment_switches(env), sort_keys=True).encode()).hexdigest()[:12]
+
+
 def profile_hash(path: Path) -> str:
     return hashlib.sha256(path.read_bytes()).hexdigest()[:12]
 
@@ -158,7 +172,9 @@ def is_infra(error: Optional[str]) -> bool:
     return bool(INFRA_ERRORS.search(error or ""))
 
 
-def is_done(path: Path, sha: str, phash: str, rerun_mismatch: bool = False) -> bool:
+def is_done(
+    path: Path, sha: str, phash: str, rerun_mismatch: bool = False, switches: Optional[str] = None
+) -> bool:
     """Does this task need no run? It has a scored result of this code and this profile. A scored result of another one
     raises: skipping it would mix two systems in one folder, which one number then reports. With ``rerun_mismatch`` the task
     runs again, and its file is replaced. A file with no ``code_sha`` or ``profile_hash`` is read as before."""
@@ -172,15 +188,17 @@ def is_done(path: Path, sha: str, phash: str, rerun_mismatch: bool = False) -> b
         for name, have, want in (
             ("code_sha", result.code_sha, sha),
             ("profile_hash", result.profile_hash, phash),
+            ("switch_hash", result.switch_hash, switches),
         )
-        if have is not None and have != want
+        if have is not None and want is not None and have != want
     ]
     if not differs:
         return True
     if rerun_mismatch:
         return False
     raise HarnessError(
-        f"{path} has {'; '.join(differs)}. A run folder holds one code and one profile: use a new --run, or "
+        f"{path} has {'; '.join(differs)}. A run folder holds one code, one profile and one set of switches "
+        f"({', '.join(SWITCH_PREFIXES)}*): use a new --run, or "
         "--rerun-mismatch to run such tasks again and replace their files"
     )
 
@@ -287,6 +305,7 @@ async def run_task(args: argparse.Namespace, adapter: BenchmarkAdapter, run_dir:
         code_sha=sha,
         profile_hash=profile_hash(path),
         env_hash=env_hash(),
+        switch_hash=os.environ.get("HARNESS_SWITCH_HASH") or switch_hash(dict(os.environ)),
     )
     extra: Dict[str, Any] = {}
     try:
@@ -431,12 +450,15 @@ async def run_many(tasks: List[str], adapter: BenchmarkAdapter, args: argparse.N
     (run_dir / "logs").mkdir(parents=True, exist_ok=True)
     src = snapshot_src(args.snapshot)
     sha, phash = code_sha(src), profile_hash(profile_path(args.profile))
+    shash = switch_hash(dict(os.environ))  # the switches come from this shell; each child records this value
     path = {t: run_dir / f"{safe_name(t)}.json" for t in tasks}
-    todo = [t for t in tasks if not is_done(path[t], sha, phash, args.rerun_mismatch)]
+    todo = [t for t in tasks if not is_done(path[t], sha, phash, args.rerun_mismatch, shash)]
+    print(f"switches: {experiment_switches(dict(os.environ)) or 'none'}", flush=True)
     print(
         f"{len(tasks)} tasks, {len(tasks) - len(todo)} done, {len(todo)} to run (-j {args.jobs})", flush=True
     )
     env = child_env(adapter, args, src)
+    env["HARNESS_SWITCH_HASH"] = shash
     sem = asyncio.Semaphore(args.jobs)
     not_graded: List[str] = []
 

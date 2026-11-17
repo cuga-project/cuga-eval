@@ -90,6 +90,9 @@ class Result:
         None  # the policy version of the task (``ctx.policy_version``); old files do not have it
     )
     env_hash: Optional[str] = None  # the composed env file: the agent's settings
+    switch_hash: Optional[str] = (
+        None  # adapter and turn-loop switches of the shell (run.py); old files do not have it
+    )
     score: Optional[Score] = None  # None: not graded. Never a 0.
     verdicts: List[Any] = field(default_factory=list)
     obligations: List[Any] = field(default_factory=list)

@@ -53,7 +53,9 @@ for a in letters:
         for f in glob.glob(d + "/task_*.json"):
             r = json.load(open(f))
             s = r.get("score") or {}
-            if r.get("error") or s.get("primary") is None:
+            if (
+                s.get("primary") is None
+            ):  # not graded; a graded error or timeout counts, as in harness/report.py
                 err[a] += 1
                 continue
             t = r["task"][-8:]

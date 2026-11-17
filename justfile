@@ -33,6 +33,7 @@ test-smoke-e2e:
 # Sanity + regression suite, run on every PR and push to master.
 test-regression:
     uv run --frozen pytest -m "sanity or regression"
+    uv run --frozen pytest -m "sanity or regression" benchmarks/policy_eval/tests
 
 # Long-running stability tests; need full runtime/LLM access.
 test-stability:

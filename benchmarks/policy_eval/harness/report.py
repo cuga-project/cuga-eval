@@ -146,6 +146,7 @@ class ArmReport:
         default_factory=list
     )  # of the results that count; None: not recorded
     profile_hashes: List[Optional[str]] = field(default_factory=list)
+    switch_hashes: List[Optional[str]] = field(default_factory=list)
     # against the base of the group
     diff: Optional[float] = None
     better: Optional[int] = None
@@ -192,6 +193,7 @@ def summarize(arm: str, results: List[Result]) -> ArmReport:
         ended_on_error=sum(bool(r.error) for r in scored),
         code_shas=_values(r.code_sha for r in scored),
         profile_hashes=_values(r.profile_hash for r in scored),
+        switch_hashes=_values(r.switch_hash for r in scored if r.switch_hash is not None),
     )
 
 
@@ -269,7 +271,12 @@ def _versions(arm: ArmReport) -> str:
         return f"{name} {', '.join(known) or 'none'}"
 
     line = f"{arm.arm}: {show('code_sha', arm.code_shas)}; {show('profile_hash', arm.profile_hashes)}."
-    mixed = [n for n, v in (("code_sha", arm.code_shas), ("profile_hash", arm.profile_hashes)) if len(v) > 1]
+    pairs = (
+        ("code_sha", arm.code_shas),
+        ("profile_hash", arm.profile_hashes),
+        ("switch_hash", arm.switch_hashes),
+    )
+    mixed = [n for n, v in pairs if len(v) > 1]
     return line + (f" **MIXED: more than one {' and '.join(mixed)} in this arm.**" if mixed else "")
 
 

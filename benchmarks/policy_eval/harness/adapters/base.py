@@ -252,8 +252,12 @@ async def drive_one_request(
                 note = await asyncio.to_thread(parts.turn_note, list(turns))
                 if note:
                     prompt = f"{prompt}\n\n{note}"
+            deadline = time.monotonic() + timeout  # one time limit for the first answer and every send-back
             for _ in range(MAX_REPLIES):
-                result = await asyncio.wait_for(agent.invoke(prompt, thread_id=thread_id), timeout=timeout)
+                left = deadline - time.monotonic()
+                if left <= 0:
+                    raise asyncio.TimeoutError
+                result = await asyncio.wait_for(agent.invoke(prompt, thread_id=thread_id), timeout=left)
                 receipt = receipt_of(result)
                 if receipt is not None:
                     out.receipts.append(receipt)

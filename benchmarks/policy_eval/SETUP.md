@@ -143,9 +143,8 @@ $HARNESS_PYTHON -I harness/report.py --runs mine_base mine_sw
 
 ## Known state of the tests
 
-`pytest benchmarks/policy_eval/tests` has 2 failures that were there before this setup work (a `langfuse` attribute in a
-harness test, and the default timeouts per benchmark). They are data checks that fell behind newer sets, not setup
-problems.
+`pytest benchmarks/policy_eval/tests` has no known failures. CI runs it in a pytest process of its own (the harness puts
+`benchmarks/` on `sys.path`, which would break the AppWorld and τ² suites in a shared process); `just test-regression` does the same.
 
 About 50 harness, profile and wiring tests start a Python that must import `cuga.policy_layer` (polisys under the
 name the harness gives it in a code snapshot). Set `POLICY_GATE_PYTHON` to such a Python to run them; without it they
