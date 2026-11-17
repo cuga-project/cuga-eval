@@ -127,11 +127,12 @@ $HARNESS_PYTHON -I harness/run.py --bench itsm --profile baseline --set itsm-pil
 
 ## Known state of the tests
 
-`pytest benchmarks/policy_eval/tests` has 4 failures that were there before this setup work (a `langfuse` attribute in a
-harness test, the default timeouts per benchmark, the k-hops walk on the skill packages, and the policies section of the
-registry). They are data checks that fell behind newer packages and sets, not setup problems.
+`pytest benchmarks/policy_eval/tests` has 2 failures that were there before this setup work (a `langfuse` attribute in a
+harness test, and the default timeouts per benchmark). They are data checks that fell behind newer sets, not setup
+problems.
 
-Ten tests skip on a fresh clone because their data left git on 2026-11-17: old package builds, audits and replay outputs
-(the last commit that has them is `538904ea`), and the archived launchers (last in `2a5df9ee`). To run them, restore the
-folders named in the skip messages from that commit (`git restore --source <commit> -- <folder>`). `.gitignore` keeps
-them out of git.
+Two tests skip on a fresh clone because their data left git on 2026-11-17: the old package builds (the last commit that
+has them is `538904ea`) and the archived launchers (last in `2a5df9ee`). To run them, restore the folder named in the
+skip message from that commit (`git restore --source <commit> -- <folder>`). `.gitignore` keeps it out of git. The
+research tooling of the package work (rule audit, obligation replay, pipeline-vs-skill and parity checks) and its tests
+left git too; they are in `45f17c47`.
