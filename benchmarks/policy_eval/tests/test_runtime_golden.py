@@ -9,6 +9,7 @@ import json
 import os
 import re
 import subprocess
+import sys
 from pathlib import Path
 
 import pytest
@@ -17,10 +18,30 @@ POLICY_EVAL = Path(__file__).resolve().parents[1]
 BENCHMARKS = POLICY_EVAL.parent
 TOOL = POLICY_EVAL / "tools" / "golden_hooks.py"
 GOLDEN = POLICY_EVAL / "profiles" / "golden_hooks.json"
-GATE_PYTHON = os.environ.get("POLICY_GATE_PYTHON") or str(
-    Path.home() / "dev/cuga-agent-gate/.venv/bin/python"
-)
+GATE_PYTHON = os.environ.get("POLICY_GATE_PYTHON") or os.environ.get("HARNESS_PYTHON") or sys.executable
 GATE_SRC = Path(GATE_PYTHON).parents[2] / "src"
+
+
+def _imports_policy_layer(python: str) -> bool:
+    """The policy layer is ``cuga.policy_layer``: in a code snapshot (polisys under that name) or an old gate checkout."""
+    try:
+        done = subprocess.run(
+            [python, "-I", "-c", "import cuga.policy_layer"], capture_output=True, timeout=120
+        )
+    except (OSError, subprocess.TimeoutExpired):
+        return False
+    return done.returncode == 0
+
+
+HAS_POLICY_LAYER = _imports_policy_layer(GATE_PYTHON)
+NO_POLICY_LAYER = "needs a Python that imports cuga.policy_layer: set POLICY_GATE_PYTHON (see SETUP.md)"
+
+
+def need_policy_layer():
+    if not HAS_POLICY_LAYER:
+        pytest.skip(NO_POLICY_LAYER)
+
+
 SAMPLE = Path.home() / "dev/untrusted/handbook-sample/tasks"
 TAU2 = Path.home() / "dev/cuga-eval-tau2/benchmarks/tau2"
 PROFILES = sorted(p.stem for p in (POLICY_EVAL / "profiles").glob("*.yaml"))
@@ -30,6 +51,7 @@ needs_all_inputs = pytest.mark.skipif(
 
 
 def run(*args, python=GATE_PYTHON, env=None, timeout=900):
+    need_policy_layer()
     return subprocess.run(
         [python, "-I", *args],
         cwd=BENCHMARKS,
@@ -133,7 +155,11 @@ def test_every_profile_gives_the_description_in_the_golden_file():
 @needs_all_inputs
 def test_the_check_finds_a_changed_wiring(tmp_path):
     changed = json.loads(GOLDEN.read_text())
-    gate = changed["cases"]["handbook-gemini-graph-gate/hr_crestwood_university_79786c46"]["description"]
+    gate = changed["cases"][
+        "handbook-gemini-graph-gate/hr_crestwood_university_79786c46"  # pragma: allowlist secret
+    ][  # pragma: allowlist secret
+        "description"
+    ]  # pragma: allowlist secret
     gate["hooks"][0]["attrs"]["model"]["model"]["max_tokens"] = 8000
     gate["gate_reads_tools_store"] = {"StoreGate": False}
     changed["cases"]["tau2-telecom-gptoss-navigator"]["description"]["slots"]["wrap_tools"][
@@ -152,7 +178,7 @@ def test_the_golden_file_is_frozen_and_the_capture_path_is_gone():
     would prove nothing. ``policy/pre-migration-removal`` holds the command that wrote it."""
     assert (
         hashlib.sha256(GOLDEN.read_bytes()).hexdigest()
-        == "bf6b49b91d8e63d0dcf50b6575c87cc02da60374009ef1ebeb097c5636440890"
+        == "bf6b49b91d8e63d0dcf50b6575c87cc02da60374009ef1ebeb097c5636440890"  # pragma: allowlist secret
     )
     done = run(str(TOOL), "capture")
     assert done.returncode == 2 and "invalid choice" in done.stderr
@@ -324,8 +350,9 @@ except RuntimeWiringError as exc:
 
 
 def test_the_decision_model_with_no_key_stops_the_run():
+    need_policy_layer()
     env = {k: v for k, v in os.environ.items() if k != "OPENROUTER_API_KEY"}
-    env["OPENAI_API_KEY"] = "not-used"
+    env["OPENAI_API_KEY"] = "not-used"  # pragma: allowlist secret
     done = subprocess.run(
         [GATE_PYTHON, "-I", "-c", REAL_MODELS_NEED_KEY, str(POLICY_EVAL)],
         capture_output=True,

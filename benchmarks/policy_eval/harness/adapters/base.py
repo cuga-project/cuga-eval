@@ -24,12 +24,9 @@ BENCHMARKS = HARNESS.parents[1]
 
 def _gate_python() -> Path:
     """The Python of the children that need cuga, polisys and the benchmark's own packages (IT service, HR, CSM, HANDBOOK):
-    ``HARNESS_PYTHON``, else the old gate venv when it exists, else the interpreter that runs the harness."""
+    ``HARNESS_PYTHON``, else the interpreter that runs the harness."""
     named = os.environ.get("HARNESS_PYTHON")
-    if named:
-        return Path(named)
-    old_venv = Path.home() / "dev/cuga-agent-gate/.venv/bin/python"
-    return old_venv if old_venv.exists() else Path(sys.executable)
+    return Path(named) if named else Path(sys.executable)
 
 
 GATE_PYTHON = _gate_python()

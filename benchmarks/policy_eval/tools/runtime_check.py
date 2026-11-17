@@ -1,6 +1,6 @@
 """Does a package run? Build the runtime of each ``skill_v1`` package on three profiles, with no agent and no model.
 
-    ~/dev/cuga-agent-gate/.venv/bin/python -I benchmarks/policy_eval/tools/runtime_check.py [--source skill_v1] [--json OUT]
+    $HARNESS_PYTHON -I benchmarks/policy_eval/tools/runtime_check.py [--source skill_v1] [--json OUT]
 
 A package that validates but does not run is a failure. For each package ``build_runtime`` is called with
 ``RecordingModels`` (its models raise when called, so nothing can reach a model) on:

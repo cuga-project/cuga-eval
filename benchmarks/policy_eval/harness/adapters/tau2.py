@@ -1,5 +1,5 @@
 """τ²: tau2-bench drives the conversation and the user simulator on a thread, CUGA answers on the event loop, as in
-``benchmarks/tau2/cuga_runner.py``. Runs in the venv and with the code of the ``~/dev/cuga-eval-tau2`` worktree; that venv
+``benchmarks/tau2/cuga_runner.py``. Runs in the venv and with the code of the ``$TAU2_WORKTREE`` (default ``~/dev/cuga-eval-tau2`` worktree; that venv
 imports ``cuga`` from ``~/dev/cuga-agent`` unless the snapshot comes first, which the harness checks in every child.
 
 The set says the domain. The one user turn of the other benchmarks is many turns here, so this adapter has its own loop:
@@ -23,7 +23,9 @@ from .base import RawOutcome, agent_tools, hooks_kwarg, receipt_of, set_entry, s
 if TYPE_CHECKING:
     from cuga.policy_layer.runtime import RunContext, RuntimeParts
 
-WORKTREE = Path.home() / "dev/cuga-eval-tau2"
+WORKTREE = Path(
+    os.environ.get("TAU2_WORKTREE") or Path.home() / "dev/cuga-eval-tau2"
+)  # the cuga-eval checkout with tau2-bench
 DOMAINS = ("tau2-telecom", "tau2-airline")
 USER_SIMULATOR = "openai/Azure/gpt-4.1"
 MAX_STEPS = 100  # as the old launcher (launchers/archive/run_arm_a.py)

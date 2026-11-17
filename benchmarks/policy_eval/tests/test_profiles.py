@@ -9,6 +9,7 @@ with the gate repo's Python and prints plain data.
 import json
 import os
 import subprocess
+import sys
 from pathlib import Path
 
 import pytest
@@ -17,9 +18,29 @@ POLICY_EVAL = Path(__file__).resolve().parents[1]
 BENCHMARKS = POLICY_EVAL.parent
 PROFILES = POLICY_EVAL / "profiles"
 PACKAGES = POLICY_EVAL / "packages"
-GATE_PYTHON = os.environ.get("POLICY_GATE_PYTHON") or str(
-    Path.home() / "dev/cuga-agent-gate/.venv/bin/python"
-)
+GATE_PYTHON = os.environ.get("POLICY_GATE_PYTHON") or os.environ.get("HARNESS_PYTHON") or sys.executable
+
+
+def _imports_policy_layer(python: str) -> bool:
+    """The policy layer is ``cuga.policy_layer``: in a code snapshot (polisys under that name) or an old gate checkout."""
+    try:
+        done = subprocess.run(
+            [python, "-I", "-c", "import cuga.policy_layer"], capture_output=True, timeout=120
+        )
+    except (OSError, subprocess.TimeoutExpired):
+        return False
+    return done.returncode == 0
+
+
+HAS_POLICY_LAYER = _imports_policy_layer(GATE_PYTHON)
+NO_POLICY_LAYER = "needs a Python that imports cuga.policy_layer: set POLICY_GATE_PYTHON (see SETUP.md)"
+
+
+def need_policy_layer():
+    if not HAS_POLICY_LAYER:
+        pytest.skip(NO_POLICY_LAYER)
+
+
 ENTRIES = json.loads((POLICY_EVAL / "best_profiles.json").read_text())["profiles"]
 
 LOAD = r"""
@@ -36,6 +57,7 @@ print(json.dumps(out))
 
 @pytest.fixture(scope="module")
 def loaded():
+    need_policy_layer()
     done = subprocess.run(
         [GATE_PYTHON, "-I", "-c", LOAD, str(POLICY_EVAL)], capture_output=True, text=True, timeout=120
     )

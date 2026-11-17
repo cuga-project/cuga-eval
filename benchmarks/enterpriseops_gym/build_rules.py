@@ -15,7 +15,7 @@ After each version the build is checked as a new package (``validate_package(leg
 counted by code. The cost of each version goes to the ledger when it is built; a version over ``--max-version-cost`` or
 a total over ``--max-total-cost`` stops the script.
 
-  ~/dev/cuga-agent-gate/.venv/bin/python benchmarks/enterpriseops_gym/build_rules.py --versions h1,h2 [--no-model]
+  $HARNESS_PYTHON benchmarks/enterpriseops_gym/build_rules.py --versions h1,h2 [--no-model]
 """
 
 from __future__ import annotations

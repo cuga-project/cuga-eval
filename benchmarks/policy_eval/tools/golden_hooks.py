@@ -1,6 +1,6 @@
 """Check of ``build_runtime`` against the golden description of the policy wiring. Offline: no agent, no model call.
 
-    ~/dev/cuga-agent-gate/.venv/bin/python -I benchmarks/policy_eval/tools/golden_hooks.py check
+    $HARNESS_PYTHON -I benchmarks/policy_eval/tools/golden_hooks.py check
 
 ``profiles/golden_hooks.json`` is the frozen reference. It was written from the wiring code of the four old runners, never from
 ``build_runtime``. The command that wrote it left with those runners: it lives at the local tag ``policy/pre-migration-removal``
@@ -42,7 +42,10 @@ HANDBOOK_TASKS = (
     Path(os.environ.get("HANDBOOK_SAMPLE", str(Path.home() / "dev/untrusted/handbook-sample"))) / "tasks"
 )
 HANDBOOK_TOOLS = BENCHMARKS / "handbook" / "tools"
-TELECOM_POLICY = Path.home() / "dev/cuga-eval-tau2/benchmarks/tau2/tau2-bench/data/tau2/domains/telecom"
+TELECOM_POLICY = (
+    Path(os.environ.get("TAU2_WORKTREE") or Path.home() / "dev/cuga-eval-tau2")
+    / "benchmarks/tau2/tau2-bench/data/tau2/domains/telecom"
+)
 TELECOM_TOOLS = POLICY_EVAL / "tau2" / "telecom_tools.json"
 sys.path.insert(0, str(BENCHMARKS))  # the shared SOP parser
 if os.environ.get("CUGA_SRC"):  # -I ignores PYTHONPATH: the code to check goes first by hand

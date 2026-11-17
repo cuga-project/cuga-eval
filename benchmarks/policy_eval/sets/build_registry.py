@@ -40,6 +40,7 @@ from __future__ import annotations
 
 import argparse
 import json
+import os
 import re
 import sys
 from collections import defaultdict
@@ -50,10 +51,11 @@ HERE = Path(__file__).resolve().parent
 REPO = HERE.parents[2]
 BENCH = REPO / "benchmarks"
 REGISTRY = HERE / "registry.json"
-TAU2_ROOT = Path.home() / "dev/cuga-eval-tau2/benchmarks/tau2"
-TAU2_SPLITS = "~/dev/cuga-eval-tau2/benchmarks/tau2/tau2-bench/data/tau2/domains/{domain}/split_tasks.json"
+TAU2_ROOT = Path(os.environ.get("TAU2_WORKTREE") or Path.home() / "dev/cuga-eval-tau2") / "benchmarks/tau2"
+TAU2_SPLITS = str(TAU2_ROOT / "tau2-bench/data/tau2/domains/{domain}/split_tasks.json")
 HB_SAMPLE_TASKS = (
-    "~/dev/untrusted/handbook-sample/tasks"  # untrusted download, read-only: this script never opens it
+    os.environ.get("HANDBOOK_SAMPLE", "~/dev/untrusted/handbook-sample")
+    + "/tasks"  # read-only download; never opened here
 )
 HB_TASKS = [  # the 3 public HANDBOOK tasks (names of the folders under HB_SAMPLE_TASKS; also the names in the result files)
     "hr_crestwood_university_79786c46",

@@ -3,7 +3,7 @@
 
 The SOP is downloaded content: it is only read as data. Output: policy_eval/builds_handbook/v3/<task>.json + stats.
 
-  ~/dev/cuga-agent-gate/.venv/bin/python -I benchmarks/handbook/intake_one.py <task> [--model aws/gpt-oss-120b]
+  $HARNESS_PYTHON -I benchmarks/handbook/intake_one.py <task> [--model aws/gpt-oss-120b]
 """
 
 import argparse

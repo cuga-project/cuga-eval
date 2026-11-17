@@ -125,11 +125,21 @@ $HARNESS_PYTHON -I harness/run.py --bench itsm --profile baseline --set itsm-pil
   or rules, and no regex or keyword lists to decide meaning.
 - Start run names with a short prefix of your own, so result folders and ledger lines do not collide.
 
+## Other checkouts the code can read
+
+- `TAU2_WORKTREE`: the cuga-eval checkout with tau2-bench, for the τ² adapter and set builder (default `~/dev/cuga-eval-tau2`).
+- `HANDBOOK_SAMPLE`: the downloaded HANDBOOK sample (default `~/dev/untrusted/handbook-sample`), read only.
+- `LANGFUSE_ENV_FILE`: the keys of a local Langfuse, for `--langfuse` (default `~/dev/langfuse-latest/cuga.env`).
+
 ## Known state of the tests
 
 `pytest benchmarks/policy_eval/tests` has 2 failures that were there before this setup work (a `langfuse` attribute in a
 harness test, and the default timeouts per benchmark). They are data checks that fell behind newer sets, not setup
 problems.
+
+About 50 harness, profile and wiring tests start a Python that must import `cuga.policy_layer` (polisys under the
+name the harness gives it in a code snapshot). Set `POLICY_GATE_PYTHON` to such a Python to run them; without it they
+skip with that reason.
 
 Two tests skip on a fresh clone because their data left git on 2026-11-17: the old package builds (the last commit that
 has them is `538904ea`) and the archived launchers (last in `2a5df9ee`). To run them, restore the folder named in the

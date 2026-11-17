@@ -3,7 +3,7 @@
 plus user-device tools prefixed `user__`): sections, statements, links, procedures, rules. Same builder as HANDBOOK.
 Inputs: policy_eval/tau2/<domain>_policy.md and <domain>_tools.json. Output: policy_eval/tau2/builds/<domain>.json.
 
-  ~/dev/cuga-agent-gate/.venv/bin/python benchmarks/policy_eval/tau2/intake_tau2.py telecom [--model aws/gpt-oss-120b]
+  $HARNESS_PYTHON benchmarks/policy_eval/tau2/intake_tau2.py telecom [--model aws/gpt-oss-120b]
 """
 
 import argparse

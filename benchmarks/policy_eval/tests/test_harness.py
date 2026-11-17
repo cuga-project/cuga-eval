@@ -24,10 +24,30 @@ from policy_eval.harness.adapters.base import BenchmarkAdapter, with_note  # noq
 from policy_eval.harness.adapters.handbook import sop_text_of  # noqa: E402
 from policy_eval.harness.result import NotAResult, Result, Score, all_from_legacy, from_legacy  # noqa: E402
 
-GATE_PYTHON = os.environ.get("POLICY_GATE_PYTHON") or str(
-    Path.home() / "dev/cuga-agent-gate/.venv/bin/python"
-)
+GATE_PYTHON = os.environ.get("POLICY_GATE_PYTHON") or os.environ.get("HARNESS_PYTHON") or sys.executable
 GATE_SRC = Path(GATE_PYTHON).parents[2] / "src"
+
+
+def _imports_policy_layer(python: str) -> bool:
+    """The policy layer is ``cuga.policy_layer``: in a code snapshot (polisys under that name) or an old gate checkout."""
+    try:
+        done = subprocess.run(
+            [python, "-I", "-c", "import cuga.policy_layer"], capture_output=True, timeout=120
+        )
+    except (OSError, subprocess.TimeoutExpired):
+        return False
+    return done.returncode == 0
+
+
+HAS_POLICY_LAYER = _imports_policy_layer(GATE_PYTHON)
+NO_POLICY_LAYER = "needs a Python that imports cuga.policy_layer: set POLICY_GATE_PYTHON (see SETUP.md)"
+
+
+def need_policy_layer():
+    if not HAS_POLICY_LAYER:
+        pytest.skip(NO_POLICY_LAYER)
+
+
 AB_PYTHON = BENCHMARKS / "automationbench" / ".venv" / "bin" / "python"
 TAU2_PYTHON = Path.home() / "dev/cuga-eval-tau2/.venv/bin/python"
 TAU2_ROOT = Path.home() / "dev/cuga-eval-tau2/benchmarks/tau2"
@@ -678,6 +698,7 @@ else:
     "python", [GATE_PYTHON, AB_PYTHON, TAU2_PYTHON], ids=["gate", "automationbench", "tau2"]
 )
 def test_every_venv_imports_cuga_from_the_snapshot_or_refuses(python, tmp_path):
+    need_policy_layer()
     if not Path(python).exists():
         missing_input(f"no venv at {python}")
 
@@ -944,6 +965,7 @@ def go(adapter, profile="baseline", task="t"):
 
 
 def gate(code, tmp_path, *args):
+    need_policy_layer()
     done = subprocess.run(
         [GATE_PYTHON, "-I", "-c", COMMON + code, str(BENCHMARKS), str(tmp_path), *args],
         capture_output=True,
@@ -1560,6 +1582,7 @@ print(json.dumps(rows))
 
 
 def test_the_real_tau2_adapter_does_not_grade_a_gateway_failure(tmp_path):
+    need_policy_layer()
     """An error in the middle of a conversation used to end as a graded 0 with no error, because τ² scores what is left."""
     if not TAU2_PYTHON.exists() or not TAU2_ROOT.is_dir():
         missing_input("the τ² worktree or its venv is missing")
@@ -1620,6 +1643,7 @@ print(json.dumps(asyncio.run(main())))
 
 
 def test_the_automationbench_adapter_prepares_and_grades_with_its_own_module(tmp_path):
+    need_policy_layer()
     """The task, the world, all tools and the rubric, in the benchmark's venv: no agent and no model call."""
     if not AB_PYTHON.exists():
         missing_input("the AutomationBench venv is missing")
@@ -1653,6 +1677,7 @@ def test_the_automationbench_adapter_prepares_and_grades_with_its_own_module(tmp
 
 
 def test_the_handbook_module_has_what_the_adapter_calls():
+    need_policy_layer()
     code = (
         "import sys; sys.path[:0] = [sys.argv[1], sys.argv[2] + '/handbook']; import hb_env\n"
         "assert all(callable(getattr(hb_env, n)) for n in ('start_container', 'logged_tools', 'specs_of', 'grade', 'sh'))\n"

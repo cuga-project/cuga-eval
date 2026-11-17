@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 """Save one HANDBOOK task's MCP tool schemas (for offline intake): start its container, list tools, stop it.
 
-~/dev/cuga-agent-gate/.venv/bin/python -I benchmarks/handbook/dump_tools.py <task>
+$HARNESS_PYTHON -I benchmarks/handbook/dump_tools.py <task>
 """
 
 import asyncio
