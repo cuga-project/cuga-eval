@@ -16,6 +16,11 @@ from typing import Any, Callable, Dict, List, Optional
 
 HERE = Path(__file__).resolve().parent
 VENDOR = HERE / "vendor" / "EnterpriseOps-Gym"
+if not (VENDOR / "benchmark").is_dir():
+    raise ImportError(
+        f"EnterpriseOps-Gym clone not found at {VENDOR}: clone it there and unzip gym_dbs.zip "
+        "(benchmarks/policy_eval/SETUP.md, step 3)"
+    )
 sys.path.insert(0, str(VENDOR))
 sys.path.insert(0, str(HERE))  # numeric_string_fix
 
