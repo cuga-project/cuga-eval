@@ -1,0 +1,48 @@
+{
+ "subset": "parity_est4_smoke",
+ "task_id": 4,
+ "capability_dir": "capability_4_multiturn",
+ "adapter_preset": "cap4_v3wx",
+ "data_source": "vakra-main cap4_train/data (a slice of the campaign's cap4 train scorecard), converted locally by prepare_vakra_train.py",
+ "vakra_train_data": "cap4_train/data",
+ "m3_data": "local:vakra_train",
+ "demo_data": "local:vakra_train",
+ "no_ground_truth": true,
+ "campaign_predictions": "cap4_train/runs/full_v3wx",
+ "default_arms": "cuga_eval_cap4_v3wx",
+ "n": 2,
+ "selection": {
+  "from": "parity_est4_ref30",
+  "method": "2 items, one multi-turn (plumbing smoke)",
+  "seed": 0
+ },
+ "reference": {
+  "description": "VAKRA campaign cap4 train scorecard (47.4% on all 898 items): V3WX (cap4_train full_pipeline.sh), temperature 1.0, judge azure/gpt-oss-120b via the proxy. Per-item verdicts as recorded.",
+  "source_runs": {
+   "on": "vakra-main cap4_train/scores/full_v3wx",
+   "soft2": "vakra-main cap4_train/scores/full_soft2"
+  },
+  "pass_rate": {
+   "on": 0.5,
+   "soft2": 0.5
+  },
+  "pass_by_uuid": {
+   "on": {
+    "d80c9bf910f1-09ddb92acd17": true,
+    "1b288c5c6dc9-f451d56e81ce": false
+   },
+   "soft2": {
+    "d80c9bf910f1-09ddb92acd17": true,
+    "1b288c5c6dc9-f451d56e81ce": false
+   }
+  }
+ },
+ "ids_by_domain": {
+  "address": [
+   "d80c9bf910f1-09ddb92acd17"
+  ],
+  "airline": [
+   "1b288c5c6dc9-f451d56e81ce"
+  ]
+ }
+}

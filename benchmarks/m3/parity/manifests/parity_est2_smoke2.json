@@ -1,0 +1,41 @@
+{
+ "subset": "parity_est2_smoke2",
+ "task_id": 2,
+ "capability_dir": "capability_2_dashboard_apis",
+ "adapter_preset": "cap2",
+ "data_source": "vakra-main data/train (a slice of the campaign's est2 sample), converted locally by prepare_vakra_train.py",
+ "m3_data": "local:vakra_train",
+ "demo_data": "local:vakra_train",
+ "no_ground_truth": true,
+ "campaign_predictions": "output/est2_treat",
+ "default_arms": "cuga_eval_cap2_fc@tool_pick+empty_hint+cap2_verbatim",
+ "n": 2,
+ "selection": {
+  "from": "parity_est2_ref30",
+  "method": "2 items the agent failed in every arm by choosing the wrong tool (tool-pick smoke)",
+  "seed": 0
+ },
+ "reference": {
+  "description": "VAKRA campaign est2 = the cap2 train scorecard (62.6% on all 115 items): fc_canon + FC, temperature 1.0, vendor evaluator, judge azure/gpt-oss-120b via the proxy. Per-item verdicts as recorded.",
+  "source_runs": {
+   "on": "vakra-main cuga_runs/est2_score_treat"
+  },
+  "pass_rate": {
+   "on": 0.0
+  },
+  "pass_by_uuid": {
+   "on": {
+    "2b28654158b1-a9a33fd064d4": false,
+    "35a1befb81d1-5894ff0b22ee": false
+   }
+  }
+ },
+ "ids_by_domain": {
+  "talkingdata": [
+   "35a1befb81d1-5894ff0b22ee"
+  ],
+  "college_completion": [
+   "2b28654158b1-a9a33fd064d4"
+  ]
+ }
+}

@@ -51,7 +51,6 @@ from cuga.backend.activity_tracker.tracker import ActivityTracker
 from cuga.backend.cuga_graph.state.agent_state import VariablesManager
 
 # Import CUGA modules
-from cuga.sdk import CugaAgent
 from langchain_core.messages import HumanMessage
 from loguru import logger
 
@@ -61,6 +60,16 @@ from benchmarks.helpers import (
     print_evaluation_summary,
     save_evaluation_results,
     setup_langfuse,
+)
+
+# VAKRA adapter: configured-CUGA construction seam (default preset "off" = a
+# plain CugaAgent, unchanged behavior; see benchmarks/m3/ADAPTER.md).
+from benchmarks.m3.adapter import (
+    PRESETS,
+    AdapterConfig,
+    build_m3_agent,
+    load_demo_corpus,
+    resolve_adapter_config,
 )
 
 # Import MCP client utilities
@@ -82,7 +91,9 @@ async def wrap_tool_with_tracking(tool, app_name: str = "mcp_server"):
     """
     import time
 
-    from cuga.backend.cuga_graph.nodes.cuga_lite.tool_call_tracker import ToolCallTracker
+    # ToolCallTracker moved from cuga_lite.tool_call_tracker to
+    # cuga_lite.tracking.tracker in current cuga main; same record_call API.
+    from cuga.backend.cuga_graph.nodes.cuga_lite.tracking.tracker import ToolCallTracker
 
     # Store original function
     original_func = tool.coroutine if hasattr(tool, 'coroutine') and tool.coroutine else tool.func
@@ -95,6 +106,8 @@ async def wrap_tool_with_tracking(tool, app_name: str = "mcp_server"):
 
     # Create wrapped function
     async def tracked_func(**kwargs):
+        # The recorded chain is replayed verbatim by the evaluator, so record exactly what is sent
+        kwargs = drop_null_args(kwargs)
         start_time = time.time()
         result = None
         error_msg = None
@@ -131,11 +144,93 @@ async def wrap_tool_with_tracking(tool, app_name: str = "mcp_server"):
     return tool
 
 
+def drop_null_args(arguments: Dict[str, Any]) -> Dict[str, Any]:
+    """Omit arguments the model left null, so the server applies its own defaults.
+
+    The VAKRA tool models forbid null for typed fields; a recorded ``limit: null``
+    fails input validation when the evaluator replays the chain.
+    """
+    return {k: v for k, v in arguments.items() if v is not None}
+
+
+_JSON_TYPES = {"string": str, "integer": int, "number": float, "boolean": bool, "array": list, "object": dict}
+
+
+def _python_type_of(prop_info: Dict[str, Any]) -> Any:
+    """JSON-schema property -> Python type, as VAKRA's MCPToolWrapper maps it."""
+    if "anyOf" in prop_info:
+        return Any
+    if "enum" in prop_info:
+        return str
+    json_type = prop_info.get("type")
+    if json_type is None or isinstance(json_type, list):
+        return Any
+    return _JSON_TYPES.get(json_type, Any)
+
+
+def args_model_from_schema(tool_name: str, input_schema: Optional[Dict[str, Any]]) -> type:
+    """Pydantic args model for an MCP tool: the schema's types, defaults and enum values.
+
+    Mirrors VAKRA's ``MCPToolWrapper._convert_json_schema_to_pydantic`` (the campaign's
+    tool binding), so the model sees the same parameter types and defaults.
+    """
+    from pydantic import Field, create_model
+
+    schema = input_schema if isinstance(input_schema, dict) else {}
+    required = schema.get("required", [])
+    fields: Dict[str, Any] = {}
+    for prop_name, prop_info in (schema.get("properties") or {}).items():
+        python_type = _python_type_of(prop_info)
+        description = prop_info.get("description", "")
+        if prop_info.get("enum"):
+            description = f"{description} Allowed values: {', '.join(map(str, prop_info['enum']))}".strip()
+        default = prop_info.get("default", ...)
+        if prop_name in required and default is ...:
+            fields[prop_name] = (python_type, Field(..., description=description))
+        else:
+            fields[prop_name] = (
+                Optional[python_type],
+                Field(default=None if default is ... else default, description=description),
+            )
+    return create_model(f"{tool_name}_Input", **fields)
+
+
+def mcp_structured_tool(session, mcp_tool):
+    """LangChain tool for ONE MCP tool.
+
+    Built in its own scope so every closure binds this tool's name: a loop-level closure
+    shares the loop variable, and every call then runs the LAST listed tool (get_data).
+    """
+    from langchain_core.tools import StructuredTool
+
+    tool_name = mcp_tool.name
+
+    async def tool_func(**kwargs):
+        """Call MCP tool via session."""
+        result = await session.call_tool(tool_name, kwargs)
+        # Extract content from MCP response
+        if hasattr(result, 'content') and result.content:
+            content_items = result.content
+            if isinstance(content_items, list) and content_items:
+                first_item = content_items[0]
+                if hasattr(first_item, 'text'):
+                    return first_item.text
+                elif isinstance(first_item, dict) and 'text' in first_item:
+                    return first_item['text']
+            return str(content_items)
+        return str(result)
+
+    return StructuredTool(
+        name=tool_name,
+        description=mcp_tool.description or f"Tool: {tool_name}",
+        func=lambda **kw: asyncio.run(tool_func(**kw)),  # Sync wrapper
+        coroutine=tool_func,  # Async version
+        args_schema=args_model_from_schema(tool_name, getattr(mcp_tool, "inputSchema", None)),
+    )
+
+
 async def get_tools_from_session(session) -> List:
     """Extract LangChain-compatible tools from MCP session."""
-    from langchain_core.tools import StructuredTool
-    from pydantic import BaseModel, Field
-
     # List available tools from MCP server
     tools_response = await session.list_tools()
     mcp_tools = tools_response.tools if hasattr(tools_response, 'tools') else []
@@ -145,62 +240,7 @@ async def get_tools_from_session(session) -> List:
     # Convert MCP tools to LangChain tools
     langchain_tools = []
     for mcp_tool in mcp_tools:
-        tool_name = mcp_tool.name
-        tool_description = mcp_tool.description or f"Tool: {tool_name}"
-
-        # Create dynamic Pydantic model for tool input
-        input_schema = mcp_tool.inputSchema if hasattr(mcp_tool, 'inputSchema') else {}
-        properties = input_schema.get("properties", {})
-        required = input_schema.get("required", [])
-
-        # Build field definitions with proper annotations
-        fields = {}
-        annotations = {}
-        for prop_name, prop_info in properties.items():
-            field_type = str  # Default to string
-            field_description = prop_info.get("description", "")
-            is_required = prop_name in required
-
-            # Add type annotation
-            if is_required:
-                annotations[prop_name] = field_type
-                fields[prop_name] = Field(..., description=field_description)
-            else:
-                annotations[prop_name] = Optional[field_type]
-                fields[prop_name] = Field(None, description=field_description)
-
-        # Add __annotations__ to fields dict
-        fields['__annotations__'] = annotations
-
-        # Create dynamic model
-        InputModel = type(f"{tool_name}_Input", (BaseModel,), fields)
-
-        # Create async function that calls MCP tool
-        async def tool_func(**kwargs):
-            """Call MCP tool via session."""
-            nonlocal session, tool_name
-            result = await session.call_tool(tool_name, kwargs)
-
-            # Extract content from MCP response
-            if hasattr(result, 'content') and result.content:
-                content_items = result.content
-                if isinstance(content_items, list) and content_items:
-                    first_item = content_items[0]
-                    if hasattr(first_item, 'text'):
-                        return first_item.text
-                    elif isinstance(first_item, dict) and 'text' in first_item:
-                        return first_item['text']
-                return str(content_items)
-            return str(result)
-
-        # Create LangChain StructuredTool
-        lc_tool = StructuredTool(
-            name=tool_name,
-            description=tool_description,
-            func=lambda **kw: asyncio.run(tool_func(**kw)),  # Sync wrapper
-            coroutine=tool_func,  # Async version
-            args_schema=InputModel,
-        )
+        lc_tool = mcp_structured_tool(session, mcp_tool)
 
         # Wrap tool with tracking
         tracked_tool = await wrap_tool_with_tracking(lc_tool, app_name="mcp_server")
@@ -216,6 +256,8 @@ async def run_benchmark_for_domain_with_retry(
     max_samples: Optional[int] = None,
     agent_timeout: int = 300,
     max_retries: int = 3,
+    adapter_cfg: Optional[AdapterConfig] = None,
+    switch_timeout: Optional[float] = None,
 ) -> List[Dict[str, Any]]:
     """Run benchmark with automatic reconnection on connection failures."""
     all_results = []
@@ -234,6 +276,8 @@ async def run_benchmark_for_domain_with_retry(
             config=config,
             max_samples=None,
             agent_timeout=agent_timeout,
+            adapter_cfg=adapter_cfg,
+            switch_timeout=switch_timeout,
         )
 
         all_results.extend(batch_results)  # Append results from this batch
@@ -258,6 +302,8 @@ async def run_benchmark_for_domain_single_connection(
     config: DirectMCPConfig,
     max_samples: Optional[int] = None,
     agent_timeout: int = 300,
+    adapter_cfg: Optional[AdapterConfig] = None,
+    switch_timeout: Optional[float] = None,
 ) -> List[Dict[str, Any]]:
     """
     Run benchmark for a single domain using persistent stdio connection.
@@ -274,6 +320,7 @@ async def run_benchmark_for_domain_single_connection(
         config: DirectMCPConfig for MCP connection
         max_samples: Maximum number of samples to process
         agent_timeout: Timeout in seconds for each agent invocation
+        switch_timeout: Timeout in seconds for each universe switch (None = no limit)
 
     Returns:
         List of result dictionaries
@@ -313,7 +360,8 @@ async def run_benchmark_for_domain_single_connection(
 
             # Create a DirectLangChainToolsProvider to wrap our tools
             # This ensures tool call tracking works properly
-            from cuga.backend.cuga_graph.nodes.cuga_lite.direct_langchain_tools_provider import (
+            # Moved to providers.langchain in current cuga main.
+            from cuga.backend.cuga_graph.nodes.cuga_lite.providers.langchain import (
                 DirectLangChainToolsProvider,
             )
 
@@ -322,13 +370,15 @@ async def run_benchmark_for_domain_single_connection(
             # Create agent with tool_provider (not raw tools)
             # Note: Code executor timeout is hardcoded at 30s in CUGA
             # For slow queries, consider increasing container resources or using --max-samples
-            if langfuse_handler:
-                agent = CugaAgent(
-                    tool_provider=tool_provider,
-                    callbacks=[langfuse_handler],
-                )
-            else:
-                agent = CugaAgent(tool_provider=tool_provider)
+            cfg = adapter_cfg if adapter_cfg is not None else resolve_adapter_config("off")
+            agent = build_m3_agent(
+                tool_provider=tool_provider,
+                config=cfg,
+                # Explicit demo source only (--demo-data); the bundled train zip has
+                # no capability-1 split, so cap1 runs demo-less unless one is given.
+                demo_corpus=load_demo_corpus(cfg, task_id=1, domain=domain),
+                callbacks=[langfuse_handler] if langfuse_handler else None,
+            )
             logger.info(f"✅ Agent created with {len(tools)} tools via DirectLangChainToolsProvider")
             logger.warning("⚠️  Code executor timeout is 30s (hardcoded in CUGA). Slow queries may timeout.")
 
@@ -373,7 +423,11 @@ async def run_benchmark_for_domain_single_connection(
                 try:
                     # STEP 1: Explicitly call get_data to switch universe
                     logger.info(f"  🔄 Switching to universe: {uuid}")
-                    data_result = await get_data_tool.ainvoke({"tool_universe_id": uuid})
+                    switch = get_data_tool.ainvoke({"tool_universe_id": uuid})
+                    # VAKRA campaign: UNIVERSE_SWITCH_TIMEOUT_SECONDS (150 main pass, 200 recovery)
+                    data_result = await (
+                        asyncio.wait_for(switch, timeout=switch_timeout) if switch_timeout else switch
+                    )
 
                     # Parse the result
                     parsed_data = json.loads(data_result)
@@ -391,6 +445,21 @@ async def run_benchmark_for_domain_single_connection(
                         raise RuntimeError(f"Universe switch failed: {parsed_data['error']}")
 
                     logger.info("  ✅ Universe loaded successfully")
+
+                    # VAKRA adapter: hand the item's data handle/peek to the agent
+                    # (cap1 handle protocol) and optionally re-list the tools the
+                    # universe switch just swapped in (relist_after_switch).
+                    if hasattr(agent, "set_task_context"):
+                        peek = parsed_data if isinstance(parsed_data, dict) else None
+                        agent.set_task_context(
+                            initial_data_handle=(peek or {}).get("handle"),
+                            initial_data_peek=peek,
+                            domain=domain,
+                        )
+                    if cfg.relist_after_switch and hasattr(agent, "refresh_tools"):
+                        fresh_tools = await get_tools_from_session(session)
+                        agent.refresh_tools(fresh_tools)
+                        logger.info(f"  🔁 Re-listed tools after universe switch ({len(fresh_tools)})")
 
                     # STEP 2: Run agent with clean query (no augmentation)
                     logger.info("  🤖 Running agent...")
@@ -643,6 +712,18 @@ def save_ground_truth_format(results: List[Dict], output_dir: Path) -> Path:
     return experiment_dir
 
 
+def parse_item_ids(spec: Optional[str]) -> Optional[set]:
+    """``--item-ids`` value -> a set of uuids (None = every item)."""
+    if not spec:
+        return None
+    if spec.startswith("@"):
+        text = Path(spec[1:]).read_text().strip()
+        ids = json.loads(text) if text.startswith("[") else text.split()
+    else:
+        ids = spec.split(",")
+    return {str(i).strip() for i in ids if str(i).strip()}
+
+
 async def main():
     parser = argparse.ArgumentParser(description="M3 Task 1 Evaluation (Enterprise Benchmark Style)")
     parser.add_argument(
@@ -683,8 +764,45 @@ async def main():
         default=300,
         help="Agent timeout in seconds (default: 300)",
     )
+    parser.add_argument(
+        "--item-ids",
+        default=None,
+        help="Only these item uuids: comma-separated, or @file (JSON list or one uuid per line). "
+        "Used by the cap1 recovery pass (benchmarks/m3/cap1_recover.py).",
+    )
+    parser.add_argument(
+        "--switch-timeout",
+        type=float,
+        default=None,
+        help="Seconds allowed for each universe switch (get_data); default: no limit",
+    )
+    parser.add_argument(
+        "--adapter-preset",
+        type=str,
+        choices=list(PRESETS),
+        default=None,
+        help=(
+            "VAKRA adapter preset (configured CUGA; see benchmarks/m3/ADAPTER.md). "
+            "For this capability-1 runner the documented value is 'cap1'. "
+            "Default: M3_ADAPTER_PRESET env var, else 'off' (current behavior)."
+        ),
+    )
+    parser.add_argument(
+        "--demo-data",
+        dest="demo_data",
+        type=str,
+        default=None,
+        metavar="PATH",
+        help=(
+            "Demo corpus for adapter presets with few-shot demos (cap1-3): an M3 data source "
+            "(.zip or capability_<id>_* dir) whose solved samples become the demos. "
+            "Default: M3_ADAPTER_DEMO_DATA env var, else the bundled data/small_train.zip. "
+            "Never defaults to the evaluated data (label leakage; see benchmarks/m3/ADAPTER.md)."
+        ),
+    )
 
     args = parser.parse_args()
+    adapter_cfg = resolve_adapter_config(args.adapter_preset, capability=1, demo_data=args.demo_data)
 
     # Auto-detect runtime if not specified
     runtime = args.runtime or detect_container_runtime()
@@ -706,6 +824,7 @@ async def main():
         domains = [f.stem for f in json_files if not f.stem.endswith("_multiturn")]
 
     logger.info(f"Processing {len(domains)} domain(s): {domains}")
+    item_ids = parse_item_ids(args.item_ids)
 
     # Process each domain
     all_results = []
@@ -735,6 +854,10 @@ async def main():
                 }
             )
 
+        if item_ids is not None:
+            items = [i for i in items if i["uuid"] in item_ids]
+            if not items:
+                continue
         logger.info(f"\nLoaded {len(items)} items for domain '{domain}'")
 
         # Create MCP config for this domain
@@ -753,6 +876,8 @@ async def main():
             config=config,
             max_samples=args.max_samples,
             agent_timeout=args.agent_timeout,
+            adapter_cfg=adapter_cfg,
+            switch_timeout=args.switch_timeout,
         )
 
         all_results.extend(domain_results)
@@ -785,7 +910,10 @@ async def main():
         logger.info(f"\n{'=' * 60}")
         logger.info("OVERALL SUMMARY")
         logger.info(f"{'=' * 60}\n")
-        print_evaluation_summary(all_results)
+        try:
+            print_evaluation_summary(all_results)
+        except (KeyError, TypeError) as exc:  # timed-out items lack the keyword fields; results are saved
+            logger.warning(f"Evaluation summary skipped ({exc!r}); results were saved above")
 
         # Save results
         output_dir = Path(args.output) if args.output else Path(__file__).parent / "results"

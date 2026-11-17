@@ -1,0 +1,11 @@
+VAKRA (https://github.com/IBM/vakra) is licensed under CC BY-NC-SA 4.0
+(https://creativecommons.org/licenses/by-nc-sa/4.0/). This folder holds what ../setup_vakra.sh needs to rebuild
+the VAKRA side of the parity kit from that public repository; no VAKRA code or data is copied here.
+
+- patches/*.patch modify IBM/vakra source files. As adaptations of that material they are shared under the same
+  license, CC BY-NC-SA 4.0, with attribution to IBM/vakra:
+  - judge-endpoint-from-env.patch: evaluator/judge.py takes the judge model and endpoint from JUDGE_MODEL /
+    JUDGE_ENDPOINT, so the judge can be any OpenAI-compatible endpoint (unset, the defaults are unchanged).
+  - mcp-client-no-broad-kill.patch: benchmark/mcp_client.py no longer pkills every MCP server in a container when
+    one session ends (it killed the servers of parallel streams); VAKRA_MCP_BROAD_KILL=1 restores it.
+- benchmark_environ.constraints.txt and evaluator.requirements.txt list package versions only.

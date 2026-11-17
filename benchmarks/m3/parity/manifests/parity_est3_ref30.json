@@ -1,0 +1,162 @@
+{
+ "subset": "parity_est3_ref30",
+ "task_id": 3,
+ "capability_dir": "capability_3_multihop_reasoning",
+ "adapter_preset": "cap3",
+ "data_source": "vakra-main data/train (a slice of the campaign's est3 sample), converted locally by prepare_vakra_train.py",
+ "m3_data": "local:vakra_train",
+ "demo_data": "local:vakra_train",
+ "no_ground_truth": true,
+ "campaign_predictions": "output/est3_treat",
+ "default_arms": "cuga_eval_cap3_fc@pre_parity,cuga_eval_cap3_fc",
+ "n": 30,
+ "selection": {
+  "from": "vakra-main cuga_runs/est3_sample_by_dom.json (120 scored items)",
+  "method": "stratified by the campaign's recorded outcome (pass rate preserved), spread across domains, sha1(seed:uuid) order",
+  "seed": 0
+ },
+ "reference": {
+  "description": "VAKRA campaign est3 = the cap3 train scorecard (56.7% on all 120 items): fc_canon + FC, temperature 1.0, vendor evaluator, judge azure/gpt-oss-120b via the proxy. Per-item verdicts as recorded.",
+  "source_runs": {
+   "on": "vakra-main cuga_runs/est3_score_treat",
+   "codeact_stepwise": "vakra-main cuga_runs/gateStruct_score_treat"
+  },
+  "pass_rate": {
+   "on": 0.5666666666666667,
+   "codeact_stepwise": 0.5172413793103449
+  },
+  "pass_by_uuid": {
+   "on": {
+    "840942187214-79018c165928": false,
+    "a823e527d383-3bc7e6991a75": false,
+    "a823e527d383-9dd40d3de421": false,
+    "5661cd917583-65fe87ed4f5f": false,
+    "5661cd917583-78d72a6f76f2": true,
+    "6e317bcd6839-be720b24175b": true,
+    "6e317bcd6839-d809a7fbde2d": false,
+    "1f58b1e965af-591d376c97c6": false,
+    "1f58b1e965af-b1fcebd8468c": true,
+    "4ee813c5e32d-07999d0d8553": false,
+    "06e387dae8db-39e476d074a3": true,
+    "06e387dae8db-7402a6aae250": false,
+    "2b28654158b1-74973393305b": true,
+    "2b28654158b1-7b78f18ac430": true,
+    "39a28b2592a2-aad6c3358980": false,
+    "39a28b2592a2-faad709ef29f": false,
+    "34a533dfd727-39086bae40b6": true,
+    "34a533dfd727-add12115c2ef": true,
+    "6d05804bb8d7-258d267c42dc": true,
+    "6d05804bb8d7-da9e73c883ba": true,
+    "308738b8195d-b8a749e4bb9d": true,
+    "3608e5ae1d0e-88eebc874157": true,
+    "e71440999ce8-411a7859c8fd": false,
+    "e71440999ce8-cbc545f8c0e7": true,
+    "55b7e50368aa-303e5567464b": false,
+    "55b7e50368aa-7b67710e79df": true,
+    "afabd538bbfe-f3fe933d379d": false,
+    "5caddc4c49de-6059a828400d": true,
+    "fe971e7f850a-1b27cd7a873a": true,
+    "fe971e7f850a-5ee82fde0778": true
+   },
+   "codeact_stepwise": {
+    "840942187214-79018c165928": false,
+    "a823e527d383-3bc7e6991a75": false,
+    "a823e527d383-9dd40d3de421": false,
+    "5661cd917583-65fe87ed4f5f": false,
+    "5661cd917583-78d72a6f76f2": false,
+    "6e317bcd6839-be720b24175b": true,
+    "6e317bcd6839-d809a7fbde2d": false,
+    "1f58b1e965af-591d376c97c6": false,
+    "1f58b1e965af-b1fcebd8468c": true,
+    "4ee813c5e32d-07999d0d8553": false,
+    "06e387dae8db-39e476d074a3": true,
+    "06e387dae8db-7402a6aae250": true,
+    "2b28654158b1-74973393305b": true,
+    "2b28654158b1-7b78f18ac430": true,
+    "39a28b2592a2-faad709ef29f": false,
+    "34a533dfd727-39086bae40b6": true,
+    "34a533dfd727-add12115c2ef": true,
+    "6d05804bb8d7-258d267c42dc": true,
+    "6d05804bb8d7-da9e73c883ba": true,
+    "308738b8195d-b8a749e4bb9d": false,
+    "3608e5ae1d0e-88eebc874157": true,
+    "e71440999ce8-411a7859c8fd": false,
+    "e71440999ce8-cbc545f8c0e7": true,
+    "55b7e50368aa-303e5567464b": false,
+    "55b7e50368aa-7b67710e79df": true,
+    "afabd538bbfe-f3fe933d379d": false,
+    "5caddc4c49de-6059a828400d": false,
+    "fe971e7f850a-1b27cd7a873a": true,
+    "fe971e7f850a-5ee82fde0778": true
+   }
+  }
+ },
+ "ids_by_domain": {
+  "authors": [
+   "840942187214-79018c165928"
+  ],
+  "beer_factory": [
+   "a823e527d383-3bc7e6991a75",
+   "a823e527d383-9dd40d3de421"
+  ],
+  "book_publishing_company": [
+   "5661cd917583-65fe87ed4f5f",
+   "5661cd917583-78d72a6f76f2"
+  ],
+  "books": [
+   "6e317bcd6839-be720b24175b",
+   "6e317bcd6839-d809a7fbde2d"
+  ],
+  "cars": [
+   "1f58b1e965af-591d376c97c6",
+   "1f58b1e965af-b1fcebd8468c"
+  ],
+  "citeseer": [
+   "4ee813c5e32d-07999d0d8553"
+  ],
+  "coinmarketcap": [
+   "06e387dae8db-39e476d074a3",
+   "06e387dae8db-7402a6aae250"
+  ],
+  "college_completion": [
+   "2b28654158b1-74973393305b",
+   "2b28654158b1-7b78f18ac430"
+  ],
+  "computer_student": [
+   "39a28b2592a2-aad6c3358980",
+   "39a28b2592a2-faad709ef29f"
+  ],
+  "disney": [
+   "34a533dfd727-39086bae40b6",
+   "34a533dfd727-add12115c2ef"
+  ],
+  "european_football_1": [
+   "6d05804bb8d7-258d267c42dc",
+   "6d05804bb8d7-da9e73c883ba"
+  ],
+  "hockey": [
+   "308738b8195d-b8a749e4bb9d"
+  ],
+  "image_and_language": [
+   "3608e5ae1d0e-88eebc874157"
+  ],
+  "law_episode": [
+   "e71440999ce8-411a7859c8fd",
+   "e71440999ce8-cbc545f8c0e7"
+  ],
+  "mondial_geo": [
+   "55b7e50368aa-303e5567464b",
+   "55b7e50368aa-7b67710e79df"
+  ],
+  "music_tracker": [
+   "afabd538bbfe-f3fe933d379d"
+  ],
+  "olympics": [
+   "5caddc4c49de-6059a828400d"
+  ],
+  "soccer_2016": [
+   "fe971e7f850a-1b27cd7a873a",
+   "fe971e7f850a-5ee82fde0778"
+  ]
+ }
+}

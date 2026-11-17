@@ -94,6 +94,16 @@ from benchmarks.helpers.sdk_eval_helpers import (
     clear_all_policies,
     is_langfuse_tracing_enabled,
 )
+
+# VAKRA adapter: configured-CUGA construction seam (default preset "off" = a
+# plain CugaAgent with today's exact kwargs; see benchmarks/m3/ADAPTER.md).
+from benchmarks.m3.adapter import (
+    PRESETS,
+    build_m3_agent,
+    load_demo_corpus,
+    load_tool_usage_corpus,
+    resolve_adapter_config,
+)
 from benchmarks.m3.container_health import (
     EnvironmentFailureError,
     EnvironmentFailureStreakTracker,
@@ -173,6 +183,12 @@ For M3 final answers, make every factual claim traceable to the tool response te
 M3_GROUNDEDNESS_TRIM_RULE = """
 8. Do not restate the question's selection criteria as asserted facts. If a tool selected or ranked an entity by criteria whose underlying values you did not separately retrieve (e.g. a single tool returned the answer entity directly), name the entity and answer the question — do not assert *why* it was selected. Prefer `United States: 0 mountains.` over `The United States, which has the highest GDP and the lowest agriculture proportion, has 0 mountains.` The selection criteria live in the question, not in any tool output; repeating them as fact adds an ungrounded claim that fails the whole answer.
 """.strip()
+
+
+def _results_dir() -> Path:
+    """Where results, partials and Vakra prediction files go: ``M3_RESULTS_DIR`` when set (so
+    concurrent runs keep separate folders), else ``benchmarks/m3/results``."""
+    return Path(os.environ.get("M3_RESULTS_DIR") or Path(__file__).parent / "results")
 
 
 def _groundedness_prompt_enabled() -> bool:
@@ -864,6 +880,15 @@ class M3Evaluator:
         if "uuid" in sample:
             task_metadata["uuid"] = sample["uuid"]
 
+        # VAKRA adapter: hand the per-sample policy string to the agent before the
+        # turns run (verbatim passthrough + deterministic tool scoping).
+        if hasattr(self.agent, "set_task_context"):
+            self.agent.set_task_context(
+                additional_instructions=sample.get("additional_instructions", "") or "",
+                domain=domain,
+                task_id=str(sample.get("uuid") or sample_id),
+            )
+
         result = await evaluate_multiturn_task_with_langfuse(
             agent=self.agent,
             turns=turns,
@@ -1154,7 +1179,7 @@ class M3Evaluator:
     def save_results(self, output_dir: Optional[str] = None):
         """Save evaluation results to JSON files."""
         if output_dir is None:
-            output_dir = Path(__file__).parent / "results"
+            output_dir = _results_dir()
 
         # Save standard results
         results_path = save_evaluation_results(self.results, output_dir, prefix="m3")
@@ -1637,9 +1662,29 @@ async def evaluate_single_task(
             # Gate only — per-task trace-scoped handlers are attached in invoke config.
             evaluator.langfuse_enabled = should_trace_langfuse_task()
 
-            evaluator.agent = CugaAgent(
+            adapter_cfg = resolve_adapter_config(
+                getattr(args, "adapter_preset", None),
+                capability=task_id or None,
+                demo_data=getattr(args, "demo_data", None),
+            )
+            evaluator.agent = build_m3_agent(
                 tool_provider=filtered_provider,  # Only sees this domain's tools
-                special_instructions=_build_m3_special_instructions(),
+                # Presets that reproduce the campaign runtime bring their own instructions.
+                special_instructions=(
+                    _build_m3_special_instructions() if adapter_cfg.harness_instructions else None
+                ),
+                config=adapter_cfg,
+                # Demos come from an explicit train source (--demo-data), never from
+                # the samples under evaluation; warns when the two coincide.
+                demo_corpus=load_demo_corpus(
+                    adapter_cfg,
+                    task_id=task_id,
+                    domain=domain,
+                    eval_source=getattr(args, "m3_data", None),
+                ),
+                usage_corpus=load_tool_usage_corpus(
+                    adapter_cfg, domain=domain, eval_source=getattr(args, "m3_data", None)
+                ),
                 # Policies are loaded explicitly by _load_m3_policies below per
                 # eval run. Disable .cuga auto-load and filesystem sync to keep
                 # the per-domain agent's policy set deterministic — otherwise
@@ -1653,7 +1698,15 @@ async def evaluate_single_task(
             # Load CUGA policies for this per-domain agent (mirrors benchmarks/bpo
             # eval_bench_sdk.py). The source of truth is benchmarks/m3/policies/*.md;
             # eval.sh compiles them to policies.json before invoking us.
-            await _load_m3_policies(evaluator.agent, policies_enabled=not getattr(args, "no_policies", False))
+            # Adapter presets run with CUGA's policy system off, as the campaign did
+            # (DYNACONF_POLICY__ENABLED=false): the policy DB is cleared and nothing loaded.
+            if adapter_cfg.use_policy_system:
+                await _load_m3_policies(
+                    evaluator.agent, policies_enabled=not getattr(args, "no_policies", False)
+                )
+            else:
+                logger.info("[m3-adapter] preset runs without CUGA policies; clearing the policy DB")
+                await _load_m3_policies(evaluator.agent, policies_enabled=False)
 
             # DEBUG: Verify agent can see tools (check filtered provider)
             try:
@@ -1702,7 +1755,7 @@ async def evaluate_single_task(
                     try:
                         write_predictions_no_gt(
                             evaluator.results,
-                            output_dir=Path(__file__).parent / "results",
+                            output_dir=_results_dir(),
                             domain=domain,
                         )
                     except Exception as e:
@@ -1717,7 +1770,7 @@ async def evaluate_single_task(
                     try:
                         await vakra_score_results_async(
                             evaluator.results,
-                            output_dir=Path(__file__).parent / "results",
+                            output_dir=_results_dir(),
                             capability_name=cap_name,
                             domain=domain_name,
                         )
@@ -1926,12 +1979,16 @@ async def start_registry_server(
         # port here — this is a genuinely machine-wide kill. Log loudly rather
         # than silently sweeping: a concurrent job's registry landing on either
         # pattern is disruptive and worth surfacing in the logs.
-        logger.warning(
-            "⚠️  Sweeping ALL 'uv run registry' / 'fastapi.*registry' processes on this "
-            "machine (port-unscoped legacy patterns) — will disrupt any concurrent eval run."
-        )
-        subprocess.run(["pkill", "-9", "-f", "uv run registry"], capture_output=True)  # noqa: S607 — relies on PATH for shell tools
-        subprocess.run(["pkill", "-9", "-f", "fastapi.*registry"], capture_output=True)  # noqa: S607 — same
+        # On a shared machine those patterns match OTHER sessions' registries (e.g. a
+        # `fastapi dev .../registry/...` server), so the sweep is opt-in; the port-scoped
+        # kill below always runs and clears a stale registry on this run's own port.
+        if os.environ.get("M3_REGISTRY_SWEEP", "0") == "1":
+            logger.warning(
+                "⚠️  Sweeping ALL 'uv run registry' / 'fastapi.*registry' processes on this "
+                "machine (port-unscoped legacy patterns) — will disrupt any concurrent eval run."
+            )
+            subprocess.run(["pkill", "-9", "-f", "uv run registry"], capture_output=True)  # noqa: S607 — relies on PATH for shell tools
+            subprocess.run(["pkill", "-9", "-f", "fastapi.*registry"], capture_output=True)  # noqa: S607 — same
         # More specific pattern to avoid killing this script
         _pkill_registry_on_port(registry_port)
         await asyncio.sleep(1)  # Give time for processes to die
@@ -2590,7 +2647,7 @@ def _finalize_and_save_results(
     When ``bundle_dir`` is set, the merged results are read back from the on-disk
     partials (so skipped/resumed tasks are included) and written into the bundle.
     """
-    output_dir = Path(__file__).parent / "results"
+    output_dir = _results_dir()
     if bundle_dir is not None:
         from benchmarks.helpers.incremental_results import load_all_partial_results
 
@@ -3171,7 +3228,7 @@ async def run_config_mode(args, container_runtime: str, defer_save: bool = False
                 saved_path = finalize_merged_results(bundle_dir, prefix=prefix)
                 logger.warning(f"📁 Partial results merged from disk to: {saved_path}")
             elif all_results:
-                output_dir = Path(__file__).parent / "results"
+                output_dir = _results_dir()
                 prefix = "m3_config_no_gt_partial" if no_ground_truth else "m3_config_partial"
                 saved_path = save_evaluation_results(all_results, output_dir, prefix=prefix)
                 logger.warning(f"📁 Partial results ({len(all_results)} task-results) saved to: {saved_path}")
@@ -3192,7 +3249,7 @@ async def run_config_mode(args, container_runtime: str, defer_save: bool = False
                 saved_path = finalize_merged_results(bundle_dir, prefix=prefix)
                 logger.warning(f"📁 Partial results merged from disk to: {saved_path}")
             elif all_results:
-                output_dir = Path(__file__).parent / "results"
+                output_dir = _results_dir()
                 prefix = "m3_config_no_gt_partial" if no_ground_truth else "m3_config_partial"
                 saved_path = save_evaluation_results(all_results, output_dir, prefix=prefix)
                 logger.warning(f"📁 Partial results ({len(all_results)} task-results) saved to: {saved_path}")
@@ -3388,6 +3445,30 @@ Examples:
         nargs="*",
         default=None,
         help="Task IDs to treat as already completed (skip). Usually computed by the shell layer.",
+    )
+
+    parser.add_argument(
+        "--adapter-preset",
+        type=str,
+        choices=list(PRESETS),
+        default=None,
+        help=(
+            "VAKRA adapter preset (configured CUGA; see benchmarks/m3/ADAPTER.md). "
+            "Default: M3_ADAPTER_PRESET env var, else 'off' (current behavior, unchanged)."
+        ),
+    )
+    parser.add_argument(
+        "--demo-data",
+        dest="demo_data",
+        type=str,
+        default=None,
+        metavar="PATH",
+        help=(
+            "Demo corpus for adapter presets with few-shot demos (cap1-3): an M3 data source "
+            "(.zip or capability_<id>_* dir) whose solved samples become the demos. "
+            "Default: M3_ADAPTER_DEMO_DATA env var, else the bundled data/small_train.zip. "
+            "Never defaults to the evaluated data (label leakage; see benchmarks/m3/ADAPTER.md)."
+        ),
     )
 
     from benchmarks.helpers.logging_args import add_log_level_args, apply_log_level

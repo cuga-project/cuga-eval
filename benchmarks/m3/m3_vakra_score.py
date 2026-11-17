@@ -119,6 +119,25 @@ def _collect_tool_names(dialogues: List[Dict[str, Any]]) -> List[str]:
 
 
 def _match_live_name(name: str, live_tool_names: List[str]) -> Optional[str]:
+    """Resolve ``name`` to a live MCP tool name (:func:`_match_live_name_same_case`),
+    then by the same rules ignoring case.
+
+    cuga's registry lowercases tool names (``..._shootCatch`` is bound and recorded
+    as ``..._shootcatch``), so a call to a live tool whose name has capitals only
+    resolves case-insensitively. Live names that differ only by case are skipped.
+    """
+    hit = _match_live_name_same_case(name, live_tool_names)
+    if hit is not None:
+        return hit
+    by_lower: Dict[str, List[str]] = {}
+    for ln in live_tool_names:
+        by_lower.setdefault(ln.lower(), []).append(ln)
+    unique = {low: names[0] for low, names in by_lower.items() if len(names) == 1}
+    hit = _match_live_name_same_case(name.lower(), list(unique))
+    return unique[hit] if hit is not None else None
+
+
+def _match_live_name_same_case(name: str, live_tool_names: List[str]) -> Optional[str]:
     """Resolve ``name`` to a live MCP tool name, accounting for the naming
     conventions in play:
 
@@ -235,6 +254,16 @@ async def _rewrite_tool_names_for_live_mcp(
     if gt_n:
         gt_path.write_text(json.dumps(gt_dialogues, indent=2, ensure_ascii=False), encoding="utf-8")
     return pred_n, gt_n, pred_unmapped, gt_unmapped
+
+
+async def list_live_tool_names(capability_name: str, domain: str) -> List[str]:
+    """The tool names one domain's live MCP server exposes (a short session of its own)."""
+    mcp_config, error = _resolve_mcp_config(capability_name)
+    if mcp_config is None:
+        raise RuntimeError(error or f"no MCP config lists {capability_name}")
+    async with vakra_evaluator.create_client_and_connect(mcp_config, domain) as session:
+        tools_result = await session.list_tools()
+    return [t.name for t in tools_result.tools]
 
 
 def _resolve_mcp_config(capability_name: str) -> Tuple[Optional[Any], Optional[str]]:

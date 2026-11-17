@@ -1,0 +1,40 @@
+{
+ "subset": "parity_est1_smoke",
+ "task_id": 1,
+ "capability_dir": "capability_1_bi_apis",
+ "adapter_preset": "cap1",
+ "data_source": "vakra-main data/train/capability_1_bi_apis (a slice of the campaign's cap1 train scorecard), converted locally by prepare_vakra_train.py",
+ "vakra_train_data": "data/train/capability_1_bi_apis",
+ "m3_data": "local:vakra_train",
+ "demo_data": "local:vakra_train",
+ "no_ground_truth": true,
+ "campaign_predictions": "output/est_treat",
+ "default_arms": "cuga_eval_cap1_fc",
+ "n": 2,
+ "selection": {
+  "from": "parity_est1_ref30",
+  "method": "one domain, 2 items (plumbing smoke)",
+  "seed": 0
+ },
+ "reference": {
+  "description": "VAKRA campaign cap1 train scorecard (56.3% on all 119 items): fc_canon + FC + re-list (cap1_estimate.sh), temperature 1.0, judge azure/gpt-oss-120b via the proxy. Per-item verdicts as recorded.",
+  "source_runs": {
+   "on": "vakra-main cuga_runs/est_score_treat"
+  },
+  "pass_rate": {
+   "on": 0.5
+  },
+  "pass_by_uuid": {
+   "on": {
+    "5661cd917583-0db47e6e47ec": false,
+    "5661cd917583-df184354abd3": true
+   }
+  }
+ },
+ "ids_by_domain": {
+  "book_publishing_company": [
+   "5661cd917583-0db47e6e47ec",
+   "5661cd917583-df184354abd3"
+  ]
+ }
+}

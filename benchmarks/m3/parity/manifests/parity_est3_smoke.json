@@ -1,0 +1,34 @@
+{
+ "subset": "parity_est3_smoke",
+ "task_id": 3,
+ "capability_dir": "capability_3_multihop_reasoning",
+ "adapter_preset": "cap3",
+ "data_source": "vakra-main data/train (the campaign's est3 cap3 sample), converted locally by prepare_vakra_train.py",
+ "m3_data": "local:vakra_train",
+ "demo_data": "local:vakra_train",
+ "no_ground_truth": true,
+ "campaign_predictions": "output/est3_treat",
+ "default_arms": "cuga_eval_cap3_fc,vakra_main_fc_canon_fc",
+ "n": 2,
+ "ids_by_domain": {
+  "ice_hockey_draft": [
+   "d0d7be63ebc2-8ec8ff179b6b",
+   "d0d7be63ebc2-c76e13b067ab"
+  ]
+ },
+ "reference": {
+  "description": "VAKRA campaign est3 = the cap3 train scorecard: fc_canon + FC, temperature 1.0, vendor evaluator, judge azure/gpt-oss-120b via the proxy, scored 2026-08-18",
+  "source_runs": {
+   "on": "vakra-main cuga_runs/est3_score_treat"
+  },
+  "pass_rate": {
+   "on": 0.5
+  },
+  "pass_by_uuid": {
+   "on": {
+    "d0d7be63ebc2-8ec8ff179b6b": false,
+    "d0d7be63ebc2-c76e13b067ab": true
+   }
+  }
+ }
+}
