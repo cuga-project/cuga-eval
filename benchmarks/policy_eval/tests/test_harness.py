@@ -733,6 +733,10 @@ def archived_modules():
 
 
 def test_no_adapter_imports_an_archived_path():
+    if not ARCHIVE.is_dir():
+        missing_input(
+            "launchers/archive is not in git since 2026-11-17 (the last commit that has it is 2a5df9ee)"
+        )
     archived = archived_modules()
     assert {"run_cuga", "run_cuga_eog", "run_cuga_handbook", "guide_hooks", "run_arm_a"} <= archived
     harness = POLICY_EVAL / "harness"
@@ -777,7 +781,10 @@ def test_no_live_script_needs_an_archived_path():
 def test_the_old_env_files_left():
     for bench in ("automationbench", "enterpriseops_gym", "handbook"):
         assert not list((BENCHMARKS / bench).glob("cuga*.env")), bench
-        assert list((ARCHIVE / "envs" / bench).glob("cuga*.env")), bench
+        if (
+            ARCHIVE.is_dir()
+        ):  # launchers/archive is not in git since 2026-11-17 (the last commit that has it is 2a5df9ee)
+            assert list((ARCHIVE / "envs" / bench).glob("cuga*.env")), bench
 
 
 def test_a_policy_switch_does_not_reach_the_child(monkeypatch):
@@ -807,6 +814,10 @@ def test_the_tau2_layer_gives_the_settings_the_tau2_runner_used():
     config = Path.home() / "dev/cuga-eval-tau2/benchmarks/tau2/config/tau2.env"
     if not config.exists():
         missing_input("the τ² worktree is missing")
+    if not (ARCHIVE / "run_arm_a.py").is_file():
+        missing_input(
+            "launchers/archive is not in git since 2026-11-17 (the last commit that has it is 2a5df9ee)"
+        )
     tree = ast.parse((ARCHIVE / "run_arm_a.py").read_text())
     fc = next(
         ast.literal_eval(node.value)
