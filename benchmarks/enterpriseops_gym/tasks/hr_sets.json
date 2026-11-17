@@ -193,5 +193,23 @@
   "task_20251226_132052_338_e6427839_727d852c",
   "task_20251226_135729_497_c4ad7a70_788f5baf"
  ],
- "rule_ts": "target-state experiment, drawn 2026-11-10 before any run of it (seed 20261110): ts_dev = 20 of heldout at random, with the one task whose trajectory was read for the demo video; ts_test_seen = the other 60 (scored before under baseline and read-back, trajectories not read); ts_test_fresh = every HR oracle task outside heldout and smoke (same-name verifiers, upstream issue 23; never run by any model)"
+ "rule_ts": "target-state experiment, drawn 2026-11-10 before any run of it (seed 20261110): ts_dev = 20 of heldout at random, with the one task whose trajectory was read for the demo video; ts_test_seen = the other 60 (scored before under baseline and read-back, trajectories not read); ts_test_fresh = every HR oracle task outside heldout and smoke (same-name verifiers, upstream issue 23; never run by any model)",
+ "adv_dev5": [
+  "task_20251226_094920_495_99ba2325_627386b2",
+  "task_20260116_085958_358_a8eea1c0_6d7f242a",
+  "task_20251224_133749_739_c4ad7a70_9df76270",
+  "task_20251226_110144_731_b25153b4_773380f8",
+  "task_20251224_074251_092_46ca2862_b5b99f66"
+ ],
+ "rule_adv": "finish-the-work rules and advisor test, chosen 2026-11-16: 5 tasks of ts_dev, one per failure type seen in the Haiku 5.5 runs (unmet condition, failed lookup, empty optional field, withheld work) plus one control; only tasks that some Haiku run had passed; their runs were read",
+ "val7": [
+  "task_20260116_095609_650_c5cac200_741831a8",
+  "task_20260112_141226_936_7aad91c1_61df8f2b",
+  "task_20251217_161056_114_d9bcd1e5_c8f3ccb9",
+  "task_20260114_090455_089_accab84d_0032df92",
+  "task_20260115_043251_808_ad5a67e3_2a60bc82",
+  "task_20260116_185136_779_46ca2862_2b77b852",
+  "task_20260116_094554_219_c5cac200_82f2d2a8"
+ ],
+ "rule_val": "tasks with validated checks, chosen 2026-11-17: 30 of ts_test_seen drawn with seed 20261117, each check compared with the request, the task's policy version, the tool schemas and the seed database by three reviewers; val7 = the 5 judged sound, in drawn order, and the 2 whose only finding is the priority value moderate (the policy's stated default, missing from its list); runs not read before the first run"
 }

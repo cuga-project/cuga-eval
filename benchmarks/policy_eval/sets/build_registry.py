@@ -146,6 +146,26 @@ SPECS = [
         "tuning",
         "20 of hr-heldout at random (seed 20261110), with the task whose trajectory was read; tuning set of the target-state experiment",
     ),
+    # Finish-the-work rules and advisor test (2026-11-16): 5 traced tasks of hr-ts-dev
+    S(
+        "hr-adv-dev5",
+        "hr",
+        "benchmarks/enterpriseops_gym/tasks/hr_sets.json",
+        "adv_dev5",
+        None,
+        "tuning",
+        "5 tasks of hr-ts-dev, one per failure type seen in the Haiku 5.5 runs plus one control; their runs were read",
+    ),
+    # Tasks with validated checks (2026-11-17): 7 of hr-ts-test-seen
+    S(
+        "hr-val7",
+        "hr",
+        "benchmarks/enterpriseops_gym/tasks/hr_sets.json",
+        "val7",
+        None,
+        "heldout",
+        "7 tasks of hr-ts-test-seen whose checks were validated against request, policy version, tools and seed data; a tuning set once its runs are read",
+    ),
     S(
         "hr-ts-test-seen",
         "hr",
