@@ -703,6 +703,8 @@ def test_the_code_only_numbers_of_the_research_table_come_out_of_the_packages():
     372 requests of the Cedar check. The tests are the ones in the package."""
     if not ITSM_TOOLS.is_file():
         missing_input(f"the tool specs are missing: {ITSM_TOOLS}")
+    if not (POLICY_EVAL / "packages/itsm/e2891a7b98/builds_v2").is_dir():
+        missing_input("the archived package builds are not in git (tag archive/policy-eval-2026-11-17)")
     code, _, cedar = run_real("no-runs")
     assert code == {
         "builds_v2": [87, 182, 1, 165],

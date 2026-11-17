@@ -47,8 +47,9 @@ def test_rule_outcomes_are_the_same_from_the_build_and_from_the_package():
 
 
 @pytest.mark.skipif(
-    not (POLICY_EVAL / "packages" / "handbook").exists() or not (POLICY_EVAL / "packages" / "itsm").exists(),
-    reason="converted packages are missing",
+    not (POLICY_EVAL / "packages" / "handbook").exists()
+    or not (POLICY_EVAL / "packages/itsm/e2891a7b98/builds_v2").is_dir(),
+    reason="the archived package builds are not in git (tag archive/policy-eval-2026-11-17)",
 )
 def test_store_gate_builds_only_from_packages_it_can_check():
     out = run_check("gate")
@@ -57,7 +58,10 @@ def test_store_gate_builds_only_from_packages_it_can_check():
     assert "gate differences: 0" in out
 
 
-@pytest.mark.skipif(not (POLICY_EVAL / "packages").exists(), reason="converted packages are missing")
+@pytest.mark.skipif(
+    not (POLICY_EVAL / "packages/itsm/e2891a7b98/builds_v2").is_dir(),
+    reason="the archived package builds are not in git (tag archive/policy-eval-2026-11-17)",
+)
 def test_the_gate_scope_from_routers_is_the_scope_the_gate_always_had_on_every_package():
     out = run_check("scope")
     found = re.search(r"(\d+) packages, (\d+) comparisons, (\d+) rule lines, scope differences: (\d+)", out)
@@ -74,9 +78,9 @@ def test_k_hops_has_something_to_walk_on_the_skill_packages_that_link_and_nothin
         for m in re.finditer(r"^(\S+/skill_v1)\s+procedures\s+\d+\s+pairs\s+(\d+)\s+gate True", out, re.M)
     }
     assert pairs == {
-        "handbook/hr_crestwood_university_79786c46/skill_v1": 1,
+        "handbook/hr_crestwood_university_79786c46/skill_v1": 1,  # pragma: allowlist secret
         "handbook/insurance_vanguard_shield_mutual_9b2f7a29/skill_v1": 12,
-        "handbook/medical_careig_specialty_pharmacy_f5947c33/skill_v1": 8,
+        "handbook/medical_careig_specialty_pharmacy_f5947c33/skill_v1": 8,  # pragma: allowlist secret
         "tau2_retail/retail/skill_v1": 2,
     }
     assert "claude_v1" not in out  # the hand-built graphs have no link to walk

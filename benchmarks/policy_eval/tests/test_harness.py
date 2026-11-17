@@ -181,7 +181,7 @@ def test_an_old_result_with_no_grade_has_no_score(tmp_path):
 
 
 def test_a_file_that_is_no_result_says_so(tmp_path):
-    (tmp_path / "review.json").write_text(json.dumps({"330260d34d0b9ece": 1}))
+    (tmp_path / "review.json").write_text(json.dumps({"330260d34d0b9ece": 1}))  # pragma: allowlist secret
     with pytest.raises(NotAResult):
         from_legacy(tmp_path / "review.json")
 
@@ -632,6 +632,10 @@ def test_the_snapshot_is_required_on_the_command_line():
     assert done.returncode != 0 and "--snapshot" in done.stderr
 
 
+@pytest.mark.skipif(
+    not (POLICY_EVAL / "packages/itsm/e2891a7b98/builds_v4/package.json").exists(),
+    reason="the archived package builds are not in git (tag archive/policy-eval-2026-11-17)",
+)
 def test_two_packages_of_one_policy_have_two_package_versions():
     root = POLICY_EVAL / "packages/itsm/e2891a7b98"
     versions = {}
@@ -934,7 +938,7 @@ def gate(code, tmp_path, *args):
         capture_output=True,
         text=True,
         timeout=300,
-        env={**os.environ, "OPENROUTER_API_KEY": "dry-run"},
+        env={**os.environ, "OPENROUTER_API_KEY": "dry-run"},  # pragma: allowlist secret
     )
     assert done.returncode == 0, done.stdout[-2000:] + done.stderr[-3000:]
     return json.loads(done.stdout.strip().splitlines()[-1])
@@ -1552,7 +1556,9 @@ def test_the_real_tau2_adapter_does_not_grade_a_gateway_failure(tmp_path):
     env = {k: os.environ[k] for k in ("PATH", "HOME", "TMPDIR") if k in os.environ}
     env.update(parse_runner(env_file.read_text()))
     env.update(
-        ENV_FILE=str(env_file), OPENAI_API_KEY="not-used", OPENAI_BASE_URL="http://127.0.0.1:9/not-used"
+        ENV_FILE=str(env_file),
+        OPENAI_API_KEY="not-used",  # pragma: allowlist secret
+        OPENAI_BASE_URL="http://127.0.0.1:9/not-used",
     )
     env["LITELLM_LOCAL_MODEL_COST_MAP"] = "True"  # litellm fetches its price list at import otherwise
     done = subprocess.run(
@@ -1610,7 +1616,9 @@ def test_the_automationbench_adapter_prepares_and_grades_with_its_own_module(tmp
     env = {k: os.environ[k] for k in ("PATH", "HOME", "TMPDIR") if k in os.environ}
     env.update(parse_runner(env_file.read_text()))
     env.update(
-        ENV_FILE=str(env_file), OPENAI_API_KEY="not-used", OPENAI_BASE_URL="http://127.0.0.1:9/not-used"
+        ENV_FILE=str(env_file),
+        OPENAI_API_KEY="not-used",  # pragma: allowlist secret
+        OPENAI_BASE_URL="http://127.0.0.1:9/not-used",
     )
     done = subprocess.run(
         [str(AB_PYTHON), "-I", "-c", AB_DRY_RUN, str(BENCHMARKS), str(GATE_SRC), str(tmp_path)],
