@@ -116,9 +116,13 @@ def count_selected_completed(results: List[Dict[str, Any]], selected_ids: List[s
 
 
 def _build_user_context(world: AppWorld) -> str:
-    sup = json.dumps(world.task.supervisor)
+    # AppWorld calls the person the agent acts for the task "supervisor". Shown to a
+    # model as a "Supervisor" label it is read as the user's manager, and the agent
+    # writes the user's own address for "my manager" (a3ba388_1). State the identity
+    # in the first person instead, as AppWorld's reference prompts do.
+    sup = world.task.supervisor
     dt = world.task.datetime.isoformat()
-    return f"""Supervisor (JSON): {sup}
+    return f"""My name is: {sup["first_name"]} {sup["last_name"]}. My personal email is {sup["email"]} and phone number is {sup["phone_number"]}.
 Current datetime: {dt}
 """
 
