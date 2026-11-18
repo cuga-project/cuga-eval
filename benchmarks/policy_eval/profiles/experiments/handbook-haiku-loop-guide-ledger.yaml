@@ -1,0 +1,22 @@
+# Experiment (2026-11-08): handbook-haiku-loop-guide plus the obligation ledger (producer package, items sent as one follow-up at the
+# loop's finish turn, cases reused from the loop). Base: ../handbook-gptoss-loop-guide-evidence.yaml with Haiku 5.5 as the loop and evidence model, for a
+# Haiku 5.5 agent ("match the checker to the agent"). Runs on polisys with the loop fix 44259fa (a general SOP rule never
+# stops a case). The 3 public tasks are a tuning set: in-sample.
+policy:
+  package: packages/handbook/{policy}/skill_v1/package.json  # the packages with obligations (Claude skill, SOP text only)
+  sources: {data: false, discovery: false, request: true}  # the package producer reads the request
+  authority: {supersedes: false}
+  checkers:
+    rules: off
+    gate: {mode: off}
+    verifier: {mode: off}
+    write_checks: off  # separate hooks, as measured
+  organizers:
+    procedure_tools: off
+    guide: {mode: on, evidence_model: aws/claude-haiku-5-5, stop_first_write: true, stop_templates: true}
+    loop: {mode: on, model: aws/claude-haiku-5-5, style: control, rules_from_data: true}
+    sop_tracker: off
+    navigator: off
+    requirements_tracker: off
+  obligations: {producers: [package], model: aws/claude-haiku-5-5, item_level: follow_up, max_follow_ups: 1}
+  decisions: {mode: off}

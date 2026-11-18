@@ -72,6 +72,8 @@ jobs:
         run: uv sync --group dev
       - name: Run pytest
         run: uv run pytest -m "sanity or regression"
+      - name: Run pytest (policy_eval, own process)
+        run: uv run pytest -m "sanity or regression" benchmarks/policy_eval/tests
 
   security:
     name: Security (bandit + pip-audit)

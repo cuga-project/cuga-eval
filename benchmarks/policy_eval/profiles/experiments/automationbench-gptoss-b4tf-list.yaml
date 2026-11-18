@@ -1,0 +1,28 @@
+# Experiment (2026-11-08): B4T-F with sources.listing instead of keyword discovery. At the request the layer reads
+# every record of every app through the agent's read tools (adapters/automationbench_listing.py), a model keeps the
+# records that state rules (worksheets always), and those go to the normal extraction. Everything else as
+# ../automationbench-gptoss-b4tf.yaml. Offline on fresh3 (Opus 5.5 gold labels): rule records found at the start
+# 29% (keyword discovery) -> 95% (listing).
+policy:
+  package: none # rules come from business data while the agent runs
+  sources: {data: true, discovery: false, listing: true, request: true}
+  authority: {supersedes: true}
+  checkers:
+    rules: on
+    compile: aws/gpt-oss-120b
+    narrow_questions: jaredpalmer/kev-4b
+    detector: jaredpalmer/kev-4b
+    gate: {mode: off}
+    verifier: {mode: on, model: aws/gpt-oss-120b, scope: all_statements, may_deny: false}
+    write_checks: off  # separate hooks, as measured
+    guard_code: "off"
+    read_before_write: remind
+  organizers:
+    procedure_tools: off
+    guide: off
+    loop: off
+    sop_tracker: off
+    navigator: off
+    requirements_tracker: {mode: on, model: aws/gpt-oss-120b, wrong_items: "off"}
+  obligations: {producers: []}
+  decisions: {mode: on, effect: block_once, after_repeated_denials: skip, record_checks: false, retry_effect: allow}

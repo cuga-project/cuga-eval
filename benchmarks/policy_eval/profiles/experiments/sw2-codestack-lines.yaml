@@ -1,0 +1,25 @@
+# H: O + the policy lines of each write tool, word for word, in its description.
+# Arm of the second sweep (7 HR tasks with validated checks): no harm, gain not shown.
+# Needs polisys main from 2026-11-17 on (polisys #10: finish check and code guards).
+policy:
+  package: none
+  sources: {data: false, discovery: false, request: false}
+  authority: {supersedes: false, value_lists: tool}
+  checkers:
+    rules: off
+    gate: {mode: off}
+    verifier: {mode: off}
+    write_checks: off
+    default_values: {mode: on, model: agent, cache_dir: ~/.cache/polisys/tool_notes, scope: stated}
+  organizers:
+    procedure_tools: off
+    guide: off
+    loop: off
+    sop_tracker: off
+    navigator: off
+    requirements_tracker: off
+  obligations: {producers: []}
+  decisions: {mode: off}
+  notes:
+    work_method: [lookup_retry, finish_ledger, literal_values, literal_coverage]
+    policy_lines: {mode: on, model: agent, cache_dir: ~/.cache/polisys/tool_notes}

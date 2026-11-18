@@ -128,6 +128,8 @@ testpaths = [
     "benchmarks/tau2/tests",
     "benchmarks/helpers/tests",
     "benchmarks/oak_health_insurance/tests",
+    # benchmarks/policy_eval/tests runs in a pytest process of its own (justfile test-regression, CI): the harness puts
+    # benchmarks/ on sys.path, which makes the benchmark folders appworld/ and tau2/ importable and breaks those suites.
 ]
 # Put the repo root on sys.path so tests like
 # `from benchmarks.appworld.utils.appworld_data_collection import ...`
@@ -185,6 +187,14 @@ ignore = ["E402", "E501"]
 "**/tests/**" = ["S101", "S105", "S106"]
 "benchmarks/bpo/tests/**" = ["S101", "S105", "S106"]
 "scripts/**" = ["S603", "S607"]
+# Policy-eval run tooling: subprocess calls with argument lists (runs, docker, git) and seeded random sampling of tasks,
+# not cryptography.
+"benchmarks/policy_eval/**" = ["S603", "S607", "S311"]
+"benchmarks/automationbench/**" = ["S603", "S607", "S311"]
+"benchmarks/enterpriseops_gym/**" = ["S603", "S607", "S311"]
+"benchmarks/handbook/**" = ["S603", "S607", "S311"]
+# Scripts kept next to a policy package to record how it was derived: one-off, with asserts and local work folders.
+"benchmarks/policy_eval/packages/**" = ["S603", "S607", "S311", "S101", "S108", "E743"]
 
 [tool.ruff.format]
 quote-style = "preserve"

@@ -1,0 +1,20 @@
+# AutomationBench best method (2026-11-08), Haiku 5.5 agent, 10 tuning tasks of fresh3. In-sample. Listing and the online intake only (rules found reach the brief); no checks.
+policy:
+  package: none
+  sources: {data: true, discovery: false, listing: true, request: false}  # nothing on reads the request
+  authority: {supersedes: true}
+  checkers:
+    rules: off
+    compile: aws/gpt-oss-120b  # the intake model (extraction of the listed rule records)
+    gate: {mode: off}
+    verifier: {mode: off}
+    write_checks: off  # separate hooks, as measured
+  organizers:
+    procedure_tools: off
+    guide: off
+    loop: off
+    sop_tracker: off
+    navigator: off
+    requirements_tracker: off
+  obligations: {producers: []}
+  decisions: {mode: off}

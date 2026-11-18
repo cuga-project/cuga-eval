@@ -1,0 +1,21 @@
+# Round 1b (2026-11-08, HANDBOOK Vanguard, Haiku 5.5). In-sample (tuning tasks). Base: handbook-haiku-graph-gate.
+# + organizers.procedure_push (the system picks procedures for each read with llm_cards, Haiku); procedure tools stay on.
+policy:
+  package: packages/handbook/{policy}/claude_v1/package.json
+  sources: {data: false, discovery: false, request: false}
+  authority: {supersedes: false}
+  checkers:
+    rules: off
+    gate: {mode: on, model: aws/claude-haiku-5-5, scope: active_procedures, min_strength: none}
+    verifier: {mode: off}
+    write_checks: off  # separate hooks, as measured
+  organizers:
+    procedure_tools: on
+    guide: off
+    procedure_push: {mode: on, model: aws/claude-haiku-5-5, top_k: 2, max_selections: 15}
+    loop: off
+    sop_tracker: off
+    navigator: off
+    requirements_tracker: off
+  obligations: {producers: []}
+  decisions: {mode: off}

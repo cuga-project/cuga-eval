@@ -1,0 +1,965 @@
+{
+ "other/automationbench-b5-guard-code": {
+  "authority": {
+   "company_domains": [],
+   "may_change_rules": [],
+   "supersedes": false
+  },
+  "checkers": {
+   "compile": "aws/gpt-oss-120b",
+   "detector": null,
+   "gate": {
+    "max_tokens": 4000,
+    "min_strength": "agent",
+    "mode": "off",
+    "model": null,
+    "scope": "active_procedures",
+    "seed_request": false
+   },
+   "guard_code": "remind",
+   "method_choice": "policy_eval/method_choice.json",
+   "narrow_questions": "jaredpalmer/kev-4b",
+   "read_before_write": "block_once",
+   "router": {
+    "expand": "next_links",
+    "hops": 1,
+    "kind": "agent_opened",
+    "model": null,
+    "top_k": 3
+   },
+   "rules": "on",
+   "verifier": {
+    "may_deny": false,
+    "mode": "on",
+    "model": "aws/gpt-oss-120b",
+    "scope": "all_statements"
+   },
+   "write_checks": "off"
+  },
+  "control": {
+   "by_model": {},
+   "default_level": 1,
+   "level": "by_model",
+   "risk": {
+    "level3_tools": []
+   }
+  },
+  "decisions": {
+   "after_repeated_denials": "skip",
+   "effect": "block_once",
+   "mode": "on",
+   "record_checks": true,
+   "require_evidence": false,
+   "retry_effect": "hold"
+  },
+  "notes": {
+   "brief": "off",
+   "brief_guidance": false,
+   "reminders": "system"
+  },
+  "obligations": {
+   "item_level": null,
+   "max_follow_ups": 1,
+   "model": null,
+   "producers": [],
+   "wrong_values": "known_origin_only"
+  },
+  "organizers": {
+   "guide": {
+    "evidence_model": null,
+    "mode": "off",
+    "stop_first_write": true,
+    "stop_templates": true
+   },
+   "loop": {
+    "mode": "off",
+    "model": null,
+    "rules_from_data": true,
+    "style": "control"
+   },
+   "navigator": {
+    "handoff_text": [],
+    "handoff_tools": [],
+    "max_blocks": 2,
+    "mode": "off",
+    "semantic_evidence": false
+   },
+   "procedure_tools": "off",
+   "requirements_tracker": {
+    "mode": "off",
+    "model": null,
+    "read_system_prompt": false,
+    "wrong_items": "off"
+   },
+   "sop_tracker": {
+    "mode": "off",
+    "model": null
+   }
+  },
+  "package": null,
+  "priority_classes": [],
+  "shapes": [],
+  "sources": {
+   "data": true,
+   "discovery": false,
+   "request": false
+  },
+  "trace": true
+ },
+ "other/automationbench-checklists": {
+  "authority": {
+   "company_domains": [],
+   "may_change_rules": [],
+   "supersedes": false
+  },
+  "checkers": {
+   "compile": null,
+   "detector": null,
+   "gate": {
+    "max_tokens": 4000,
+    "min_strength": "agent",
+    "mode": "off",
+    "model": null,
+    "scope": "active_procedures",
+    "seed_request": false
+   },
+   "guard_code": "off",
+   "method_choice": null,
+   "narrow_questions": null,
+   "read_before_write": "off",
+   "router": {
+    "expand": "next_links",
+    "hops": 1,
+    "kind": "agent_opened",
+    "model": null,
+    "top_k": 3
+   },
+   "rules": "off",
+   "verifier": {
+    "may_deny": false,
+    "mode": "off",
+    "model": null,
+    "scope": "specific_statements"
+   },
+   "write_checks": "off"
+  },
+  "control": {
+   "by_model": {},
+   "default_level": 1,
+   "level": "by_model",
+   "risk": {
+    "level3_tools": []
+   }
+  },
+  "decisions": {
+   "after_repeated_denials": "allow",
+   "effect": "remind",
+   "mode": "off",
+   "record_checks": false,
+   "require_evidence": false,
+   "retry_effect": "allow"
+  },
+  "notes": {
+   "brief": "system",
+   "brief_guidance": false,
+   "reminders": "system"
+  },
+  "obligations": {
+   "item_level": null,
+   "max_follow_ups": 1,
+   "model": null,
+   "producers": [],
+   "wrong_values": "known_origin_only"
+  },
+  "organizers": {
+   "guide": {
+    "evidence_model": null,
+    "mode": "off",
+    "stop_first_write": true,
+    "stop_templates": true
+   },
+   "loop": {
+    "mode": "off",
+    "model": null,
+    "rules_from_data": true,
+    "style": "control"
+   },
+   "navigator": {
+    "handoff_text": [],
+    "handoff_tools": [],
+    "max_blocks": 2,
+    "mode": "off",
+    "semantic_evidence": false
+   },
+   "procedure_tools": "off",
+   "requirements_tracker": {
+    "mode": "on",
+    "model": "aws/gpt-oss-120b",
+    "read_system_prompt": false,
+    "wrong_items": "verify"
+   },
+   "sop_tracker": {
+    "mode": "off",
+    "model": null
+   }
+  },
+  "package": null,
+  "priority_classes": [],
+  "shapes": [],
+  "sources": {
+   "data": false,
+   "discovery": false,
+   "request": true
+  },
+  "trace": true
+ },
+ "other/automationbench-loop": {
+  "authority": {
+   "company_domains": [],
+   "may_change_rules": [],
+   "supersedes": false
+  },
+  "checkers": {
+   "compile": null,
+   "detector": null,
+   "gate": {
+    "max_tokens": 4000,
+    "min_strength": "agent",
+    "mode": "off",
+    "model": null,
+    "scope": "active_procedures",
+    "seed_request": false
+   },
+   "guard_code": "off",
+   "method_choice": null,
+   "narrow_questions": null,
+   "read_before_write": "off",
+   "router": {
+    "expand": "next_links",
+    "hops": 1,
+    "kind": "agent_opened",
+    "model": null,
+    "top_k": 3
+   },
+   "rules": "off",
+   "verifier": {
+    "may_deny": false,
+    "mode": "off",
+    "model": null,
+    "scope": "specific_statements"
+   },
+   "write_checks": "off"
+  },
+  "control": {
+   "by_model": {},
+   "default_level": 1,
+   "level": "by_model",
+   "risk": {
+    "level3_tools": []
+   }
+  },
+  "decisions": {
+   "after_repeated_denials": "allow",
+   "effect": "remind",
+   "mode": "off",
+   "record_checks": false,
+   "require_evidence": false,
+   "retry_effect": "allow"
+  },
+  "notes": {
+   "brief": "system",
+   "brief_guidance": false,
+   "reminders": "tool_result"
+  },
+  "obligations": {
+   "item_level": null,
+   "max_follow_ups": 1,
+   "model": null,
+   "producers": [],
+   "wrong_values": "known_origin_only"
+  },
+  "organizers": {
+   "guide": {
+    "evidence_model": null,
+    "mode": "off",
+    "stop_first_write": true,
+    "stop_templates": true
+   },
+   "loop": {
+    "mode": "on",
+    "model": "azure/DeepSeek-V4-Pro",
+    "rules_from_data": true,
+    "style": "control"
+   },
+   "navigator": {
+    "handoff_text": [],
+    "handoff_tools": [],
+    "max_blocks": 2,
+    "mode": "off",
+    "semantic_evidence": false
+   },
+   "procedure_tools": "off",
+   "requirements_tracker": {
+    "mode": "off",
+    "model": null,
+    "read_system_prompt": false,
+    "wrong_items": "off"
+   },
+   "sop_tracker": {
+    "mode": "off",
+    "model": null
+   }
+  },
+  "package": null,
+  "priority_classes": [],
+  "shapes": [],
+  "sources": {
+   "data": false,
+   "discovery": false,
+   "request": false
+  },
+  "trace": true
+ },
+ "other/handbook-gate-over-sop-file": {
+  "authority": {
+   "company_domains": [],
+   "may_change_rules": [],
+   "supersedes": false
+  },
+  "checkers": {
+   "compile": null,
+   "detector": null,
+   "gate": {
+    "max_tokens": 4000,
+    "min_strength": "none",
+    "mode": "on",
+    "model": "gcp/gemini-3.8-flash",
+    "scope": "whole_sop",
+    "seed_request": false
+   },
+   "guard_code": "off",
+   "method_choice": null,
+   "narrow_questions": null,
+   "read_before_write": "off",
+   "router": {
+    "expand": "next_links",
+    "hops": 1,
+    "kind": "agent_opened",
+    "model": null,
+    "top_k": 3
+   },
+   "rules": "off",
+   "verifier": {
+    "may_deny": false,
+    "mode": "off",
+    "model": null,
+    "scope": "specific_statements"
+   },
+   "write_checks": "off"
+  },
+  "control": {
+   "by_model": {},
+   "default_level": 1,
+   "level": "by_model",
+   "risk": {
+    "level3_tools": []
+   }
+  },
+  "decisions": {
+   "after_repeated_denials": "allow",
+   "effect": "remind",
+   "mode": "off",
+   "record_checks": false,
+   "require_evidence": false,
+   "retry_effect": "allow"
+  },
+  "notes": {
+   "brief": "system",
+   "brief_guidance": false,
+   "reminders": "tool_result"
+  },
+  "obligations": {
+   "item_level": null,
+   "max_follow_ups": 1,
+   "model": null,
+   "producers": [],
+   "wrong_values": "known_origin_only"
+  },
+  "organizers": {
+   "guide": {
+    "evidence_model": null,
+    "mode": "off",
+    "stop_first_write": true,
+    "stop_templates": true
+   },
+   "loop": {
+    "mode": "off",
+    "model": null,
+    "rules_from_data": true,
+    "style": "control"
+   },
+   "navigator": {
+    "handoff_text": [],
+    "handoff_tools": [],
+    "max_blocks": 2,
+    "mode": "off",
+    "semantic_evidence": false
+   },
+   "procedure_tools": "off",
+   "requirements_tracker": {
+    "mode": "off",
+    "model": null,
+    "read_system_prompt": false,
+    "wrong_items": "off"
+   },
+   "sop_tracker": {
+    "mode": "off",
+    "model": null
+   }
+  },
+  "package": null,
+  "priority_classes": [],
+  "shapes": [],
+  "sources": {
+   "data": false,
+   "discovery": false,
+   "request": false
+  },
+  "trace": true
+ },
+ "other/handbook-loop-discovery": {
+  "authority": {
+   "company_domains": [],
+   "may_change_rules": [],
+   "supersedes": false
+  },
+  "checkers": {
+   "compile": null,
+   "detector": null,
+   "gate": {
+    "max_tokens": 4000,
+    "min_strength": "agent",
+    "mode": "off",
+    "model": null,
+    "scope": "active_procedures",
+    "seed_request": false
+   },
+   "guard_code": "off",
+   "method_choice": null,
+   "narrow_questions": "jaredpalmer/kev-4b",
+   "read_before_write": "off",
+   "router": {
+    "expand": "next_links",
+    "hops": 1,
+    "kind": "agent_opened",
+    "model": null,
+    "top_k": 3
+   },
+   "rules": "off",
+   "verifier": {
+    "may_deny": false,
+    "mode": "off",
+    "model": null,
+    "scope": "specific_statements"
+   },
+   "write_checks": "off"
+  },
+  "control": {
+   "by_model": {},
+   "default_level": 1,
+   "level": "by_model",
+   "risk": {
+    "level3_tools": []
+   }
+  },
+  "decisions": {
+   "after_repeated_denials": "allow",
+   "effect": "remind",
+   "mode": "off",
+   "record_checks": false,
+   "require_evidence": true,
+   "retry_effect": "allow"
+  },
+  "notes": {
+   "brief": "system",
+   "brief_guidance": false,
+   "reminders": "tool_result"
+  },
+  "obligations": {
+   "item_level": null,
+   "max_follow_ups": 1,
+   "model": null,
+   "producers": [],
+   "wrong_values": "known_origin_only"
+  },
+  "organizers": {
+   "guide": {
+    "evidence_model": null,
+    "mode": "off",
+    "stop_first_write": true,
+    "stop_templates": true
+   },
+   "loop": {
+    "mode": "on",
+    "model": "azure/DeepSeek-V4-Pro",
+    "rules_from_data": true,
+    "style": "discovery"
+   },
+   "navigator": {
+    "handoff_text": [],
+    "handoff_tools": [],
+    "max_blocks": 2,
+    "mode": "off",
+    "semantic_evidence": false
+   },
+   "procedure_tools": "off",
+   "requirements_tracker": {
+    "mode": "off",
+    "model": null,
+    "read_system_prompt": false,
+    "wrong_items": "off"
+   },
+   "sop_tracker": {
+    "mode": "off",
+    "model": null
+   }
+  },
+  "package": "packages/handbook/{policy}/v3/package.json",
+  "priority_classes": [],
+  "shapes": [],
+  "sources": {
+   "data": false,
+   "discovery": false,
+   "request": false
+  },
+  "trace": true
+ },
+ "other/itsm-checklists": {
+  "authority": {
+   "company_domains": [],
+   "may_change_rules": [],
+   "supersedes": false
+  },
+  "checkers": {
+   "compile": null,
+   "detector": null,
+   "gate": {
+    "max_tokens": 4000,
+    "min_strength": "agent",
+    "mode": "off",
+    "model": null,
+    "scope": "active_procedures",
+    "seed_request": false
+   },
+   "guard_code": "off",
+   "method_choice": null,
+   "narrow_questions": null,
+   "read_before_write": "off",
+   "router": {
+    "expand": "next_links",
+    "hops": 1,
+    "kind": "agent_opened",
+    "model": null,
+    "top_k": 3
+   },
+   "rules": "off",
+   "verifier": {
+    "may_deny": false,
+    "mode": "off",
+    "model": null,
+    "scope": "specific_statements"
+   },
+   "write_checks": "off"
+  },
+  "control": {
+   "by_model": {},
+   "default_level": 1,
+   "level": "by_model",
+   "risk": {
+    "level3_tools": []
+   }
+  },
+  "decisions": {
+   "after_repeated_denials": "allow",
+   "effect": "remind",
+   "mode": "off",
+   "record_checks": false,
+   "require_evidence": false,
+   "retry_effect": "allow"
+  },
+  "notes": {
+   "brief": "system",
+   "brief_guidance": false,
+   "reminders": "tool_result"
+  },
+  "obligations": {
+   "item_level": null,
+   "max_follow_ups": 1,
+   "model": null,
+   "producers": [],
+   "wrong_values": "known_origin_only"
+  },
+  "organizers": {
+   "guide": {
+    "evidence_model": null,
+    "mode": "off",
+    "stop_first_write": true,
+    "stop_templates": true
+   },
+   "loop": {
+    "mode": "off",
+    "model": null,
+    "rules_from_data": true,
+    "style": "control"
+   },
+   "navigator": {
+    "handoff_text": [],
+    "handoff_tools": [],
+    "max_blocks": 2,
+    "mode": "off",
+    "semantic_evidence": false
+   },
+   "procedure_tools": "off",
+   "requirements_tracker": {
+    "mode": "on",
+    "model": "aws/gpt-oss-120b",
+    "read_system_prompt": true,
+    "wrong_items": "off"
+   },
+   "sop_tracker": {
+    "mode": "off",
+    "model": null
+   }
+  },
+  "package": null,
+  "priority_classes": [],
+  "shapes": [],
+  "sources": {
+   "data": false,
+   "discovery": false,
+   "request": true
+  },
+  "trace": true
+ },
+ "other/itsm-gate-gemini": {
+  "authority": {
+   "company_domains": [],
+   "may_change_rules": [],
+   "supersedes": false
+  },
+  "checkers": {
+   "compile": null,
+   "detector": null,
+   "gate": {
+    "max_tokens": 4000,
+    "min_strength": "none",
+    "mode": "on",
+    "model": "gcp/gemini-3.8-flash",
+    "scope": "whole_sop",
+    "seed_request": true
+   },
+   "guard_code": "off",
+   "method_choice": null,
+   "narrow_questions": null,
+   "read_before_write": "off",
+   "router": {
+    "expand": "next_links",
+    "hops": 1,
+    "kind": "agent_opened",
+    "model": null,
+    "top_k": 3
+   },
+   "rules": "off",
+   "verifier": {
+    "may_deny": false,
+    "mode": "off",
+    "model": null,
+    "scope": "specific_statements"
+   },
+   "write_checks": "off"
+  },
+  "control": {
+   "by_model": {},
+   "default_level": 1,
+   "level": "by_model",
+   "risk": {
+    "level3_tools": []
+   }
+  },
+  "decisions": {
+   "after_repeated_denials": "allow",
+   "effect": "remind",
+   "mode": "off",
+   "record_checks": false,
+   "require_evidence": false,
+   "retry_effect": "allow"
+  },
+  "notes": {
+   "brief": "system",
+   "brief_guidance": false,
+   "reminders": "tool_result"
+  },
+  "obligations": {
+   "item_level": null,
+   "max_follow_ups": 1,
+   "model": null,
+   "producers": [],
+   "wrong_values": "known_origin_only"
+  },
+  "organizers": {
+   "guide": {
+    "evidence_model": null,
+    "mode": "off",
+    "stop_first_write": true,
+    "stop_templates": true
+   },
+   "loop": {
+    "mode": "off",
+    "model": null,
+    "rules_from_data": true,
+    "style": "control"
+   },
+   "navigator": {
+    "handoff_text": [],
+    "handoff_tools": [],
+    "max_blocks": 2,
+    "mode": "off",
+    "semantic_evidence": false
+   },
+   "procedure_tools": "off",
+   "requirements_tracker": {
+    "mode": "off",
+    "model": null,
+    "read_system_prompt": false,
+    "wrong_items": "off"
+   },
+   "sop_tracker": {
+    "mode": "off",
+    "model": null
+   }
+  },
+  "package": null,
+  "priority_classes": [],
+  "shapes": [],
+  "sources": {
+   "data": false,
+   "discovery": false,
+   "request": true
+  },
+  "trace": true
+ },
+ "other/itsm-gate-over-policy-text": {
+  "authority": {
+   "company_domains": [],
+   "may_change_rules": [],
+   "supersedes": false
+  },
+  "checkers": {
+   "compile": null,
+   "detector": null,
+   "gate": {
+    "max_tokens": 16000,
+    "min_strength": "none",
+    "mode": "on",
+    "model": "aws/gpt-oss-120b",
+    "scope": "whole_sop",
+    "seed_request": true
+   },
+   "guard_code": "off",
+   "method_choice": null,
+   "narrow_questions": null,
+   "read_before_write": "off",
+   "router": {
+    "expand": "next_links",
+    "hops": 1,
+    "kind": "agent_opened",
+    "model": null,
+    "top_k": 3
+   },
+   "rules": "off",
+   "verifier": {
+    "may_deny": false,
+    "mode": "off",
+    "model": null,
+    "scope": "specific_statements"
+   },
+   "write_checks": "off"
+  },
+  "control": {
+   "by_model": {},
+   "default_level": 1,
+   "level": "by_model",
+   "risk": {
+    "level3_tools": []
+   }
+  },
+  "decisions": {
+   "after_repeated_denials": "allow",
+   "effect": "remind",
+   "mode": "off",
+   "record_checks": false,
+   "require_evidence": false,
+   "retry_effect": "allow"
+  },
+  "notes": {
+   "brief": "system",
+   "brief_guidance": false,
+   "reminders": "tool_result"
+  },
+  "obligations": {
+   "item_level": null,
+   "max_follow_ups": 1,
+   "model": null,
+   "producers": [],
+   "wrong_values": "known_origin_only"
+  },
+  "organizers": {
+   "guide": {
+    "evidence_model": null,
+    "mode": "off",
+    "stop_first_write": true,
+    "stop_templates": true
+   },
+   "loop": {
+    "mode": "off",
+    "model": null,
+    "rules_from_data": true,
+    "style": "control"
+   },
+   "navigator": {
+    "handoff_text": [],
+    "handoff_tools": [],
+    "max_blocks": 2,
+    "mode": "off",
+    "semantic_evidence": false
+   },
+   "procedure_tools": "off",
+   "requirements_tracker": {
+    "mode": "off",
+    "model": null,
+    "read_system_prompt": false,
+    "wrong_items": "off"
+   },
+   "sop_tracker": {
+    "mode": "off",
+    "model": null
+   }
+  },
+  "package": null,
+  "priority_classes": [],
+  "shapes": [],
+  "sources": {
+   "data": false,
+   "discovery": false,
+   "request": true
+  },
+  "trace": true
+ },
+ "other/itsm-rules-and-loop": {
+  "authority": {
+   "company_domains": [],
+   "may_change_rules": [],
+   "supersedes": false
+  },
+  "checkers": {
+   "compile": null,
+   "detector": null,
+   "gate": {
+    "max_tokens": 4000,
+    "min_strength": "agent",
+    "mode": "off",
+    "model": null,
+    "scope": "active_procedures",
+    "seed_request": false
+   },
+   "guard_code": "off",
+   "method_choice": "policy_eval/method_choice.json",
+   "narrow_questions": null,
+   "read_before_write": "off",
+   "router": {
+    "expand": "next_links",
+    "hops": 1,
+    "kind": "agent_opened",
+    "model": null,
+    "top_k": 3
+   },
+   "rules": "on",
+   "verifier": {
+    "may_deny": false,
+    "mode": "on",
+    "model": "aws/gpt-oss-120b",
+    "scope": "all_statements"
+   },
+   "write_checks": "off"
+  },
+  "control": {
+   "by_model": {},
+   "default_level": 1,
+   "level": "by_model",
+   "risk": {
+    "level3_tools": []
+   }
+  },
+  "decisions": {
+   "after_repeated_denials": "allow",
+   "effect": "remind",
+   "mode": "off",
+   "record_checks": false,
+   "require_evidence": false,
+   "retry_effect": "allow"
+  },
+  "notes": {
+   "brief": "system",
+   "brief_guidance": false,
+   "reminders": "tool_result"
+  },
+  "obligations": {
+   "item_level": null,
+   "max_follow_ups": 1,
+   "model": null,
+   "producers": [],
+   "wrong_values": "known_origin_only"
+  },
+  "organizers": {
+   "guide": {
+    "evidence_model": null,
+    "mode": "off",
+    "stop_first_write": true,
+    "stop_templates": true
+   },
+   "loop": {
+    "mode": "on",
+    "model": "azure/DeepSeek-V4-Pro",
+    "rules_from_data": false,
+    "style": "control"
+   },
+   "navigator": {
+    "handoff_text": [],
+    "handoff_tools": [],
+    "max_blocks": 2,
+    "mode": "off",
+    "semantic_evidence": false
+   },
+   "procedure_tools": "off",
+   "requirements_tracker": {
+    "mode": "off",
+    "model": null,
+    "read_system_prompt": false,
+    "wrong_items": "off"
+   },
+   "sop_tracker": {
+    "mode": "off",
+    "model": null
+   }
+  },
+  "package": "packages/itsm/{policy}/builds/package.json",
+  "priority_classes": [],
+  "shapes": [],
+  "sources": {
+   "data": false,
+   "discovery": false,
+   "request": false
+  },
+  "trace": true
+ }
+}

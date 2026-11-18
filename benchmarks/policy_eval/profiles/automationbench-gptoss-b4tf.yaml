@@ -1,0 +1,36 @@
+# Best measured for AutomationBench with the agent aws/gpt-oss-120b: B4T-F (best_profiles.json, branch
+# best/automationbench-gptoss-b4tf, commit 2107a0756). Held-out policy_types_holdout.json, 35 tasks, 2 trials: partial
+# 42.7% against 23.8% for CUGA alone (+18.9, 24 better and 6 worse tasks, p = 0.001).
+# Switches of the measurement: POLICY_SUPERSEDES=1 POLICY_DISCOVER=1 POLICY_TRACKER=1 POLICY_V4=1
+# POLICY_MODEL_NAME=aws/gpt-oss-120b POLICY_TRACKER_MODEL=aws/gpt-oss-120b.
+# Not set by a switch, so the default of the old code applies: the detector is Kev-4B (POLICY_DETECTOR unset), read
+# before write is remind, generated guard code is off, the brief is on in the system prompt, reminders go to the tool
+# result, no method choice file is read (POLICY_METHOD_CHOICE unset). The next two defaults are what separate B4T-F from
+# B5T-F: record checks are off (POLICY_V5 unset) and a recheck of a blocked call is allowed (POLICY_RETRY_EFFECT unset).
+# The write verifier uses POLICY_MODEL_NAME, only reminds, and gets every trusted statement that did not compile into a
+# typed rule (scope all_statements, as the intake sends it). sources.request is true because the requirements tracker
+# reads the request. The tracker does not read the system prompt (read_system_prompt false). Model calls: intake and
+# verifier timeout 90, no max_tokens; tracker timeout 400, max_tokens 16000. golden_hooks.json holds the old wiring.
+policy:
+  package: none # rules come from business data while the agent runs
+  sources: {data: true, discovery: true, request: true}
+  authority: {supersedes: true}
+  checkers:
+    rules: on
+    compile: aws/gpt-oss-120b
+    narrow_questions: jaredpalmer/kev-4b
+    detector: jaredpalmer/kev-4b
+    gate: {mode: off}
+    verifier: {mode: on, model: aws/gpt-oss-120b, scope: all_statements, may_deny: false}
+    write_checks: off  # separate hooks, as measured
+    guard_code: "off"
+    read_before_write: remind
+  organizers:
+    procedure_tools: off
+    guide: off
+    loop: off
+    sop_tracker: off
+    navigator: off
+    requirements_tracker: {mode: on, model: aws/gpt-oss-120b, wrong_items: "off"}
+  obligations: {producers: []}
+  decisions: {mode: on, effect: block_once, after_repeated_denials: skip, record_checks: false, retry_effect: allow}

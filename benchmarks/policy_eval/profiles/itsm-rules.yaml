@@ -1,0 +1,29 @@
+# A named profile for IT service tasks (EnterpriseOps-Gym ITSM), not a best one: nothing beat CUGA alone there. It runs
+# the typed rules of the policy build with the write verifier. Do not read it as a result that won. best_profiles.json
+# has the entry with the numbers.
+# Switches: POLICY_BUILDS_DIR=policy_eval/builds (the folder that the runner reads by default; it reads
+# <folder>/<policy>.json). The package is the conversion of those files (the filtered builds, source builds). Only the
+# runs itv2_t1 and itv2u_t1 read builds_v2. The package covers 8 of the 9 policy versions (not 80cd3ebb50, which has no build).
+# Not set by a switch, so the default of the old code applies: the verifier uses aws/gpt-oss-120b, only reminds, and gets
+# every verify rule of the build that applies to the write (scope all_statements); the brief is on in the system prompt;
+# reminders go to the tool result; no method choice file is read (POLICY_METHOD_CHOICE unset). The rule hooks have no
+# read-before-write option, so it stays off. No loop, tracker or request checklist runs, so sources.request is false.
+# The verifier's model call has timeout 90 and no max_tokens. golden_hooks.json holds the wiring of the old runner.
+policy:
+  package: packages/itsm/{policy}/builds/package.json
+  sources: {data: false, discovery: false, request: false}
+  authority: {supersedes: false}
+  checkers:
+    rules: on
+    gate: {mode: off}
+    verifier: {mode: on, model: aws/gpt-oss-120b, scope: all_statements, may_deny: false}
+    write_checks: off  # separate hooks, as measured
+  organizers:
+    procedure_tools: off
+    guide: off
+    loop: off
+    sop_tracker: off
+    navigator: off
+    requirements_tracker: off
+  obligations: {producers: []}
+  decisions: {mode: off}
