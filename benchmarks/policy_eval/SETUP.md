@@ -33,14 +33,19 @@ git clone https://github.com/cuga-project/polisys.git      # main
 
 ## 2. Python environment
 
-One venv holds the agent, polisys and everything the benchmark's environment module imports:
+One venv holds the agent, polisys and everything the benchmark's environment module imports. The agent's packages come from
+`cuga-agent`'s `uv.lock`, so a run uses the versions that CI tests:
 
 ```bash
 cd "$ROOT/cuga-agent"
-uv venv --python 3.12 .venv
-uv pip install --python .venv/bin/python -e . -e ../polisys
+uv sync --frozen                                              # the locked versions into .venv, on the Python of .python-version
+uv pip install --python .venv/bin/python -e ../polisys        # polisys on top
 export HARNESS_PYTHON="$ROOT/cuga-agent/.venv/bin/python"     # the Python of the harness children
 ```
+
+Do not install the agent with `uv pip install -e .`: it ignores the lock and takes the newest version each package allows (#220; among
+others the Langfuse client 5.x, whose scores a Langfuse 3.x server rejects). Afterwards `uv run` and `uv sync --inexact` keep polisys; a
+plain `uv sync` removes it, so repeat the second command after one.
 
 No other package is needed: `benchmarks/enterpriseops_gym/eog_env.py` imports from the benchmark's own clone (step 3) and the packages it
 uses come with the agent. If `HARNESS_PYTHON` is not set, the harness uses the interpreter that started it.
