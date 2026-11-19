@@ -54,6 +54,23 @@ just ci              # lint + test-regression + security (smoke is optional/manu
 CI runs the same `lint`, `test-regression`, and `security` checks on
 every PR; failing locally first is faster than failing in CI.
 
+## Writing the user context for a benchmark
+
+A harness can pass `user_context` to `agent.invoke`. The agent appends it to the
+first message under a neutral `## User Context` heading and adds no wording of
+its own, so the text alone has to say whose facts these are.
+
+- Write the facts in the first person, as the person who gives the task would
+  say them: `My name is: Ashley Moore.`, `My member ID is 121231234.`
+- Do not use a benchmark's internal role name as a label, and do not pass raw
+  JSON. AppWorld calls the user the task "supervisor"; under a
+  `Supervisor (JSON)` label the model read that person as the user's manager and
+  wrote the user's own address for "my manager" (#218).
+- Use `benchmarks.helpers.user_context.build_first_person_user_context` for
+  name, contact details and the current datetime.
+- A wording change here changes what every task sees. Validate it with a full
+  run before merging, and do not compare pass rates across the change.
+
 ## Working with the cuga-agent path dependency
 
 `pyproject.toml` declares `cuga` as an editable path install at

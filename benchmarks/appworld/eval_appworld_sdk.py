@@ -74,6 +74,7 @@ from benchmarks.helpers.sdk_eval_helpers import (
     preflight_llm,
     receipt_fields_from_invoke_result,
 )
+from benchmarks.helpers.user_context import build_first_person_user_context
 
 tracker = ActivityTracker()
 var_manager = VariablesManager()
@@ -116,11 +117,18 @@ def count_selected_completed(results: List[Dict[str, Any]], selected_ids: List[s
 
 
 def _build_user_context(world: AppWorld) -> str:
-    sup = json.dumps(world.task.supervisor)
-    dt = world.task.datetime.isoformat()
-    return f"""Supervisor (JSON): {sup}
-Current datetime: {dt}
-"""
+    # AppWorld calls the person the agent acts for the task "supervisor". Shown to a
+    # model as a "Supervisor" label it is read as the user's manager, and the agent
+    # writes the user's own address for "my manager" (a3ba388_1). State the identity
+    # in the first person instead, as AppWorld's reference prompts do.
+    sup = world.task.supervisor
+    return build_first_person_user_context(
+        first_name=sup["first_name"],
+        last_name=sup["last_name"],
+        email=sup["email"],
+        phone_number=sup["phone_number"],
+        current_datetime=world.task.datetime,
+    )
 
 
 def _complete_task(world: AppWorld, answer: str, is_error: bool) -> None:
