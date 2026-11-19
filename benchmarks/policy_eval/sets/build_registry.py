@@ -67,6 +67,12 @@ PE = "benchmarks/policy_eval/policy_eval_tasks"
 AB = "benchmarks/automationbench"
 
 
+def portable(path: str) -> str:
+    """A path under the home folder, written with ~: the registry file must hold no machine path."""
+    home = str(Path.home())
+    return "~" + path[len(home) :] if path.startswith(home + os.sep) else path
+
+
 def S(id, benchmark, path, key, id_field, status, rule, seed="file"):
     return dict(
         id=id, benchmark=benchmark, path=path, key=key, id_field=id_field, status=status, rule=rule, seed=seed
@@ -429,6 +435,16 @@ SPECS = [
         "tuning",
         "file",
     ),
+    S(  # fixed list of 2026-11-18 (cuga-agent issue 1181): 90 policy tasks, 15 per domain, whose checks have evidence of
+        # being sound in our runs; every task was run before, so it is a tuning set
+        "ab-policy-rep90",
+        "automationbench",
+        f"{AB}/policy_representative90.json",
+        "tasks",
+        "task",
+        "tuning",
+        "file",
+    ),
     # HANDBOOK
     dict(
         id="handbook-public3",
@@ -465,7 +481,7 @@ SPECS = [
     S(
         "tau2-telecom-test",
         "tau2-telecom",
-        TAU2_SPLITS.format(domain="telecom"),
+        portable(TAU2_SPLITS.format(domain="telecom")),
         "test",
         None,
         "heldout",
@@ -475,7 +491,7 @@ SPECS = [
     S(
         "tau2-airline-test",
         "tau2-airline",
-        TAU2_SPLITS.format(domain="airline"),
+        portable(TAU2_SPLITS.format(domain="airline")),
         "test",
         None,
         "heldout",
