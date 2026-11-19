@@ -2,6 +2,9 @@
 
 AppWorld calls that person the task "supervisor". Passed to a model under a
 "Supervisor" label, it was read as the user's manager (cuga-eval#218).
+
+These tests cover the AppWorld wiring and need the AppWorld package. The wording
+itself is tested without it in benchmarks/helpers/tests/test_user_context.py.
 """
 
 from datetime import datetime
@@ -16,7 +19,7 @@ pytest.importorskip(
 
 from benchmarks.appworld import eval_appworld_sdk  # noqa: E402
 
-pytestmark = pytest.mark.unit
+pytestmark = [pytest.mark.unit, pytest.mark.sanity]
 
 
 def _world():
