@@ -1,0 +1,21 @@
+# Experiment (2026-11-08): ../handbook-gptoss-loop-guide-evidence.yaml with Haiku 5.5 as the loop and evidence model, for a
+# Haiku 5.5 agent ("match the checker to the agent"). Runs on polisys with the loop fix 44259fa (a general SOP rule never
+# stops a case). The 3 public tasks are a tuning set: in-sample.
+policy:
+  package: packages/handbook/{policy}/skill_v1/package.json  # the packages with obligations (Claude skill, SOP text only)
+  sources: {data: false, discovery: false, request: false}
+  authority: {supersedes: false}
+  checkers:
+    rules: off
+    gate: {mode: off}
+    verifier: {mode: off}
+    write_checks: off  # separate hooks, as measured
+  organizers:
+    procedure_tools: off
+    guide: {mode: on, evidence_model: aws/claude-haiku-5-5, stop_first_write: true, stop_templates: true}
+    loop: {mode: on, model: aws/claude-haiku-5-5, style: control, rules_from_data: true}
+    sop_tracker: off
+    navigator: off
+    requirements_tracker: off
+  obligations: {producers: []}
+  decisions: {mode: off}

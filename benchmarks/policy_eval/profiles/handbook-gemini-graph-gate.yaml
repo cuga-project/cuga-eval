@@ -1,0 +1,30 @@
+# Best measured for HANDBOOK with the agent gcp/gemini-3.8-flash: GW, the procedure graph as policy tools plus the
+# must-not gate at write time (best_profiles.json, branch best/handbook-gemini-graph-gate, commit f69ebbec8). 3 public
+# tasks, same time: CUGA alone 100 of 153 items (65.4%) against 139 (90.8%), better in 9 of 9 paired trials. In-sample: the
+# graphs were built by hand and the mechanisms were tuned on these tasks. The graph tools without the gate gave no gain.
+# Switches of the measurement: POLICY_STORE_DIR=policy_eval/graphs_handbook/claude_v1 POLICY_STORE_GATE=1
+# POLICY_GATE_MODEL=gcp/gemini-3.8-flash.
+# The package is the hand-built graph claude_v1 of each SOP: one package per task, the harness fills in {policy}. The
+# old code never compared the gate model with the agent's, so min_strength is none.
+# Not set by a switch, so the default of the old code applies: which procedures are in scope is what the agent opened
+# (checkers.router: agent_opened, with next_links), and the notes keep their defaults (brief in the system prompt). The
+# gate is not seeded with the request (checkers.gate.seed_request false); it reads what the agent read. Its model call
+# has timeout 180 and max_tokens 4000 (checkers.gate.max_tokens). golden_hooks.json holds the wiring of the old runner.
+policy:
+  package: packages/handbook/{policy}/claude_v1/package.json
+  sources: {data: false, discovery: false, request: false}
+  authority: {supersedes: false}
+  checkers:
+    rules: off
+    gate: {mode: on, model: gcp/gemini-3.8-flash, scope: active_procedures, min_strength: none}
+    verifier: {mode: off}
+    write_checks: off  # separate hooks, as measured
+  organizers:
+    procedure_tools: on
+    guide: off
+    loop: off
+    sop_tracker: off
+    navigator: off
+    requirements_tracker: off
+  obligations: {producers: []}
+  decisions: {mode: off}

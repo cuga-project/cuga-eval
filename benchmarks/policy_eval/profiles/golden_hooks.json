@@ -1,0 +1,3707 @@
+{
+ "cases": {
+  "automationbench-gemini-alone": {
+   "description": {
+    "gate_reads_tools_store": null,
+    "hooks": [],
+    "models": [],
+    "slots": {
+     "after_reply": null,
+     "run": null,
+     "turn_note": null,
+     "wrap_tools": null
+    },
+    "system_note": "",
+    "tools": []
+   },
+   "policy": "golden.dry_run",
+   "profile": "automationbench-gemini-alone",
+   "runner": "automationbench",
+   "switches": {}
+  },
+  "automationbench-gptoss-b4tf": {
+   "description": {
+    "gate_reads_tools_store": null,
+    "hooks": [
+     {
+      "attrs": {
+       "brief": true,
+       "called": [],
+       "cap_effect": "skip",
+       "check_reply": true,
+       "compiled": [],
+       "decisions": {
+        "attrs": {
+         "ask": {
+          "model": {
+           "kind": "questions",
+           "model": "jaredpalmer/kev-4b",
+           "retries": 3,
+           "timeout": 60.0,
+           "url": "https://openrouter.ai/api/v1/systemone"
+          }
+         },
+         "threshold": 0.6
+        },
+        "class": "Decisions"
+       },
+       "detect_threshold": 0.47,
+       "detector": {
+        "model": {
+         "kind": "detector",
+         "model": "jaredpalmer/kev-4b",
+         "retries": 3,
+         "timeout": 60.0,
+         "url": "https://openrouter.ai/api/v1/systemone",
+         "workers": 8
+        }
+       },
+       "discover": [
+        [
+         "gmail_find_email",
+         "<closure>"
+        ]
+       ],
+       "enforcer": {
+        "attrs": {
+         "brief": true,
+         "by_tool": {},
+         "called": [],
+         "cap_effect": "skip",
+         "cedar": null,
+         "facts": {
+          "attrs": {
+           "nodes": [],
+           "principal": {},
+           "records": {},
+           "text": ""
+          },
+          "class": "Facts"
+         },
+         "global_rules": [],
+         "global_verify": [],
+         "method_choice": {},
+         "mode": "enforce",
+         "note_channel": "tool",
+         "notes": [],
+         "open_duties": [],
+         "principal": {},
+         "records": [],
+         "request": "",
+         "rules": [],
+         "scope_check": "cuga.policy_layer.decisions.Decisions.rule_applies",
+         "specs": {
+          "items": 2,
+          "sha": "f26e036c541bd874"
+         },
+         "store": {
+          "attrs": {
+           "index": [],
+           "match_phrases": false,
+           "text": ""
+          },
+          "class": "FactStore"
+         },
+         "tools_in_run": [
+          "gmail_find_email",
+          "gmail_send_email"
+         ],
+         "verifier": null,
+         "verifier_for": null,
+         "verifier_may_deny": false
+        },
+        "class": "RuleSetHooks"
+       },
+       "flagged_ids": [],
+       "guard": {
+        "attrs": {
+         "cache": {},
+         "log": [],
+         "model": {
+          "model": {
+           "api_key_env": "OPENAI_API_KEY",
+           "base_url": null,
+           "kind": "json",
+           "max_retries": 3,
+           "max_tokens": null,
+           "model": "aws/gpt-oss-120b",
+           "timeout": 90.0
+          }
+         },
+         "pool": "<ThreadPoolExecutor>"
+        },
+        "class": "GuardCode"
+       },
+       "guard_mode": "off",
+       "is_write": "cuga.policy_layer.ruleset.is_write_tool",
+       "method_choice": null,
+       "model": {
+        "model": {
+         "api_key_env": "OPENAI_API_KEY",
+         "base_url": null,
+         "kind": "json",
+         "max_retries": 3,
+         "max_tokens": null,
+         "model": "aws/gpt-oss-120b",
+         "timeout": 90.0
+        }
+       },
+       "model_effect": "block_once",
+       "note_channel": "tool",
+       "notes": [],
+       "observations": [],
+       "overlay": {
+        "attrs": {
+         "documents": [],
+         "links": [],
+         "quote": "",
+         "source": {}
+        },
+        "class": "PolicySet"
+       },
+       "pending": [],
+       "policies": [],
+       "pool": "<ThreadPoolExecutor>",
+       "read_before_write": "remind",
+       "record_checks": false,
+       "records": [],
+       "refs": {
+        "attrs": {
+         "refs": []
+        },
+        "class": "ReferenceLedger"
+       },
+       "request": "",
+       "retry_effect": "allow",
+       "seen": [],
+       "store": {
+        "attrs": {
+         "index": [],
+         "match_phrases": false,
+         "text": ""
+        },
+        "class": "FactStore"
+       },
+       "superseded": {},
+       "today": null,
+       "tool_specs": {
+        "items": 2,
+        "sha": "4a9ae9b28095cbbe"
+       },
+       "track_supersedes": true,
+       "verifier_may_deny": false,
+       "verify_writes": true,
+       "wait_s": 45.0,
+       "writes": []
+      },
+      "class": "OnlinePolicyIntake"
+     },
+     {
+      "attrs": {
+       "is_write": "cuga.policy_layer.ruleset.is_write_tool",
+       "items": null,
+       "max_rounds": 2,
+       "model": {
+        "model": {
+         "api_key_env": "OPENAI_API_KEY",
+         "base_url": null,
+         "kind": "json",
+         "max_retries": 3,
+         "max_tokens": 16000,
+         "model": "aws/gpt-oss-120b",
+         "timeout": 400
+        }
+       },
+       "policy": "",
+       "reads": [],
+       "records": [],
+       "request": "",
+       "rounds": 0,
+       "writes": [],
+       "wrong_mode": "off"
+      },
+      "class": "RequirementsTracker"
+     }
+    ],
+    "models": [
+     {
+      "api_key_env": "OPENAI_API_KEY",
+      "base_url": null,
+      "kind": "json",
+      "max_retries": 3,
+      "max_tokens": 16000,
+      "model": "aws/gpt-oss-120b",
+      "timeout": 400
+     },
+     {
+      "api_key_env": "OPENAI_API_KEY",
+      "base_url": null,
+      "kind": "json",
+      "max_retries": 3,
+      "max_tokens": null,
+      "model": "aws/gpt-oss-120b",
+      "timeout": 90.0
+     },
+     {
+      "kind": "detector",
+      "model": "jaredpalmer/kev-4b",
+      "retries": 3,
+      "timeout": 60.0,
+      "url": "https://openrouter.ai/api/v1/systemone",
+      "workers": 8
+     },
+     {
+      "kind": "questions",
+      "model": "jaredpalmer/kev-4b",
+      "retries": 3,
+      "timeout": 60.0,
+      "url": "https://openrouter.ai/api/v1/systemone"
+     }
+    ],
+    "slots": {
+     "after_reply": null,
+     "run": null,
+     "turn_note": null,
+     "wrap_tools": null
+    },
+    "system_note": "",
+    "tools": []
+   },
+   "policy": "golden.dry_run",
+   "profile": "automationbench-gptoss-b4tf",
+   "runner": "automationbench",
+   "switches": {
+    "POLICY_DISCOVER": "1",
+    "POLICY_MODEL_NAME": "aws/gpt-oss-120b",
+    "POLICY_SUPERSEDES": "1",
+    "POLICY_TRACKER": "1",
+    "POLICY_TRACKER_MODEL": "aws/gpt-oss-120b",
+    "POLICY_V4": "1"
+   }
+  },
+  "baseline/automationbench": {
+   "description": {
+    "gate_reads_tools_store": null,
+    "hooks": [],
+    "models": [],
+    "slots": {
+     "after_reply": null,
+     "run": null,
+     "turn_note": null,
+     "wrap_tools": null
+    },
+    "system_note": "",
+    "tools": []
+   },
+   "policy": "golden.dry_run",
+   "profile": "baseline",
+   "runner": "automationbench",
+   "switches": {}
+  },
+  "baseline/handbook": {
+   "description": {
+    "gate_reads_tools_store": null,
+    "hooks": [],
+    "models": [],
+    "slots": {
+     "after_reply": null,
+     "run": null,
+     "turn_note": null,
+     "wrap_tools": null
+    },
+    "system_note": "",
+    "tools": []
+   },
+   "policy": "hr_crestwood_university_79786c46",
+   "profile": "baseline",
+   "runner": "handbook",
+   "switches": {}
+  },
+  "baseline/itsm": {
+   "description": {
+    "gate_reads_tools_store": null,
+    "hooks": [],
+    "models": [],
+    "slots": {
+     "after_reply": null,
+     "run": null,
+     "turn_note": null,
+     "wrap_tools": null
+    },
+    "system_note": "",
+    "tools": []
+   },
+   "policy": "e2891a7b98",
+   "profile": "baseline",
+   "runner": "itsm",
+   "switches": {}
+  },
+  "baseline/tau2": {
+   "description": {
+    "gate_reads_tools_store": null,
+    "hooks": [],
+    "models": [],
+    "slots": {
+     "after_reply": null,
+     "run": null,
+     "turn_note": null,
+     "wrap_tools": null
+    },
+    "system_note": "",
+    "tools": []
+   },
+   "policy": "telecom",
+   "profile": "baseline",
+   "runner": "tau2",
+   "switches": {}
+  },
+  "handbook-dsv4-loop-guide/hr_crestwood_university_79786c46": {
+   "description": {
+    "gate_reads_tools_store": null,
+    "hooks": [
+     {
+      "attrs": {
+       "held": [],
+       "is_write": "cuga.policy_layer.ruleset.is_write_tool",
+       "mode": "free",
+       "reads": [],
+       "records": [],
+       "which": null,
+       "writes": []
+      },
+      "class": "LoopHooks"
+     },
+     {
+      "attrs": {
+       "evidence": {},
+       "gate_on": true,
+       "gated": [],
+       "general": {
+        "items": 11,
+        "sha": "ec74649af897b5f5"
+       },
+       "general_gated": false,
+       "is_write": "cuga.policy_layer.ruleset.is_write_tool",
+       "model": null,
+       "procs": {
+        "items": 17,
+        "sha": "48b9ca886f6fc7ed"
+       },
+       "reads": [],
+       "records": [],
+       "template_stopped": [],
+       "templates_on": true
+      },
+      "class": "ProcedureGuide"
+     }
+    ],
+    "models": [
+     {
+      "api_key_env": "OPENAI_API_KEY",
+      "base_url": null,
+      "kind": "json",
+      "max_retries": 3,
+      "max_tokens": 8000,
+      "model": "azure/DeepSeek-V4-Pro",
+      "timeout": 300
+     }
+    ],
+    "slots": {
+     "after_reply": null,
+     "run": {
+      "attrs": {
+       "general": {
+        "items": 11,
+        "sha": "ec74649af897b5f5"
+       },
+       "index": null,
+       "log": [],
+       "mode": "control",
+       "model": {
+        "model": {
+         "api_key_env": "OPENAI_API_KEY",
+         "base_url": null,
+         "kind": "json",
+         "max_retries": 3,
+         "max_tokens": 8000,
+         "model": "azure/DeepSeek-V4-Pro",
+         "timeout": 300
+        }
+       },
+       "procs": {
+        "items": 17,
+        "sha": "48b9ca886f6fc7ed"
+       },
+       "receipts": [],
+       "require_evidence": false,
+       "rules_from_data": true
+      },
+      "class": "SopLoop"
+     },
+     "turn_note": null,
+     "wrap_tools": null
+    },
+    "system_note": "",
+    "tools": []
+   },
+   "policy": "hr_crestwood_university_79786c46",
+   "profile": "handbook-dsv4-loop-guide",
+   "runner": "handbook",
+   "switches": {
+    "HB_BUILDS": "v3",
+    "HOOKS_MODULE": "handbook/guide_hooks.py:make_hooks",
+    "SOP_LOOP": "1"
+   }
+  },
+  "handbook-dsv4-loop-guide/insurance_vanguard_shield_mutual_9b2f7a29": {
+   "description": {
+    "gate_reads_tools_store": null,
+    "hooks": [
+     {
+      "attrs": {
+       "held": [],
+       "is_write": "cuga.policy_layer.ruleset.is_write_tool",
+       "mode": "free",
+       "reads": [],
+       "records": [],
+       "which": null,
+       "writes": []
+      },
+      "class": "LoopHooks"
+     },
+     {
+      "attrs": {
+       "evidence": {},
+       "gate_on": true,
+       "gated": [],
+       "general": {
+        "items": 11,
+        "sha": "a7abc607761e1d23"
+       },
+       "general_gated": false,
+       "is_write": "cuga.policy_layer.ruleset.is_write_tool",
+       "model": null,
+       "procs": {
+        "items": 15,
+        "sha": "679af12c7177e38e"
+       },
+       "reads": [],
+       "records": [],
+       "template_stopped": [],
+       "templates_on": true
+      },
+      "class": "ProcedureGuide"
+     }
+    ],
+    "models": [
+     {
+      "api_key_env": "OPENAI_API_KEY",
+      "base_url": null,
+      "kind": "json",
+      "max_retries": 3,
+      "max_tokens": 8000,
+      "model": "azure/DeepSeek-V4-Pro",
+      "timeout": 300
+     }
+    ],
+    "slots": {
+     "after_reply": null,
+     "run": {
+      "attrs": {
+       "general": {
+        "items": 11,
+        "sha": "a7abc607761e1d23"
+       },
+       "index": null,
+       "log": [],
+       "mode": "control",
+       "model": {
+        "model": {
+         "api_key_env": "OPENAI_API_KEY",
+         "base_url": null,
+         "kind": "json",
+         "max_retries": 3,
+         "max_tokens": 8000,
+         "model": "azure/DeepSeek-V4-Pro",
+         "timeout": 300
+        }
+       },
+       "procs": {
+        "items": 15,
+        "sha": "679af12c7177e38e"
+       },
+       "receipts": [],
+       "require_evidence": false,
+       "rules_from_data": true
+      },
+      "class": "SopLoop"
+     },
+     "turn_note": null,
+     "wrap_tools": null
+    },
+    "system_note": "",
+    "tools": []
+   },
+   "policy": "insurance_vanguard_shield_mutual_9b2f7a29",
+   "profile": "handbook-dsv4-loop-guide",
+   "runner": "handbook",
+   "switches": {
+    "HB_BUILDS": "v3",
+    "HOOKS_MODULE": "handbook/guide_hooks.py:make_hooks",
+    "SOP_LOOP": "1"
+   }
+  },
+  "handbook-dsv4-loop-guide/medical_careig_specialty_pharmacy_f5947c33": {
+   "description": {
+    "gate_reads_tools_store": null,
+    "hooks": [
+     {
+      "attrs": {
+       "held": [],
+       "is_write": "cuga.policy_layer.ruleset.is_write_tool",
+       "mode": "free",
+       "reads": [],
+       "records": [],
+       "which": null,
+       "writes": []
+      },
+      "class": "LoopHooks"
+     },
+     {
+      "attrs": {
+       "evidence": {},
+       "gate_on": true,
+       "gated": [],
+       "general": {
+        "items": 11,
+        "sha": "dd97c82caf1877a8"
+       },
+       "general_gated": false,
+       "is_write": "cuga.policy_layer.ruleset.is_write_tool",
+       "model": null,
+       "procs": {
+        "items": 11,
+        "sha": "3148e526196a5fc8"
+       },
+       "reads": [],
+       "records": [],
+       "template_stopped": [],
+       "templates_on": true
+      },
+      "class": "ProcedureGuide"
+     }
+    ],
+    "models": [
+     {
+      "api_key_env": "OPENAI_API_KEY",
+      "base_url": null,
+      "kind": "json",
+      "max_retries": 3,
+      "max_tokens": 8000,
+      "model": "azure/DeepSeek-V4-Pro",
+      "timeout": 300
+     }
+    ],
+    "slots": {
+     "after_reply": null,
+     "run": {
+      "attrs": {
+       "general": {
+        "items": 11,
+        "sha": "dd97c82caf1877a8"
+       },
+       "index": null,
+       "log": [],
+       "mode": "control",
+       "model": {
+        "model": {
+         "api_key_env": "OPENAI_API_KEY",
+         "base_url": null,
+         "kind": "json",
+         "max_retries": 3,
+         "max_tokens": 8000,
+         "model": "azure/DeepSeek-V4-Pro",
+         "timeout": 300
+        }
+       },
+       "procs": {
+        "items": 11,
+        "sha": "3148e526196a5fc8"
+       },
+       "receipts": [],
+       "require_evidence": false,
+       "rules_from_data": true
+      },
+      "class": "SopLoop"
+     },
+     "turn_note": null,
+     "wrap_tools": null
+    },
+    "system_note": "",
+    "tools": []
+   },
+   "policy": "medical_careig_specialty_pharmacy_f5947c33",
+   "profile": "handbook-dsv4-loop-guide",
+   "runner": "handbook",
+   "switches": {
+    "HB_BUILDS": "v3",
+    "HOOKS_MODULE": "handbook/guide_hooks.py:make_hooks",
+    "SOP_LOOP": "1"
+   }
+  },
+  "handbook-gemini-graph-gate/hr_crestwood_university_79786c46": {
+   "description": {
+    "gate_reads_tools_store": {
+     "StoreGate": true
+    },
+    "hooks": [
+     {
+      "attrs": {
+       "blocked": [],
+       "data_chars": 24000,
+       "model": {
+        "model": {
+         "api_key_env": "OPENAI_API_KEY",
+         "base_url": null,
+         "kind": "json",
+         "max_retries": 3,
+         "max_tokens": 4000,
+         "model": "gcp/gemini-3.8-flash",
+         "timeout": 180
+        }
+       },
+       "reads": [],
+       "records": [],
+       "sop_text": "",
+       "store": {
+        "attrs": {
+         "calls": [],
+         "g": {
+          "items": 13,
+          "sha": "b0c2d75b55dc4127"
+         },
+         "holidays": [
+          "2026-01-01",
+          "2026-01-19",
+          "2026-02-16",
+          "2026-05-25",
+          "2026-07-03",
+          "2026-09-07",
+          "2026-11-26",
+          "2026-11-27",
+          "2026-12-24",
+          "2026-12-25",
+          "2026-12-26",
+          "2026-12-27",
+          "2026-12-28",
+          "2026-12-29",
+          "2026-12-30",
+          "2026-12-31"
+         ],
+         "procs": {
+          "items": 23,
+          "sha": "0877a7598c63bc1b"
+         },
+         "templates": {
+          "items": 33,
+          "sha": "1f12c244221c32c1"
+         },
+         "workdays": [
+          0,
+          1,
+          2,
+          3,
+          4
+         ]
+        },
+        "class": "ProcedureStore"
+       },
+       "today": "2026-04-10"
+      },
+      "class": "StoreGate"
+     }
+    ],
+    "models": [
+     {
+      "api_key_env": "OPENAI_API_KEY",
+      "base_url": null,
+      "kind": "json",
+      "max_retries": 3,
+      "max_tokens": 4000,
+      "model": "gcp/gemini-3.8-flash",
+      "timeout": 180
+     }
+    ],
+    "slots": {
+     "after_reply": null,
+     "run": null,
+     "turn_note": null,
+     "wrap_tools": null
+    },
+    "system_note": "The SOP is also available as a procedure graph through the policy__ tools. Call policy__list_procedures once at the start; for each case call policy__get_procedure with the ids that apply and follow its steps, decisions and must-not rules; use the exact template text it returns; use policy__add_days for business-day deadlines.",
+    "tools": [
+     {
+      "description_sha": "9c3cdf7428a57098",
+      "name": "policy__list_procedures"
+     },
+     {
+      "description_sha": "f737c0f35538db37",
+      "name": "policy__get_procedure"
+     },
+     {
+      "description_sha": "5a9669d2dac986f3",
+      "name": "policy__get_template"
+     },
+     {
+      "description_sha": "96a954fc1a035c5c",
+      "name": "policy__add_days"
+     }
+    ]
+   },
+   "policy": "hr_crestwood_university_79786c46",
+   "profile": "handbook-gemini-graph-gate",
+   "runner": "handbook",
+   "switches": {
+    "POLICY_GATE_MODEL": "gcp/gemini-3.8-flash",
+    "POLICY_STORE_DIR": "policy_eval/graphs_handbook/claude_v1",
+    "POLICY_STORE_GATE": "1"
+   }
+  },
+  "handbook-gemini-graph-gate/insurance_vanguard_shield_mutual_9b2f7a29": {
+   "description": {
+    "gate_reads_tools_store": {
+     "StoreGate": true
+    },
+    "hooks": [
+     {
+      "attrs": {
+       "blocked": [],
+       "data_chars": 24000,
+       "model": {
+        "model": {
+         "api_key_env": "OPENAI_API_KEY",
+         "base_url": null,
+         "kind": "json",
+         "max_retries": 3,
+         "max_tokens": 4000,
+         "model": "gcp/gemini-3.8-flash",
+         "timeout": 180
+        }
+       },
+       "reads": [],
+       "records": [],
+       "sop_text": "",
+       "store": {
+        "attrs": {
+         "calls": [],
+         "g": {
+          "items": 8,
+          "sha": "3daacc33964f6c64"
+         },
+         "holidays": [],
+         "procs": {
+          "items": 16,
+          "sha": "a04cd1aca23b0d2f"
+         },
+         "templates": {
+          "items": 15,
+          "sha": "fbb1960b76ed39b2"
+         },
+         "workdays": [
+          0,
+          1,
+          2,
+          3,
+          4
+         ]
+        },
+        "class": "ProcedureStore"
+       },
+       "today": "2026-04-04"
+      },
+      "class": "StoreGate"
+     }
+    ],
+    "models": [
+     {
+      "api_key_env": "OPENAI_API_KEY",
+      "base_url": null,
+      "kind": "json",
+      "max_retries": 3,
+      "max_tokens": 4000,
+      "model": "gcp/gemini-3.8-flash",
+      "timeout": 180
+     }
+    ],
+    "slots": {
+     "after_reply": null,
+     "run": null,
+     "turn_note": null,
+     "wrap_tools": null
+    },
+    "system_note": "The SOP is also available as a procedure graph through the policy__ tools. Call policy__list_procedures once at the start; for each case call policy__get_procedure with the ids that apply and follow its steps, decisions and must-not rules; use the exact template text it returns; use policy__add_days for business-day deadlines.",
+    "tools": [
+     {
+      "description_sha": "9c3cdf7428a57098",
+      "name": "policy__list_procedures"
+     },
+     {
+      "description_sha": "f737c0f35538db37",
+      "name": "policy__get_procedure"
+     },
+     {
+      "description_sha": "5a9669d2dac986f3",
+      "name": "policy__get_template"
+     },
+     {
+      "description_sha": "96a954fc1a035c5c",
+      "name": "policy__add_days"
+     }
+    ]
+   },
+   "policy": "insurance_vanguard_shield_mutual_9b2f7a29",
+   "profile": "handbook-gemini-graph-gate",
+   "runner": "handbook",
+   "switches": {
+    "POLICY_GATE_MODEL": "gcp/gemini-3.8-flash",
+    "POLICY_STORE_DIR": "policy_eval/graphs_handbook/claude_v1",
+    "POLICY_STORE_GATE": "1"
+   }
+  },
+  "handbook-gemini-graph-gate/medical_careig_specialty_pharmacy_f5947c33": {
+   "description": {
+    "gate_reads_tools_store": {
+     "StoreGate": true
+    },
+    "hooks": [
+     {
+      "attrs": {
+       "blocked": [],
+       "data_chars": 24000,
+       "model": {
+        "model": {
+         "api_key_env": "OPENAI_API_KEY",
+         "base_url": null,
+         "kind": "json",
+         "max_retries": 3,
+         "max_tokens": 4000,
+         "model": "gcp/gemini-3.8-flash",
+         "timeout": 180
+        }
+       },
+       "reads": [],
+       "records": [],
+       "sop_text": "",
+       "store": {
+        "attrs": {
+         "calls": [],
+         "g": {
+          "items": 11,
+          "sha": "4c7cb13208f0a55f"
+         },
+         "holidays": [],
+         "procs": {
+          "items": 24,
+          "sha": "b74ed586a358ce20"
+         },
+         "templates": {
+          "items": 3,
+          "sha": "85102c1106e99b2e"
+         },
+         "workdays": [
+          0,
+          1,
+          2,
+          3,
+          4
+         ]
+        },
+        "class": "ProcedureStore"
+       },
+       "today": "2026-03-30"
+      },
+      "class": "StoreGate"
+     }
+    ],
+    "models": [
+     {
+      "api_key_env": "OPENAI_API_KEY",
+      "base_url": null,
+      "kind": "json",
+      "max_retries": 3,
+      "max_tokens": 4000,
+      "model": "gcp/gemini-3.8-flash",
+      "timeout": 180
+     }
+    ],
+    "slots": {
+     "after_reply": null,
+     "run": null,
+     "turn_note": null,
+     "wrap_tools": null
+    },
+    "system_note": "The SOP is also available as a procedure graph through the policy__ tools. Call policy__list_procedures once at the start; for each case call policy__get_procedure with the ids that apply and follow its steps, decisions and must-not rules; use the exact template text it returns; use policy__add_days for business-day deadlines.",
+    "tools": [
+     {
+      "description_sha": "9c3cdf7428a57098",
+      "name": "policy__list_procedures"
+     },
+     {
+      "description_sha": "f737c0f35538db37",
+      "name": "policy__get_procedure"
+     },
+     {
+      "description_sha": "5a9669d2dac986f3",
+      "name": "policy__get_template"
+     },
+     {
+      "description_sha": "96a954fc1a035c5c",
+      "name": "policy__add_days"
+     }
+    ]
+   },
+   "policy": "medical_careig_specialty_pharmacy_f5947c33",
+   "profile": "handbook-gemini-graph-gate",
+   "runner": "handbook",
+   "switches": {
+    "POLICY_GATE_MODEL": "gcp/gemini-3.8-flash",
+    "POLICY_STORE_DIR": "policy_eval/graphs_handbook/claude_v1",
+    "POLICY_STORE_GATE": "1"
+   }
+  },
+  "handbook-gptoss-loop-guide-evidence/hr_crestwood_university_79786c46": {
+   "description": {
+    "gate_reads_tools_store": null,
+    "hooks": [
+     {
+      "attrs": {
+       "held": [],
+       "is_write": "cuga.policy_layer.ruleset.is_write_tool",
+       "mode": "free",
+       "reads": [],
+       "records": [],
+       "which": null,
+       "writes": []
+      },
+      "class": "LoopHooks"
+     },
+     {
+      "attrs": {
+       "evidence": {},
+       "gate_on": true,
+       "gated": [],
+       "general": {
+        "items": 11,
+        "sha": "ec74649af897b5f5"
+       },
+       "general_gated": false,
+       "is_write": "cuga.policy_layer.ruleset.is_write_tool",
+       "model": {
+        "model": {
+         "api_key_env": "OPENAI_API_KEY",
+         "base_url": null,
+         "kind": "json",
+         "max_retries": 3,
+         "max_tokens": null,
+         "model": "aws/gpt-oss-120b",
+         "timeout": 180
+        }
+       },
+       "procs": {
+        "items": 17,
+        "sha": "48b9ca886f6fc7ed"
+       },
+       "reads": [],
+       "records": [],
+       "template_stopped": [],
+       "templates_on": true
+      },
+      "class": "ProcedureGuide"
+     }
+    ],
+    "models": [
+     {
+      "api_key_env": "OPENAI_API_KEY",
+      "base_url": null,
+      "kind": "json",
+      "max_retries": 3,
+      "max_tokens": 8000,
+      "model": "aws/gpt-oss-120b",
+      "timeout": 300
+     },
+     {
+      "api_key_env": "OPENAI_API_KEY",
+      "base_url": null,
+      "kind": "json",
+      "max_retries": 3,
+      "max_tokens": null,
+      "model": "aws/gpt-oss-120b",
+      "timeout": 180
+     }
+    ],
+    "slots": {
+     "after_reply": null,
+     "run": {
+      "attrs": {
+       "general": {
+        "items": 11,
+        "sha": "ec74649af897b5f5"
+       },
+       "index": null,
+       "log": [],
+       "mode": "control",
+       "model": {
+        "model": {
+         "api_key_env": "OPENAI_API_KEY",
+         "base_url": null,
+         "kind": "json",
+         "max_retries": 3,
+         "max_tokens": 8000,
+         "model": "aws/gpt-oss-120b",
+         "timeout": 300
+        }
+       },
+       "procs": {
+        "items": 17,
+        "sha": "48b9ca886f6fc7ed"
+       },
+       "receipts": [],
+       "require_evidence": false,
+       "rules_from_data": true
+      },
+      "class": "SopLoop"
+     },
+     "turn_note": null,
+     "wrap_tools": null
+    },
+    "system_note": "",
+    "tools": []
+   },
+   "policy": "hr_crestwood_university_79786c46",
+   "profile": "handbook-gptoss-loop-guide-evidence",
+   "runner": "handbook",
+   "switches": {
+    "HOOKS_MODULE": "handbook/guide_hooks.py:make_hooks",
+    "POLICY_GUIDE_EVIDENCE": "1",
+    "POLICY_LOOP_MODEL": "aws/gpt-oss-120b",
+    "POLICY_MODEL_NAME": "aws/gpt-oss-120b",
+    "SOP_LOOP": "1"
+   }
+  },
+  "handbook-gptoss-loop-guide-evidence/insurance_vanguard_shield_mutual_9b2f7a29": {
+   "description": {
+    "gate_reads_tools_store": null,
+    "hooks": [
+     {
+      "attrs": {
+       "held": [],
+       "is_write": "cuga.policy_layer.ruleset.is_write_tool",
+       "mode": "free",
+       "reads": [],
+       "records": [],
+       "which": null,
+       "writes": []
+      },
+      "class": "LoopHooks"
+     },
+     {
+      "attrs": {
+       "evidence": {},
+       "gate_on": true,
+       "gated": [],
+       "general": {
+        "items": 11,
+        "sha": "a7abc607761e1d23"
+       },
+       "general_gated": false,
+       "is_write": "cuga.policy_layer.ruleset.is_write_tool",
+       "model": {
+        "model": {
+         "api_key_env": "OPENAI_API_KEY",
+         "base_url": null,
+         "kind": "json",
+         "max_retries": 3,
+         "max_tokens": null,
+         "model": "aws/gpt-oss-120b",
+         "timeout": 180
+        }
+       },
+       "procs": {
+        "items": 15,
+        "sha": "679af12c7177e38e"
+       },
+       "reads": [],
+       "records": [],
+       "template_stopped": [],
+       "templates_on": true
+      },
+      "class": "ProcedureGuide"
+     }
+    ],
+    "models": [
+     {
+      "api_key_env": "OPENAI_API_KEY",
+      "base_url": null,
+      "kind": "json",
+      "max_retries": 3,
+      "max_tokens": 8000,
+      "model": "aws/gpt-oss-120b",
+      "timeout": 300
+     },
+     {
+      "api_key_env": "OPENAI_API_KEY",
+      "base_url": null,
+      "kind": "json",
+      "max_retries": 3,
+      "max_tokens": null,
+      "model": "aws/gpt-oss-120b",
+      "timeout": 180
+     }
+    ],
+    "slots": {
+     "after_reply": null,
+     "run": {
+      "attrs": {
+       "general": {
+        "items": 11,
+        "sha": "a7abc607761e1d23"
+       },
+       "index": null,
+       "log": [],
+       "mode": "control",
+       "model": {
+        "model": {
+         "api_key_env": "OPENAI_API_KEY",
+         "base_url": null,
+         "kind": "json",
+         "max_retries": 3,
+         "max_tokens": 8000,
+         "model": "aws/gpt-oss-120b",
+         "timeout": 300
+        }
+       },
+       "procs": {
+        "items": 15,
+        "sha": "679af12c7177e38e"
+       },
+       "receipts": [],
+       "require_evidence": false,
+       "rules_from_data": true
+      },
+      "class": "SopLoop"
+     },
+     "turn_note": null,
+     "wrap_tools": null
+    },
+    "system_note": "",
+    "tools": []
+   },
+   "policy": "insurance_vanguard_shield_mutual_9b2f7a29",
+   "profile": "handbook-gptoss-loop-guide-evidence",
+   "runner": "handbook",
+   "switches": {
+    "HOOKS_MODULE": "handbook/guide_hooks.py:make_hooks",
+    "POLICY_GUIDE_EVIDENCE": "1",
+    "POLICY_LOOP_MODEL": "aws/gpt-oss-120b",
+    "POLICY_MODEL_NAME": "aws/gpt-oss-120b",
+    "SOP_LOOP": "1"
+   }
+  },
+  "handbook-gptoss-loop-guide-evidence/medical_careig_specialty_pharmacy_f5947c33": {
+   "description": {
+    "gate_reads_tools_store": null,
+    "hooks": [
+     {
+      "attrs": {
+       "held": [],
+       "is_write": "cuga.policy_layer.ruleset.is_write_tool",
+       "mode": "free",
+       "reads": [],
+       "records": [],
+       "which": null,
+       "writes": []
+      },
+      "class": "LoopHooks"
+     },
+     {
+      "attrs": {
+       "evidence": {},
+       "gate_on": true,
+       "gated": [],
+       "general": {
+        "items": 11,
+        "sha": "dd97c82caf1877a8"
+       },
+       "general_gated": false,
+       "is_write": "cuga.policy_layer.ruleset.is_write_tool",
+       "model": {
+        "model": {
+         "api_key_env": "OPENAI_API_KEY",
+         "base_url": null,
+         "kind": "json",
+         "max_retries": 3,
+         "max_tokens": null,
+         "model": "aws/gpt-oss-120b",
+         "timeout": 180
+        }
+       },
+       "procs": {
+        "items": 11,
+        "sha": "3148e526196a5fc8"
+       },
+       "reads": [],
+       "records": [],
+       "template_stopped": [],
+       "templates_on": true
+      },
+      "class": "ProcedureGuide"
+     }
+    ],
+    "models": [
+     {
+      "api_key_env": "OPENAI_API_KEY",
+      "base_url": null,
+      "kind": "json",
+      "max_retries": 3,
+      "max_tokens": 8000,
+      "model": "aws/gpt-oss-120b",
+      "timeout": 300
+     },
+     {
+      "api_key_env": "OPENAI_API_KEY",
+      "base_url": null,
+      "kind": "json",
+      "max_retries": 3,
+      "max_tokens": null,
+      "model": "aws/gpt-oss-120b",
+      "timeout": 180
+     }
+    ],
+    "slots": {
+     "after_reply": null,
+     "run": {
+      "attrs": {
+       "general": {
+        "items": 11,
+        "sha": "dd97c82caf1877a8"
+       },
+       "index": null,
+       "log": [],
+       "mode": "control",
+       "model": {
+        "model": {
+         "api_key_env": "OPENAI_API_KEY",
+         "base_url": null,
+         "kind": "json",
+         "max_retries": 3,
+         "max_tokens": 8000,
+         "model": "aws/gpt-oss-120b",
+         "timeout": 300
+        }
+       },
+       "procs": {
+        "items": 11,
+        "sha": "3148e526196a5fc8"
+       },
+       "receipts": [],
+       "require_evidence": false,
+       "rules_from_data": true
+      },
+      "class": "SopLoop"
+     },
+     "turn_note": null,
+     "wrap_tools": null
+    },
+    "system_note": "",
+    "tools": []
+   },
+   "policy": "medical_careig_specialty_pharmacy_f5947c33",
+   "profile": "handbook-gptoss-loop-guide-evidence",
+   "runner": "handbook",
+   "switches": {
+    "HOOKS_MODULE": "handbook/guide_hooks.py:make_hooks",
+    "POLICY_GUIDE_EVIDENCE": "1",
+    "POLICY_LOOP_MODEL": "aws/gpt-oss-120b",
+    "POLICY_MODEL_NAME": "aws/gpt-oss-120b",
+    "SOP_LOOP": "1"
+   }
+  },
+  "itsm-rules/2e555b5177": {
+   "description": {
+    "gate_reads_tools_store": null,
+    "hooks": [
+     {
+      "attrs": {
+       "brief": true,
+       "by_tool": {
+        "items": 11,
+        "sha": "888da610a7f694be"
+       },
+       "called": [],
+       "cap_effect": "allow",
+       "cedar": null,
+       "facts": {
+        "attrs": {
+         "nodes": [],
+         "principal": {
+          "id": "golden-user",
+          "role": "itil"
+         },
+         "records": {},
+         "text": ""
+        },
+        "class": "Facts"
+       },
+       "global_rules": [
+        {
+         "by": "model",
+         "id": "73ab784731ba",
+         "quote": "Never assume or fabricate IDs, responses, or outcomes — rely solely on verified API results.",
+         "source": "§1",
+         "type": "id_provenance"
+        },
+        {
+         "by": "model",
+         "id": "ab0eb716e45e",
+         "quote": "Never assume or fabricate IDs, responses, or outcomes — rely solely on verified API results.",
+         "source": "§1",
+         "type": "grounded_values"
+        }
+       ],
+       "global_verify": {
+        "items": 2,
+        "sha": "035fbbdf48563302"
+       },
+       "method_choice": {},
+       "mode": "enforce",
+       "note_channel": "tool",
+       "notes": [],
+       "open_duties": [],
+       "principal": {
+        "id": "golden-user",
+        "role": "itil"
+       },
+       "records": [],
+       "request": "",
+       "rules": {
+        "items": 53,
+        "sha": "d04d037224755140"
+       },
+       "scope_check": null,
+       "specs": {
+        "items": 93,
+        "sha": "e578e332bd6533e3"
+       },
+       "store": {
+        "attrs": {
+         "index": [],
+         "match_phrases": false,
+         "text": ""
+        },
+        "class": "FactStore"
+       },
+       "tools_in_run": [
+        "add_new_group_member",
+        "add_new_user",
+        "add_new_user_group",
+        "get_user"
+       ],
+       "verifier": {
+        "attrs": {
+         "model": {
+          "model": {
+           "api_key_env": "OPENAI_API_KEY",
+           "base_url": null,
+           "kind": "json",
+           "max_retries": 3,
+           "max_tokens": null,
+           "model": "aws/gpt-oss-120b",
+           "timeout": 90.0
+          }
+         }
+        },
+        "class": "Verifier"
+       },
+       "verifier_for": null,
+       "verifier_may_deny": false
+      },
+      "class": "RuleSetHooks"
+     }
+    ],
+    "models": [
+     {
+      "api_key_env": "OPENAI_API_KEY",
+      "base_url": null,
+      "kind": "json",
+      "max_retries": 3,
+      "max_tokens": null,
+      "model": "aws/gpt-oss-120b",
+      "timeout": 90.0
+     }
+    ],
+    "slots": {
+     "after_reply": null,
+     "run": null,
+     "turn_note": null,
+     "wrap_tools": null
+    },
+    "system_note": "",
+    "tools": []
+   },
+   "policy": "2e555b5177",
+   "profile": "itsm-rules",
+   "runner": "itsm",
+   "switches": {
+    "POLICY_BUILDS_DIR": "policy_eval/builds"
+   }
+  },
+  "itsm-rules/7bb25d850c": {
+   "description": {
+    "gate_reads_tools_store": null,
+    "hooks": [
+     {
+      "attrs": {
+       "brief": true,
+       "by_tool": {
+        "items": 11,
+        "sha": "888da610a7f694be"
+       },
+       "called": [],
+       "cap_effect": "allow",
+       "cedar": null,
+       "facts": {
+        "attrs": {
+         "nodes": [],
+         "principal": {
+          "id": "golden-user",
+          "role": "itil"
+         },
+         "records": {},
+         "text": ""
+        },
+        "class": "Facts"
+       },
+       "global_rules": [
+        {
+         "by": "model",
+         "id": "73ab784731ba",
+         "quote": "Never assume or fabricate IDs, responses, or outcomes — rely solely on verified API results.",
+         "source": "§1",
+         "type": "id_provenance"
+        },
+        {
+         "by": "model",
+         "id": "ab0eb716e45e",
+         "may_deny": false,
+         "quote": "Never assume or fabricate IDs, responses, or outcomes — rely solely on verified API results.",
+         "source": "§1",
+         "type": "grounded_values"
+        }
+       ],
+       "global_verify": {
+        "items": 2,
+        "sha": "7f0f56c9367468e9"
+       },
+       "method_choice": {},
+       "mode": "enforce",
+       "note_channel": "tool",
+       "notes": [],
+       "open_duties": [],
+       "principal": {
+        "id": "golden-user",
+        "role": "itil"
+       },
+       "records": [],
+       "request": "",
+       "rules": {
+        "items": 53,
+        "sha": "3af883faad146c41"
+       },
+       "scope_check": null,
+       "specs": {
+        "items": 93,
+        "sha": "e578e332bd6533e3"
+       },
+       "store": {
+        "attrs": {
+         "index": [],
+         "match_phrases": false,
+         "text": ""
+        },
+        "class": "FactStore"
+       },
+       "tools_in_run": [
+        "add_new_group_member",
+        "add_new_user",
+        "create_incident",
+        "find_configuration_items",
+        "find_group_by_name",
+        "find_locations",
+        "get_user",
+        "list_users",
+        "send_notification",
+        "update_configuration_item"
+       ],
+       "verifier": {
+        "attrs": {
+         "model": {
+          "model": {
+           "api_key_env": "OPENAI_API_KEY",
+           "base_url": null,
+           "kind": "json",
+           "max_retries": 3,
+           "max_tokens": null,
+           "model": "aws/gpt-oss-120b",
+           "timeout": 90.0
+          }
+         }
+        },
+        "class": "Verifier"
+       },
+       "verifier_for": null,
+       "verifier_may_deny": false
+      },
+      "class": "RuleSetHooks"
+     }
+    ],
+    "models": [
+     {
+      "api_key_env": "OPENAI_API_KEY",
+      "base_url": null,
+      "kind": "json",
+      "max_retries": 3,
+      "max_tokens": null,
+      "model": "aws/gpt-oss-120b",
+      "timeout": 90.0
+     }
+    ],
+    "slots": {
+     "after_reply": null,
+     "run": null,
+     "turn_note": null,
+     "wrap_tools": null
+    },
+    "system_note": "",
+    "tools": []
+   },
+   "policy": "7bb25d850c",
+   "profile": "itsm-rules",
+   "runner": "itsm",
+   "switches": {
+    "POLICY_BUILDS_DIR": "policy_eval/builds"
+   }
+  },
+  "itsm-rules/933219af01": {
+   "description": {
+    "gate_reads_tools_store": null,
+    "hooks": [
+     {
+      "attrs": {
+       "brief": true,
+       "by_tool": {
+        "items": 11,
+        "sha": "888da610a7f694be"
+       },
+       "called": [],
+       "cap_effect": "allow",
+       "cedar": null,
+       "facts": {
+        "attrs": {
+         "nodes": [],
+         "principal": {
+          "id": "golden-user",
+          "role": "itil"
+         },
+         "records": {},
+         "text": ""
+        },
+        "class": "Facts"
+       },
+       "global_rules": [
+        {
+         "by": "model",
+         "id": "73ab784731ba",
+         "quote": "Never assume or fabricate IDs, responses, or outcomes — rely solely on verified API results.",
+         "source": "§1",
+         "type": "id_provenance"
+        },
+        {
+         "by": "model",
+         "id": "ab0eb716e45e",
+         "may_deny": false,
+         "quote": "Never assume or fabricate IDs, responses, or outcomes — rely solely on verified API results.",
+         "source": "§1",
+         "type": "grounded_values"
+        }
+       ],
+       "global_verify": {
+        "items": 2,
+        "sha": "9ce48f2d8cb6212b"
+       },
+       "method_choice": {},
+       "mode": "enforce",
+       "note_channel": "tool",
+       "notes": [],
+       "open_duties": [],
+       "principal": {
+        "id": "golden-user",
+        "role": "itil"
+       },
+       "records": [],
+       "request": "",
+       "rules": {
+        "items": 53,
+        "sha": "88da9d4ced2d488c"
+       },
+       "scope_check": null,
+       "specs": {
+        "items": 93,
+        "sha": "e578e332bd6533e3"
+       },
+       "store": {
+        "attrs": {
+         "index": [],
+         "match_phrases": false,
+         "text": ""
+        },
+        "class": "FactStore"
+       },
+       "tools_in_run": [
+        "find_services",
+        "get_user",
+        "list_incidents",
+        "list_users",
+        "send_notification",
+        "update_incident"
+       ],
+       "verifier": {
+        "attrs": {
+         "model": {
+          "model": {
+           "api_key_env": "OPENAI_API_KEY",
+           "base_url": null,
+           "kind": "json",
+           "max_retries": 3,
+           "max_tokens": null,
+           "model": "aws/gpt-oss-120b",
+           "timeout": 90.0
+          }
+         }
+        },
+        "class": "Verifier"
+       },
+       "verifier_for": null,
+       "verifier_may_deny": false
+      },
+      "class": "RuleSetHooks"
+     }
+    ],
+    "models": [
+     {
+      "api_key_env": "OPENAI_API_KEY",
+      "base_url": null,
+      "kind": "json",
+      "max_retries": 3,
+      "max_tokens": null,
+      "model": "aws/gpt-oss-120b",
+      "timeout": 90.0
+     }
+    ],
+    "slots": {
+     "after_reply": null,
+     "run": null,
+     "turn_note": null,
+     "wrap_tools": null
+    },
+    "system_note": "",
+    "tools": []
+   },
+   "policy": "933219af01",
+   "profile": "itsm-rules",
+   "runner": "itsm",
+   "switches": {
+    "POLICY_BUILDS_DIR": "policy_eval/builds"
+   }
+  },
+  "itsm-rules/a5e328395b": {
+   "description": {
+    "gate_reads_tools_store": null,
+    "hooks": [
+     {
+      "attrs": {
+       "brief": true,
+       "by_tool": {
+        "items": 11,
+        "sha": "e31c60fa403b6738"
+       },
+       "called": [],
+       "cap_effect": "allow",
+       "cedar": null,
+       "facts": {
+        "attrs": {
+         "nodes": [],
+         "principal": {
+          "id": "golden-user",
+          "role": "itil"
+         },
+         "records": {},
+         "text": ""
+        },
+        "class": "Facts"
+       },
+       "global_rules": [
+        {
+         "by": "model",
+         "id": "73ab784731ba",
+         "quote": "Never assume or fabricate IDs, responses, or outcomes — rely solely on verified API results.",
+         "source": "§1",
+         "type": "id_provenance"
+        },
+        {
+         "by": "model",
+         "id": "ab0eb716e45e",
+         "quote": "Never assume or fabricate IDs, responses, or outcomes — rely solely on verified API results.",
+         "source": "§1",
+         "type": "grounded_values"
+        }
+       ],
+       "global_verify": {
+        "items": 2,
+        "sha": "fe7c32d0ff32864a"
+       },
+       "method_choice": {},
+       "mode": "enforce",
+       "note_channel": "tool",
+       "notes": [],
+       "open_duties": [],
+       "principal": {
+        "id": "golden-user",
+        "role": "itil"
+       },
+       "records": [],
+       "request": "",
+       "rules": {
+        "items": 53,
+        "sha": "39a4afc0a740a4c2"
+       },
+       "scope_check": null,
+       "specs": {
+        "items": 93,
+        "sha": "e578e332bd6533e3"
+       },
+       "store": {
+        "attrs": {
+         "index": [],
+         "match_phrases": false,
+         "text": ""
+        },
+        "class": "FactStore"
+       },
+       "tools_in_run": [
+        "create_incident",
+        "create_knowledge_article",
+        "get_user",
+        "get_user_using_name",
+        "link_knowledge_to_incident",
+        "retrieve_knowledge_articles"
+       ],
+       "verifier": {
+        "attrs": {
+         "model": {
+          "model": {
+           "api_key_env": "OPENAI_API_KEY",
+           "base_url": null,
+           "kind": "json",
+           "max_retries": 3,
+           "max_tokens": null,
+           "model": "aws/gpt-oss-120b",
+           "timeout": 90.0
+          }
+         }
+        },
+        "class": "Verifier"
+       },
+       "verifier_for": null,
+       "verifier_may_deny": false
+      },
+      "class": "RuleSetHooks"
+     }
+    ],
+    "models": [
+     {
+      "api_key_env": "OPENAI_API_KEY",
+      "base_url": null,
+      "kind": "json",
+      "max_retries": 3,
+      "max_tokens": null,
+      "model": "aws/gpt-oss-120b",
+      "timeout": 90.0
+     }
+    ],
+    "slots": {
+     "after_reply": null,
+     "run": null,
+     "turn_note": null,
+     "wrap_tools": null
+    },
+    "system_note": "",
+    "tools": []
+   },
+   "policy": "a5e328395b",
+   "profile": "itsm-rules",
+   "runner": "itsm",
+   "switches": {
+    "POLICY_BUILDS_DIR": "policy_eval/builds"
+   }
+  },
+  "itsm-rules/c47f8ceef3": {
+   "description": {
+    "gate_reads_tools_store": null,
+    "hooks": [
+     {
+      "attrs": {
+       "brief": true,
+       "by_tool": {
+        "items": 11,
+        "sha": "615db68f82611444"
+       },
+       "called": [],
+       "cap_effect": "allow",
+       "cedar": null,
+       "facts": {
+        "attrs": {
+         "nodes": [],
+         "principal": {
+          "id": "golden-user",
+          "role": "itil"
+         },
+         "records": {},
+         "text": ""
+        },
+        "class": "Facts"
+       },
+       "global_rules": [
+        {
+         "by": "model",
+         "id": "73ab784731ba",
+         "quote": "Never assume or fabricate IDs, responses, or outcomes — rely solely on verified API results.",
+         "source": "§1",
+         "type": "id_provenance"
+        },
+        {
+         "by": "model",
+         "id": "ab0eb716e45e",
+         "quote": "Never assume or fabricate IDs, responses, or outcomes — rely solely on verified API results.",
+         "source": "§1",
+         "type": "grounded_values"
+        }
+       ],
+       "global_verify": {
+        "items": 9,
+        "sha": "dec4196c8552c5f0"
+       },
+       "method_choice": {},
+       "mode": "enforce",
+       "note_channel": "tool",
+       "notes": [],
+       "open_duties": [],
+       "principal": {
+        "id": "golden-user",
+        "role": "itil"
+       },
+       "records": [],
+       "request": "",
+       "rules": {
+        "items": 56,
+        "sha": "3088be43805e82ea"
+       },
+       "scope_check": null,
+       "specs": {
+        "items": 93,
+        "sha": "e578e332bd6533e3"
+       },
+       "store": {
+        "attrs": {
+         "index": [],
+         "match_phrases": false,
+         "text": ""
+        },
+        "class": "FactStore"
+       },
+       "tools_in_run": [
+        "create_incident",
+        "find_configuration_item_by_serial_number",
+        "find_locations",
+        "get_user",
+        "list_users",
+        "register_configuration_item"
+       ],
+       "verifier": {
+        "attrs": {
+         "model": {
+          "model": {
+           "api_key_env": "OPENAI_API_KEY",
+           "base_url": null,
+           "kind": "json",
+           "max_retries": 3,
+           "max_tokens": null,
+           "model": "aws/gpt-oss-120b",
+           "timeout": 90.0
+          }
+         }
+        },
+        "class": "Verifier"
+       },
+       "verifier_for": null,
+       "verifier_may_deny": false
+      },
+      "class": "RuleSetHooks"
+     }
+    ],
+    "models": [
+     {
+      "api_key_env": "OPENAI_API_KEY",
+      "base_url": null,
+      "kind": "json",
+      "max_retries": 3,
+      "max_tokens": null,
+      "model": "aws/gpt-oss-120b",
+      "timeout": 90.0
+     }
+    ],
+    "slots": {
+     "after_reply": null,
+     "run": null,
+     "turn_note": null,
+     "wrap_tools": null
+    },
+    "system_note": "",
+    "tools": []
+   },
+   "policy": "c47f8ceef3",
+   "profile": "itsm-rules",
+   "runner": "itsm",
+   "switches": {
+    "POLICY_BUILDS_DIR": "policy_eval/builds"
+   }
+  },
+  "itsm-rules/cb2d4ee021": {
+   "description": {
+    "gate_reads_tools_store": null,
+    "hooks": [
+     {
+      "attrs": {
+       "brief": true,
+       "by_tool": {
+        "items": 11,
+        "sha": "7631d6bfaa817287"
+       },
+       "called": [],
+       "cap_effect": "allow",
+       "cedar": null,
+       "facts": {
+        "attrs": {
+         "nodes": [],
+         "principal": {
+          "id": "golden-user",
+          "role": "itil"
+         },
+         "records": {},
+         "text": ""
+        },
+        "class": "Facts"
+       },
+       "global_rules": [
+        {
+         "by": "model",
+         "id": "73ab784731ba",
+         "quote": "Never assume or fabricate IDs, responses, or outcomes — rely solely on verified API results.",
+         "source": "§1",
+         "type": "id_provenance"
+        },
+        {
+         "by": "model",
+         "id": "ab0eb716e45e",
+         "quote": "Never assume or fabricate IDs, responses, or outcomes — rely solely on verified API results.",
+         "source": "§1",
+         "type": "grounded_values"
+        }
+       ],
+       "global_verify": {
+        "items": 2,
+        "sha": "e2db1cf9caa53251"
+       },
+       "method_choice": {},
+       "mode": "enforce",
+       "note_channel": "tool",
+       "notes": [],
+       "open_duties": [],
+       "principal": {
+        "id": "golden-user",
+        "role": "itil"
+       },
+       "records": [],
+       "request": "",
+       "rules": {
+        "items": 53,
+        "sha": "adad9f02ce502b91"
+       },
+       "scope_check": null,
+       "specs": {
+        "items": 93,
+        "sha": "e578e332bd6533e3"
+       },
+       "store": {
+        "attrs": {
+         "index": [],
+         "match_phrases": false,
+         "text": ""
+        },
+        "class": "FactStore"
+       },
+       "tools_in_run": [
+        "create_incident",
+        "create_problem",
+        "find_configuration_item_by_serial_number",
+        "get_user",
+        "get_user_using_name",
+        "link_affected_ci_to_incident"
+       ],
+       "verifier": {
+        "attrs": {
+         "model": {
+          "model": {
+           "api_key_env": "OPENAI_API_KEY",
+           "base_url": null,
+           "kind": "json",
+           "max_retries": 3,
+           "max_tokens": null,
+           "model": "aws/gpt-oss-120b",
+           "timeout": 90.0
+          }
+         }
+        },
+        "class": "Verifier"
+       },
+       "verifier_for": null,
+       "verifier_may_deny": false
+      },
+      "class": "RuleSetHooks"
+     }
+    ],
+    "models": [
+     {
+      "api_key_env": "OPENAI_API_KEY",
+      "base_url": null,
+      "kind": "json",
+      "max_retries": 3,
+      "max_tokens": null,
+      "model": "aws/gpt-oss-120b",
+      "timeout": 90.0
+     }
+    ],
+    "slots": {
+     "after_reply": null,
+     "run": null,
+     "turn_note": null,
+     "wrap_tools": null
+    },
+    "system_note": "",
+    "tools": []
+   },
+   "policy": "cb2d4ee021",
+   "profile": "itsm-rules",
+   "runner": "itsm",
+   "switches": {
+    "POLICY_BUILDS_DIR": "policy_eval/builds"
+   }
+  },
+  "itsm-rules/d5ab75ff0f": {
+   "description": {
+    "gate_reads_tools_store": null,
+    "hooks": [
+     {
+      "attrs": {
+       "brief": true,
+       "by_tool": {
+        "items": 13,
+        "sha": "8f9415a6bc6cf64c"
+       },
+       "called": [],
+       "cap_effect": "allow",
+       "cedar": {
+        "attrs": {
+         "policies": {
+          "sha": "74753832bbe93aaf",
+          "text_chars": 208
+         }
+        },
+        "class": "CedarEngine"
+       },
+       "facts": {
+        "attrs": {
+         "nodes": [],
+         "principal": {
+          "id": "golden-user",
+          "role": "itil"
+         },
+         "records": {},
+         "text": ""
+        },
+        "class": "Facts"
+       },
+       "global_rules": [
+        {
+         "by": "model",
+         "id": "73ab784731ba",
+         "quote": "Never assume or fabricate IDs, responses, or outcomes — rely solely on verified API results.",
+         "source": "§1",
+         "type": "id_provenance"
+        },
+        {
+         "by": "model",
+         "id": "ab0eb716e45e",
+         "quote": "Never assume or fabricate IDs, responses, or outcomes — rely solely on verified API results.",
+         "source": "§1",
+         "type": "grounded_values"
+        }
+       ],
+       "global_verify": {
+        "items": 7,
+        "sha": "15ab2d8caaaada45"
+       },
+       "method_choice": {},
+       "mode": "enforce",
+       "note_channel": "tool",
+       "notes": [],
+       "open_duties": [],
+       "principal": {
+        "id": "golden-user",
+        "role": "itil"
+       },
+       "records": [],
+       "request": "",
+       "rules": {
+        "items": 112,
+        "sha": "9a256161ae6e49a7"
+       },
+       "scope_check": null,
+       "specs": {
+        "items": 93,
+        "sha": "e578e332bd6533e3"
+       },
+       "store": {
+        "attrs": {
+         "index": [],
+         "match_phrases": false,
+         "text": ""
+        },
+        "class": "FactStore"
+       },
+       "tools_in_run": [
+        "find_incident_by_number",
+        "find_incident_slas",
+        "find_sla_definitions",
+        "get_user",
+        "link_new_incident_sla",
+        "send_notification",
+        "update_incident",
+        "update_incident_sla_details"
+       ],
+       "verifier": {
+        "attrs": {
+         "model": {
+          "model": {
+           "api_key_env": "OPENAI_API_KEY",
+           "base_url": null,
+           "kind": "json",
+           "max_retries": 3,
+           "max_tokens": null,
+           "model": "aws/gpt-oss-120b",
+           "timeout": 90.0
+          }
+         }
+        },
+        "class": "Verifier"
+       },
+       "verifier_for": null,
+       "verifier_may_deny": false
+      },
+      "class": "RuleSetHooks"
+     }
+    ],
+    "models": [
+     {
+      "api_key_env": "OPENAI_API_KEY",
+      "base_url": null,
+      "kind": "json",
+      "max_retries": 3,
+      "max_tokens": null,
+      "model": "aws/gpt-oss-120b",
+      "timeout": 90.0
+     }
+    ],
+    "slots": {
+     "after_reply": null,
+     "run": null,
+     "turn_note": null,
+     "wrap_tools": null
+    },
+    "system_note": "",
+    "tools": []
+   },
+   "policy": "d5ab75ff0f",
+   "profile": "itsm-rules",
+   "runner": "itsm",
+   "switches": {
+    "POLICY_BUILDS_DIR": "policy_eval/builds"
+   }
+  },
+  "itsm-rules/e2891a7b98": {
+   "description": {
+    "gate_reads_tools_store": null,
+    "hooks": [
+     {
+      "attrs": {
+       "brief": true,
+       "by_tool": {
+        "items": 11,
+        "sha": "61bbb5ebdafe6fda"
+       },
+       "called": [],
+       "cap_effect": "allow",
+       "cedar": null,
+       "facts": {
+        "attrs": {
+         "nodes": [],
+         "principal": {
+          "id": "golden-user",
+          "role": "itil"
+         },
+         "records": {},
+         "text": ""
+        },
+        "class": "Facts"
+       },
+       "global_rules": [
+        {
+         "by": "model",
+         "id": "73ab784731ba",
+         "quote": "Never assume or fabricate IDs, responses, or outcomes — rely solely on verified API results.",
+         "source": "§1",
+         "type": "id_provenance"
+        },
+        {
+         "by": "model",
+         "id": "ab0eb716e45e",
+         "may_deny": false,
+         "quote": "Never assume or fabricate IDs, responses, or outcomes — rely solely on verified API results.",
+         "source": "§1",
+         "type": "grounded_values"
+        }
+       ],
+       "global_verify": {
+        "items": 2,
+        "sha": "e57c4fb19c88cd43"
+       },
+       "method_choice": {},
+       "mode": "enforce",
+       "note_channel": "tool",
+       "notes": [],
+       "open_duties": [],
+       "principal": {
+        "id": "golden-user",
+        "role": "itil"
+       },
+       "records": [],
+       "request": "",
+       "rules": {
+        "items": 53,
+        "sha": "cb7684d6bbb8ddd7"
+       },
+       "scope_check": null,
+       "specs": {
+        "items": 93,
+        "sha": "e578e332bd6533e3"
+       },
+       "store": {
+        "attrs": {
+         "index": [],
+         "match_phrases": false,
+         "text": ""
+        },
+        "class": "FactStore"
+       },
+       "tools_in_run": [
+        "find_incident_by_number",
+        "find_incident_slas",
+        "find_sla_definitions",
+        "get_user",
+        "link_new_incident_sla",
+        "update_incident"
+       ],
+       "verifier": {
+        "attrs": {
+         "model": {
+          "model": {
+           "api_key_env": "OPENAI_API_KEY",
+           "base_url": null,
+           "kind": "json",
+           "max_retries": 3,
+           "max_tokens": null,
+           "model": "aws/gpt-oss-120b",
+           "timeout": 90.0
+          }
+         }
+        },
+        "class": "Verifier"
+       },
+       "verifier_for": null,
+       "verifier_may_deny": false
+      },
+      "class": "RuleSetHooks"
+     }
+    ],
+    "models": [
+     {
+      "api_key_env": "OPENAI_API_KEY",
+      "base_url": null,
+      "kind": "json",
+      "max_retries": 3,
+      "max_tokens": null,
+      "model": "aws/gpt-oss-120b",
+      "timeout": 90.0
+     }
+    ],
+    "slots": {
+     "after_reply": null,
+     "run": null,
+     "turn_note": null,
+     "wrap_tools": null
+    },
+    "system_note": "",
+    "tools": []
+   },
+   "policy": "e2891a7b98",
+   "profile": "itsm-rules",
+   "runner": "itsm",
+   "switches": {
+    "POLICY_BUILDS_DIR": "policy_eval/builds"
+   }
+  },
+  "other/automationbench-b5-guard-code": {
+   "description": {
+    "gate_reads_tools_store": null,
+    "hooks": [
+     {
+      "attrs": {
+       "brief": false,
+       "called": [],
+       "cap_effect": "skip",
+       "check_reply": true,
+       "compiled": [],
+       "decisions": {
+        "attrs": {
+         "ask": {
+          "model": {
+           "kind": "questions",
+           "model": "jaredpalmer/kev-4b",
+           "retries": 3,
+           "timeout": 60.0,
+           "url": "https://openrouter.ai/api/v1/systemone"
+          }
+         },
+         "threshold": 0.6
+        },
+        "class": "Decisions"
+       },
+       "detect_threshold": 0.47,
+       "detector": null,
+       "discover": [],
+       "enforcer": {
+        "attrs": {
+         "brief": true,
+         "by_tool": {},
+         "called": [],
+         "cap_effect": "skip",
+         "cedar": null,
+         "facts": {
+          "attrs": {
+           "nodes": [],
+           "principal": {},
+           "records": {},
+           "text": ""
+          },
+          "class": "Facts"
+         },
+         "global_rules": [],
+         "global_verify": [],
+         "method_choice": {
+          "items": 17,
+          "sha": "efd0f554869ecabc"
+         },
+         "mode": "enforce",
+         "note_channel": "system",
+         "notes": [],
+         "open_duties": [],
+         "principal": {},
+         "records": [],
+         "request": "",
+         "rules": [],
+         "scope_check": "cuga.policy_layer.decisions.Decisions.rule_applies",
+         "specs": {
+          "items": 2,
+          "sha": "f26e036c541bd874"
+         },
+         "store": {
+          "attrs": {
+           "index": [],
+           "match_phrases": false,
+           "text": ""
+          },
+          "class": "FactStore"
+         },
+         "tools_in_run": [
+          "gmail_find_email",
+          "gmail_send_email"
+         ],
+         "verifier": null,
+         "verifier_for": null,
+         "verifier_may_deny": false
+        },
+        "class": "RuleSetHooks"
+       },
+       "flagged_ids": [],
+       "guard": {
+        "attrs": {
+         "cache": {},
+         "log": [],
+         "model": {
+          "model": {
+           "api_key_env": "OPENAI_API_KEY",
+           "base_url": null,
+           "kind": "json",
+           "max_retries": 3,
+           "max_tokens": null,
+           "model": "aws/gpt-oss-120b",
+           "timeout": 90.0
+          }
+         },
+         "pool": "<ThreadPoolExecutor>"
+        },
+        "class": "GuardCode"
+       },
+       "guard_mode": "remind",
+       "is_write": "cuga.policy_layer.ruleset.is_write_tool",
+       "method_choice": {
+        "items": 17,
+        "sha": "efd0f554869ecabc"
+       },
+       "model": {
+        "model": {
+         "api_key_env": "OPENAI_API_KEY",
+         "base_url": null,
+         "kind": "json",
+         "max_retries": 3,
+         "max_tokens": null,
+         "model": "aws/gpt-oss-120b",
+         "timeout": 90.0
+        }
+       },
+       "model_effect": "block_once",
+       "note_channel": "system",
+       "notes": [],
+       "observations": [],
+       "overlay": {
+        "attrs": {
+         "documents": [],
+         "links": [],
+         "quote": "",
+         "source": {}
+        },
+        "class": "PolicySet"
+       },
+       "pending": [],
+       "policies": [],
+       "pool": "<ThreadPoolExecutor>",
+       "read_before_write": "block_once",
+       "record_checks": true,
+       "records": [],
+       "refs": {
+        "attrs": {
+         "refs": []
+        },
+        "class": "ReferenceLedger"
+       },
+       "request": "",
+       "retry_effect": "hold",
+       "seen": [],
+       "store": {
+        "attrs": {
+         "index": [],
+         "match_phrases": true,
+         "text": ""
+        },
+        "class": "FactStore"
+       },
+       "superseded": {},
+       "today": "2026-01-15",
+       "tool_specs": {
+        "items": 2,
+        "sha": "4a9ae9b28095cbbe"
+       },
+       "track_supersedes": false,
+       "verifier_may_deny": false,
+       "verify_writes": true,
+       "wait_s": 45.0,
+       "writes": []
+      },
+      "class": "OnlinePolicyIntake"
+     }
+    ],
+    "models": [
+     {
+      "api_key_env": "OPENAI_API_KEY",
+      "base_url": null,
+      "kind": "json",
+      "max_retries": 3,
+      "max_tokens": null,
+      "model": "aws/gpt-oss-120b",
+      "timeout": 90.0
+     },
+     {
+      "kind": "questions",
+      "model": "jaredpalmer/kev-4b",
+      "retries": 3,
+      "timeout": 60.0,
+      "url": "https://openrouter.ai/api/v1/systemone"
+     }
+    ],
+    "slots": {
+     "after_reply": null,
+     "run": null,
+     "turn_note": null,
+     "wrap_tools": null
+    },
+    "system_note": "",
+    "tools": []
+   },
+   "policy": "golden.dry_run",
+   "profile": null,
+   "runner": "automationbench",
+   "switches": {
+    "POLICY_BRIEF": "0",
+    "POLICY_DETECTOR": "none",
+    "POLICY_GUARD_CODE": "remind",
+    "POLICY_METHOD_CHOICE": "policy_eval/method_choice.json",
+    "POLICY_MODEL_NAME": "aws/gpt-oss-120b",
+    "POLICY_NOTES": "system",
+    "POLICY_READ_BEFORE_WRITE": "block_once",
+    "POLICY_V4": "1",
+    "POLICY_V5": "1"
+   }
+  },
+  "other/automationbench-checklists": {
+   "description": {
+    "gate_reads_tools_store": null,
+    "hooks": [
+     {
+      "attrs": {
+       "is_write": "cuga.policy_layer.ruleset.is_write_tool",
+       "items": null,
+       "max_rounds": 2,
+       "model": {
+        "model": {
+         "api_key_env": "OPENAI_API_KEY",
+         "base_url": null,
+         "kind": "json",
+         "max_retries": 3,
+         "max_tokens": 16000,
+         "model": "aws/gpt-oss-120b",
+         "timeout": 400
+        }
+       },
+       "policy": "",
+       "reads": [],
+       "records": [],
+       "request": "",
+       "rounds": 0,
+       "writes": [],
+       "wrong_mode": "verify"
+      },
+      "class": "RequirementsTracker"
+     }
+    ],
+    "models": [
+     {
+      "api_key_env": "OPENAI_API_KEY",
+      "base_url": null,
+      "kind": "json",
+      "max_retries": 3,
+      "max_tokens": 16000,
+      "model": "aws/gpt-oss-120b",
+      "timeout": 400
+     }
+    ],
+    "slots": {
+     "after_reply": null,
+     "run": null,
+     "turn_note": null,
+     "wrap_tools": null
+    },
+    "system_note": "",
+    "tools": []
+   },
+   "policy": "golden.dry_run",
+   "profile": null,
+   "runner": "automationbench",
+   "switches": {
+    "POLICY_MODEL_NAME": "aws/gpt-oss-120b",
+    "POLICY_NOTES": "system",
+    "POLICY_TRACKER": "1",
+    "POLICY_TRACKER_WRONG": "verify"
+   }
+  },
+  "other/automationbench-loop": {
+   "description": {
+    "gate_reads_tools_store": null,
+    "hooks": [
+     {
+      "attrs": {
+       "held": [],
+       "is_write": "cuga.policy_layer.ruleset.is_write_tool",
+       "mode": "free",
+       "reads": [],
+       "records": [],
+       "which": null,
+       "writes": []
+      },
+      "class": "LoopHooks"
+     }
+    ],
+    "models": [
+     {
+      "api_key_env": "OPENAI_API_KEY",
+      "base_url": null,
+      "kind": "json",
+      "max_retries": 3,
+      "max_tokens": 8000,
+      "model": "azure/DeepSeek-V4-Pro",
+      "timeout": 300
+     }
+    ],
+    "slots": {
+     "after_reply": null,
+     "run": {
+      "attrs": {
+       "general": null,
+       "index": null,
+       "log": [],
+       "mode": "control",
+       "model": {
+        "model": {
+         "api_key_env": "OPENAI_API_KEY",
+         "base_url": null,
+         "kind": "json",
+         "max_retries": 3,
+         "max_tokens": 8000,
+         "model": "azure/DeepSeek-V4-Pro",
+         "timeout": 300
+        }
+       },
+       "procs": [],
+       "receipts": [],
+       "require_evidence": false,
+       "rules_from_data": true
+      },
+      "class": "SopLoop"
+     },
+     "turn_note": null,
+     "wrap_tools": null
+    },
+    "system_note": "",
+    "tools": []
+   },
+   "policy": "golden.dry_run",
+   "profile": null,
+   "runner": "automationbench",
+   "switches": {
+    "SOP_LOOP": "1"
+   }
+  },
+  "other/handbook-gate-over-sop-file": {
+   "description": {
+    "gate_reads_tools_store": null,
+    "hooks": [
+     {
+      "attrs": {
+       "blocked": [],
+       "data_chars": 24000,
+       "model": {
+        "model": {
+         "api_key_env": "OPENAI_API_KEY",
+         "base_url": null,
+         "kind": "json",
+         "max_retries": 3,
+         "max_tokens": 4000,
+         "model": "gcp/gemini-3.8-flash",
+         "timeout": 180
+        }
+       },
+       "reads": [],
+       "records": [],
+       "sop_text": {
+        "sha": "c936bf6bec2d90ff",
+        "text_chars": 63167
+       },
+       "store": null,
+       "today": "2026-04-10"
+      },
+      "class": "StoreGate"
+     }
+    ],
+    "models": [
+     {
+      "api_key_env": "OPENAI_API_KEY",
+      "base_url": null,
+      "kind": "json",
+      "max_retries": 3,
+      "max_tokens": 4000,
+      "model": "gcp/gemini-3.8-flash",
+      "timeout": 180
+     }
+    ],
+    "slots": {
+     "after_reply": null,
+     "run": null,
+     "turn_note": null,
+     "wrap_tools": null
+    },
+    "system_note": "",
+    "tools": []
+   },
+   "policy": "hr_crestwood_university_79786c46",
+   "profile": null,
+   "runner": "handbook",
+   "switches": {
+    "POLICY_GATE_SOP": "1"
+   }
+  },
+  "other/handbook-loop-discovery": {
+   "description": {
+    "gate_reads_tools_store": null,
+    "hooks": [
+     {
+      "attrs": {
+       "held": [],
+       "is_write": "cuga.policy_layer.ruleset.is_write_tool",
+       "mode": "free",
+       "reads": [],
+       "records": [],
+       "which": null,
+       "writes": []
+      },
+      "class": "LoopHooks"
+     }
+    ],
+    "models": [
+     {
+      "api_key_env": "OPENAI_API_KEY",
+      "base_url": null,
+      "kind": "json",
+      "max_retries": 3,
+      "max_tokens": 8000,
+      "model": "azure/DeepSeek-V4-Pro",
+      "timeout": 300
+     },
+     {
+      "kind": "questions",
+      "model": "jaredpalmer/kev-4b",
+      "retries": 3,
+      "timeout": 60.0,
+      "url": "https://openrouter.ai/api/v1/systemone"
+     }
+    ],
+    "slots": {
+     "after_reply": null,
+     "run": {
+      "attrs": {
+       "general": {
+        "items": 11,
+        "sha": "ec74649af897b5f5"
+       },
+       "index": {
+        "attrs": {
+         "ask": {
+          "model": {
+           "kind": "questions",
+           "model": "jaredpalmer/kev-4b",
+           "retries": 3,
+           "timeout": 60.0,
+           "url": "https://openrouter.ai/api/v1/systemone"
+          }
+         },
+         "by_id": {
+          "items": 736,
+          "sha": "43ae06e0188f00a3"
+         },
+         "by_sec": {
+          "items": 88,
+          "sha": "64b4a6a6eb66e610"
+         },
+         "general": {
+          "items": 11,
+          "sha": "ec74649af897b5f5"
+         },
+         "links": {
+          "items": 157,
+          "sha": "277d4c515bd4d2b4"
+         },
+         "parent": {
+          "items": 88,
+          "sha": "c14bfb6719d3b66c"
+         },
+         "pindex": {
+          "attrs": {
+           "avg": 142.7058823529412,
+           "b": 0.75,
+           "df": {
+            "items": 460,
+            "sha": "b50f3e2571219538"
+           },
+           "docs": {
+            "items": 17,
+            "sha": "ca0a4e8b39971b18"
+           },
+           "k1": 1.5,
+           "n": 17,
+           "tf": {
+            "items": 17,
+            "sha": "72c968439d134de8"
+           }
+          },
+          "class": "BM25"
+         },
+         "procs": {
+          "items": 17,
+          "sha": "48b9ca886f6fc7ed"
+         },
+         "secs": {
+          "items": 88,
+          "sha": "5f0fee17b2f12cc7"
+         },
+         "sts": {
+          "items": 736,
+          "sha": "b28ab4e18ce9ca46"
+         }
+        },
+        "class": "SopIndex"
+       },
+       "log": [],
+       "mode": "discovery",
+       "model": {
+        "model": {
+         "api_key_env": "OPENAI_API_KEY",
+         "base_url": null,
+         "kind": "json",
+         "max_retries": 3,
+         "max_tokens": 8000,
+         "model": "azure/DeepSeek-V4-Pro",
+         "timeout": 300
+        }
+       },
+       "procs": {
+        "items": 17,
+        "sha": "48b9ca886f6fc7ed"
+       },
+       "receipts": [],
+       "require_evidence": true,
+       "rules_from_data": true
+      },
+      "class": "SopLoop"
+     },
+     "turn_note": null,
+     "wrap_tools": null
+    },
+    "system_note": "",
+    "tools": []
+   },
+   "policy": "hr_crestwood_university_79786c46",
+   "profile": null,
+   "runner": "handbook",
+   "switches": {
+    "HB_BUILDS": "v3",
+    "SOP_LOOP": "1",
+    "SOP_LOOP_MODE": "discovery"
+   }
+  },
+  "other/itsm-checklists": {
+   "description": {
+    "gate_reads_tools_store": null,
+    "hooks": [
+     {
+      "attrs": {
+       "is_write": "cuga.policy_layer.ruleset.is_write_tool",
+       "items": null,
+       "max_rounds": 2,
+       "model": {
+        "model": {
+         "api_key_env": "OPENAI_API_KEY",
+         "base_url": null,
+         "kind": "json",
+         "max_retries": 3,
+         "max_tokens": 16000,
+         "model": "aws/gpt-oss-120b",
+         "timeout": 400
+        }
+       },
+       "policy": {
+        "sha": "2e555b5177e53ebc",
+        "text_chars": 9892
+       },
+       "reads": [],
+       "records": [],
+       "request": "",
+       "rounds": 0,
+       "writes": [],
+       "wrong_mode": "off"
+      },
+      "class": "RequirementsTracker"
+     }
+    ],
+    "models": [
+     {
+      "api_key_env": "OPENAI_API_KEY",
+      "base_url": null,
+      "kind": "json",
+      "max_retries": 3,
+      "max_tokens": 16000,
+      "model": "aws/gpt-oss-120b",
+      "timeout": 400
+     }
+    ],
+    "slots": {
+     "after_reply": null,
+     "run": null,
+     "turn_note": null,
+     "wrap_tools": null
+    },
+    "system_note": "",
+    "tools": []
+   },
+   "policy": "2e555b5177",
+   "profile": null,
+   "runner": "itsm",
+   "switches": {
+    "POLICY_TRACKER": "1",
+    "POLICY_TRACKER_MODEL": "aws/gpt-oss-120b"
+   }
+  },
+  "other/itsm-gate-gemini": {
+   "description": {
+    "gate_reads_tools_store": null,
+    "hooks": [
+     {
+      "attrs": {
+       "blocked": [],
+       "data_chars": 24000,
+       "model": {
+        "model": {
+         "api_key_env": "OPENAI_API_KEY",
+         "base_url": null,
+         "kind": "json",
+         "max_retries": 3,
+         "max_tokens": 4000,
+         "model": "gcp/gemini-3.8-flash",
+         "timeout": 180
+        }
+       },
+       "reads": {
+        "items": 1,
+        "sha": "cfee2fa04f992d59"
+       },
+       "records": [],
+       "sop_text": {
+        "sha": "2e555b5177e53ebc",
+        "text_chars": 9892
+       },
+       "store": null,
+       "today": null
+      },
+      "class": "StoreGate"
+     }
+    ],
+    "models": [
+     {
+      "api_key_env": "OPENAI_API_KEY",
+      "base_url": null,
+      "kind": "json",
+      "max_retries": 3,
+      "max_tokens": 4000,
+      "model": "gcp/gemini-3.8-flash",
+      "timeout": 180
+     }
+    ],
+    "slots": {
+     "after_reply": null,
+     "run": null,
+     "turn_note": null,
+     "wrap_tools": null
+    },
+    "system_note": "",
+    "tools": []
+   },
+   "policy": "2e555b5177",
+   "profile": null,
+   "runner": "itsm",
+   "switches": {
+    "POLICY_GATE_MODEL": "gcp/gemini-3.8-flash",
+    "POLICY_GATE_SOP": "1"
+   }
+  },
+  "other/itsm-gate-over-policy-text": {
+   "description": {
+    "gate_reads_tools_store": null,
+    "hooks": [
+     {
+      "attrs": {
+       "blocked": [],
+       "data_chars": 24000,
+       "model": {
+        "model": {
+         "api_key_env": "OPENAI_API_KEY",
+         "base_url": null,
+         "kind": "json",
+         "max_retries": 3,
+         "max_tokens": 16000,
+         "model": "aws/gpt-oss-120b",
+         "timeout": 180
+        }
+       },
+       "reads": {
+        "items": 1,
+        "sha": "cfee2fa04f992d59"
+       },
+       "records": [],
+       "sop_text": {
+        "sha": "2e555b5177e53ebc",
+        "text_chars": 9892
+       },
+       "store": null,
+       "today": null
+      },
+      "class": "StoreGate"
+     }
+    ],
+    "models": [
+     {
+      "api_key_env": "OPENAI_API_KEY",
+      "base_url": null,
+      "kind": "json",
+      "max_retries": 3,
+      "max_tokens": 16000,
+      "model": "aws/gpt-oss-120b",
+      "timeout": 180
+     }
+    ],
+    "slots": {
+     "after_reply": null,
+     "run": null,
+     "turn_note": null,
+     "wrap_tools": null
+    },
+    "system_note": "",
+    "tools": []
+   },
+   "policy": "2e555b5177",
+   "profile": null,
+   "runner": "itsm",
+   "switches": {
+    "POLICY_GATE_MODEL": "aws/gpt-oss-120b",
+    "POLICY_GATE_SOP": "1"
+   }
+  },
+  "other/itsm-rules-and-loop": {
+   "description": {
+    "gate_reads_tools_store": null,
+    "hooks": [
+     {
+      "attrs": {
+       "brief": true,
+       "by_tool": {
+        "items": 11,
+        "sha": "888da610a7f694be"
+       },
+       "called": [],
+       "cap_effect": "allow",
+       "cedar": null,
+       "facts": {
+        "attrs": {
+         "nodes": [],
+         "principal": {
+          "id": "golden-user",
+          "role": "itil"
+         },
+         "records": {},
+         "text": ""
+        },
+        "class": "Facts"
+       },
+       "global_rules": [
+        {
+         "by": "model",
+         "id": "73ab784731ba",
+         "quote": "Never assume or fabricate IDs, responses, or outcomes — rely solely on verified API results.",
+         "source": "§1",
+         "type": "id_provenance"
+        },
+        {
+         "by": "model",
+         "id": "ab0eb716e45e",
+         "quote": "Never assume or fabricate IDs, responses, or outcomes — rely solely on verified API results.",
+         "source": "§1",
+         "type": "grounded_values"
+        }
+       ],
+       "global_verify": {
+        "items": 2,
+        "sha": "035fbbdf48563302"
+       },
+       "method_choice": {
+        "items": 17,
+        "sha": "efd0f554869ecabc"
+       },
+       "mode": "enforce",
+       "note_channel": "tool",
+       "notes": [],
+       "open_duties": [],
+       "principal": {
+        "id": "golden-user",
+        "role": "itil"
+       },
+       "records": [],
+       "request": "",
+       "rules": {
+        "items": 53,
+        "sha": "d04d037224755140"
+       },
+       "scope_check": null,
+       "specs": {
+        "items": 93,
+        "sha": "e578e332bd6533e3"
+       },
+       "store": {
+        "attrs": {
+         "index": [],
+         "match_phrases": false,
+         "text": ""
+        },
+        "class": "FactStore"
+       },
+       "tools_in_run": [
+        "add_new_group_member",
+        "add_new_user",
+        "add_new_user_group",
+        "get_user"
+       ],
+       "verifier": {
+        "attrs": {
+         "model": {
+          "model": {
+           "api_key_env": "OPENAI_API_KEY",
+           "base_url": null,
+           "kind": "json",
+           "max_retries": 3,
+           "max_tokens": null,
+           "model": "aws/gpt-oss-120b",
+           "timeout": 90.0
+          }
+         }
+        },
+        "class": "Verifier"
+       },
+       "verifier_for": "<closure>",
+       "verifier_may_deny": false
+      },
+      "class": "RuleSetHooks"
+     },
+     {
+      "attrs": {
+       "held": [],
+       "is_write": "cuga.policy_layer.ruleset.is_write_tool",
+       "mode": "free",
+       "reads": [],
+       "records": [],
+       "which": null,
+       "writes": []
+      },
+      "class": "LoopHooks"
+     }
+    ],
+    "models": [
+     {
+      "api_key_env": "OPENAI_API_KEY",
+      "base_url": null,
+      "kind": "json",
+      "max_retries": 3,
+      "max_tokens": 8000,
+      "model": "azure/DeepSeek-V4-Pro",
+      "timeout": 300
+     },
+     {
+      "api_key_env": "OPENAI_API_KEY",
+      "base_url": null,
+      "kind": "json",
+      "max_retries": 3,
+      "max_tokens": null,
+      "model": "aws/gpt-oss-120b",
+      "timeout": 90.0
+     }
+    ],
+    "slots": {
+     "after_reply": null,
+     "run": {
+      "attrs": {
+       "general": null,
+       "index": null,
+       "log": [],
+       "mode": "control",
+       "model": {
+        "model": {
+         "api_key_env": "OPENAI_API_KEY",
+         "base_url": null,
+         "kind": "json",
+         "max_retries": 3,
+         "max_tokens": 8000,
+         "model": "azure/DeepSeek-V4-Pro",
+         "timeout": 300
+        }
+       },
+       "procs": [],
+       "receipts": [],
+       "require_evidence": false,
+       "rules_from_data": false
+      },
+      "class": "SopLoop"
+     },
+     "turn_note": null,
+     "wrap_tools": null
+    },
+    "system_note": "",
+    "tools": []
+   },
+   "policy": "2e555b5177",
+   "profile": null,
+   "runner": "itsm",
+   "switches": {
+    "POLICY_BUILDS_DIR": "policy_eval/builds",
+    "POLICY_METHOD_CHOICE": "policy_eval/method_choice.json",
+    "SOP_LOOP": "1"
+   }
+  },
+  "tau2-telecom-dsv4-sop-tracker": {
+   "description": {
+    "gate_reads_tools_store": null,
+    "hooks": [],
+    "models": [
+     {
+      "api_key_env": "OPENAI_API_KEY",
+      "base_url": null,
+      "kind": "json",
+      "max_retries": 3,
+      "max_tokens": 8000,
+      "model": "aws/gpt-oss-120b",
+      "timeout": 90
+     }
+    ],
+    "slots": {
+     "after_reply": null,
+     "run": null,
+     "turn_note": {
+      "attrs": {
+       "by_id": {
+        "items": 47,
+        "sha": "f2b33d515a709e4a"
+       },
+       "chapter_ids": {
+        "1": "Telecom Agent Policy",
+        "2": "Introduction",
+        "3": "What the user can do on their device",
+        "4": "Understanding and Troubleshooting Your Phone's Cellular Service",
+        "5": "Understanding and Troubleshooting Your Phone's Mobile Data",
+        "6": "Understanding and Troubleshooting MMS (Picture/Video Messaging)"
+       },
+       "chapters": {
+        "items": 6,
+        "sha": "b2bc074c531c282b"
+       },
+       "kept": [],
+       "max_sections": 6,
+       "model": {
+        "model": {
+         "api_key_env": "OPENAI_API_KEY",
+         "base_url": null,
+         "kind": "json",
+         "max_retries": 3,
+         "max_tokens": 8000,
+         "model": "aws/gpt-oss-120b",
+         "timeout": 90
+        }
+       },
+       "records": [],
+       "sections": {
+        "items": 47,
+        "sha": "bdd8baafbf6ac17f"
+       },
+       "unit": "chapter"
+      },
+      "class": "SopTracker"
+     },
+     "wrap_tools": null
+    },
+    "system_note": "",
+    "tools": []
+   },
+   "policy": "telecom",
+   "profile": "tau2-telecom-dsv4-sop-tracker",
+   "runner": "tau2",
+   "switches": {
+    "POLICY_TRACKER_MODEL": "aws/gpt-oss-120b",
+    "SOP_TRACKER": "1"
+   }
+  },
+  "tau2-telecom-gptoss-navigator": {
+   "description": {
+    "gate_reads_tools_store": null,
+    "hooks": [],
+    "models": [
+     {
+      "kind": "questions",
+      "model": "jaredpalmer/kev-4b",
+      "retries": 3,
+      "timeout": 60.0,
+      "url": "https://openrouter.ai/api/v1/systemone"
+     }
+    ],
+    "slots": {
+     "after_reply": {
+      "handoff_text": [
+       "transferred to a human agent",
+       "transferring you to a human"
+      ],
+      "handoff_tools": [
+       "transfer_to_human_agents"
+      ],
+      "max_blocks": 2,
+      "message_tool": "send_message_to_user",
+      "navigator": {
+       "attrs": {
+        "agent_tools": [
+         "suspend_line",
+         "resume_line",
+         "send_payment_request",
+         "enable_roaming",
+         "disable_roaming",
+         "transfer_to_human_agents",
+         "refuel_data"
+        ],
+        "ask": {
+         "model": {
+          "kind": "questions",
+          "model": "jaredpalmer/kev-4b",
+          "retries": 3,
+          "timeout": 60.0,
+          "url": "https://openrouter.ai/api/v1/systemone"
+         }
+        },
+        "chapter": null,
+        "chapters": [
+         0,
+         19,
+         27,
+         40
+        ],
+        "depth": 1,
+        "exits": [
+         [
+          24,
+          "the SIM shows \"Locked\" due to incorrect PIN or PUK entries"
+         ],
+         [
+          26,
+          "the suspension cannot be lifted by the agent (e.g., contract end date past or other non‑resolvable reasons)"
+         ],
+         [
+          0,
+          "the request cannot be handled within the scope of your actions"
+         ]
+        ],
+        "ids": {
+         "items": 51,
+         "sha": "078776938b2fc475"
+        },
+        "items": {
+         "items": 26,
+         "sha": "14321e7142c22a10"
+        },
+        "links": {
+         "0": [
+          10,
+          14,
+          26,
+          9
+         ],
+         "15": [
+          14,
+          19,
+          27,
+          40
+         ],
+         "16": [
+          14
+         ],
+         "17": [
+          13,
+          23,
+          33,
+          36
+         ],
+         "18": [
+          13,
+          23,
+          33,
+          36
+         ],
+         "2": [
+          3
+         ],
+         "20": [
+          23,
+          33
+         ],
+         "23": [
+          33
+         ],
+         "24": [
+          14
+         ],
+         "26": [
+          10,
+          14
+         ],
+         "29": [
+          19
+         ],
+         "30": [
+          13,
+          23,
+          33,
+          36,
+          38
+         ],
+         "33": [
+          19,
+          23
+         ],
+         "35": [
+          13
+         ],
+         "4": [
+          11
+         ],
+         "42": [
+          19,
+          27
+         ],
+         "43": [
+          25
+         ],
+         "46": [
+          19,
+          27
+         ],
+         "5": [
+          11
+         ]
+        },
+        "max_items": 5,
+        "records": [],
+        "secs": {
+         "items": 51,
+         "sha": "36cf85c85cb57a0d"
+        },
+        "semantic_evidence": false
+       },
+       "class": "SopNavigator"
+      }
+     },
+     "run": null,
+     "turn_note": null,
+     "wrap_tools": {
+      "handoff_text": [
+       "transferred to a human agent",
+       "transferring you to a human"
+      ],
+      "handoff_tools": [
+       "transfer_to_human_agents"
+      ],
+      "max_blocks": 2,
+      "message_tool": "send_message_to_user",
+      "navigator": {
+       "attrs": {
+        "agent_tools": [
+         "suspend_line",
+         "resume_line",
+         "send_payment_request",
+         "enable_roaming",
+         "disable_roaming",
+         "transfer_to_human_agents",
+         "refuel_data"
+        ],
+        "ask": {
+         "model": {
+          "kind": "questions",
+          "model": "jaredpalmer/kev-4b",
+          "retries": 3,
+          "timeout": 60.0,
+          "url": "https://openrouter.ai/api/v1/systemone"
+         }
+        },
+        "chapter": null,
+        "chapters": [
+         0,
+         19,
+         27,
+         40
+        ],
+        "depth": 1,
+        "exits": [
+         [
+          24,
+          "the SIM shows \"Locked\" due to incorrect PIN or PUK entries"
+         ],
+         [
+          26,
+          "the suspension cannot be lifted by the agent (e.g., contract end date past or other non‑resolvable reasons)"
+         ],
+         [
+          0,
+          "the request cannot be handled within the scope of your actions"
+         ]
+        ],
+        "ids": {
+         "items": 51,
+         "sha": "078776938b2fc475"
+        },
+        "items": {
+         "items": 26,
+         "sha": "14321e7142c22a10"
+        },
+        "links": {
+         "0": [
+          10,
+          14,
+          26,
+          9
+         ],
+         "15": [
+          14,
+          19,
+          27,
+          40
+         ],
+         "16": [
+          14
+         ],
+         "17": [
+          13,
+          23,
+          33,
+          36
+         ],
+         "18": [
+          13,
+          23,
+          33,
+          36
+         ],
+         "2": [
+          3
+         ],
+         "20": [
+          23,
+          33
+         ],
+         "23": [
+          33
+         ],
+         "24": [
+          14
+         ],
+         "26": [
+          10,
+          14
+         ],
+         "29": [
+          19
+         ],
+         "30": [
+          13,
+          23,
+          33,
+          36,
+          38
+         ],
+         "33": [
+          19,
+          23
+         ],
+         "35": [
+          13
+         ],
+         "4": [
+          11
+         ],
+         "42": [
+          19,
+          27
+         ],
+         "43": [
+          25
+         ],
+         "46": [
+          19,
+          27
+         ],
+         "5": [
+          11
+         ]
+        },
+        "max_items": 5,
+        "records": [],
+        "secs": {
+         "items": 51,
+         "sha": "36cf85c85cb57a0d"
+        },
+        "semantic_evidence": false
+       },
+       "class": "SopNavigator"
+      }
+     }
+    },
+    "system_note": "",
+    "tools": []
+   },
+   "policy": "telecom",
+   "profile": "tau2-telecom-gptoss-navigator",
+   "runner": "tau2",
+   "switches": {
+    "POLICY_BUILD": "policy_eval/tau2/builds/telecom.json",
+    "SOP_NAVIGATOR": "1",
+    "SOP_NAVIGATOR_HANDOFF_TEXT": "transferred to a human agent|transferring you to a human",
+    "SOP_NAVIGATOR_HANDOFF_TOOLS": "transfer_to_human_agents"
+   }
+  }
+ },
+ "note": "Description of the wiring of the old runners (tools/golden_hooks.py capture). Written from the old wiring, never from build_runtime."
+}

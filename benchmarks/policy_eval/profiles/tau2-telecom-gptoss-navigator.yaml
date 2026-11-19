@@ -1,0 +1,33 @@
+# Not measured live yet: tau2 Telecom with the agent aws/gpt-oss-120b, N, the SOP navigator (best_profiles.json, branch
+# best/tau2-navigator-exp, commit e7647c57b). Offline replay only: it catches 24 of 26 failed DeepSeek runs (7 of 26
+# without links). The live run on telecom_fresh40.json is pending.
+# Switches of the measurement: SOP_NAVIGATOR=1 POLICY_BUILD=policy_eval/tau2/builds/telecom.json.
+# The hand-off phrases and tool below are the defaults of the runner. The navigator names no domain, so they are values
+# of this profile: best_profiles.json writes them out as SOP_NAVIGATOR_HANDOFF_TEXT and SOP_NAVIGATOR_HANDOFF_TOOLS.
+# Not set by a switch, so the default of the runner applies: the navigator asks Kev-4B, blocks at most 2 hand-offs and
+# uses no semantic evidence. The runner names the tool that sends a message in the middle of a turn: it goes in the
+# RunContext, not here. golden_hooks.json holds the wiring of the old runner.
+policy:
+  package: packages/tau2_telecom/telecom/builds/package.json
+  sources: {data: false, discovery: false, request: false}
+  authority: {supersedes: false}
+  checkers:
+    rules: off
+    narrow_questions: jaredpalmer/kev-4b
+    gate: {mode: off}
+    verifier: {mode: off}
+    write_checks: off  # separate hooks, as measured
+  organizers:
+    procedure_tools: off
+    guide: off
+    loop: off
+    sop_tracker: off
+    navigator:
+      mode: on
+      semantic_evidence: false
+      max_blocks: 2
+      handoff_text: [transferred to a human agent, transferring you to a human]
+      handoff_tools: [transfer_to_human_agents]
+    requirements_tracker: off
+  obligations: {producers: []}
+  decisions: {mode: off} # the navigator asks Kev-4B, but no write check does

@@ -1,0 +1,669 @@
+{
+ "seed": 202611122,
+ "rule": "Input: results/policy_features.json (policy_features.py). Pool: public tasks never used in a run or subset file,\nwithout the chatgpt tool (it always fails in our adapter) and without missing tools. Each task gets one primary\npolicy type, first match in this order: no rule text in the data; versioned or conflicting rules; approval gate;\nthreshold; date or deadline; rules spread over 2+ apps; one rule document. 5 tasks per type, at most 2 per domain\nper type, random with seed 20261104.",
+ "excluded": [
+  "policy_types_subset.json",
+  "versioned_dev.json:dev",
+  "versioned_dev.json:holdout",
+  "policy_types_holdout.json",
+  "policy_types_holdout2.json",
+  "policy_types_fresh3.json",
+  "policy_types_fresh4.json",
+  "policy_types_fresh5.json",
+  "policy_types_fresh6.json",
+  "policy_types_fresh7.json",
+  "upstream_named_tasks_2026-11-11.json"
+ ],
+ "types": {
+  "control": "no rule text in the data (request and system message only)",
+  "versioned": "versioned or conflicting rules (a later message supersedes or corrects a rule)",
+  "approval": "approval or authorization gate",
+  "threshold": "numeric threshold decides the action",
+  "date": "date or deadline decides the action",
+  "multi_source": "rules spread over 2+ apps",
+  "one_doc": "one rule document"
+ },
+ "pool": 93,
+ "tasks": [
+  {
+   "task": "hr.slack_channel_onboarding",
+   "type": "control",
+   "domain": "hr",
+   "n_tools": 5,
+   "apps": [
+    "google_sheets",
+    "slack"
+   ],
+   "n_checks": 8,
+   "n_guards": 3,
+   "rule_apps": []
+  },
+  {
+   "task": "finance.expense_reclassification",
+   "type": "control",
+   "domain": "finance",
+   "n_tools": 6,
+   "apps": [
+    "gmail",
+    "google_drive",
+    "google_sheets"
+   ],
+   "n_checks": 4,
+   "n_guards": 0,
+   "rule_apps": []
+  },
+  {
+   "task": "hr.recruitment_dedup_alert",
+   "type": "control",
+   "domain": "hr",
+   "n_tools": 5,
+   "apps": [
+    "gmail",
+    "google_sheets"
+   ],
+   "n_checks": 7,
+   "n_guards": 1,
+   "rule_apps": []
+  },
+  {
+   "task": "sales.linkedin_sales_prospecting",
+   "type": "control",
+   "domain": "sales",
+   "n_tools": 5,
+   "apps": [
+    "linkedin",
+    "salesforce"
+   ],
+   "n_checks": 15,
+   "n_guards": 6,
+   "rule_apps": []
+  },
+  {
+   "task": "support.zendesk_maintenance_notify",
+   "type": "control",
+   "domain": "support",
+   "n_tools": 12,
+   "apps": [
+    "gmail",
+    "google_calendar",
+    "google_drive",
+    "google_sheets",
+    "slack",
+    "zendesk"
+   ],
+   "n_checks": 31,
+   "n_guards": 15,
+   "rule_apps": []
+  },
+  {
+   "task": "operations.hubspot_ticket_escalation",
+   "type": "one_doc",
+   "domain": "operations",
+   "n_tools": 10,
+   "apps": [
+    "gmail",
+    "google_drive",
+    "google_sheets",
+    "hubspot",
+    "slack"
+   ],
+   "n_checks": 23,
+   "n_guards": 14,
+   "rule_apps": [
+    "google_sheets"
+   ]
+  },
+  {
+   "task": "support.intercom_multi_product_routing",
+   "type": "one_doc",
+   "domain": "support",
+   "n_tools": 14,
+   "apps": [
+    "google_drive",
+    "google_sheets",
+    "intercom",
+    "slack"
+   ],
+   "n_checks": 41,
+   "n_guards": 26,
+   "rule_apps": [
+    "google_sheets"
+   ]
+  },
+  {
+   "task": "operations.facility_incident_triage",
+   "type": "one_doc",
+   "domain": "operations",
+   "n_tools": 8,
+   "apps": [
+    "google_drive",
+    "google_sheets",
+    "jira",
+    "slack",
+    "twilio"
+   ],
+   "n_checks": 17,
+   "n_guards": 12,
+   "rule_apps": [
+    "google_sheets"
+   ]
+  },
+  {
+   "task": "finance.qb_undeposited_funds",
+   "type": "one_doc",
+   "domain": "finance",
+   "n_tools": 9,
+   "apps": [
+    "gmail",
+    "google_drive",
+    "google_sheets",
+    "quickbooks"
+   ],
+   "n_checks": 3,
+   "n_guards": 0,
+   "rule_apps": [
+    "gmail"
+   ]
+  },
+  {
+   "task": "finance.inventory_valuation",
+   "type": "one_doc",
+   "domain": "finance",
+   "n_tools": 8,
+   "apps": [
+    "gmail",
+    "google_drive",
+    "google_sheets"
+   ],
+   "n_checks": 6,
+   "n_guards": 0,
+   "rule_apps": [
+    "gmail"
+   ]
+  },
+  {
+   "task": "operations.purchase_order_three_way_match",
+   "type": "one_doc",
+   "domain": "operations",
+   "n_tools": 7,
+   "apps": [
+    "gmail",
+    "google_drive",
+    "google_sheets",
+    "monday"
+   ],
+   "n_checks": 9,
+   "n_guards": 5,
+   "rule_apps": [
+    "google_sheets"
+   ]
+  },
+  {
+   "task": "sales.soft_matching",
+   "type": "one_doc",
+   "domain": "sales",
+   "n_tools": 6,
+   "apps": [
+    "gmail",
+    "salesforce"
+   ],
+   "n_checks": 12,
+   "n_guards": 9,
+   "rule_apps": [
+    "gmail"
+   ]
+  },
+  {
+   "task": "hr.job_posting_distribution",
+   "type": "control",
+   "domain": "hr",
+   "n_tools": 6,
+   "apps": [
+    "gmail",
+    "google_sheets",
+    "recruitee",
+    "slack"
+   ],
+   "n_checks": 7,
+   "n_guards": 3,
+   "rule_apps": []
+  },
+  {
+   "task": "sales.linkedin_prospect_research",
+   "type": "one_doc",
+   "domain": "sales",
+   "n_tools": 9,
+   "apps": [
+    "google_drive",
+    "google_sheets",
+    "linkedin",
+    "salesforce",
+    "slack"
+   ],
+   "n_checks": 14,
+   "n_guards": 6,
+   "rule_apps": [
+    "google_sheets"
+   ]
+  },
+  {
+   "task": "hr.org_restructure_update",
+   "type": "one_doc",
+   "domain": "hr",
+   "n_tools": 8,
+   "apps": [
+    "gmail",
+    "google_sheets",
+    "slack"
+   ],
+   "n_checks": 9,
+   "n_guards": 3,
+   "rule_apps": [
+    "gmail"
+   ]
+  },
+  {
+   "task": "support.gorgias_order_lookup",
+   "type": "one_doc",
+   "domain": "support",
+   "n_tools": 10,
+   "apps": [
+    "google_drive",
+    "google_sheets",
+    "gorgias",
+    "slack"
+   ],
+   "n_checks": 40,
+   "n_guards": 15,
+   "rule_apps": [
+    "google_sheets"
+   ]
+  },
+  {
+   "task": "operations.perishable_inventory_expiry",
+   "type": "one_doc",
+   "domain": "operations",
+   "n_tools": 9,
+   "apps": [
+    "gmail",
+    "google_drive",
+    "google_sheets",
+    "slack",
+    "twilio"
+   ],
+   "n_checks": 21,
+   "n_guards": 8,
+   "rule_apps": [
+    "google_sheets"
+   ]
+  },
+  {
+   "task": "finance.invoice_reconciliation",
+   "type": "control",
+   "domain": "finance",
+   "n_tools": 5,
+   "apps": [
+    "google_drive",
+    "google_sheets",
+    "slack"
+   ],
+   "n_checks": 5,
+   "n_guards": 2,
+   "rule_apps": []
+  },
+  {
+   "task": "marketing.social_roi",
+   "type": "one_doc",
+   "domain": "marketing",
+   "n_tools": 7,
+   "apps": [
+    "gmail",
+    "google_drive",
+    "google_sheets"
+   ],
+   "n_checks": 21,
+   "n_guards": 3,
+   "rule_apps": [
+    "gmail"
+   ]
+  },
+  {
+   "task": "finance.vendor_spend_analysis",
+   "type": "one_doc",
+   "domain": "finance",
+   "n_tools": 5,
+   "apps": [
+    "gmail",
+    "google_drive",
+    "google_sheets"
+   ],
+   "n_checks": 5,
+   "n_guards": 0,
+   "rule_apps": [
+    "google_sheets"
+   ]
+  },
+  {
+   "task": "finance.quarterly_tax_estimate",
+   "type": "one_doc",
+   "domain": "finance",
+   "n_tools": 9,
+   "apps": [
+    "gmail",
+    "google_drive",
+    "google_sheets",
+    "slack"
+   ],
+   "n_checks": 3,
+   "n_guards": 0,
+   "rule_apps": [
+    "gmail"
+   ]
+  },
+  {
+   "task": "marketing.press_release_distribution",
+   "type": "one_doc",
+   "domain": "marketing",
+   "n_tools": 7,
+   "apps": [
+    "gmail",
+    "google_sheets"
+   ],
+   "n_checks": 18,
+   "n_guards": 7,
+   "rule_apps": [
+    "gmail"
+   ]
+  },
+  {
+   "task": "finance.timesheet_to_invoice",
+   "type": "one_doc",
+   "domain": "finance",
+   "n_tools": 8,
+   "apps": [
+    "gmail",
+    "google_drive",
+    "google_sheets",
+    "quickbooks"
+   ],
+   "n_checks": 3,
+   "n_guards": 1,
+   "rule_apps": [
+    "google_sheets"
+   ]
+  },
+  {
+   "task": "operations.zoom_deal_review",
+   "type": "one_doc",
+   "domain": "operations",
+   "n_tools": 12,
+   "apps": [
+    "google_drive",
+    "google_sheets",
+    "monday",
+    "salesforce",
+    "slack",
+    "zoom"
+   ],
+   "n_checks": 10,
+   "n_guards": 6,
+   "rule_apps": [
+    "google_sheets"
+   ]
+  },
+  {
+   "task": "sales.calendly_multi_stakeholder_scheduling",
+   "type": "control",
+   "domain": "sales",
+   "n_tools": 5,
+   "apps": [
+    "calendly",
+    "salesforce"
+   ],
+   "n_checks": 6,
+   "n_guards": 1,
+   "rule_apps": []
+  },
+  {
+   "task": "sales.zoom_recording_distribution",
+   "type": "one_doc",
+   "domain": "sales",
+   "n_tools": 14,
+   "apps": [
+    "gmail",
+    "google_drive",
+    "google_sheets",
+    "salesforce",
+    "slack",
+    "zoom"
+   ],
+   "n_checks": 16,
+   "n_guards": 3,
+   "rule_apps": [
+    "google_sheets"
+   ]
+  },
+  {
+   "task": "marketing.content_syndication",
+   "type": "one_doc",
+   "domain": "marketing",
+   "n_tools": 8,
+   "apps": [
+    "buffer",
+    "gmail",
+    "google_drive",
+    "google_sheets"
+   ],
+   "n_checks": 9,
+   "n_guards": 3,
+   "rule_apps": [
+    "gmail"
+   ]
+  },
+  {
+   "task": "sales.vendor_review_prep",
+   "type": "one_doc",
+   "domain": "sales",
+   "n_tools": 7,
+   "apps": [
+    "gmail",
+    "google_drive",
+    "google_sheets",
+    "salesforce"
+   ],
+   "n_checks": 7,
+   "n_guards": 0,
+   "rule_apps": [
+    "google_sheets"
+   ]
+  },
+  {
+   "task": "marketing.guest_post_outreach",
+   "type": "one_doc",
+   "domain": "marketing",
+   "n_tools": 9,
+   "apps": [
+    "gmail",
+    "google_drive",
+    "google_sheets"
+   ],
+   "n_checks": 21,
+   "n_guards": 6,
+   "rule_apps": [
+    "gmail"
+   ]
+  },
+  {
+   "task": "hr.mandatory_meeting_scheduling",
+   "type": "one_doc",
+   "domain": "hr",
+   "n_tools": 7,
+   "apps": [
+    "gmail",
+    "google_sheets",
+    "slack"
+   ],
+   "n_checks": 10,
+   "n_guards": 4,
+   "rule_apps": [
+    "gmail"
+   ]
+  },
+  {
+   "task": "operations.inventory_enrichment",
+   "type": "control",
+   "domain": "operations",
+   "n_tools": 7,
+   "apps": [
+    "gmail",
+    "google_drive",
+    "google_sheets",
+    "notion"
+   ],
+   "n_checks": 10,
+   "n_guards": 3,
+   "rule_apps": []
+  },
+  {
+   "task": "sales.docusign_sequential_signing",
+   "type": "one_doc",
+   "domain": "sales",
+   "n_tools": 7,
+   "apps": [
+    "docusign",
+    "gmail",
+    "salesforce"
+   ],
+   "n_checks": 7,
+   "n_guards": 2,
+   "rule_apps": [
+    "gmail"
+   ]
+  },
+  {
+   "task": "operations.zoom_dr_drill",
+   "type": "one_doc",
+   "domain": "operations",
+   "n_tools": 11,
+   "apps": [
+    "asana",
+    "confluence",
+    "gmail",
+    "google_drive",
+    "google_sheets",
+    "slack",
+    "zoom"
+   ],
+   "n_checks": 11,
+   "n_guards": 4,
+   "rule_apps": [
+    "google_sheets"
+   ]
+  },
+  {
+   "task": "support.reamaze_cross_platform_dedup",
+   "type": "control",
+   "domain": "support",
+   "n_tools": 12,
+   "apps": [
+    "freshdesk",
+    "google_drive",
+    "google_sheets",
+    "reamaze"
+   ],
+   "n_checks": 36,
+   "n_guards": 17,
+   "rule_apps": []
+  },
+  {
+   "task": "hr.standup_absence_tracking",
+   "type": "control",
+   "domain": "hr",
+   "n_tools": 6,
+   "apps": [
+    "google_sheets",
+    "slack"
+   ],
+   "n_checks": 9,
+   "n_guards": 8,
+   "rule_apps": []
+  },
+  {
+   "task": "support.helpcrunch_trial_nurture",
+   "type": "control",
+   "domain": "support",
+   "n_tools": 11,
+   "apps": [
+    "gmail",
+    "google_drive",
+    "google_sheets",
+    "helpcrunch",
+    "salesforce"
+   ],
+   "n_checks": 29,
+   "n_guards": 11,
+   "rule_apps": []
+  },
+  {
+   "task": "support.hiver_workload_forecast",
+   "type": "control",
+   "domain": "support",
+   "n_tools": 9,
+   "apps": [
+    "gmail",
+    "google_drive",
+    "google_sheets",
+    "hiver"
+   ],
+   "n_checks": 29,
+   "n_guards": 14,
+   "rule_apps": []
+  },
+  {
+   "task": "support.gorgias_loyalty_program",
+   "type": "control",
+   "domain": "support",
+   "n_tools": 12,
+   "apps": [
+    "gmail",
+    "google_drive",
+    "google_sheets",
+    "gorgias",
+    "slack"
+   ],
+   "n_checks": 32,
+   "n_guards": 6,
+   "rule_apps": []
+  },
+  {
+   "task": "hr.monday_pip_tracking",
+   "type": "control",
+   "domain": "hr",
+   "n_tools": 6,
+   "apps": [
+    "gmail",
+    "google_sheets",
+    "monday"
+   ],
+   "n_checks": 7,
+   "n_guards": 3,
+   "rule_apps": []
+  },
+  {
+   "task": "marketing.google_ads_high_intent_list_from_hubspot",
+   "type": "one_doc",
+   "domain": "marketing",
+   "n_tools": 5,
+   "apps": [
+    "gmail",
+    "google_ads",
+    "hubspot"
+   ],
+   "n_checks": 9,
+   "n_guards": 6,
+   "rule_apps": [
+    "gmail"
+   ]
+  }
+ ]
+}

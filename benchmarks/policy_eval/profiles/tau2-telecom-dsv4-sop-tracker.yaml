@@ -1,0 +1,24 @@
+# Best measured for tau2 Telecom with the agent azure/DeepSeek-V4-Pro: T, the SOP tracker (best_profiles.json, branch
+# best/tau2-telecom-tracker-sop-trk4, commit 81061c37b). Test split, 40 tasks x 2 runs: 63.8% -> 76.2% (9 better and
+# 3 worse tasks, p = 0.146); the test split was seen before the freeze. Do not use it for rule-type policies: on
+# the airline test set it went from 17/20 to 11/20.
+# Switches of the measurement: SOP_TRACKER=1 POLICY_TRACKER_MODEL=aws/gpt-oss-120b. The tracker's model call has timeout
+# 90 and max_tokens 8000. golden_hooks.json holds the wiring of the old runner.
+policy:
+  package: none # the tracker reads the domain policy text of the task, not a package
+  sources: {data: false, discovery: false, request: false}
+  authority: {supersedes: false}
+  checkers:
+    rules: off
+    gate: {mode: off}
+    verifier: {mode: off}
+    write_checks: off  # separate hooks, as measured
+  organizers:
+    procedure_tools: off
+    guide: off
+    loop: off
+    sop_tracker: {mode: on, model: aws/gpt-oss-120b}
+    navigator: off
+    requirements_tracker: off
+  obligations: {producers: []}
+  decisions: {mode: off}

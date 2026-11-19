@@ -1,0 +1,20 @@
+# Round 3 (2026-11-08, HANDBOOK, Haiku 5.5). In-sample (tuning tasks). Base: handbook-haiku-graph-gate.
+# + checkers.gate.trigger_check and missing_needs_read: the gate blocks only when the rule applies to this record and stage.
+policy:
+  package: packages/handbook/{policy}/claude_v1/package.json
+  sources: {data: false, discovery: false, request: false}
+  authority: {supersedes: false}
+  checkers:
+    rules: off
+    gate: {mode: on, model: aws/claude-haiku-5-5, scope: active_procedures, min_strength: none, missing_needs_read: true, trigger_check: true}
+    verifier: {mode: off}
+    write_checks: off  # separate hooks, as measured
+  organizers:
+    procedure_tools: on
+    guide: off
+    loop: off
+    sop_tracker: off
+    navigator: off
+    requirements_tracker: off
+  obligations: {producers: []}
+  decisions: {mode: off}

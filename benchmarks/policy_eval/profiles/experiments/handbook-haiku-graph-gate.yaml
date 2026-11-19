@@ -1,0 +1,21 @@
+# Integration check (2026-11-08): ../handbook-gemini-graph-gate.yaml with Haiku 5.5 as the gate model, for a Haiku 5.5
+# agent ("match the checker to the agent": the gate is as strong as the agent). Everything else as that profile.
+# Not measured before; the 3 public tasks are a tuning set, so a run here checks that the setup works, not a gain.
+policy:
+  package: packages/handbook/{policy}/claude_v1/package.json
+  sources: {data: false, discovery: false, request: false}
+  authority: {supersedes: false}
+  checkers:
+    rules: off
+    gate: {mode: on, model: aws/claude-haiku-5-5, scope: active_procedures, min_strength: none}
+    verifier: {mode: off}
+    write_checks: off  # separate hooks, as measured
+  organizers:
+    procedure_tools: on
+    guide: off
+    loop: off
+    sop_tracker: off
+    navigator: off
+    requirements_tracker: off
+  obligations: {producers: []}
+  decisions: {mode: off}

@@ -1,0 +1,21 @@
+# Round 1 (2026-11-08, HANDBOOK Vanguard, Haiku 5.5): handbook-haiku-graph-gate plus notes.work_method [idempotent].
+# General rules from polisys work_method.py; the 3 public tasks are a tuning set (in-sample).
+policy:
+  package: packages/handbook/{policy}/claude_v1/package.json
+  sources: {data: false, discovery: false, request: false}
+  authority: {supersedes: false}
+  checkers:
+    rules: off
+    gate: {mode: on, model: aws/claude-haiku-5-5, scope: active_procedures, min_strength: none}
+    verifier: {mode: off}
+    write_checks: off  # separate hooks, as measured
+  organizers:
+    procedure_tools: on
+    guide: off
+    loop: off
+    sop_tracker: off
+    navigator: off
+    requirements_tracker: off
+  obligations: {producers: []}
+  decisions: {mode: off}
+  notes: {work_method: [idempotent]}

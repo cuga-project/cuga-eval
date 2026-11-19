@@ -1,0 +1,19 @@
+# Round 4 (2026-11-08, HANDBOOK, agent gpt-oss-120b; every polisys model gpt-oss). In-sample. Base: procedure tools + gate.
+policy:
+  package: packages/handbook/{policy}/claude_v1/package.json
+  sources: {data: false, discovery: false, request: false}
+  authority: {supersedes: false}
+  checkers:
+    rules: off
+    gate: {mode: on, model: aws/gpt-oss-120b, scope: active_procedures, min_strength: none}
+    verifier: {mode: off}
+    write_checks: off  # separate hooks, as measured
+  organizers:
+    procedure_tools: on
+    guide: off
+    loop: off
+    sop_tracker: off
+    navigator: off
+    requirements_tracker: off
+  obligations: {producers: []}
+  decisions: {mode: off}
