@@ -472,6 +472,18 @@ def test_a_result_of_another_code_or_profile_stops_the_run_unless_the_flag_says_
     assert hr.is_done(path, sha, phash, rerun_mismatch=True) is False
 
 
+def test_the_policy_checks_get_the_tasks_own_date_and_never_the_day_of_the_run():
+    from policy_eval.harness.adapters.automationbench import policy_date
+
+    task, now = "2025-03-03T09:00:00+00:00", "2026-11-23T10:15:00"
+    assert policy_date(task, task, "task") == task == policy_date(task, task, "clock")
+    # a task with no world time: its world runs at the real clock, which is not the task's date
+    assert policy_date(None, now, "task") == ""
+    assert policy_date(None, now, "clock") == now  # as before 2026-11-23, to repeat an old run
+    with pytest.raises(ValueError, match="AB_POLICY_DATE"):
+        policy_date(None, now, "now")
+
+
 def test_switches_from_the_shell_are_recorded_and_a_folder_holds_one_set_of_them(tmp_path):
     env = {
         "AB_AGENT_RULES": "1",

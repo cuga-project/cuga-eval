@@ -140,6 +140,21 @@ $HARNESS_PYTHON -I harness/report.py --runs mine_base mine_sw
 - A task with a result is skipped on a second start, unless it errored or has no score. A task that stops before grading shows
   `not run: <reason>` and has no score.
 
+## The date of an AutomationBench task
+
+Two switches of the shell set which date a run uses. Each result records them (`switch_hash`).
+
+| Switch | Default | What it sets |
+|---|---|---|
+| `AB_WORLD_CLOCK` | on (`0` turns it off) | The benchmark's tools and records run at the task's world time, when the task has one |
+| `AB_POLICY_DATE` | `task` | The date the policy checks judge by. `task`: the task's world time, and no date for a task that has none; the policy layer then reads the date the request states ("Today is ..."), or gives its checks no date. `clock`: the world's clock, as before 2026-11-23 |
+
+**Known defect in runs before 2026-11-23.** About half of the AutomationBench tasks have no world time (45 of the 90 of
+`ab-policy-rep90`). Their world takes the real clock, and the adapter gave that clock to the policy checks as the task's
+date. So the checks judged "overdue" and "in the past" by the day of the run, also when the request states another date.
+It affects every check that reads the date (the write verifier, write decisions, reply check, gate, ledger, requirements
+tracker), and no profile that has none of them on. Use `AB_POLICY_DATE=clock` only to repeat such a run.
+
 ## Other checkouts the code can read
 
 - `TAU2_WORKTREE`: the cuga-eval checkout with tau2-bench, for the τ² adapter and set builder (default `~/dev/cuga-eval-tau2`).
