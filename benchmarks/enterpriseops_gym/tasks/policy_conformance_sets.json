@@ -7,7 +7,7 @@
   "caveats": [
    "tags and contradiction flags come from an LLM reading of prompt, request and verifier SQL; no task was confirmed passable by a run",
    "selection read the verifiers: use these lists to select and score tasks, not to design prompts or rules",
-   "3 CSM tasks (numeric_text_fixed) had integer expected values stored as text; fixed in tasks/csm_oracle.json on 2026-11-22, so the plain passed score is valid for them (differs from the upstream data)"
+   "3 CSM tasks (numeric_text_fixed) had integer expected values stored as text; corrected in tasks/verifier_revisions.json, which eog_env.load_task applies on top of the unchanged tasks/csm_oracle.json, so the plain passed score is valid for them (differs from the upstream data)"
   ],
   "fields": {
    "selected": "task ids, refusal tasks first",
@@ -2011,7 +2011,7 @@
     "harmless_unclear_checks": [],
     "readmitted": "upstream_fix",
     "unclear_checks": [],
-    "note": "Upstream corrected verifiers (vendor data/revised) applied to tasks/itsm_oracle.json: 2 checks instead of 8. User only raises impact; priority=high and SLA_002 follow from matrix/SLA rule ('update the necessary details')."
+    "note": "Upstream corrected verifiers (vendor data/revised) are in tasks/verifier_revisions.json and applied by eog_env.load_task: 2 checks instead of 8. User only raises impact; priority=high and SLA_002 follow from matrix/SLA rule ('update the necessary details')."
    },
    "task_20260113_151550_104_a8eea1c0_7e9733a5": {
     "type": "policy_shapes_outcome",

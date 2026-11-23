@@ -79,6 +79,7 @@ Another 63 tasks (19 of them in Calendar) have guards or conditions that come fr
 | `select_pilot.py`, `tasks/pilot.json` | The 5-task ITSM pilot, drawn before any run. |
 | `build_rules.py`, `rules/` | Builds rule sets from ITSM policy text for the policy layer. Reads policy text and tool schemas only. |
 | `tasks/<domain>_oracle.json` | Task copies for CSM, HR and ITSM, with `_policy_hash` added. |
+| `tasks/verifier_revisions.json` | Corrected verifier lists for tasks with a grader defect (4 tasks). `eog_env.load_task` puts them in place of the task's own; the oracle files stay as published. |
 | `tasks/<domain>_tools.json` | Full tool schemas of each server: CSM 89, HR 89, ITSM 93. |
 | `tasks/*_sets.json` | Task sets drawn for earlier experiments. |
 
@@ -244,11 +245,11 @@ What was run:
 | Finding | CSM | ITSM | HR | Meaning |
 |---|---|---|---|---|
 | Policy tasks | 71 | 51 | 46 | |
-| A verifier query fails | 0 | 1 | 0 | `task_20251212_172511_458_e6427839_47076c15`: column `applies_to_priority` does not exist. The task cannot pass. The file in `vendor/.../data/revised/itsm/` replaces its verifiers with two that run; it was applied to `tasks/itsm_oracle.json` on 2026-11-22. |
+| A verifier query fails | 0 | 1 | 0 | `task_20251212_172511_458_e6427839_47076c15`: column `applies_to_priority` does not exist. The task cannot pass. The file in `vendor/.../data/revised/itsm/` replaces its verifiers with two that run; since 2026-11-23 `tasks/verifier_revisions.json` holds these two checks and `eog_env.load_task` applies them; `tasks/itsm_oracle.json` stays as published. |
 | Task passes with no action | 1 | 0 | 0 | The full-refusal task, as intended. A crash or timeout also passes it. |
 | Same query, two expected values | 0 | 0 | 0 | |
 | Pinned new IDs not sequential | 0 | 0 | 0 | 68 policy tasks pin new IDs; all are the next IDs in order. A correct solution can hit them. One extra or failed creation by the agent shifts the IDs and fails the task. |
-| Integer expected value stored as text | 3 | 0 | 0 | Cannot pass upstream. Passes with `numeric_string_fix.py`. Fixed in `tasks/csm_oracle.json` on 2026-11-22 (16 checks, text to number), so the plain score is valid for these three. |
+| Integer expected value stored as text | 3 | 0 | 0 | Cannot pass upstream. Passes with `numeric_string_fix.py`. Corrected in `tasks/verifier_revisions.json` (16 checks, text to number), which `eog_env.load_task` applies, so the plain score is valid for these three; `tasks/csm_oracle.json` stays as published. |
 | Reader flag: verifier contradicts policy or another verifier | 2 | 5 | 7 | From reading, not confirmed by a run. |
 | Reader flag: a check is unclear or looks defective | 12 | 5 | 4 | From reading. |
 | No flag (query error, contradiction or unclear check) | 58 | 43 | 38 | 139 tasks. Refusal tasks among them: CSM 6, ITSM 3, HR 1. |
@@ -270,7 +271,7 @@ Lists are in `tasks/policy_conformance_sets.json`: per domain `selected`, `refus
 
 Rule: a policy task is selected unless a reader flagged a contradiction (two checks cannot both pass, or passing requires breaking the policy).
 
-On 2026-11-22 nine tasks were put back as candidates, to be decided by a baseline run: eight with an unclear check that does not pass on the untouched seed database (marked `readmitted: unclear_check`), and ITSM `task_20251212_172511_458_e6427839_47076c15` after the upstream corrected verifiers were applied to `tasks/itsm_oracle.json` (marked `readmitted: upstream_fix`; both remaining queries run).
+On 2026-11-22 nine tasks were put back as candidates, to be decided by a baseline run: eight with an unclear check that does not pass on the untouched seed database (marked `readmitted: unclear_check`), and ITSM `task_20251212_172511_458_e6427839_47076c15` after the upstream corrected verifiers were added to `tasks/verifier_revisions.json` (marked `readmitted: upstream_fix`; both remaining queries run).
 
 | Domain | Selected | Of which refusal | Need numeric fix | Excluded |
 |---|---|---|---|---|

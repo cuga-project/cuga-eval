@@ -1,0 +1,225 @@
+{
+ "_about": "Corrections to verifiers, applied by eog_env.load_task on top of tasks/*_oracle.json, which stay as published. Each entry replaces the task's whole verifier list.",
+ "task_20251212_172511_458_e6427839_47076c15": {
+  "domain": "itsm",
+  "source": "upstream data/revised/itsm (upstream issue 8): a query used a column that does not exist; 2 checks replace 8",
+  "verifiers": [
+   {
+    "verifier_type": "database_state",
+    "name": "Verify if the priority of the incident is set correctly.",
+    "description": "Verify if the priority of the incident is set correctly.",
+    "gym_name": "gym-itsm-mcp",
+    "validation_config": {
+     "query": "SELECT COUNT(*) FROM incident WHERE incident_id = 'INC_003' AND impact = 'high' AND priority = 'high';\n",
+     "expected_value": 1,
+     "comparison_type": "equals"
+    }
+   },
+   {
+    "verifier_type": "database_state",
+    "name": "Verify if the correct high-priority SLA is linked to the incident.",
+    "description": "Verify if the correct high-priority SLA is linked to the incident.",
+    "gym_name": "gym-itsm-mcp",
+    "validation_config": {
+     "query": "SELECT COUNT(*) FROM incident_sla WHERE incident_id = 'INC_003' AND sla_def_id = 'SLA_002';\n",
+     "expected_value": 1,
+     "comparison_type": "equals"
+    }
+   }
+  ]
+ },
+ "task_20260107_162554_472_accab84d_41d2e871": {
+  "domain": "csm",
+  "source": "local, 2026-11-22: integer expected values were stored as text, so no check could pass; values changed to numbers, queries unchanged",
+  "verifiers": [
+   {
+    "verifier_type": "database_state",
+    "name": "Verify Case 1233 Created (David Ramirez - Tomcat 9 Variant 12)",
+    "description": "Verify Case 1233 Created (David Ramirez - Tomcat 9 Variant 12)",
+    "gym_name": "sn-csm-server",
+    "validation_config": {
+     "query": "SELECT COUNT(*) AS case_1233_created\nFROM customer_case\nWHERE case_id = 1233\n  AND account_id = 25\n  AND contact_id = 48\n  AND product_id = 32\n  AND installed_product_id = 134\n  AND channel = 'web'\n  AND priority = 'high';",
+     "expected_value": 1,
+     "comparison_type": "equals"
+    }
+   },
+   {
+    "verifier_type": "database_state",
+    "name": "Verify Case 1234 Created (Alexis Torres - Tomcat 9 Variant 32)",
+    "description": "Verify Case 1234 Created (Alexis Torres - Tomcat 9 Variant 32)",
+    "gym_name": "sn-csm-server",
+    "validation_config": {
+     "query": "SELECT COUNT(*) AS case_1234_created\nFROM customer_case\nWHERE case_id = 1234\n  AND account_id = 52\n  AND contact_id = 120\n  AND product_id = 52\n  AND installed_product_id = 293\n  AND channel = 'web'\n  AND priority = 'high';",
+     "expected_value": 1,
+     "comparison_type": "equals"
+    }
+   },
+   {
+    "verifier_type": "database_state",
+    "name": " Verify Case 1233 Response SLA (SLA 2)",
+    "description": " Verify Case 1233 Response SLA (SLA 2)",
+    "gym_name": "sn-csm-server",
+    "validation_config": {
+     "query": "SELECT COUNT(*) AS case_1233_sla_response\nFROM case_sla\nWHERE case_sla_id = 2465\n  AND case_id = 1233\n  AND sla_def_id = 2;",
+     "expected_value": 1,
+     "comparison_type": "equals"
+    }
+   },
+   {
+    "verifier_type": "database_state",
+    "name": "Verify Case 1233 Resolution SLA (SLA 7)",
+    "description": "Verify Case 1233 Resolution SLA (SLA 7)",
+    "gym_name": "sn-csm-server",
+    "validation_config": {
+     "query": "SELECT COUNT(*) AS case_1233_sla_resolution\nFROM case_sla\nWHERE case_sla_id = 2466\n  AND case_id = 1233\n  AND sla_def_id = 7;",
+     "expected_value": 1,
+     "comparison_type": "equals"
+    }
+   },
+   {
+    "verifier_type": "database_state",
+    "name": "Verify Case 1234 Response SLA (SLA 2)",
+    "description": "Verify Case 1234 Response SLA (SLA 2)",
+    "gym_name": "sn-csm-server",
+    "validation_config": {
+     "query": "SELECT COUNT(*) AS case_1234_sla_response\nFROM case_sla\nWHERE case_sla_id = 2467\n  AND case_id = 1234\n  AND sla_def_id = 2;",
+     "expected_value": 1,
+     "comparison_type": "equals"
+    }
+   },
+   {
+    "verifier_type": "database_state",
+    "name": "Verify Case 1234 Resolution SLA (SLA 7)",
+    "description": "Verify Case 1234 Resolution SLA (SLA 7)",
+    "gym_name": "sn-csm-server",
+    "validation_config": {
+     "query": "SELECT COUNT(*) AS case_1234_sla_resolution\nFROM case_sla\nWHERE case_sla_id = 2468\n  AND case_id = 1234\n  AND sla_def_id = 7;",
+     "expected_value": 1,
+     "comparison_type": "equals"
+    }
+   },
+   {
+    "verifier_type": "database_state",
+    "name": "Verify Case 1233 Linked to KB 18",
+    "description": "Verify Case 1233 Linked to KB 18",
+    "gym_name": "sn-csm-server",
+    "validation_config": {
+     "query": "SELECT COUNT(*) AS case_kb_link_1233\nFROM case_knowledge\nWHERE case_kb_id = 528\n  AND case_id = 1233\n  AND knowledge_id = 18\n  AND used_as = 'suggested';",
+     "expected_value": 1,
+     "comparison_type": "equals"
+    }
+   },
+   {
+    "verifier_type": "database_state",
+    "name": "Verify Case 1234 Linked to KB 77",
+    "description": "Verify Case 1234 Linked to KB 77",
+    "gym_name": "sn-csm-server",
+    "validation_config": {
+     "query": "SELECT COUNT(*) AS case_kb_link_1234\nFROM case_knowledge\nWHERE case_kb_id = 529\n  AND case_id = 1234\n  AND knowledge_id = 77\n  AND used_as = 'suggested';",
+     "expected_value": 1,
+     "comparison_type": "equals"
+    }
+   }
+  ]
+ },
+ "task_20260108_160928_699_391f1eff_905701cb": {
+  "domain": "csm",
+  "source": "local, 2026-11-22: integer expected values were stored as text, so no check could pass; values changed to numbers, queries unchanged",
+  "verifiers": [
+   {
+    "verifier_type": "database_state",
+    "name": "Interaction Verifier",
+    "description": "Verify the correct interaction is created ",
+    "gym_name": "sn-csm-server",
+    "validation_config": {
+     "query": "SELECT COUNT(*) FROM Interaction WHERE case_id= 58 AND interaction_id = 1233 AND interacted_user= 47 AND status = \"open\" AND account_id = 3;",
+     "expected_value": 1,
+     "comparison_type": "equals"
+    }
+   },
+   {
+    "verifier_type": "database_state",
+    "name": "Case update Verification",
+    "description": "Verify the case escalation is updated properly",
+    "gym_name": "sn-csm-server",
+    "validation_config": {
+     "query": "SELECT COUNT(*) FROM customer_case WHERE case_id = 58 AND state = 'in_progress' AND priority= 'critical' AND escalation_reason = 'customer_request' AND assigned_to= 59;",
+     "expected_value": 1,
+     "comparison_type": "equals"
+    }
+   },
+   {
+    "verifier_type": "database_state",
+    "name": "Verify SLA updates",
+    "description": "SLA updates are properly done or not ",
+    "gym_name": "sn-csm-server",
+    "validation_config": {
+     "query": "SELECT COUNT(*) FROM case_sla WHERE case_id = 58 AND stage = 'in_progress' AND ((sla_def_id = 4 AND case_sla_id = 115) OR (sla_def_id = 9 AND case_sla_id = 116));",
+     "expected_value": 2,
+     "comparison_type": "equals"
+    }
+   },
+   {
+    "verifier_type": "database_state",
+    "name": "Verification of Notification type ",
+    "description": "Verify the triggered notification type",
+    "gym_name": "sn-csm-server",
+    "validation_config": {
+     "query": "SELECT COUNT(*) FROM notification WHERE notification_id = 734 AND case_id = 58 AND type = 'update' AND email = 'michael.ward53@acme.com';",
+     "expected_value": 1,
+     "comparison_type": "equals"
+    }
+   }
+  ]
+ },
+ "task_20260121_150447_596_1afb323a_0a1e4085": {
+  "domain": "csm",
+  "source": "local, 2026-11-22: integer expected values were stored as text, so no check could pass; values changed to numbers, queries unchanged",
+  "verifiers": [
+   {
+    "verifier_type": "database_state",
+    "name": "Agent Membership Added",
+    "description": "Ensures that agent Mark Smith (user_id 219) has been added to the same assignment group (group_id 36) of the case.",
+    "gym_name": "sn-csm-server",
+    "validation_config": {
+     "query": "SELECT COUNT(*) AS member_added FROM user_group_member WHERE user_id = 219 AND group_id = 36;",
+     "expected_value": 1,
+     "comparison_type": "equals"
+    }
+   },
+   {
+    "verifier_type": "database_state",
+    "name": "Case Updated & Escalated to High",
+    "description": "Confirms reassignment to the Tokyo agent, escalation fields, and priority/state for the specific case.",
+    "gym_name": "sn-csm-server",
+    "validation_config": {
+     "query": "SELECT COUNT(*) AS case_modified FROM customer_case WHERE case_id = 122 AND account_id = '5' AND product_id = '174' AND installed_product_id = '25' AND assigned_to = '219' AND priority = 'high' AND state = 'in_progress' AND escalation = 1 AND escalation_reason = 'customer_request';",
+     "expected_value": 1,
+     "comparison_type": "equals"
+    }
+   },
+   {
+    "verifier_type": "database_state",
+    "name": "Old Low-Priority SLAs Removed",
+    "description": "Ensures previous low-priority SLA links (Response-Low sla_def_id = 4, Resolution-Low sla_def_id = 9) are removed from the case.",
+    "gym_name": "sn-csm-server",
+    "validation_config": {
+     "query": "SELECT COUNT(*) AS low_slas_remaining FROM case_sla WHERE case_id = 122 AND sla_def_id IN (4, 9);\n",
+     "expected_value": 0,
+     "comparison_type": "equals"
+    }
+   },
+   {
+    "verifier_type": "database_state",
+    "name": "High Priority SLA Set Applied (Response + Resolution)",
+    "description": "Ensures both High SLAs are active on the escalated case \u2014  SLA Response - High (No Pause) (sla_def_id = 11),  SLA Resolution - High (sla_def_id = 7). Both must be in stage in_progress.",
+    "gym_name": "sn-csm-server",
+    "validation_config": {
+     "query": "SELECT COUNT(*) AS high_sla_applied FROM case_sla WHERE case_id = 122 AND sla_def_id IN (7, 11) AND stage = 'in_progress';",
+     "expected_value": 2,
+     "comparison_type": "equals"
+    }
+   }
+  ]
+ }
+}
