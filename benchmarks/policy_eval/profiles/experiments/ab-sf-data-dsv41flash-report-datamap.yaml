@@ -1,0 +1,24 @@
+# The profile above with sources.data_map: the brief also says where records exist (tables and record counts per app, built
+# from the listing). ab-policy-rep90, one trial: strict pass 75.6% (no gain shown), 5.1 fewer tool calls per run.
+# Needs a polisys with sources.data_map (polisys PR 17).
+policy:
+  package: none
+  sources: {data: true, discovery: false, listing: true, listing_data: true, data_map: true, request: false}
+  authority: {supersedes: true}
+  checkers:
+    rules: off
+    compile: deepseek-4-1-flash  # the intake model (extraction of the listed rule records, and the check below)
+    gate: {mode: off}
+    verifier: {mode: off}
+    unasked_report: deny
+    write_checks: off  # separate hooks, as measured
+  organizers:
+    procedure_tools: off
+    guide: off
+    loop: off
+    sop_tracker: off
+    navigator: off
+    requirements_tracker: off
+  obligations: {producers: []}
+  decisions: {mode: off}
+  notes: {work_method: []}  # no read-back turn: the first final answer is the answer

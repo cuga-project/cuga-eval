@@ -87,7 +87,7 @@ KEPT_SWITCHES = ("POLICY_PILOT_BUDGET",)
 INFRA_ERRORS = re.compile(
     r"RateLimit|\b40[138]\b|\b429\b|\b5\d\d\b|InternalServerError|BadGateway|ServiceUnavailable|GatewayTimeout|Server error"
     r"|APIConnection|APITimeout|Request timed out|ReadTimeout|ConnectTimeout|PoolTimeout|Connection error"
-    r"|RemoteProtocolError|ECONNREFUSED|team_model_access_denied|retry_proxy"
+    r"|RemoteProtocolError|ECONNREFUSED|team_model_access_denied|quota_exceeded|retry_proxy"
     r"|litellm\.Timeout|Connection timed out|Server disconnected"
 )
 
@@ -541,7 +541,10 @@ def main() -> int:
         required=True,
         help="a file name in policy_eval/profiles, without .yaml; experiments/<name> for a variant that is not a best profile",
     )
-    ap.add_argument("--set", required=True, help="a set id of policy_eval/sets/registry.json")
+    ap.add_argument(
+        "--set",
+        help="a set id of policy_eval/sets/registry.json; without it the default set of the benchmark (`defaults` of that file)",
+    )
     ap.add_argument("--snapshot", required=True, help="a name under ~/dev/cuga_snapshots")
     ap.add_argument("--trial", type=int, default=1)
     ap.add_argument("--run", required=True, help="the results go to harness/results/<run>_t<trial>")
@@ -573,6 +576,13 @@ def main() -> int:
         child(args)
         return 0
     try:
+        if not args.set:
+            from policy_eval.sets.build_registry import default_set
+
+            args.set = default_set(args.bench)
+            if not args.set:
+                raise HarnessError(f"no --set, and {args.bench} has no default set in sets/registry.json")
+            print(f"set: {args.set} (the default set of {args.bench})", flush=True)
         snapshot_src(args.snapshot)
         profile_path(args.profile)
         adapter = ADAPTERS[args.bench](set_id=args.set)

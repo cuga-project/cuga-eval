@@ -33,7 +33,10 @@ itsm_oracle.json; AutomationBench and HANDBOOK: the task id is the policy folder
 is kept by hand in `TUNED_BY_CHANGES`: a policy can be tuned on with no set that names it (change 131 fixed the pipeline on
 `d5ab75ff0f`). `rule_audit.py` reads this section to say what kind of numbers an audit shows, and nothing else of the registry.
 
-Consumers: `load_registry()`, `get_entry(set_id)`, `task_ids(entry)`.
+`defaults`: benchmark -> the id of the set a run uses when it names none (`DEFAULT_SETS`, kept by hand; `harness/run.py`
+without `--set`).
+
+Consumers: `load_registry()`, `get_entry(set_id)`, `task_ids(entry)`, `default_set(benchmark)`.
 """
 
 from __future__ import annotations
@@ -65,6 +68,9 @@ HB_TASKS = [  # the 3 public HANDBOOK tasks (names of the folders under HB_SAMPL
 
 PE = "benchmarks/policy_eval/policy_eval_tasks"
 AB = "benchmarks/automationbench"
+DEFAULT_SETS = {  # benchmark -> the set a run uses when it names none (harness/run.py without --set); kept by hand
+    "automationbench": "ab-policy-rep178",
+}
 
 
 def portable(path: str) -> str:
@@ -445,6 +451,26 @@ SPECS = [
         "tuning",
         "file",
     ),
+    S(  # fixed list of 2026-11-23, the default AutomationBench set (DEFAULT_SETS): the 90 tasks of ab-policy-rep90 and 88
+        # added tasks (15 per domain, 14 in operations and in support); a policy task of the added part is any task with
+        # a must-not check. It holds the first 90, so it is a tuning set
+        "ab-policy-rep178",
+        "automationbench",
+        f"{AB}/policy_representative178.json",
+        "tasks",
+        "task",
+        "tuning",
+        "file",
+    ),
+    S(  # the 88 added tasks of ab-policy-rep178 alone: they were run, and no method was tuned on them
+        "ab-policy-rep178-added",
+        "automationbench",
+        f"{AB}/policy_representative178.json",
+        "added",
+        None,
+        "tuning",
+        "file",
+    ),
     # HANDBOOK
     dict(
         id="handbook-public3",
@@ -523,6 +549,11 @@ def task_ids(entry: dict) -> list[str]:
 
 def load_registry(path: Path = REGISTRY) -> dict:
     return json.loads(path.read_text())
+
+
+def default_set(benchmark: str, registry: dict | None = None) -> str | None:
+    """The set id a run of this benchmark uses when it names none (`defaults` of the registry file), or None."""
+    return ((registry or load_registry()).get("defaults") or {}).get(benchmark)
 
 
 def get_entry(set_id: str, registry: dict | None = None) -> dict:
@@ -790,9 +821,14 @@ def build(write: bool = True, out=print) -> dict:
         e["seen_by"] = seen_by[e["id"]]
         e["seen_n"] = seen_n[e["id"]]
         e["label"] = set_label(e)
+    by_id = {e["id"]: e for e in entries}
+    for bench, set_id in DEFAULT_SETS.items():
+        if set_id not in by_id or by_id[set_id]["benchmark"] != bench:
+            raise SystemExit(f"DEFAULT_SETS: {set_id!r} is not a set of {bench}")
     registry = {
         "note": "Task sets and which agent model ran their tasks. Built by build_registry.py from the set files and the result folders; do not edit.",
         "scanned_results": dict(sorted(stats.items())),
+        "defaults": dict(sorted(DEFAULT_SETS.items())),
         "sets": entries,
         "policies": policies_of(entries),
     }

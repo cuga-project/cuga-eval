@@ -129,7 +129,8 @@ $HARNESS_PYTHON -I harness/report.py --runs mine_base mine_sw
 ```
 
 - `--bench` is `hr`, `itsm`, `csm`, `automationbench`, `handbook` or `tau2`; `--set` is a set id of `sets/registry.json` for that
-  benchmark. Without `--tasks` the whole set runs. To list the tasks of a set:
+  benchmark. Without `--set` the run uses the default set of the benchmark (`defaults` of that file; AutomationBench:
+  `ab-policy-rep178`, 178 policy tasks). Without `--tasks` the whole set runs. To list the tasks of a set:
   `$HARNESS_PYTHON -I -c "import sys; sys.path.insert(0, '..'); from policy_eval.harness.adapters.itsm import HrAdapter; print(*HrAdapter().task_ids('hr-adv-dev5'), sep='\n')"`
   (use `ItsmAdapter` and `itsm-pilot` for IT service).
 - HR sets: `hr-smoke` (one task, for wiring checks) and `hr-adv-dev5` are tuning sets; the held-out sets (`hr-val7`, `hr-ts-test-*`,

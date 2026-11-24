@@ -93,7 +93,13 @@ async def forward(request: Request) -> Response:
         except httpx.HTTPError as exc:
             error = f"{type(exc).__name__}: {exc}"
             resp = None
-        if resp is not None and resp.status_code != 429 and resp.status_code < 500:
+        quota = False
+        if resp is not None and resp.status_code == 400:
+            await resp.aread()  # a short error body; read here to see whether it is a quota limit
+            quota = (
+                b"quota_exceeded" in resp.content
+            )  # a throughput quota of the endpoint: wait, as for a 429
+        if resp is not None and resp.status_code != 429 and resp.status_code < 500 and not quota:
             break
         pause = wait_seconds(resp, attempt)
         status = resp.status_code if resp is not None else error
@@ -107,7 +113,7 @@ async def forward(request: Request) -> Response:
         return JSONResponse({"error": {"message": f"retry_proxy gave up: {error}", "code": 429}}, 429)
 
     out_headers = {k: v for k, v in resp.headers.items() if k.lower() not in HOP_HEADERS}
-    if stream:
+    if stream and not resp.is_stream_consumed:
         record(request.url.path, payload, resp, attempt + 1, waited, started, "")
 
         async def chunks():

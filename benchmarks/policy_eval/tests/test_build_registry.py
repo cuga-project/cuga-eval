@@ -156,6 +156,17 @@ def test_registry_file_has_the_agreed_entries():
     rep90 = br.task_ids(by_id["ab-policy-rep90"])  # a fixed list: 15 tasks of each of the 6 domains
     assert by_id["ab-policy-rep90"]["status"] == "tuning" and len(set(rep90)) == 90
     assert set(Counter(t.split(".")[0] for t in rep90).values()) == {15}
+    rep178 = br.task_ids(by_id["ab-policy-rep178"])  # a fixed list: the 90 above and 88 added tasks
+    added = br.task_ids(by_id["ab-policy-rep178-added"])
+    assert len(set(rep178)) == 178 and by_id["ab-policy-rep178"]["status"] == "tuning"
+    assert set(rep90) <= set(rep178) and set(added) == set(rep178) - set(rep90)
+    assert Counter(t.split(".")[0] for t in added) == {
+        "sales": 15, "marketing": 15, "finance": 15, "hr": 15, "operations": 14, "support": 14
+    }  # fmt: skip
+    assert br.default_set("automationbench", reg) == "ab-policy-rep178"  # what a run without --set uses
+    assert br.default_set("tau2", reg) is None
+    for bench, set_id in reg["defaults"].items():
+        assert by_id[set_id]["benchmark"] == bench
     assert not any(e["path"].startswith("/") for e in reg["sets"]), "a machine path in the registry file"
 
 
