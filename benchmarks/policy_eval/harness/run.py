@@ -450,6 +450,10 @@ async def run_many(tasks: List[str], adapter: BenchmarkAdapter, args: argparse.N
     (run_dir / "logs").mkdir(parents=True, exist_ok=True)
     src = snapshot_src(args.snapshot)
     sha, phash = code_sha(src), profile_hash(profile_path(args.profile))
+    for key, value in getattr(adapter, "switch_defaults", {}).items():
+        # a switch with a default is recorded with the value in effect: an unset switch then hashes like an explicit
+        # default, and unlike a run from before the switch existed (another behaviour under the same hash)
+        os.environ.setdefault(key, value)
     shash = switch_hash(dict(os.environ))  # the switches come from this shell; each child records this value
     path = {t: run_dir / f"{safe_name(t)}.json" for t in tasks}
     todo = [t for t in tasks if not is_done(path[t], sha, phash, args.rerun_mismatch, shash)]
@@ -576,7 +580,7 @@ def main() -> int:
         child(args)
         return 0
     try:
-        if not args.set:
+        if args.set is None:  # omitted; an empty --set "$VAR" still fails as an unknown set
             from policy_eval.sets.build_registry import default_set
 
             args.set = default_set(args.bench)

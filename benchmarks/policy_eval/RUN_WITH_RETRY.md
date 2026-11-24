@@ -51,13 +51,19 @@ does not see the error.
    - After the run, count the tasks that ended on an error. The number must be 0 before two arms are compared.
    - If some tasks ended on a gateway error, run the same command again. A task with a score is skipped; a task
      with no score or with a gateway error runs again.
+   - The proxy's waits count toward the task's time limit (`--timeout`; AutomationBench: 1,800 s). A task that reaches
+     it ends with `timeout after 1800s`. That is not a gateway error: the task is graded and the same command does not
+     run it again. Run such a task under a new `--run`, with a larger `--timeout` if the gateway was slow.
 
 ## Notes
 
 - Start one proxy per gateway. Two arms that run at the same time can share one proxy.
 - Keep `-j` low (3 per arm) when the gateway has a throughput limit. The proxy waits, but a run with many waits is slow.
 - The proxy only listens on `127.0.0.1`.
-- A long wait is not an error. A task fails only when all 60 attempts of one request fail.
+- A long wait is not an error. A request fails only when all 60 attempts fail, or when its `quota_exceeded` errors
+  last more than 10 minutes (a daily or spend quota, not a throughput limit). The error then says which.
 - **Free endpoint:** the ledger (`benchmarks/policy_pilot_costs.py`) counts every run at list price and the harness stops
   when the total passes `POLICY_PILOT_BUDGET`. For a run on an endpoint that costs nothing, set `POLICY_PILOT_FREE=1`:
-  the ledger still records the tokens, with cost 0, and the budget stop does not apply to that run.
+  the ledger still records the tokens, with cost 0, and the budget stop does not apply to that run. The result files
+  keep `cost_usd` at list price, as on a paid endpoint: it is what the run would cost, so `report.py` totals and the
+  ledger differ on such a run.

@@ -159,6 +159,24 @@ def test_registry_file_has_the_agreed_entries():
     rep178 = br.task_ids(by_id["ab-policy-rep178"])  # a fixed list: the 90 above and 88 added tasks
     added = br.task_ids(by_id["ab-policy-rep178-added"])
     assert len(set(rep178)) == 178 and by_id["ab-policy-rep178"]["status"] == "tuning"
+    for set_id, ids in (
+        ("ab-policy-rep90", rep90),
+        ("ab-policy-rep178", rep178),
+        ("ab-policy-rep178-added", added),
+    ):
+        assert (
+            len(ids) == len(set(ids)) == by_id[set_id]["n"]
+        )  # the harness runs the list, the report names the set by n
+    for model, n in by_id["ab-policy-rep178"][
+        "seen_n"
+    ].items():  # the whole has at least the runs of its parts
+        parts = by_id["ab-policy-rep90"]["seen_n"].get(model, 0) + by_id["ab-policy-rep178-added"][
+            "seen_n"
+        ].get(model, 0)
+        assert n >= parts, model
+    assert (
+        len(reg["policies"]) >= 25
+    )  # entries of policies whose package folder is not on this machine are kept
     assert set(rep90) <= set(rep178) and set(added) == set(rep178) - set(rep90)
     assert Counter(t.split(".")[0] for t in added) == {
         "sales": 15, "marketing": 15, "finance": 15, "hr": 15, "operations": 14, "support": 14
@@ -168,6 +186,32 @@ def test_registry_file_has_the_agreed_entries():
     for bench, set_id in reg["defaults"].items():
         assert by_id[set_id]["benchmark"] == bench
     assert not any(e["path"].startswith("/") for e in reg["sets"]), "a machine path in the registry file"
+
+
+def test_a_union_set_keeps_at_least_the_runs_of_its_parts(monkeypatch):
+    monkeypatch.setattr(br, "UNIONS", {"whole": ("a", "b")})
+    entries = [
+        {"id": "a", "ids": ["t1", "t2"]},
+        {"id": "b", "ids": ["t3"]},
+        {"id": "whole", "ids": ["t1", "t2", "t3"]},
+    ]
+    # kept from the registry: 2 tasks of a, 0 of b; the scan now finds 1 of b and 2 of the whole
+    seen_n = {"a": {"m": 2}, "b": {"m": 1}, "whole": {"m": 2}}
+    seen_by = {"a": {"m": ["old"]}, "b": {"m": ["new"]}, "whole": {"m": ["new"]}}
+    lines = br.join_parts(entries, seen_by, seen_n)
+    assert seen_n["whole"] == {"m": 3} and seen_by["whole"] == {"m": ["new", "old"]} and len(lines) == 1
+    entries[2]["ids"] = ["t1", "t2"]
+    with pytest.raises(SystemExit, match="disjoint union"):
+        br.join_parts(entries, seen_by, seen_n)
+
+
+def test_a_policy_the_registry_lists_is_kept_on_a_machine_without_its_package_folder():
+    entries = [
+        {"id": "s", "benchmark": "automationbench", "status": "tuning", "ids": ["no.such_policy_folder"]}
+    ]
+    assert "automationbench/no.such_policy_folder" not in br.policies_of(entries)
+    kept = br.policies_of(entries, frozenset({"automationbench/no.such_policy_folder"}))
+    assert kept["automationbench/no.such_policy_folder"]["tuning_sets"] == ["s"]
 
 
 def test_a_harness_result_counts_and_a_wiring_stop_does_not(tmp_path):

@@ -2589,6 +2589,21 @@
           "lx_L_gptoss",
           "lx_P_gptoss",
           "lx_R_gptoss",
+          "ph_AF",
+          "ph_AO",
+          "ph_B3TF",
+          "ph_B4TF",
+          "pt_AF",
+          "pt_AO",
+          "pt_B3F",
+          "pt_B3TF",
+          "pt_BF",
+          "pt_BTF",
+          "pt_DF",
+          "pt_TF",
+          "pv5_B4TF",
+          "pv5_B5TF",
+          "pv5_B5aTF",
           "sl2h_A_gptoss",
           "sl2h_B_gptoss",
           "sl2h_F_gptoss",
@@ -2706,7 +2721,7 @@
       },
       "seen_n": {
         "aws/claude-haiku-5-5": 140,
-        "aws/gpt-oss-120b": 128,
+        "aws/gpt-oss-120b": 154,
         "deepseek-4-1-flash": 90,
         "rits/deepseek-ai/DeepSeek-V4.1-Flash-1017": 1
       },
@@ -3117,6 +3132,76 @@
     }
   ],
   "policies": {
+    "automationbench/finance.prepaid_amortization": {
+      "tuning_sets": [
+        "ab-tune"
+      ],
+      "heldout_sets": [],
+      "tuned_by_changes": []
+    },
+    "automationbench/finance.xero_batch_invoice_send": {
+      "tuning_sets": [
+        "ab-tune"
+      ],
+      "heldout_sets": [],
+      "tuned_by_changes": []
+    },
+    "automationbench/hr.candidate_offer_negotiation_tracking": {
+      "tuning_sets": [
+        "ab-tune"
+      ],
+      "heldout_sets": [],
+      "tuned_by_changes": []
+    },
+    "automationbench/marketing.social_engagement_response": {
+      "tuning_sets": [
+        "ab-tune"
+      ],
+      "heldout_sets": [],
+      "tuned_by_changes": []
+    },
+    "automationbench/marketing.trending_topic": {
+      "tuning_sets": [
+        "ab-tune"
+      ],
+      "heldout_sets": [],
+      "tuned_by_changes": []
+    },
+    "automationbench/operations.linkedin_job_change": {
+      "tuning_sets": [
+        "ab-tune"
+      ],
+      "heldout_sets": [],
+      "tuned_by_changes": []
+    },
+    "automationbench/sales.zoom_calendar_conflict": {
+      "tuning_sets": [
+        "ab-tune"
+      ],
+      "heldout_sets": [],
+      "tuned_by_changes": []
+    },
+    "automationbench/sales.zoom_regional_webinar_coordinator": {
+      "tuning_sets": [
+        "ab-tune"
+      ],
+      "heldout_sets": [],
+      "tuned_by_changes": []
+    },
+    "automationbench/support.helpcrunch_usage_alerts": {
+      "tuning_sets": [
+        "ab-tune"
+      ],
+      "heldout_sets": [],
+      "tuned_by_changes": []
+    },
+    "automationbench/support.zendesk_data_quality": {
+      "tuning_sets": [
+        "ab-tune"
+      ],
+      "heldout_sets": [],
+      "tuned_by_changes": []
+    },
     "handbook/hr_crestwood_university_79786c46": {
       "tuning_sets": [
         "handbook-public3"
@@ -3156,6 +3241,13 @@
       "heldout_sets": [
         "itsm-toolsearch",
         "itsm-unseen"
+      ],
+      "tuned_by_changes": []
+    },
+    "itsm/80cd3ebb50": {
+      "tuning_sets": [],
+      "heldout_sets": [
+        "itsm-toolsearch"
       ],
       "tuned_by_changes": []
     },
@@ -3235,6 +3327,20 @@
         118,
         131
       ]
+    },
+    "tau2_airline/airline": {
+      "tuning_sets": [],
+      "heldout_sets": [
+        "tau2-airline-test"
+      ],
+      "tuned_by_changes": [],
+      "note": "the official test split (20 tasks) was run before this package existed: the headroom checks `a20_ds` and `a20_oss`, and the no-harm check of the SOP tracker `air1` (arms A and T, 5 trials, change 87). The runs and the agent writes were reviewed (change 87, `tau2/labels.md`). The result of `air1` (tracker 17/20 against 11/20) is the evidence for design decision 1 of the design spec (route by the shape of the policy source), and Task 5.3 (rule-list route) implements that decision and is checked on this package. The package was made from the policy text only and no rule, test or setting was changed from these runs, but the tasks, the runs and the failures are seen: numbers on this split are not a clean bar"
+    },
+    "tau2_retail/retail": {
+      "tuning_sets": [],
+      "heldout_sets": [],
+      "tuned_by_changes": [],
+      "note": "no run has used this policy (no task set, no change)"
     },
     "tau2_telecom/telecom": {
       "tuning_sets": [

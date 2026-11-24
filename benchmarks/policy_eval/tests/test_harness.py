@@ -484,6 +484,18 @@ def test_the_policy_checks_get_the_tasks_own_date_and_never_the_day_of_the_run()
         policy_date(None, now, "now")
 
 
+def test_an_unset_policy_date_is_recorded_as_its_default_and_differs_from_a_run_before_the_switch():
+    from policy_eval.harness.adapters.automationbench import AutomationBenchAdapter
+
+    defaults = AutomationBenchAdapter.switch_defaults
+    assert defaults == {"AB_POLICY_DATE": "task"}
+    before = {"AB_AGENT_RULES": "1"}  # a run from before 2026-11-24: the switch unset
+    now = {**defaults, **before}  # what run_many records for the same shell today
+    assert (
+        hr.switch_hash(now) == hr.switch_hash({**before, "AB_POLICY_DATE": "task"}) != hr.switch_hash(before)
+    )
+
+
 def test_switches_from_the_shell_are_recorded_and_a_folder_holds_one_set_of_them(tmp_path):
     env = {
         "AB_AGENT_RULES": "1",
@@ -625,6 +637,7 @@ def test_old_callers_that_name_a_model_keep_working(monkeypatch, tmp_path):
 def test_a_free_endpoint_records_tokens_at_cost_zero_and_has_no_budget_stop(monkeypatch, tmp_path):
     path = ledger(monkeypatch, tmp_path)
     monkeypatch.setattr(costs, "BUDGET", 0.01)
+    monkeypatch.setattr(costs, "FREE_ENDPOINT", False)  # also when the tests run with POLICY_PILOT_FREE=1
     usage = {"input_tokens": 1_000_000, "output_tokens": 0, "models": ["aws/gpt-oss-120b"]}
     assert costs.record("k", "paid", agent=usage) == pytest.approx(0.15) and costs.over_budget()
     monkeypatch.setattr(costs, "FREE_ENDPOINT", True)
