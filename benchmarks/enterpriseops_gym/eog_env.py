@@ -29,6 +29,7 @@ from benchmark.models import VerifierConfig  # noqa: E402
 from benchmark.verifier import VerifierEngine  # noqa: E402
 
 TASKS = HERE / "tasks" / "itsm_oracle.json"
+REVISIONS = HERE / "tasks" / "verifier_revisions.json"
 JSON_TYPES = {"string": str, "integer": int, "number": float, "boolean": bool, "array": list, "object": dict}
 
 
@@ -36,13 +37,28 @@ def _j(value: Any) -> Any:
     return json.loads(value) if isinstance(value, str) else value
 
 
+def verifier_revisions(path: Path = REVISIONS) -> Dict[str, dict]:
+    """Corrected verifier lists by task id (tasks/verifier_revisions.json); empty when the file is absent."""
+    if not path.exists():
+        return {}
+    return {k: v for k, v in json.loads(path.read_text()).items() if not k.startswith("_")}
+
+
 def load_task(task_id: str) -> dict:
-    """The task from any domain file (tasks/<domain>_oracle.json); IT service first, as before."""
+    """The task from any domain file (tasks/<domain>_oracle.json); IT service first, as before.
+
+    The oracle files stay as published. A task listed in tasks/verifier_revisions.json gets that file's verifier
+    list in place of its own, and ``_revised`` set, so a grader defect is corrected without editing the data.
+    """
     files = [TASKS] + sorted(p for p in (HERE / "tasks").glob("*_oracle.json") if p != TASKS)
     for task in (t for f in files for t in json.loads(f.read_text())):
         if task["task_id"] == task_id:
             for key in ("gym_servers_config", "verifiers"):
                 task[key] = _j(task[key])
+            revision = verifier_revisions().get(task_id)
+            if revision:
+                task["verifiers"] = revision["verifiers"]
+                task["_revised"] = True
             return task
     raise KeyError(task_id)
 

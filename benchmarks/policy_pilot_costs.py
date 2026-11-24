@@ -40,6 +40,8 @@ PRICES = {
     "Azure/gpt-5-mini-2025-08-07": (0.25, 2.00),
     "azure/DeepSeek-V4-Pro": (1.74, 3.48),
     "azure/DeepSeek-V4-Flash": (0.19, 0.51),  # LiteLLM price, 2026-11-17
+    "glm-5-3": (0.0, 0.0),  # CurveBender (IBM Cloud Gateway): internal, not billed
+    "deepseek-4-1-flash": (0.0, 0.0),  # CurveBender (IBM Cloud Gateway): internal, not billed
     "gcp/gemini-3.5-flash-lite": (0.30, 2.50),
     "aws/nemotron-super-3-120b": (0.15, 0.65),
     "anthropic/claude-haiku-5.5": (0.10, 0.50),  # OpenRouter list price, read 2026-11-16
