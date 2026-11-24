@@ -129,7 +129,8 @@ $HARNESS_PYTHON -I harness/report.py --runs mine_base mine_sw
 ```
 
 - `--bench` is `hr`, `itsm`, `csm`, `automationbench`, `handbook` or `tau2`; `--set` is a set id of `sets/registry.json` for that
-  benchmark. Without `--tasks` the whole set runs. To list the tasks of a set:
+  benchmark. Without `--set` the run uses the default set of the benchmark (`defaults` of that file; AutomationBench:
+  `ab-policy-rep178`, 178 policy tasks). Only AutomationBench has a default set: the other benchmarks need `--set`. Without `--tasks` the whole set runs. To list the tasks of a set:
   `$HARNESS_PYTHON -I -c "import sys; sys.path.insert(0, '..'); from policy_eval.harness.adapters.itsm import HrAdapter; print(*HrAdapter().task_ids('hr-adv-dev5'), sep='\n')"`
   (use `ItsmAdapter` and `itsm-pilot` for IT service).
 - HR sets: `hr-smoke` (one task, for wiring checks) and `hr-adv-dev5` are tuning sets; the held-out sets (`hr-val7`, `hr-ts-test-*`,
@@ -139,6 +140,24 @@ $HARNESS_PYTHON -I harness/report.py --runs mine_base mine_sw
   and `work/<task>/audit.jsonl` (what the policy system did).
 - A task with a result is skipped on a second start, unless it errored or has no score. A task that stops before grading shows
   `not run: <reason>` and has no score.
+
+## The date of an AutomationBench task
+
+Two switches of the shell set which date a run uses. Each result records them (`switch_hash`).
+
+| Switch | Default | What it sets |
+|---|---|---|
+| `AB_WORLD_CLOCK` | on (`0` turns it off) | The benchmark's tools and records run at the task's world time, when the task has one |
+| `AB_POLICY_DATE` | `task` | The date the policy checks judge by. `task`: the task's world time, and no date for a task that has none. For such a task the intake, and the checks that take their date from it, read the date the request states ("Today is ..."), or have no date; the gate, ledger and requirements tracker have no date, so their date rules do not apply to it. `clock`: the world's clock, as before 2026-11-23 |
+
+**Known defect in runs before 2026-11-23.** About half of the AutomationBench tasks have no world time (45 of the 90 of
+`ab-policy-rep90`). Their world takes the real clock, and the adapter gave that clock to the policy checks as the task's
+date. So the checks judged "overdue" and "in the past" by the day of the run, also when the request states another date.
+It affects every check that reads the date (the write verifier, write decisions, reply check, gate, ledger, requirements
+tracker), and no profile that has none of them on. Use `AB_POLICY_DATE=clock` only to repeat such a run.
+
+Each result records `AB_POLICY_DATE` with the value in effect, also when the shell leaves it unset. A run folder from
+before this (2026-11-24) does not resume under the same `--run`: start a new `--run`, or pass `--rerun-mismatch`.
 
 ## Other checkouts the code can read
 

@@ -6,7 +6,8 @@ OpenAI client retries a 429 only twice within seconds, so one throttled call
 ends the task. This proxy forwards every request to the upstream gateway and,
 on 429 / 5xx / connection errors, waits (honouring x-ratelimit-reset-tokens /
 retry-after) and retries. All requests share one "blocked until" time, so after
-a 429 no request is sent until the window resets.
+a 429 no request is sent until the window resets. A 400 quota_exceeded is waited
+out the same way, for at most QUOTA_MAX_WAIT per request.
 
 Every upstream call is logged to proxy_log.jsonl (status, attempts, waits, cost).
 
@@ -40,6 +41,9 @@ HOP_HEADERS = {"host", "content-length", "connection", "keep-alive", "transfer-e
 MAX_ATTEMPTS = 60
 ATTEMPT_TIMEOUT = 300.0
 MIN_WAIT, MAX_WAIT = 3.0, 65.0
+# a 400 quota_exceeded is waited out like a 429, for at most this long per request: a throughput quota clears in
+# minutes (longest wait seen 2026-11-22..24: 378 s), and a daily or spend quota would hold every request for an hour
+QUOTA_MAX_WAIT = 600.0
 
 upstream = ""
 NO_CACHE = False
@@ -82,9 +86,11 @@ async def forward(request: Request) -> Response:
     resp: httpx.Response | None = None
     error = ""
 
+    gave_up, quota_since = True, 0.0
     for attempt in range(MAX_ATTEMPTS):
-        delay = blocked_until - time.monotonic()
-        if delay > 0:
+        while (
+            delay := blocked_until - time.monotonic()
+        ) > 0:  # another request can extend the wait during the sleep
             waited += delay
             await asyncio.sleep(delay)
         try:
@@ -93,21 +99,37 @@ async def forward(request: Request) -> Response:
         except httpx.HTTPError as exc:
             error = f"{type(exc).__name__}: {exc}"
             resp = None
-        if resp is not None and resp.status_code != 429 and resp.status_code < 500:
+        quota = False
+        if resp is not None and resp.status_code == 400:
+            await resp.aread()  # a short error body; read here to see whether it is a quota limit
+            quota = (
+                b"quota_exceeded" in resp.content
+            )  # a throughput quota of the endpoint: wait, as for a 429
+        if resp is not None and resp.status_code != 429 and resp.status_code < 500 and not quota:
+            gave_up = False
             break
         pause = wait_seconds(resp, attempt)
         status = resp.status_code if resp is not None else error
         if resp is not None:
+            error = f"HTTP {resp.status_code}{' quota_exceeded' if quota else ''}"
             await resp.aread()
             await resp.aclose()
+        if quota:
+            quota_since = quota_since or time.monotonic()
+            if time.monotonic() - quota_since >= QUOTA_MAX_WAIT:
+                error += f" for {QUOTA_MAX_WAIT:.0f}s: not a short throughput limit"
+                break
         blocked_until = max(blocked_until, time.monotonic() + pause)
         log(f"retry {attempt + 1}/{MAX_ATTEMPTS} {request.url.path} after {status}; waiting {pause:.0f}s")
-    else:
-        record(request.url.path, payload, None, MAX_ATTEMPTS, waited, started, error)
-        return JSONResponse({"error": {"message": f"retry_proxy gave up: {error}", "code": 429}}, 429)
+    if gave_up:
+        record(request.url.path, payload, None, attempt + 1, waited, started, error)
+        return JSONResponse(
+            {"error": {"message": f"retry_proxy gave up after {attempt + 1} attempts: {error}", "code": 429}},
+            429,
+        )
 
     out_headers = {k: v for k, v in resp.headers.items() if k.lower() not in HOP_HEADERS}
-    if stream:
+    if stream and not resp.is_stream_consumed:
         record(request.url.path, payload, resp, attempt + 1, waited, started, "")
 
         async def chunks():
