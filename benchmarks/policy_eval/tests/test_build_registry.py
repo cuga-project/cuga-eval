@@ -1,5 +1,6 @@
 import json
 import sys
+from collections import Counter
 from pathlib import Path
 
 import pytest
@@ -152,6 +153,10 @@ def test_registry_file_has_the_agreed_entries():
     assert {"gcp/gemini-3.8-flash", "aws/gpt-oss-120b"} <= set(by_id["ab-policy-types-holdout2"]["seen_by"])
     assert by_id["tau2-telecom-fresh40"]["n"] == 40 and by_id["tau2-telecom-fresh40"]["status"] == "heldout"
     assert br.get_entry("itsm-unseen3", reg)["n"] == len(br.task_ids(br.get_entry("itsm-unseen3", reg)))
+    rep90 = br.task_ids(by_id["ab-policy-rep90"])  # a fixed list: 15 tasks of each of the 6 domains
+    assert by_id["ab-policy-rep90"]["status"] == "tuning" and len(set(rep90)) == 90
+    assert set(Counter(t.split(".")[0] for t in rep90).values()) == {15}
+    assert not any(e["path"].startswith("/") for e in reg["sets"]), "a machine path in the registry file"
 
 
 def test_a_harness_result_counts_and_a_wiring_stop_does_not(tmp_path):
