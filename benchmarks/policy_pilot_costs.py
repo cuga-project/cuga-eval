@@ -15,6 +15,9 @@ from typing import Any, Dict
 
 LEDGER = Path(__file__).resolve().parent / "policy_pilot_ledger.jsonl"
 PRICE_IN, PRICE_OUT = 0.75, 3.75  # $ per 1M tokens
+# POLICY_PILOT_FREE=1: the endpoint of this run is free. The ledger still records the tokens, with cost 0, and the budget
+# stop does not apply. Without it, every run counts at list price.
+FREE_ENDPOINT = os.environ.get("POLICY_PILOT_FREE") == "1"
 BUDGET = float(
     os.environ.get("POLICY_PILOT_BUDGET", "2000")
 )  # raised from 1000 (2026-11-03), 1200, 1500, 1700 and 2000 (2026-11-04) by the user
@@ -80,7 +83,7 @@ def record(
     p_model = policy.get("model") or os.environ.get("POLICY_MODEL_NAME")
     _refuse_no_model("agent", kind, name, agent, a_model)
     _refuse_no_model("policy", kind, name, policy, p_model)
-    c = usage_cost(a_model, agent) + usage_cost(p_model, policy)
+    c = 0.0 if FREE_ENDPOINT else usage_cost(a_model, agent) + usage_cost(p_model, policy)
     entry = {
         "ts": time.strftime("%Y-%m-%d %H:%M:%S"),
         "kind": kind,
@@ -101,7 +104,7 @@ def record(
 
 
 def over_budget() -> bool:
-    return spent() >= BUDGET
+    return not FREE_ENDPOINT and spent() >= BUDGET
 
 
 def line() -> str:

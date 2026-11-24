@@ -472,6 +472,30 @@ def test_a_result_of_another_code_or_profile_stops_the_run_unless_the_flag_says_
     assert hr.is_done(path, sha, phash, rerun_mismatch=True) is False
 
 
+def test_the_policy_checks_get_the_tasks_own_date_and_never_the_day_of_the_run():
+    from policy_eval.harness.adapters.automationbench import policy_date
+
+    task, now = "2025-03-03T09:00:00+00:00", "2026-11-23T10:15:00"
+    assert policy_date(task, task, "task") == task == policy_date(task, task, "clock")
+    # a task with no world time: its world runs at the real clock, which is not the task's date
+    assert policy_date(None, now, "task") == ""
+    assert policy_date(None, now, "clock") == now  # as before 2026-11-23, to repeat an old run
+    with pytest.raises(ValueError, match="AB_POLICY_DATE"):
+        policy_date(None, now, "now")
+
+
+def test_an_unset_policy_date_is_recorded_as_its_default_and_differs_from_a_run_before_the_switch():
+    from policy_eval.harness.adapters.automationbench import AutomationBenchAdapter
+
+    defaults = AutomationBenchAdapter.switch_defaults
+    assert defaults == {"AB_POLICY_DATE": "task"}
+    before = {"AB_AGENT_RULES": "1"}  # a run from before 2026-11-24: the switch unset
+    now = {**defaults, **before}  # what run_many records for the same shell today
+    assert (
+        hr.switch_hash(now) == hr.switch_hash({**before, "AB_POLICY_DATE": "task"}) != hr.switch_hash(before)
+    )
+
+
 def test_switches_from_the_shell_are_recorded_and_a_folder_holds_one_set_of_them(tmp_path):
     env = {
         "AB_AGENT_RULES": "1",
@@ -608,6 +632,18 @@ def test_old_callers_that_name_a_model_keep_working(monkeypatch, tmp_path):
     assert costs.record("k", "n", policy={"input_tokens": 1_000_000}) == pytest.approx(0.15)
     rows = [json.loads(line) for line in path.read_text().splitlines()]
     assert len(rows) == 3 and "component" not in rows[0]
+
+
+def test_a_free_endpoint_records_tokens_at_cost_zero_and_has_no_budget_stop(monkeypatch, tmp_path):
+    path = ledger(monkeypatch, tmp_path)
+    monkeypatch.setattr(costs, "BUDGET", 0.01)
+    monkeypatch.setattr(costs, "FREE_ENDPOINT", False)  # also when the tests run with POLICY_PILOT_FREE=1
+    usage = {"input_tokens": 1_000_000, "output_tokens": 0, "models": ["aws/gpt-oss-120b"]}
+    assert costs.record("k", "paid", agent=usage) == pytest.approx(0.15) and costs.over_budget()
+    monkeypatch.setattr(costs, "FREE_ENDPOINT", True)
+    assert costs.record("k", "free", agent=usage) == 0.0 and not costs.over_budget()
+    rows = [json.loads(line) for line in path.read_text().splitlines()]
+    assert [r["cost_usd"] for r in rows] == [0.15, 0.0] and rows[1]["agent_in"] == 1_000_000
 
 
 def test_usage_is_recorded_per_component(monkeypatch, tmp_path):

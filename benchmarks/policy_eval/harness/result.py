@@ -97,7 +97,9 @@ class Result:
     verdicts: List[Any] = field(default_factory=list)
     obligations: List[Any] = field(default_factory=list)
     usage_by_component: Dict[str, Dict[str, Any]] = field(default_factory=dict)  # each row names its model
-    cost_usd: Optional[float] = None
+    cost_usd: Optional[float] = (
+        None  # at list price, also on a free endpoint (POLICY_PILOT_FREE=1 sets only the ledger to 0)
+    )
     wall_s: Optional[float] = None
     error: Optional[str] = None
     trajectory: Optional[str] = None

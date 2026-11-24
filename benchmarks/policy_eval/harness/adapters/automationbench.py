@@ -45,6 +45,21 @@ RULE_FILES = {  # general instructions for the agent, each behind a flag that is
 }
 
 
+def policy_date(task_time: Any, world_time: str, mode: str) -> str:
+    """The date the policy checks judge by (``RunContext.world_time``). ``AB_POLICY_DATE`` sets ``mode``:
+
+    - ``task`` (default): the task's world time, and no date for a task that has none. For such a task the intake (and the
+      checks that take their date from it) reads the date the request states ("Today is ..."), or has no date. The parts
+      that read ``world_time`` directly (gate, ledger, requirements tracker) have no date, so their date rules do not
+      apply to it.
+    - ``clock``: the world's clock, as before 2026-11-23. A world with no time of its own takes ``datetime.now()``, so the
+      checks of such a task got the day of the run, also when the request stated another date (changes.md, 145).
+    """
+    if mode not in ("task", "clock"):
+        raise ValueError(f"AB_POLICY_DATE={mode!r}: use task or clock")
+    return world_time if task_time or mode == "clock" else ""
+
+
 def _world_clock(world_time: str) -> Callable[[], Any]:
     """Run the benchmark's clock at the task's world time. AutomationBench records and tools read ``datetime.now()``
     (and ``time.time()`` for Slack ``ts``), so records the task leaves undated and every write got the wall-clock date
@@ -164,6 +179,9 @@ class AutomationBenchAdapter:
     }
     grace = 300.0
     default_timeout = 1800.0  # as the old runner
+    # switches whose default the parent records in switch_hash (run.py): AB_POLICY_DATE changed the policy date on
+    # 2026-11-23, so a folder from before it, with the switch unset, does not match a run of today
+    switch_defaults = {"AB_POLICY_DATE": "task"}
     toolset = (
         os.environ.get("AB_TOOLSET") or "full"
     )  # all 549 tools; CUGA has to find the ones the task needs (audit: limited_zapier)
@@ -199,6 +217,7 @@ class AutomationBenchAdapter:
             fns = [_after(fn, lambda: fix(self.world)) for fn in fns]
         self.tools = [bench.make_tool(fn, self.world, self.log) for fn in fns]
         self.app_by_tool = {fn.__name__: bench.tool_app(fn) for fn in fns}
+        # the world's clock: the task's world time, and the day of the run for a task that has none
         world_time = str(self.world.meta.current_time or "").replace("Z", "+00:00")
         ActivityTracker().current_date = world_time or None
         if os.environ.get("AB_SHOW_DATE") and world_time:  # audit: the agent sees the world's date
@@ -231,7 +250,11 @@ class AutomationBenchAdapter:
                 }
                 for t in self.tools
             ],
-            world_time=world_time,
+            world_time=policy_date(
+                task_time,
+                world_time,
+                os.environ.get("AB_POLICY_DATE", self.switch_defaults["AB_POLICY_DATE"]),
+            ),
             data_search=[
                 (n, (lambda q, fn=by_name[n]: fn(world=self.world, query=q))) for n in discovery_tools(fns)
             ],

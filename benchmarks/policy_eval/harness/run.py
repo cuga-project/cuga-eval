@@ -87,7 +87,7 @@ KEPT_SWITCHES = ("POLICY_PILOT_BUDGET",)
 INFRA_ERRORS = re.compile(
     r"RateLimit|\b40[138]\b|\b429\b|\b5\d\d\b|InternalServerError|BadGateway|ServiceUnavailable|GatewayTimeout|Server error"
     r"|APIConnection|APITimeout|Request timed out|ReadTimeout|ConnectTimeout|PoolTimeout|Connection error"
-    r"|RemoteProtocolError|ECONNREFUSED|team_model_access_denied|retry_proxy"
+    r"|RemoteProtocolError|ECONNREFUSED|team_model_access_denied|quota_exceeded|retry_proxy"
     r"|litellm\.Timeout|Connection timed out|Server disconnected"
 )
 
@@ -450,6 +450,10 @@ async def run_many(tasks: List[str], adapter: BenchmarkAdapter, args: argparse.N
     (run_dir / "logs").mkdir(parents=True, exist_ok=True)
     src = snapshot_src(args.snapshot)
     sha, phash = code_sha(src), profile_hash(profile_path(args.profile))
+    for key, value in getattr(adapter, "switch_defaults", {}).items():
+        # a switch with a default is recorded with the value in effect: an unset switch then hashes like an explicit
+        # default, and unlike a run from before the switch existed (another behaviour under the same hash)
+        os.environ.setdefault(key, value)
     shash = switch_hash(dict(os.environ))  # the switches come from this shell; each child records this value
     path = {t: run_dir / f"{safe_name(t)}.json" for t in tasks}
     todo = [t for t in tasks if not is_done(path[t], sha, phash, args.rerun_mismatch, shash)]
@@ -541,7 +545,10 @@ def main() -> int:
         required=True,
         help="a file name in policy_eval/profiles, without .yaml; experiments/<name> for a variant that is not a best profile",
     )
-    ap.add_argument("--set", required=True, help="a set id of policy_eval/sets/registry.json")
+    ap.add_argument(
+        "--set",
+        help="a set id of policy_eval/sets/registry.json; without it the default set of the benchmark (`defaults` of that file)",
+    )
     ap.add_argument("--snapshot", required=True, help="a name under ~/dev/cuga_snapshots")
     ap.add_argument("--trial", type=int, default=1)
     ap.add_argument("--run", required=True, help="the results go to harness/results/<run>_t<trial>")
@@ -573,6 +580,13 @@ def main() -> int:
         child(args)
         return 0
     try:
+        if args.set is None:  # omitted; an empty --set "$VAR" still fails as an unknown set
+            from policy_eval.sets.build_registry import default_set
+
+            args.set = default_set(args.bench)
+            if not args.set:
+                raise HarnessError(f"no --set, and {args.bench} has no default set in sets/registry.json")
+            print(f"set: {args.set} (the default set of {args.bench})", flush=True)
         snapshot_src(args.snapshot)
         profile_path(args.profile)
         adapter = ADAPTERS[args.bench](set_id=args.set)

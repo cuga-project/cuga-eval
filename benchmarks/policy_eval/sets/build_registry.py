@@ -33,7 +33,10 @@ itsm_oracle.json; AutomationBench and HANDBOOK: the task id is the policy folder
 is kept by hand in `TUNED_BY_CHANGES`: a policy can be tuned on with no set that names it (change 131 fixed the pipeline on
 `d5ab75ff0f`). `rule_audit.py` reads this section to say what kind of numbers an audit shows, and nothing else of the registry.
 
-Consumers: `load_registry()`, `get_entry(set_id)`, `task_ids(entry)`.
+`defaults`: benchmark -> the id of the set a run uses when it names none (`DEFAULT_SETS`, kept by hand; `harness/run.py`
+without `--set`).
+
+Consumers: `load_registry()`, `get_entry(set_id)`, `task_ids(entry)`, `default_set(benchmark)`.
 """
 
 from __future__ import annotations
@@ -65,6 +68,9 @@ HB_TASKS = [  # the 3 public HANDBOOK tasks (names of the folders under HB_SAMPL
 
 PE = "benchmarks/policy_eval/policy_eval_tasks"
 AB = "benchmarks/automationbench"
+DEFAULT_SETS = {  # benchmark -> the set a run uses when it names none (harness/run.py without --set); kept by hand
+    "automationbench": "ab-policy-rep178",
+}
 
 
 def portable(path: str) -> str:
@@ -445,6 +451,26 @@ SPECS = [
         "tuning",
         "file",
     ),
+    S(  # fixed list of 2026-11-23, the default AutomationBench set (DEFAULT_SETS): the 90 tasks of ab-policy-rep90 and 88
+        # added tasks (15 per domain, 14 in operations and in support); a policy task of the added part is any task with
+        # a must-not check. It holds the first 90, so it is a tuning set
+        "ab-policy-rep178",
+        "automationbench",
+        f"{AB}/policy_representative178.json",
+        "tasks",
+        "task",
+        "tuning",
+        "file",
+    ),
+    S(  # the 88 added tasks of ab-policy-rep178 alone: they were run, and no method was tuned on them
+        "ab-policy-rep178-added",
+        "automationbench",
+        f"{AB}/policy_representative178.json",
+        "added",
+        None,
+        "tuning",
+        "file",
+    ),
     # HANDBOOK
     dict(
         id="handbook-public3",
@@ -525,6 +551,11 @@ def load_registry(path: Path = REGISTRY) -> dict:
     return json.loads(path.read_text())
 
 
+def default_set(benchmark: str, registry: dict | None = None) -> str | None:
+    """The set id a run of this benchmark uses when it names none (`defaults` of the registry file), or None."""
+    return ((registry or load_registry()).get("defaults") or {}).get(benchmark)
+
+
 def get_entry(set_id: str, registry: dict | None = None) -> dict:
     for entry in (registry or load_registry())["sets"]:
         if entry["id"] == set_id:
@@ -570,8 +601,10 @@ def set_label(entry: dict) -> str:
     return "seen" if any(n > 0 for n in entry["seen_n"].values()) else "held-out"
 
 
-def policies_of(entries: list[dict]) -> dict:
-    """``"<bench>/<policy>"`` -> the sets that have a task of that policy, and the changes that tuned on it by hand."""
+def policies_of(entries: list[dict], known: frozenset = frozenset()) -> dict:
+    """``"<bench>/<policy>"`` -> the sets that have a task of that policy, and the changes that tuned on it by hand. A
+    policy is listed when it has a package folder, or when the registry as it was lists it (``known``): package folders
+    are not in git, so a checkout without them would drop the entry, as ``keep_seen`` keeps the runs."""
     itsm = {t["task_id"]: t["_policy_hash"] for t in json.loads(ITSM_ORACLE.read_text())}
     out: dict = {}
 
@@ -594,7 +627,7 @@ def policies_of(entries: list[dict]) -> dict:
     for key, note in POLICY_NOTES.items():
         slot(key)["note"] = note
     return {
-        k: v for k, v in sorted(out.items()) if (HERE.parent / "packages" / k).is_dir()
+        k: v for k, v in sorted(out.items()) if k in known or (HERE.parent / "packages" / k).is_dir()
     }  # only policies with a package
 
 
@@ -740,6 +773,38 @@ def keep_seen(entries: list[dict], seen_by: dict, seen_n: dict, existing: dict) 
     return kept
 
 
+UNIONS = {  # a set that is the disjoint union of other sets: its runs are at least the runs of its parts
+    "ab-policy-rep178": ("ab-policy-rep90", "ab-policy-rep178-added"),
+}
+
+
+def join_parts(entries: list[dict], seen_by: dict, seen_n: dict) -> list[str]:
+    """For each set of ``UNIONS``, in place: the run prefixes of its parts are joined in, and ``seen_n`` is at least the sum
+    over its parts (the scan can see fewer runs of the whole than the registry keeps for the parts). Raises when the tasks
+    of the set are not the disjoint union of the parts."""
+    by_id = {e["id"]: e for e in entries}
+    ids = {i: task_ids(by_id[i]) for whole, parts in UNIONS.items() for i in (whole, *parts)}
+    lines = []
+    for whole, parts in UNIONS.items():
+        joined = [t for part in parts for t in ids[part]]
+        if len(joined) != len(set(joined)) or set(joined) != set(ids[whole]):
+            raise SystemExit(f"UNIONS: {whole} is not the disjoint union of {', '.join(parts)}")
+        for model in sorted({m for part in parts for m in seen_n[part]}):
+            parts_n = sum(seen_n[part].get(model, 0) for part in parts)
+            if parts_n > seen_n[whole].get(model, 0):
+                lines.append(
+                    f"  {whole}, {model}: {seen_n[whole].get(model, 0)} found, {parts_n} from its parts kept"
+                )
+                seen_n[whole][model] = parts_n
+            prefixes = set(seen_by[whole].get(model, [])).union(
+                *(seen_by[part].get(model, []) for part in parts)
+            )
+            seen_by[whole][model] = sorted(prefixes)
+        seen_by[whole] = dict(sorted(seen_by[whole].items()))
+        seen_n[whole] = dict(sorted(seen_n[whole].items()))
+    return lines
+
+
 # ── report ───────────────────────────────────────────────────────────────────
 
 
@@ -782,7 +847,9 @@ def build(write: bool = True, out=print) -> dict:
     entries = build_entries()
     stats: dict = {}
     seen_by, seen_n, counts = compute_seen(entries, scan_results(stats=stats))
-    kept = keep_seen(entries, seen_by, seen_n, load_registry() if REGISTRY.exists() else {})
+    existing = load_registry() if REGISTRY.exists() else {}
+    kept = keep_seen(entries, seen_by, seen_n, existing)
+    kept += join_parts(entries, seen_by, seen_n)
     for models in seen_by.values():
         for model in models:
             counts.setdefault(model, 0)  # a model known only from the registry is still listed
@@ -790,11 +857,16 @@ def build(write: bool = True, out=print) -> dict:
         e["seen_by"] = seen_by[e["id"]]
         e["seen_n"] = seen_n[e["id"]]
         e["label"] = set_label(e)
+    by_id = {e["id"]: e for e in entries}
+    for bench, set_id in DEFAULT_SETS.items():
+        if set_id not in by_id or by_id[set_id]["benchmark"] != bench:
+            raise SystemExit(f"DEFAULT_SETS: {set_id!r} is not a set of {bench}")
     registry = {
         "note": "Task sets and which agent model ran their tasks. Built by build_registry.py from the set files and the result folders; do not edit.",
         "scanned_results": dict(sorted(stats.items())),
+        "defaults": dict(sorted(DEFAULT_SETS.items())),
         "sets": entries,
-        "policies": policies_of(entries),
+        "policies": policies_of(entries, frozenset(existing.get("policies", {}))),
     }
     if write:
         REGISTRY.write_text(json.dumps(registry, indent=2, ensure_ascii=False) + "\n")
