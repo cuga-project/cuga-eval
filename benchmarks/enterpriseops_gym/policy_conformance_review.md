@@ -22,7 +22,7 @@ Sections 1 to 6 describe the benchmark as read on 19 November, before any run. S
 | Total | 308 | 87 | 70 | 151 | 84 |
 
 - A policy task has at least one check that depends on a rule of the system prompt. A control task has none: every check follows from the request. Refusal tasks in the policy lists: CSM 5, ITSM 2, HR 1.
-- Every task in the two lists either passed the baseline run or failed for a reason that is the agent's. Baseline (DeepSeek 4.1 Flash through the gateway layer `cbdsv41flash`, profile `baseline`, 1 trial): 56 of 87 policy tasks and 50 of 70 control tasks passed.
+- Every task in the two lists either passed the baseline run or failed for a reason that is the agent's. Baseline (DeepSeek 4.1 Flash model layer `dsv41flash`; the runs were made under an earlier layer name with the same settings, `cbdsv41flash`, which is why the run folders carry it, profile `baseline`, 1 trial): 56 of 87 policy tasks and 50 of 70 control tasks passed.
 - All six lists are tuning sets under the repository rule: their failures were traced. No dev/test split has been drawn.
 - The repair column is an assessment from the review. No repair of that kind has been written or run; the plan is in cuga-agent issue 1182.
 
@@ -49,7 +49,7 @@ Commands, from `benchmarks/policy_eval` (servers: `eog-itsm` 8006, `eog-hr` 8008
 ```bash
 export EOG_CSM_URL=http://localhost:8011   # EOG_ITSM_URL=http://localhost:8006, EOG_HR_URL=http://localhost:8008
 $HARNESS_PYTHON -I harness/run.py --bench csm --set csm-pc --profile baseline \
-  --snapshot polisys-5a551e0-cuga-2e197729 --model cbdsv41flash --trial 1 --run pc_csm_cbdsv41flash -j 2
+  --snapshot polisys-5a551e0-cuga-2e197729 --model dsv41flash --trial 1 --run pc_csm_cbdsv41flash -j 2
 python ../enterpriseops_gym/review/build_dossiers.py csm harness/results/pc_csm_cbdsv41flash_t1 <output folder>
 ```
 
@@ -83,7 +83,7 @@ Columns of the CSV files:
 ### Known gaps
 
 - **The agent is never told who is logged in**, in this harness or in the benchmark's own code. Requests that say "me" or "my" cannot be met unless a tool reveals the user. At least 8 excluded tasks have this defect.
-- **A quota error is scored as a failure.** The gateway's `400 quota_exceeded` is not in the harness's list of gateway errors (`INFRA_ERRORS` in `harness/run.py`), so the task gets score 0 and is not rerun. Until that is fixed, check a run with `grep -l quota_exceeded <results folder>/*.json`, move the listed files away and run again.
+- **Gateway errors.** A result with a gateway error (rate limit, 5xx, quota) gets no score and is run again on the next start of the same command; `policy_eval/RUN_WITH_RETRY.md` describes running with retries. The runs above were made before quota errors were on that list; the 7 affected tasks were rerun by hand.
 - **Policy versions differ within a domain** (CSM 23, ITSM 9, HR 21 versions of the system prompt). A rule can exist in one version and not in another: a leaver must be deactivated, a case goes to `in_progress` when assigned, a default notification type. Several removed tasks have checks that would be fair under another version.
 - **Two HR policy versions do not match the HR system.** They list case states and service types that differ from what the tools and the checks use. Most of the 16 HR non-policy tasks excluded for a contradiction carry one of them. These were excluded by reading, not by a run.
 - **Evidence is uneven.** Removals of policy tasks in ITSM and HR have two or three reviewers; in CSM and in all control lists most have one. 52 exclusions (CSM 8, ITSM 12, HR 32) were made before any run.
