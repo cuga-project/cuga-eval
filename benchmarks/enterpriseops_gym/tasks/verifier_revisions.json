@@ -221,5 +221,216 @@
     }
    }
   ]
+ },
+ "task_20260121_143201_590_1afb323a_5a03bf03": {
+  "domain": "csm",
+  "source": "local, 2026-11-23: integer expected values were stored as text, so no check could pass; values changed to numbers, queries unchanged",
+  "verifiers": [
+   {
+    "verifier_type": "database_state",
+    "name": "Verify User Location",
+    "description": "Verify User Location",
+    "gym_name": "sn-csm-server",
+    "validation_config": {
+     "query": "SELECT COUNT(*) FROM user WHERE user_id=11 AND location_id= 907",
+     "expected_value": 1,
+     "comparison_type": "equals"
+    }
+   },
+   {
+    "verifier_type": "database_state",
+    "name": "Verify group member",
+    "description": "Verify group member",
+    "gym_name": "sn-csm-server",
+    "validation_config": {
+     "query": "SELECT COUNT(*) FROM user_group_member WHERE user_id=11 AND group_id= 81",
+     "expected_value": 1,
+     "comparison_type": "equals"
+    }
+   },
+   {
+    "verifier_type": "database_state",
+    "name": "Verify deleted existing group membership1",
+    "description": "Verify deleted existing group membership1",
+    "gym_name": "sn-csm-server",
+    "validation_config": {
+     "query": "SELECT COUNT(*) FROM user_group_member WHERE user_id=11 AND group_id= 64",
+     "expected_value": 0,
+     "comparison_type": "equals"
+    }
+   },
+   {
+    "verifier_type": "database_state",
+    "name": "Verify deleted existing group membership2",
+    "description": "Verify deleted existing group membership2",
+    "gym_name": "sn-csm-server",
+    "validation_config": {
+     "query": "SELECT COUNT(*) FROM user_group_member WHERE user_id=11 AND group_id= 75",
+     "expected_value": 0,
+     "comparison_type": "equals"
+    }
+   },
+   {
+    "verifier_type": "database_state",
+    "name": "Verify Product",
+    "description": "Verify Product",
+    "gym_name": "sn-csm-server",
+    "validation_config": {
+     "query": "SELECT COUNT(*) FROM product WHERE name= \"ServiceNow OOOP\" AND category=\"software\" AND lifecycle_state=\"active\"\n\n",
+     "expected_value": 1,
+     "comparison_type": "equals"
+    }
+   },
+   {
+    "verifier_type": "database_state",
+    "name": "Verify location",
+    "description": "Verify location",
+    "gym_name": "sn-csm-server",
+    "validation_config": {
+     "query": "SELECT COUNT(*) FROM location WHERE plot_no= \"1234\" AND street=\"JM Road\" AND city=\"mumbai\" AND country=\"india\"\n\n",
+     "expected_value": 1,
+     "comparison_type": "equals"
+    }
+   },
+   {
+    "verifier_type": "database_state",
+    "name": "Verify Group",
+    "description": "Verify Group",
+    "gym_name": "sn-csm-server",
+    "validation_config": {
+     "query": "SELECT COUNT(*) FROM user_group WHERE name= \"OOPS Issues Team\" AND active=true AND type=\"support\"",
+     "expected_value": 1,
+     "comparison_type": "equals"
+    }
+   }
+  ]
+ },
+ "task_20260121_145409_648_1afb323a_4e203caa": {
+  "domain": "csm",
+  "source": "local, 2026-11-23: integer expected values were stored as text, so no check could pass; values changed to numbers, queries unchanged",
+  "verifiers": [
+   {
+    "verifier_type": "database_state",
+    "name": "Verify Contract",
+    "description": "Verify Contract",
+    "gym_name": "sn-csm-server",
+    "validation_config": {
+     "query": "SELECT COUNT(*) AS count FROM contract WHERE account_id = '45' AND start_date = '2025-11-15' AND end_date = '2026-11-15' AND status = 'active' AND contract_type = 'support' AND contract_price = '72000';",
+     "expected_value": 1,
+     "comparison_type": "equals"
+    }
+   },
+   {
+    "verifier_type": "database_state",
+    "name": "Verify SLA definitions response",
+    "description": "Verify SLA definitions response",
+    "gym_name": "sn-csm-server",
+    "validation_config": {
+     "query": "SELECT COUNT(*) AS count FROM sla_definition WHERE metric = 'response' AND target_mins = 45 AND applies_to_priority = 'high' AND active = 1;",
+     "expected_value": 1,
+     "comparison_type": "equals"
+    }
+   },
+   {
+    "verifier_type": "database_state",
+    "name": "Verify entitlement",
+    "description": "Verify entitlement",
+    "gym_name": "sn-csm-server",
+    "validation_config": {
+     "query": "SELECT COUNT(*) AS count FROM entitlement WHERE account_id = '45' AND product_id = '31' AND support_level = 'premium' AND coverage_hours = 'h24x7' AND max_cases_per_month = 15 AND active = 1;",
+     "expected_value": 1,
+     "comparison_type": "equals"
+    }
+   },
+   {
+    "verifier_type": "database_state",
+    "name": "Verify SLA definitions resolution",
+    "description": "Verify SLA definitions resolution",
+    "gym_name": "sn-csm-server",
+    "validation_config": {
+     "query": "SELECT COUNT(*) AS count FROM sla_definition WHERE metric = 'resolution' AND target_mins = 240 AND applies_to_priority = 'high' AND active = 1;",
+     "expected_value": 1,
+     "comparison_type": "equals"
+    }
+   }
+  ]
+ },
+ "task_20260121_163208_054_1afb323a_7f40ee66": {
+  "domain": "csm",
+  "source": "local, 2026-11-23: integer expected values were stored as text, so no check could pass; values changed to numbers, queries unchanged",
+  "verifiers": [
+   {
+    "verifier_type": "database_state",
+    "name": "Verify User location",
+    "description": "Verify User location",
+    "gym_name": "sn-csm-server",
+    "validation_config": {
+     "query": "SELECT COUNT(*) AS count FROM user WHERE user_id = 55 AND phone = '+12125516299' AND location_id = 903;\n",
+     "expected_value": 1,
+     "comparison_type": "equals"
+    }
+   },
+   {
+    "verifier_type": "database_state",
+    "name": "Verify Contract price",
+    "description": "Verify Contract price",
+    "gym_name": "sn-csm-server",
+    "validation_config": {
+     "query": "SELECT COUNT(*) AS count FROM contract WHERE contract_id = 101 AND contract_price = 99108;\n",
+     "expected_value": 1,
+     "comparison_type": "equals"
+    }
+   }
+  ]
+ },
+ "task_20260116_055008_115_c5cac200_a905eff3": {
+  "domain": "hr",
+  "source": "local, 2026-11-23: integer expected values were stored as text, so no check could pass; values changed to numbers, queries unchanged",
+  "verifiers": [
+   {
+    "verifier_type": "database_state",
+    "name": "Valid Task Type Verification",
+    "description": "Verifies that the case task was created with a valid task type (checklist) instead of the invalid 'ticket' type requested by the user, ensuring only allowed task types are used.",
+    "gym_name": "sn-hr-internal",
+    "validation_config": {
+     "query": "SELECT COUNT(*) as count FROM hr_case_task t JOIN hr_case c ON t.parent_case = c.hr_case_id WHERE c.opened_for = 29 AND c.coe_type = 'HRIT' AND t.task_type = 'checklist' AND priority = 'moderate'",
+     "expected_value": 0,
+     "comparison_type": "greater_than"
+    }
+   },
+   {
+    "verifier_type": "database_state",
+    "name": "Correct Assignment Group Verification",
+    "description": "Verifies that the case was assigned to HR Service Desk group instead of IT Support L1 group as incorrectly requested by the user, ensuring proper assignment for HRIT COE type.",
+    "gym_name": "sn-hr-internal",
+    "validation_config": {
+     "query": "SELECT COUNT(*) as count FROM hr_case c JOIN user_group ug ON c.assignment_group = ug.group_id WHERE c.opened_for = 29 AND c.coe_type = 'HRIT' AND ug.name = 'HR Service Desk'",
+     "expected_value": 0,
+     "comparison_type": "greater_than"
+    }
+   },
+   {
+    "verifier_type": "database_state",
+    "name": "Checklist Items Completion Verification",
+    "description": "Verifies that checklist items were created and completed, ensuring the access issue troubleshooting was properly tracked through the correct task type.",
+    "gym_name": "sn-hr-internal",
+    "validation_config": {
+     "query": "SELECT COUNT(*) as count FROM checklist cl JOIN hr_case_task t ON cl.case_task_id = t.hr_case_task_id JOIN hr_case c ON t.parent_case = c.hr_case_id WHERE c.opened_for = 29 AND c.coe_type = 'HRIT' ",
+     "expected_value": 0,
+     "comparison_type": "greater_than"
+    }
+   },
+   {
+    "verifier_type": "database_state",
+    "name": "Employee Notification Verification",
+    "description": "Verifies that a notification was sent to Anne Medina's email address, ensuring the employee is informed about the access issue resolution.",
+    "gym_name": "sn-hr-internal",
+    "validation_config": {
+     "query": "SELECT COUNT(*) as count FROM notification n JOIN hr_case c ON n.hr_case_id = c.hr_case_id WHERE c.opened_for = 29 AND c.coe_type = 'HRIT' AND n.email = 'anne.medina@servicenow.com'",
+     "expected_value": 0,
+     "comparison_type": "greater_than"
+    }
+   }
+  ]
  }
 }
