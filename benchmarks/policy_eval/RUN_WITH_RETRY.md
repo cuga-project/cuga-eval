@@ -58,3 +58,6 @@ does not see the error.
 - Keep `-j` low (3 per arm) when the gateway has a throughput limit. The proxy waits, but a run with many waits is slow.
 - The proxy only listens on `127.0.0.1`.
 - A long wait is not an error. A task fails only when all 60 attempts of one request fail.
+- **Free endpoint:** the ledger (`benchmarks/policy_pilot_costs.py`) counts every run at list price and the harness stops
+  when the total passes `POLICY_PILOT_BUDGET`. For a run on an endpoint that costs nothing, set `POLICY_PILOT_FREE=1`:
+  the ledger still records the tokens, with cost 0, and the budget stop does not apply to that run.

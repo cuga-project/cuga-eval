@@ -622,6 +622,17 @@ def test_old_callers_that_name_a_model_keep_working(monkeypatch, tmp_path):
     assert len(rows) == 3 and "component" not in rows[0]
 
 
+def test_a_free_endpoint_records_tokens_at_cost_zero_and_has_no_budget_stop(monkeypatch, tmp_path):
+    path = ledger(monkeypatch, tmp_path)
+    monkeypatch.setattr(costs, "BUDGET", 0.01)
+    usage = {"input_tokens": 1_000_000, "output_tokens": 0, "models": ["aws/gpt-oss-120b"]}
+    assert costs.record("k", "paid", agent=usage) == pytest.approx(0.15) and costs.over_budget()
+    monkeypatch.setattr(costs, "FREE_ENDPOINT", True)
+    assert costs.record("k", "free", agent=usage) == 0.0 and not costs.over_budget()
+    rows = [json.loads(line) for line in path.read_text().splitlines()]
+    assert [r["cost_usd"] for r in rows] == [0.15, 0.0] and rows[1]["agent_in"] == 1_000_000
+
+
 def test_usage_is_recorded_per_component(monkeypatch, tmp_path):
     path = ledger(monkeypatch, tmp_path)
     result = Result(
